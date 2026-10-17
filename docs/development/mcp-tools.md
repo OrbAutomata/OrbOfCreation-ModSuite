@@ -411,8 +411,8 @@ internal type system:
   its price, its effects, what is holding it. This is *the* detail verb, and the only read that
   answers prose.
 
-`game_tooltip` is not a fourth: it reads the live screen, which is a different question from what an
-id is. `world_categories` is not a read of entities at all — it answers the inventory question of
+`game_tooltip` is not a fourth: it reads the game's own tooltip text — what the screen draws, or
+what a link line opens — which is a different question from what an id is. `world_categories` is not a read of entities at all — it answers the inventory question of
 what this world published.
 
 A tool's prefix names the screen it acts on: `world_` reads the published world, `suite_` acts on
@@ -462,7 +462,7 @@ rather than from the screen it is drawn on.
 | `game_screen_catalog` | Read the live screens with the active screen, its subtab strips and each screen's locked state marked |
 | `game_navigate` | Navigate a catalog screen, a subtab path and an optional tile that page draws; answers in words |
 | `game_screen_elements` | Page through the screen's elements by indexed path, minting the paths `game_tooltip` reads and naming the panels the chrome opens |
-| `game_tooltip` | Read one element's tooltip as the screen drew it: the panel's own words, the sub-panels beside it, and one pointer line per link |
+| `game_tooltip` | Read one element's tooltip as the screen drew it, or an entity's own tooltip by uuid: the panel's own words, the sub-panels beside it, and one pointer line per link |
 | `game_probe` | Read one fixed native fact not carried by `WORLD` |
 
 `world_overview` deliberately contains only facts a strategist normally wants before choosing a
@@ -4420,26 +4420,22 @@ hoverable elements are bound to an entity, so a caller holding an id from a sear
 action response reads the screen's words about it with no catalog detour. The remaining tenth is
 chrome with no entity at all, including the suite's own controls, and `path` is the only address
 those will ever have. A uuid resolves through the same per-element entity binding the panel rows
-publish as `id`, and exactly one element may answer:
+publish as `id`. One element showing it answers with what that element draws; none showing it
+answers with the entity's own tooltip, read from the game exactly as hovering a link line would put
+it up, so every `→ … game_tooltip uuid=…` line any answer prints is a call that answers:
 
 - **Several elements show it** — `ambiguous_element` (`ERR_INPUT`), which lists their addresses
   under `paths` rather than picking one. This is the common case rather than the corner: the Magic
   screen draws every equipped spell twice, once in its own list and once in the casting bar, and the
   two are separate objects with separately read sub-tooltips that may print different text.
-- **A real entity this screen does not draw** — `not_on_screen` (`ERR_NOT_FOUND`). For an upgrade the
-  world publishes a `screen` column, so the refusal names the screen that does draw it; for everything
-  else it points at `game_screen_catalog`. Where that column names the screen the caller is
-  **already on**, the refusal says both facts instead of the first one: the screen does draw the
-  thing, and nothing it is drawing at this moment is about it, because the panel holding it is
-  closed, on another subtab, or scrolled out of view. It used to say "the world publishes it on
-  Workshop, so navigate there" to a caller standing on Workshop, which reads as the tooltip
-  contradicting the row. A `screen/subtab` destination under the current screen still names the
-  move, and says which screen the caller is standing on while it does. The comparison is the
-  navigation vocabulary's own — a screen word is the game's tab label spelled exactly, matched the
-  way `game_navigate` matches it.
-- **An id nothing in this build carries** — the existing `unknown_uuid`, which says the id names
-  nothing anywhere rather than blaming this screen.
-- **An element with no tooltip** — the existing `tooltip_content_unavailable`.
+- **Nothing on this screen shows it** — the entity's own panel in its resting state (no container
+  is up, so there is no more-info key to hold), without the sub-panel row an element adds beside it.
+  Reading it changes nothing in the game: an installed-game contract walks the whole call graph
+  below every tooltip builder the reader calls and pins that none reaches a sound, a popup, an
+  event-log entry, a modal, a spawned or destroyed object, or a modifier write. A uuid read with no
+  save loaded is `entity_catalog_unavailable`.
+- **An id nothing in this build carries** — the existing `unknown_uuid`.
+- **An element or entity with no tooltip** — the existing `tooltip_content_unavailable`.
 - **A tooltip the suite will not finish reading** — `tooltip_depth_exceeded` (`ERR_UNAVAILABLE`).
   The walk is the container's own shape, so what reaches this is an authored `children` tree deeper
   or wider than the game could lay out either: sixty-four levels, or two thousand nodes in one
@@ -4452,8 +4448,8 @@ publish as `id`, and exactly one element may answer:
   case: there the walk finished, the body is the tooltip's own first two hundred lines, and its last
   line says `Tooltip truncated after 200 lines.`
 
-A uuid read takes the world for that one sentence; a path read reads no world at all and keeps
-taking none, because what the player can hover is a screen fact rather than a save one.
+A uuid read takes the entity catalog only when no element shows the id; a path read reads no world
+at all, because what the player can hover is a screen fact rather than a save one.
 
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
 entity the element is about. Most panels are assigned the asset itself, which carries its own id;
@@ -4497,15 +4493,20 @@ and `Req. Expert Storm lv 17/21`, not only its cooldown. A panel draws one node 
 `GetTooltipNodes()`, so the alt list is a toggle rather than an appendix and the read follows the
 state the screen is in — the entity having an alt list, and the player holding the more-info key.
 
-**A link is a pointer, never a panel.** `TooltipNode.tooltipable` is not text:
-`UITooltipNode.Setup` hands it to `HoverTooltip.Setup` as the target of the player's *next* hover.
+**A link is a pointer, never a panel.** `TooltipNode.tooltipable` and `TooltipNode.subTooltips` are
+not text: `UITooltipNode.Setup` hands them to `HoverTooltip.Setup` as the core panel and sub-panel
+row of the player's *next* hover.
 Following it turned one screen panel into the transitive closure of the entity graph behind it — a
 cantrip that fits one on-screen panel printed ninety lines of glossary, and the three deepest reads
 of a live round refused outright. Each link is published as the one line the screen offers:
 `→ <name>: game_tooltip uuid=<id>`. A link about no entity carries its name alone, because the
 screen is not drawing it and minting an address for it would be a guess; one definition linked from
 many rows is pointed at once, because a line the body already carries says nothing by being carried
-again.
+again. The one panel drawn inline is a glossary word a row filled with its own numbers — an
+`OverwriteTooltip` around an `AttributeSO` carrying its own node list, such as the Rating Change
+preview beside a rune's chance statistic (`Rating 2.04 -> 4.59`, `(x2) unlocked at 36.2 rating`).
+That text exists only on the row, so a pointer to the word would read its generic definition
+instead; it is drawn one hover deep, and links inside it stay pointers.
 
 Node structure, repeated paint and empty arrays are wire-internal ceremony and never ship, and a
 body whose closing block repeats the block immediately above it says it once: adjacent duplicate

@@ -141,8 +141,9 @@ public sealed class GameMcpGadgetTests
         var tooltip = Tool("game_tooltip");
         Assert.Null(tooltip["inputSchema"]!["required"]);
         Assert.Equal(
-            "A published entity id, as any row of this surface prints it. The one element on " +
-            "this screen about that entity answers; none or several refuse and say which.",
+            "A published entity id, as any row or link line of this surface prints it. The one " +
+            "element on this screen about that entity answers, the entity's own tooltip answers " +
+            "where none is, and several refuse naming their paths.",
             (string?)tooltip["inputSchema"]!["properties"]!["uuid"]!["description"]);
     }
 

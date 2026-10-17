@@ -19097,6 +19097,14 @@
       "visibility": "public", "static": false, "valueType": "ITooltipable", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
     },
     {
+      "id": "game-mcp-tooltip-panel.overwrite-tooltip-nodes-action", "assembly": "assembly-csharp", "type": "OverwriteTooltip", "typeVisibility": "public", "kind": "field", "member": "tooltipNodes",
+      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<TooltipNode>", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
+      "id": "game-mcp-tooltip-panel.overwrite-tooltip-node-source-action", "assembly": "assembly-csharp", "type": "OverwriteTooltip", "typeVisibility": "public", "kind": "field", "member": "overwriteTooltipNodes",
+      "visibility": "public", "static": false, "valueType": "System.Func`1<System.Collections.Generic.List`1<TooltipNode>>", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+    },
+    {
       "id": "game-mcp-tooltip-panel.tooltip-prefab-action", "assembly": "assembly-csharp", "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetTooltipPrefab",
       "visibility": "public", "static": true, "returnType": "UITooltipContainer", "parameters": [], "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
     },

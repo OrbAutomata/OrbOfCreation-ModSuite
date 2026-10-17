@@ -4176,10 +4176,12 @@ public sealed class Plugin : BaseUnityPlugin
         if (command.TargetId != Guid.Empty)
         {
             if (!TryAddressTooltipByEntity(
-                    command, nativeAccess, active, out hover, out var entityRefusal))
+                    nativeAccess, active, command.TargetId, out var drawn, out var entityRefusal))
             {
                 return entityRefusal;
             }
+            if (drawn is null) return ReadEntityTooltipGameMcp(command, nativeAccess);
+            hover = drawn;
         }
         else
         {
@@ -4245,7 +4247,64 @@ public sealed class Plugin : BaseUnityPlugin
         {
             return TooltipsUnreadableBecause(identityFailure);
         }
+        return ProjectTooltipGameMcp(nativeAccess, hover.tooltipItem, children, usingAlt, entityId);
+    }
 
+    /// <summary>
+    /// An entity's own tooltip, for an id nothing on the screen is drawing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A tooltip's link lines name what the player sees by hovering a row inside it — the resource
+    /// a cost is paid in, the statistic an effect raises, the glossary word a number is measured
+    /// in — and none of those is drawn on the screen itself. Answering only for what the screen
+    /// draws made every such link a call that refused, so the panel a link opens is read where it
+    /// lives: on the entity, exactly as hovering the link would put it up. Every tooltip builder in
+    /// the pinned build is held to doing nothing but answer, by the installed-game side-effect
+    /// contract over the whole call graph below them.
+    /// </para>
+    /// <para>
+    /// No container is up for a panel the screen is not drawing, so the more-info key has nothing
+    /// to toggle and the panel is read in its resting state, its main node list. The panel is the
+    /// entity's alone: the sub-panels an element adds beside it are the element's, and a caller who
+    /// wants those reads the element.
+    /// </para>
+    /// </remarks>
+    private GameMcpCommandResult ReadEntityTooltipGameMcp(
+        GameMcpCommand command,
+        GameMcpTooltipNativeAccess nativeAccess)
+    {
+        var catalog = EntityIdentities(command.FrameContext!);
+        if (!catalog.IsBound)
+        {
+            return GadgetRejected(
+                "entity_catalog_unavailable",
+                "Nothing this screen draws is about this id, and no save is loaded to read its " +
+                "tooltip from; continue a save first.");
+        }
+        if (!catalog.TryGet(command.TargetId, out var identity))
+        {
+            return GadgetRejected("unknown_uuid", GameMcpTooltipPanelRow.UnknownEntity);
+        }
+        if (!GameMcpEntityExplainer.TryResolveTooltip(
+                command.TargetId, identity.RuntimeType, out var tooltip))
+        {
+            return GadgetRejected(
+                "tooltip_content_unavailable",
+                identity.DisplayName + " is a " + identity.RuntimeType + " the game draws no " +
+                "tooltip for, and nothing this screen draws is about it.");
+        }
+        return ProjectTooltipGameMcp(
+            nativeAccess, tooltip, Array.Empty<ITooltipable>(), false, command.TargetId);
+    }
+
+    private GameMcpCommandResult ProjectTooltipGameMcp(
+        GameMcpTooltipNativeAccess nativeAccess,
+        ITooltipable item,
+        ITooltipable[] children,
+        bool usingAlt,
+        Guid entityId)
+    {
         // A link pointer names the entity it points at, so it needs that entity's id; a tooltipable
         // about nothing answers empty and its pointer carries the name alone. A bound accessor that
         // throws is a native fault rather than an absent id, and it refuses the read with the same
@@ -4262,7 +4321,7 @@ public sealed class Plugin : BaseUnityPlugin
         try
         {
             if (!GameMcpTooltipProjector.TryProject(
-                    hover.tooltipItem,
+                    item,
                     children,
                     usingAlt,
                     GameMcpTooltipLayout.Read(),
@@ -4290,7 +4349,8 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
     /// <summary>
-    /// The one live element a published entity id addresses, or the refusal that answers instead.
+    /// The one live element a published entity id addresses, null when the screen draws nothing
+    /// about it, or the refusal that answers instead.
     /// </summary>
     /// <remarks>
     /// The element-to-entity binding is the catalog's own, taken per element, so a uuid addresses
@@ -4299,13 +4359,14 @@ public sealed class Plugin : BaseUnityPlugin
     /// chosen from.
     /// </remarks>
     private bool TryAddressTooltipByEntity(
-        GameMcpCommand command,
         GameMcpTooltipNativeAccess nativeAccess,
         IReadOnlyList<TooltipElement> active,
-        out HoverTooltip hover,
+        Guid requested,
+        out HoverTooltip? hover,
         out GameMcpCommandResult refusal)
     {
-        hover = null!;
+        hover = null;
+        refusal = null!;
         var entities = new Guid[active.Count];
         var paths = new string[active.Count];
         for (var index = 0; index < active.Count; index++)
@@ -4322,42 +4383,18 @@ public sealed class Plugin : BaseUnityPlugin
             entities[index] = entityId;
         }
 
-        // An id the live catalog does not carry names nothing anywhere, which is a different answer
-        // from an id this screen happens not to draw. An unbound catalog claims neither: with no
-        // save loaded there is nothing to be on screen either, and the screen refusal is the honest
-        // one.
-        var catalog = EntityIdentities(command.FrameContext!);
-        var loaded = !catalog.IsBound || catalog.TryGet(command.TargetId, out _);
-        var world = command.FrameContext?.World?.Snapshot;
-        var screen = world is not null &&
-            GameMcpWorldQuery.TryPublishedScreen(world, command.TargetId, out var published)
-                ? published
-                : string.Empty;
-
-        // Where the caller already is, in the same vocabulary the published screen word uses: both
-        // are the game's own tab label. Without it a refusal could send a caller to the screen they
-        // were standing on, which reads as the row and the tooltip contradicting each other.
-        var activeScreen = _uiShell is not null && _uiShell.IsAlive
-            ? _uiShell.CaptureNativeTabsForGameMcp().FirstOrDefault(tab => tab.Active).Label
-            : string.Empty;
-
-        var address = GameMcpTooltipPanelRow.AddressEntity(
-            entities, paths, command.TargetId, loaded, screen, activeScreen);
+        var address = GameMcpTooltipPanelRow.AddressEntity(entities, paths, requested);
         if (address.Resolved)
         {
             hover = active[address.Element].Hover;
-            refusal = null!;
             return true;
         }
+        if (address.Undrawn) return true;
 
-        GameMcpObjectBuilder? details = null;
-        if (address.Paths.Count > 0)
-        {
-            var listed = new GameMcpArrayBuilder();
-            for (var index = 0; index < address.Paths.Count; index++) listed.Add(address.Paths[index]);
-            details = new GameMcpObjectBuilder { ["paths"] = listed };
-        }
-        refusal = GadgetRejected(address.Code, address.Reason, details);
+        var listed = new GameMcpArrayBuilder();
+        for (var index = 0; index < address.Paths.Count; index++) listed.Add(address.Paths[index]);
+        refusal = GadgetRejected(
+            address.Code, address.Reason, new GameMcpObjectBuilder { ["paths"] = listed });
         return false;
     }
 

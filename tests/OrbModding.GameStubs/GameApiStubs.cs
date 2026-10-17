@@ -3599,8 +3599,23 @@ public sealed class OverwriteTooltip :
 {
     public readonly ITooltipable tooltipable;
     public Func<List<TooltipNode>>? overwriteRequirements;
+    public Func<List<TooltipNode>>? overwriteTooltipNodes;
+    public List<TooltipNode>? tooltipNodes;
 
     public OverwriteTooltip(ITooltipable tooltipable) => this.tooltipable = tooltipable;
+
+    public OverwriteTooltip SetTooltipNodes(Func<List<TooltipNode>> nodes)
+    {
+        overwriteTooltipNodes = nodes;
+        tooltipNodes = null;
+        return this;
+    }
+
+    public OverwriteTooltip SetTooltipNodes(List<TooltipNode> nodes)
+    {
+        tooltipNodes = nodes;
+        return this;
+    }
 
     public OverwriteTooltip SetRequirements(Func<List<TooltipNode>> requirements)
     {
@@ -3627,8 +3642,10 @@ public sealed class OverwriteTooltip :
     public bool IsColoredIcon() => tooltipable?.IsColoredIcon() == true;
     public bool HasAltTooltips() => tooltipable?.HasAltTooltips() == true;
     public string GetDescription() => tooltipable?.GetDescription() ?? string.Empty;
-    public List<TooltipNode> GetTooltipNodes() => tooltipable?.GetTooltipNodes() ?? new();
-    public List<TooltipNode> GetAltTooltipNodes() => tooltipable?.GetAltTooltipNodes() ?? new();
+    public List<TooltipNode> GetTooltipNodes() =>
+        tooltipNodes ?? overwriteTooltipNodes?.Invoke() ?? tooltipable?.GetTooltipNodes() ?? new();
+    public List<TooltipNode> GetAltTooltipNodes() =>
+        tooltipNodes ?? tooltipable?.GetAltTooltipNodes() ?? new();
 }
 
 /// <summary>
