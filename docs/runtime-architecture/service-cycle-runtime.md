@@ -73,15 +73,15 @@ emergency-stop control and native lifecycle replacement, composes the three obse
 around each accepted pump, owns an optional exclusive pump-shutdown lease, and contains no feature,
 native adapter, or configuration type.
 
-Nine services are composed: world collection as the source, and Auto Items, Auto Scribe, Auto Harvest,
-Auto Buy, Spell Leveling, Auto Cast, Auto Concept and Mentor as ordinary services. Each is an explicit
+Ten services are composed: world collection as the source, and Auto Items, Auto Scribe, Auto Harvest,
+Auto Buy, Spell Leveling, Auto Cast, Auto Concept, Mentor and the Strategist as ordinary services. Each is an explicit
 typed registration; none introduces another registry abstraction, pump, or service locator.
 
 Feature runtimes publish only health facts — operational, waiting, blocked, faulted — carrying no
 configured mode, emergency flag, or second configuration generation. `AutomataFeatureStatuses` joins
 the latest committed configuration intent with the latest health for the eight player-facing feature
 rows (Auto Buy, Auto Cast, Auto Concept, Spell Level, Auto Harvest, Auto Items, Auto Scribe, Mentor);
-world collection has no row, so a delayed cycle can update health but cannot repaint configured intent.
+world collection and the Strategist have no row, so a delayed cycle can update health but cannot repaint configured intent.
 
 Profile builds carry the pump's exact service ordinal and frame identity through `ServiceActionContext`
 so feature adapters may report native substages; ordinary builds compile that path out. Stage results
@@ -128,8 +128,8 @@ failures, failed persistence, and pending watcher notifications are invisible to
 
 The world publication becomes live on the main thread during the action pass rather than on the worker
 that derived it, and publishing services dispatch before mutating ones, so a snapshot acquired this
-frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one until a
-strategist exists.
+frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one until the
+Strategist publishes its first, and a lifecycle replacement puts the neutral one back with the world.
 
 ## The source's world buffer
 

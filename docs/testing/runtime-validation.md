@@ -61,7 +61,7 @@ fail the gate.
   an explicit count, and removable unresolved entries; it has no raw, family,
   or bulk approval path and persists only through Apply.
 - Confirm the activity timeline counts committed ordinary automation only,
-  excludes World collection and Mentor, keeps quiet minutes visible, and marks
+  excludes World collection, Mentor and the Strategist, keeps quiet minutes visible, and marks
   faults without relying on color. Its processing summary remains text.
 - Confirm the release build exposes no profiling-only action or player-facing
   debug capability.

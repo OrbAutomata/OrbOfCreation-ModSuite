@@ -46,5 +46,5 @@ rather than overriding the game.
   installed-game contract tests cover reflected game boundaries; interactive runtime validation is
   required for gameplay, UI, save, and installation claims. Passing one boundary does not imply
   another. Current commands live in the [testing guide](../testing/README.md).
-- **Not yet built.** No service publishes a `SuiteStrategy` bulletin. The publisher, the stances, and
-  the neutral default exist, and every consumer already reads a neutral one.
+- **Not yet built.** Nothing consumes the strategist's bulletin. It publishes goals, position, and
+  demand with an empty stance table, so every consumer still reads a neutral constraint.

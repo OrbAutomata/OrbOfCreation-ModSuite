@@ -27,7 +27,7 @@ everyone else consumes. There are three publications, and there will only ever b
 | --- | --- | --- |
 | World state | the collection service | Common — it is the *game's* world, not any feature's |
 | Configuration | the runtime, one installation for the whole suite | Common |
-| Strategy | the strategist (not built) | Common — the `SuiteStrategy` type is neutral; the policy that will fill it is Automata's |
+| Strategy | the strategist, an ordinary service (below) | Common — the `SuiteStrategy` type is neutral; the bulletin it carries is derived in `src/Strategist` |
 
 A source service keeps a capture, because reading is its job. It is the only shape that has one:
 `IServiceCycleSourceDefinition` declares `Capture`, and the ordinary contract it shares a main-thread
@@ -39,6 +39,10 @@ Everything else. No capture, no native reads at decision time, no per-service co
 per-service idea of what the world is. Its cycle input is the pinned snapshots and nothing else — the
 worker's `Evaluate` takes the configuration and the world as arguments, so there is no publisher to
 read twice and no place to keep a capture even if a service wanted one.
+
+The strategist is ordinary in shape: it reads the pinned world, derives the bulletin off-thread, and
+its one action publishes that bulletin on the main thread. Only a world publication wakes it, so it
+judges each world once and never wakes itself.
 
 ## World service flow
 

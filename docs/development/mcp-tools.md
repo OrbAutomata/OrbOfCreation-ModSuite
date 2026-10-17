@@ -397,7 +397,7 @@ can act on it — explain it, unequip it — without parsing the sentence it was
 
 ## Tool surface
 
-The registry is exactly 41 tools. It is built once per lifecycle and never changes mid-session, so
+The registry is exactly 42 tools. It is built once per lifecycle and never changes mid-session, so
 there is no `tools/list_changed` notification. The rows below are in `tools/list` order.
 
 Reading is three primitives, organized around what a player is doing rather than around the game's
@@ -428,6 +428,7 @@ rather than from the screen it is drawn on.
 | `world_list` | Page compact identity-plus-scan rows in one category |
 | `world_get` | Read everything one id says — row, description, gates, requirement graph, exact costs, blockers — for one id or a batch |
 | `world_search` | Find a term across every entity category at once: name, keywords, category, most relevant first |
+| `strategist` | Read the strategist's bulletin: goals, position, and demand with every cost a time on sustained income; `section` reads one part, or the facts it was derived from |
 | `suite_health` | One compact runtime, feature, service, STOP, scene, and contract-health shape |
 | `suite_configuration` | Read every writable setting's committed value, or one `section`'s in one go; `mode=describe` adds type, domain, and purpose |
 | `trace_health` | Read trace-writer health, segment, record, and byte counters, and what the collection pass behind the published world spent per category |
@@ -4810,6 +4811,55 @@ purchase-view topology because every collector does unless it is built by the se
 `GameWorldCollector.ForSession(...)` opt-in. That opt-in binds the process-wide owning-view
 admission resolver the purchase boundary reads from, and a diagnostic that restamped that resolver
 with its own epoch would leave every later purchase refusing on a snapshot this check wrote.
+
+## The strategist's bulletin
+
+`strategist` reads the latest bulletin as text. With no `section` it is the summary: the long-term
+goals, the top three short-term goals, where the run stands, and the demand line. `section=goals`,
+`position` and `demand` print one part whole; `section=facts` prints the exact inputs the bulletin
+was derived from.
+
+```text
+bulletin · world 4200 · 30:00 this reset
+Goals   long: Restoration ← Keystone Of The World · Cross-run capital
+        short: 1 Keystone Of The World 5a9c3e — binder Mana: 200 of 4.50e4 → 01:14:40 (expensive)
+               2 Bauble 91b4c7 — binder Mana: 200 of 80 → now (trivial)
+               3 Trinket 0d6e2f — binder Mana: 200 of 50 → now (trivial)
+               … 2 more — section=goals
+Where   30:00 this reset · 01:30:00 total
+Demand  4 currencies with sinks · out of reach in Gold
+more    section=goals|position|demand|facts
+```
+
+A short-term goal is a gate — a one-level upgrade the player can buy now. Gates on the walk back from
+Restoration through its unmet requirements rank first, then everything else, sooner first within a
+rank. Each goal's binder is its slowest price.
+
+A cost is a time measured on sustained income: the price over the lifetime gain of a window at least
+one full cycle of the slowest running producer long (a minute at least, a harvest and its regrowth or a
+spell's recharge when longer), so a burst never reads as income. `trivial` is under 10 s, `cheap`
+under a minute, `notable` under an hour, `expensive` beyond. The arrow reads the wait for what is
+still missing, or `now`. A price above the currency's cap reads `out of reach: ×N over cap`, one no
+income refills reads `out of reach: no income`, a window still filling reads `measuring income`, and
+a points currency reads how many points are short. An income read at the cap is a lower bound and
+prints `≥`.
+
+The facts are one record per line, every number lossless, so the text pasted into a fixture derives
+the same bulletin back:
+
+```text
+facts world=4200 played=5400 reset=1800 challenges=0 root=14b35ebc-f284-4d53-bd3f-f57a885cf2b1
+resource 3f1c0a52-7d4e-4b8a-9c21-5e6f70819203 held=2e2 cap=1e5 name=Mana
+node 5a9c3e71-8b2d-4f60-a1c4-d7e8f9012345 upgrade offered gate name=Keystone Of The World
+price 5a9c3e71-8b2d-4f60-a1c4-d7e8f9012345 3f1c0a52-7d4e-4b8a-9c21-5e6f70819203 amount=4.5e4
+edge 14b35ebc-f284-4d53-bd3f-f57a885cf2b1 5a9c3e71-8b2d-4f60-a1c4-d7e8f9012345
+window required=130
+gain 3f1c0a52-7d4e-4b8a-9c21-5e6f70819203 gained=1.3e3 span=130
+```
+
+A lifecycle boundary puts the neutral strategy back with the world, so until the next world is judged
+the read answers `no bulletin — a new game is loading`. With no published world it refuses the way
+the world reads do.
 
 ## Trace health and probes
 
