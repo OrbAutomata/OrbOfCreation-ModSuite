@@ -131,6 +131,8 @@ internal static class GameMcpCommandKinds
         if (toolName == "game_agromancy" &&
             mode is "add_plot_action" or "remove_plot_action")
             return GameMcpCommandKind.Harvest;
+        if (mode is "set_druidry_level" or "set_alchemy_level")
+            return GameMcpCommandKind.SpellComposition;
         return kind;
     }
 
@@ -862,6 +864,7 @@ internal static class GameMcpActionResultCodeNames
             if (code == SpellCompositionActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == SpellCompositionActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == SpellCompositionActionResultCodes.VerificationFailed) return "verification_failed";
+            if (code == SpellCompositionActionResultCodes.ControlLocked) return "screen_locked";
         }
         if (commandKind == GameMcpCommandKind.SpellLoadout)
         {

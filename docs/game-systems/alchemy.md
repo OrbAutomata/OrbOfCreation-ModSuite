@@ -35,7 +35,8 @@ recipes whose names start with "Brew" are ordinary alchemy recipes.
 
 ## Alchemy Level
 
-An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the
-dial and its ceiling are described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
+An `Alchemy Lv` row with −/+ and a **Raise Alchemy Level** purchase sits with the loadout; the −/+
+adjuster is drawn only once **Level Alchemy** is bought. The dial and its ceiling are described in
+[attributes-and-upgrades.md](attributes-and-upgrades.md).
 How the level interacts with the six capacities is unrecorded; see
 [open-questions.md](open-questions.md).

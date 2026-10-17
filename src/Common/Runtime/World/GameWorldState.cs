@@ -162,7 +162,7 @@ public sealed record GameWorldState
     internal PublicationTable<WorldSpellRecipe> SpellRecipes { get; init; } =
         PublicationTable<WorldSpellRecipe>.Empty;
 
-    /// <summary>The native equipped-loadout capacity and global casting dials for this world.</summary>
+    /// <summary>The native equipped-loadout capacity and the four level dials for this world.</summary>
     internal WorldSpellWorkbench SpellWorkbench { get; init; } = new(
         0,
         0,

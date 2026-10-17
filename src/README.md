@@ -49,7 +49,7 @@ Capabilities:
 - `Research` — develops, pauses, resumes, cancels, and bonuses research projects.
 - `RitualLifecycle` — selects, levels, activates, and cancels rituals, and ends battle.
 - `RunTransition` — returns from a run to the main menu.
-- `SpellComposition` — sets the Output and Reserve casting dials.
+- `SpellComposition` — sets the four level dials: Output, Reserve, Druidry, and Alchemy.
 - `SpellLoadout` — removes equipped spells or moves them to another slot.
 - `SpellWorkbench` — crafts a spell from a recipe and augment glyphs.
 - `StructureLifecycle` — enables and disables individual structures.

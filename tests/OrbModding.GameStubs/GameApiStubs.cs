@@ -1225,6 +1225,10 @@ public class Player
     public IntVariable maxSpellOutputLevel;
     public IntVariable reserveLevel;
     public IntVariable maxReserveLevel;
+    public IntVariable druidryOutputLevel;
+    public IntVariable maxDruidryOutputLevel;
+    public IntVariable alchemyOutputLevel;
+    public IntVariable maxAlchemyOutputLevel;
 
     public Player() : this(initializeOutputVariables: true)
     {
@@ -1236,6 +1240,10 @@ public class Player
         maxSpellOutputLevel = new IntVariable { Value = initializeOutputVariables ? 100 : 0 };
         reserveLevel = new IntVariable { Value = initializeOutputVariables ? 1 : 0 };
         maxReserveLevel = new IntVariable { Value = initializeOutputVariables ? 100 : 0 };
+        druidryOutputLevel = new IntVariable { Value = 1 };
+        maxDruidryOutputLevel = new IntVariable { Value = 1 };
+        alchemyOutputLevel = new IntVariable { Value = 1 };
+        maxAlchemyOutputLevel = new IntVariable { Value = 1 };
     }
 
     public static Player Current

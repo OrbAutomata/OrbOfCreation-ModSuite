@@ -434,7 +434,7 @@ rather than from the screen it is drawn on.
 | `game_purchase` | Buy an Attribute (`StructureSO`) or Upgrade derived from its UUID |
 | `game_cast` | Fire, release charge, or turn off one equipped toggle spell |
 | `game_concept` | Add or remove concept assignments on one Alchemy recipe |
-| `game_agromancy` | Use the Agromancy screen's plot actions, harvest elements, and processing slots |
+| `game_agromancy` | Use the Agromancy screen's plot actions, harvest elements, processing slots, and Druidry Lv adjuster |
 | `game_structure` | Enable or disable one available attribute |
 | `game_spell_mastery` | Press Confirm Mastery for one spell, or the native Level All Spells sweep |
 | `game_casting_dial` | Set the global Output Level or Reserve Level shown on the Casting screen |
@@ -444,7 +444,7 @@ rather than from the screen it is drawn on.
 | `game_craft` | Craft a recipe or control its manual/automated instance |
 | `game_discover` | Drive a Discovery Tree's roll: initiate, select, confirm, or reroll its offers |
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
-| `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list |
+| `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list, or set the Alchemy Lv |
 | `game_ritual` | Select a Ritual, set its starting level, activate or end its battle, or cancel its duration reward |
 | `game_level_up` | Level a glyph, artifact type, resource type or Time Rune by an explicit amount of paid or bonus levels |
 | `game_loadout` | Switch or edit the active player loadout, or save/load/clear an Equipment or Alchemy snapshot slot |
@@ -469,8 +469,8 @@ detailed read: collection completeness with total successfully read and skipped 
 unavailable categories, the resource panel line by line, resource-row count, unlocked
 structure count, affordable-structure and affordable-upgrade counts, discovered/mastery-ready recipe
 counts, available views, visible plots, current action/spell/concept/plot occupancy, the run's own
-clock and the reset's, and the two global casting dials — `castingDials.outputLevel` and `castingDials.reserveLevel`
-— with their purchased maximums. Exact rows remain in list/get/search.
+clock and the reset's, and the level dials — `castingDials.outputLevel`, `castingDials.reserveLevel`,
+`druidryLevel`, and `alchemyLevel` — with their purchased maximums. Exact rows remain in list/get/search.
 
 **`requiredRolls` is the game's new-content mark on a discovery page**, one row per tree that owes a
 required discovery: the `tree`, the `screen` it is drawn on (`Magic > Spellbook > Unlock`), and the
@@ -1739,6 +1739,9 @@ costs with current spendable holdings; an unavailable add carries only its bindi
 recipes remain on `game_concept`, Alchemy discovery is the Learn tree's roll on `game_discover`, and recipe
 leveling belongs to the unified level surface rather than this list lifecycle.
 
+The screen's Alchemy Lv adjuster is `game_alchemy(mode="set_alchemy_level", level=N)`; see the
+*Level dial loop*.
+
 `game_alchemy(mode="add"|"remove", uuid=..., amount=...)` applies the caller's explicit positive
 amount through the list's native counted mutation after revalidating live usage capacity. Success
 returns only the settled `activeCount` before and after. The action boundary revalidates exact recipe
@@ -1916,8 +1919,9 @@ type bonus landed on, and the `keywords` cell says which types each verb wears.
 Call `game_agromancy(mode="add_element"|"remove_element", uuid=..., amount=...)` for one exact
 `HarvestElementSO`. The `add_element_action` and `remove_element_action` modes additionally require
 `actionUuid` naming an action actually
-offered by that element. Every mode requires an explicit positive `amount`; no mode depends on
-hidden selector state.
+offered by that element. Every element and action mode requires an explicit positive `amount`; no
+mode depends on hidden selector state. The screen's Druidry Lv adjuster is
+`game_agromancy(mode="set_druidry_level", level=N)`; see the *Level dial loop*.
 
 The action boundary revalidates the concrete element/action pair, visibility, active-list room,
 standing usage capacity, and mastery-derived action maximum on Unity's main thread. Success returns
@@ -2269,24 +2273,29 @@ The MCP-only base-recipe sequence is:
 Every referenced entity is named inline. No catalog join, world-generation argument, payment
 stanza, receipt poll, or post-mutation `world_get` is required.
 
-### Casting dial loop
+### Level dial loop
 
-Output Level and Reserve Level are the two sibling global steppers on the Casting screen, not
-per-spell settings. `world_overview` carries them as `castingDials.outputLevel` and
-`castingDials.reserveLevel`, each as `current`/`maximum` — the dial the screen shows beside the
-ceiling it has been raised to, under the words that screen prints. The old spelling said `casting:
-output 259/259` and named neither what it counted nor where a player would see it, and a live round
-read `casting: output 1/1` beside a mana bar of 133/133 and left the two unreconciled. The block is
-absent until the Output maximum is nonzero. **The floor of both
-dials is 1**, in every save and on every call, so it is documented here rather than repeated in
-every overview a caller reads.
+Four global -/+ level dials move a level inside a cap an upgrade raises: Output Lv and Reserve Lv
+on Magic > Casting, Druidry Lv on World > Agromancy, and Alchemy Lv on Alchemy > Alchemy > Loadout.
+Each is one player `IntVariable`, not a per-spell or per-plot setting, and all four go through one
+level-dial action. `world_overview` carries them as `castingDials.outputLevel`,
+`castingDials.reserveLevel`, `druidryLevel`, and `alchemyLevel`, each as `current`/`maximum` — the
+level the screen shows beside the ceiling it has been raised to, under the words that screen prints.
+The casting block is absent until the Output maximum is nonzero; `druidryLevel` and `alchemyLevel`
+are present exactly while the view that draws their adjuster is unlocked. **The floor of every dial
+is 1**, in every save and on every call, so it is documented here rather than repeated in every
+overview a caller reads.
 Raising a cap is an ordinary `game_purchase` against the corresponding upgrade UUID, so the dial
-tool only moves the value inside the live native range.
+verbs only move the level inside the live native range.
 
-`game_casting_dial(dial="output"|"reserve", value=N)` is the whole surface. `value` runs from 1 to
-the live native maximum, which the action boundary reads from the exact global `IntVariable` for
-that dial before verifying the requested value became observable. A committed result returns the
-changed dial as `before` and `after` plus the `maximum` the read publishes.
+Each dial is set on its own screen's verb: `game_casting_dial(dial="output"|"reserve", value=N)`,
+`game_agromancy(mode="set_druidry_level", level=N)`, and `game_alchemy(mode="set_alchemy_level",
+level=N)`. The level runs from 1 to the live native maximum, which the action boundary reads from
+the exact player variable for that dial before verifying the requested level became observable. A
+committed result returns the changed `dial` as `before` and `after` plus the `maximum` the read
+publishes. The game draws the Druidry Lv adjuster only once Unlock Druidry Levels is bought, and the
+Alchemy Lv adjuster only once Level Alchemy is; until then the call is refused `screen_locked`,
+naming that upgrade, before anything is written.
 
 There is deliberately no in-place augment editor. The visible game has none: glyph layout is chosen
 on the library candidate before add, and changing it is remove → relayout → re-add. A discovered
@@ -3219,7 +3228,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `research_locked` | `ResearchSO.IsVisible()` is false, so the Research grid draws no tile, yet the game's own `CanDevelop()` never asks: the suite refuses develop and bonus in front of it. The sentence names the unmet unlock conditions. Pause, resume and cancel stay open so a stray development can still be stopped | `game_research develop`/`bonus`, the research row's `develop` decision, `canDevelop` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked, `game_agromancy set_druidry_level` before Unlock Druidry Levels, `game_alchemy set_alchemy_level` before Level Alchemy |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `canDiscover` predicates on an entity no discovery tree's pool can hold |
 | `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve, quantity floor, and its rule against draining a resource that sits at zero never produce it, because all three are read on the service's own call and nowhere else | `game_concept` |
@@ -3268,23 +3277,21 @@ Every numeric input has two different kinds of limit and they are not interchang
 
 A **native bound** is the game's own limit on a control, read live from the native member that owns
 it. Native bounds are published in pairs — a value never ships with only its ceiling — and appear in
-both the read and the committed response: `castingDials.outputLevel`/`castingDials.reserveLevel`
-carry `current` and
-`maximum`, a ritual's `setLevel` carries `minimum` and `maximum`, a snapshot slot refusal
+both the read and the committed response: every level dial carries `current` and `maximum`, a ritual's `setLevel` carries `minimum` and `maximum`, a snapshot slot refusal
 carries `minimumSlot` and `maximumSlot` read from the live list the sentence was written from, and
 `maximumAmount` is the live per-call admission ceiling described above. A caller can act on these:
 they are what the game will accept this instant.
 
 Two floors are the exception and are named here rather than left to look like the rest. The ritual
-`setLevel.minimum` and the two casting-dial minimums are all the constant `1`, held by the suite
+`setLevel.minimum` and the four level-dial minimums are all the constant `1`, held by the suite
 and matching the control the player presses rather than read from it each time. Only one of them
 still rides an answer, and the split is deliberate: the dial floor left the overview and the dial
-commit for the *Casting dial loop* tool doc, because a number that is 1 in every save on every call
+commit for the *Level dial loop* tool doc, because a number that is 1 in every save on every call
 is documentation; the ritual `setLevel` pair stays whole on the read, because both ends together are
 what tells a caller that 0 is not a starting level the game offers. Both controls are a
 `UIValueSelectButton`, whose floor is the `minValue` its `SetClamp(min, max)` stores and whose
 decrement is `Math.Max(value - change, minValue)`; the ritual screen passes the literal `1`, which
-the contract gate pins, and the casting dials take theirs from a prefab-serialized clamp that no
+the contract gate pins, and the level dials take theirs from a prefab-serialized clamp that no
 audit can read without an asset dump. So the shape of the bound is audited and the ritual value is
 quoted, while the dial value rests on every value selector in the game flooring at 1. Anything else
 the suite publishes as a bound is read live.
@@ -3301,7 +3308,7 @@ A **schema bound** is the range the JSON input schema declares, and it is the su
 what is worth sending in one call — not a native fact. `game_purchase` and `game_level_up` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
 at 200; every other `amount`,
-`slot`, `offset`, and dial `value` — `game_alchemy` and `game_equipment` among them — declares no
+`slot`, `offset`, and dial `value` or `level` — `game_alchemy` and `game_equipment` among them — declares no
 ceiling at all, because the suite has no opinion there and the native bound decides. Where the suite
 has no ceiling it publishes none: the schema omits `maximum`, and a below-floor value is refused
 with "must be N or greater" rather than with an `int.MaxValue` placeholder printed in the shape of a
@@ -3742,12 +3749,12 @@ live spell the named position resolves to, never of the published loadout: a slo
 emptied, or left the bar since publication answers `slot_identity_changed` saying which of those it
 was, so a caller is never told a spell has no charged cast when what actually changed was the slot.
 
-`game_casting_dial` requires `dial` plus a positive `value` and takes no UUID at all, because both
-Output Level and Reserve Level are single global variables. The boundary reads the exact global
-variable and its purchased maximum on the Unity main thread, rejects a value outside that live
-range, and verifies that the requested value became observable. Success is the exact requested
-global value; a committed result names the `dial` it moved — the screen has two — plus its `before`
-and `after` value and both bounds.
+A level-dial call — `game_casting_dial` with `dial` and `value`, or a `set_druidry_level` /
+`set_alchemy_level` mode with `level` — takes no UUID at all, because every level dial is a single
+global variable. The boundary reads the exact variable and its purchased maximum on the Unity main
+thread, rejects a level outside that live range, and verifies that the requested level became
+observable. A committed result names the `dial` it moved plus its `before`, `after`, and
+`maximum`.
 
 `game_spell_loadout` requires `mode`. `staged` is a request-scoped main-thread read with no other
 arguments; it reports the exact current core/augment selection and never mutates it. For `preview`

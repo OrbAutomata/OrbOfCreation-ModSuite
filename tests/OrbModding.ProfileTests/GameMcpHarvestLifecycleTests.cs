@@ -19,18 +19,18 @@ public sealed class GameMcpHarvestLifecycleTests
         Guid.Parse("fc000000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void Tool_exposes_only_element_and_action_list_controls()
+    public void Tool_exposes_element_and_action_list_controls_and_the_druidry_level()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_agromancy");
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
-        Assert.Equal(new[] { "mode", "uuid" },
+        Assert.Equal(new[] { "mode" },
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[]
         {
             "add_plot_action", "remove_plot_action", "add_element", "remove_element",
-            "add_element_action", "remove_element_action",
+            "add_element_action", "remove_element_action", "set_druidry_level",
         },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);

@@ -4,18 +4,20 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-internal enum CastingDial
+internal enum LevelDial
 {
     Output = 0,
     Reserve = 1,
+    Druidry = 2,
+    Alchemy = 3,
 }
 
-/// <summary>One global Casting-screen dial change.</summary>
+/// <summary>One level-dial change: a −/+ adjuster that moves a level inside its raised cap.</summary>
 internal readonly struct SpellCompositionAction
 {
-    internal SpellCompositionAction(CastingDial dial, int value, long lifecycleEpoch)
+    internal SpellCompositionAction(LevelDial dial, int value, long lifecycleEpoch)
     {
-        if (!Enum.IsDefined(typeof(CastingDial), dial))
+        if (!Enum.IsDefined(typeof(LevelDial), dial))
             throw new ArgumentOutOfRangeException(nameof(dial));
         if (value <= 0) throw new ArgumentOutOfRangeException(nameof(value));
         Dial = dial;
@@ -23,7 +25,7 @@ internal readonly struct SpellCompositionAction
         LifecycleEpoch = lifecycleEpoch;
     }
 
-    internal CastingDial Dial { get; }
+    internal LevelDial Dial { get; }
     internal int Value { get; }
     internal long LifecycleEpoch { get; }
 }
@@ -39,6 +41,7 @@ internal enum SpellCompositionPreflight
     MutationPermitUnavailable = 15,
     PostCommitFault = 16,
     VerificationFailed = 17,
+    ControlLocked = 18,
 }
 
 internal enum SpellCompositionNativeStage
@@ -116,4 +119,5 @@ internal static class SpellCompositionActionResultCodes
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7314);
     internal static readonly ServiceActionResultCode PostCommitFault = new(7315);
     internal static readonly ServiceActionResultCode VerificationFailed = new(7316);
+    internal static readonly ServiceActionResultCode ControlLocked = new(7317);
 }

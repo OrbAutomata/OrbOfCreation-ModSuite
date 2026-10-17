@@ -2488,7 +2488,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             nativeType = "IntVariable";
 
-            // Two dials share one screen, so the committed response names the one it moved.
+            // Four dials share one action, so the committed response names the one it moved.
             payloadKey = request.Key;
         }
         else if (kind == GameMcpCommandKind.SpellLoadout)

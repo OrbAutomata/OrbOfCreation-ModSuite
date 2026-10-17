@@ -5,6 +5,7 @@ ActivePlotNodeActions	70871e86-100b-4ae0-ba9b-fc96e09b7e1f	ActivePlotNodeActions
 ActiveScribeInstances	b557060a-e109-40de-9a7d-f2b02bc9766d	ActiveScribeInstances	CraftingInstanceListVariable
 ActiveSpells	1614158d-6485-4995-90d0-79cc6b4dced4	ActiveSpells	SpellListVariable
 AlchAlchemyDiscover	70aabd3c-7790-4771-a863-5e5c41bff493	AlchAlchemyDiscover	ViewSO
+AlchAlchemyLevel	34624830-d04e-44f6-9410-6098bd349399	AlchAlchemyLevel	ViewSO
 Alchemy	f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2	Alchemy	AlchemyTypeSO
 AlchemyScreen	3ae45ec0-4449-4903-b3d0-b5182e03dca3	ScreenAlchemy	ViewSO
 AllSpellTypeXpMod	d2b10420-aa5b-479d-945b-de82a00a5647	AllSpellTypeXpMod	DoubleVariable
@@ -90,6 +91,7 @@ UpgradesWorkshopScreen	0b19f88b-8ab8-4c59-8c9c-34c3a577c6d3	WorkshopScreenUpgrad
 UpgradesWorldScreen	d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae	WorldScreenUpgrades	UpgradeListVariable
 WorkshopArtifact	668a2a7a-468f-4e0e-b182-979b12a4b0ad	WorkshopArtifact	ViewSO
 WorkshopArtifactCreate	05e1f545-5daa-4bd0-9cbb-8770f4cf6a13	WorkshopArtifactCreate	ViewSO
+WorldAgromancyDruidryLvs	166cde99-0d90-4e03-9832-f04dbf37691a	WorldAgromancyDruidryLvs	ViewSO
 WorldAspectSlots	4b1bb2de-723a-4360-827c-8e4483f3ff8d	WorldAspectSlots	IntVariable
 WorldAspects	ce207aba-b835-4455-a1b7-e10e18db9ce2	WorldAspects	ViewSO
 WorldResets	56039067-0092-49c0-a7bd-3c43eb119d37	WorldResets	IntVariable

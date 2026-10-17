@@ -10,10 +10,10 @@ namespace OrbModding.Common.Runtime.World;
 internal readonly struct WorldSpellWorkbench
 {
     /// <summary>
-    /// The floor the Casting screen's Output and Reserve dials admit, published beside their
-    /// maximum so the pair is never a ceiling on its own. This is a suite constant matching the
-    /// observed control rather than a value read from it: both dials are authored
-    /// <c>UIValueSelectButton</c>s whose clamp is serialized on the prefab instead of passed in IL,
+    /// The floor every level dial admits — Output Lv, Reserve Lv, Druidry Lv and Alchemy Lv —
+    /// published beside their maximum so the pair is never a ceiling on its own. This is a suite
+    /// constant matching the observed control rather than a value read from it: each dial is a
+    /// <c>UIValueSelectButton</c> whose clamp is serialized on the prefab instead of passed in IL,
     /// so no audit can quote their own minimum without an asset dump. The contract gate pins the
     /// shape the floor lives in — <c>SetClamp(min, max)</c> stores <c>minValue</c> and
     /// <c>Decrement()</c> is <c>Math.Max(value - change, minValue)</c> — and the evidence for the
@@ -32,7 +32,11 @@ internal readonly struct WorldSpellWorkbench
         int maximumOutputLevel = 0,
         int reserveLevel = 0,
         int maximumReserveLevel = 0,
-        PublicationTable<Guid>? usageBudgetResourceIds = null)
+        PublicationTable<Guid>? usageBudgetResourceIds = null,
+        int druidryLevel = 0,
+        int maximumDruidryLevel = 0,
+        int alchemyLevel = 0,
+        int maximumAlchemyLevel = 0)
     {
         EquippedCount = equippedCount;
         MaximumEquipped = maximumEquipped;
@@ -42,6 +46,10 @@ internal readonly struct WorldSpellWorkbench
         ReserveLevel = reserveLevel;
         MaximumReserveLevel = maximumReserveLevel;
         UsageBudgetResourceIds = usageBudgetResourceIds ?? PublicationTable<Guid>.Empty;
+        DruidryLevel = druidryLevel;
+        MaximumDruidryLevel = maximumDruidryLevel;
+        AlchemyLevel = alchemyLevel;
+        MaximumAlchemyLevel = maximumAlchemyLevel;
     }
 
     internal int EquippedCount { get; }
@@ -51,6 +59,10 @@ internal readonly struct WorldSpellWorkbench
     internal int MaximumOutputLevel { get; }
     internal int ReserveLevel { get; }
     internal int MaximumReserveLevel { get; }
+    internal int DruidryLevel { get; }
+    internal int MaximumDruidryLevel { get; }
+    internal int AlchemyLevel { get; }
+    internal int MaximumAlchemyLevel { get; }
 
     /// <summary>
     /// The resources one more equipped spell is weighed against — <c>SpellManager</c>'s own spell
@@ -79,6 +91,10 @@ internal sealed class WorldSpellWorkbenchBuffer
     internal int MaximumOutputLevel { get; private set; }
     internal int ReserveLevel { get; private set; }
     internal int MaximumReserveLevel { get; private set; }
+    internal int DruidryLevel { get; private set; }
+    internal int MaximumDruidryLevel { get; private set; }
+    internal int AlchemyLevel { get; private set; }
+    internal int MaximumAlchemyLevel { get; private set; }
     private readonly List<Guid> _usageBudgetResourceIds = new();
 
     internal void Reset()
@@ -90,6 +106,10 @@ internal sealed class WorldSpellWorkbenchBuffer
         MaximumOutputLevel = 0;
         ReserveLevel = 0;
         MaximumReserveLevel = 0;
+        DruidryLevel = 0;
+        MaximumDruidryLevel = 0;
+        AlchemyLevel = 0;
+        MaximumAlchemyLevel = 0;
         _usageBudgetResourceIds.Clear();
     }
 
@@ -103,16 +123,24 @@ internal sealed class WorldSpellWorkbenchBuffer
         HasEmptySlot = hasEmptySlot;
     }
 
-    internal void SetCastingDials(
+    internal void SetLevelDials(
         int outputLevel,
         int maximumOutputLevel,
         int reserveLevel,
-        int maximumReserveLevel)
+        int maximumReserveLevel,
+        int druidryLevel,
+        int maximumDruidryLevel,
+        int alchemyLevel,
+        int maximumAlchemyLevel)
     {
         OutputLevel = outputLevel;
         MaximumOutputLevel = maximumOutputLevel;
         ReserveLevel = reserveLevel;
         MaximumReserveLevel = maximumReserveLevel;
+        DruidryLevel = druidryLevel;
+        MaximumDruidryLevel = maximumDruidryLevel;
+        AlchemyLevel = alchemyLevel;
+        MaximumAlchemyLevel = maximumAlchemyLevel;
     }
 
     internal WorldSpellWorkbench Build() => new(
@@ -123,10 +151,14 @@ internal sealed class WorldSpellWorkbenchBuffer
         MaximumOutputLevel,
         ReserveLevel,
         MaximumReserveLevel,
-        PublicationTable<Guid>.Create(_usageBudgetResourceIds.ToArray()));
+        PublicationTable<Guid>.Create(_usageBudgetResourceIds.ToArray()),
+        DruidryLevel,
+        MaximumDruidryLevel,
+        AlchemyLevel,
+        MaximumAlchemyLevel);
 }
 
-/// <summary>One read-only, main-thread capture of spell loadout room and global casting dials.</summary>
+/// <summary>One read-only, main-thread capture of spell loadout room and the four level dials.</summary>
 internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
 {
     private const BindingFlags Static =
@@ -142,6 +174,10 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
     private readonly Func<object, object?>? _maximumOutputLevel;
     private readonly Func<object?>? _reserveLevel;
     private readonly Func<object, object?>? _maximumReserveLevel;
+    private readonly Func<object, object?>? _druidryLevel;
+    private readonly Func<object, object?>? _maximumDruidryLevel;
+    private readonly Func<object, object?>? _alchemyLevel;
+    private readonly Func<object, object?>? _maximumAlchemyLevel;
     private readonly Func<object, int>? _asInt;
     private readonly Func<object, object?>? _spellWeights;
     private readonly Func<object, IList?>? _spellWeightValues;
@@ -167,6 +203,14 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         _reserveLevel = BindStaticObjectCall(playerType, "GetReserveLevel", intVariableType);
         _maximumReserveLevel = NativeAccessorBinder.Reference(
             playerType, "maxReserveLevel", intVariableType);
+        _druidryLevel = NativeAccessorBinder.Reference(
+            playerType, "druidryOutputLevel", intVariableType);
+        _maximumDruidryLevel = NativeAccessorBinder.Reference(
+            playerType, "maxDruidryOutputLevel", intVariableType);
+        _alchemyLevel = NativeAccessorBinder.Reference(
+            playerType, "alchemyOutputLevel", intVariableType);
+        _maximumAlchemyLevel = NativeAccessorBinder.Reference(
+            playerType, "maxAlchemyOutputLevel", intVariableType);
         _asInt = NativeAccessorBinder.Call<int>(intVariableType, "AsInt");
         var resourceListType = resolveType("ResourceListVariable");
         var resourceType = resolveType("ResourceSO");
@@ -178,10 +222,12 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
             _manager is null || _active is null || _used is null ||
             _maximum is null || _hasEmpty is null ||
             _player is null || _outputLevel is null || _maximumOutputLevel is null ||
-            _reserveLevel is null || _maximumReserveLevel is null || _asInt is null ||
+            _reserveLevel is null || _maximumReserveLevel is null ||
+            _druidryLevel is null || _maximumDruidryLevel is null ||
+            _alchemyLevel is null || _maximumAlchemyLevel is null || _asInt is null ||
             resourceListType is null || resourceType is null ||
             _spellWeights is null || _spellWeightValues is null || _resourceGuid is null
-            ? "the complete spell loadout and casting-dial binding set was unavailable"
+            ? "the complete spell loadout and level-dial binding set was unavailable"
             : string.Empty;
     }
 
@@ -225,23 +271,33 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
             var maximumOutput = player is null ? null : _maximumOutputLevel!(player);
             var reserve = _reserveLevel!();
             var maximumReserve = player is null ? null : _maximumReserveLevel!(player);
+            var druidry = player is null ? null : _druidryLevel!(player);
+            var maximumDruidry = player is null ? null : _maximumDruidryLevel!(player);
+            var alchemy = player is null ? null : _alchemyLevel!(player);
+            var maximumAlchemy = player is null ? null : _maximumAlchemyLevel!(player);
             if (player is null || output is null || maximumOutput is null ||
-                reserve is null || maximumReserve is null)
+                reserve is null || maximumReserve is null ||
+                druidry is null || maximumDruidry is null ||
+                alchemy is null || maximumAlchemy is null)
                 return WorldCategoryReport.Missing(
                     Category,
-                    "Player casting-dial variables were null");
-            buffer.SetCastingDials(
+                    "Player level-dial variables were null");
+            buffer.SetLevelDials(
                 _asInt!(output),
                 _asInt!(maximumOutput),
                 _asInt!(reserve),
-                _asInt!(maximumReserve));
+                _asInt!(maximumReserve),
+                _asInt!(druidry),
+                _asInt!(maximumDruidry),
+                _asInt!(alchemy),
+                _asInt!(maximumAlchemy));
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
         }
         catch (Exception ex)
         {
             return WorldCategoryReport.Missing(
                 Category,
-                "reading the native spell loadout and casting dials threw: " +
+                "reading the native spell loadout and level dials threw: " +
                 ex.GetBaseException().Message);
         }
     }

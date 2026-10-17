@@ -54,6 +54,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<CraftingInstanceListVariableContract> ActiveScribeInstances = new(new Guid("b557060a-e109-40de-9a7d-f2b02bc9766d"), "CraftingInstanceListVariable", "ActiveScribeInstances");
     public static readonly KnownEntity<SpellListVariableContract> ActiveSpells = new(new Guid("1614158d-6485-4995-90d0-79cc6b4dced4"), "SpellListVariable", "ActiveSpells");
     public static readonly KnownEntity<ViewSOContract> AlchAlchemyDiscover = new(new Guid("70aabd3c-7790-4771-a863-5e5c41bff493"), "ViewSO", "AlchAlchemyDiscover");
+    public static readonly KnownEntity<ViewSOContract> AlchAlchemyLevel = new(new Guid("34624830-d04e-44f6-9410-6098bd349399"), "ViewSO", "AlchAlchemyLevel");
     public static readonly KnownEntity<AlchemyTypeSOContract> Alchemy = new(new Guid("f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2"), "AlchemyTypeSO", "Alchemy");
     public static readonly KnownEntity<ViewSOContract> AlchemyScreen = new(new Guid("3ae45ec0-4449-4903-b3d0-b5182e03dca3"), "ViewSO", "ScreenAlchemy");
     public static readonly KnownEntity<DoubleVariableContract> AllSpellTypeXpMod = new(new Guid("d2b10420-aa5b-479d-945b-de82a00a5647"), "DoubleVariable", "AllSpellTypeXpMod");
@@ -139,6 +140,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<UpgradeListVariableContract> UpgradesWorldScreen = new(new Guid("d9cbbc6b-b8c6-4fa6-9bea-3551a2107eae"), "UpgradeListVariable", "WorldScreenUpgrades");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifact = new(new Guid("668a2a7a-468f-4e0e-b182-979b12a4b0ad"), "ViewSO", "WorkshopArtifact");
     public static readonly KnownEntity<ViewSOContract> WorkshopArtifactCreate = new(new Guid("05e1f545-5daa-4bd0-9cbb-8770f4cf6a13"), "ViewSO", "WorkshopArtifactCreate");
+    public static readonly KnownEntity<ViewSOContract> WorldAgromancyDruidryLvs = new(new Guid("166cde99-0d90-4e03-9832-f04dbf37691a"), "ViewSO", "WorldAgromancyDruidryLvs");
     public static readonly KnownEntity<IntVariableContract> WorldAspectSlots = new(new Guid("4b1bb2de-723a-4360-827c-8e4483f3ff8d"), "IntVariable", "WorldAspectSlots");
     public static readonly KnownEntity<ViewSOContract> WorldAspects = new(new Guid("ce207aba-b835-4455-a1b7-e10e18db9ce2"), "ViewSO", "WorldAspects");
     public static readonly KnownEntity<IntVariableContract> WorldResets = new(new Guid("56039067-0092-49c0-a7bd-3c43eb119d37"), "IntVariable", "WorldResets");

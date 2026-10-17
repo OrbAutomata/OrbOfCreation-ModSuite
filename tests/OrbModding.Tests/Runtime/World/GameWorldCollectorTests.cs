@@ -5689,6 +5689,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         public FakeCount maxSpellOutputLevel = new(100);
         private FakeCount reserveLevel = new(1);
         public FakeCount maxReserveLevel = new(100);
+        public FakeCount druidryOutputLevel = new(1);
+        public FakeCount maxDruidryOutputLevel = new(1);
+        public FakeCount alchemyOutputLevel = new(1);
+        public FakeCount maxAlchemyOutputLevel = new(1);
 
         private FakePlayerGlobals()
         {
@@ -5706,6 +5710,10 @@ public sealed class GameWorldCollectorTests : IDisposable
             _instance.maxSpellOutputLevel = new FakeCount(100);
             _instance.reserveLevel = new FakeCount(1);
             _instance.maxReserveLevel = new FakeCount(100);
+            _instance.druidryOutputLevel = new FakeCount(1);
+            _instance.maxDruidryOutputLevel = new FakeCount(1);
+            _instance.alchemyOutputLevel = new FakeCount(1);
+            _instance.maxAlchemyOutputLevel = new FakeCount(1);
         }
 
         internal static void SetOverflow(double percent) => _overflow = new FakeGlobalVariable(percent);
@@ -5754,6 +5762,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         public FakeCount maxSpellOutputLevel = new(100);
         private FakeCount reserveLevel = new(1);
         public FakeCount maxReserveLevel = new(100);
+        public FakeCount druidryOutputLevel = new(1);
+        public FakeCount maxDruidryOutputLevel = new(1);
+        public FakeCount alchemyOutputLevel = new(1);
+        public FakeCount maxAlchemyOutputLevel = new(1);
 
         private FakePlayerGlobalsMissingTheQualityBonus()
         {

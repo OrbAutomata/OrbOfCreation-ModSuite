@@ -44,3 +44,11 @@ action has shown as available it stays available.
 
 Two authored quirks, not corruption: a plot can offer the same action twice, and it can keep
 running instances of an action that has been removed from its list.
+
+## Druidry Lv
+
+Once **Unlock Druidry Levels** is bought, the screen draws a **Druidry Lv** −/+ adjuster. It sets
+the level in effect between 1 and **Max Druidry Lv**, which **Raise Druidry Lv** raises by one per
+purchase. A higher level runs agromancy faster at a higher cost (observed: ×2.25 speed at ×2 cost
+per level), so turning it down is how a player buys cheaper, slower actions. The dial and its cap
+share the shape described in [attributes-and-upgrades.md](attributes-and-upgrades.md).
