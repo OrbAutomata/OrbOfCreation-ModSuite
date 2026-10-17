@@ -33,7 +33,11 @@ purchase.
 **Create** is a discovery surface; see [discovery.md](discovery.md). Creating an artifact does not
 equip it — it becomes available to the Loadout tab and nothing else happens.
 
-**Upgrade** raises per-artifact **levels** and is priced in **two gear currencies** rather than
-ordinary resources. A total **artifact mastery** figure exists alongside the per-artifact levels.
+**Upgrade** appears only after the **Upgrade Artifacts** upgrade (Workshop), which itself unlocks
+at 3 Artifact Upgrades capacity. It levels artifact **types**, not single artifacts, and is priced in
+the **Artifact Upgrades** advancement currency (a free bonus-level currency sits beside it). Each type
+level adds effect levels to a whole attribute family — observed at Lv 1 for 3 Artifact Upgrades:
+Conductor +5 Infusion, Amulet +5 Aura, Thaumuic +3 Wizardry, Shaper +3 Dimensional. A total
+**artifact mastery** figure sits on the Loadout tab.
 
 What artifacts actually do is unrecorded; see [unmapped-systems.md](unmapped-systems.md).
