@@ -6513,6 +6513,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ModifierListVariable"}
     },
     {
+      "id": "global-values.spell-type-xp-per-mastery",
+      "assembly": "assembly-csharp",
+      "type": "GlobalValues",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellTypeXpPerMastery",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
       "id": "global-variables.get-global-structure-type",
       "assembly": "assembly-csharp",
       "type": "GlobalVariables",

@@ -54,4 +54,35 @@ public sealed class SpellCardContractTests
         Assert.True(assembly.MethodReferencesField(
             "SpellRecipeSO", "PurchaseLevel", "SpellRecipeSO", "masteryLevel"));
     }
+
+    /// <summary>
+    /// What a confirm grants each type is <c>ModTypeXp(spellTypeXpPerMastery)</c>: the per-level
+    /// global through the type's Type Xp and the player's All Spell Types Xp. The grant applies it,
+    /// and the card prints it beside each type track, so the world folds those three readings.
+    /// </summary>
+    [GameAssemblyFact]
+    public void The_type_xp_a_confirm_grants_is_the_per_level_global_through_both_type_xp_modifiers()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+
+        Assert.Equal("System.Double", assembly.GetFieldType("GlobalValues", "spellTypeXpPerMastery"));
+        Assert.True(assembly.MethodReferencesField(
+            "SpellRecipeSO", "GetLevelSpellTypeXp", "GlobalValues", "spellTypeXpPerMastery"));
+        Assert.True(assembly.MethodReferencesField(
+            "SpellTypeSO", "ModTypeXp", "SpellTypeSO", "typeXpMod"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellTypeSO", "ModTypeXp", "Player", "GetAllSpellTypeXpMod"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellTypeSO", "ModTypeXp", "DoubleVariable", "AsPercent"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "SpellTypeSO", "GainTypeXp", "SpellTypeSO", "ModTypeXp"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UISpellRecipeItem", "RenderContent", "SpellRecipeSO", "GetLevelSpellTypeXp"));
+        Assert.True(assembly.MethodReferencesMethod(
+            "UISpellTypeItem", "RenderContent", "SpellTypeSO", "ModTypeXp"));
+        Assert.Contains(
+            assembly.GetMethodBodyDefinitionReferences("UISpellTypeItem", "RenderContent"),
+            reference => reference.MemberName == "BeautifyNumber" &&
+                reference.DeclaringType == "Utils");
+    }
 }

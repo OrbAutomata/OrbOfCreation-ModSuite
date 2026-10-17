@@ -6918,12 +6918,14 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// The Confirm Mastery button on the spell's card: its price, and whether a press lands.
+    /// The Confirm Mastery button on the spell's card: its price, whether a press lands, and the
+    /// type XP it grants each of the spell's types.
     /// </summary>
     /// <remarks>
     /// The button reads <c>IsReadyToLevelMastery()</c>, which is the mastery bar alone, and is
     /// priced by <c>GetLevelCost()</c>. The spell's leveling requirements are the one gate no
-    /// publication carries, so a yes says the press settles them.
+    /// publication carries, so a yes says the press settles them. <c>PurchaseLevel()</c> grants the
+    /// authored <c>spellTypes</c>, which is the list the card draws its type tracks from.
     /// </remarks>
     private static JObject ProjectConfirmMastery(GameWorldState world, in WorldSpellRecipe recipe)
     {
@@ -6933,6 +6935,8 @@ internal static class GameMcpWorldQuery
             result["notYetChecked"] = "Its leveling requirements, which the press settles.";
         else
             result["reason"] = MasteryRefusalReason(world, recipe.EntityId);
+        var grants = ProjectMasteryGrants(world, recipe.EntityId);
+        if (grants.Count > 0) result["grants"] = grants;
         if (!OwnedMasteryCostMath.TryFindRange(
                 world.MasteryCosts, recipe.EntityId, out var start, out var count) || count <= 0)
             return result;
@@ -6954,6 +6958,28 @@ internal static class GameMcpWorldQuery
         }
         result["costs"] = costs;
         return result;
+    }
+
+    private static JArray ProjectMasteryGrants(GameWorldState world, Guid recipeId)
+    {
+        var grants = new JArray();
+        if (!WorldSpellGraphLookup.TryFindRelations(
+                world.SpellRelations, recipeId, out var start, out var count))
+            return grants;
+        for (var index = start; index < start + count; index++)
+        {
+            var relation = world.SpellRelations[index];
+            if (relation.Kind != WorldSpellRelationKind.SpellType ||
+                !WorldLookup.TryFind(world.SpellTypes, relation.TargetId, out var spellType) ||
+                !WorldSpellMasteryGrant.TryTypeXp(world, in spellType, out var typeXp))
+                continue;
+            grants.Add(new JObject
+            {
+                ["spellTypeId"] = relation.TargetId.ToString("D"),
+                ["typeXp"] = new GameMcpDomainValue(typeXp),
+            });
+        }
+        return grants;
     }
 
     /// <summary>

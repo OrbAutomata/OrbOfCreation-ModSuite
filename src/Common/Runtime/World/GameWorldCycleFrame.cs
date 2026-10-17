@@ -116,6 +116,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldModifierProgramEntryBuffer ModifierProgramEntries { get; } = new();
     internal RawMasteryCostBuffer MasteryCosts { get; } = new();
     internal Guid MasteryCostStandardId { get; set; }
+    internal double SpellTypeXpPerMastery { get; set; }
     internal WorldRelationBuffer<WorldSpellRecipeAuthoring> SpellRecipeAuthoring { get; } = new();
     internal WorldRelationBuffer<WorldSpellAuthoredCost> SpellAuthoredCosts { get; } = new();
     internal WorldRelationBuffer<WorldSpellRelation> SpellRelations { get; } = new();
@@ -465,6 +466,7 @@ internal static class GameWorldFrameDeriver
             EntityIdentities = frame.EntityIdentities,
             CollectionCategories = WorldCollectionCategoryStatus.Build(frame.Report),
             FixedDeltaTime = frame.FixedDeltaTime,
+            SpellTypeXpPerMastery = frame.SpellTypeXpPerMastery,
             CollectedAtFrame = frame.CollectedAtFrame,
             CollectedAtEpoch = frame.CollectedAtEpoch,
             CollectedAtUtcTicks = frame.CollectedAtUtcTicks,

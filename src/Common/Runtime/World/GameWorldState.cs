@@ -255,6 +255,13 @@ public sealed record GameWorldState
     internal PublicationTable<WorldSpellTypeResonance> SpellTypeResonance { get; init; } =
         PublicationTable<WorldSpellTypeResonance>.Empty;
 
+    /// <summary>
+    /// <c>GlobalValues.spellTypeXpPerMastery</c>: the type XP each confirmed mastery level grants every
+    /// type its spell carries, before that type's and the player's type XP modifiers. Zero when the
+    /// mastery cost category did not collect. See <see cref="WorldSpellMasteryGrant"/>.
+    /// </summary>
+    internal double SpellTypeXpPerMastery { get; init; }
+
     /// <summary>Derived next-mastery-level cost rows, preserved in authored row order.</summary>
     internal PublicationTable<WorldMasteryCost> MasteryCosts { get; init; } =
         PublicationTable<WorldMasteryCost>.Empty;

@@ -1172,6 +1172,7 @@ internal sealed class FakeGlobalValues
 {
     public static readonly FakeGlobalValues instance = new();
     public FakeModifierListVariable spellLevelingStandard = new();
+    public double spellTypeXpPerMastery = 30d;
 }
 
 internal sealed class FakePrerequisiteContainer

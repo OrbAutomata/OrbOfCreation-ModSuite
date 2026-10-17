@@ -2,10 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>Captures authored spell mastery costs and the one global per-level modifier program.</summary>
+/// <summary>
+/// Captures authored spell mastery costs, the one global per-level modifier program, and the type
+/// XP each confirmed level grants before modifiers.
+/// </summary>
 internal sealed class WorldMasteryCostReader : IWorldCategoryReader
 {
     private const BindingFlags Static =
@@ -21,6 +25,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
     private readonly Func<object, Guid>? _standardId;
     private readonly Func<object, object?>? _standardValue;
     private readonly NativeModifierProgramReader? _programReader;
+    private readonly Func<object, double>? _typeXpPerMastery;
     private readonly string _unavailable;
 
     internal WorldMasteryCostReader(Func<string, Type?> resolveType)
@@ -45,10 +50,12 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         _standardId = NativeAccessorBinder.Call<Guid>(variableType, "GetGuid");
         _standardValue = NativeAccessorBinder.Reference(variableType, "value");
         _programReader = new NativeModifierProgramReader(recordType, listType);
+        _typeXpPerMastery = NativeAccessorBinder.Field<double>(globalsType, "spellTypeXpPerMastery");
 
         _unavailable = IsFullyBound()
             ? string.Empty
-            : "spell mastery costs did not expose their authored tuples and global modifier program";
+            : "spell mastery costs did not expose their authored tuples, global modifier program " +
+              "and type XP per level";
     }
 
     public string Category => "spell level costs";
@@ -58,6 +65,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
     {
         frame.MasteryCosts.Reset();
         frame.MasteryCostStandardId = Guid.Empty;
+        frame.SpellTypeXpPerMastery = 0d;
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var globals = _globalsInstance!.GetValue(null);
@@ -65,6 +73,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         var list = standard is null ? null : _standardValue!(standard);
         if (standard is null || list is null)
             return WorldCategoryReport.Missing(Category, "spellLevelingStandard was unreadable");
+        frame.SpellTypeXpPerMastery = _typeXpPerMastery!(globals!);
 
         frame.MasteryCostStandardId = _standardId!(standard);
         if (frame.MasteryCostStandardId == Guid.Empty)
@@ -133,5 +142,31 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         _spellType is not null && _globalsInstance is not null &&
         _baseCost is not null && _costs is not null && _resourceId is not null && _amount is not null &&
         _standard is not null && _standardId is not null && _standardValue is not null &&
-        _programReader?.IsAvailable == true;
+        _typeXpPerMastery is not null && _programReader?.IsAvailable == true;
+}
+
+/// <summary>
+/// The type XP one Confirm Mastery press grants a spell type, folded as <c>SpellTypeSO.ModTypeXp</c>
+/// folds it: the per-level amount, times the type's Type Xp and the player's All Spell Types Xp,
+/// each as a percent.
+/// </summary>
+/// <remarks>
+/// Folded here rather than taken from <c>SpellTypeSO.GetGuessedXpPerMastery()</c>, because asking
+/// the game reads both modifiers through <c>ValueModifierRecord.GetValue()</c>, which recalculates
+/// a dirty record and stores the result. The published inputs are the memo-rule readings of the
+/// same records, so the fold is the number the game's call would answer.
+/// </remarks>
+internal static class WorldSpellMasteryGrant
+{
+    internal static bool TryTypeXp(GameWorldState world, in WorldSpellType spellType, out BigDouble typeXp)
+    {
+        typeXp = default;
+        if (world.SpellTypeXpPerMastery <= 0d ||
+            !WorldLookup.TryFind(world.DoubleVariables, KnownEntities.AllSpellTypeXpMod.Uuid, out var all))
+            return false;
+        typeXp = new BigDouble(world.SpellTypeXpPerMastery) *
+            OrbGameMath.AsPercent(spellType.TypeXpMod) *
+            OrbGameMath.AsPercent(all.Value);
+        return true;
+    }
 }

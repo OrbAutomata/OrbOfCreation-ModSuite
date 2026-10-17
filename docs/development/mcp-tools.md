@@ -2088,8 +2088,9 @@ mastery bar as `masteryXp` of `masteryXpNeeded` in the screen's figures, and `co
 Confirm Mastery button's `costs` (each `cost`, `spendableAmount`, `affordable`) and whether a press
 lands. Readiness is the mastery bar alone. A yes carries `notYetChecked`, because the spell's
 leveling requirements are the one gate no publication carries; a no carries the sentence
-`game_spell_mastery single` refuses with. The type XP a confirm grants is printed on the button's
-tooltip, which `game_tooltip` reads once the card is open.
+`game_spell_mastery single` refuses with. `grants` names the type XP a confirm adds to each of the
+spell's types — the `(+X)` the card prints beside each type track — folded from the per-level amount,
+the type's Type Xp and the player's All Spell Types Xp.
 
 A discovered recipe's `weight` is what loading the bare spell charges, in the game's own math:
 authored upkeep, plus the penalty while the spell's "use effectively" requirements are unmet (`12

@@ -254,6 +254,50 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Null(unlearned["confirmMastery"]);
     }
 
+    /// <summary>
+    /// The card prints the type XP a confirm grants beside each of the spell's type tracks: the
+    /// per-level amount through that type's Type Xp and the player's All Spell Types Xp.
+    /// </summary>
+    [Fact]
+    public void Confirm_mastery_names_the_type_xp_it_grants_each_of_the_spells_types()
+    {
+        var boosted = Guid.Parse("1b0c6f0e-7a57-4c55-8f0a-2d6c1f3e9a01");
+        var plain = Guid.Parse("9e4d2a7c-3b61-4f08-b5d2-7c0a8e6f1b02");
+        var excluded = Guid.Parse("c3a9f1d4-5e72-4b16-9d08-1f6b2e7a4c03");
+        var world = World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+            masteryReady: true, masteryAffordable: true, held: 20, spendable: 20) with
+        {
+            SpellTypeXpPerMastery = 30d,
+            DoubleVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(KnownEntities.AllSpellTypeXpMod.Uuid, new BigDouble(120), true),
+            }),
+            SpellTypes = PublicationTable<WorldSpellType>.Create(new[]
+            {
+                CantripType(boosted, typeXpMod: 150d),
+                CantripType(plain, typeXpMod: 100d),
+                CantripType(excluded, typeXpMod: 100d),
+            }.OrderBy(type => type.EntityId).ToArray()),
+            SpellRelations = PublicationTable<WorldSpellRelation>.Create(new[]
+            {
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.SpellType, 0, boosted),
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.SpellType, 1, plain),
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.NotSpellType, 0, excluded),
+            }),
+        };
+
+        var grants = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world), "spell-recipes", RecipeId.ToString("D")))
+            ["row"]!["confirmMastery"]!["grants"]!.Values<JObject>().ToArray();
+        var uncollected = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world with { SpellTypeXpPerMastery = 0d }),
+                "spell-recipes", RecipeId.ToString("D")))["row"]!["confirmMastery"]!;
+
+        Assert.Equal(new[] { "54", "36" }, grants.Select(grant => (string?)grant!["typeXp"]));
+        Assert.Null(uncollected["grants"]);
+    }
+
     [Fact]
     public void DiscoveredRecipePublishesTheExactLoadoutAddDecisionAndCurrentHoldings()
     {
@@ -415,7 +459,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal(charged, (string?)row["weight"]);
     }
 
-    private static WorldSpellType CantripType(Guid id) => new(
+    private static WorldSpellType CantripType(Guid id, double typeXpMod = 1d) => new(
         id,
         typeLevel: 0,
         typeXp: BigDouble.Zero,
@@ -427,7 +471,7 @@ public sealed class GameMcpSpellWorkbenchTests
         hasNotTypeSignificance: false,
         isVisible: true,
         debugMode: false,
-        typeXpMod: BigDouble.One,
+        typeXpMod: new BigDouble(typeXpMod),
         power: BigDouble.One,
         cooldownSpeed: BigDouble.One,
         cooldownTime: BigDouble.One,
