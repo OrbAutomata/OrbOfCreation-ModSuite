@@ -102,6 +102,22 @@ public sealed class GameMcpCraftingTests
     }
 
     [Fact]
+    public void ACancelledQueueBeyondTheIntegerRangeReadsAsTheScreenShowsIt()
+    {
+        var command = new GameMcpCommand(
+            1, GameMcpCommandKind.Crafting, 15, 8, "cancel_manual", RecipeId, Guid.Empty,
+            "CraftingRecipeSO", 1, string.Empty, string.Empty, false,
+            frameContext: Context(queuedAmount: 3.96e9));
+        var committed = GameMcpCommandResult.Committed("committed", 15, 8);
+
+        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(queuedAmount: 0), command, committed));
+
+        Assert.Equal("3.96e9", (string?)postState["queued"]!["before"]);
+        Assert.Equal("0", (string?)postState["queued"]!["after"]);
+    }
+
+    [Fact]
     public void PreDecisionRowCarriesNamedExactCostsHoldingsAffordabilityAndQueueState()
     {
         var result = Json(GameMcpWorldQuery.GetRow(
