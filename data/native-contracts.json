@@ -22942,7 +22942,8 @@
       "returnType": "System.Collections.Generic.List`1<ResourceTuple>",
       "parameters": [],
       "owners": [
-        "Automata Discovery Tree decision world publication"
+        "Automata Discovery Tree decision world publication",
+        "Common world collection"
       ],
       "usages": [
         "reflection"
@@ -22982,7 +22983,8 @@
       "returnType": "BigDouble",
       "parameters": [],
       "owners": [
-        "Automata Discovery Tree decision world publication"
+        "Automata Discovery Tree decision world publication",
+        "Common world collection"
       ],
       "usages": [
         "reflection"
@@ -29054,8 +29056,13 @@
     },
     {
       "id": "harvest-lifecycle.scaling-drain-cost-capture", "assembly": "assembly-csharp", "type": "ScalingMap`2", "typeVisibility": "public", "kind": "method", "member": "GetDrainCostMod",
-      "visibility": "public", "static": false, "returnType": "!0", "parameters": [], "owners": ["Common harvest lifecycle world collection"], "usages": ["reflection"], "place": "capture",
+      "visibility": "public", "static": false, "returnType": "!0", "parameters": [], "owners": ["Common harvest lifecycle world collection", "Common world collection"], "usages": ["reflection"], "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning !0; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "plot-actions.persistent-scaling-capture", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetPersistentScalingInfo",
+      "visibility": "public", "static": false, "returnType": "ScalingInfo", "parameters": ["System.Int32"], "owners": ["Common world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game folds the action's and the plot's scaling into the record its diamond tooltip prices the drain with; the reader takes its drain modifier.", "evidence": "IL: GetScalingInfo(int) builds a new ScalingInfo from PlotNodeActionSO.GetScalingInfo() (newobj) combined with the plot's, then GetFullSpeedScaling() clones it before SetRatio; no field is written"}
     },
     {
       "id": "plot-lifecycle.plot.type-action", "assembly": "assembly-csharp", "type": "PlotNodeSO", "typeVisibility": "public", "kind": "type",
@@ -29083,7 +29090,7 @@
     },
     {
       "id": "plot-lifecycle.instance-action-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetAction",
-      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Game MCP tooltip explorer"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-plot-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetElement",

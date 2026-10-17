@@ -338,8 +338,9 @@ than printing itself into a cell.
   to a sibling key left a three-column price beside four-column prices in the same session. The
   sibling key is a different fact and stays — it answers whether the whole purchase is payable,
   where the column answers it per resource and so names the one that is short. A table with more to
-  say keeps its extra columns and still spells the price `cost`. A drain is not a price and never
-  says `cost`: research's `drain` says `remaining`.
+  say keeps its extra columns and still spells the price `cost`. A per-second drain is charged like
+  a price and uses the same shape (`drainCostsPerSecond`, a harvest's `nextDrain`). Research's
+  `drain` is what is left to pay, not a rate, and says `remaining`.
 - **Constants live here, not in answers.** A number that is the same in every save on every call is
   documentation. The casting dials publish `current` and `maximum` and not the floor, which is 1 for
   both; `suite_configuration` publishes values and not the sentence describing each setting.
@@ -1942,7 +1943,10 @@ and `remove` with one word each: `yes`, or what stands in the way — `not_offer
 `unpriced`, `plot_short`, `list_full`, `inactive`, `unverified`. The detail projection behind a
 mutation or an explanation carries the full decision: the plot quantity one instance consumes, the
 current maximum additional count (the game's own remaining-instance count, which can exceed the
-10,000 this verb accepts in one call), and the sentence for a block. `unverified` is the
+10,000 this verb accepts in one call), the sentence for a block, and `drainCostsPerSecond`: each
+resource the action takes every second it runs, as the diamond's hover prints it, in the price shape
+with what the player holds. The `plot-node-actions` page carries the same list, each row naming its
+plot only when the action drains on more than one. `unverified` is the
 prerequisite latch the game evaluates only when the action starts — the action boundary performs
 the exact native check instead of a read mutating the latch, so pressing is how you find out.
 
@@ -1951,7 +1955,8 @@ amount=...)`. Every call requires an explicit positive `amount`.
 Add uses the same active plot-action list control as `UIPlotNodeActionList.OnActionClick`.
 Remove decrements an existing quantity; at the native minimum it uses that UI handler's distinct
 `Cancel()` path, so crossing from several instances through the last one requires two calls.
-Success returns the observed active quantity change. The only
+Success returns the observed active quantity change, and an add also returns the
+`drainCostsPerSecond` the action now takes. The only
 postcondition is the exact pair's game-written active quantity moving in the requested direction;
 refund behavior on cancellation is neither recomputed nor verified.
 
@@ -4567,10 +4572,11 @@ path read reads no world at all, because what the player can hover is a screen f
 
 **Every panel says `[id | name | path]`, and a casting-bar row says its slot.** A row's `id` is the
 entity the element is about. Most panels are assigned the asset itself, which carries its own id;
-the two panels holding what a player actually casts are assigned a live instance instead — the
-casting bar a `Spell`, the passive bar a `PassiveAbility` — and neither is an `IdScriptableObject`.
-Both are one audited accessor from the recipe asset they were built from, the same asset whose name
-the button already prints, so those rows carry the id every sibling panel carries. A panel that
+three are assigned a live instance instead — the casting bar a `Spell`, the passive bar a
+`PassiveAbility`, a plot's action diamond a `PlotNodeActionInstance` — and none is an
+`IdScriptableObject`. Each is one audited accessor from the asset it was built from, the same asset
+whose name the element already prints, so those rows carry the id every sibling panel carries, and a
+diamond's `Drain -X/s` hover answers to its action's uuid. A panel that
 builds its tooltip out of several facts — the glyph list, which folds in the equipped quantity —
 hands the screen an `OverwriteTooltip` wrapped around the entity rather than the entity itself; the
 wrapper forwards the name, and the `id` is read off the thing inside it however many decorators the

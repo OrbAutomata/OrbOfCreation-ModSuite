@@ -17,6 +17,8 @@ public sealed class GameMcpPlotLifecycleTests
         Guid.Parse("fd000000-0000-0000-0000-000000000001");
     private static readonly Guid ActionId =
         Guid.Parse("fd000000-0000-0000-0000-000000000002");
+    private static readonly Guid ScrollId =
+        Guid.Parse("fd000000-0000-0000-0000-000000000003");
 
     [Fact]
     public void Tool_requires_the_exact_plot_action_pair_and_visible_ui_modes()
@@ -98,6 +100,99 @@ public sealed class GameMcpPlotLifecycleTests
             "This is not active, so there is nothing to act on.",
             (string?)blockedDetail["remove"]!["reason"]);
     }
+
+    /// <summary>
+    /// Create Spring drained Alchemic Scroll at a rate no read published: the pair, the action's
+    /// page and the add reply said what the plot paid and nothing about what the action takes each
+    /// second. All three now carry the drain the diamond's hover prints, in the screen's words.
+    /// </summary>
+    [Fact]
+    public void A_plot_action_names_what_it_drains_each_second_where_it_is_read_and_started()
+    {
+        var world = DrainingWorld(active: 1);
+        var context = GameMcpTestHarness.Context(world, generation: 916);
+
+        var drain = Assert.Single(Detail(world)["drainCostsPerSecond"]!.Values<JObject>())!;
+        Assert.Equal("Alchemic Scroll", (string?)drain["resource"]!["name"]);
+        Assert.Equal("0.500", (string?)drain["cost"]);
+        Assert.Equal("20", (string?)drain["spendableAmount"]);
+        Assert.True((bool)drain["affordable"]!);
+
+        var row = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+            context, "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>())!;
+        Assert.Null(row["drainCostsPerSecond"]);
+
+        var page = Assert.Single(Json(GameMcpWorldQuery.GetRows(
+            context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(),
+            world)["results"]!.Values<JObject>())!;
+        Assert.True(JToken.DeepEquals(
+            drain, Assert.Single(page["row"]!["drainCostsPerSecond"]!.Values<JObject>())));
+
+        var added = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            context, PlotCommand("add_plot_action", DrainingWorld(active: 0)),
+            GameMcpCommandResult.Committed("committed", 9, 3)), world);
+        Assert.Equal(1, (int)added["active"]!["after"]!);
+        Assert.True(JToken.DeepEquals(
+            drain, Assert.Single(added["drainCostsPerSecond"]!.Values<JObject>())));
+
+        var stopped = DrainingWorld(active: 0);
+        var removed = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(stopped, generation: 917),
+            PlotCommand("remove_plot_action", world),
+            GameMcpCommandResult.Committed("committed", 9, 3)), stopped);
+        Assert.Equal(0, (int)removed["active"]!["after"]!);
+        Assert.Null(removed["drainCostsPerSecond"]);
+    }
+
+    private static GameWorldState DrainingWorld(int active)
+    {
+        var rateInputs = default(RawResourceRateInputs);
+        var traits = default(RawResourceTraits);
+        var modifiers = default(RawResourceModifiers);
+        var reading = new RawResourceSample(ScrollId, new BigDouble(20), new BigDouble(100),
+            true, BigDouble.Zero, BigDouble.Zero, new BigDouble(100),
+            new BigDouble(100), BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, false, false,
+            false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
+        var world = World(prerequisitesReady: true, active: active);
+        return world with
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, world.EntityIdentities.Rows
+                .AsSpan().ToArray()
+                .Append(new EntityIdentityName(ScrollId, "ResourceSO", "Alchemic Scroll", "alchemicScroll"))
+                .OrderBy(row => row.EntityId).ToArray()),
+            Resources = PublicationTable<WorldResource>.Create(new[]
+            {
+                new WorldResource(in reading, true, new BigDouble(80), 0.2, false,
+                    new BigDouble(20), BigDouble.Zero),
+            }),
+            PlotNodeActions = PublicationTable<WorldPlotNodeAction>.Create(new[]
+            {
+                new WorldPlotNodeAction(ActionId, false, false, false, 3, false, false, false,
+                    120d, false, false, false, false, BigDouble.Zero, BigDouble.Zero,
+                    BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, 0, 0, 0, 0, 1, 0, 0),
+            }),
+            PlotActionDrains = PublicationTable<WorldPlotActionDrain>.Create(new[]
+            {
+                new WorldPlotActionDrain(PlotId, ActionId, 0, ScrollId, new BigDouble(0.5)),
+            }),
+        };
+    }
+
+    private static GameMcpCommand PlotCommand(string mode, GameWorldState before) =>
+        new(
+            1,
+            GameMcpCommandKind.Harvest,
+            expectedLifecycleGeneration: 9,
+            expectedConfigurationGeneration: 3,
+            mode: mode,
+            targetId: PlotId,
+            secondaryId: ActionId,
+            derivedNativeType: "PlotNodeSO",
+            amount: 1,
+            payloadKey: string.Empty,
+            payloadValue: string.Empty,
+            saveCapture: false,
+            frameContext: GameMcpTestHarness.Context(before));
 
     /// <summary>
     /// The page this lane was called for. Twenty pairs whose prerequisite the game will not

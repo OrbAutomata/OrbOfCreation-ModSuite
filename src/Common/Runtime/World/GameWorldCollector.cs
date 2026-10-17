@@ -362,7 +362,7 @@ internal sealed class GameWorldCollector
         _treasurePools = Reader(new WorldTreasurePoolBinder(), resolveType, static frame => frame.TreasurePools);
         _purchaseCosts = new WorldPurchaseCostReader(resolveType("StructureSO"), resolveType);
         _upgradeCosts = new WorldUpgradeCostReader(resolveType("UpgradeSO"), resolveType);
-        _plotActions = new WorldPlotActionReader(resolveType("PlotNodeSO"));
+        _plotActions = new WorldPlotActionReader(resolveType("PlotNodeSO"), resolveType);
         _actionQueues = new WorldActionQueueReader(
             resolveType("IdScriptableObject"),
             resolveType("PlotNodeActionInstanceListVariable"),

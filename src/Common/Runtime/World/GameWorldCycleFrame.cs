@@ -83,6 +83,8 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldPlotActionInstanceBuffer PlotActionInstances { get; } = new();
 
+    internal WorldRelationBuffer<WorldPlotActionDrain> PlotActionDrains { get; } = new();
+
     /// <summary>
     /// The game's action queues, and the slots inside them. A queue is an entity; a slot is a
     /// position in one, so the two cannot share a buffer.
@@ -691,6 +693,7 @@ internal static class GameWorldFrameDeriver
             PlotNodes = plotNodes,
             PlotActions = plotActions,
             PlotActionInstances = WorldPlotActionInstanceDeriver.Build(frame.PlotActionInstances),
+            PlotActionDrains = WorldPlotActionDrainDeriver.Build(frame.PlotActionDrains),
             ActionQueues = frame.ActionQueues.Build(new WorldActionQueueDeriver(intVariables)),
             ActionQueueSlots = WorldActionQueueSlotDeriver.Build(frame.ActionQueueSlots),
             SpellSlots = spellSlots,

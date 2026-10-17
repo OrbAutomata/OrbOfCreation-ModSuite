@@ -202,7 +202,8 @@ public sealed class AutoHarvestActionSafetyTests : IDisposable
     public void AnActionDrainingAResourceIsAResourceDrain() =>
         AssertFruit(
             AutoHarvestActionSafetyState.ResourceDrain,
-            (_, action) => action.actionDrain.costs.Add(default));
+            (_, action) => action.actionDrain.costs.Add(
+                new ResourceTuple(Resource(Guid.NewGuid()), new BigDouble(40))));
 
     [Fact]
     public void AnActionApplyingAStandingEffectIsUnsafe() =>
@@ -356,6 +357,13 @@ public sealed class AutoHarvestActionSafetyTests : IDisposable
         var weight = new ScalingWeightSO();
         weight.SetGuid(uuid);
         return weight;
+    }
+
+    private static ResourceSO Resource(Guid uuid)
+    {
+        var resource = new ResourceSO();
+        resource.SetGuid(uuid);
+        return resource;
     }
 
     private static TreasurePoolSO Pool(Guid uuid)
