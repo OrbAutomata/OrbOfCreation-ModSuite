@@ -41,8 +41,11 @@ Two recipe types seen early, observed per equipped copy:
 
 Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
 1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
-(observed). Refine Occultic also eats Magebloom at about one per Occult Essence made, which its
-tooltip does not list (observed from rates), so Magebloom supply caps Occult Essence.
+(observed). A Dismantle recipe's capacity is functional: it holds only while the recipe is fed.
+With Magebloom at zero, Extract Magebloom's Occultic Capacity lapses and Refine Occultic stops with
+it, so Magebloom supply caps Occult Essence even though Refine Occultic itself drains only
+Thaumaturgy. Alchemy Lv raises a Dismantle's drain but not its capacity (observed: Extract Magebloom
++8 Occultic for −0.076 Magebloom/s at Lv 1, −4.59/s for the same capacity at Lv 5).
 
 Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn Refinement (5e4 Control), and the
 two together put Extract Wood and Refine Organic in the roll pool. Organic Essence in turn opens

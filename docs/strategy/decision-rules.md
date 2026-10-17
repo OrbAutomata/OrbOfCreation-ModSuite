@@ -45,8 +45,9 @@ cooldowns bind. **The answer flips as rates grow**, so re-check it inside an era
 milestones.
 
 Alchemy Lv is throughput bought with efficiency: each level doubles a recipe's output for four
-times its inputs. While a recipe's input is the binder (Magebloom for Refine Occultic), a level
-beyond what the input supply sustains makes half as much per input once the stock runs dry.
+times its inputs, and a Dismantle gets no more capacity for its bigger drain. While an input is the
+binder (Magebloom feeding Extract Magebloom), a level beyond what its supply sustains makes half as
+much per input once the stock runs dry.
 
 ## Commitment points
 
