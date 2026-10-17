@@ -89,6 +89,16 @@ A Force Tree offers **Peel Bark** (Force Bark, tree kept) and **Chop Down Force 
 and Wood, tree destroyed). An Empty Plot's other action, **Plant Seedling**, paid in Thaumaturgy,
 grows **Void Moss**.
 
+Conversions are paid in plot quantity too (the diamond's badge): Energize takes 2 Oak Tree units
+and yields 1 Force Tree unit, which Grows for 2:35 before it can be used (observed). With the
+Ironwood Trees upgrade a Force Tree gains **Imbue** (badge 2, a 17–24 s weave draining Organic and
+Occult Essence, ~100–140 of each), which turns it into an **Ironwood Tree**: 8 Plot Capacity, Grows
+9:44, and **Chop Down Ironwood** (30 s) pays the **Ironwood** resource. So one Ironwood Tree costs
+four oaks. Observed harvests: 9.5e3, 1.7e4, 2.1e4, 2.6e4 Ironwood as the plot's mastery rose from 0
+to 12. Ironwood in the resource list unlocks **Ironwood Druidry** (observed 7.3e4–8.4e4 Ironwood +
+5.45e10 Verdant Energy), which opens the Druidry attributes Wellspring (spring yield) and
+Florescence (blooming resources), both paid partly in Ironwood.
+
 **Empty Plots are the unused Plot Capacity.** Every grown thing weighs Plot Capacity (an Oak Tree
 2, Void Moss 1), and the Empty Plot count is whatever is left over: raising the capacity or using
 **Destroy** (a 5 s utility action that removes a plant, recovering and growing ones first) adds
