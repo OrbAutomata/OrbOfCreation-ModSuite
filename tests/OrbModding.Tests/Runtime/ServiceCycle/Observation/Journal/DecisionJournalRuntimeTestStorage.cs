@@ -30,7 +30,6 @@ internal sealed class DecisionJournalRuntimeTestStorage : IRestartAwareTraceSegm
 
     internal ManualResetEventSlim ReconcileEntered { get; } = new();
     internal ManualResetEventSlim ReconcileRelease { get; } = new();
-    internal ManualResetEventSlim ReconcileCompleted { get; } = new();
     internal ManualResetEventSlim CommitEntered { get; } = new();
     internal ManualResetEventSlim CommitRelease { get; } = new();
     internal int ReconcileThreadId { get; private set; }
@@ -60,7 +59,6 @@ internal sealed class DecisionJournalRuntimeTestStorage : IRestartAwareTraceSegm
         Probe = probe;
         ReconcileEntered.Set();
         if (_blockReconcile) ReconcileRelease.Wait();
-        ReconcileCompleted.Set();
         return _recovery;
     }
 
