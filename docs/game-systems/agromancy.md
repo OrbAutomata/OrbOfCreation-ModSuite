@@ -67,7 +67,8 @@ Wood comes only from oaks:
 3. The chopped plot is **Recovering** — 40 s per plot, one plot at a time — before it is an Empty
    Plot again. Only recovered plots take a sapling, so a planting order is clamped to them.
 
-**Druidry Lv** is a dial beside the plots: each level multiplies agromancy speed ×2.25 and cost ×2.
+**Druidry Lv** is a dial beside the plots: each level multiplies active agromancy speed ×2.25 and
+cost ×2, and weave growth size ×1.75 and weave cost ×5.
 **Raise Druidry Lv** raises its maximum (and adds ×1.02 plot yield and ×1.75 plot recovery size). Wood Axe (Agromancy Power for
 harvests) and Clearcutting (harvest speed) are the Workshop levers on the same loop; see
 [workshop.md](workshop.md). Observed yield: ~130 Wood per oak at the start, ~1.1e3 after eight Wood
@@ -97,5 +98,10 @@ locked until the Elementia Spring research, which itself waits for Elementia in 
 and **Create Craggy Spire**. These weaves drain as they grow, and not only common resources:
 Create Spring drained **Alchemic Scroll** at ~94/s at Druidry Lv 7 (observed), enough to empty a
 stock of several hundred before the spring finished. Void Moss offers its own weaves — **Create Magebloom**, **Create Dark
-Thistle** and **Create Dreamberry** — each locked until something else is learned (observed:
-Create Magebloom refused as locked; what unlocks it is unrecorded).
+Thistle** and **Create Dreamberry** — each locked until something else is learned; Create Magebloom
+opens with the Grow Magic Herbs upgrade and drains Verdant Energy and Organic Essence while it runs
+(observed ~2.3e7 VE per plant at Druidry Lv 7).
+
+A Magebloom plant offers **Gather Magebloom**: a Control price up front, then Magebloom per second
+for the action's duration (observed +4.09/s for 78 s at Mastery Lv 11), after which the plant is
+Recovering; the plant itself stays.
