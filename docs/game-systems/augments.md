@@ -98,7 +98,16 @@ is the glyph, not spell levelling.
 ## Levels grant global passives even unsocketed
 
 Every **purchased level** of an augment applies its own global modifiers regardless of whether the
-augment is socketed anywhere — e.g., ×1.04 Cantrip cooldown speed and ×0.94 Cantrip cost per level.
+augment is socketed anywhere. Observed per-level passives (partial):
+
+| Augment | Per purchased level |
+|---|---|
+| Heavy | ×1.08 Cantrip power |
+| Quick | ×1.04 Cantrip cooldown speed, ×0.94 Cantrip cost |
+| Efficient | +10% Mana Affinity max stacks, +8% Mana Affinity duration |
+
+Paid levels escalate: observed 2 Glyph Upgrades for the first level and 3 for the second.
+
 That splits an augment into two value streams: the socket effect (large, targeted, weighted,
 double-edged) and the level passive (small, global, weightless, permanent for the run).
 

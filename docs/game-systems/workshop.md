@@ -36,3 +36,11 @@ Artifacts > Create is the artifact discovery tree's surface: **Construct Artifac
 first roll is a required one and deals a single card, observed **Blast Staff**: a Conductor with
 4 Artifact Capacity that, every 15 s, gives the next spell cast ×1.75 Cantrip and ×1.20 Charm
 Spell Power. The Loadout tab starts at 0/6 weight with two slots; see [artifacts.md](artifacts.md).
+
+## Paper
+
+Artificer Crafting opens **Craft Paper**: 100 Wood + 25 Skill, 4 s, one craft at a time, but crafts
+stack in the queue. A craft pays 1 Paper before bonuses (observed ~2.6 per craft mid-run). Paper is
+the price of the next Workshop and World upgrades — observed **Create Fruit Trees** (200 Paper +
+500 Verdant Energy) and **Planning, Paper** (1e3 Paper: +4 Develop Attribute Queue, +12% attribute
+develop speed) — so the oak loop's Wood is what Paper is made of.
