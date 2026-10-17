@@ -154,7 +154,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     /// Executes one explicit strategist request through the same live native boundary as Auto Buy.
     /// The request is not an automation decision, so no automation policy applies to it: neither the
     /// worker's enable/selection dials nor the queue reserve it keeps for manual actions — this is
-    /// the manual action that reserve exists for. What remains mandatory is what the game itself
+    /// the manual action that reserve exists for. Nor is a game refusal of it a planner error, so it
+    /// answers the caller and never stands Auto Buy down. What remains mandatory is what the game itself
     /// imposes: ownership, lifecycle, queue capacity, identity, affordability, and mutation proof.
     /// Its count is honoured as far as the queue holds it; only a queue with no free slot refuses.
     /// </summary>
@@ -300,7 +301,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             : submission;
         if (!submission.Verified)
             Narrate(action.Kind, action.Uuid, submission);
-        if (submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
+        if (requireAutomationPolicy &&
+            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
             ReportRefusal(in action, levels, in submission, in context);
         var result = Map(submission);
         if (result.Disposition == ServiceActionDisposition.Committed)

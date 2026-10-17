@@ -2057,6 +2057,12 @@ public sealed class Plugin : BaseUnityPlugin
             .ToArray();
         if (featureGroups.Length > 0)
             result.Append("features ").Append(string.Join("; ", featureGroups)).Append('\n');
+        foreach (var feature in context.FeatureStatuses)
+        {
+            if (feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;
+            result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
+                .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
+        }
 
         var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();
         var serviceGroups = runtimeServices

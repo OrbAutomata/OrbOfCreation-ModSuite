@@ -363,7 +363,8 @@ Neither derives the other: three named categories in one pass cannot be averaged
 average cannot say which pass was the expensive one.
 
 Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
-bundle. Structural contradictions that disable the feature retain a full text bundle under
+bundle. Only a planned purchase reaches the responder; a refused `game_purchase` press answers its
+caller. Structural contradictions that disable the feature retain a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
 oversized bundle, inspection failure, or retention failure leaves the refusal loud and names the
 bundle as unavailable rather than overwriting evidence or faulting gameplay.
