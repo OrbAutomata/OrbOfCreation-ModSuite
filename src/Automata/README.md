@@ -178,7 +178,7 @@ candidate work, or native mutations.
 
 Automation consumes the shared Common lifecycle monitor. Scene entry/exit, save loading, save completion, gameplay-manager readiness, reset/NG+, and registry-rebuild observations advance one coalesced generation across the suite. Every generation transition cancels prepared Auto Cast and Auto Concept work before another native mutation can start; equivalent callbacks arriving repeatedly within the same frame are idempotent.
 
-An ordinary service that waits `OnPublication` wakes on the next shared world publication, including one published while an older evaluation was still running; a timed wait runs out on its clock, and no world bypasses start, evaluation, action, or worker-response fault backoff. Configuration publications use the same generation-safe rule. The world collector is the only source service and retains its own 250-millisecond schedule rather than waking on the publication it produces.
+An ordinary service that waits `OnPublication` wakes on the next shared world publication, including one published while an older evaluation was still running; a timed wait runs out on its clock, and no world bypasses start, evaluation, action, or worker-response fault backoff. Configuration publications use the same generation-safe rule. The world collector is the only source service and keeps its own Automation pace schedule rather than waking on the publication it produces.
 
 `AffordabilityMode` and `UpgradeAffordabilityMode` are independent:
 
