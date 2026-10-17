@@ -884,14 +884,22 @@ internal static class GameMcpWorldQuery
         GameMcpWorldCategory category,
         Guid identity,
         string keywords,
-        string matchedOn) =>
-        new JObject
+        string matchedOn,
+        string? effect = null)
+    {
+        var match = new JObject
         {
             ["entityId"] = identity.ToString("D"),
             ["category"] = category.Name,
             ["keywords"] = keywords,
             ["matchedOn"] = matchedOn,
-        }.Freeze();
+        };
+
+        // What this row does to the thing the modifies filter named — the one column that filter
+        // needs, because the row is only on the page for that reason.
+        if (effect is not null) match["effect"] = effect;
+        return match.Freeze();
+    }
 
     /// <summary>
     /// Whether a row is discovered, for the categories that spell it in that word, and nothing for
@@ -914,6 +922,9 @@ internal static class GameMcpWorldQuery
 
     private static readonly string[] SearchColumns =
         { "entityId", "category", "keywords", "matchedOn" };
+
+    private static readonly string[] SourceSearchColumns =
+        { "entityId", "category", "keywords", "matchedOn", "effect" };
 
     private static GameMcpValue ProjectListRow(
         GameWorldState world,
@@ -2231,7 +2242,125 @@ internal static class GameMcpWorldQuery
         // say. Silent for every id no type record names, which is every id the explainer answers
         // for — the two blocks never meet on one entity.
         GameMcpTypeWorth.AddWorth(item, world, uuid);
+        AddModifiedBy(item, world, uuid);
         return item;
+    }
+
+    /// <summary>
+    /// What moves this thing, counted per kind of mover, on the thing's own answer.
+    /// </summary>
+    /// <remarks>
+    /// The game stores an effect on its owner only, so until this a statistic named none of its
+    /// sources and "what gives me a third Discovery Option" had no read that answered it. The count
+    /// is the node naming its edge; <c>world_search</c> with <c>modifies</c> set to this id walks it,
+    /// and both read <see cref="SourceKinds"/>, so a page saying three beside a walk returning three
+    /// is one fact. Owned and not-yet-owned movers alike are counted: the walk's <c>state</c> filter
+    /// is what splits them.
+    /// </remarks>
+    private static void AddModifiedBy(JObject item, GameWorldState world, Guid uuid)
+    {
+        var sources = GameMcpEffectSourceIndex.Build(world).Sources(uuid);
+        if (sources is null) return;
+        var kinds = SourceKinds(world, sources);
+        if (kinds.Count == 0) return;
+
+        var modifiedBy = new JArray();
+        foreach (var kind in kinds)
+            modifiedBy.Add(new JObject { ["kind"] = kind.Key, ["count"] = kind.Value });
+        item["modifiedBy"] = modifiedBy;
+    }
+
+    /// <summary>
+    /// How many of these movers each searchable category answers for, walked in the order and with
+    /// the one-entity-one-hit rule <c>world_search</c> walks them, so the count and the filtered page
+    /// cannot disagree.
+    /// </summary>
+    private static List<KeyValuePair<string, int>> SourceKinds(
+        GameWorldState world,
+        IReadOnlyDictionary<Guid, string> sources)
+    {
+        var kinds = new List<KeyValuePair<string, int>>();
+        var seen = new HashSet<Guid>();
+        for (var categoryIndex = 0; categoryIndex < Categories.Length; categoryIndex++)
+        {
+            var category = Categories[categoryIndex];
+            if (!IsSearchable(category) || !Availability(world, category).Available) continue;
+            var found = 0;
+            var count = category.Count(world);
+            for (var rowIndex = 0; rowIndex < count; rowIndex++)
+            {
+                if (!category.TryIdentity(category.Row(world, rowIndex), out var identity)) continue;
+                if (!sources.ContainsKey(identity) || !seen.Add(identity)) continue;
+                found++;
+            }
+
+            if (found > 0) kinds.Add(new KeyValuePair<string, int>(category.Name, found));
+        }
+
+        return kinds;
+    }
+
+    /// <summary>
+    /// The thing a <c>modifies</c> filter names: an id or a handle a row printed, or the name the
+    /// screen prints. A name several ids answer to is taken only when exactly one of them is moved
+    /// by anything, because that is the only one the filter could mean.
+    /// </summary>
+    private static bool TryResolveModifiesTarget(
+        GameWorldState world,
+        string text,
+        out Guid targetId,
+        out KeyValuePair<string, string> refusal)
+    {
+        refusal = default;
+        var catalog = world.EntityIdentities;
+        switch (GameMcpEntityHandle.Resolve(text, catalog, out targetId, out var candidates))
+        {
+            case GameMcpEntityHandle.ResolutionOutcome.Resolved:
+                return true;
+            case GameMcpEntityHandle.ResolutionOutcome.Ambiguous:
+                refusal = new KeyValuePair<string, string>(
+                    "ambiguous_handle",
+                    "'" + text + "' is the start of " + candidates.Count + " ids; use more of " +
+                    "the id a row printed");
+                return false;
+        }
+
+        var named = new List<Guid>();
+        if (catalog.IsBound)
+        {
+            var rows = catalog.Rows.AsSpan();
+            for (var index = 0; index < rows.Length; index++)
+            {
+                if (string.Equals(rows[index].DisplayName, text, StringComparison.OrdinalIgnoreCase))
+                    named.Add(rows[index].EntityId);
+            }
+        }
+
+        if (named.Count > 1)
+        {
+            var index = GameMcpEffectSourceIndex.Build(world);
+            named.RemoveAll(candidate => index.Sources(candidate) is null);
+            if (named.Count > 1)
+            {
+                refusal = new KeyValuePair<string, string>(
+                    "ambiguous_handle",
+                    "'" + text + "' names " + named.Count + " things that are each moved by " +
+                    "something; use the id of the one you mean");
+                return false;
+            }
+        }
+
+        if (named.Count == 1)
+        {
+            targetId = named[0];
+            return true;
+        }
+
+        refusal = new KeyValuePair<string, string>(
+            "modifies_unknown",
+            "'" + text + "' is neither a published id nor a name the screen prints; modifies " +
+            "takes the id or the name of the thing an effect moves");
+        return false;
     }
 
     /// <summary>
@@ -4627,7 +4756,8 @@ internal static class GameMcpWorldQuery
         string runFilter = "",
         string keywordFilter = "",
         bool limitFromCaller = true,
-        bool? discoveredFilter = null)
+        bool? discoveredFilter = null,
+        string modifiesFilter = "")
     {
         if (!TryWorld(state, out var publication, out var unavailable))
             return unavailable;
@@ -4697,14 +4827,16 @@ internal static class GameMcpWorldQuery
         // A query is what a caller asks for by name; a filter is what they ask for by shape. One of
         // the two has to be there, and requiring both made a round invent eight filler queries — a
         // reach nobody could characterise, sitting under a count the whole sweep was judged on.
+        var wantedTarget = (modifiesFilter ?? string.Empty).Trim();
         if (normalized.Length == 0 && scope.Length == 0 && wanted.Length == 0 &&
-            wantedRun.Length == 0 && wantedKeyword.Length == 0 && discoveredFilter is null)
+            wantedRun.Length == 0 && wantedKeyword.Length == 0 && discoveredFilter is null &&
+            wantedTarget.Length == 0)
         {
             return NotAvailable(
                 publication,
                 "query_required",
-                "name something to search for: a query, or a category, state, run, discovered " +
-                "or keyword filter");
+                "name something to search for: a query, or a category, state, run, discovered, " +
+                "keyword or modifies filter");
         }
 
         // The far side of the count a type's page prints, walked from the same index the count is
@@ -4759,6 +4891,27 @@ internal static class GameMcpWorldQuery
             }
         }
 
+        // The far side of the modifiedBy count a target's page prints, read from the same index. A
+        // query for the target's name reaches the same owners by their effect words, but also
+        // every name the words happen to contain; this names the node.
+        IReadOnlyDictionary<Guid, string>? sources = null;
+        if (wantedTarget.Length != 0)
+        {
+            if (!TryResolveModifiesTarget(world, wantedTarget, out var targetId, out var refusal))
+                return NotAvailable(publication, refusal.Key, refusal.Value);
+            sources = GameMcpEffectSourceIndex.Build(world).Sources(targetId);
+            if (sources is null)
+            {
+                return NotAvailable(
+                    publication,
+                    "modifies_nothing",
+                    GameMcpEntityHandle.Name(targetId, world.EntityIdentities) + " " +
+                    GameMcpEntityHandle.Format(targetId) + " is moved by no authored effect " +
+                    "this world publishes, so its page counts no modifiedBy and there is nothing " +
+                    "to narrow to");
+            }
+        }
+
         // Search is deliberately an entity-catalog surface. Composite diagnostic categories are
         // readable through world_list, where their full identity and localized partiality survive.
         // One entity is one match however many categories publish it: identity is deduplicated
@@ -4789,6 +4942,7 @@ internal static class GameMcpWorldQuery
                 var row = category.Row(world, rowIndex);
                 if (!category.TryIdentity(row, out var identity)) continue;
                 if (worn is not null && !worn.Contains(identity)) continue;
+                if (sources is not null && !sources.ContainsKey(identity)) continue;
                 if (wanted.Length > 0 &&
                     !string.Equals(SearchLifecycle(row), wanted, StringComparison.Ordinal))
                 {
@@ -4840,7 +4994,8 @@ internal static class GameMcpWorldQuery
             var category = Categories[hit.Category];
             var row = category.Row(world, hit.Row);
             var projected = ProjectSearchMatch(
-                category, hit.Identity, keywords.Line(hit.Identity), hit.MatchedOn);
+                category, hit.Identity, keywords.Line(hit.Identity), hit.MatchedOn,
+                sources is null ? null : sources[hit.Identity]);
             var local = LocalizedRequirementImplications(
                 world, new HashSet<Guid> { hit.Identity });
             var localOffers = LocalizedDiscoveryOfferImplications(
@@ -4898,7 +5053,10 @@ internal static class GameMcpWorldQuery
                     : "no id this build loaded answers to this query.";
         }
         if (rows.Count == 0)
-            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(SearchColumns);
+        {
+            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(
+                sources is null ? SearchColumns : SourceSearchColumns);
+        }
         result["rows"] = rows;
         if (offset + rows.Count < hits.Count) result["nextOffset"] = offset + rows.Count;
         return result;
@@ -5542,6 +5700,7 @@ internal static class GameMcpWorldQuery
             entry["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
                 effect.ModifierType, effect.Amount);
             entry["order"] = effect.Order;
+            if (effect.When.Length > 0) entry["when"] = effect.When;
             effects.Add(entry);
         }
 

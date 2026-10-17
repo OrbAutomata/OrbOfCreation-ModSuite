@@ -75,6 +75,7 @@ internal sealed class GameMcpOperationRequest
         StateFilter = source.StateFilter ?? string.Empty;
         RunFilter = source.RunFilter ?? string.Empty;
         KeywordFilter = source.KeywordFilter ?? string.Empty;
+        ModifiesFilter = source.ModifiesFilter ?? string.Empty;
         SaveCapture = source.SaveCapture;
         ResourceUri = source.ResourceUri ?? string.Empty;
         Tab = source.Tab;
@@ -128,6 +129,11 @@ internal sealed class GameMcpOperationRequest
     /// prints for it — or nothing.
     /// </summary>
     internal string KeywordFilter { get; }
+
+    /// <summary>
+    /// The thing whose movers a search was narrowed to — its id, handle or screen name — or nothing.
+    /// </summary>
+    internal string ModifiesFilter { get; }
     internal bool SaveCapture { get; }
     internal string ResourceUri { get; }
     internal GameMcpNavigationSelector? Tab { get; }
@@ -162,6 +168,7 @@ internal sealed class GameMcpOperationRequestBuilder
     internal string StateFilter { get; set; } = string.Empty;
     internal string RunFilter { get; set; } = string.Empty;
     internal string KeywordFilter { get; set; } = string.Empty;
+    internal string ModifiesFilter { get; set; } = string.Empty;
     internal bool SaveCapture { get; set; }
     internal string ResourceUri { get; set; } = string.Empty;
     internal GameMcpNavigationSelector? Tab { get; set; }

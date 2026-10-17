@@ -13,10 +13,9 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 /// <summary>
-/// What one more level of a thing buys, on that thing's own answer. Six classes author per-level
-/// modifier tuples and until now the wire carried none of them: a reader deciding whether to buy
-/// another Raise Druidry Lv could see its price and its level and had to hover the game's own
-/// tooltip to learn what the level was for.
+/// What one more level of a thing buys, on that thing's own answer. Until the wire carried authored
+/// modifier tuples, a reader deciding whether to buy another Raise Druidry Lv could see its price
+/// and its level and had to hover the game's own tooltip to learn what the level was for.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -99,8 +98,8 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     }
 
     /// <summary>
-    /// The other four holders that author a tuple on this build read the same block, so a reader
-    /// learns one shape and it answers on every levelable thing.
+    /// Every other holder that authors a tuple reads the same block, so a reader learns one shape
+    /// and it answers on every levelable thing.
     /// </summary>
     /// <remarks>
     /// Three vocabularies reach it. The glyph and the equipment type author
@@ -132,15 +131,14 @@ public sealed class GameMcpLevelEffectTests : IDisposable
         Assert.Equal("e88665", (string?)spellType["modifies"]!["uuid"]);
         Assert.Equal("+2", (string?)spellType["amount"]);
 
-        // The sixth holder is walked and authors no modifier on this build: every
-        // TimeRuneSO.onLevelEffects block carries advancement grants rather than tuples, so the
-        // owner's answer carries no block at all rather than an empty one.
+        // A holder walked with no modifier authored carries no block at all rather than an empty
+        // one: every TimeRuneSO.onLevelEffects block carries advancement grants, not tuples.
         Assert.Null(Row("time-runes", AbilityPersist)["levelEffects"]);
     }
 
     /// <summary>
     /// A target the identity catalog cannot name keeps its handle and says so, rather than being
-    /// dropped or dressed in a name nothing published. Five of the six holders point at scene
+    /// dropped or dressed in a name nothing published. Most property tuples point at scene
     /// <c>UpgradeableObject</c>s, so this is the ordinary case rather than a corner of it.
     /// </summary>
     [Fact]

@@ -7,16 +7,16 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 namespace OrbModding.Common.Runtime.World;
 
 /// <summary>
-/// One authored modifier a level buys — the <c>+1 Max Druidry Lv</c> an upgrade's tooltip prints per
-/// level, as the three numbers the game's modifier arithmetic is made of plus the thing the number is
-/// about.
+/// One authored modifier an owner applies — the <c>+1 Max Druidry Lv</c> an upgrade's tooltip
+/// prints per level, the <c>+1 Discovery Options</c> a research prints — as the three numbers the
+/// game's modifier arithmetic is made of plus the thing the number is about.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Six holders author these and the game reads them through three record classes, so the wire carries
-/// one tuple rather than three: <see cref="Property"/> says which of the target's properties moves,
-/// <see cref="TargetId"/> names the thing it moves on, and <see cref="ModifierType"/>,
-/// <see cref="Amount"/> and <see cref="Order"/> are the same three fields
+/// Every effect holder authors these and the game reads them through three record classes, so the
+/// wire carries one tuple rather than three: <see cref="Property"/> says which of the target's
+/// properties moves, <see cref="TargetId"/> names the thing it moves on, and
+/// <see cref="ModifierType"/>, <see cref="Amount"/> and <see cref="Order"/> are the same three fields
 /// <see cref="WorldModifierVariable"/> and <see cref="WorldGlyphFactor"/> publish, under the same
 /// names, because they are the same arithmetic.
 /// </para>
@@ -46,7 +46,8 @@ internal readonly struct WorldLevelEffect
         Guid targetId,
         int modifierType,
         BigDouble amount,
-        int order)
+        int order,
+        string when = "")
     {
         OwnerId = ownerId;
         Ordinal = ordinal;
@@ -55,6 +56,7 @@ internal readonly struct WorldLevelEffect
         ModifierType = modifierType;
         Amount = amount;
         Order = order;
+        When = when ?? string.Empty;
     }
 
     /// <summary>The levelable entity whose authored effects these are.</summary>
@@ -90,6 +92,12 @@ internal readonly struct WorldLevelEffect
     internal BigDouble Amount { get; }
 
     internal int Order { get; }
+
+    /// <summary>
+    /// The section word the owner's tooltip prints the tuple under, or empty where it prints one
+    /// list. Only a challenge splits its effects, under <c>-- While --</c> and <c>-- Reward --</c>.
+    /// </summary>
+    internal string When { get; }
 }
 
 /// <summary>Publishes the tuple readings, sorted by owner and then by authored position.</summary>
@@ -153,7 +161,7 @@ internal static class WorldLevelEffectLookup
 }
 
 /// <summary>
-/// Every authored modifier tuple the game applies, from the seven registries that author one. It
+/// Every authored modifier tuple the game applies, from every registry whose assets author one. It
 /// claims no identities: each owner is already claimed by its own category.
 /// </summary>
 /// <remarks>
@@ -161,8 +169,7 @@ internal static class WorldLevelEffectLookup
 /// One collector rather than two, because it is one subject and one of the registries is walked for
 /// both halves of it. A glyph's fifteen inline <c>ValueModifier</c> slots are what the glyph does at
 /// any level; its <c>levelingEffects</c> are what one more level of it buys. Both are read in the
-/// same pass over <c>GlyphSO.All</c>, and the six per-level holders are read in the same shape
-/// beside them.
+/// same pass over <c>GlyphSO.All</c>, and every other holder is read in the same shape beside them.
 /// </para>
 /// <para>
 /// A slot is published only when the game itself would print it, and the game's own predicate is
@@ -170,6 +177,13 @@ internal static class WorldLevelEffectLookup
 /// multiplicative kinds and zero for the rest. <see cref="GameValueModifier.IsEmpty"/> is that method
 /// ported, so the rows are exactly the lines a tooltip carries rather than a convenient approximation
 /// of them.
+/// </para>
+/// <para>
+/// The block lists are the ones a tooltip prints through <c>EffectBlock.GetAllTooltipNodes</c>, one
+/// holder per list, so a statistic's sources are the union of every list here. Three lists nest a
+/// block inside an instant script — <c>PassiveAbilitySO.enterEffectBlocks</c>,
+/// <c>SpellRecipeSO.onCastEffects</c> and <c>HarvestElementSO.availableActions</c> — and apply it
+/// for a moment rather than for as long as the owner holds; they are not walked.
 /// </para>
 /// <para>
 /// <c>TimeRuneSO.onLevelEffects</c> is walked and authors nothing on this build: its blocks are
@@ -202,6 +216,17 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
     private readonly Func<object, BigDouble>? _tupleAmount;
     private readonly Func<object, int>? _tupleOrder;
     private readonly Type? _upgradeType;
+
+    private readonly Type? _structureType;
+    private readonly Func<object, Guid>? _structureId;
+    private readonly Func<object, IList?>? _structureProperties;
+    private readonly Func<object, IList?>? _propertyNumberVariableEffects;
+    private readonly Func<object, IList?>? _propertyObjectEffects;
+    private readonly Func<object, IList?>? _propertyResourceEffects;
+
+    // Several holders are lists on one owner — a challenge's two, a concept's three — so an owner's
+    // tuples number on across them in the order its tooltip prints them.
+    private readonly Dictionary<Guid, int> _nextOrdinal = new();
 
     internal WorldEffectFactorReader(Func<string, Type?> resolveType)
     {
@@ -272,13 +297,55 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         _tupleAmount = tuple.NestedField<BigDouble>("modifier", "adjustReal");
         _tupleOrder = tuple.NestedField<int>("modifier", "order");
 
+        // An attribute authors one property per rank of the same shape an upgrade's permanent
+        // effects are, so the tuple accessors bound above read both.
+        _structureType = resolveType("StructureSO");
+        if (_structureType is null)
+        {
+            missing.Add("the StructureSO type was not found on this build");
+        }
+        else
+        {
+            var structure = new WorldMemberBinding(_structureType, "StructureSO");
+            _structureId = structure.Call<Guid>("GetGuid");
+            _structureProperties = structure.CollectionField("structureProperties");
+            var property = structure.Elements(
+                structure.CollectionElementType("structureProperties"),
+                "StructureSO.structureProperties");
+            _propertyNumberVariableEffects = property.CollectionField("numberVariableEffects");
+            _propertyObjectEffects = property.CollectionField("upgradeableObjectEffects");
+            _propertyResourceEffects = property.CollectionField("resourceEffects");
+            if (structure.Failure.Length > 0) missing.Add(structure.Failure);
+        }
+
         _holders = new[]
         {
             Holder(resolveType, missing, "GlyphSO", "levelingEffects"),
             Holder(resolveType, missing, "ResourceTypeSO", "levelEffects"),
             Holder(resolveType, missing, "EquipmentTypeSO", "levelEffects"),
             Holder(resolveType, missing, "SpellTypeSO", "perLevelEffects"),
+            Holder(resolveType, missing, "TimeRuneSO", "effectBlocks"),
             Holder(resolveType, missing, "TimeRuneSO", "onLevelEffects"),
+            Holder(resolveType, missing, "ResearchSO", "researchEffectBlocks"),
+            Holder(resolveType, missing, "AchievementSO", "completionEffects"),
+            Holder(resolveType, missing, "AdvancementSO", "advancementEffects"),
+            Holder(resolveType, missing, "ChallengeSO", "challengeEffects", "while"),
+            Holder(resolveType, missing, "ChallengeSO", "completionRewards", "reward"),
+            Holder(resolveType, missing, "AlchemyRecipeSO", "persistentEffectBlocks"),
+            Holder(resolveType, missing, "AlchemyRecipeSO", "equipEffectBlocks"),
+            Holder(resolveType, missing, "AlchemyRecipeSO", "advancementEffectBlocks"),
+            Holder(resolveType, missing, "EquipmentSO", "equipEffects"),
+            Holder(resolveType, missing, "EnchantmentSO", "persistentEffects"),
+            Holder(resolveType, missing, "ConsumableSO", "toggledEffects"),
+            Holder(resolveType, missing, "SpellRecipeSO", "toggledEffects"),
+            Holder(resolveType, missing, "PassiveAbilitySO", "passiveEffectBlocks"),
+            Holder(resolveType, missing, "RitualSO", "durationRewardBlocks"),
+            Holder(resolveType, missing, "PlotNodeSO", "passiveEffects"),
+            Holder(resolveType, missing, "PlotNodeActionSO", "actionEffects"),
+            Holder(resolveType, missing, "HarvestElementSO", "growthEffects"),
+            Holder(resolveType, missing, "HarvestElementSO", "harvestEffects"),
+            Holder(resolveType, missing, "IntVariable", "persistentEffectBlocks"),
+            Holder(resolveType, missing, "DoubleVariable", "persistentEffectBlocks"),
         };
 
         if (glyph.Failure.Length > 0) missing.Add(glyph.Failure);
@@ -293,13 +360,14 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         Func<string, Type?> resolveType,
         List<string> missing,
         string typeName,
-        string field)
+        string field,
+        string when = "")
     {
         var type = resolveType(typeName);
         if (type is null)
         {
             missing.Add("the " + typeName + " type was not found on this build");
-            return new WorldLevelEffectHolder(null, typeName, null, null, null);
+            return new WorldLevelEffectHolder(null, typeName, null, null, null, when);
         }
 
         var bind = new WorldMemberBinding(type, typeName);
@@ -308,7 +376,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         var block = bind.Elements(bind.CollectionElementType(field), typeName + "." + field);
         var scripts = block.CollectionField("effectScripts");
         if (bind.Failure.Length > 0) missing.Add(bind.Failure);
-        return new WorldLevelEffectHolder(type, typeName, ownerId, blocks, scripts);
+        return new WorldLevelEffectHolder(type, typeName, ownerId, blocks, scripts, when);
     }
 
     public string Category => "effect factors";
@@ -321,6 +389,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         var levels = frame.LevelEffects;
         factors.Reset();
         levels.Reset();
+        _nextOrdinal.Clear();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var glyphs = NativeAccessorBinder.StaticList(_glyphType, "All");
@@ -374,6 +443,29 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
                 if (firstFailure.Length == 0)
                 {
                     firstFailure = "reading an upgrade's permanent effects threw: " +
+                        ex.GetBaseException().Message;
+                }
+            }
+        }
+
+        var structures = NativeAccessorBinder.StaticList(_structureType, "All");
+        if (structures is null)
+            return WorldCategoryReport.Missing(Category, "the StructureSO registry was unreadable");
+
+        for (var index = 0; index < structures.Count; index++)
+        {
+            var structure = structures[index];
+            if (structure is null) continue;
+            try
+            {
+                sampled += ReadStructureProperties(structure, levels);
+            }
+            catch (Exception ex)
+            {
+                skipped++;
+                if (firstFailure.Length == 0)
+                {
+                    firstFailure = "reading an attribute's properties threw: " +
                         ex.GetBaseException().Message;
                 }
             }
@@ -458,6 +550,32 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         return appended;
     }
 
+    private int ReadStructureProperties(
+        object structure,
+        WorldRelationBuffer<WorldLevelEffect> buffer)
+    {
+        var structureId = _structureId!(structure);
+        if (structureId == Guid.Empty) return 0;
+
+        var properties = _structureProperties!(structure);
+        var count = properties?.Count ?? 0;
+        var ordinal = 0;
+        var appended = 0;
+        for (var index = 0; index < count; index++)
+        {
+            var property = properties![index];
+            if (property is null) continue;
+            appended += AppendTupleMods(
+                structureId, _propertyNumberVariableEffects!(property), buffer, ref ordinal);
+            appended += AppendScripts(
+                structureId, _propertyObjectEffects!(property), buffer, ref ordinal);
+            appended += AppendScripts(
+                structureId, _propertyResourceEffects!(property), buffer, ref ordinal);
+        }
+
+        return appended;
+    }
+
     private int AppendTupleMods(
         Guid ownerId,
         IList? tuples,
@@ -494,15 +612,17 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
         var blocks = holder.Blocks!(owner);
         var count = blocks?.Count ?? 0;
-        var ordinal = 0;
+        _nextOrdinal.TryGetValue(ownerId, out var ordinal);
         var appended = 0;
         for (var index = 0; index < count; index++)
         {
             var block = blocks![index];
             if (block is null) continue;
-            appended += AppendScripts(ownerId, holder.Scripts!(block), buffer, ref ordinal);
+            appended += AppendScripts(
+                ownerId, holder.Scripts!(block), buffer, ref ordinal, holder.When);
         }
 
+        _nextOrdinal[ownerId] = ordinal;
         return appended;
     }
 
@@ -510,7 +630,8 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         Guid ownerId,
         IList? scripts,
         WorldRelationBuffer<WorldLevelEffect> buffer,
-        ref int ordinal)
+        ref int ordinal,
+        string when = "")
     {
         var count = scripts?.Count ?? 0;
         var appended = 0;
@@ -525,7 +646,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
                 continue;
             }
             appended += Append(
-                ownerId, property, targetId, type, amount, order, buffer, ref ordinal);
+                ownerId, property, targetId, type, amount, order, buffer, ref ordinal, when);
         }
 
         return appended;
@@ -539,12 +660,13 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         BigDouble amount,
         int order,
         WorldRelationBuffer<WorldLevelEffect> buffer,
-        ref int ordinal)
+        ref int ordinal,
+        string when = "")
     {
         var modifier = new GameValueModifier((GameValueModifierType)modifierType, amount, order);
         if (modifier.IsEmpty()) return 0;
         buffer.Append(new WorldLevelEffect(
-            ownerId, ordinal++, property, targetId, modifierType, amount, order));
+            ownerId, ordinal++, property, targetId, modifierType, amount, order, when));
         return 1;
     }
 }
@@ -557,13 +679,15 @@ internal readonly struct WorldLevelEffectHolder
         string typeName,
         Func<object, Guid>? ownerId,
         Func<object, IList?>? blocks,
-        Func<object, IList?>? scripts)
+        Func<object, IList?>? scripts,
+        string when)
     {
         Type = type;
         TypeName = typeName;
         OwnerId = ownerId;
         Blocks = blocks;
         Scripts = scripts;
+        When = when;
     }
 
     internal Type? Type { get; }
@@ -571,6 +695,9 @@ internal readonly struct WorldLevelEffectHolder
     internal Func<object, Guid>? OwnerId { get; }
     internal Func<object, IList?>? Blocks { get; }
     internal Func<object, IList?>? Scripts { get; }
+
+    /// <summary>The section word the owner's tooltip prints this list under, if any.</summary>
+    internal string When { get; }
 }
 
 /// <summary>

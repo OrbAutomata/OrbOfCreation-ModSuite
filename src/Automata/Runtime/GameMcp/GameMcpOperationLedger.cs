@@ -152,6 +152,7 @@ internal static class GameMcpOperationLedger
         Add(text, "state", request.StateFilter);
         Add(text, "run", request.RunFilter);
         Add(text, "keyword", request.KeywordFilter);
+        Add(text, "modifies", request.ModifiesFilter);
         if (request.Uuids.Length != 0)
             Add(text, "uuids", request.Uuids.Length.ToString(CultureInfo.InvariantCulture));
         if (request.Offset != 0)

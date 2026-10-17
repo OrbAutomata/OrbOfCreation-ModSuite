@@ -47,7 +47,7 @@ describe that data model, not anything the player does.
 | | Required component | Optional pool pick |
 |---|---|---|
 | Marker | exclamation mark | none |
-| Options offered | effectively one | the choice-count statistic |
+| Options offered | effectively one | Discovery Options (+1 on Alchemy) |
 | Cost | the tree's thematic resources | the tree's pool ladder |
 | Advances the price ladder | no | yes |
 
@@ -57,8 +57,21 @@ pool and make you choose one.
 
 ## Choices and rerolls are statistics
 
-How many options a roll offers is a **statistic** (observed at 2 early in a run), and so is **Max
-Discovery Rerolls** (observed at 1), so upgrades and effects can move both.
+How many options an optional pick offers is the **Discovery Options** statistic
+(`DiscoveryTreeChoiceCount`, base 2), and the reroll budget is **Max Discovery Rerolls** (observed at
+1). A tree offers `max(1, Discovery Options + its own bonus)`; the Alchemy tree's bonus is +1, every
+other tree's is 0, so alchemy shows one option more than the rest.
+
+Exactly three authored effects move Discovery Options:
+
+| Source | Kind | Effect |
+|---|---|---|
+| Greater Discovery | research (Innovation, one level) | +1 |
+| Orb Minimalism | achievement | +1 once completed |
+| Weakened Choices | challenge | -1 while it runs, through the `ChallengeEffect` weight (and Max Discovery Rerolls -99, unscaled) |
+
+So a third option on an ordinary tree comes from Greater Discovery or Orb Minimalism; Alchemy already
+offers three.
 
 - Rerolling replaces the options offered. **Rerolling never rerolls the rarity** of the offer.
 - The Reroll button is drawn on the reroll budget alone, so a required component can be rerolled

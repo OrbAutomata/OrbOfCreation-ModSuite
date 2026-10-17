@@ -446,6 +446,7 @@ internal sealed class GameWorldCollector
                 ReferenceEquals(_readers[index], _purchaseViewRelations) ||
                 ReferenceEquals(_readers[index], _recipeBookGlyphs) ||
                 ReferenceEquals(_readers[index], _discoveryTreeBooks) ||
+                ReferenceEquals(_readers[index], _effectFactors) ||
                 ReferenceEquals(_readers[index], _craftingRecipeTypes) ||
                 ReferenceEquals(_readers[index], _craftingRecipeAuthoring) ||
                 ReferenceEquals(_readers[index], _purchaseCosts) ||

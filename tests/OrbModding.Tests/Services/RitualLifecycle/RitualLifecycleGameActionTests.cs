@@ -143,7 +143,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
     public void Cancel_duration_clears_game_owned_effect_instances_and_no_op_fails()
     {
         var ritual = Ritual();
-        ritual.durationRewardBlocks.Add(new object());
+        ritual.durationRewardBlocks.Add(new PersistentEffectBlock());
         ritual.ritualInstances = new System.Collections.Generic.List<object> { new object() };
         Register(ritual);
         using var boundary = Boundary();
