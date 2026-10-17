@@ -32,7 +32,7 @@ Shared and feature folders:
 - `Mentor` — shares a configurable share of earned mastery XP from spells, artifacts, and recipes to lower-mastery ones.
 - `ModConfig` — the in-game Mods tab: staged settings and runtime diagnostics.
 - `SpellLeveling` — buys spell levels as an Auto Buy sub-feature.
-- `Strategist` — derives the strategy bulletin from each published world: goals, position, and demand, with every cost a time on sustained income.
+- `Strategist` — derives a bulletin from a pinned world once a minute: goals, position, and demand, with every cost a time on sustained income.
 
 Capabilities:
 

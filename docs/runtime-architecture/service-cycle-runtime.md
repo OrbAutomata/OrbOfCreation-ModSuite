@@ -115,8 +115,9 @@ handed configuration and its own buffer.
 - Once a service is idle, a newer configuration generation invalidates a wake deadline calculated from
   an older one and the next admission re-runs `ShouldStart` against the latest committed snapshot, so
   unrelated changes may cost one extra evaluation but cannot leave newly enabled work behind an
-  obsolete delay. A newer world generation likewise invalidates an ordinary service's normal wait. The
-  source does not wake on its own publication. Fault-recovery deadlines keep their bounded backoff.
+  obsolete delay. A newer world generation likewise invalidates an ordinary service's normal wait,
+  unless its definition opts out (`WakesOnWorldPublication`, only the Strategist's once-a-minute wake).
+  The source does not wake on its own publication. Fault-recovery deadlines keep their bounded backoff.
 - The next cycle consumes the latest publications; intermediate ones may coalesce. The state projection
   exposes both pinned and latest generations so the UI can explain that a saved change applies next
   cycle.
@@ -128,8 +129,10 @@ failures, failed persistence, and pending watcher notifications are invisible to
 
 The world publication becomes live on the main thread during the action pass rather than on the worker
 that derived it, and publishing services dispatch before mutating ones, so a snapshot acquired this
-frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one until the
-Strategist publishes its first, and a lifecycle replacement puts the neutral one back with the world.
+frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one, and a
+lifecycle replacement publishes the neutral one again with the world. The Strategist's own bulletin sits
+beside it in a latest-value slot: replacing it moves no strategy generation, so it wakes no service and
+writes no journal transition, and a lifecycle replacement empties it.
 
 ## The source's world buffer
 

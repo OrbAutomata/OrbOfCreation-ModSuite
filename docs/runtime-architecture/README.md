@@ -47,4 +47,4 @@ rather than overriding the game.
   required for gameplay, UI, save, and installation claims. Passing one boundary does not imply
   another. Current commands live in the [testing guide](../testing/README.md).
 - **Not yet built.** Nothing consumes the strategist's bulletin. It publishes goals, position, and
-  demand with an empty stance table, so every consumer still reads a neutral constraint.
+  demand to a slot of its own and no stances, so every consumer still reads a neutral strategy.

@@ -4837,12 +4837,15 @@ rank. Each goal's binder is its slowest price.
 
 A cost is a time measured on sustained income: the price over the lifetime gain of a window at least
 one full cycle of the slowest running producer long (a minute at least, a harvest and its regrowth or a
-spell's recharge when longer), so a burst never reads as income. `trivial` is under 10 s, `cheap`
+spell's recharge when longer), so a burst never reads as income. The window samples once per bulletin,
+so its ends land anywhere in a producer's cycle and it holds at most one burst more or less than its
+share. `trivial` is under 10 s, `cheap`
 under a minute, `notable` under an hour, `expensive` beyond. The arrow reads the wait for what is
 still missing, or `now`. A price above the currency's cap reads `out of reach: ×N over cap`, one no
 income refills reads `out of reach: no income`, a window still filling reads `measuring income`, and
 a points currency reads how many points are short. An income read at the cap is a lower bound and
-prints `≥`.
+prints `≥`; a price that falls short after a window spent at the cap reads `measuring income`, since
+only an unclipped window says how fast it refills.
 
 The facts are one record per line, every number lossless, so the text pasted into a fixture derives
 the same bulletin back:
@@ -4857,9 +4860,13 @@ window required=130
 gain 3f1c0a52-7d4e-4b8a-9c21-5e6f70819203 gained=1.3e3 span=130
 ```
 
-A lifecycle boundary puts the neutral strategy back with the world, so until the next world is judged
-the read answers `no bulletin — a new game is loading`. With no published world it refuses the way
-the world reads do.
+The strategist judges one pinned world about once a minute. A fresh game reads `measuring income` on
+its first bulletin and is measured on the second, a minute later, unless a producer's cycle runs
+longer. A lifecycle boundary drops the bulletin with the world, so until the next world is judged the
+read answers `no bulletin — a new game is loading`. A faulted strategist says so first —
+`strategist faulted (Evaluation, 3× in a row)` — then `— no bulletin yet`, or
+`— showing the last bulletin it published` above that bulletin. With no published world it refuses
+the way the world reads do.
 
 ## Trace health and probes
 
