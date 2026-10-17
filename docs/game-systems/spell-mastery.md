@@ -33,14 +33,22 @@ cheap spam is a poor mastery engine.
 
 ## Confirm Mastery and the spell-type tracks
 
-The Spells page's **Confirm Mastery** action is gated on **three parallel spell-type XP tracks**, one
-per type the spell carries, plus a resource cost rendered red when unaffordable. E.g., for a
-Primary/Divining/Cantrip spell: 0/300 Primary, 0/200 Divining, 0/500 Cantrip.
+A full mastery bar does not level the spell by itself: the spell's card on the Spells page shows a
+**Confirm Mastery** button, priced in resources (red when unaffordable), and pressing it buys the
+level. The button is ready when that spell's own mastery bar is full; nothing else feeds readiness.
+The spell's leveling requirements are checked on the press.
 
-**One cast feeds all three**, because the spell carries all three types. The tracks are per type, not
-per spell, so casting any Cantrip advances the Cantrip track for every spell that needs it, and a
-loadout whose spells share types converges much faster than one built from disjoint tags. Which types
-a spell carries can be changed by glyphs; see [spell-types.md](spell-types.md).
+The card also shows one XP track per spell type the spell carries — e.g., for a
+Primary/Divining/Cantrip spell, 0/300 Primary, 0/200 Divining, 0/500 Cantrip. These are the types'
+own tracks, not gates on the button. **Confirming mastery is what fills them**: each press grants
+every type the spell carries the same base amount of type XP, scaled by that type's Type Xp modifier
+and by the global spell-type XP modifier, and the card prints the grant as `(+X)` beside each track
+while the button is ready. Casting fills the mastery bar and never a type track directly.
+
+The tracks are per type, not per spell, so mastering any Cantrip advances the Cantrip track every
+Cantrip shares, and a loadout whose spells share types converges much faster than one built from
+disjoint tags. Which types a spell carries can be changed by glyphs; see
+[spell-types.md](spell-types.md).
 
 ## What mastery pays out
 

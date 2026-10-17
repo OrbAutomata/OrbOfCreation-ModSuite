@@ -52,8 +52,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   Reserve prices the passive economy.
 - [casting-level.md](casting-level.md) — a global track fed by every cast; the displayed +1/s may
   be a windowed average.
-- [spell-mastery.md](spell-mastery.md) — per-spell XP that only casting fills, plus the three
-  spell-type tracks.
+- [spell-mastery.md](spell-mastery.md) — per-spell XP that only casting fills; Confirm Mastery buys
+  the level and grants the spell's types their XP.
 - [spell-levels.md](spell-levels.md) — cost curve 3.3^(L(1+0.007L)); levelling raises output and XP
   together.
 
