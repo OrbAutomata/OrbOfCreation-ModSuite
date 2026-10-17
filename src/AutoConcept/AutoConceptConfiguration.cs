@@ -6,6 +6,5 @@ internal sealed record AutoConceptConfiguration
     internal AutoConceptSlotManagementMode SlotManagement { get; init; }
     internal int TrainingPeriodSeconds { get; init; }
     internal float RateReservePercent { get; init; }
-    internal float MinimumResourcePercent { get; init; }
     internal float MinimumDrainRatio { get; init; }
 }

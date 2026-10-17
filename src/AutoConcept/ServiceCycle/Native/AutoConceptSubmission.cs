@@ -82,13 +82,11 @@ internal interface IAutoConceptNativePort
 /// The resource limits Auto Concept's own cycle holds an assignment back for.
 /// </summary>
 /// <remarks>
-/// A manual press is handed none. The rate reserve and the quantity floor are the worker's
-/// backpressure, not gates the game applies to a player pressing Add.
+/// A manual press is handed none. The rate reserve is the worker's backpressure, not a gate the
+/// game applies to a player pressing Add.
 /// </remarks>
-internal readonly record struct AutoConceptResourceLimits(
-    float RateReservePercent,
-    float MinimumResourcePercent)
+internal readonly record struct AutoConceptResourceLimits(float RateReservePercent)
 {
     internal static AutoConceptResourceLimits From(AutoConceptConfiguration config) =>
-        new(config.RateReservePercent, config.MinimumResourcePercent);
+        new(config.RateReservePercent);
 }

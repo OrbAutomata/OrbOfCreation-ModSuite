@@ -12,7 +12,7 @@ namespace OrbModding.ProfileTests;
 /// What Auto Concept's action boundary hands its native port depends on who pressed.
 /// </summary>
 /// <remarks>
-/// Round 15 met <c>ERR_LIMIT</c> "below the configured quantity floor" on <c>game_concept add</c>
+/// Round 15 met <c>ERR_LIMIT</c> from one of Auto Concept's dials on <c>game_concept add</c>
 /// while Auto Concept's Mode was Disabled. The dials belong to the worker: they say when it may
 /// spend the player's rate on its own, and they say nothing about a press the player asked for.
 /// </remarks>
@@ -31,7 +31,6 @@ public sealed class AutoConceptManualPressProfileTests
             {
                 Mode = AutoConceptOperationMode.Disabled,
                 RateReservePercent = 90.0f,
-                MinimumResourcePercent = 80.0f,
             },
         };
 
@@ -58,7 +57,7 @@ public sealed class AutoConceptManualPressProfileTests
 
         Assert.Equal(ServiceActionDisposition.Committed, automated.Disposition);
         Assert.Equal(
-            new AutoConceptResourceLimits(90.0f, 80.0f),
+            new AutoConceptResourceLimits(90.0f),
             worked.Limits);
     }
 

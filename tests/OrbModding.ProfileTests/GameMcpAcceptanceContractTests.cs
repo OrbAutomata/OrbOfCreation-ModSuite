@@ -671,6 +671,38 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     [Fact]
+    public void HealthSaysWhyAHeldAutomationIsIdle()
+    {
+        var concept = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "AutoConcept"),
+            "Auto Concept",
+            configuredEnabled: true,
+            FeatureStatusState.TemporarilyBlocked,
+            new FeatureStatusReason(
+                FeatureStatusReasonCode.TemporarySafetyBlock,
+                "Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is at zero."),
+            lifecycleGeneration: 9);
+        var stopped = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
+            "Auto Buy",
+            configuredEnabled: true,
+            FeatureStatusState.TemporarilyBlocked,
+            new FeatureStatusReason(
+                FeatureStatusReasonCode.EmergencyDisabled,
+                "Automata Emergency Disable is active."),
+            lifecycleGeneration: 9);
+
+        var compact = Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(features: new[] { concept, stopped }));
+
+        Assert.Contains(
+            "\nauto_concept reason: Auto Concept would rotate Analyze Space out for Analyze Essence, but Psi is at zero.",
+            compact,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("auto_buy reason: ", compact, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HealthHasOneCanonicalShapeAndRejectsDetailOptions()
     {
         var feature = new FeatureStatusSnapshot(
@@ -910,8 +942,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(29, schema.Length);
-        Assert.Equal(29, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(28, schema.Length);
+        Assert.Equal(28, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -1478,7 +1510,6 @@ public sealed class GameMcpConfigurationTests
                 "AutoConcept/SlotManagementMode: AutoConceptSlotManagementMode",
                 "AutoConcept/TrainingPeriodSeconds: int",
                 "AutoConcept/RateReservePercent: float",
-                "AutoConcept/MinimumResourcePercent: float",
                 "AutoConcept/MinimumDrainRatio: float",
                 "AutoHarvest/Mode: AutoHarvestOperationMode",
                 "AutoHarvest/CollectFruitTrees: bool",

@@ -642,16 +642,6 @@ internal sealed class AutoConceptNativeAdapter :
                     refusal = AutoConceptProjectionRefusal.Backpressure;
                     return FailProjection($"{ResourceName(entry.Resource)} would fall below the configured rate reserve", out reason);
                 }
-
-                if (ReflectionUtil.InvokeNoArgs(entry.Resource, "HasMaxQuantity") is true &&
-                    BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetQuantity"), out var quantity) &&
-                    BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetTrueSoftCap"), out var capacity) &&
-                    !capacity.IsZero &&
-                    quantity.DivideApprox(capacity) * 100.0 < applied.MinimumResourcePercent)
-                {
-                    refusal = AutoConceptProjectionRefusal.Backpressure;
-                    return FailProjection($"{ResourceName(entry.Resource)} is below the configured quantity floor", out reason);
-                }
             }
             reason = "projected native drain is safe";
             refusal = AutoConceptProjectionRefusal.None;

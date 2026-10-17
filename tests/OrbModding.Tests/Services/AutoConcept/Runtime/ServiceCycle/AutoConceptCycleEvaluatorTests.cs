@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using BepInEx.Configuration;
+using OrbModding.Common;
 using OrbAutomata;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -519,6 +521,60 @@ public sealed class AutoConceptCycleEvaluatorTests
             idle.IdleReason);
     }
 
+    [Fact]
+    public void ShippedDefaultsRotateAMasteredConceptWhilePsiIsASliverOfItsHugeCap()
+    {
+        var bound = SuiteConfiguration.TryBind(new ConfigFile());
+        Assert.True(bound.Success, bound.Status.Reason);
+        var shipped = BepInExAutomataConfigurationReader.Read(bound.Config!.Automata);
+        var config = shipped with
+        {
+            AutoConcept = shipped.AutoConcept with
+            {
+                Mode = AutoConceptOperationMode.Active,
+                SlotManagement = AutoConceptSlotManagementMode.RotateAll,
+            },
+        };
+        var world = World(
+            new[] { Recipe(Alpha, masteryLevel: 29, maximum: 18), Recipe(Beta, masteryLevel: 0, maximum: 1) },
+            new[] { Instance(Alpha, quantity: 18, queued: 18) },
+            resources: new[] { DrainingResource(Resource, 2.57e19, 7.32e22, trueRate: 9.19e17, currentDrain: 7.75e9) },
+            costs: new[]
+            {
+                new WorldAlchemyCost(Alpha, WorldAlchemyCostKind.RecipeDrain, Resource, new BigDouble(0.459)),
+                new WorldAlchemyCost(Alpha, WorldAlchemyCostKind.CurrentDrain, Resource, new BigDouble(7.75e9)),
+                new WorldAlchemyCost(Beta, WorldAlchemyCostKind.RecipeDrain, Resource, new BigDouble(0.459)),
+            });
+        var state = AutoConceptCycleState.Create(new LifecycleGeneration(1));
+
+        var action = Assert.Single(Plan(world, config, ref state, out _));
+
+        Assert.Equal(AutoConceptActionKind.RotateOut, action.Kind);
+        Assert.Equal(Alpha, action.RecipeId);
+        Assert.Equal(Beta, action.ReplacementId);
+    }
+
+    [Fact]
+    public void AnIdleCycleNamesTheMoveItWouldMakeAndTheResourceThatHeldItBack()
+    {
+        var world = World(
+            new[] { Recipe(Alpha, masteryLevel: 29, maximum: 18), Recipe(Beta, masteryLevel: 0, maximum: 1) },
+            new[] { Instance(Alpha, quantity: 18, queued: 18) },
+            resources: new[] { DrainingResource(Resource, 0, 100, trueRate: 100, currentDrain: 0) },
+            costs: new[]
+            {
+                new WorldAlchemyCost(Beta, WorldAlchemyCostKind.RecipeDrain, Resource, new BigDouble(1)),
+            });
+        var state = AutoConceptCycleState.Create(new LifecycleGeneration(1));
+
+        Assert.Empty(PlanAt(world, Config(), ref state, 0, out _, out var metrics));
+
+        Assert.Equal(
+            new AutoConceptIdle(
+                AutoConceptIdleReason.ResourceAtZero, AutoConceptIdleMove.Rotate, Beta, Alpha, Resource),
+            metrics.Idle);
+    }
+
     private static WorldAlchemyRecipe Recipe(
         Guid id,
         int masteryLevel = 0,
@@ -673,8 +729,7 @@ public sealed class AutoConceptCycleEvaluatorTests
         AutoConceptOperationMode mode = AutoConceptOperationMode.Active,
         AutoConceptSlotManagementMode slotMode = AutoConceptSlotManagementMode.RotateAll,
         int trainingSeconds = 60,
-        float rateReservePercent = 0,
-        float minimumResourcePercent = 0) =>
+        float rateReservePercent = 0) =>
         new()
         {
             General = new SuiteGeneralConfiguration { Enabled = enabled },
@@ -685,7 +740,6 @@ public sealed class AutoConceptCycleEvaluatorTests
                 SlotManagement = slotMode,
                 TrainingPeriodSeconds = trainingSeconds,
                 RateReservePercent = rateReservePercent,
-                MinimumResourcePercent = minimumResourcePercent,
                 MinimumDrainRatio = 0.25f,
             },
         };

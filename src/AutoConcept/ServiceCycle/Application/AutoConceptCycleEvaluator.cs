@@ -96,22 +96,25 @@ internal static class AutoConceptCycleEvaluator
                 : Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.PreferredReplacement,
                     actions, ref state, out metrics);
 
-        if (TryBreadth(ranked, byId, world, in config, ref state, out action))
+        var blocked = default(AutoConceptIdle);
+        if (TryBreadth(ranked, byId, world, in config, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Breadth,
                 actions, ref state, out metrics);
 
-        if (TryRebalance(ranked, byId, world, in config, ref state, out action))
+        if (TryRebalance(ranked, byId, world, in config, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Rebalance,
                 actions, ref state, out metrics);
 
-        if (TryDepth(ranked, byId, world, in config, ref state, out action))
+        if (TryDepth(ranked, byId, world, in config, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Depth,
                 actions, ref state, out metrics);
 
-        var idleReason = ClassifyIdle(candidates, in config, ref state);
+        var idle = blocked.Reason != AutoConceptIdleReason.None
+            ? blocked
+            : new AutoConceptIdle(ClassifyIdle(candidates, in config, ref state));
         metrics = new AutoConceptDecisionMetrics(
             world.ConceptRecipes.Count, candidates.Count, active, owned, 0,
-            AutoConceptDecisionKind.Idle, idleReason);
+            AutoConceptDecisionKind.Idle, idle);
         var trainingWake = TrainingWake(in config, in context, ref state);
         return trainingWake.Ticks > 0
             ? WakePolicy.AfterDecision(trainingWake)
@@ -300,14 +303,19 @@ internal static class AutoConceptCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref AutoConceptCycleState state,
+        ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
     {
         for (var offset = 0; offset < ranked.Count; offset++)
         {
             var index = Normalize(state.CandidateCursor + offset, ranked.Count);
             var candidate = byId[ranked[index].Uuid];
-            if (!candidate.IsSettled || candidate.Quantity != 0 || !CanAdd(candidate) ||
-                !TryFindSafeTarget(world, candidate, 1, in config, out var target)) continue;
+            if (!candidate.IsSettled || candidate.Quantity != 0 || !CanAdd(candidate)) continue;
+            if (!TryFindSafeTarget(world, candidate, 1, in config, out var target, out var refusal, out var resource))
+            {
+                Block(ref blocked, refusal, AutoConceptIdleMove.Slot, candidate.Id, Guid.Empty, resource);
+                continue;
+            }
             action = Action(AutoConceptActionKind.Add, candidate, target, Guid.Empty, world.CollectedAtEpoch);
             return true;
         }
@@ -321,45 +329,74 @@ internal static class AutoConceptCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref AutoConceptCycleState state,
+        ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
     {
+        var timedCycle =
+            config.AutoConcept.SlotManagement == AutoConceptSlotManagementMode.TimedCycle;
         for (var desiredOffset = 0; desiredOffset < ranked.Count; desiredOffset++)
         {
             var desiredIndex = Normalize(state.CandidateCursor + desiredOffset, ranked.Count);
             var desiredProgress = ranked[desiredIndex];
             var desired = byId[desiredProgress.Uuid];
             if (!desired.IsSettled || desired.Quantity != 0 ||
-                desired.CoreTypeId == Guid.Empty || desired.MaximumQuantity <= 0 ||
-                !TryFindSafeTarget(world, desired, 1, in config, out _)) continue;
-            var timedCycle =
-                config.AutoConcept.SlotManagement == AutoConceptSlotManagementMode.TimedCycle;
-            if (timedCycle &&
+                desired.CoreTypeId == Guid.Empty || desired.MaximumQuantity <= 0) continue;
+            var safe = TryFindSafeTarget(world, desired, 1, in config, out _, out var refusal, out var resource);
+            if (!safe && blocked.Reason != AutoConceptIdleReason.None) continue;
+            if (safe && timedCycle &&
                 !IsNextTimed(desired, ranked, byId, ref state)) continue;
-
-            for (var activeIndex = ranked.Count - 1; activeIndex >= 0; activeIndex--)
+            if (!TryFindDisplaced(desired, desiredProgress, ranked, byId, in config, ref state,
+                    out var active, out var kind, out var amount)) continue;
+            if (!safe)
             {
-                var activeProgress = ranked[activeIndex];
-                if (AutoConceptBalancer.RequiresLowerMastery(config.AutoConcept.SlotManagement) &&
-                    !AutoConceptBalancer.HasStrictlyLowerMastery(desiredProgress, activeProgress)) continue;
-                var active = byId[activeProgress.Uuid];
-                if (!active.IsSettled || active.Quantity <= 0 ||
-                    (!timedCycle && active.CoreTypeId != desired.CoreTypeId) ||
-                    state.TrainingSessions.Contains(active.Key)) continue;
-
-                if (AutoConceptBalancer.UsesFullRotation(config.AutoConcept.SlotManagement))
-                {
-                    action = Action(AutoConceptActionKind.RotateOut, active, active.Quantity,
-                        desired.Id, world.CollectedAtEpoch);
-                    return true;
-                }
-                if (!state.Ownership.TryGet(active.Key, out var ownership) ||
-                    ownership.ManualBaseline != 0 || ownership.AutomatedDelta <= 0) continue;
-                action = Action(AutoConceptActionKind.RemoveOwned, active, ownership.AutomatedDelta,
-                    desired.Id, world.CollectedAtEpoch);
-                return true;
+                Block(ref blocked, refusal, AutoConceptIdleMove.Rotate, desired.Id, active.Id, resource);
+                continue;
             }
+            action = Action(kind, active, amount, desired.Id, world.CollectedAtEpoch);
+            return true;
         }
         action = default;
+        return false;
+    }
+
+    private static bool TryFindDisplaced(
+        Candidate desired,
+        ConceptProgress desiredProgress,
+        IReadOnlyList<ConceptProgress> ranked,
+        IReadOnlyDictionary<string, Candidate> byId,
+        in SuiteRuntimeConfiguration config,
+        ref AutoConceptCycleState state,
+        out Candidate active,
+        out AutoConceptActionKind kind,
+        out int amount)
+    {
+        var mode = config.AutoConcept.SlotManagement;
+        var timedCycle = mode == AutoConceptSlotManagementMode.TimedCycle;
+        for (var activeIndex = ranked.Count - 1; activeIndex >= 0; activeIndex--)
+        {
+            var activeProgress = ranked[activeIndex];
+            if (AutoConceptBalancer.RequiresLowerMastery(mode) &&
+                !AutoConceptBalancer.HasStrictlyLowerMastery(desiredProgress, activeProgress)) continue;
+            active = byId[activeProgress.Uuid];
+            if (!active.IsSettled || active.Quantity <= 0 ||
+                (!timedCycle && active.CoreTypeId != desired.CoreTypeId) ||
+                state.TrainingSessions.Contains(active.Key)) continue;
+
+            if (AutoConceptBalancer.UsesFullRotation(mode))
+            {
+                kind = AutoConceptActionKind.RotateOut;
+                amount = active.Quantity;
+                return true;
+            }
+            if (!state.Ownership.TryGet(active.Key, out var ownership) ||
+                ownership.ManualBaseline != 0 || ownership.AutomatedDelta <= 0) continue;
+            kind = AutoConceptActionKind.RemoveOwned;
+            amount = ownership.AutomatedDelta;
+            return true;
+        }
+        active = null!;
+        kind = default;
+        amount = 0;
         return false;
     }
 
@@ -369,6 +406,7 @@ internal static class AutoConceptCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref AutoConceptCycleState state,
+        ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
     {
         for (var offset = 0; offset < ranked.Count; offset++)
@@ -378,7 +416,11 @@ internal static class AutoConceptCycleEvaluator
             if (!candidate.IsSettled || candidate.Quantity <= 0 ||
                 candidate.Quantity >= candidate.MaximumQuantity) continue;
             var desired = candidate.MaximumQuantity;
-            if (!TryFindSafeTarget(world, candidate, desired, in config, out var target)) continue;
+            if (!TryFindSafeTarget(world, candidate, desired, in config, out var target, out var refusal, out var resource))
+            {
+                Block(ref blocked, refusal, AutoConceptIdleMove.Deepen, candidate.Id, Guid.Empty, resource);
+                continue;
+            }
             action = Action(AutoConceptActionKind.Add, candidate, target, Guid.Empty, world.CollectedAtEpoch);
             return true;
         }
@@ -408,14 +450,14 @@ internal static class AutoConceptCycleEvaluator
             return false;
         }
         if (!candidate.IsSettled || !CanAdd(candidate) ||
-            !TryFindSafeTarget(world, candidate, 1, in config, out var target)) return true;
+            !TryFindSafeTarget(world, candidate, 1, in config, out var target, out _, out _)) return true;
         action = Action(AutoConceptActionKind.Add, candidate, target, Guid.Empty, world.CollectedAtEpoch);
         return true;
     }
 
     /// <summary>
     /// Chooses the same halving ladder as the native boundary, but from the immutable publication.
-    /// A configured reserve or quantity floor is ordinary backpressure and therefore prevents the
+    /// A configured reserve is ordinary backpressure and therefore prevents the
     /// action from being scheduled; the boundary repeats this check against live native state (M3).
     /// </summary>
     private static bool TryFindSafeTarget(
@@ -423,9 +465,13 @@ internal static class AutoConceptCycleEvaluator
         Candidate candidate,
         int desiredTarget,
         in SuiteRuntimeConfiguration config,
-        out int safeTarget)
+        out int safeTarget,
+        out AutoConceptIdleReason refusal,
+        out Guid resource)
     {
         safeTarget = candidate.Quantity;
+        refusal = AutoConceptIdleReason.None;
+        resource = Guid.Empty;
         desiredTarget = Math.Min(desiredTarget, candidate.MaximumQuantity);
         if (desiredTarget <= candidate.Quantity) return false;
         if (candidate.AuthoredDrainResources == 0)
@@ -438,7 +484,8 @@ internal static class AutoConceptCycleEvaluator
         while (delta > 0)
         {
             var target = candidate.Quantity + delta;
-            if (IsProjectedDrainSafe(world, candidate, target, in config))
+            refusal = ProjectedDrainRefusal(world, candidate, target, in config, out resource);
+            if (refusal == AutoConceptIdleReason.None)
             {
                 safeTarget = target;
                 return true;
@@ -448,16 +495,18 @@ internal static class AutoConceptCycleEvaluator
         return false;
     }
 
-    private static bool IsProjectedDrainSafe(
+    private static AutoConceptIdleReason ProjectedDrainRefusal(
         GameWorldState world,
         Candidate candidate,
         int target,
-        in SuiteRuntimeConfiguration config)
+        in SuiteRuntimeConfiguration config,
+        out Guid resourceId)
     {
+        resourceId = Guid.Empty;
         if (!WorldAlchemyCostLookup.TryFindRange(
                 world.AlchemyCosts, candidate.Id, WorldAlchemyCostKind.RecipeDrain,
                 out var start, out var count))
-            return false;
+            return AutoConceptIdleReason.DrainUnknown;
 
         WorldAlchemyCostLookup.TryFindRange(
             world.AlchemyCosts, candidate.Id, WorldAlchemyCostKind.CurrentDrain,
@@ -466,6 +515,7 @@ internal static class AutoConceptCycleEvaluator
         for (var offset = 0; offset < count; offset++)
         {
             var authored = world.AlchemyCosts[start + offset];
+            resourceId = authored.ResourceId;
             if (!OwnedConceptDrainMath.TryComputeCost(
                     world,
                     candidate.Id,
@@ -473,7 +523,7 @@ internal static class AutoConceptCycleEvaluator
                     authored.ResourceId,
                     authored.Amount,
                     out var prospectiveAmount))
-                return false;
+                return AutoConceptIdleReason.DrainUnknown;
             var current = default(BigDouble);
             for (var currentOffset = 0; currentOffset < currentCount; currentOffset++)
             {
@@ -485,25 +535,37 @@ internal static class AutoConceptCycleEvaluator
 
             var incremental = prospectiveAmount - current;
             if (incremental.CompareTo(default) <= 0) continue;
-            if (!WorldLookup.TryFind(world.Resources, authored.ResourceId, out var resource) ||
-                resource.Reading.Quantity.CompareTo(default) <= 0)
-                return false;
+            if (!WorldLookup.TryFind(world.Resources, authored.ResourceId, out var resource))
+                return AutoConceptIdleReason.DrainUnknown;
+            if (resource.Reading.Quantity.CompareTo(default) <= 0)
+                return AutoConceptIdleReason.ResourceAtZero;
 
             var quality = OrbGameMath.AsPercent(resource.Reading.Quality);
-            if (quality.CompareTo(default) <= 0) return false;
+            if (quality.CompareTo(default) <= 0) return AutoConceptIdleReason.ResourceAtZero;
             var trueIncrement = incremental / quality;
             var currentDrain = resource.Reading.Drain / quality;
             var grossRate = resource.TrueRate + currentDrain;
             var reserve = grossRate.CompareTo(default) < 0
                 ? default
                 : grossRate * (Math.Clamp(config.AutoConcept.RateReservePercent, 0f, 100f) / 100d);
-            if ((resource.TrueRate - trueIncrement).CompareTo(reserve) < 0) return false;
-
-            if (resource.IsCapped && resource.Reading.Capacity.CompareTo(default) != 0 &&
-                resource.FillFraction * 100d < config.AutoConcept.MinimumResourcePercent)
-                return false;
+            if ((resource.TrueRate - trueIncrement).CompareTo(reserve) < 0)
+                return AutoConceptIdleReason.RateReserve;
         }
-        return true;
+        resourceId = Guid.Empty;
+        return AutoConceptIdleReason.None;
+    }
+
+    private static void Block(
+        ref AutoConceptIdle blocked,
+        AutoConceptIdleReason refusal,
+        AutoConceptIdleMove move,
+        Guid recipe,
+        Guid displaced,
+        Guid resource)
+    {
+        if (blocked.Reason != AutoConceptIdleReason.None ||
+            refusal == AutoConceptIdleReason.None) return;
+        blocked = new AutoConceptIdle(refusal, move, recipe, displaced, resource);
     }
 
     private static AutoConceptCycleAction Action(

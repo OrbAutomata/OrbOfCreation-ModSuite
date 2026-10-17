@@ -50,7 +50,6 @@ internal static class GameMcpConfigurationSchema
             ("AutoConcept", "SlotManagementMode") => configuration.AutoConcept.SlotManagement,
             ("AutoConcept", "TrainingPeriodSeconds") => configuration.AutoConcept.TrainingPeriodSeconds,
             ("AutoConcept", "RateReservePercent") => configuration.AutoConcept.RateReservePercent,
-            ("AutoConcept", "MinimumResourcePercent") => configuration.AutoConcept.MinimumResourcePercent,
             ("AutoConcept", "MinimumDrainRatio") => configuration.AutoConcept.MinimumDrainRatio,
             ("AutoHarvest", "Mode") => configuration.AutoHarvest.Mode,
             ("AutoHarvest", "CollectFruitTrees") => configuration.AutoHarvest.CollectFruitTrees,

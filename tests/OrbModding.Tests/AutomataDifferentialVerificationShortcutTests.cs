@@ -29,7 +29,7 @@ public sealed class AutomataDifferentialVerificationShortcutTests
         Assert.True(result.Success, result.Status.Reason);
         Assert.Equal(ConfigurationSchemaState.Migrated, result.Status.State);
         Assert.Equal(2, result.Status.FromVersion);
-        Assert.Equal(6, result.Status.ToVersion);
+        Assert.Equal(7, result.Status.ToVersion);
         Assert.Equal(KeyCode.F8, result.Config!.Automata.AutoCastToggleShortcut.Value.MainKey);
         Assert.DoesNotContain(
             file,

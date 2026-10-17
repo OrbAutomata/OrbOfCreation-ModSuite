@@ -181,7 +181,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     /// assignment back, the player's press takes it.
     /// </summary>
     /// <remarks>
-    /// The rate reserve and the quantity floor are dials on the worker. The game asks a player
+    /// The rate reserve is a dial on the worker. The game asks a player
     /// pressing Add for a free slot, a discovered concept and its own price, and nothing else.
     /// </remarks>
     [Fact]
@@ -192,7 +192,6 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         {
             TrueRate = new BigDouble(100.0, 0),
             Quantity = new BigDouble(10.0, 0),
-            SoftCap = new BigDouble(100.0, 0),
         };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
@@ -210,7 +209,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
 
         var worker = runtime.Submit(
-            in action, new AutoConceptResourceLimits(90.0f, 80.0f));
+            in action, new AutoConceptResourceLimits(90.0f));
 
         Assert.Equal(AutoConceptPreflight.ResourceBackpressure, worker.Preflight);
         Assert.Contains("rate reserve", worker.Reason, StringComparison.Ordinal);

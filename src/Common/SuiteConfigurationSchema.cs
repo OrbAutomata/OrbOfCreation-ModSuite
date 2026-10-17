@@ -14,7 +14,7 @@ namespace OrbModding.Common;
 /// </summary>
 internal static class SuiteConfigurationSchema
 {
-    internal const int CurrentVersion = 6;
+    internal const int CurrentVersion = 7;
     internal static readonly ConfigurationKey AutoCastShortcut =
         new("AutoCast", "ToggleShortcut");
     internal static readonly ConfigurationKey DifferentialVerificationShortcut =
@@ -65,6 +65,8 @@ internal static class SuiteConfigurationSchema
         new("AutoConcept", "PerConceptQuantityCap");
     internal static readonly ConfigurationKey AutoConceptTrainingPeriodSeconds =
         new("AutoConcept", "TrainingPeriodSeconds");
+    internal static readonly ConfigurationKey AutoConceptMinimumResourcePercent =
+        new("AutoConcept", "MinimumResourcePercent");
 
     internal static ConfigurationSchemaPlan Plan { get; } = new(CurrentVersion, new[]
     {
@@ -153,7 +155,7 @@ internal static class SuiteConfigurationSchema
         // inherited or deliberately saved; every other serialized training period is preserved.
         new ConfigurationMigrationStep(
             5,
-            CurrentVersion,
+            6,
             new[]
             {
                 AutoBuyEvaluationIntervalSeconds,
@@ -236,6 +238,16 @@ internal static class SuiteConfigurationSchema
                     context.Preserve(AutoConceptTrainingPeriodSeconds, serialized);
                 }
             }),
+        // A late-game Psi pool sits far below a cap that grows faster than it fills, so a fill
+        // floor held every concept back while income dwarfed the drain. The income reserve and the
+        // pull-back on zero or negative income already keep a drained resource safe.
+        new ConfigurationMigrationStep(
+            6,
+            CurrentVersion,
+            new[] { AutoConceptMinimumResourcePercent },
+            static context => context.DiscardObsolete(
+                AutoConceptMinimumResourcePercent,
+                "Auto Concept no longer requires a drained resource to fill a share of its cap.")),
     });
 
     private static void MigrateInheritedShortcuts(ConfigurationMigrationContext context)
