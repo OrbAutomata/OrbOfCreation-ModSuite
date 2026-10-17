@@ -26,6 +26,15 @@ internal static class ServiceCycleTypeGraphWalker
         // one, because state and buffer stay on the worker together.
         if (role is ServiceCycleTypeRole.Action && type == typeof(World.GameWorldCycleFrame))
             return Violation(path, type, "actions cannot retain the capture buffer");
+        var immutable = ServiceCycleStorageShapeRules.IsImmutablePublication(role);
+        // An array type reports its element's assembly, so it is judged by its element before the
+        // boundary rules see it.
+        if (type.IsArray)
+        {
+            if (immutable || isRoot)
+                return Violation(path, type, "arrays are not immutable publication values or root frame/state values");
+            return FindViolation(type.GetElementType()!, role, false, visited, path + "[]");
+        }
         if (ServiceCycleBoundaryRules.IsAuditedExternalValueType(type)) return null;
         if (ServiceCycleBoundaryRules.IsAuditedPublicationValue(type))
         {
@@ -44,13 +53,6 @@ internal static class ServiceCycleTypeGraphWalker
             return Violation(path, type, "delegate storage");
         if (ServiceCycleStorageShapeRules.IsLeaf(type)) return null;
 
-        var immutable = ServiceCycleStorageShapeRules.IsImmutablePublication(role);
-        if (type.IsArray)
-        {
-            if (immutable || isRoot)
-                return Violation(path, type, "arrays are not immutable publication values or root frame/state values");
-            return FindViolation(type.GetElementType()!, role, false, visited, path + "[]");
-        }
         if (typeof(IEnumerable).IsAssignableFrom(type))
             return Violation(path, type, "collection storage is not an audited publication shape");
 
