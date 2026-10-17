@@ -44,7 +44,7 @@ public sealed class AutomataWorldCollectionServiceTests
     {
         var capture = new FakeCapture((_, _) => { });
         var publish = new FakePublish();
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));
@@ -74,7 +74,7 @@ public sealed class AutomataWorldCollectionServiceTests
         });
         var publish = new FakePublish();
 
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));
@@ -108,7 +108,7 @@ public sealed class AutomataWorldCollectionServiceTests
         });
         var publish = new FakePublish();
 
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));
@@ -136,7 +136,7 @@ public sealed class AutomataWorldCollectionServiceTests
         });
         var publish = new FakePublish();
 
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));
@@ -158,7 +158,7 @@ public sealed class AutomataWorldCollectionServiceTests
     {
         var capture = new FakeCapture((_, _) => { }) { IsAvailable = false };
         var publish = new FakePublish();
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var frame = new GameWorldCycleFrame();
         var config = new SuiteRuntimeConfiguration();
 
@@ -170,14 +170,18 @@ public sealed class AutomataWorldCollectionServiceTests
 
     /// <summary>
     /// Collection is infrastructure: it has no switch of its own, because a consumer cannot tell an
-    /// empty world from a collector that was turned off.
+    /// empty world from a collector that was turned off. The pace only spaces readings apart, so a
+    /// lifecycle that has read nothing yet is ready even at the slowest one.
     /// </summary>
     [Fact]
-    public void CollectionIsAlwaysReadyToStart()
+    public void ALifecycleThatHasReadNothingIsReadyToStartAtAnyPace()
     {
         var definition = AutomataWorldCollectionService.Define(
-            new FakeCapture((_, _) => { }), new FakePublish());
-        var config = new SuiteRuntimeConfiguration();
+            new FakeCapture((_, _) => { }), new FakePublish(), new AutomataWorldDemand());
+        var config = new SuiteRuntimeConfiguration
+        {
+            General = new SuiteGeneralConfiguration { Pace = AutomationPace.CpuSaver },
+        };
 
         Assert.True(definition.ShouldStart(in config, default).ShouldStart);
     }
@@ -197,7 +201,7 @@ public sealed class AutomataWorldCollectionServiceTests
             frame.Resources.Append(in mana);
         });
         var publish = new FakePublish();
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));
@@ -264,7 +268,7 @@ public sealed class AutomataWorldCollectionServiceTests
         IAutomataWorldCapturePort capture,
         IServiceWorldPublicationSink<GameWorldState> publish)
     {
-        var definition = AutomataWorldCollectionService.Define(capture, publish);
+        var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));

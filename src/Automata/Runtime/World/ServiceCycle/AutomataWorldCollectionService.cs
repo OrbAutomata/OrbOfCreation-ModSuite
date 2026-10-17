@@ -11,16 +11,16 @@ namespace OrbAutomata;
 internal static class AutomataWorldCollectionPolicies
 {
     /// <summary>
-    /// How often the world is re-read.
+    /// The fastest the world is re-read, and how often a slower pace checks whether it is due.
     /// </summary>
     /// <remarks>
     /// This is the suite's one planning cadence: every ordinary service evaluates after each
-    /// publication. A measured warm pass is a little over a millisecond, so four passes a second
-    /// costs well under one percent of a 60 Hz frame budget. The value is deliberately not
-    /// configurable; service-specific cadence controls would create competing clocks over the same
-    /// immutable reading.
+    /// publication, so the pace the player picks is the pace of all automation. A live capture costs
+    /// tens of milliseconds of the game's own frame, which is the whole reason a slower pace exists;
+    /// service-specific cadence controls would create competing clocks over the same immutable
+    /// reading.
     /// </remarks>
-    private static readonly MonotonicDuration DefaultInterval =
+    internal static readonly MonotonicDuration FastestInterval =
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250));
 
     private static readonly MonotonicDuration InitialFaultBackoff =
@@ -35,7 +35,17 @@ internal static class AutomataWorldCollectionPolicies
 
     internal static ServiceId ServiceId => new("orbautomata.world-collection");
 
-    internal static WakePolicy DefaultWakePolicy => WakePolicy.AfterBatch(DefaultInterval);
+    internal static WakePolicy DefaultWakePolicy => WakePolicy.AfterBatch(FastestInterval);
+
+    internal static MonotonicDuration Interval(AutomationPace pace) => pace switch
+    {
+        AutomationPace.Fastest => FastestInterval,
+        AutomationPace.Fast => MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(500)),
+        AutomationPace.Balanced => MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)),
+        AutomationPace.Relaxed => MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(5)),
+        AutomationPace.CpuSaver => MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(30)),
+        _ => throw new ArgumentOutOfRangeException(nameof(pace), pace, "Unknown automation pace."),
+    };
 
     internal static ServiceFaultRecoveryPolicy FaultRecoveryPolicy =>
         new(InitialFaultBackoff, MaximumFaultBackoff);
@@ -64,10 +74,12 @@ internal static class AutomataWorldCollectionService
         AutomataWorldCollectionState,
         AutomataWorldCollectionAction> Define(
         IAutomataWorldCapturePort capture,
-        IServiceWorldPublicationSink<GameWorldState> publish)
+        IServiceWorldPublicationSink<GameWorldState> publish,
+        AutomataWorldDemand demand)
     {
         if (capture is null) throw new ArgumentNullException(nameof(capture));
         if (publish is null) throw new ArgumentNullException(nameof(publish));
+        if (demand is null) throw new ArgumentNullException(nameof(demand));
 
         var metadata = new AutomataServiceMetadata(
             AutomataWorldCollectionPolicies.ServiceId,
@@ -84,6 +96,15 @@ internal static class AutomataWorldCollectionService
                 describeAction: static (in AutomataWorldCollectionAction action) =>
                     ServiceActionJournalAttribution.Publication,
                 execute: Execute);
+
+        ServiceStartDecision ShouldStart(
+            in SuiteRuntimeConfiguration config,
+            in ServiceCycleStartContext context) =>
+            IsDue(config.General.Pace, in context, demand.IsRequested)
+                ? ServiceStartDecision.Ready(CommonServiceDecisionCodes.Ready)
+                : ServiceStartDecision.Wait(
+                    CommonServiceDecisionCodes.NotReady,
+                    WakePolicy.AfterDecision(AutomataWorldCollectionPolicies.FastestInterval));
 
         ServiceCaptureResult Capture(
             GameWorldCycleFrame frame,
@@ -116,11 +137,21 @@ internal static class AutomataWorldCollectionService
     }
 
     /// <summary>
-    /// Always ready. The interval in the wake policy is what paces collection; there is no state in
-    /// which the suite wants a stale world instead of a fresh one.
+    /// Whether the next reading is due under the player's pace.
     /// </summary>
-    private static ServiceStartDecision ShouldStart(
-        in SuiteRuntimeConfiguration config,
-        in ServiceCycleStartContext context) =>
-        ServiceStartDecision.Ready(CommonServiceDecisionCodes.Ready);
+    /// <remarks>
+    /// The pace slows idle reading only. A new lifecycle has published nothing yet, and a caller
+    /// verifying a press it just made needs the world that shows it, so both read at the fastest
+    /// cadence whatever the pace. A slower pace answers "not yet" at that same cadence, which is how
+    /// a request made mid-wait is seen within a quarter second instead of at the end of the wait.
+    /// </remarks>
+    internal static bool IsDue(
+        AutomationPace pace,
+        in ServiceCycleStartContext context,
+        bool demanded)
+    {
+        if (demanded || !context.PreviousReceipt.IsPresent) return true;
+        var elapsed = context.Now.Ticks - context.PreviousReceipt.CompletedAt.Ticks;
+        return elapsed >= AutomataWorldCollectionPolicies.Interval(pace).Ticks;
+    }
 }

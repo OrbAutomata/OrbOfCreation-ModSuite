@@ -176,7 +176,8 @@ public sealed class SharedWorldEndToEndTests : IDisposable
     {
         var definition = AutomataWorldCollectionService.Define(
             new AutomataWorldCapturePort(new GameWorldCollector(), () => ++_frame, () => 1),
-            _world);
+            _world,
+            new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
         var frame = new GameWorldCycleFrame();
         var state = worker.CreateState(new LifecycleGeneration(1));

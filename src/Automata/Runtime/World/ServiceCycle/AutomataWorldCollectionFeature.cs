@@ -22,6 +22,7 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
     private readonly Func<GameWorldCollector> _createCollector;
     private readonly Action<WorldCollectionReport>? _announce;
     private readonly WorldCollectionSpanRegistry _spans;
+    private readonly AutomataWorldDemand _demand;
 
     /// <param name="readFrameIdentity">
     /// The same counter the host pumps with, so a snapshot's generation and a consumer's last-action
@@ -34,12 +35,14 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
     internal AutomataWorldCollectionFeature(
         Func<long> readFrameIdentity,
         Func<long> readLifecycleEpoch,
+        AutomataWorldDemand demand,
         Action<WorldCollectionReport>? announce = null,
         Func<GameWorldCollector>? createCollector = null,
         WorldCollectionSpanRegistry? spans = null)
     {
         _readFrameIdentity = readFrameIdentity ?? throw new ArgumentNullException(nameof(readFrameIdentity));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
+        _demand = demand ?? throw new ArgumentNullException(nameof(demand));
         _announce = announce;
         _createCollector = createCollector ?? (static () => GameWorldCollector.ForSession());
         _spans = spans ?? WorldCollectionSpanRegistry.Shared;
@@ -57,7 +60,8 @@ internal sealed class AutomataWorldCollectionFeature : IAutomataServiceCycleFeat
         var definition = AutomataWorldCollectionService.Define(
             new AutomataWorldCapturePort(
                 collector, _readFrameIdentity, _readLifecycleEpoch, _announce, _spans),
-            context.Registry.WorldPublication);
+            context.Registry.WorldPublication,
+            _demand);
 
         // No dispatch policy here: registering through the source path is the declaration, and one
         // publish per frame ahead of every mutating service is what that path means.
