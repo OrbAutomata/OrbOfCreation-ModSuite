@@ -2477,6 +2477,7 @@ public sealed class GlobalValues
 {
     public static GlobalValues instance = new GlobalValues();
     public ModifierListVariable spellLevelingStandard = new ModifierListVariable();
+    public double spellTypeXpPerMastery;
 }
 
 public enum ScalingType

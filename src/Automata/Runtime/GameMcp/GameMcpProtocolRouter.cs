@@ -1212,7 +1212,7 @@ internal sealed class GameMcpProtocolRouter
                     {
                         ["screen"] = StringSchema("Exact player-facing top-level screen name."),
                         ["subtab"] = StringSchema("Optional exact player-facing subtab name. A nested strip is one path, parent first: Spellbook/Loadout."),
-                        ["uuid"] = StringSchema("Optional Agromancy plot to pick on World/Agromancy."),
+                        ["uuid"] = StringSchema("Optional tile to pick: an Agromancy plot on World/Agromancy, or a spell on Magic/Spellbook/Spells, which opens its card."),
                     },
                     "screen"),
                 readOnly: false,

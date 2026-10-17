@@ -205,19 +205,21 @@ public sealed class GameMcpGadgetTests
     }
 
     [Theory]
-    [InlineData("World", "Agromancy", true)]
-    [InlineData("World", "Aspects", false)]
-    [InlineData("Magic", "Agromancy", false)]
-    [InlineData("World", null, false)]
-    [InlineData("Magic", "Unlock", false)]
-    public void PlotSelectionIsAdmittedOnlyOnItsOwningScreen(
+    [InlineData("World", "Agromancy", "Plot")]
+    [InlineData("World", "Aspects", "None")]
+    [InlineData("Magic", "Agromancy", "None")]
+    [InlineData("World", null, "None")]
+    [InlineData("Magic", "Unlock", "None")]
+    [InlineData("Magic", "Spells", "Spell")]
+    [InlineData("Magic", "Loadout", "None")]
+    [InlineData("Loadout", "Spells", "None")]
+    [InlineData("Magic", null, "None")]
+    public void TileSelectionIsAdmittedOnlyOnItsOwningScreen(
         string screen,
         string? subtab,
-        bool expected)
+        string expected)
     {
-        Assert.Equal(
-            expected,
-            GameMcpGadgetPolicy.IsPlotDestination(screen, subtab));
+        Assert.Equal(expected, GameMcpGadgetPolicy.TileAt(screen, subtab).ToString());
     }
 
     /// <summary>

@@ -3471,10 +3471,7 @@ public sealed class Plugin : BaseUnityPlugin
                 "The suite sent a navigation that named no screen, so nothing was applied.");
             return false;
         }
-        if (command.TargetId != Guid.Empty &&
-            !GameMcpGadgetPolicy.IsPlotDestination(
-                request.Tab.Label,
-                request.Subtab?.Leaf))
+        if (command.TargetId != Guid.Empty && TileOf(command) == GameMcpTile.None)
         {
             // One spelling for one destination: the catalog path this tool takes, the same way
             // every screen cell on the surface prints it.
@@ -3585,8 +3582,10 @@ public sealed class Plugin : BaseUnityPlugin
             // `subtab.TrySelect` presses the tab whether or not it was already active, so being on
             // the page already did not help: every pick read a page mid-rebuild.
             yield return SettleNavigation(settledScreen);
-            var tileResult = NavigateExactPlot(
-                command.TargetId, SceneManager.GetActiveScene().name);
+            var scene = SceneManager.GetActiveScene().name;
+            var tileResult = TileOf(command) == GameMcpTile.Spell
+                ? NavigateExactSpell(command.TargetId, scene)
+                : NavigateExactPlot(command.TargetId, scene);
             if (!string.Equals(tileResult.Status, "committed", StringComparison.Ordinal))
             {
                 yield return CompleteNavigateGameMcpAfterSettlement(
@@ -3594,7 +3593,6 @@ public sealed class Plugin : BaseUnityPlugin
                     tileResult.WithDetails(details.Freeze()));
                 yield break;
             }
-            details["plotNodeUuid"] = command.TargetId.ToString("D");
         }
         // The strips are read once, after arrival settles, in one place. Reading them here — a
         // single frame after the subtab click, with the destination still assembling — is what let
@@ -3673,7 +3671,10 @@ public sealed class Plugin : BaseUnityPlugin
             if (!string.IsNullOrWhiteSpace(activeTab.Label))
                 details["activeScreen"] = activeTab.Label;
             if (command.TargetId != Guid.Empty)
-                details["selectedPlot"] = command.TargetId.ToString("D");
+            {
+                details[TileOf(command) == GameMcpTile.Spell ? "selectedSpell" : "selectedPlot"] =
+                    command.TargetId.ToString("D");
+            }
             AppendOpenModals(details);
             result = GadgetCommitted("navigation_arrived", details);
         }
@@ -3689,6 +3690,104 @@ public sealed class Plugin : BaseUnityPlugin
         return SceneManager.GetActiveScene().name + "|" + activeTab + "|" +
             string.Join("|", values.Select(value =>
                 value.StripKey + ":" + value.Label + ":" + (value.Active ? "1" : "0")));
+    }
+
+    private static GameMcpTile TileOf(GameMcpCommand command)
+    {
+        var request = command.SourceOperation?.Request;
+        return request?.Tab is null
+            ? GameMcpTile.None
+            : GameMcpGadgetPolicy.TileAt(request.Tab.Label, request.Subtab?.Leaf);
+    }
+
+    /// <summary>
+    /// Opens one spell's card on Magic > Spellbook > Spells, the way clicking its icon does.
+    /// </summary>
+    /// <remarks>
+    /// <c>UISpellRecipeList.ClickRecipe</c> toggles the page's selected-recipe variable, so a click
+    /// on the spell whose card is already open closes it. The card is the variable, so the click is
+    /// made only when the variable does not already hold this spell, and the variable holding it
+    /// afterwards is the postcondition.
+    /// </remarks>
+    private GameMcpCommandResult NavigateExactSpell(Guid stableUuid, string scene)
+    {
+        if (scene != "Main")
+        {
+            return GadgetRejected(
+                "wrong_scene",
+                "Spells can only be picked while a save is open.");
+        }
+
+        var recipeType = AccessTools.TypeByName("SpellRecipeSO");
+        var listType = AccessTools.TypeByName("UISpellRecipeList");
+        var selectedField = listType?.GetField(
+            "selectedSpellRecipe", BindingFlags.Instance | BindingFlags.Public);
+        var clickRecipe = listType?.GetMethod(
+            "ClickRecipe",
+            BindingFlags.Instance | BindingFlags.Public,
+            binder: null,
+            types: recipeType is null ? Type.EmptyTypes : new[] { recipeType },
+            modifiers: null);
+        var isItem = recipeType is null
+            ? null
+            : selectedField?.FieldType.GetMethod(
+                "IsItem",
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[] { recipeType },
+                modifiers: null);
+        if (recipeType is null || listType is null || selectedField is null || clickRecipe is null ||
+            clickRecipe.ReturnType != typeof(void) || isItem is null ||
+            isItem.ReturnType != typeof(bool))
+        {
+            return GadgetRejected(
+                "native_spell_navigation_unavailable",
+                "This build does not expose the spell list, so a spell cannot be selected.");
+        }
+
+        var recipe = TypedRegistryResolver.Shared.Resolve(stableUuid, recipeType);
+        if (!recipe.IsResolved)
+        {
+            return GadgetRejected(
+                "native_spell_not_resolved",
+                "No spell in this run carries that id; world_list category=spell-recipes names " +
+                "the ones it does.");
+        }
+
+        var lists = Resources.FindObjectsOfTypeAll(listType)
+            .OfType<MonoBehaviour>()
+            .Where(list =>
+                list.enabled && list.gameObject.activeInHierarchy &&
+                GameMcpTooltipNativeAccess.OnScreen(list) &&
+                selectedField.GetValue(list) is not null)
+            .ToArray();
+        if (lists.Length != 1)
+        {
+            return GadgetRejected(
+                "native_spell_list_unavailable",
+                "The game is showing " + (lists.Length == 0 ? "no spell list" : "more than " +
+                "one spell list") + " right now, so which spell card was meant is unclear.");
+        }
+
+        var selection = selectedField.GetValue(lists[0]);
+        var arguments = new[] { recipe.Value };
+        if (isItem.Invoke(selection, arguments) is not true)
+            clickRecipe.Invoke(lists[0], arguments);
+        if (isItem.Invoke(selection, arguments) is not true)
+        {
+            return GadgetFailed(
+                "verification_failed",
+                "The spell was clicked and its card did not open, so the suite cannot say what " +
+                "the Spells page shows.");
+        }
+        return GadgetCommitted(
+            "navigation_invoked",
+            new GameMcpObjectBuilder
+            {
+                ["spellUuid"] = stableUuid.ToString("D"),
+                ["nativeMethod"] = "UISpellRecipeList.ClickRecipe",
+                ["sceneBefore"] = scene,
+            });
     }
 
     private GameMcpCommandResult NavigateExactPlot(

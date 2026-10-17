@@ -891,6 +891,15 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(0, row.MasteryLevelCostCount);
     }
 
+    [Fact]
+    public void TheTypeXpEachConfirmedMasteryLevelGrantsIsPublished()
+    {
+        var collector = Collector();
+        collector.Collect();
+
+        Assert.Equal(30d, collector.Build().SpellTypeXpPerMastery);
+    }
+
     /// <summary>
     /// Whether a recipe's "use effectively" requirements hold is the game's answer, and it decides
     /// whether <c>penaltyUsageCost</c> is part of the spell's weight.

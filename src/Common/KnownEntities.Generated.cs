@@ -55,6 +55,7 @@ internal static class KnownEntities
     public static readonly KnownEntity<ViewSOContract> AlchAlchemyDiscover = new(new Guid("70aabd3c-7790-4771-a863-5e5c41bff493"), "ViewSO", "AlchAlchemyDiscover");
     public static readonly KnownEntity<AlchemyTypeSOContract> Alchemy = new(new Guid("f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2"), "AlchemyTypeSO", "Alchemy");
     public static readonly KnownEntity<ViewSOContract> AlchemyScreen = new(new Guid("3ae45ec0-4449-4903-b3d0-b5182e03dca3"), "ViewSO", "ScreenAlchemy");
+    public static readonly KnownEntity<DoubleVariableContract> AllSpellTypeXpMod = new(new Guid("d2b10420-aa5b-479d-945b-de82a00a5647"), "DoubleVariable", "AllSpellTypeXpMod");
     public static readonly KnownEntity<CraftingInstanceListVariableContract> AutoScribeInstances = new(new Guid("f6cb65a8-a959-477c-9293-ff66f646c95d"), "CraftingInstanceListVariable", "AutoScribeInstances");
     public static readonly KnownEntity<AlchemyTypeSOContract> Brewing = new(new Guid("d2947f69-d989-465d-8159-204285ed57be"), "AlchemyTypeSO", "Brewing");
     public static readonly KnownEntity<IntVariableContract> BulkDevelopment = new(new Guid("0ed119bf-0449-4d64-9989-1a3f68c7b8a2"), "IntVariable", "BulkDevelopment");

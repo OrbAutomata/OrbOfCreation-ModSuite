@@ -6513,6 +6513,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ModifierListVariable"}
     },
     {
+      "id": "global-values.spell-type-xp-per-mastery",
+      "assembly": "assembly-csharp",
+      "type": "GlobalValues",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellTypeXpPerMastery",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Double",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
+    },
+    {
       "id": "global-variables.get-global-structure-type",
       "assembly": "assembly-csharp",
       "type": "GlobalVariables",
@@ -19233,6 +19252,45 @@
       "place": "action"
     },
     {
+      "id": "ui-spell-recipe-list.click-recipe",
+      "assembly": "assembly-csharp",
+      "type": "UISpellRecipeList",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "ClickRecipe",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "SpellRecipeSO"
+      ],
+      "owners": [
+        "Game MCP performance-debug navigation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "ui-spell-recipe-list.selected-spell-recipe",
+      "assembly": "assembly-csharp",
+      "type": "UISpellRecipeList",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "selectedSpellRecipe",
+      "visibility": "public",
+      "static": false,
+      "valueType": "SpellRecipeVariable",
+      "owners": [
+        "Game MCP performance-debug navigation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "value-modifier.type",
       "assembly": "assembly-csharp",
       "type": "ValueModifier",
@@ -27071,7 +27129,7 @@
       "id": "ritual-lifecycle.variable-is-item-action", "assembly": "assembly-csharp",
       "type": "AbstractVariable`1", "typeVisibility": "public", "kind": "method", "member": "IsItem",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": ["!0"],
-      "owners": ["Automata Ritual lifecycle GameAction", "Common Ritual decision world collection"],
+      "owners": ["Automata Ritual lifecycle GameAction", "Common Ritual decision world collection", "Game MCP performance-debug navigation"],
       "usages": ["reflection"], "place": "action"
     },
     {

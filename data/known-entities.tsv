@@ -7,6 +7,7 @@ ActiveSpells	1614158d-6485-4995-90d0-79cc6b4dced4	ActiveSpells	SpellListVariable
 AlchAlchemyDiscover	70aabd3c-7790-4771-a863-5e5c41bff493	AlchAlchemyDiscover	ViewSO
 Alchemy	f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2	Alchemy	AlchemyTypeSO
 AlchemyScreen	3ae45ec0-4449-4903-b3d0-b5182e03dca3	ScreenAlchemy	ViewSO
+AllSpellTypeXpMod	d2b10420-aa5b-479d-945b-de82a00a5647	AllSpellTypeXpMod	DoubleVariable
 AutoScribeInstances	f6cb65a8-a959-477c-9293-ff66f646c95d	AutoScribeInstances	CraftingInstanceListVariable
 Brewing	d2947f69-d989-465d-8159-204285ed57be	Brewing	AlchemyTypeSO
 BulkDevelopment	0ed119bf-0449-4d64-9989-1a3f68c7b8a2	BulkDevelopment	IntVariable

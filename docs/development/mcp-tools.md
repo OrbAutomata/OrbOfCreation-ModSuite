@@ -2082,6 +2082,16 @@ Magic > Spellbook > Loadout is not unlocked — the game draws no row to press, 
 answer from unaffordable and from full — or `loadout_full`. There is no selection step and no
 target-first `create`: the game exposes neither.
 
+A discovered recipe's row is also its card on Magic > Spellbook > Spells, which
+`game_navigate(screen="Magic", subtab="Spellbook/Spells", uuid=<recipe>)` opens: `masteryLevel`, the
+mastery bar as `masteryXp` of `masteryXpNeeded` in the screen's figures, and `confirmMastery` — the
+Confirm Mastery button's `costs` (each `cost`, `spendableAmount`, `affordable`) and whether a press
+lands. Readiness is the mastery bar alone. A yes carries `notYetChecked`, because the spell's
+leveling requirements are the one gate no publication carries; a no carries the sentence
+`game_spell_mastery single` refuses with. `grants` names the type XP a confirm adds to each of the
+spell's types — the `(+X)` the card prints beside each type track — folded from the per-level amount,
+the type's Type Xp and the player's All Spell Types Xp.
+
 A discovered recipe's `weight` is what loading the bare spell charges, in the game's own math:
 authored upkeep, plus the penalty while the spell's "use effectively" requirements are unmet (`12
 Knowledge, including 6 more until its "use effectively" requirements are met`), less what its spell
@@ -3115,7 +3125,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
 | `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
 | `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
-| `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot list to select from; the screen is showing no plot list or more than one, so which plot was meant is unclear; no plot in this run carries that id; and a tile asked for anywhere but the plot page, which the sentence names | `game_navigate` |
+| `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `native_spell_navigation_unavailable` / `native_spell_list_unavailable` / `native_spell_not_resolved` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot or spell list to select from; the screen is showing no such list or more than one, so which tile was meant is unclear; no plot or spell in this run carries that id; and a tile asked for anywhere but the plot and spell pages, which the sentence names | `game_navigate` |
 | `modal_not_offered` / `no_modal_named` / `ambiguous_modal` / `modal_already_open` | The panel named is not one the suite presses, and the sentence names the ones it does; no chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
 | `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
 | `continue_wrong_scene` / `continue_contract_unavailable` | Continue exists only on the title screen, and being in a run is a state that moves; or this build does not expose the Continue button, so no save can be started from here | `game_continue` |
@@ -4293,11 +4303,14 @@ screen the game has not unlocked is neither a candidate nor a destination — it
 only once its parent is active, so a nested page has no address until the hop before it has landed.
 The tool makes those clicks in order, settles between them, and the postcondition is the leaf.
 
-`uuid` picks an Agromancy plot on `World/Agromancy`: it resolves as a published `PlotNodeSO`
-through the one audited active `UIPlotNodeList.OnNodeClick(PlotNodeSO)`; it is not a hardcoded
-Fruit Tree command. The book tiles on `Magic/Unlock` are a display of what fills the Spellcraft
+`uuid` picks a tile on the two pages that draw selectable ones. On `World/Agromancy` it resolves a
+published `PlotNodeSO` through the one audited active `UIPlotNodeList.OnNodeClick(PlotNodeSO)`. On
+`Magic/Spellbook/Spells` it resolves a `SpellRecipeSO` and opens that spell's card through
+`UISpellRecipeList.ClickRecipe(SpellRecipeSO)`; the game's click toggles, so the tool clicks only
+when the card is not already open, and answers `selectedSpell` once the page's selected-recipe
+variable holds it. The book tiles on `Magic/Unlock` are a display of what fills the Spellcraft
 roll's pool, and no control on them answers a click, so they are not an argument. A tile asked for
-anywhere else refuses `tile_destination_mismatch` naming the plot page. A tile is always resolved against a settled page: the server selects the top screen and
+anywhere else refuses `tile_destination_mismatch` naming both pages. A tile is always resolved against a settled page: the server selects the top screen and
 any subtab path, waits up to one second for the active screen and complete live strip set to remain
 stable across frames, and only then looks for the tile. Resolving against the settled hierarchy is what makes the
 subtab candidates the matcher searched identical to the ones the catalog advertises for that screen.

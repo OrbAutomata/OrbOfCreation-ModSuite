@@ -226,7 +226,7 @@ internal static class GameMcpDecisionReason
         "active_section_empty" or "control_unavailable" or "list_unavailable" or
         // The UI gadgets.
         "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or "no_modal_named" or
+        "native_plot_not_resolved" or "native_spell_not_resolved" or "no_modal_named" or
         "selection_unavailable" => ClassNotFound,
 
         // The target exists and is in the wrong state for this verb.
@@ -343,9 +343,11 @@ internal static class GameMcpDecisionReason
         // suite performs did not land, which is the suite's defect to answer for.
         "staged_write_failed" or "single_buy_unavailable" or "unsupported_control" or
         // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
-        // list or no queue-room reading, and the two guards the router already makes unreachable.
+        // or spell list or no queue-room reading, and the two guards the router already makes
+        // unreachable.
         "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
-        "native_plot_list_unavailable" or
+        "native_plot_list_unavailable" or "native_spell_navigation_unavailable" or
+        "native_spell_list_unavailable" or
         "native_probe_unavailable" or
         "tooltip_contract_unavailable" or "tooltip_read_faulted" or
         // The tooltip's graph goes further than the projector walks, so the read was abandoned

@@ -195,6 +195,109 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal("Needs 12 Knowledge (have 3).", shortfall);
     }
 
+    /// <summary>
+    /// A learned spell's page carries what its card on Magic > Spellbook > Spells shows: the
+    /// mastery bar as the screen prints it, and the Confirm Mastery button's price and readiness.
+    /// </summary>
+    [Fact]
+    public void A_learned_spells_page_carries_its_cards_mastery_bar_and_confirm_mastery_button()
+    {
+        var ready = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(Named(World(
+                discovered: true,
+                discoveryAffordable: true,
+                hasEmptySlot: true,
+                masteryReady: true,
+                masteryAffordable: true,
+                masteryXp: 640,
+                requiredMasteryXp: 600,
+                held: 20,
+                spendable: 20))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+        var filling = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(Named(World(
+                discovered: true,
+                discoveryAffordable: true,
+                hasEmptySlot: true,
+                masteryXp: 122,
+                requiredMasteryXp: 600))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+        var unlearned = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(
+                Named(World(discovered: false, discoveryAffordable: true, hasEmptySlot: true))),
+            "spell-recipes",
+            RecipeId.ToString("D")))["row"]!;
+
+        Assert.Equal("640", (string?)ready["masteryXp"]);
+        Assert.Equal("600", (string?)ready["masteryXpNeeded"]);
+        var confirm = (JObject)ready["confirmMastery"]!;
+        Assert.True((bool)confirm["available"]!);
+        Assert.Equal(
+            "Its leveling requirements, which the press settles.",
+            (string?)confirm["notYetChecked"]);
+        var cost = Assert.Single(confirm["costs"]!.Values<JObject>())!;
+        Assert.Equal("12", (string?)cost["cost"]);
+        Assert.Equal("20", (string?)cost["spendableAmount"]);
+        Assert.True((bool)cost["affordable"]!);
+
+        Assert.Equal("122", (string?)filling["masteryXp"]);
+        Assert.Equal("600", (string?)filling["masteryXpNeeded"]);
+        Assert.False((bool)filling["confirmMastery"]!["available"]!);
+        Assert.Equal(
+            "Gather Knowledge has no mastery level ready to buy: its mastery bar fills by " +
+            "casting it.",
+            (string?)filling["confirmMastery"]!["reason"]);
+
+        Assert.Null(unlearned["masteryXp"]);
+        Assert.Null(unlearned["confirmMastery"]);
+    }
+
+    /// <summary>
+    /// The card prints the type XP a confirm grants beside each of the spell's type tracks: the
+    /// per-level amount through that type's Type Xp and the player's All Spell Types Xp.
+    /// </summary>
+    [Fact]
+    public void Confirm_mastery_names_the_type_xp_it_grants_each_of_the_spells_types()
+    {
+        var boosted = Guid.Parse("1b0c6f0e-7a57-4c55-8f0a-2d6c1f3e9a01");
+        var plain = Guid.Parse("9e4d2a7c-3b61-4f08-b5d2-7c0a8e6f1b02");
+        var excluded = Guid.Parse("c3a9f1d4-5e72-4b16-9d08-1f6b2e7a4c03");
+        var world = World(
+            discovered: true, discoveryAffordable: true, hasEmptySlot: true,
+            masteryReady: true, masteryAffordable: true, held: 20, spendable: 20) with
+        {
+            SpellTypeXpPerMastery = 30d,
+            DoubleVariables = PublicationTable<WorldNumberVariable>.Create(new[]
+            {
+                new WorldNumberVariable(KnownEntities.AllSpellTypeXpMod.Uuid, new BigDouble(120), true),
+            }),
+            SpellTypes = PublicationTable<WorldSpellType>.Create(new[]
+            {
+                CantripType(boosted, typeXpMod: 150d),
+                CantripType(plain, typeXpMod: 100d),
+                CantripType(excluded, typeXpMod: 100d),
+            }.OrderBy(type => type.EntityId).ToArray()),
+            SpellRelations = PublicationTable<WorldSpellRelation>.Create(new[]
+            {
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.SpellType, 0, boosted),
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.SpellType, 1, plain),
+                new WorldSpellRelation(RecipeId, WorldSpellRelationKind.NotSpellType, 0, excluded),
+            }),
+        };
+
+        var grants = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world), "spell-recipes", RecipeId.ToString("D")))
+            ["row"]!["confirmMastery"]!["grants"]!.Values<JObject>().ToArray();
+        var uncollected = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world with { SpellTypeXpPerMastery = 0d }),
+                "spell-recipes", RecipeId.ToString("D")))["row"]!["confirmMastery"]!;
+
+        Assert.Equal(new[] { "54", "36" }, grants.Select(grant => (string?)grant!["typeXp"]));
+        Assert.Null(uncollected["grants"]);
+    }
+
     [Fact]
     public void DiscoveredRecipePublishesTheExactLoadoutAddDecisionAndCurrentHoldings()
     {
@@ -356,7 +459,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Equal(charged, (string?)row["weight"]);
     }
 
-    private static WorldSpellType CantripType(Guid id) => new(
+    private static WorldSpellType CantripType(Guid id, double typeXpMod = 1d) => new(
         id,
         typeLevel: 0,
         typeXp: BigDouble.Zero,
@@ -368,7 +471,7 @@ public sealed class GameMcpSpellWorkbenchTests
         hasNotTypeSignificance: false,
         isVisible: true,
         debugMode: false,
-        typeXpMod: BigDouble.One,
+        typeXpMod: new BigDouble(typeXpMod),
         power: BigDouble.One,
         cooldownSpeed: BigDouble.One,
         cooldownTime: BigDouble.One,
@@ -777,6 +880,9 @@ public sealed class GameMcpSpellWorkbenchTests
         bool usageBudget = false,
         bool loadoutScreenUnlocked = true,
         bool masteryReady = false,
+        bool masteryAffordable = false,
+        double masteryXp = 0d,
+        double requiredMasteryXp = 0d,
         int held = 5,
         int spendable = 3,
         int authoredWeight = 0,
@@ -819,9 +925,10 @@ public sealed class GameMcpSpellWorkbenchTests
                     RecipeId,
                     discovered,
                     0,
-                    BigDouble.Zero,
+                    new BigDouble(masteryXp),
                     0,
                     masteryReady,
+                    masteryAffordable,
                     false,
                     false,
                     penaltyWeight,
@@ -835,6 +942,7 @@ public sealed class GameMcpSpellWorkbenchTests
                     BigDouble.One,
                     BigDouble.One,
                     false,
+                    new BigDouble(requiredMasteryXp),
                     glyphs,
                     discoveryCosts,
                     discoveryAffordable,
@@ -878,7 +986,8 @@ public sealed class GameMcpSpellWorkbenchTests
             MasteryCosts = masteryReady
                 ? PublicationTable<WorldMasteryCost>.Create(new[]
                 {
-                    new WorldMasteryCost(RecipeId, 0, ResourceId, new BigDouble(12), false),
+                    new WorldMasteryCost(
+                        RecipeId, 0, ResourceId, new BigDouble(12), masteryAffordable),
                 })
                 : PublicationTable<WorldMasteryCost>.Empty,
             SpellWorkbench = new WorldSpellWorkbench(
