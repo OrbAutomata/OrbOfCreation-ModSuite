@@ -31,6 +31,12 @@ internal enum AutoBuyPurchasePreflight
     OwningViewRelationContradictory,
     StructureUnavailable,
     DestinationCapacityFull,
+
+    /// <summary>
+    /// The capacity-bound destination has no slot unlocked at all, so the purchase has nowhere to
+    /// put what it buys: the World > Aspects pedestals before the first Gather Space.
+    /// </summary>
+    DestinationCapacityLocked,
     DestinationCapacityContractUnavailable,
     DestinationCapacityIdentityMismatch,
 
@@ -1234,6 +1240,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             private readonly FieldInfo _tupleList;
             private readonly FieldInfo _tupleElement;
             private readonly FieldInfo _maxSizeVariable;
+            private readonly MethodInfo _maximumValue;
             private readonly MethodInfo _listIdentity;
             private readonly MethodInfo _viewIdentity;
             private readonly MethodInfo _variableIdentity;
@@ -1248,6 +1255,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 FieldInfo tupleList,
                 FieldInfo tupleElement,
                 FieldInfo maxSizeVariable,
+                MethodInfo maximumValue,
                 MethodInfo listIdentity,
                 MethodInfo viewIdentity,
                 MethodInfo variableIdentity,
@@ -1261,6 +1269,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 _tupleList = tupleList;
                 _tupleElement = tupleElement;
                 _maxSizeVariable = maxSizeVariable;
+                _maximumValue = maximumValue;
                 _listIdentity = listIdentity;
                 _viewIdentity = viewIdentity;
                 _variableIdentity = variableIdentity;
@@ -1324,6 +1333,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                         tupleList,
                         tupleElement,
                         maxSize,
+                        ExactNoArg(intVariable, "AsInt", typeof(int), declaredOnly: true),
                         ExactNoArg(viewList, "GetGuid", typeof(Guid), declaredOnly: false),
                         ExactNoArg(view, "GetGuid", typeof(Guid), declaredOnly: false),
                         ExactNoArg(intVariable, "GetGuid", typeof(Guid), declaredOnly: false),
@@ -1377,8 +1387,12 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
                         if (_hasEmptySpot.Invoke(list, Array.Empty<object>()) is not bool empty)
                             return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
-                        if (!empty)
-                            return AutoBuyPurchasePreflight.DestinationCapacityFull;
+                        if (empty) continue;
+                        if (_maximumValue.Invoke(maximum, Array.Empty<object>()) is not int slots)
+                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                        return slots <= 0
+                            ? AutoBuyPurchasePreflight.DestinationCapacityLocked
+                            : AutoBuyPurchasePreflight.DestinationCapacityFull;
                     }
 
                     return AutoBuyPurchasePreflight.Proceeded;

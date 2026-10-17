@@ -8147,7 +8147,8 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Buy mutation"
+        "Automata Auto Buy mutation",
+        "Automata Auto Buy destination-capacity admission"
       ],
       "usages": [
         "reflection"

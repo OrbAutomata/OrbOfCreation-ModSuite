@@ -688,6 +688,22 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void Execute_DestinationWithNoSlotUnlocked_RefusesAsLockedRatherThanFull()
+    {
+        var upgrade = AspectUpgrade(slotCount: 0, occupied: 0);
+
+        var result = Execute(
+            AutoBuyCandidateKind.Upgrade,
+            Guid.Parse(upgrade.uuid),
+            nativeEpoch: PlannedEpoch);
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoBuyActionResultCodes.DestinationCapacityLocked, result.Code);
+        Assert.Equal(0, upgrade.queuedLevels);
+        Assert.Equal(0, upgrade.purchaseCost.PerformCalls);
+    }
+
+    [Fact]
     public void Execute_RoomyAuditedDestination_CommitsUnchanged()
     {
         var upgrade = AspectUpgrade(slotCount: 2, occupied: 1);

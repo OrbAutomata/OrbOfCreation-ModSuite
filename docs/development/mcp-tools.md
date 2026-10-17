@@ -1058,8 +1058,8 @@ of the same three words under `state`:
 
 | word | native fact behind it |
 | --- | --- |
-| `locked` | prerequisites do not hold — `UpgradeSO`'s `prerequisites.Check()` is false, `ResearchSO.IsVisible()` is false, `StructureSO.IsAvailable()` is false |
-| `available` | prerequisites hold and nothing is finished — `UpgradeSO.IsAvailable()`, which is also what `UIUpgradeButton` renders its row on |
+| `locked` | prerequisites do not hold — `UpgradeSO`'s `prerequisites.Check()` is false or the screen its `screen` cell names is locked, `ResearchSO.IsVisible()` is false, `StructureSO.IsAvailable()` is false |
+| `available` | prerequisites hold and nothing is finished — `UpgradeSO.IsAvailable()`, which is also what `UIUpgradeButton` renders its row on, on a screen whose `ViewSO.IsAvailable()` is true |
 | `completed` | `IsMaxLevel()`, which is also when the game's own row disappears — completion and hiding are one state, never two words |
 
 **The word is not only for what the player buys.** What the player experiences as lockedness is the
@@ -1186,6 +1186,14 @@ Nothing on this surface reads `UpgradeSO.IsVisible()`. Despite the name it is th
 alone and stays **true** for a maxed upgrade, so reading it as "the player can see this row" calls
 a completed upgrade locked. The binder reads `IsAvailable()`, which is the member the game's own
 row renders on.
+
+An upgrade row is drawn only inside the panel of the screen its `screen` cell names, so that
+screen's `ViewSO.IsAvailable()` is part of the row's lock. Aspect: Workshop and Aspect: Alchemy Lab
+have no prerequisites and Learn Transmute has none either, yet World > Aspects stays hidden until
+`WorldAspectSlots` reaches one and Alchemy until Aspect: Alchemy Lab is bought. `state`, the
+`state` search filter, `available`, `canPurchase` and the overview's affordable count all read that
+one derivation, and the page answers `screen_locked` naming the screen. A row on no screen panel
+(`all`) has no screen gate.
 
 `mastery-experience` answers with a summary rather than the ring behind it. The category is a
 fixed-size window the game overwrites, and the sources feeding it repeat on a short cycle, so paging
@@ -3195,7 +3203,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `research_locked` | `ResearchSO.IsVisible()` is false, so the Research grid draws no tile, yet the game's own `CanDevelop()` never asks: the suite refuses develop and bonus in front of it. The sentence names the unmet unlock conditions. Pause, resume and cancel stay open so a stray development can still be stopped | `game_research develop`/`bonus`, the research row's `develop` decision, `canDevelop` |
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
-| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `game_spell_loadout add`/`remove`/`move` |
+| `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `canDiscover` predicates on an entity no discovery tree's pool can hold |
 | `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve, quantity floor, and its rule against draining a resource that sits at zero never produce it, because all three are read on the service's own call and nowhere else | `game_concept` |

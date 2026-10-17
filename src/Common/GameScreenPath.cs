@@ -37,6 +37,14 @@ internal static class GameScreenPath
         if (viewId == KnownEntities.TimeTimeRuneCreate.Uuid) return "Time > Time Runes > Create";
         if (viewId == KnownEntities.AlchAlchemyDiscover.Uuid) return "Alchemy > Alchemy > Learn";
         if (viewId == KnownEntities.ScholarConceptDiscover.Uuid) return "Scholar > Concepts > Discover";
+        if (viewId == KnownEntities.ScreenMagic.Uuid) return "Magic";
+        if (viewId == KnownEntities.ScreenWorkshop.Uuid) return "Workshop";
+        if (viewId == KnownEntities.ScreenWorld.Uuid) return "World";
+        if (viewId == KnownEntities.WorldAspects.Uuid) return "World > Aspects";
+        if (viewId == KnownEntities.AlchemyScreen.Uuid) return "Alchemy";
+        if (viewId == KnownEntities.ScreenRitual.Uuid) return "Rituals";
+        if (viewId == KnownEntities.ScreenScholar.Uuid) return "Scholar";
+        if (viewId == KnownEntities.ScreenTime.Uuid) return "Time";
         return string.Empty;
     }
 }

@@ -71,4 +71,10 @@ internal static class AutoBuyActionResultCodes
     /// saying which step of the pin failed.
     /// </summary>
     public static ServiceActionResultCode SingleBuyUnavailable => new(2064);
+
+    /// <summary>
+    /// The upgrade fills a capacity-bound slot and no slot of that kind is unlocked yet. Not
+    /// <see cref="DestinationCapacityFull"/>: nothing is in the way, there is simply no slot.
+    /// </summary>
+    public static ServiceActionResultCode DestinationCapacityLocked => new(2065);
 }

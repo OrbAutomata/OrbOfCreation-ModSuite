@@ -237,26 +237,34 @@ internal static class GameMcpListColumns
     internal const string ScreenAll = "all";
 
     /// <summary>
-    /// The authored list identity behind each screen word, and the one list that is not a screen.
+    /// The authored list identity behind each screen word, and the view that draws it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Three of these lists — Scholar's twenty-seven upgrades, the three world aspects, and the
     /// empty Time list — are named by no <c>ViewSO</c> anywhere in the serialized object graph:
     /// their only consumer is prefab swapper data that lives outside both the assembly and the
     /// dump. Pinning the identity is what reaches them, and it is why Scholar's upgrades say
     /// <see cref="ScreenScholar"/> here instead of disappearing into the same blank the four
     /// cap-raisers would have left.
+    /// </para>
+    /// <para>
+    /// The view is the screen's own unlock gate. While its <c>ViewSO.IsAvailable()</c> is false the
+    /// game draws neither the screen nor the panel this list is swapped into, so an upgrade whose
+    /// own prerequisites hold is still not offered: Aspect: Workshop has none, and World > Aspects
+    /// stays hidden until <c>WorldAspectSlots</c> reaches one.
+    /// </para>
     /// </remarks>
-    internal static readonly (Guid ListId, string Word)[] Screens =
+    internal static readonly (Guid ListId, string Word, Guid ViewId)[] Screens =
     {
-        (KnownEntities.UpgradesMagicScreen.Uuid, ScreenMagic),
-        (KnownEntities.UpgradesWorkshopScreen.Uuid, ScreenWorkshop),
-        (KnownEntities.UpgradesWorldScreen.Uuid, ScreenWorld),
-        (KnownEntities.UpgradesAlchemyScreen.Uuid, ScreenAlchemy),
-        (KnownEntities.UpgradesRitualScreen.Uuid, ScreenRituals),
-        (KnownEntities.UpgradesScholarScreen.Uuid, ScreenScholar),
-        (KnownEntities.UpgradesAspectsScreen.Uuid, ScreenAspects),
-        (KnownEntities.UpgradesTimeScreen.Uuid, ScreenTime),
+        (KnownEntities.UpgradesMagicScreen.Uuid, ScreenMagic, KnownEntities.ScreenMagic.Uuid),
+        (KnownEntities.UpgradesWorkshopScreen.Uuid, ScreenWorkshop, KnownEntities.ScreenWorkshop.Uuid),
+        (KnownEntities.UpgradesWorldScreen.Uuid, ScreenWorld, KnownEntities.ScreenWorld.Uuid),
+        (KnownEntities.UpgradesAlchemyScreen.Uuid, ScreenAlchemy, KnownEntities.AlchemyScreen.Uuid),
+        (KnownEntities.UpgradesRitualScreen.Uuid, ScreenRituals, KnownEntities.ScreenRitual.Uuid),
+        (KnownEntities.UpgradesScholarScreen.Uuid, ScreenScholar, KnownEntities.ScreenScholar.Uuid),
+        (KnownEntities.UpgradesAspectsScreen.Uuid, ScreenAspects, KnownEntities.WorldAspects.Uuid),
+        (KnownEntities.UpgradesTimeScreen.Uuid, ScreenTime, KnownEntities.ScreenTime.Uuid),
     };
 
     internal static Guid EveryUpgradeList => KnownEntities.UpgradesAll.Uuid;
