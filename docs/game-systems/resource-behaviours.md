@@ -7,10 +7,9 @@ Which resource carries what is recorded here as it is established, not inferred.
 
 ## Spark — decays toward an equilibrium
 
-Spark loses a fixed **percentage of what you hold** every second (observed 4 %/s), on top of its
-ordinary gain. Its tooltip prints the result as **Equilibrium At**: gain equals loss at
-`raw rate × Gain % ÷ Loss %`. E.g., one observed run had a raw rate of 3.30/s and 147 % Gain against
-4 %/s Loss, so its tooltip read Equilibrium At 109. Above that point Spark falls back; below it, it
+Spark loses **4 % of what you hold** every second (`lossPercent` 4), on top of its ordinary gain.
+Its tooltip prints the balance point as **Equilibrium At** (e.g., `109` on one observed run with a
+3.30/s raw rate and 147 % Gain). Above that point Spark falls back; below it, it
 refills fastest when empty. With no passive Spark income the equilibrium is zero. Channel Spark
 pours in far above it (observed +470/s), and the channel ends with Spark falling back toward the
 equilibrium.

@@ -73,7 +73,11 @@ Exactly three authored effects move Discovery Options:
 So a third option on an ordinary tree comes from Greater Discovery or Orb Minimalism; Alchemy already
 offers three.
 
-- Rerolling replaces the options offered. **Rerolling never rerolls the rarity** of the offer.
+- Rerolling replaces the options offered. **Rerolling never rerolls the rarity** of the offer,
+  which is fixed when the roll is paid. Discovery Rarity Rating sets the chance for any roll to
+  come out **Superior**, with stronger properties than the plain version: the chance bends below
+  linear and caps at `30 %` (e.g., rating `36.7` → `17.0 %`), and higher tiers open at fixed
+  ratings, **x2 at `36.2`, x3 at `84.5`**.
 - The Reroll button is drawn on the reroll budget alone, so a required component can be rerolled
   too — and it is the one thing that tree can offer, so it comes back.
 - You **gain a reroll back only by taking a choice without having rerolled**.

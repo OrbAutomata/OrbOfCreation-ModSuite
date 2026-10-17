@@ -72,6 +72,7 @@ leaving a run means going through it. Returning to the menu fires the manual sav
 | Scholar > Concepts | [concepts.md](concepts.md) |
 | Scholar > Research | [research.md](research.md) |
 | Scholar > Scribe | [scribing.md](scribing.md) |
+| World > Dimensional | [dimensional.md](dimensional.md) |
 | World > Aspects | [aspects.md](aspects.md) |
 | World > Agromancy | [agromancy.md](agromancy.md) |
 | Workshop > Artifacts | [artifacts.md](artifacts.md) |

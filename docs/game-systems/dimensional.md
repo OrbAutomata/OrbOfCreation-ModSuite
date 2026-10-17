@@ -34,10 +34,10 @@ Each Shaper upgrade is a one-off World-screen purchase that opens two more attri
 | Cognitive Shaping | 600 Space + 200 Psi | Memory (Space + Psi) | Lv 3: +5.24% base Mental and Energetic capacity |
 | | | Sorcery (Space + Knowledge) | Lv 2: +5.14% base Magic and Elemental capacity |
 
-These are the cap levers for every price above the Space cap. **An overflow can't pay such a
-price:** cast overcap falls back within seconds (see [overcap.md](overcap.md)), so Tech
-Advancements' 800 is reached by raising the cap through Containment, Urn of Urns and Urn of
-Holding.
+These are the cap levers for every price above the Space cap ([capacity.md](capacity.md)).
+Conjure Space casts come further apart than the 3 s overcap timer ([overcap.md](overcap.md)), so
+overflow drains before it can pay. Tech Advancements' 800 is reached by raising the cap through
+Containment, Urn of Urns and Urn of Holding.
 
 ## Tech Advancements
 

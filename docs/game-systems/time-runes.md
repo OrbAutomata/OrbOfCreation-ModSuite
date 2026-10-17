@@ -49,13 +49,11 @@ applying to a rune of that class picked earlier in the run).
 Investment Power stacks additively: `+12 %` per persist level, so three levels turn a base `225` pick
 into exactly `306`, not `316` (see [modifiers.md](modifiers.md)). A rune's XP per pick is the base
 pick XP times its `+25 %`-per-rune-level bonus times its Investment Power. Rune mastery XP accrues in
-fractions and the bar is per rune. E.g., a first mastery level needed `4` XP (reached at rune
-Lv 4), and Discovery Rarity's bars for mastery 4 and 5 read `10` and `12`.
+fractions. Every rune's bar follows one curve by its own mastery level: `4` XP for the first level
+(reached at rune Lv 4), then `+2` per level (Discovery Rarity's bars for mastery 4 and 5 read `10`
+and `12`).
 
 ## Discovery Rarity
 
-The first rune's levels raise **Discovery Rarity Rating**, the chance for *any* discovery roll to
-come out **Superior**, with stronger properties than the plain version. Level `L` adds
-`2 + 0.5 (L − 1)` base rating, times a small multiplier (×1.02 observed). The chance bends below
-linear and caps at `30 %` (e.g., rating `36.7` → `17.0 %`). Higher tiers open at fixed ratings:
-**x2 at `36.2`, x3 at `84.5`**. Rarity is fixed when the roll is paid, and a reroll keeps it.
+The first rune's level `L` adds `2 + 0.5 (L − 1)` **Discovery Rarity Rating**, the rating behind
+Superior discoveries (see [discovery.md](discovery.md#choices-and-rerolls-are-statistics)).

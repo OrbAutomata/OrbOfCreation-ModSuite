@@ -61,8 +61,8 @@ carried cross-run bonuses (authored constants do not).
 
 ## Discovery
 
-- **Offer tables and rarities** — what each tree can actually produce, the rarity levels attached to
-  offers, and how multi-resource roll prices are composed.
+- **Offer tables and roll prices** — what each tree can actually produce, and how multi-resource
+  roll prices are composed.
 - **The deep-ladder scaling law** — the per-step factor grows with the count, and the formula has not
   been extracted.
 
