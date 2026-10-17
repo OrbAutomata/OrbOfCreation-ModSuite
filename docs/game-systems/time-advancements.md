@@ -2,8 +2,9 @@
 
 Time Advancements (TA) are the currency that buys rune levels. Two facts define them:
 
-- They are **refunded on every world reset**. TA is a pure allocation currency — you are deciding
-  where it sits, never whether to consume it.
+- They are **refunded on every world reset**, and only then: a rune level bought mid-run holds its
+  TA until the reset (Persist Boost's refund is the one exception; see
+  [time-runes.md](time-runes.md)).
 - The TA bar's **maximum is the TA this run started with**, so a full bar means everything is
   unallocated and an empty one means it is all sitting in runes. The maximum only moves at a reset:
   the whole pool is refunded and the ceiling rises by what the run's masteries added.

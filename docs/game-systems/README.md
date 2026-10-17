@@ -100,7 +100,9 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   capacity attributes, and Tech Advancements opens Technology research.
 - [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
   runs with the screen closed.
-- [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.
+- [aspects.md](aspects.md) — Gather Space buys the world slots through which Workshop, Alchemy and
+  Rituals arrive.
+- [workshop.md](workshop.md) — how the Workshop opens, its two XP tracks, and the first artifact.
 - [disciplines.md](disciplines.md) — four disciplines change name between purchase page and
   advancement tab; several are unplayed.
 - [crafting.md](crafting.md) — Workshop recipe rows; crafts pay at submission.
@@ -121,8 +123,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [time-runes.md](time-runes.md) — rune level, persist level and mastery level are three different
   tracks.
-- [time-advancements.md](time-advancements.md) — refunded every reset, so the only question is the
-  split.
+- [time-advancements.md](time-advancements.md) — refunded at every reset and held by rune levels
+  until then.
 - [achievement-strength.md](achievement-strength.md) — +1 % all resource gain and +1 starting Time
   Advancement per point.
 - [challenges.md](challenges.md) — picked at NG+ start, cleared by resets; they modify

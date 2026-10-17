@@ -9,13 +9,28 @@ one-off crafting you drive by hand and standing production, and the Manual side 
 regardless of what the Automate side is set to.
 
 Each side is a strip of slots, and the two strips are counted separately. Observed on Workshop:
-**three Manual slots and a single Automate slot**, so exactly one recipe can be standing production
-here at a time and automating a second is refused until the first is cleared. An Automate slot
+**three Manual slots and a single Automate slot** on a late save, and a **single Manual slot** early in
+a run — there a second recipe is refused ("no empty spot") until the first one's entry finishes, while
+more presses of the same recipe stack onto it. Exactly one recipe can be standing production at a
+time, and automating a second is refused until the first is cleared. An Automate slot
 carries a **number badge**, which is the amount queued on that entry rather than a count of slots;
 cancelling steps that badge down and only removes the card when it reaches zero.
 
 Scribing is its own surface with its own page, and its own separate pair of strips with different
 slot counts; see [scribing.md](scribing.md).
+
+## One press crafts as many as the action multiplier asks
+
+The shared action multiplier at the top right (`×1`, `5`, `25`, `Mx`) sizes a craft press: at `Mx`
+one press queues as many crafts as the stock pays for (observed: 133 Paper in one press). The batch
+is a single entry that finishes in **one** craft time, not one craft time per item, and its output
+arrives as a rate across that craft time. One craft can also yield several items: a single Craft
+Alchemic Scroll gave 6.1 Alchemic Scrolls (observed).
+
+**Craft Alchemic Scroll** (Force Bark + Thaumic Scrolls + Control) appears in the list later than its
+inputs do; observed appearing right after Alchemical Bookcases and the first Alchemic Command levels.
+Holding an Alchemic Scroll is the unlock for Greater Discovery, Level Alchemy, Planning Alchemic,
+Scholarism Alchemy and Shape Land.
 
 ## Crafts pay at submission
 

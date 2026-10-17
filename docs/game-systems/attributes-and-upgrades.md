@@ -11,6 +11,9 @@ Observed categories include Container ("attributes that hold resources"), Machin
 Talent, Purity, Radiant, Innate and Infusion. An effect reading "+X % Aura Effect Levels" hits every
 Aura you own, present and future; an effect naming a single attribute hits only that one. This is the
 ordinary effect grammar; see [effect-grammar.md](effect-grammar.md).
+The **Imbue Occultic** (Occult Essence) and **Imbue Organic** (Organic Essence) upgrades are such
+effects: each level is +1 effect level on every Wizardry or Druidry attribute (observed 16 Wizardry
+attributes; Imbue Occultic 1.5e5 for Lv 1, then 4.5e6).
 
 ## Bonus levels are power, not progress
 

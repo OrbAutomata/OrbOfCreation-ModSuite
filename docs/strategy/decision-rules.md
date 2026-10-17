@@ -9,6 +9,8 @@ them.
 Never score off the visible fraction** — the visible part is not a sample of the whole, it is the
 part the game chose to show you.
 
+Advancement points, Time Advancements included, are the one-way doors of a run: nearly every other
+budget comes back ([resource-lifecycle.md](resource-lifecycle.md)), these stay spent until reset.
 Orb allocations are the canonical case: each level advertises a small buff while the dominant value
 is the gates it opens later, and those thresholds are not displayed. A confident +8 read off the
 visible buffs is really a +0.8 against what you cannot see. Hold the orbs, read the gates out of the
@@ -20,9 +22,9 @@ gate you can actually see, remembering that gates read purchased levels, so a vi
 satisfy one.
 
 **A cap-raiser is one purchase, not a line.** The four `Raise <thing> Level` rows re-price
-themselves by roughly ×267 per level, so the level you can afford is normally the only one you can
-afford. Buy it when it comes into reach and re-plan from the new price rather than budgeting a run
-of them.
+themselves steeply — ×3–4 per level early in a run (Raise Alchemy Level,
+[alchemy.md](../game-systems/alchemy.md)), roughly ×267 per level late — so buy the level in reach and re-plan from the new price
+rather than budgeting a run of them.
 
 ## The watermark problem
 
@@ -43,6 +45,12 @@ at that instant, however good the tooltip looks.
 Efficiency multipliers win while the shared input binds; throughput adders win when spots or
 cooldowns bind. **The answer flips as rates grow**, so re-check it inside an era, not only at
 milestones.
+
+Alchemy Lv is throughput bought with efficiency: each level doubles a recipe's output for four
+times its inputs, and a Dismantle gets no more capacity for its bigger drain
+([alchemy.md](../game-systems/alchemy.md)). While an input is the
+binder (Magebloom feeding Extract Magebloom), a level beyond what its supply sustains makes half as
+much per input once the stock runs dry.
 
 ## Commitment points
 

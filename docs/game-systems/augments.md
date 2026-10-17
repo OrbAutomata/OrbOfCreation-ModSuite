@@ -31,6 +31,10 @@ Augments are deliberately double-edged. Two worked examples; the remaining effec
 (**Special** multiplies the non-scaling multiplicative components of an effect, such as a charm's
 ×1.12 Magic Resources Gained row.)
 
+A socket's power multiplier does not carry one-for-one into every spell's gain: Heavy socketed into
+Conjure Life raised it only from +790 to +816 Verdant Energy/s while doubling its cooldown
+(observed).
+
 ## Slots belong to the spell
 
 Augment slots belong to the **spell**, not to a shared board. What you configure is a per-spell
@@ -98,7 +102,17 @@ is the glyph, not spell levelling.
 ## Levels grant global passives even unsocketed
 
 Every **purchased level** of an augment applies its own global modifiers regardless of whether the
-augment is socketed anywhere — e.g., ×1.04 Cantrip cooldown speed and ×0.94 Cantrip cost per level.
+augment is socketed anywhere. Observed per-level passives (partial):
+
+| Augment | Per purchased level |
+|---|---|
+| Heavy | ×1.08 Cantrip power |
+| Quick | ×1.04 Cantrip cooldown speed, ×0.94 Cantrip cost |
+| Efficient | +10% Mana Affinity max stacks, +8% Mana Affinity duration |
+
+Paid levels escalate per augment, not globally: observed 2, 3 and 4 Glyph Upgrades for an augment's
+first, second and third paid levels, while a fresh augment's first level still costs 2.
+
 That splits an augment into two value streams: the socket effect (large, targeted, weighted,
 double-edged) and the level passive (small, global, weightless, permanent for the run).
 
