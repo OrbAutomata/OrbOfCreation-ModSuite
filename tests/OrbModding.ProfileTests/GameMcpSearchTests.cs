@@ -227,8 +227,8 @@ public sealed class GameMcpSearchTests
         var nothing = Json(GameMcpWorldQuery.Search(Context(), string.Empty, 0, 50));
         Assert.Equal("ERR_INPUT", (string?)nothing["reasonCode"]);
         Assert.Equal(
-            "name something to search for: a query, or a category, state, run, discovered " +
-            "or keyword filter",
+            "name something to search for: a query, or a category, state, run, discovered, " +
+            "keyword or modifies filter",
             (string?)nothing["reason"]);
     }
 

@@ -188,8 +188,8 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldGlyphFactor> GlyphEffects { get; } = new();
 
     /// <summary>
-    /// The authored modifier tuples one more level of a levelable entity buys, from the six holders
-    /// that author them. Sparse in the same way: most entities author none.
+    /// The authored modifier tuples every effect holder applies. Sparse in the same way: most
+    /// entities author none.
     /// </summary>
     internal WorldRelationBuffer<WorldLevelEffect> LevelEffects { get; } = new();
 

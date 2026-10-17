@@ -1914,8 +1914,8 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
-    /// The five holders that author effect blocks read the same scripts through the same reader, and
-    /// a block whose scripts apply no modifier publishes no row rather than an empty one.
+    /// Every holder that authors effect blocks reads the same scripts through the same reader, and a
+    /// block whose scripts apply no modifier publishes no row rather than an empty one.
     /// </summary>
     [Fact]
     public void EveryBlockHolderPublishesItsAuthoredTuplesAndNothingElse()
@@ -1963,9 +1963,9 @@ public sealed class GameWorldCollectorTests : IDisposable
         }));
         FakeSpellType.All.Add(arcane);
 
-        // The sixth holder's shape: a block whose script grants advancement experience rather than
-        // applying a modifier. It is walked and it publishes nothing, which is what the pinned
-        // build's twenty time-rune blocks all do.
+        // A block whose script grants advancement experience rather than applying a modifier is
+        // walked and publishes nothing, which is what the pinned build's twenty time-rune
+        // level-up blocks all do.
         var rune = Guid.NewGuid();
         var runeAsset = new FakeTimeRune { Identity = rune };
         runeAsset.onLevelEffects.Add(Block(new FakeTreasureEffect()));
@@ -2011,6 +2011,79 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.False(
             WorldLevelEffectLookup.TryFindRange(world.LevelEffects, rune, out _, out _));
+    }
+
+    /// <summary>
+    /// A challenge's two lists say which one an effect came from, because its tooltip prints them
+    /// under different headers; one owner's rows number on across its lists; and a structure's
+    /// deprecated property lists publish like an upgrade's.
+    /// </summary>
+    [Fact]
+    public void ChallengeSectionsAndStructurePropertiesPublishAsTheTooltipGroupsThem()
+    {
+        var discoveryOptions = new FakeNumberVariable();
+        var trial = new FakeChallenge();
+        trial.challengeEffects.Add(Block(new FakeVariableEffect
+        {
+            numberVariable = discoveryOptions,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, -1d, 0),
+        }));
+        trial.completionRewards.Add(Block(new FakeVariableEffect
+        {
+            numberVariable = discoveryOptions,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 2d, 0),
+        }));
+        FakeChallenge.All.Add(trial);
+
+        var research = new FakeResearch();
+        research.researchEffectBlocks.Add(Block(new FakeVariableEffect
+        {
+            numberVariable = discoveryOptions,
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+        }));
+        FakeResearch.All.Add(research);
+
+        var field = new FakeUpgradeableObject();
+        var plot = new FakeStructure { Identity = Guid.NewGuid() };
+        var properties = new FakePermanentEffects();
+        properties.upgradeableObjectEffects.Add(new FakeObjectPropertyEffect
+        {
+            upgradeableObject = field,
+            propertyType = "Quality",
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 0.005d, 0),
+        });
+        plot.structureProperties.Add(properties);
+        FakeStructure.All.Add(plot);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, trial.Identity, out var trialStart, out var trialCount));
+        Assert.Equal(2, trialCount);
+        Assert.Equal(0, world.LevelEffects[trialStart].Ordinal);
+        Assert.Equal("while", world.LevelEffects[trialStart].When);
+        Assert.Equal(-1d, world.LevelEffects[trialStart].Amount.ToDouble(), 6);
+        Assert.Equal(1, world.LevelEffects[trialStart + 1].Ordinal);
+        Assert.Equal("reward", world.LevelEffects[trialStart + 1].When);
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, research.Identity, out var researchStart, out var researchCount));
+        Assert.Equal(1, researchCount);
+        Assert.Equal(discoveryOptions.Identity, world.LevelEffects[researchStart].TargetId);
+        Assert.Equal(string.Empty, world.LevelEffects[researchStart].When);
+
+        Assert.True(
+            WorldLevelEffectLookup.TryFindRange(
+                world.LevelEffects, plot.Identity, out var plotStart, out var plotCount));
+        Assert.Equal(1, plotCount);
+        Assert.Equal("Quality", world.LevelEffects[plotStart].Property);
+        Assert.Equal(field.Identity, world.LevelEffects[plotStart].TargetId);
     }
 
     private static FakeEffectBlock Block(object script)
@@ -2592,6 +2665,7 @@ public sealed class GameWorldCollectorTests : IDisposable
 
     private sealed class FakeStructure : FakeIdRegistry, IFakeTooltipable, IFakeScribeTargetable
     {
+        public List<FakePermanentEffects> structureProperties = new();
         public static readonly List<FakeStructure> All = new();
 
         public FakeStructureType structureType = FakeStructureType.Shared;
@@ -2755,6 +2829,7 @@ public sealed class GameWorldCollectorTests : IDisposable
 
     private sealed class FakeResearch
     {
+        public List<FakeEffectBlock> researchEffectBlocks = new();
         public static readonly List<FakeResearch> All = new();
 
         public Guid Identity = Guid.NewGuid();
@@ -2922,6 +2997,7 @@ public sealed class GameWorldCollectorTests : IDisposable
     /// </summary>
     private sealed class FakeNumber
     {
+        public List<FakeEffectBlock> persistentEffectBlocks = new();
         public static readonly List<FakeNumber> All = new();
 
         public Guid Identity = Guid.NewGuid();
@@ -2935,6 +3011,7 @@ public sealed class GameWorldCollectorTests : IDisposable
 
     internal sealed class FakeCount
     {
+        public List<FakeEffectBlock> persistentEffectBlocks = new();
         public static readonly List<FakeCount> All = new();
 
         public Guid Identity = Guid.NewGuid();
@@ -3437,7 +3514,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         {
             Identity = idle,
             discovered = true,
-            durationRewardBlocks = { new object() },
+            durationRewardBlocks = { new FakeEffectBlock() },
             maximumSelectedLevel = 4,
             activationCost = new FakeCraftingResourceCostList()
                 .With(knowledge, new BigDouble(11)),
@@ -3458,7 +3535,7 @@ public sealed class GameWorldCollectorTests : IDisposable
             wavesPerLevel = 2,
             maxWaves = 30,
             ritualInstances = new List<object> { new(), new() },
-            durationRewardBlocks = { new object() },
+            durationRewardBlocks = { new FakeEffectBlock() },
             currentSpoils =
             {
                 new FakeSpoilsRecordEntry(knowledge, new BigDouble(12)),

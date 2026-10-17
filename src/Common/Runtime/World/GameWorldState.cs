@@ -500,8 +500,9 @@ public sealed record GameWorldState
         PublicationTable<WorldGlyphFactor>.Empty;
 
     /// <summary>
-    /// What one more level of a levelable entity buys, as the authored modifier tuples it applies.
-    /// Sorted by owner and then by authored position, so one entity's tuples are a contiguous range.
+    /// The authored modifier tuples each owner applies — what one more level buys on a levelable
+    /// entity, what owning it applies on the rest. Sorted by owner and then by authored position, so
+    /// one entity's tuples are a contiguous range.
     /// </summary>
     internal PublicationTable<WorldLevelEffect> LevelEffects { get; init; } =
         PublicationTable<WorldLevelEffect>.Empty;

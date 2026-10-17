@@ -692,6 +692,7 @@ internal sealed class FakeScribeEnchantItemScript : IFakeScribeInstantScript
 
 internal sealed class FakeScribeEnchantment
 {
+    public List<FakeEffectBlock> persistentEffects = new();
     public static readonly List<FakeScribeEnchantment> All = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -1190,6 +1191,9 @@ internal sealed class FakeInstanceScalingRef
 internal sealed class FakeAlchemyRecipe
     : FakeIdRegistry, global::IDiscoverable
 {
+    public List<FakeEffectBlock> persistentEffectBlocks = new();
+    public List<FakeEffectBlock> equipEffectBlocks = new();
+    public List<FakeEffectBlock> advancementEffectBlocks = new();
     public static readonly List<FakeAlchemyRecipe> All = new();
     public List<FakeAlchemyType> alchemyTypes = new();
 
@@ -1569,6 +1573,7 @@ internal struct FakeSpellCostEntry
 
 internal sealed class FakeSpellRecipe : FakeIdRegistry, global::IDiscoverable
 {
+    public List<FakeEffectBlock> toggledEffects = new();
     private List<FakeSpellType> notSpellTypes = new();
     public static readonly List<FakeSpellRecipe> All = new();
 
@@ -1767,6 +1772,7 @@ internal sealed class FakeSpellType
 
 internal sealed class FakeEquipment : FakeIdRegistry, global::IDiscoverable
 {
+    public List<FakeEffectBlock> equipEffects = new();
     public static readonly List<FakeEquipment> All = new();
     public List<FakeEquipmentType> subEquipmentTypes = new();
 
@@ -2045,6 +2051,8 @@ internal sealed class FakeResource
 
 internal sealed class FakeHarvestElement
 {
+    public List<FakeEffectBlock> growthEffects = new();
+    public List<FakeEffectBlock> harvestEffects = new();
     public static readonly List<FakeHarvestElement> All = new();
     public List<FakeHarvestType> harvestTypes = new();
 
@@ -2141,6 +2149,7 @@ internal sealed class FakeHarvestActionList
 
 internal sealed class FakeTimeRune : global::IDiscoverable
 {
+    public List<FakeEffectBlock> effectBlocks = new();
     public static readonly List<FakeTimeRune> All = new();
 
     /// <summary>What one more level of the rune applies, which on the pinned build is never a modifier.</summary>
@@ -2270,6 +2279,7 @@ internal sealed class FakeGlyph : global::IDiscoverable
 
 internal sealed class FakeConsumable
 {
+    public List<FakeEffectBlock> toggledEffects = new();
     public static readonly List<FakeConsumable> All = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -2400,7 +2410,7 @@ internal sealed class FakeRitual : global::IDiscoverable
     /// <summary>Left null unless a test fills it, so the null-reads-as-zero path stays exercised.</summary>
     public List<object>? ritualInstances;
 
-    public List<object> durationRewardBlocks = new();
+    public List<FakeEffectBlock> durationRewardBlocks = new();
     public BigDouble battleTotalWeight;
     public ValueModifierRecord power = new(new BigDouble(0.0, 0));
     public ValueModifierRecord speed = new(new BigDouble(0.0, 0));
@@ -2483,6 +2493,7 @@ internal sealed class FakeRitualManager
 
 internal sealed class FakeAchievement
 {
+    public List<FakeEffectBlock> completionEffects = new();
     public static readonly List<FakeAchievement> All = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -2498,6 +2509,7 @@ internal sealed class FakeAchievement
 
 internal sealed class FakeAdvancement
 {
+    public List<FakeEffectBlock> advancementEffects = new();
     public static readonly List<FakeAdvancement> All = new();
 
     public Guid Identity = Guid.NewGuid();
@@ -2534,6 +2546,8 @@ internal sealed class FakeChallengeCondition
 
 internal sealed class FakeChallenge
 {
+    public List<FakeEffectBlock> challengeEffects = new();
+    public List<FakeEffectBlock> completionRewards = new();
     public List<FakeChallengeType> challengeTypes = new();
     public static readonly List<FakeChallenge> All = new();
 
@@ -2616,7 +2630,7 @@ internal sealed class FakePlotNodeAction
     public FakeCostType elementCostType;
     public FakePlotPhase elementCostExitPhase;
     public FakeResourceCostList actionDrain = new();
-    public List<object> actionEffects = new();
+    public List<FakeEffectBlock> actionEffects = new();
     public List<FakeEffectBlock> completeEffects = new();
 
     public Guid GetGuid() => Identity;
@@ -2706,8 +2720,8 @@ internal sealed class FakeTupleMod
 }
 
 /// <summary>
-/// The deprecated container an upgrade authors its permanent effects in: three typed lists rather
-/// than one list of scripts, which is why the upgrade is walked apart from the five block holders.
+/// The deprecated container an upgrade and a structure author their effects in: three typed lists
+/// rather than one list of scripts, which is why both are walked apart from the block holders.
 /// </summary>
 internal sealed class FakePermanentEffects
 {
@@ -2784,6 +2798,7 @@ internal sealed class FakePrerequisites
 
 internal sealed class FakePassiveAbility
 {
+    public List<FakeEffectBlock> passiveEffectBlocks = new();
     public static readonly List<FakePassiveAbility> All = new();
     public List<FakePassiveAbilityType> passiveTypes = new();
 
@@ -2892,6 +2907,7 @@ internal sealed class FakeRecipeBook
 
 internal sealed class FakePlotNode
 {
+    public List<FakeEffectBlock> passiveEffects = new();
     public static readonly List<FakePlotNode> All = new();
     public List<FakePlotNodeType> nodeTypes = new();
 

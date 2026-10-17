@@ -334,4 +334,75 @@ internal sealed class GameMcpEffectWordIndex
         if (!words.Contains(word)) words.Add(word);
     }
 }
+/// <summary>
+/// The far side of every authored effect: for each thing an effect moves, the entities whose effects
+/// move it and what each one does to it.
+/// </summary>
+/// <remarks>
+/// <para>
+/// "What gives me a third Discovery Option" is asked of the statistic, and the game stores the edge
+/// only on the other end — a research's effect block names the variable, the variable names nothing
+/// back. This inverts the two published effect tables once, so the count a target's page prints and
+/// the rows the <c>modifies</c> filter returns are read from one index rather than two.
+/// </para>
+/// <para>
+/// The effect is said the way the owner's tooltip says it: the amount in the modifier's own
+/// spelling, the property it moves where the game names one, and the section a challenge prints it
+/// under. The target is the filter itself, so it is not repeated.
+/// </para>
+/// </remarks>
+internal sealed class GameMcpEffectSourceIndex
+{
+    private readonly Dictionary<Guid, Dictionary<Guid, string>> _byTarget;
+
+    private GameMcpEffectSourceIndex(Dictionary<Guid, Dictionary<Guid, string>> byTarget) =>
+        _byTarget = byTarget;
+
+    internal static GameMcpEffectSourceIndex Build(GameWorldState world)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        var byTarget = new Dictionary<Guid, Dictionary<Guid, string>>();
+
+        var effects = world.LevelEffects;
+        for (var index = 0; index < effects.Count; index++)
+        {
+            var effect = effects[index];
+            var said = GameMcpNativeVocabulary.ModifierMagnitude(effect.ModifierType, effect.Amount);
+            if (effect.Property.Length > 0) said += " " + effect.Property;
+            if (effect.When.Length > 0) said += " " + effect.When;
+            Append(byTarget, effect.TargetId, effect.OwnerId, said);
+        }
+
+        var factors = world.GlyphEffects;
+        for (var index = 0; index < factors.Count; index++)
+        {
+            var factor = factors[index];
+            var said = GameMcpNativeVocabulary.ModifierMagnitude(factor.ModifierType, factor.Amount);
+            Append(byTarget, factor.StatisticId, factor.GlyphId, said);
+            Append(byTarget, factor.VariableId, factor.GlyphId, said);
+        }
+
+        return new GameMcpEffectSourceIndex(byTarget);
+    }
+
+    /// <summary>The entities whose effects move this target, or null where none does.</summary>
+    internal IReadOnlyDictionary<Guid, string>? Sources(Guid targetId) =>
+        _byTarget.TryGetValue(targetId, out var owners) ? owners : null;
+
+    private static void Append(
+        Dictionary<Guid, Dictionary<Guid, string>> byTarget,
+        Guid targetId,
+        Guid ownerId,
+        string said)
+    {
+        if (targetId == Guid.Empty || ownerId == Guid.Empty) return;
+        if (!byTarget.TryGetValue(targetId, out var owners))
+        {
+            owners = new Dictionary<Guid, string>();
+            byTarget.Add(targetId, owners);
+        }
+
+        owners[ownerId] = owners.TryGetValue(ownerId, out var earlier) ? earlier + ", " + said : said;
+    }
+}
 #endif

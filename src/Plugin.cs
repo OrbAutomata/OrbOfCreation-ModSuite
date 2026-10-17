@@ -1671,7 +1671,8 @@ public sealed class Plugin : BaseUnityPlugin
                         request.RunFilter,
                         request.KeywordFilter,
                         request.LimitFromCaller,
-                        request.DiscoveredFilter).Freeze());
+                        request.DiscoveredFilter,
+                        request.ModifiesFilter).Freeze());
                 return true;
             case "suite_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));

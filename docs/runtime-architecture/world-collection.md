@@ -509,9 +509,11 @@ structure, upgrade, plot node). Derivation that reads more than one published ta
 modifier half of that, and they add no reader and no category — a derived table has no
 `WorldCategoryReport` to publish.
 
-Ten readers are **structural**: plot authoring, effect blocks, spell authoring, entity requirement
-graphs, purchase view relations, crafting recipe types, crafting recipe authored edges, structure
-costs, upgrade costs, and entity keywords describe what the game's authors wrote rather than what the player has done, so they re-read only when the frame
+Thirteen readers are **structural**: plot authoring, effect blocks, effect factors (every authored
+effect tuple, about two thousand lines), spell authoring, entity requirement graphs, purchase view
+relations, recipe-book glyphs, discovery-tree books, crafting recipe types, crafting recipe authored
+edges, structure costs, upgrade costs, and entity keywords describe what the game's authors wrote
+rather than what the player has done, so they re-read only when the frame
 arrives under a lifecycle epoch this collector has not already read for. Immutable output tables are
 still derived on the worker for every publication — only the repeated Unity/native traversal is
 skipped. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and

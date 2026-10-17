@@ -622,7 +622,8 @@ categories occupies one row and one page slot.
 ### What search searches, and what it cannot
 
 A `world_search` row is `id`, `name`, `category`, `keywords`, `matchedOn`, on every row of every
-category and with no other column. A search page holds hits from every category at once, so
+category and with no other column — except under `modifies`, which adds the one `effect` cell that
+filter needs. A search page holds hits from every category at once, so
 borrowing each category's own scan columns unioned every heading onto one table and left about nine
 cells in ten empty — while `category`, the column that says which read verb can follow the hit up,
 was filled only on rows that had no identity of their own. Widening is `world_list`'s job, on a page
@@ -653,7 +654,7 @@ Druidry cap" is answerable without already knowing the name of the thing that do
 says `matchedOn: effects`, so a reader can tell that hit from a coincidence in a name.
 
 Both effect blocks feed it, because both answer the same question about their owner: a glyph's inline
-factors are what it does at any level, and the six holders' tuples are what one more level buys. A
+factors are what it does at any level, and every other holder's tuples are what it applies. A
 target the identity catalog cannot name contributes no word rather than a stub, and nothing is
 synthesized — the words are the ones the blocks already publish.
 
@@ -677,8 +678,8 @@ own search box uses — `FilterVariable.MatchesSearchStrings` lowercases both si
 **`query` is optional when a filter is present.** "What have I not unlocked yet" is a whole
 question and it names nothing; requiring a word beside the filter made a caller invent one broad
 enough to reach everything they meant and then hope it had. A call that names a query, a category, a
-state, a run or a keyword is a call; a call that names none of them is refused and the refusal lists
-all five.
+state, a run, `discovered`, a keyword or `modifies` is a call; a call that names none of them is
+refused and the refusal lists them all.
 
 `state` narrows to one of the three lifecycle words, and it reaches every category that carries the
 column: `upgrades`, `research`, `attributes`, `alchemy-recipes`, `concepts`, `augment-glyphs`,
@@ -705,6 +706,17 @@ naming how many, because picking one of them would be a guess. Its guard is othe
 block's own: an id whose page counts no members is refused naming what that id is instead — `Deep
 Insight c1a000 is published under upgrades and its page counts no members, so it cannot narrow
 anything`. Handing back an empty page there would read as "there are none".
+
+`modifies` narrows to the things whose authored effects move one statistic, resource or variable —
+the far side of the `modifiedBy` counts that thing's `world_get` prints, read from the same index,
+so the counts and the page reconcile. It takes the id, a handle, or the name the screen prints; a
+name several ids answer to is taken only when exactly one of them is moved by anything. Owned and
+not-yet-owned movers come back alike, and `state` splits them. Each row's `effect` cell is what that
+owner does to the named thing in the tooltip's own spelling, with the section word where the tooltip
+has one: `world_search modifies="Discovery Options"` answers `Orb Minimalism | achievements | +1`,
+`Greater Discovery | research | +1` and `Weakened Choices | challenges | -1 while`. The amount is the
+authored one, before any level or challenge scaling. A name nothing published answers to is refused,
+and so is a thing nothing moves, naming it.
 
 A category with no lifecycle model still does not match a state filter — nor does one match a
 `discovered` filter — and is still not excluded from an unfiltered search: inventing a word here for rows whose own page never says one would be a
@@ -1474,15 +1486,17 @@ The published rows are the authored distribution, which is what they say.
 ### What a thing does, and what a level of it buys
 
 Two blocks answer this, both on the owner's own `world_get` and neither a table of its own. A
-glyph's `effects` are the factors it applies at any level; every levelable thing's `levelEffects` are
-what one more level of it buys. Before them, a row carried its price and its levels and said nothing
+glyph's `effects` are the factors it applies at any level; every other owner's `levelEffects` are
+the modifiers it authors — what one more level buys on a levelable thing, what owning it applies on
+the rest. The thing they move answers the reverse question with `modifiedBy`. Before them, a row carried its price and its levels and said nothing
 whatever about its effect, so the only way to learn that Quick trades 15% more spell cost for 30%
 less cooldown, or that Raise Druidry Lv buys `+1 Max Druidry Lv`, was to hover it.
 
 **There is no cross-owner page for either, on purpose.** One read says what the tooltip says; a table
 of every glyph's slots says it 106 times and answers no question a reader actually put. "Which thing
 touches Cooldown" is a `world_search` query — see [what a thing does, as a search
-term](#what-a-thing-does-as-a-search-term) — and that is one call rather than a paged table joined by
+term](#what-a-thing-does-as-a-search-term) — and "what moves Discovery Options" is that thing's
+`modifiedBy` walked with the `modifies` filter: one call each rather than a paged table joined by
 hand.
 
 `amount` and `order` are the two fields `modifier-variables` also publishes, under the same names,
@@ -1534,12 +1548,17 @@ which is not an entity this surface publishes, so in place of an edge it says wh
 words — `affects: what the spell costs to create` — beside its three numbers. Inventing an edge
 would hand a reader one the game does not author.
 
-#### Every levelable thing's `levelEffects`
+#### Every owner's `levelEffects`
 
-Six classes author per-level modifier tuples — `UpgradeSO.permanentEffects`,
-`GlyphSO.levelingEffects`, `ResourceTypeSO.levelEffects`, `EquipmentTypeSO.levelEffects`,
-`SpellTypeSO.perLevelEffects` and `TimeRuneSO.onLevelEffects` — and all six publish the block on
-their own row. An entry is `property`, `modifies`, `amount`, `order`.
+Every list a tooltip prints through `EffectBlock.GetAllTooltipNodes` publishes the block on its
+owner's row: the per-level lists (`UpgradeSO.permanentEffects`, `GlyphSO.levelingEffects`,
+`ResourceTypeSO.levelEffects`, `EquipmentTypeSO.levelEffects`, `SpellTypeSO.perLevelEffects`,
+`TimeRuneSO.onLevelEffects`) and the lists owning a thing applies (research, achievement,
+advancement, challenge, alchemy recipe, equipment, enchantment, consumable, spell recipe toggle,
+passive ability, ritual, plot node, plot action, harvest element, time rune, structure property and
+number variable). An entry is `property`, `modifies`, `amount`, `order`, and `when` where the
+tooltip prints the list under a header: a challenge's `challengeEffects` are `while` and its
+`completionRewards` are `reward`. One owner's entries number on across its lists.
 
 **One column absorbs three authoring vocabularies.** The game applies these through three record
 classes and each names its target its own way. `UpgradeableObject.UpgradeEffectModifier` carries an
@@ -1561,6 +1580,24 @@ every other surface uses. The entry is never dropped and no name is invented for
 `TimeRuneSO.onLevelEffects` is walked and authors no modifier on this build: all twenty of its blocks
 grant advancement experience rather than apply a tuple. It is read anyway, so a build that authors
 one publishes it rather than silently losing it.
+
+**Not published, on purpose or for want of a link:** blocks nested inside an instant script
+(`PassiveAbilitySO.enterEffectBlocks`, `SpellRecipeSO.onCastEffects`,
+`HarvestElementSO.availableActions`), which apply for a moment rather than while owned;
+`GlobalValues.challengeBaseRewards`, printed on every challenge and owned by no entity; and a tuple
+whose target is resolved at run time (`useTargetRef`), which names no target to publish. `amount` is
+the authored magnitude: a `ScalingWeightEffectMod` on the block (research level, challenge level)
+scales it in play, and the scaled number is not published.
+
+#### What moves a thing: `modifiedBy`
+
+The game stores an effect on its owner only, so a statistic's own page used to name none of its
+sources. A thing some effect moves — a statistic, a resource, a variable — carries
+`modifiedBy` on its `world_get`: one `{kind, count}` per category the movers answer under, counted
+with `world_search`'s own one-entity-one-hit rule. `world_search` with `modifies` set to its id
+walks exactly those rows, so Discovery Options reads `modifiedBy: achievements 1, challenges 1,
+research 1` and the walk returns those three. Both `levelEffects` and a glyph's `effects` feed it.
+A thing nothing moves carries no block.
 
 ### Discovery decision loop
 

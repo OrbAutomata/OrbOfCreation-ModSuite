@@ -431,6 +431,7 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
 
 public sealed class EnchantmentSO : TooltipableObject
 {
+    public List<PersistentEffectBlock> persistentEffects = new List<PersistentEffectBlock>();
     public static List<EnchantmentSO> All = new List<EnchantmentSO>();
 
     public sealed class EnchantTable
@@ -454,6 +455,8 @@ public sealed class EnchantmentInstance : AbstractRefInstance<EnchantmentSO>
 
 public sealed class HarvestElementSO : UpgradeableObject
 {
+    public List<PersistentEffectBlock> growthEffects = new List<PersistentEffectBlock>();
+    public List<PersistentEffectBlock> harvestEffects = new List<PersistentEffectBlock>();
     public static List<HarvestElementSO> All = new List<HarvestElementSO>();
     public List<HarvestTypeSO> harvestTypes = new List<HarvestTypeSO>();
     public BigDouble masteryXp;
@@ -585,6 +588,7 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
 
 public sealed class TimeRuneSO : UpgradeableObject, IDiscoverable, ILevelable
 {
+    public List<PersistentEffectBlock> effectBlocks = new List<PersistentEffectBlock>();
     public static List<TimeRuneSO> All = new List<TimeRuneSO>();
 
     // The one holder whose per-level list is instant rather than persistent: on the pinned build
@@ -789,6 +793,7 @@ public sealed class ConsumableTypeSO : IdScriptableObject
 
 public sealed partial class ConsumableSO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> toggledEffects = new List<PersistentEffectBlock>();
     public static List<ConsumableSO> All = new List<ConsumableSO>();
     public string DisplayName = string.Empty;
     public UnityEngine.Sprite Icon = new UnityEngine.Sprite();
@@ -1053,7 +1058,7 @@ public sealed class RitualSO : IdScriptableObject, IDiscoverable
     /// </summary>
     public List<object>? ritualInstances;
 
-    public List<object> durationRewardBlocks = new List<object>();
+    public List<PersistentEffectBlock> durationRewardBlocks = new List<PersistentEffectBlock>();
     public ValueModifierRecord power = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord speed = new ValueModifierRecord(new BigDouble(0.0, 0));
     public ValueModifierRecord special = new ValueModifierRecord(new BigDouble(0.0, 0));
@@ -1312,6 +1317,7 @@ public sealed class UIModalActivator : UnityEngine.MonoBehaviour
 
 public sealed class AchievementSO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> completionEffects = new List<PersistentEffectBlock>();
     public static List<AchievementSO> All = new List<AchievementSO>();
     public int level;
     public bool seen;
@@ -1324,6 +1330,7 @@ public sealed class AchievementSO : IdScriptableObject
 
 public sealed class AdvancementSO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> advancementEffects = new List<PersistentEffectBlock>();
     public static List<AdvancementSO> All = new List<AdvancementSO>();
     public BigDouble levels;
     public BigDouble xp;
@@ -1362,6 +1369,8 @@ public sealed class ChallengeCondition
 
 public sealed class ChallengeSO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> challengeEffects = new List<PersistentEffectBlock>();
+    public List<PersistentEffectBlock> completionRewards = new List<PersistentEffectBlock>();
     public enum ChallengeState
     {
         None,
@@ -1806,6 +1815,7 @@ public sealed class FilterEffectMod
 
 public sealed class PassiveAbilitySO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> passiveEffectBlocks = new List<PersistentEffectBlock>();
     public static List<PassiveAbilitySO> All = new List<PassiveAbilitySO>();
     public List<PassiveAbilityTypeSO> passiveTypes = new List<PassiveAbilityTypeSO>();
     public bool muted;
@@ -2117,6 +2127,7 @@ public sealed class RecipeBookListVariable : GenericListVariable<RecipeBookSO>
 
 public sealed class PlotNodeSO : IdScriptableObject
 {
+    public List<PersistentEffectBlock> passiveEffects = new List<PersistentEffectBlock>();
     public static List<PlotNodeSO> All = new List<PlotNodeSO>();
     public List<PlotNodeTypeSO> nodeTypes = new List<PlotNodeTypeSO>();
     public bool visible;

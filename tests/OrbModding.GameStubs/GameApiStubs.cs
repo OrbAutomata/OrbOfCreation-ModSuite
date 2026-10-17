@@ -7,6 +7,7 @@ using System.Reflection;
 
 public sealed class IntVariable
 {
+    public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
     // The game keeps every global integer in one static registry, and world collection walks it
     // rather than naming the hundred-odd accessors that read out of it.
     public static List<IntVariable> All = new List<IntVariable>();
@@ -185,6 +186,7 @@ public static class AutoBuyManager
 
 public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
 {
+    public List<PersistentEffectBlock> toggledEffects = new List<PersistentEffectBlock>();
 #pragma warning disable CS0414 // Native private field read by the collector through a bound accessor.
     private List<SpellTypeSO> notSpellTypes = new List<SpellTypeSO>();
 #pragma warning restore CS0414
@@ -368,6 +370,7 @@ public class IdScriptableObject : UnityEngine.ScriptableObject
 /// <summary>The game's global scalars. Same shape as <see cref="IntVariable"/>; separate registry.</summary>
 public sealed class DoubleVariable
 {
+    public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
     public static List<DoubleVariable> All = new List<DoubleVariable>();
     public Guid uuid = Guid.NewGuid();
     public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(0.0, 0));
@@ -485,6 +488,9 @@ public sealed class AlchemyTypeSO : IdScriptableObject
 
 public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
 {
+    public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
+    public List<PersistentEffectBlock> equipEffectBlocks = new List<PersistentEffectBlock>();
+    public List<PersistentEffectBlock> advancementEffectBlocks = new List<PersistentEffectBlock>();
     public static List<AlchemyRecipeSO> All = new List<AlchemyRecipeSO>();
     private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
 
@@ -2092,6 +2098,7 @@ public class ResourceSO : UpgradeableObject
 /// </summary>
 public class ResearchSO : ILevelable
 {
+    public List<PersistentEffectBlock> researchEffectBlocks = new List<PersistentEffectBlock>();
     public static List<ResearchSO> All = new List<ResearchSO>();
     public string uuid = Guid.NewGuid().ToString();
     public int level;
@@ -3013,6 +3020,7 @@ namespace Stacked
 
 public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
 {
+    public List<PersistentEffectBlock> equipEffects = new List<PersistentEffectBlock>();
     public static List<EquipmentSO> All = new List<EquipmentSO>();
     private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
     private string stableUuid = Guid.NewGuid().ToString();

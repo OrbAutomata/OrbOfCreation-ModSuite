@@ -232,6 +232,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<AchievementSO>"}
     },
     {
+      "id": "achievement.completion-effects",
+      "assembly": "assembly-csharp",
+      "type": "AchievementSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "completionEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "achievement.level",
       "assembly": "assembly-csharp",
       "type": "AchievementSO",
@@ -378,6 +397,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "advancement.advancement-effects",
+      "assembly": "assembly-csharp",
+      "type": "AdvancementSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "advancementEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "advancement.all",
@@ -731,6 +769,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
+      "id": "alchemy-recipe.advancement-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "advancementEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "alchemy-recipe.advancement-level",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
@@ -849,6 +906,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field BigDouble"}
     },
     {
+      "id": "alchemy-recipe.equip-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "equipEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "alchemy-recipe.get-required-experience",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
@@ -962,6 +1038,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "alchemy-recipe.persistent-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "persistentEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "alchemy-recipe.visibility-type",
@@ -3365,6 +3460,44 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Double"}
     },
     {
+      "id": "challenge.challenge-effects",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "challengeEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
+      "id": "challenge.completion-rewards",
+      "assembly": "assembly-csharp",
+      "type": "ChallengeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "completionRewards",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "challenge.difficulty",
       "assembly": "assembly-csharp",
       "type": "ChallengeSO",
@@ -3957,6 +4090,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
+    },
+    {
+      "id": "consumable.toggled-effects",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "toggledEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "consumable.visible",
@@ -4864,7 +5016,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "equipment.all",
@@ -4886,6 +5038,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<EquipmentSO>"}
+    },
+    {
+      "id": "equipment.equip-effects",
+      "assembly": "assembly-csharp",
+      "type": "EquipmentSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "equipEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "equipment.equipment-type-capture",
@@ -5950,6 +6121,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<EnchantmentSO>"}
     },
     {
+      "id": "enchantment.persistent-effects",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "persistentEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "glyph-type.all",
       "assembly": "assembly-csharp",
       "type": "GlyphTypeSO",
@@ -6952,7 +7142,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-special-effect",
@@ -6971,7 +7161,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-duration",
@@ -6990,7 +7180,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-cost",
@@ -7009,7 +7199,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-drain-cost",
@@ -7028,7 +7218,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-cooldown",
@@ -7047,7 +7237,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-base-cooldown",
@@ -7066,7 +7256,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-cast-speed",
@@ -7085,7 +7275,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-experience-rate",
@@ -7104,7 +7294,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-spell-charges",
@@ -7123,7 +7313,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-critical-rating",
@@ -7142,7 +7332,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-critical-effect",
@@ -7161,7 +7351,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-double-cast-rating",
@@ -7180,7 +7370,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.spell-double-cast-effect",
@@ -7199,7 +7389,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.creation-cost-mod",
@@ -7218,7 +7408,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
     },
     {
       "id": "glyph.leveling-effects",
@@ -7237,7 +7427,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "guid-container.guid",
@@ -7353,6 +7543,44 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<HarvestElementSO>"}
+    },
+    {
+      "id": "harvest-element.growth-effects",
+      "assembly": "assembly-csharp",
+      "type": "HarvestElementSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "growthEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
+      "id": "harvest-element.harvest-effects",
+      "assembly": "assembly-csharp",
+      "type": "HarvestElementSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "harvestEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "harvest-element.harvest-types",
@@ -8226,6 +8454,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
     },
     {
+      "id": "number-variable.persistent-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "persistentEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "number-variable.value",
       "assembly": "assembly-csharp",
       "type": "NumberVariable",
@@ -8264,6 +8511,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PassiveAbilitySO>"}
+    },
+    {
+      "id": "passive-ability.passive-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "PassiveAbilitySO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "passiveEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "passive-ability.passive-types",
@@ -8711,7 +8977,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastRating; ret"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastRating; ret"}
     },
     {
       "id": "player.get-spell-critical-cast-effect",
@@ -8731,7 +8997,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastEffect; ret"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellCriticalCastEffect; ret"}
     },
     {
       "id": "player.get-spell-double-cast-rating",
@@ -8751,7 +9017,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastRating; ret"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastRating; ret"}
     },
     {
       "id": "player.get-spell-double-cast-effect",
@@ -8771,7 +9037,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastEffect; ret"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Hands back one stored reference; nothing is computed on the game's side.", "evidence": "kind:method returning DoubleVariable; IL body is ldsfld Player._instance; ldfld Player.spellDoubleCastEffect; ret"}
     },
     {
       "id": "plot-node-action.all",
@@ -9612,6 +9878,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Boolean"}
+    },
+    {
+      "id": "plot-node.passive-effects",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "passiveEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "plot-node.phase-instances",
@@ -11104,6 +11389,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ModifierRecord"}
     },
     {
+      "id": "research.research-effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "ResearchSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "researchEffectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "research.research-stage",
       "assembly": "assembly-csharp",
       "type": "ResearchSO",
@@ -11998,7 +12302,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "resource.all",
@@ -16026,7 +16330,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "spell.can-cast",
@@ -17327,6 +17631,25 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
     },
     {
+      "id": "structure.structure-properties",
+      "assembly": "assembly-csharp",
+      "type": "StructureSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "structureProperties",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectDeprecated+Property>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectDeprecated+Property>"}
+    },
+    {
       "id": "structure.structure-type",
       "assembly": "assembly-csharp",
       "type": "StructureSO",
@@ -17542,6 +17865,25 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TimeRuneSO>"}
+    },
+    {
+      "id": "time-rune.effect-blocks",
+      "assembly": "assembly-csharp",
+      "type": "TimeRuneSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "effectBlocks",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
     },
     {
       "id": "time-rune.time-rune-types",
@@ -17807,7 +18149,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<InstantEffectBlock>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<InstantEffectBlock>"}
     },
     {
       "id": "timer-list.quantity",
@@ -18724,7 +19066,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PersistentEffectDeprecated"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PersistentEffectDeprecated"}
     },
     {
       "id": "value-modifier-list.exponents",
@@ -30698,7 +31040,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field NumberVariable"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field NumberVariable"}
     },
     {
       "id": "number-variable-effect.modifier",
@@ -30755,7 +31097,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TupleMod`1<NumberVariable>>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<TupleMod`1<NumberVariable>>"}
     },
     {
       "id": "persistent-effect-deprecated.upgradeable-object-effects",
@@ -30774,7 +31116,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<UpgradeableObject+UpgradeEffectModifier>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<UpgradeableObject+UpgradeEffectModifier>"}
     },
     {
       "id": "persistent-effect-deprecated.resource-effects",
@@ -30793,7 +31135,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResourceSO+PersistentEffect>"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<ResourceSO+PersistentEffect>"}
     },
     {
       "id": "resource-persistent-effect.resource",
@@ -30831,7 +31173,7 @@
         "reflection"
       ],
       "place": "capture",
-      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceSO+ModifiableType"}
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceSO+ModifiableType"}
     },
     {
       "id": "resource-persistent-effect.modifier",
@@ -31005,6 +31347,25 @@
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<SpellTypeSO>"}
     },
     {
+      "id": "spell-recipe.toggled-effects",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "toggledEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<PersistentEffectBlock>"}
+    },
+    {
       "id": "tuple-mod.item",
       "assembly": "assembly-csharp",
       "type": "TupleMod`1",
@@ -31108,6 +31469,7 @@
     "_craftingRecipeTypes",
     "_discoveryTreeBooks",
     "_effectBlocks",
+    "_effectFactors",
     "_entityKeywords",
     "_entityRequirements",
     "_plotAuthoring",
