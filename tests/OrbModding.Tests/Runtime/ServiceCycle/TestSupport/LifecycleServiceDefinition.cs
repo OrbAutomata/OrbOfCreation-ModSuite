@@ -64,6 +64,7 @@ internal sealed class LifecycleServiceDefinition :
 
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; set; } = WakePolicy.Immediate;
+    public bool WakesOnWorldPublication => true;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; set; } = new(
         new MonotonicDuration(10), new MonotonicDuration(80));
     internal int ActionCount { get; set; } = 1;
