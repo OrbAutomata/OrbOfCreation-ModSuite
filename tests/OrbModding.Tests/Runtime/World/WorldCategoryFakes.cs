@@ -51,7 +51,6 @@ internal static class WorldCategoryFakes
         ["CraftingStructureSO"] = typeof(FakeCraftingStructure),
         ["CraftingStructure"] = typeof(FakeCraftingStation),
         ["CraftingStructureListVariable"] = typeof(FakeCraftingStationList),
-        ["CraftingStructureSO+TypeListElement"] = typeof(FakeCraftingStationElementList),
         ["CraftingStructureSO+TypeElement"] = typeof(FakeCraftingStationElement),
         ["ITooltipable"] = typeof(IFakeTooltipable),
         ["TooltipableObject"] = typeof(FakeCraftingStationTooltipable),
@@ -559,18 +558,8 @@ internal sealed class FakeCraftingStationTooltipable : IFakeTooltipable
 internal sealed class FakeCraftingStationElement
 {
     public IFakeTooltipable? tooltipable;
-    public bool available = true;
 
     public IFakeTooltipable? GetTooltipable() => tooltipable;
-
-    public bool IsAvailable() => available;
-}
-
-internal sealed class FakeCraftingStationElementList
-{
-    public List<FakeCraftingStationElement> elements = new();
-
-    public List<FakeCraftingStationElement> GetElements() => elements;
 }
 
 internal sealed class FakeCraftingStation
@@ -581,8 +570,6 @@ internal sealed class FakeCraftingStation
     public FakeCraftingStationElement? firstIngredient;
     public FakeCraftingStationElement? secondIngredient;
     public FakeCraftingStationElement? output;
-    public List<FakeCraftingStationElement> outputOptions = new();
-    public FakeCraftingResourceCostList drain = new();
     public bool loaded;
     public bool active;
     public int level = 1;
@@ -598,10 +585,6 @@ internal sealed class FakeCraftingStation
 
     public FakeCraftingStationElement? GetOutput() => output;
 
-    public List<FakeCraftingStationElement> GetOutputList() => outputOptions;
-
-    public bool IsOutputVisible(FakeCraftingStationElement element) => element.IsAvailable();
-
     public bool IsLoaded() => loaded;
 
     public bool IsActive() => active;
@@ -611,8 +594,6 @@ internal sealed class FakeCraftingStation
     public int GetMinSelectedLevel() => minimumLevel;
 
     public int GetMaxSelectedLevel() => maximumLevel;
-
-    public FakeCraftingResourceCostList GetCurrentDrain() => drain;
 }
 
 internal sealed class FakeCraftingStationGuid
@@ -628,7 +609,6 @@ internal sealed class FakeCraftingStructure
 
     public Guid Identity = Guid.NewGuid();
     public FakeCraftingStationList instances = new();
-    public List<FakeCraftingStationElementList> ingredientLists = new();
 
     public Guid GetGuid() => Identity;
 }

@@ -608,24 +608,15 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
-    public void Brewing_station_selection_lifecycle_and_drain_are_published_together()
+    public void Brewing_station_selection_and_lifecycle_are_published_together()
     {
         var first = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
         var second = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
         var output = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
-        var resource = new FakeResource { Identity = Guid.NewGuid(), Quantity = 20d, Visible = true };
-        FakeResource.All.Add(resource);
         var firstElement = new FakeCraftingStationElement { tooltipable = first };
-        var secondElement = new FakeCraftingStationElement { tooltipable = second, available = false };
+        var secondElement = new FakeCraftingStationElement { tooltipable = second };
         var outputElement = new FakeCraftingStationElement { tooltipable = output };
-        var structure = new FakeCraftingStructure
-        {
-            ingredientLists =
-            {
-                new FakeCraftingStationElementList { elements = { firstElement } },
-                new FakeCraftingStationElementList { elements = { secondElement } },
-            },
-        };
+        var structure = new FakeCraftingStructure();
         var station = new FakeCraftingStation
         {
             reference = structure,
@@ -633,13 +624,11 @@ public sealed class GameWorldCollectorTests : IDisposable
             firstIngredient = firstElement,
             secondIngredient = secondElement,
             output = outputElement,
-            outputOptions = { outputElement },
             loaded = true,
             active = true,
             level = 4,
             minimumLevel = 2,
             maximumLevel = 7,
-            drain = new FakeCraftingResourceCostList().With(resource, new BigDouble(3)),
         };
         structure.instances.value.Add(station);
         FakeCraftingStructure.All.Add(structure);
@@ -657,14 +646,6 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(row.Loaded);
         Assert.True(row.Active);
         Assert.Equal(4, row.Level);
-        Assert.True(WorldCraftingStationLookup.TryFindOptions(
-            world.CraftingStationOptions, station.Identity, out _, out var optionCount));
-        Assert.Equal(3, optionCount);
-        Assert.True(WorldCraftingStationLookup.TryFindDrains(
-            world.CraftingStationDrains, station.Identity, out var drainStart, out var drainCount));
-        Assert.Equal(1, drainCount);
-        Assert.Equal(resource.Identity, world.CraftingStationDrains[drainStart].ResourceId);
-        Assert.Equal(3d, world.CraftingStationDrains[drainStart].Amount.ToDouble());
     }
 
     [Fact]

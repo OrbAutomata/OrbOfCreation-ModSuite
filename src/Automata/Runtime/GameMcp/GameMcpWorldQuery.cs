@@ -1181,18 +1181,6 @@ internal static class GameMcpWorldQuery
                 ["state"] = AlchemyRecipeState(in listedAlchemyRecipe),
                 ["masteryLevel"] = listedAlchemyRecipe.MasteryLevel,
             }.Freeze();
-        if (row is WorldCraftingStation station)
-        {
-            var identity = EntityIdentityFormatter.Describe(
-                station.StructureTypeId, world.EntityIdentities);
-            return new JObject
-            {
-                ["entityId"] = station.StationId.ToString("D"),
-                ["name"] = identity.HasName ? identity.Name : station.StationId.ToString("D"),
-                ["loaded"] = station.Loaded,
-                ["active"] = station.Active,
-            }.Freeze();
-        }
         if (row is WorldCraftingQueueEntry queueEntry)
             return ProjectCraftingQueueEntry(in queueEntry);
         // A loadout and a snapshot list are live objects the asset catalog never publishes, so their
@@ -5657,8 +5645,6 @@ internal static class GameMcpWorldQuery
             ? ProjectConsumable(world, in consumable)
             : row is WorldResearch research
             ? ProjectResearch(world, in research)
-            : row is WorldCraftingStation station
-            ? ProjectCraftingStation(world, in station)
             : row is WorldPlayerLoadout playerLoadout
             ? ProjectPlayerLoadout(world, in playerLoadout)
             : row is WorldSnapshotLoadout snapshotLoadout
@@ -8705,99 +8691,6 @@ internal static class GameMcpWorldQuery
         };
     }
 
-    private static GameMcpValue ProjectCraftingStation(
-        GameWorldState world,
-        in WorldCraftingStation station)
-    {
-        var stationIdentity = EntityIdentityFormatter.Describe(
-            station.StructureTypeId, world.EntityIdentities);
-        var result = new JObject
-        {
-            ["entityId"] = station.StationId.ToString("D"),
-            ["name"] = stationIdentity.HasName
-                ? stationIdentity.Name
-                : station.StationId.ToString("D"),
-            ["category"] = "crafting-stations",
-        };
-        AddCraftingStationDecision(world, result, in station);
-        return result.Freeze();
-    }
-
-    private static void AddCraftingStationDecision(
-        GameWorldState world,
-        JObject result,
-        in WorldCraftingStation station)
-    {
-        result["loaded"] = station.Loaded;
-        result["active"] = station.Active;
-        result["level"] = station.Level;
-        if (station.FirstIngredientId != Guid.Empty)
-            result["firstIngredientId"] = station.FirstIngredientId.ToString("D");
-        if (station.SecondIngredientId != Guid.Empty)
-            result["secondIngredientId"] = station.SecondIngredientId.ToString("D");
-        if (station.OutputId != Guid.Empty) result["outputId"] = station.OutputId.ToString("D");
-
-        result["setLevel"] = new JObject
-        {
-            ["available"] = station.MinimumLevel < station.MaximumLevel,
-            ["minimum"] = station.MinimumLevel,
-            ["maximum"] = station.MaximumLevel,
-        };
-        result["start"] = station.Loaded && !station.Active
-            ? new JObject { ["available"] = true }
-            : new JObject
-            {
-                ["available"] = false,
-                ["reasonCode"] = station.Active ? "already_active" : "recipe_incomplete",
-            };
-        result["stop"] = station.Active
-            ? new JObject { ["available"] = true }
-            : new JObject { ["available"] = false, ["reasonCode"] = "already_stopped" };
-
-        var first = new JArray();
-        var second = new JArray();
-        var outputs = new JArray();
-        if (WorldCraftingStationLookup.TryFindOptions(
-                world.CraftingStationOptions, station.StationId, out var start, out var count))
-        {
-            for (var index = start; index < start + count; index++)
-            {
-                var option = world.CraftingStationOptions[index];
-                if (!option.Available) continue;
-                var row = new JObject { ["uuid"] = option.OptionId.ToString("D") };
-                if (option.Kind == WorldCraftingStationOptionKind.FirstIngredient) first.Add(row);
-                else if (option.Kind == WorldCraftingStationOptionKind.SecondIngredient) second.Add(row);
-                else outputs.Add(row);
-            }
-        }
-        result["ingredientOptions"] = new JArray(first, second);
-        result["outputOptions"] = outputs;
-
-        if (WorldCraftingStationLookup.TryFindDrains(
-                world.CraftingStationDrains, station.StationId, out var drainStart, out var drainCount))
-        {
-            var drains = new JArray();
-            for (var index = drainStart; index < drainStart + drainCount; index++)
-            {
-                var drain = world.CraftingStationDrains[index];
-                var amount = PlayerFacingCost(world, drain.ResourceId, drain.Amount);
-                var row = new JObject
-                {
-                    ["resourceId"] = drain.ResourceId.ToString("D"),
-                    ["amount"] = new GameMcpDomainValue(amount),
-                };
-                if (WorldLookup.TryFind(world.Resources, drain.ResourceId, out var resource))
-                {
-                    (row["amount"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
-                        amount,
-                        SpendableAmount(world, drain.ResourceId, resource.Reading.Quantity));
-                }
-                drains.Add(row);
-            }
-            result["drain"] = drains;
-        }
-    }
-
     private static void AddRitualDecision(
         GameWorldState world,
         JObject result,
@@ -9940,8 +9833,6 @@ internal static class GameMcpWorldQuery
             "resources",
         },
         "crafting-queue-entries" => new[] { "crafting-decisions" },
-        "crafting-station-options" or "crafting-station-drains" =>
-            new[] { "crafting-stations" },
         "player-loadouts" or "player-loadout-entries" or "snapshot-loadouts" or
             "snapshot-slots" or "snapshot-entries" => new[] { "loadouts" },
         "harvest-element-controls" or "harvest-action-controls" or
@@ -10113,16 +10004,6 @@ internal static class GameMcpWorldQuery
         {
             "queueId", "slot", "recipeId", "amount", "automatic", "repetitions",
         },
-        "crafting-stations" => new[]
-        {
-            "stationId", "structureTypeId", "firstIngredientId",
-            "secondIngredientId", "outputId", "loaded", "active", "level",
-            "minimumLevel", "maximumLevel",
-        },
-        "crafting-station-options" =>
-            new[] { "stationId", "kind", "optionId", "available" },
-        "crafting-station-drains" =>
-            new[] { "stationId", "resourceId", "amount" },
         "player-loadouts" => new[]
         {
             "entityId", "name", "selected", "savesEquipment", "savesAlchemy",

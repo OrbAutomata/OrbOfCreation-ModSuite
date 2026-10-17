@@ -989,15 +989,15 @@ public sealed class NativeContractManifestTests
     {
         "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
         "CanLevel", "Check", "GetActionInstances", "GetActivationCost", "GetAll",
-        "GetDevelopmentCost", "GetElements", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
+        "GetDevelopmentCost", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
         "GetFreeLevels", "GetFreeUsageSlots", "GetIngredient", "GetLevelCost", "GetMaxLevel",
         "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMinSelectedLevel",
-        "GetOutput", "GetOutputList", "GetQueuedLevels", "GetRemainingFreeUsageSlots",
+        "GetOutput", "GetQueuedLevels", "GetRemainingFreeUsageSlots",
         "GetRemainingMaxUsageSlots", "GetStacks", "GetTooltipable", "GetTypesEquipped",
         "GetUsageCost", "HasMaxLevel", "IsActive", "IsAtMax", "IsChallengeRestricted", "IsLoaded",
-        "IsOutputVisible", "MaximumCostTimes", "MaximumNumberInstances", "activeAlchemy",
+        "MaximumCostTimes", "MaximumNumberInstances", "activeAlchemy",
         "activeChallenges", "challengeRerollsLeft", "equippedEquipment", "hasCompleteWorldCycle",
-        "hasFetchedChallenges", "ingredientLists", "preferredChallenges",
+        "hasFetchedChallenges", "preferredChallenges",
     };
 
     /// <summary>

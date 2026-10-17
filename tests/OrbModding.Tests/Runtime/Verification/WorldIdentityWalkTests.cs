@@ -113,8 +113,6 @@ public sealed class WorldIdentityWalkTests
     /// current execution route and price evidence keyed by a recipe the crafting-recipe table
     /// already owns. <c>PurchaseViewRoutes</c> likewise holds authored edges between a
     /// candidate, list, and view whose identities belong to their primary tables.
-    /// <c>CraftingStationOptions</c> and <c>CraftingStationDrains</c> describe selectors and costs
-    /// keyed by a runtime station whose own row owns the identity. <c>CollectionCategories</c> is
     /// <c>PlayerLoadoutEntries</c>, <c>SnapshotSlots</c>, and <c>SnapshotEntries</c> are saved-entry
     /// and owner/slot relations keyed by the player or snapshot-list rows that own their UUIDs.
     /// <c>HarvestElementControls</c>, <c>HarvestActionControls</c>, and
@@ -196,8 +194,6 @@ public sealed class WorldIdentityWalkTests
         "EntityRequirements",
         "RequirementListMembers",
         "PrerequisiteLinkTiers",
-        "CraftingStationOptions",
-        "CraftingStationDrains",
         "PlayerLoadoutEntries",
         "SnapshotSlots",
         "SnapshotEntries",

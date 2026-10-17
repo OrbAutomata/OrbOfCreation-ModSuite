@@ -33,7 +33,7 @@ assets, or a live registry read belongs here.
 - [Requirements](requirements.md) — the requirement graph: what gates actually read, node visibility states, and walking a chain to the real blocker.
 - [Native action surfaces](native-action-surfaces.md) — the purchase, consumable and crafting paths, already decompiled.
 - [Unified level controls](unified-level-native-pipeline.md) — the complete levelable type matrix, visible list callbacks, and usage-cost admission.
-- [Brewing Station lifecycle](crafting-station-native-pipeline.md) — the runtime station selectors, level dial, activation callback, and drain read.
+- [Brewing Station lifecycle](crafting-station-native-pipeline.md) — the runtime station selectors, level dial, and activation callback.
 - [Loadout and snapshot pipeline](loadout-snapshot-native-pipeline.md) — player-loadout switching, section toggles, metadata controls, and positional snapshot lifecycle.
 - [Harvest element and action pipeline](harvest-element-action-native-pipeline.md) — the two active lists, element/action pair identity, visible admission, and next-drain lineage.
 - [Plot action pipeline](plot-action-native-pipeline.md) — every authored plot/action pair, active-quantity lifecycle, and the native minimum/cancel boundary.

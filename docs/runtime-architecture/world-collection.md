@@ -544,7 +544,7 @@ holds two rows under one identity and that no row went out unidentified. Sharing
 tables is not what it checks: the per-owner detail tables key their rows by the entity they describe
 on purpose, so that reaches the answer as a named, non-scoring line. Which tables the walk skips is
 stated in exactly one place — `NotIdentityTables` in
-`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 51 names — because
+`tests/OrbModding.Tests/Runtime/Verification/WorldIdentityWalkTests.cs`, currently 55 names — because
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 
@@ -560,9 +560,13 @@ worth knowing:
   `ActionQueues` is walked like any other identity table, while `ActionQueueSlots` is keyed by queue and
   index and is exempt. Neither is reached by a registry walk — both queues resolve by uuid through the
   identity registry, which keeps the action-manager singleton out of the collector.
-- **Entity requirements.** `WorldEntityRequirement.cs` reads every upgrade's, structure's, and
-  research entry's per-level prerequisite container, plus every Recipe Book's unlock container, so a
-  row is one condition keyed by an entity its own category already claimed. A book's belongs here
+- **Entity requirements.** `WorldEntityRequirement.cs` reads three programs. *Next level*: every
+  upgrade's and structure's `prerequisitesPerLevel`, every research entry's `levelPrerequisites`, and
+  every prerequisite-link tier, plus every Recipe Book's `prerequisites`. *Usage*: every Alchemy
+  recipe's `usagePrerequisites`. *Unlock*, the containers the game asks through the no-argument
+  `Check()`: every upgrade's and structure's `prerequisites`, every research entry's
+  `visibilityPrerequisites` and `levelVisibilityPrereq`, and every resource's `visiblePrerequisites`.
+  A row is one condition keyed by an entity its own category already claimed. A book's belongs here
   because `RecipeBookSO.IsAvailable()` runs that container, which makes its one condition the whole of
   what holds the tile shut. It is read off `RecipeBookSO`, never off the `GlyphSO` behind it: the two
   containers disagree on 16 of the 25 pairs, and on Gloves and Herbalize they disagree in substance
