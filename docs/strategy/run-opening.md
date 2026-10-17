@@ -65,3 +65,11 @@ times in the first hour:
 **When a goal is cap-gated, make "raise the cap" the goal** and price it in whatever currency the
 capacity attribute wants. The detour is not a distraction from the plan; it *is* the plan.
 Requirement chains behave the same way — plan through the gate rather than saving into it.
+
+## A new currency's source is the next marked roll
+
+When a gate asks for a resource you have never produced, don't hunt the attribute lists for it.
+Look for the exclamation marks on the screen strip. The tree that owes a required component has
+usually just moved its roll price into the newest currency, and its one card is the producer. E.g.,
+the World Pillar opened Agromancy, whose chop wants Skill. The spell roll then cost Verdant Energy,
+the currency Conjure Life had just started making, and dealt Construct, the Skill spell.
