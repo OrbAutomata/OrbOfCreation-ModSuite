@@ -259,9 +259,11 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                     "journal")));
         Assert.True(storage.ReconcileEntered.Wait(ServiceCycleTestDeadline.Value));
         storage.ReconcileRelease.Set();
-        Assert.True(storage.ReconcileCompleted.Wait(ServiceCycleTestDeadline.Value));
-
-        runtime.Tick(0);
+        Assert.True(SpinWait.SpinUntil(() =>
+        {
+            runtime.Tick(0);
+            return status.Status.State != DecisionJournalStatusState.Initializing;
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.Equal(DecisionJournalStatusState.Arming, status.Status.State);
         Assert.Empty(storage.ReadRecords());
