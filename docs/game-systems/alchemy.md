@@ -39,6 +39,7 @@ Two recipe types seen early, observed per equipped copy:
 | Dismantle | Extract Magebloom | −0.076 Magebloom/s for +8 Occultic and +1.6 Biotic Capacity; 1 Mechanical Capacity |
 | Refinement | Refine Occultic | −4.88e4 Thaumaturgy/s for +0.124 Occult Essence/s; 4 Alchemical + 4 Occultic Capacity |
 | Transmute | Transmute Amber | −14.8 Control/s for +12 Amber/s (×1.30 Amber gain); 4 Biotic + 8 Occultic Capacity |
+| Transmute | Transmute Ironwood | −4.37e4 Force Bark/s for +431 Ironwood/s (×1.30 Ironwood gain) at Alchemy Lv 5 under the requirement penalty; 10 Biotic + 10 Occultic Capacity (×2 penalized) |
 
 Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
 1.59 Organic Essence/s, and Refine Occultic ×1, ×2 made 0.124 and 0.281 Occult Essence/s
