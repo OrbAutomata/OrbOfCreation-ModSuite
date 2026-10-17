@@ -32,3 +32,16 @@ Observed members of the Mental type: Control, Knowledge, Psi, Skill, Cognitive D
 
 Attribute names and Attribute categories are targetable keywords too, so the same grammar reaches
 beyond resources.
+
+## Type levels
+
+A resource type can be levelled with **Materials Upgrade** points (from Alchemy and Mystic tab
+levels; see [advancement-currencies.md](advancement-currencies.md)). Each type's level carries its
+own effects, often a point cap among them. Observed first-level prices were 3 points on every type,
+with these effects:
+
+| Type | Per level |
+|---|---|
+| Natural | +3 Biotic Capacity, +1 Ability Advancement |
+| Essence | +1 Orb Advancement, ×1.12 Transmute and Refinement power |
+| Parchment | +1 Cognitive Advancement, −0.8 % Book cost scaling |

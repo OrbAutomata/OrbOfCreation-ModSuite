@@ -33,6 +33,13 @@ Two recipe types seen early, observed per equipped copy:
 |---|---|---|
 | Transmute | Transmute Knowledge / Water / Space | +1.5e4 Knowledge/s, +50 Water/s or +2.5e4 Space/s, each with ×1.30 gain on that resource; 3 Alchemical Capacity |
 | Dismantle | Channel Control | consumes Control for +4 Alchemical Capacity; 1 Mechanical Capacity |
+| Dismantle | Extract Wood | −4.9e3 Wood/s for +5.38 Biotic Capacity (superior roll); 1 Mechanical Capacity |
+| Refinement | Refine Organic | −325 Water/s for +0.379 Organic Essence/s; 3 Alchemical + 4 Biotic Capacity |
+
+Copies of one recipe scale faster than linearly: Refine Organic ×1, ×2, ×3 made 0.38, 0.85 and
+1.59 Organic Essence/s (observed). Learn Biology (1e3 Alchemic Scroll + 5e8 Knowledge) opens Learn
+Refinement (5e4 Control), and the two together put Extract Wood and Refine Organic in the roll pool.
+Organic Essence in turn opens Grow Magic Herbs (the Magebloom unlock) and Imbue Organic.
 
 A recipe whose `Req.` lines (Expert research levels) are unmet carries a **requirement penalty**:
 observed ×2 capacity, ×0.25 speed and ×16 cost (Transmute Control, Brew Experience Elixir), which
@@ -43,6 +50,8 @@ Raise Alchemy Level 1 → 2 took Water income from +595/s to +4.1e3/s (observed)
 
 A Transmute is the first Water source that needs no spell. Alchemy rolls offer one more option than
 the other trees (observed: three against two, then four against three after Greater Discovery).
+The roll price climbs ×10 per roll, and a glyph purchase that widens the pool drops it back
+(observed: 1e6 Control → 1e4 after Learn Refinement); the next rolls were required ones.
 
 ## Types, and the filter above the pool
 
