@@ -354,6 +354,7 @@ second for a shared world captured after the action completed, then delegates to
 command-to-world delta projector. The successful response returns only what changed. If no such
 publication arrives, the response stays `committed` and emits one exceptional
 `postStateUnavailable` fact with `reasonCode=post_state_timeout`; it never labels an older world as
-committed state and never adds a ceremonial lag explanation. Domain-specific readiness may
-strengthen the shared predicate only when the requested outcome itself requires it, as the casting
-dials and discovery events do.
+committed state and never adds a ceremonial lag explanation. A `game_cast` fire is the exception:
+its boundary sentinel already proves the cast started, so its timeout answers with the press's own
+facts instead. Domain-specific readiness may strengthen the shared predicate only when the
+requested outcome itself requires it, as the casting dials, cast fires and discovery events do.

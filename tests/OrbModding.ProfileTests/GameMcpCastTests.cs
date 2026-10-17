@@ -644,6 +644,30 @@ public sealed class GameMcpCastTests
     }
 
     /// <summary>
+    /// A fire whose next world arrives after the settlement window answers as the cast it is.
+    /// </summary>
+    /// <remarks>
+    /// A live Conjure Life fire answered "no redrawn world showed this spell casting or a charge
+    /// spent" while Mana fell by the cast's price and Verdant Energy turned positive. The boundary
+    /// had already verified the press; only the world was late.
+    /// </remarks>
+    [Fact]
+    public void A_fire_whose_world_comes_late_answers_committed_and_casting()
+    {
+        var command = Fire(World(casting: false, cancellationEnabled: true));
+
+        var answer = GameMcpTestHarness.Json(GameMcpCommandResult.Committed("committed", 9, 3)
+            .WithSettledPostState(GameMcpPostStateSettlement.TimedOut(command, latest: null))
+            .Project(command));
+
+        Assert.Equal("committed", (string?)answer["status"]);
+        Assert.True((bool?)answer["casting"]);
+        Assert.False((bool?)answer["charging"]);
+        Assert.Equal(1, (int?)answer["slot"]);
+        Assert.Null(answer["postStateUnavailable"]);
+    }
+
+    /// <summary>
     /// The spell row prints how far off full it is.
     /// </summary>
     /// <remarks>

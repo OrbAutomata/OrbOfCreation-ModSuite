@@ -2804,8 +2804,7 @@ internal static class GameMcpWorldQuery
         // them: `release` exists precisely to end a hold, and a response that drops the key instead
         // of saying `no` leaves a caller unable to tell "the hold is over" from "this mode does not
         // speak about holds", which is the same absence-as-value the surface bans everywhere else.
-        result["charging"] = fire &&
-            string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal);
+        result["charging"] = fire && HoldsCharge(command);
         // Whether the spell is running, as the boolean the read surface publishes. Every mode says
         // it: the settled slot always knows, and an idle one-shot that dropped the key made its
         // silence carry the answer.
@@ -2827,6 +2826,22 @@ internal static class GameMcpWorldQuery
         AddRechargeFacts(result, in after);
         return result.Freeze();
     }
+
+    /// <summary>
+    /// A fire whose settlement window closed before the world showed the cast. The boundary's own
+    /// sentinel already proved the press started it, so the answer is what the press knows; a heavy
+    /// save publishing its next world late is not a reason to call a landed cast unknown.
+    /// </summary>
+    internal static GameMcpValue FireWithoutSettledWorld(GameMcpCommand command) => new JObject
+    {
+        ["uuid"] = command.TargetId.ToString("D"),
+        ["slot"] = GameMcpSlotNumbering.Wire(command.Amount - 1),
+        ["casting"] = true,
+        ["charging"] = HoldsCharge(command),
+    }.Freeze();
+
+    private static bool HoldsCharge(GameMcpCommand command) =>
+        string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal);
 
     private static GameMcpValue ProjectCastingDialDelta(
         GameMcpFrameContext state,

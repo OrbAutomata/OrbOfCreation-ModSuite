@@ -93,7 +93,8 @@ batch.
    use the same readiness predicate and command-to-world projector; only event-driven discovery
    offers strengthen readiness by requiring their requested mode/offer transition to be published.
    If the deadline expires, one shared `postStateUnavailable / post_state_timeout` shape replaces
-   the otherwise empty committed body; ordinary fresh responses carry no settlement marker.
+   the otherwise empty committed body, except a cast fire, which answers with the facts its own
+   boundary sentinel proved; ordinary fresh responses carry no settlement marker.
 
 ### Cancellation and shutdown
 
