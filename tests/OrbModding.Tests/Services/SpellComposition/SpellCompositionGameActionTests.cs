@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -12,11 +13,87 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
     public SpellCompositionGameActionTests()
     {
+        IdScriptableObject.RuntimeLookup.Clear();
         Player.Current = new Player();
         Player.GetSpellOutputLevel().Value = 2;
         Player.Current.maxSpellOutputLevel.Value = 12;
         Player.GetReserveLevel().Value = 3;
         Player.Current.maxReserveLevel.Value = 9;
+        Player.Current.druidryOutputLevel.Value = 3;
+        Player.Current.maxDruidryOutputLevel.Value = 3;
+        Player.Current.alchemyOutputLevel.Value = 5;
+        Player.Current.maxAlchemyOutputLevel.Value = 5;
+    }
+
+    /// <summary>
+    /// The view that draws a dial's -/+ adjuster. Its one prerequisite is the dial's unlock
+    /// upgrade, so an unbought unlock is a view that is not available.
+    /// </summary>
+    private static void AdjusterView(Guid viewId, bool unlocked)
+    {
+        var view = new ViewSO { available = unlocked };
+        view.SetGuid(viewId);
+        IdScriptableObject.RuntimeLookup[view.GetGuid()] = view;
+    }
+
+    /// <summary>
+    /// Buying Raise Druidry Lv carries the dial up with its cap, and a player who wants cheaper,
+    /// slower chops turns it back down with the -/+ adjuster.
+    /// </summary>
+    [Fact]
+    public void DruidryLevelTurnsDownInsideItsRaisedCap()
+    {
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: true);
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 1, Epoch));
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, Player.Current.druidryOutputLevel.AsInt());
+    }
+
+    [Fact]
+    public void AlchemyLevelTurnsDownThroughTheSameDialBoundary()
+    {
+        AdjusterView(KnownEntities.AlchAlchemyLevel.Uuid, unlocked: true);
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Alchemy, 2, Epoch));
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(2, Player.Current.alchemyOutputLevel.AsInt());
+    }
+
+    [Theory]
+    [InlineData("druidry", "Unlock Druidry Levels")]
+    [InlineData("alchemy", "Level Alchemy")]
+    public void ALockedAdjusterRefusesWithItsUnlockUpgradeBeforeMutation(string name, string unlock)
+    {
+        var dial = name == "druidry" ? LevelDial.Druidry : LevelDial.Alchemy;
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: false);
+        AdjusterView(KnownEntities.AlchAlchemyLevel.Uuid, unlocked: false);
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(dial, 1, Epoch));
+
+        Assert.Equal(SpellCompositionPreflight.ControlLocked, result.Preflight);
+        Assert.Contains(unlock, result.Reason);
+        Assert.Equal(0, Player.Current.druidryOutputLevel.SetCalls);
+        Assert.Equal(0, Player.Current.alchemyOutputLevel.SetCalls);
+    }
+
+    [Fact]
+    public void DruidryLevelAboveItsCapRefusesWithTheLiveRange()
+    {
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: true);
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 4, Epoch));
+
+        Assert.Equal(SpellCompositionPreflight.LevelOutOfRange, result.Preflight);
+        Assert.Equal(1, result.Minimum);
+        Assert.Equal(3, result.Maximum);
+        Assert.Equal(0, Player.Current.druidryOutputLevel.SetCalls);
     }
 
     [Fact]
@@ -80,7 +157,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     [Fact]
     public void EveryMissingLifecycleBindingFailsClosed()
     {
-        Assert.Equal(7, SpellCompositionNativeBindings.ContractIds.Length);
+        Assert.Equal(12, SpellCompositionNativeBindings.ContractIds.Length);
         Assert.DoesNotContain(
             SpellCompositionNativeBindings.ContractIds,
             id => id.Contains("augment", StringComparison.OrdinalIgnoreCase));
@@ -109,10 +186,10 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     }
 
     private static SpellCompositionAction Output(int level) =>
-        new(CastingDial.Output, level, Epoch);
+        new(LevelDial.Output, level, Epoch);
 
     private static SpellCompositionAction Reserve(int level) =>
-        new(CastingDial.Reserve, level, Epoch);
+        new(LevelDial.Reserve, level, Epoch);
 
     private static SpellCompositionGameAction Action(
         long epoch = Epoch,
@@ -130,5 +207,9 @@ public sealed class SpellCompositionGameActionTests : IDisposable
         return action;
     }
 
-    public void Dispose() => Player.Current = new Player();
+    public void Dispose()
+    {
+        IdScriptableObject.RuntimeLookup.Clear();
+        Player.Current = new Player();
+    }
 }

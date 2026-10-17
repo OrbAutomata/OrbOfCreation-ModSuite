@@ -476,9 +476,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 configurationGeneration);
         var dial = command.Mode switch
         {
-            "set_output_level" => CastingDial.Output,
-            "set_reserve_level" => CastingDial.Reserve,
-            _ => (CastingDial?)null,
+            "set_output_level" => LevelDial.Output,
+            "set_reserve_level" => LevelDial.Reserve,
+            "set_druidry_level" => LevelDial.Druidry,
+            "set_alchemy_level" => LevelDial.Alchemy,
+            _ => (LevelDial?)null,
         };
         if (dial is null)
             return GameMcpCommandResult.Failed(

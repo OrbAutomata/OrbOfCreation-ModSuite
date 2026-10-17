@@ -33,6 +33,7 @@ internal static class SpellCompositionActionResultMapper
         SpellCompositionPreflight.MutationPermitUnavailable => SpellCompositionActionResultCodes.MutationPermitUnavailable,
         SpellCompositionPreflight.PostCommitFault => SpellCompositionActionResultCodes.PostCommitFault,
         SpellCompositionPreflight.VerificationFailed => SpellCompositionActionResultCodes.VerificationFailed,
+        SpellCompositionPreflight.ControlLocked => SpellCompositionActionResultCodes.ControlLocked,
         _ => SpellCompositionActionResultCodes.ContractUnavailable,
     };
 }

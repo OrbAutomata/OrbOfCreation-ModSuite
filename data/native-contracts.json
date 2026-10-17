@@ -23736,6 +23736,82 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
     },
     {
+      "id": "spell-composition.player-druidry-level-capture",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "druidryOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Common spell composition world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
+    },
+    {
+      "id": "spell-composition.player-maximum-druidry-level-capture",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxDruidryOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Common spell composition world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
+    },
+    {
+      "id": "spell-composition.player-alchemy-level-capture",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "alchemyOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Common spell composition world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
+    },
+    {
+      "id": "spell-composition.player-maximum-alchemy-level-capture",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxAlchemyOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Common spell composition world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field IntVariable"}
+    },
+    {
       "id": "spell-composition.int-as-int-capture",
       "assembly": "assembly-csharp",
       "type": "IntVariable",
@@ -24041,6 +24117,97 @@
       "visibility": "public",
       "static": false,
       "valueType": "IntVariable",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.player-druidry-level-action",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "druidryOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.player-maximum-druidry-level-action",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxDruidryOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.player-alchemy-level-action",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "alchemyOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.player-maximum-alchemy-level-action",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxAlchemyOutputLevel",
+      "visibility": "public",
+      "static": false,
+      "valueType": "IntVariable",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-composition.dial-view-availability-action",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
       "owners": [
         "Automata spell composition GameAction"
       ],

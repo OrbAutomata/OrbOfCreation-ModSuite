@@ -160,6 +160,18 @@ internal static class GameMcpWorldQuery
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
                 },
             };
+        if (IsScreenUnlocked(world, KnownEntities.WorldAgromancyDruidryLvs.Uuid))
+            result["druidryLevel"] = new JObject
+            {
+                ["current"] = world.SpellWorkbench.DruidryLevel,
+                ["maximum"] = world.SpellWorkbench.MaximumDruidryLevel,
+            };
+        if (IsScreenUnlocked(world, KnownEntities.AlchAlchemyLevel.Uuid))
+            result["alchemyLevel"] = new JObject
+            {
+                ["current"] = world.SpellWorkbench.AlchemyLevel,
+                ["maximum"] = world.SpellWorkbench.MaximumAlchemyLevel,
+            };
         // Exception-shaped, like every other line that costs a caller a decision: absent while no
         // battle runs, and present with the ritual that is in it and the gate it holds shut while
         // one does. A live round activated a ritual, read `activeBattle: no -> yes`, and twenty
@@ -2822,19 +2834,30 @@ internal static class GameMcpWorldQuery
     {
         if (state.World is null)
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        var after = state.World.Snapshot.SpellWorkbench;
-        var before = Before(command)?.SpellWorkbench;
-        var output = command.Mode == "set_output_level";
+        var after = DialLevel(state.World.Snapshot.SpellWorkbench, command.Mode);
+        var before = Before(command)?.SpellWorkbench is { } earlier
+            ? DialLevel(earlier, command.Mode).Current
+            : (int?)null;
         return new JObject
         {
             ["dial"] = command.PayloadKey,
-            ["before"] = output ? before?.OutputLevel : before?.ReserveLevel,
-            ["after"] = output ? after.OutputLevel : after.ReserveLevel,
-            // The floor of both dials is the constant 1 and lives in the tool documentation. The
+            ["before"] = before,
+            ["after"] = after.Current,
+            // The floor of every dial is the constant 1 and lives in the tool documentation. The
             // ceiling is the one end of the range that moves, so it is the one end worth sending.
-            ["maximum"] = output ? after.MaximumOutputLevel : after.MaximumReserveLevel,
+            ["maximum"] = after.Maximum,
         }.Freeze();
     }
+
+    internal static (int Current, int Maximum) DialLevel(
+        in WorldSpellWorkbench workbench,
+        string mode) => mode switch
+        {
+            "set_output_level" => (workbench.OutputLevel, workbench.MaximumOutputLevel),
+            "set_reserve_level" => (workbench.ReserveLevel, workbench.MaximumReserveLevel),
+            "set_druidry_level" => (workbench.DruidryLevel, workbench.MaximumDruidryLevel),
+            _ => (workbench.AlchemyLevel, workbench.MaximumAlchemyLevel),
+        };
 
     private static GameMcpValue ProjectStructureLifecycleDelta(
         GameMcpFrameContext state,

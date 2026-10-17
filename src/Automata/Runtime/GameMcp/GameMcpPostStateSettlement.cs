@@ -89,6 +89,8 @@ internal static class GameMcpPostStateSettlement
         {
             "set_output_level" => workbench.OutputLevel == command.Amount,
             "set_reserve_level" => workbench.ReserveLevel == command.Amount,
+            "set_druidry_level" => workbench.DruidryLevel == command.Amount,
+            "set_alchemy_level" => workbench.AlchemyLevel == command.Amount,
             _ => false,
         };
     }
@@ -181,9 +183,7 @@ internal static class GameMcpPostStateSettlement
         if (command.Kind == GameMcpCommandKind.SpellComposition && latest?.World is not null)
         {
             var workbench = latest.World.Snapshot.SpellWorkbench;
-            var observed = command.Mode == "set_output_level"
-                ? workbench.OutputLevel
-                : workbench.ReserveLevel;
+            var observed = GameMcpWorldQuery.DialLevel(workbench, command.Mode).Current;
             return GameMcpWorldQuery.PostStateUnavailable(
                 "requested_state_not_reached",
                 "the settled " + command.PayloadKey + " dial is " + observed +

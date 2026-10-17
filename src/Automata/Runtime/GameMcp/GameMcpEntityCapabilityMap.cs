@@ -381,7 +381,7 @@ internal static class GameMcpEntityCapabilityMap
                 reason = string.Empty;
                 return true;
             }
-            reason = "The workbench has no output level to set right now.";
+            reason = "The game has not set up its level dials yet.";
             return false;
         }
         var matches = 0;

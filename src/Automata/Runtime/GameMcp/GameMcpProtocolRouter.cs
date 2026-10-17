@@ -356,7 +356,14 @@ internal sealed class GameMcpProtocolRouter
                 builder.Mode = RequireOneOf(arguments, "mode",
                     "add_plot_action", "remove_plot_action",
                     "add_element", "remove_element", "add_element_action",
-                    "remove_element_action");
+                    "remove_element_action", "set_druidry_level");
+                if (builder.Mode == "set_druidry_level")
+                {
+                    builder.Key = "druidry";
+                    builder.Amount = RequiredInt(
+                        arguments, "level", WorldSpellWorkbench.MinimumDialLevel, int.MaxValue);
+                    break;
+                }
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 builder.SecondaryUuid = builder.Mode is "add_plot_action" or
                     "remove_plot_action" or "add_element_action" or
@@ -439,7 +446,14 @@ internal sealed class GameMcpProtocolRouter
                 builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
                 break;
             case "game_alchemy":
-                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove");
+                builder.Mode = RequireOneOf(arguments, "mode", "add", "remove", "set_alchemy_level");
+                if (builder.Mode == "set_alchemy_level")
+                {
+                    builder.Key = "alchemy";
+                    builder.Amount = RequiredInt(
+                        arguments, "level", WorldSpellWorkbench.MinimumDialLevel, int.MaxValue);
+                    break;
+                }
                 builder.Uuid = RequireUuid(arguments, "uuid");
                 builder.Amount = RequiredInt(arguments, "amount", 1, int.MaxValue);
                 break;
@@ -790,26 +804,30 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_agromancy",
                 "Use the Agromancy screen",
-                "Add or remove a plot action, harvest element, or element action shown on World/Agromancy.",
+                "Add or remove a plot action, harvest element, or element action shown on World/Agromancy, "
+                    + "or set the Druidry Lv its -/+ adjuster shows (1 to Max Druidry Lv; drawn once "
+                    + "Unlock Druidry Levels is bought).",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {
                         ["mode"] = EnumSchema(
                             "add_plot_action", "remove_plot_action",
                             "add_element", "remove_element", "add_element_action",
-                            "remove_element_action"),
+                            "remove_element_action", "set_druidry_level"),
                         ["uuid"] = StringSchema("Published plot or harvest-element id."),
                         ["actionUuid"] = StringSchema(
                             "Published action UUID offered by that plot or element."),
                         ["amount"] = IntegerSchema(1, 10_000),
+                        ["level"] = IntegerSchema(WorldSpellWorkbench.MinimumDialLevel, int.MaxValue),
                     },
-                    "mode", "uuid"),
-                    ModeRule("add_plot_action", new[] { "actionUuid", "amount" }),
-                    ModeRule("remove_plot_action", new[] { "actionUuid", "amount" }),
-                    ModeRule("add_element", new[] { "amount" }, new[] { "actionUuid" }),
-                    ModeRule("remove_element", new[] { "amount" }, new[] { "actionUuid" }),
-                    ModeRule("add_element_action", new[] { "actionUuid", "amount" }),
-                    ModeRule("remove_element_action", new[] { "actionUuid", "amount" })),
+                    "mode"),
+                    ModeRule("add_plot_action", new[] { "uuid", "actionUuid", "amount" }, new[] { "level" }),
+                    ModeRule("remove_plot_action", new[] { "uuid", "actionUuid", "amount" }, new[] { "level" }),
+                    ModeRule("add_element", new[] { "uuid", "amount" }, new[] { "actionUuid", "level" }),
+                    ModeRule("remove_element", new[] { "uuid", "amount" }, new[] { "actionUuid", "level" }),
+                    ModeRule("add_element_action", new[] { "uuid", "actionUuid", "amount" }, new[] { "level" }),
+                    ModeRule("remove_element_action", new[] { "uuid", "actionUuid", "amount" }, new[] { "level" }),
+                    ModeRule("set_druidry_level", new[] { "level" }, new[] { "uuid", "actionUuid", "amount" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -981,15 +999,19 @@ internal sealed class GameMcpProtocolRouter
             Tool(
                 "game_alchemy",
                 "Change the ordinary Alchemy loadout",
-                "Add or remove an explicit number of uses of one discovered ordinary Alchemy recipe through the native usage-capacity decision. Concept assignments stay on game_concept.",
-                ObjectSchema(
+                "Add or remove an explicit number of uses of one discovered ordinary Alchemy recipe through the native usage-capacity decision, or set the Alchemy Lv its -/+ adjuster shows (1 to Max Alchemy Level; drawn once Level Alchemy is bought). Concept assignments stay on game_concept.",
+                ModeSchema(ObjectSchema(
                     new JObject
                     {
-                        ["mode"] = EnumSchema("add", "remove"),
+                        ["mode"] = EnumSchema("add", "remove", "set_alchemy_level"),
                         ["uuid"] = StringSchema("Published ordinary alchemy recipe id."),
                         ["amount"] = IntegerSchema(1, int.MaxValue),
+                        ["level"] = IntegerSchema(WorldSpellWorkbench.MinimumDialLevel, int.MaxValue),
                     },
-                    "mode", "uuid", "amount"),
+                    "mode"),
+                    ModeRule("add", new[] { "uuid", "amount" }, new[] { "level" }),
+                    ModeRule("remove", new[] { "uuid", "amount" }, new[] { "level" }),
+                    ModeRule("set_alchemy_level", new[] { "level" }, new[] { "uuid", "amount" })),
                 readOnly: false,
                 idempotent: false),
             Tool(
@@ -1492,10 +1514,19 @@ internal sealed class GameMcpProtocolRouter
                 "add_element_action" or "remove_element_action" && !action)
                 errors.Add(ValidationError("missing_required", "actionUuid",
                     "required field 'actionUuid' is missing for mode '" + mode + "'"));
-            else if (mode is "add_element" or "remove_element" && action)
+            else if (mode is "add_element" or "remove_element" or "set_druidry_level" && action)
                 errors.Add(ValidationError("unexpected_for_mode", "actionUuid",
                     "field 'actionUuid' is accepted only for action modes"));
+            AddLevelModeErrors(errors, arguments, mode, "set_druidry_level",
+                requiredOtherwise: new[] { "uuid" },
+                forbiddenForLevel: new[] { "uuid", "amount" });
         }
+
+        if (string.Equals(name, "game_alchemy", StringComparison.Ordinal) &&
+            arguments["mode"]?.Type == JTokenType.String)
+            AddLevelModeErrors(errors, arguments, (string?)arguments["mode"], "set_alchemy_level",
+                requiredOtherwise: new[] { "uuid", "amount" },
+                forbiddenForLevel: new[] { "uuid", "amount" });
 
         if (string.Equals(name, "game_spell_mastery", StringComparison.Ordinal) &&
             arguments["mode"]?.Type == JTokenType.String)
@@ -1620,6 +1651,35 @@ internal sealed class GameMcpProtocolRouter
         ["field"] = field,
         ["message"] = message,
     };
+
+    private static void AddLevelModeErrors(
+        JArray errors,
+        JObject arguments,
+        string? mode,
+        string levelMode,
+        string[] requiredOtherwise,
+        string[] forbiddenForLevel)
+    {
+        var level = arguments.ContainsKey("level");
+        if (mode != levelMode)
+        {
+            foreach (var field in requiredOtherwise)
+                if (!arguments.ContainsKey(field))
+                    errors.Add(ValidationError("missing_required", field,
+                        "required field '" + field + "' is missing"));
+            if (level)
+                errors.Add(ValidationError("unexpected_for_mode", "level",
+                    "field 'level' is accepted only for mode '" + levelMode + "'"));
+            return;
+        }
+        if (!level)
+            errors.Add(ValidationError("missing_required", "level",
+                "required field 'level' is missing for mode '" + levelMode + "'"));
+        foreach (var field in forbiddenForLevel)
+            if (arguments.ContainsKey(field))
+                errors.Add(ValidationError("unexpected_for_mode", field,
+                    "field '" + field + "' is not accepted for mode '" + levelMode + "'"));
+    }
 
     private static JObject ModeSchema(JObject schema, params JObject[] rules)
     {

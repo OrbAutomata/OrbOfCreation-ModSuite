@@ -17,19 +17,19 @@ public sealed class GameMcpAlchemyLoadoutTests
     private static readonly Guid ResourceId = Guid.Parse("f8000000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void Tool_exposes_only_the_ui_add_and_remove_surface()
+    public void Tool_exposes_the_ui_add_remove_and_alchemy_level_surface()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_alchemy");
 
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
-        Assert.Equal(new[] { "mode", "uuid", "amount" },
+        Assert.Equal(new[] { "mode" },
             tool["inputSchema"]!["required"]!.Values<string>());
-        Assert.Equal(new[] { "add", "remove" },
+        Assert.Equal(new[] { "add", "remove", "set_alchemy_level" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["amount"]);
-        Assert.Null(tool["inputSchema"]!["properties"]!["level"]);
+        Assert.NotNull(tool["inputSchema"]!["properties"]!["level"]);
         var operation = GameMcpProtocolRouter.BuildOperation(
             "game_alchemy",
             new JObject
@@ -51,7 +51,6 @@ public sealed class GameMcpAlchemyLoadoutTests
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_alchemy");
         Assert.Null(tool["inputSchema"]!["properties"]!["destination"]);
-        Assert.Null(tool["inputSchema"]!["allOf"]);
 
         var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
         var move = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
@@ -79,7 +78,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             }));
 
         Assert.Equal(
-            "refused (ERR_INPUT): mode must be one of: add, remove",
+            "refused (ERR_INPUT): mode must be one of: add, remove, set_alchemy_level",
             GameMcpTestHarness.Page(move));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +

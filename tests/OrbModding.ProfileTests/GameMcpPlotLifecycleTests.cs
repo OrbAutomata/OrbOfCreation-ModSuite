@@ -24,7 +24,7 @@ public sealed class GameMcpPlotLifecycleTests
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_agromancy");
 
-        Assert.Equal(new[] { "mode", "uuid" },
+        Assert.Equal(new[] { "mode" },
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Contains("add_plot_action",
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
