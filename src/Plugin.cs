@@ -598,7 +598,9 @@ public sealed class Plugin : BaseUnityPlugin
                                 .TryCaptureSpellLoadoutMutationPermit(),
                         readOwnershipFailure: () =>
                             _automataActionFamilyOwnership!
-                                .SpellLoadoutOwnershipFailure)
+                                .SpellLoadoutOwnershipFailure,
+                        readAutoCastOn: () =>
+                            AutoCastConfigurationPolicy.IsOperational(_configurationStore!.Current))
                     , createTargeting: () => new TargetingGameAction(
                         readAutoHarvestLifecycleEpoch,
                         tryCaptureMutationPermit: () =>

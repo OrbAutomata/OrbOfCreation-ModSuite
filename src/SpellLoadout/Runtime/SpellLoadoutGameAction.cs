@@ -15,6 +15,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _tryCaptureMutationPermit;
     private readonly Func<string> _readOwnershipFailure;
+    private readonly Func<bool> _readAutoCastOn;
     private readonly Func<string, Type?>? _resolveType;
     private readonly Func<string, bool>? _includeContract;
     private readonly TypedRegistryResolver _registry;
@@ -28,12 +29,14 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null,
-        TypedRegistryResolver? registry = null)
+        TypedRegistryResolver? registry = null,
+        Func<bool>? readAutoCastOn = null)
     {
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _tryCaptureMutationPermit = tryCaptureMutationPermit ??
             throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
         _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
+        _readAutoCastOn = readAutoCastOn ?? (static () => false);
         _resolveType = resolveType;
         _includeContract = includeContract;
         var identity = RuntimeIdentityRegistryBinding.Shared;
@@ -187,7 +190,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     /// a harmless no-op — the refusal branch switches the spell to a time-based cooldown — so the
     /// suite asks the same three questions first and never makes a call the game would refuse.
     /// </summary>
-    private static bool TryAdmitRemoval(
+    private bool TryAdmitRemoval(
         SpellLoadoutNativeBindings native,
         object spell,
         out SpellLoadoutPreflight refusal,
@@ -199,7 +202,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             refusal = SpellLoadoutPreflight.CastInProgress;
             reason = name + " is still recharging: it is mid-cast, and the game answers a " +
                 "removal now with \"Cannot remove a spell that is still recharging.\" " +
-                "Wait for the cast to finish.";
+                "Wait for the cast to finish." + AutoCastRoute(native.ReadMaximumCharges(spell));
             return false;
         }
         if (!native.IsAtMaxCharges(spell))
@@ -211,13 +214,21 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 NextChargeClause(native, spell) +
                 ". The game only removes a spell at full charges — \"Cannot remove a spell that " +
                 "is still recharging.\" — so remove it once it reads " + maximum +
-                " of " + maximum + ".";
+                " of " + maximum + "." + AutoCastRoute(maximum);
             return false;
         }
         refusal = SpellLoadoutPreflight.Proceeded;
         reason = string.Empty;
         return true;
     }
+
+    private string AutoCastRoute(int maximum) =>
+        _readAutoCastOn()
+            ? " Auto Cast is on and casts it again as soon as it can, except while Magic > " +
+              "Spellbook > Loadout is on screen: game_navigate(screen=\"Magic\", " +
+              "subtab=\"Spellbook/Loadout\"), wait there until it reads " + maximum + " of " +
+              maximum + " charges, then remove it."
+            : string.Empty;
 
     /// <summary>
     /// The recipe name, which is the identity a removal answers with and the only one a caller can
