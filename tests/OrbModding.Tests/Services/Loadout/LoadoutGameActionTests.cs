@@ -107,6 +107,23 @@ public sealed class LoadoutGameActionTests : IDisposable
     }
 
     [Fact]
+    public void SelectDuringACastRefusesWithoutSoundingTheGamesRefusal()
+    {
+        var current = Player("Current", selected: true);
+        var target = Player("Adventure");
+        LoadoutManager.instance.playerLoadouts.value.Add(current);
+        LoadoutManager.instance.playerLoadouts.value.Add(target);
+        LoadoutManager.instance.activeSpells.value.Add(new Spell { NativeCasting = true });
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
+
+        Assert.Equal(LoadoutPreflight.SwitchBlocked, result.Preflight);
+        Assert.Equal(0, LoadoutManager.instance.SetLoadoutCalls);
+        Assert.Equal(0, LoadoutManager.instance.RefusalFeedbacks);
+    }
+
+    [Fact]
     public void SelectNoOpFailsTheSingleGameWrittenSentinel()
     {
         var current = Player("Current", selected: true);

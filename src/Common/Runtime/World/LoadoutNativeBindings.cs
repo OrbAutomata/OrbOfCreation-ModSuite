@@ -20,6 +20,7 @@ internal sealed class LoadoutNativeBindings
         "loadout.player.type-action",
         "loadout.label.type-action",
         "loadout.spell.type-action",
+        "loadout.spell-list.type-action",
         "loadout.spell-recipe.type-action",
         "loadout.equipment.type-action",
         "loadout.alchemy-recipe.type-action",
@@ -40,6 +41,7 @@ internal sealed class LoadoutNativeBindings
         "loadout.manager-active-alchemy-action",
         "loadout.manager-active-equipment-action",
         "loadout.manager-can-swap-action",
+        "loadout.manager-active-spells-action",
         "loadout.manager-set-loadout-action",
         "loadout.manager-save-active-action",
         "loadout.list-values-action",
@@ -66,6 +68,8 @@ internal sealed class LoadoutNativeBindings
         "loadout.spell-guid-action",
         "loadout.spell-reference-action",
         "loadout.spell-empty-action",
+        "loadout.spell-casting-action",
+        "loadout.spell-readying-cast-action",
         "loadout.alchemy-list-maximum-action",
         "loadout.equipment-list-maximum-action",
         "loadout.alchemy-snapshot-empty-action",
@@ -305,6 +309,7 @@ internal sealed class LoadoutNativeBindings
             var player = T("PlayerLoadout");
             var label = T("PlayerLoadout+LoadoutLabel");
             var spell = T("Spell");
+            var spellList = T("SpellListVariable");
             var spellRecipe = T("SpellRecipeSO");
             var equipment = T("EquipmentSO");
             var alchemyRecipe = T("AlchemyRecipeSO");
@@ -336,7 +341,10 @@ internal sealed class LoadoutNativeBindings
             var managerEquipmentSnapshots = Field(manager, "equipmentLoadouts", equipmentSnapshotList, false);
             var managerAlchemy = Field(manager, "activeAlchemy", alchemyList, false);
             var managerEquipment = Field(manager, "activeEquipment", equipmentList, false);
-            var canSwap = Method(manager, "CanSwapLoadouts", typeof(bool));
+            var managerSpells = Field(manager, "activeSpells", spellList, false);
+            var spellAll = Field(spellList, "value", spellCollection, false);
+            var spellCasting = Method(spell, "IsCasting", typeof(bool));
+            var spellReadying = Method(spell, "IsReadyingCast", typeof(bool));
             var setLoadout = Method(manager, "SetLoadout", typeof(void), player);
             var saveActive = Method(manager, "SaveActiveLoadout", typeof(void));
             var playerAll = Field(playerList, "value", playerCollection, false);
@@ -394,7 +402,9 @@ internal sealed class LoadoutNativeBindings
                 StaticObject(managerInstance), ObjectField(managerPlayer),
                 ObjectField(managerAlchemySnapshots), ObjectField(managerEquipmentSnapshots),
                 ObjectField(managerAlchemy), ObjectField(managerEquipment),
-                Func<bool>(canSwap), ActionObject(setLoadout), ActionVoid(saveActive),
+                SpellsAllowSwap(ObjectField(managerSpells), ListField(spellAll),
+                    Func<bool>(spellCasting), Func<bool>(spellReadying)),
+                ActionObject(setLoadout), ActionVoid(saveActive),
                 ListField(playerAll), Func<Guid>(playerGuid),
                 Func<string>(playerName), Func<bool>(selected), Func<bool>(equipmentEnabled),
                 Func<bool>(alchemyEnabled), ListFunc(spells), ObjectField(equipmentField),
@@ -441,6 +451,27 @@ internal sealed class LoadoutNativeBindings
         quantity = count;
         return true;
     }
+
+    /// <summary>
+    /// <c>LoadoutManager.CanSwapLoadouts()</c>'s own question, asked without calling it: on a
+    /// refusal the game plays its error sound and raises a popup, so a read through it is audible
+    /// on every collection pass while a spell casts.
+    /// </summary>
+    private static Func<object, bool> SpellsAllowSwap(Func<object, object?> activeSpells,
+        Func<object, IList?> values, Func<object, bool> casting, Func<object, bool> readying) =>
+        manager =>
+        {
+            var spells = activeSpells(manager) is { } list ? values(list) : null;
+            if (spells is null)
+                throw new InvalidOperationException("LoadoutManager.activeSpells was unavailable");
+            foreach (var spell in spells)
+            {
+                if (spell is null)
+                    throw new InvalidOperationException("an active spell slot was null");
+                if (casting(spell) || readying(spell)) return false;
+            }
+            return true;
+        };
 
     private static FieldInfo Field(Type owner, string name, Type valueType, bool isStatic)
     {

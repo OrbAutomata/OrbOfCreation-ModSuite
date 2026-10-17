@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace OrbModding.Tests.Runtime.World;
 
@@ -110,9 +111,16 @@ internal sealed class FakeLoadoutManager
     public FakeAlchemyInstanceList activeAlchemy = new();
     public FakeEquipmentList activeEquipment = new();
     public FakeSpellLoadout activeSpells = new();
-    public bool swapAvailable = true;
+    public int RefusalFeedbacks { get; private set; }
 
-    private bool CanSwapLoadouts() => swapAvailable;
+    /// <summary>The game's refusal plays the error sound and raises a popup, counted here.</summary>
+    private bool CanSwapLoadouts()
+    {
+        if (activeSpells.value.All(spell => !spell!.IsCasting() && !spell.IsReadyingCast()))
+            return true;
+        RefusalFeedbacks++;
+        return false;
+    }
 
     public void SetLoadout(FakePlayerLoadout target)
     {

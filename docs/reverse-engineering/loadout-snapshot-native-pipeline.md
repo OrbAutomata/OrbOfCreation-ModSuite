@@ -24,6 +24,11 @@ The manager finds the exact target and delegates to `SetLoadoutIndex`
 5. load the new spells and enabled Equipment/Alchemy sections;
 6. reactivate spells and recalculate spell state.
 
+`CanSwapLoadouts` is not a read: its refusal plays `GlobalVariables.GetErrorSfx()` and
+raises a `UIPopupText`. The suite answers the same question from `activeSpells` and each
+spell's `IsCasting`/`IsReadyingCast`, for the published `canSelect` and the select preflight
+alike, and never calls it.
+
 The identity-and-outcome sentinel is the requested loadout becoming selected. The native
 method is used whole; reproducing its ordered save/deactivate/load/reactivate transaction is
 not an approved boundary.
