@@ -518,6 +518,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         either.orConditions.Add(Require(research, 5));
         var all = new Requirements.AndRequirement();
         all.andConditions.Add(Require(research, 6));
+        all.andConditions.Add(new Requirements.OrRequirement());
         either.orConditions.Add(all);
         owner.prerequisitesPerLevel.prerequisites.Add(either);
 
@@ -549,17 +550,20 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Equal(2, top.Length);
         Assert.Equal("OR", (string?)top[0]["operator"]);
         var orChildren = top[0]["children"]!.OfType<JObject>().ToArray();
-        // A condition class this build cannot read says so in one authored sentence pointing at the
-        // screen that draws it. It used to publish the game's own C# class name in a `conditionType`
-        // column beside a `verdict` word, which told a reader neither what was wanted nor where to
-        // look for it.
-        Assert.False((bool)orChildren[1]["met"]!);
-        Assert.Null(orChildren[1]["reasonCode"]);
+        Assert.Equal("AND", (string?)orChildren[1]["operator"]);
+        var andChildren = orChildren[1]["children"]!.OfType<JObject>().ToArray();
+        Assert.Equal(2, andChildren.Length);
+        Assert.EndsWith(" at level 6 (at 0)", (string?)andChildren[0]["needs"]);
+        // A group three levels deep is a shape no authored container has, so it says so in one
+        // authored sentence pointing at the screen that draws it.
+        var unread = andChildren[1];
+        Assert.False((bool)unread["met"]!);
+        Assert.Null(unread["reasonCode"]);
         Assert.StartsWith(
             "This requirement is one the suite cannot read yet; open ",
-            (string?)orChildren[1]["reason"]);
-        Assert.Null(orChildren[1]["diagnostics"]);
-        Assert.Null(orChildren[1]["verdict"]);
+            (string?)unread["reason"]);
+        Assert.Null(unread["diagnostics"]);
+        Assert.Null(unread["verdict"]);
 
         // What it needs, in the screen's words, and whether it holds. Nothing else: the tree
         // position, the native class, the selected value's internal name and three thresholds of

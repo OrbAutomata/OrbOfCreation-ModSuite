@@ -202,13 +202,16 @@ internal static class WorldRequirementEvaluator
         var verdict = first.GroupKind == WorldRequirementGroupKind.Any
             ? WorldRequirementVerdict.Unmet
             : WorldRequirementVerdict.Met;
+        var priorBranch = -1;
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
             if (row.Program != program || row.GroupOrdinal != first.GroupOrdinal) continue;
             if (row.GroupKind != first.GroupKind) return WorldRequirementVerdict.Unevaluable;
+            if (row.BranchOrdinal == priorBranch) continue;
+            priorBranch = row.BranchOrdinal;
 
-            var child = Evaluate(world, in row, level);
+            var child = EvaluateBranch(world, rows, start, count, in row, level, program);
             if (first.GroupKind == WorldRequirementGroupKind.Any)
             {
                 if (child == WorldRequirementVerdict.Met) return WorldRequirementVerdict.Met;
@@ -226,6 +229,42 @@ internal static class WorldRequirementEvaluator
         }
 
         return verdict;
+    }
+
+    /// <summary>
+    /// One arm of a group: a leaf alone, or the leaves of a nested composite folded by the operator
+    /// opposite to the group's.
+    /// </summary>
+    private static WorldRequirementVerdict EvaluateBranch(
+        GameWorldState world,
+        ReadOnlySpan<WorldEntityRequirement> rows,
+        int start,
+        int count,
+        in WorldEntityRequirement first,
+        long level,
+        WorldRequirementProgramKind program)
+    {
+        var any = first.GroupKind == WorldRequirementGroupKind.All;
+        var hasUnevaluable = false;
+        var hasUnmet = false;
+        var hasMet = false;
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var row = ref rows[start + offset];
+            if (row.Program != program || row.GroupOrdinal != first.GroupOrdinal ||
+                row.BranchOrdinal != first.BranchOrdinal)
+            {
+                continue;
+            }
+            var one = Evaluate(world, in row, level);
+            if (one == WorldRequirementVerdict.Unevaluable) hasUnevaluable = true;
+            else if (one == WorldRequirementVerdict.Unmet) hasUnmet = true;
+            else hasMet = true;
+        }
+
+        if (any && hasMet) return WorldRequirementVerdict.Met;
+        if (hasUnevaluable) return WorldRequirementVerdict.Unevaluable;
+        return hasUnmet ? WorldRequirementVerdict.Unmet : WorldRequirementVerdict.Met;
     }
 
     /// <summary>

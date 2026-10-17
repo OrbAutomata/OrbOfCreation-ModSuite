@@ -520,48 +520,59 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     [Fact]
-    public void NestedAndOrGroupsUseThreeWayFailClosedSemantics()
+    public void ANestedCompositeFoldsByItsOwnOperatorInsideItsGroup()
     {
-        var gatedByOr = Upgrade();
-        var gatedByAnd = Upgrade();
+        var eitherMet = Upgrade();
+        var eitherUnmet = Upgrade();
+        var allUnmet = Upgrade();
         var scribing = Research();
         scribing.level = 1;
         var quarry = new global::StructureSO { quantity = 3 };
         global::StructureSO.All.Add(quarry);
 
-        Requirements.IRequirementCondition ResearchLeaf() => new Requirements.ResearchRequirement
-        {
-            item = scribing,
-            reqType = Requirements.UpgradeRequirementType.AtLeast,
-            value = new Requirements.LeveledValue { baseValue = 6d },
-        };
+        Requirements.IRequirementCondition ResearchLeaf(double atLeast) =>
+            new Requirements.ResearchRequirement
+            {
+                item = scribing,
+                reqType = Requirements.UpgradeRequirementType.AtLeast,
+                value = new Requirements.LeveledValue { baseValue = atLeast },
+            };
         Requirements.IRequirementCondition StructureLeaf() => new Requirements.StructureRequirement
         {
             item = quarry,
             reqType = Requirements.StructureRequirementType.Quantity,
             value = new Requirements.LeveledValue { baseValue = 3d },
         };
+        Requirements.IRequirementCondition Either(double armLevel)
+        {
+            var either = new Requirements.OrRequirement();
+            either.orConditions.Add(ResearchLeaf(6d));
+            var both = new Requirements.AndRequirement();
+            both.andConditions.Add(StructureLeaf());
+            both.andConditions.Add(ResearchLeaf(armLevel));
+            either.orConditions.Add(both);
+            return either;
+        }
 
-        var either = new Requirements.OrRequirement();
-        either.orConditions.Add(ResearchLeaf());
-        var nestedAll = new Requirements.AndRequirement();
-        nestedAll.andConditions.Add(StructureLeaf());
-        either.orConditions.Add(nestedAll);
-        gatedByOr.prerequisitesPerLevel.prerequisites.Add(either);
+        eitherMet.prerequisitesPerLevel.prerequisites.Add(Either(1d));
+        eitherUnmet.prerequisitesPerLevel.prerequisites.Add(Either(2d));
 
         var all = new Requirements.AndRequirement();
-        all.andConditions.Add(ResearchLeaf());
+        all.andConditions.Add(StructureLeaf());
         var nestedEither = new Requirements.OrRequirement();
-        nestedEither.orConditions.Add(StructureLeaf());
+        nestedEither.orConditions.Add(ResearchLeaf(6d));
+        nestedEither.orConditions.Add(ResearchLeaf(2d));
         all.andConditions.Add(nestedEither);
-        gatedByAnd.prerequisitesPerLevel.prerequisites.Add(all);
+        allUnmet.prerequisitesPerLevel.prerequisites.Add(all);
 
         var world = Collect();
 
-        Assert.Equal(WorldRequirementVerdict.Unevaluable,
-            WorldRequirementEvaluator.Evaluate(world, gatedByOr.GetGuid(), 1));
-        Assert.Equal(WorldRequirementVerdict.Unevaluable,
-            WorldRequirementEvaluator.Evaluate(world, gatedByAnd.GetGuid(), 1));
+        Assert.Equal(WorldRequirementVerdict.Met,
+            WorldRequirementEvaluator.Evaluate(world, eitherMet.GetGuid(), 1));
+        Assert.Equal(WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(world, eitherUnmet.GetGuid(), 1));
+        Assert.Equal(WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(world, allUnmet.GetGuid(), 1));
     }
 
     [Fact]

@@ -190,7 +190,8 @@ internal readonly struct WorldEntityRequirement
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
         WorldRequirementGroupKind groupKind = WorldRequirementGroupKind.All,
         int groupOrdinal = -1,
-        BigDouble thresholdAdjustment = default)
+        BigDouble thresholdAdjustment = default,
+        int branchOrdinal = -1)
         : this(
             ownerId,
             ownerKind,
@@ -210,7 +211,8 @@ internal readonly struct WorldEntityRequirement
             program,
             groupKind,
             groupOrdinal,
-            thresholdAdjustment)
+            thresholdAdjustment,
+            branchOrdinal)
     {
     }
 
@@ -233,7 +235,8 @@ internal readonly struct WorldEntityRequirement
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
         WorldRequirementGroupKind groupKind = WorldRequirementGroupKind.All,
         int groupOrdinal = -1,
-        BigDouble thresholdAdjustment = default)
+        BigDouble thresholdAdjustment = default,
+        int branchOrdinal = -1)
     {
         ThresholdAdjustment = thresholdAdjustment;
         OwnerId = ownerId;
@@ -254,6 +257,7 @@ internal readonly struct WorldEntityRequirement
         Program = program;
         GroupKind = groupKind;
         GroupOrdinal = groupOrdinal < 0 ? ordinal : groupOrdinal;
+        BranchOrdinal = branchOrdinal < 0 ? ordinal : branchOrdinal;
     }
 
     /// <summary>The entity whose next level this condition gates.</summary>
@@ -270,6 +274,14 @@ internal readonly struct WorldEntityRequirement
     /// sharing one position are the children of an explicit Or/And composite.
     /// </summary>
     internal int GroupOrdinal { get; }
+
+    /// <summary>
+    /// The arm of its group this leaf belongs to. Rows sharing a branch are the children of a
+    /// composite nested one level inside the group's own, and fold by the opposite operator to
+    /// <see cref="GroupKind"/>; a same-operator nesting folds as its parent, so its leaves keep
+    /// branches of their own.
+    /// </summary>
+    internal int BranchOrdinal { get; }
 
     /// <summary>
     /// Zero for an entity's per-level container; otherwise the exact tier index on a
@@ -1535,23 +1547,77 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     continue;
                 }
                 var childAccessors = AccessorsFor(child.GetType());
-                // This baseline authors no deeper composite in the programs collected here. Publish
-                // one named unknown child instead of flattening away its parentheses; the enclosing
-                // three-way fold then decides whether another OR arm proves the group met.
-                var row = childAccessors.IsComposite
-                    ? childAccessors.Unknown(
-                        ownerId, ownerKind, ordinalBase + appended, program,
-                        accessors.GroupKind, groupOrdinal)
-                    : childAccessors.Read(
+                if (!childAccessors.IsComposite)
+                {
+                    var row = childAccessors.Read(
                         ownerId, ownerKind, ordinalBase + appended, child, program,
                         accessors.GroupKind, groupOrdinal, adjustment);
-                if (row.Kind == WorldRequirementConditionKind.List)
-                    CaptureList(childAccessors, child, row.TargetId, ref unmodelled, ref firstFailure);
-                Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
+                    if (row.Kind == WorldRequirementConditionKind.List)
+                        CaptureList(childAccessors, child, row.TargetId, ref unmodelled, ref firstFailure);
+                    Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
+                    continue;
+                }
+                AppendBranch(
+                    ownerId, ownerKind, program, accessors.GroupKind, groupOrdinal, childAccessors,
+                    child, buffer, ref appended, ref unmodelled, ref firstFailure, adjustment,
+                    ordinalBase);
             }
         }
 
         return appended;
+    }
+
+    /// <summary>
+    /// A composite nested inside a group's composite, as one branch of that group.
+    /// </summary>
+    /// <remarks>
+    /// Scholarism's unlock is the one container the game authors this way:
+    /// <c>Or(Magic Points capacity, And(World Resets, Novice Spells))</c>. An opposite-operator
+    /// nesting shares one branch; a same-operator one folds as its parent, so each of its leaves is a
+    /// branch of its own. No container nests a third level, so a composite there reads as unknown.
+    /// </remarks>
+    private void AppendBranch(
+        Guid ownerId,
+        WorldRequirementOwnerKind ownerKind,
+        WorldRequirementProgramKind program,
+        WorldRequirementGroupKind groupKind,
+        int groupOrdinal,
+        ConditionAccessors branchAccessors,
+        object branch,
+        WorldEntityRequirementBuffer buffer,
+        ref int appended,
+        ref int unmodelled,
+        ref string firstFailure,
+        BigDouble adjustment,
+        int ordinalBase)
+    {
+        var leaves = branchAccessors.ReadChildren(branch);
+        if (leaves is null || leaves.Count == 0)
+        {
+            var row = branchAccessors.Unknown(
+                ownerId, ownerKind, ordinalBase + appended, program, groupKind, groupOrdinal);
+            Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
+            return;
+        }
+
+        var shared = branchAccessors.GroupKind != groupKind;
+        var branchOrdinal = ordinalBase + appended;
+        for (var index = 0; index < leaves.Count; index++)
+        {
+            var leaf = leaves[index];
+            var ordinal = ordinalBase + appended;
+            var leafBranch = shared ? branchOrdinal : ordinal;
+            var leafAccessors = leaf is null ? branchAccessors : AccessorsFor(leaf.GetType());
+            var row = leaf is null || leafAccessors.IsComposite
+                ? leafAccessors.Unknown(
+                    ownerId, ownerKind, ordinal, program, groupKind, groupOrdinal, leafBranch)
+                : leafAccessors.Read(
+                    ownerId, ownerKind, ordinal, leaf, program, groupKind, groupOrdinal,
+                    adjustment, leafBranch);
+            if (row.Kind == WorldRequirementConditionKind.List)
+                CaptureList(leafAccessors, leaf!, row.TargetId, ref unmodelled, ref firstFailure);
+            Append(in row, buffer, ref appended, ref unmodelled, ref firstFailure);
+        }
     }
 
     private static void Append(
@@ -1888,10 +1954,12 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             WorldRequirementProgramKind program,
             WorldRequirementGroupKind groupKind,
             int groupOrdinal,
-            BigDouble adjustment = default)
+            BigDouble adjustment = default,
+            int branchOrdinal = -1)
         {
             if (_kind == WorldRequirementConditionKind.Unknown)
-                return Unknown(ownerId, ownerKind, ordinal, program, groupKind, groupOrdinal);
+                return Unknown(
+                    ownerId, ownerKind, ordinal, program, groupKind, groupOrdinal, branchOrdinal);
             ReadScaling(condition, out var threshold, out var perLevel, out var modPerLevel);
 
             return new WorldEntityRequirement(
@@ -1908,7 +1976,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 program,
                 groupKind,
                 groupOrdinal,
-                adjustment);
+                adjustment,
+                branchOrdinal);
         }
 
         internal WorldEntityRequirement ReadGraph(
@@ -1967,7 +2036,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             int ordinal,
             WorldRequirementProgramKind program,
             WorldRequirementGroupKind groupKind,
-            int groupOrdinal) =>
+            int groupOrdinal,
+            int branchOrdinal = -1) =>
             new(
                 ownerId,
                 ownerKind,
@@ -1981,7 +2051,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 default(WorldRequirementScaling),
                 program,
                 groupKind,
-                groupOrdinal);
+                groupOrdinal,
+                branchOrdinal: branchOrdinal);
 
         internal WorldEntityRequirement EmptyComposite(
             Guid ownerId,

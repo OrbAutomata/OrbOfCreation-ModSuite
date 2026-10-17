@@ -6402,31 +6402,30 @@ internal static class GameMcpWorldQuery
         result["investmentLevel"] = Number(decision.CurrentInvestmentLevel);
         if (decision.Investment.Count > 0)
         {
-            var investment = new JArray();
+            // The development drain, not the price: Develop() pays `develop.costs` and then drains
+            // this over the level's research time. `remaining` is what the bar still takes, after
+            // the resource's own quality conversion; `invested` and `required` are the native fill
+            // bar, both raw. Neither `cost` nor `amount`: the wire spells a price `cost` and renames
+            // an `amount` beside `spendableAmount` into one.
+            var drain = new JArray();
             for (var index = 0; index < decision.Investment.Count; index++)
             {
                 var value = decision.Investment[index];
-
-                // `invested` and `required` are the native fill bar, both raw. `GetRemaining()` is
-                // what is still owed after the resource's own quality conversion — a price, in the
-                // units the player spends, read exactly the way every other price on this surface
-                // is read. So it says `cost`, under the same word, and the two fill-bar numbers ride
-                // beside it as the extra this one table has: a richer table, not a fourth dialect.
                 var row = new JObject
                 {
                     ["resourceId"] = value.ResourceId.ToString("D"),
-                    ["cost"] = new GameMcpDomainValue(value.Remaining),
+                    ["remaining"] = new GameMcpDomainValue(value.Remaining),
                     ["invested"] = new GameMcpDomainValue(value.Invested),
                     ["required"] = new GameMcpDomainValue(value.Required),
                 };
                 if (TryFindResource(world, value.ResourceId, out var pool))
                 {
-                    (row["cost"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                    (row["remaining"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
                         value.Remaining, WorldResourceCoordinate.SpendableAmount(in pool));
                 }
-                investment.Add(row);
+                drain.Add(row);
             }
-            result["investment"] = investment;
+            result["drain"] = drain;
         }
         if (decision.ResearchTypes.Count > 0)
         {
@@ -6504,21 +6503,9 @@ internal static class GameMcpWorldQuery
             }
         }
 
-        // A row refused for its price still owes the price. Only the open develop gates published
-        // it, so an unaffordable row named its shortfall in prose while its own `costs` were
-        // withheld and `investment` — the native fill bar — named no resource that was short.
-        var developmentCostsInformNextDecision =
-            blockedOnPrice ||
-            !research.Complete &&
-            research.Available &&
-            research.MeetsLevelRequirements &&
-            research.StillHasLeeway &&
-            research.BelowArtificialMaxLevel &&
-            research.BelowMaxInvestmentLevel &&
-            research.WithinDevelopRange &&
-            (!research.IsDeveloping || decision.QueueMode) &&
-            (!decision.QueueMode || decision.MultiBuy > 0 && queueRoom > 0);
-        if (developmentCostsInformNextDecision && decision.DevelopmentCosts.Count > 0)
+        // The price of the next level is a fact of the node until it is complete, whatever gate is
+        // shut: the screen prints it on every node it draws.
+        if (!research.Complete && decision.DevelopmentCosts.Count > 0)
         {
             var costs = new JArray();
             for (var index = 0; index < decision.DevelopmentCosts.Count; index++)
@@ -6526,11 +6513,12 @@ internal static class GameMcpWorldQuery
                 var value = decision.DevelopmentCosts[index];
                 var playerCost = PlayerFacingCost(world, value.ResourceId, value.Cost);
                 var spendable = SpendableAmount(world, value.ResourceId, value.Amount);
+                var (costCell, amountCell) = GameMcpNumberFormatter.CellsApart(playerCost, spendable);
                 costs.Add(new JObject
                 {
                     ["resourceId"] = value.ResourceId.ToString("D"),
-                    ["cost"] = new GameMcpDomainValue(playerCost),
-                    ["amount"] = new GameMcpDomainValue(spendable),
+                    ["cost"] = costCell,
+                    ["amount"] = amountCell,
                     ["affordable"] = CanAfford(
                         world, value.ResourceId, value.Cost, value.Amount),
                 });
@@ -8940,6 +8928,8 @@ internal static class GameMcpWorldQuery
             ["category"] = "time-runes",
             ["discovered"] = rune.Discovered,
             ["masteryLevel"] = rune.MasteryLevel,
+            ["masteryXp"] = new GameMcpDomainValue(rune.MasteryXp),
+            ["masteryXpNeeded"] = new GameMcpDomainValue(rune.RequiredMasteryXp),
             ["seen"] = rune.Seen,
         };
         AddLevelDecision(world, result, rune.LevelDecision,

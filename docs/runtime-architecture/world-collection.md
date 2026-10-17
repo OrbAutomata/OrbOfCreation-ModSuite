@@ -568,6 +568,9 @@ worth knowing:
   containers disagree on 16 of the 25 pairs, and on Gloves and Herbalize they disagree in substance
   (`UnobtainableResearch` against `ArtifactGloves` and `LearnBiology`), so only the book's own answers
   for the tile the player presses.
+  A row carries its top-level position (`GroupOrdinal`, folded by the composite's `GroupKind`) and its
+  arm within that composite (`BranchOrdinal`): the leaves of a composite nested one level deeper share
+  an arm and fold by the opposite operator, and a third level reads as `Unknown`.
   Its list is `[SerializeReference]`, so accessors compile per concrete condition class on first sight,
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no

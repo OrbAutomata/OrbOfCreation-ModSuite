@@ -477,7 +477,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     [Fact]
-    public void DeeperCompositeGroupsRemainNamedAndUnevaluable()
+    public void ACompositeNestedInsideACompositeIsOneBranchOfItsGroup()
     {
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });
         var scribing = new global::ResearchSO();
@@ -499,17 +499,45 @@ public sealed class WorldEntityRequirementTests : IDisposable
             reqType = Requirements.StructureRequirementType.Quantity,
             value = new Requirements.LeveledValue { baseValue = 3d },
         });
+        nested.andConditions.Add(new Requirements.ResearchRequirement
+        {
+            item = scribing,
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+            value = new Requirements.LeveledValue { baseValue = 1d },
+        });
         outer.orConditions.Add(nested);
         gated.prerequisitesPerLevel.prerequisites.Add(outer);
 
         var rows = Collect().EntityRequirements.AsSpan();
 
-        Assert.Equal(2, rows.Length);
+        Assert.Equal(3, rows.Length);
         Assert.Equal(WorldRequirementConditionKind.Research, rows[0].Kind);
-        Assert.Equal(WorldRequirementGroupKind.Any, rows[0].GroupKind);
-        Assert.Equal(WorldRequirementConditionKind.Unknown, rows[1].Kind);
-        Assert.Equal("AndRequirement", rows[1].ConditionTypeName);
-        Assert.Equal(WorldRequirementGroupKind.Any, rows[1].GroupKind);
+        Assert.Equal(WorldRequirementConditionKind.Structure, rows[1].Kind);
+        Assert.Equal(WorldRequirementConditionKind.Research, rows[2].Kind);
+        foreach (var row in rows.ToArray())
+        {
+            Assert.Equal(WorldRequirementGroupKind.Any, row.GroupKind);
+            Assert.Equal(0, row.GroupOrdinal);
+        }
+        Assert.Equal(0, rows[0].BranchOrdinal);
+        Assert.Equal(1, rows[1].BranchOrdinal);
+        Assert.Equal(1, rows[2].BranchOrdinal);
+    }
+
+    [Fact]
+    public void AThirdLevelOfCompositeStaysNamedAndUnknown()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        var outer = new Requirements.OrRequirement();
+        var middle = new Requirements.AndRequirement();
+        middle.andConditions.Add(new Requirements.OrRequirement());
+        outer.orConditions.Add(middle);
+        gated.prerequisitesPerLevel.prerequisites.Add(outer);
+
+        var row = Assert.Single(Collect().EntityRequirements.AsSpan().ToArray());
+
+        Assert.Equal(WorldRequirementConditionKind.Unknown, row.Kind);
+        Assert.Equal("OrRequirement", row.ConditionTypeName);
     }
 
     [Fact]

@@ -62,6 +62,16 @@ public sealed class GameMcpGenericLevelTests
     }
 
     [Fact]
+    public void A_time_rune_publishes_its_mastery_bar_as_the_screen_draws_it()
+    {
+        var timeRune = Row(World(total: 5, bonus: 2, purchaseAffordable: true), "time-runes", TimeRuneId);
+
+        Assert.Equal(1, (int)timeRune["masteryLevel"]!);
+        Assert.Equal("1.96", (string?)timeRune["masteryXp"]);
+        Assert.Equal("10", (string?)timeRune["masteryXpNeeded"]);
+    }
+
+    [Fact]
     public void Every_owned_level_category_publishes_the_native_next_decision()
     {
         var world = World(total: 5, bonus: 2, purchaseAffordable: false);
@@ -493,8 +503,9 @@ public sealed class GameMcpGenericLevelTests
             auditHasMaxQuantity: false,
             levelDecision: withBonus);
         var timeRune = new WorldTimeRune(TimeRuneId, true, total, 0,
-            BigDouble.Zero, 1, false, true, BigDouble.Zero, BigDouble.Zero,
-            BigDouble.Zero, BigDouble.Zero, levelDecision: withoutBonus);
+            new BigDouble(1.96), 1, false, true, BigDouble.Zero, BigDouble.Zero,
+            BigDouble.Zero, BigDouble.Zero, levelDecision: withoutBonus,
+            requiredMasteryXp: new BigDouble(10));
         var rateInputs = default(RawResourceRateInputs);
         var traits = default(RawResourceTraits);
         var modifiers = default(RawResourceModifiers);
