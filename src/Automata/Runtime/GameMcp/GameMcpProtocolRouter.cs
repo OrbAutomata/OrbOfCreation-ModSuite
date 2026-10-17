@@ -638,7 +638,8 @@ internal sealed class GameMcpProtocolRouter
         GameMcpOperationRequestBuilder? request = null) => name switch
     {
         "world_overview" or "world_categories" or "world_list" or "world_get" or
-            "world_search" or "strategist" => GameMcpFrameData.World,
+            "world_search" => GameMcpFrameData.World,
+        "strategist" => GameMcpFrameData.World | GameMcpFrameData.ServiceHealth,
         "suite_health" => GameMcpFrameData.World | GameMcpFrameData.Configuration |
             GameMcpFrameData.FeatureHealth | GameMcpFrameData.ServiceHealth |
             GameMcpFrameData.Scene | GameMcpFrameData.NativeContractHealth,

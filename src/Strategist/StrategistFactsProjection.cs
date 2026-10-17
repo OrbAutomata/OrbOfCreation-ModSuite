@@ -71,8 +71,11 @@ internal static class StrategistFactsProjection
         {
             var resource = resources[index];
             if (resource.Reading.Traits.BandwidthResource) continue;
+            // Storage coordinates: the lifetime counter stops when the stored quantity fills, which
+            // for an inverted counter is when its display reads empty.
+            var storageFull = resource.IsCapped && resource.Headroom <= BigDouble.Zero;
             samples.Add(new StrategistIncomeWindow.Sample(
-                resource.EntityId, resource.Reading.LifetimeQuantity, resource.IsAtCapacity));
+                resource.EntityId, resource.Reading.LifetimeQuantity, storageFull));
         }
         return samples.ToArray();
     }

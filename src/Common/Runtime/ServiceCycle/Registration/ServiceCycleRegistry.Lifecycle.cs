@@ -1,6 +1,5 @@
 using System;
 using OrbModding.Common.Runtime;
-using OrbModding.Common.Runtime.Strategy;
 using OrbModding.Common.Runtime.World;
 using RuntimeLifecycleGeneration = OrbModding.Common.Runtime.LifecycleGeneration;
 
@@ -33,10 +32,10 @@ public sealed partial class ServiceCycleRegistry
         // per lifecycle and so cannot carry a dead run forward; the world snapshot is a plain
         // immutable object and would keep answering for a save that no longer exists. Flushing it
         // here rather than at any caller means every accepted lifecycle replacement — scene change,
-        // save load, reset, NG+ — trashes it, and none of them can forget to. The bulletin judged
+        // save load, reset, NG+ — trashes it, and none of them can forget to. The strategy judged
         // that world, so it goes with it.
         _world.Flush(GameWorldStateDefaults.Empty);
-        _strategy.Publish(SuiteStrategyDefaults.Neutral);
+        _strategy.ResetForLifecycle();
         for (var ordinal = 0; ordinal < _nextOrdinal; ordinal++)
             _slots[ordinal].RequestLifecycle(generation);
         return true;

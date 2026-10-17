@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
+using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.Strategy;
 using OrbModding.Common.Runtime.World;
@@ -71,18 +74,47 @@ public sealed class StrategistFixtureTests
         using var registry = new ServiceCycleRegistry(1);
         registry.Seal();
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(11)));
-        registry.StrategyPublication.Publish(new SuiteStrategy
-        {
-            Provenance = SuiteStrategyProvenance.Strategist,
-            Bulletin = Derive(Fixture),
-        });
-        Assert.NotNull(registry.Strategy.ReadLatest().Bulletin.Bulletin);
+        StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(Derive(Fixture)));
+        Assert.NotNull(registry.Strategy.ReadStrategistBulletin());
 
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(12)));
 
-        var after = registry.Strategy.ReadLatest().Bulletin;
-        Assert.Same(SuiteStrategyDefaults.Neutral, after);
-        Assert.Equal(StrategistBulletinText.NoBulletin, StrategistBulletinText.Summary(after.Bulletin));
+        Assert.Same(SuiteStrategyDefaults.Neutral, registry.Strategy.ReadLatest().Bulletin);
+        var after = registry.Strategy.ReadStrategistBulletin();
+        Assert.Null(after);
+        Assert.Equal(StrategistBulletinText.NoBulletin, StrategistBulletinText.Summary(after));
+    }
+
+    /// <summary>
+    /// Every bulletin differs from the last — the world generation and the clock move — but nothing
+    /// evaluates against it, so publishing one is not a strategy change. A strategy change is a
+    /// suite-wide journal record that closes every service's open span; a lifecycle still makes one.
+    /// </summary>
+    [Fact]
+    public void ManyBulletinsWithUnchangedStancesJournalNoStrategyChange()
+    {
+        using var registry = new ServiceCycleRegistry(1);
+        registry.Seal();
+        Assert.True(registry.RequestLifecycle(new LifecycleGeneration(11)));
+        var sink = new RecordingSink();
+        var observer = new ServiceCycleDecisionJournalObserver(
+            new DecisionJournalCoalescer(1, sink, new MonotonicDuration(1000), default), 1);
+        observer.BindPublications(
+            registry.Configuration.ReadLatest().Generation,
+            registry.Strategy.ReadLatest().Generation);
+        var scanner = new SuiteFramePumpEvidenceScanner(registry, 1);
+
+        for (var world = 1; world <= 240; world++)
+        {
+            var facts = Fixture.Replace("facts world=4200", "facts world=" + (4200 + world));
+            StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(Derive(facts)));
+            scanner.ObservePublications(null, observer, new MonotonicTimestamp(world), includeJournal: true);
+        }
+        Assert.DoesNotContain(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
+
+        Assert.True(registry.RequestLifecycle(new LifecycleGeneration(12)));
+        scanner.ObservePublications(null, observer, new MonotonicTimestamp(300), includeJournal: true);
+        Assert.Single(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
     }
 
     [Fact]
@@ -128,7 +160,9 @@ public sealed class StrategistFixtureTests
 
     /// <summary>
     /// F6: a chop pays a burst, then the tree regrows. Read over the burst alone, 600 Wood is six
-    /// seconds away; over one full harvest-and-regrowth cycle it is over a minute.
+    /// seconds away; over one full harvest-and-regrowth cycle it is over a minute. Minute samples
+    /// land anywhere in the cycle, so a window holds one burst more or less than its share: the
+    /// reading stays within half again of the sustained rate, never near the burst's.
     /// </summary>
     [Fact]
     public void AChopBurstIsTieredOnSustainedIncomeNotOnTheBurst()
@@ -137,25 +171,68 @@ public sealed class StrategistFixtureTests
         const double harvest = 10d;
         const double growth = 120d;
         const double cycle = harvest + growth;
-        var window = new StrategistIncomeWindow();
-        var lifetime = 0d;
-        for (var second = 0; second <= 400; second++)
-        {
-            if (second % cycle < harvest) lifetime += 100d;
-            window.Observe(second, cycle, new[] { Sample(id, lifetime) });
-        }
-
-        var reading = window.Read(400, cycle);
         var (facts, _) = StrategistFactsText.Parse(Fixture);
-        var bulletin = StrategistDerivation.Derive(facts, reading);
+        for (var phase = 0d; phase < cycle; phase += 5d)
+        {
+            var window = new StrategistIncomeWindow();
+            var now = 0d;
+            for (var minute = 0; minute <= 10; minute++)
+            {
+                now = phase + minute * 60d;
+                window.Observe(now, cycle, new[] { Sample(id, ChoppedWood(now, harvest, cycle)) });
+            }
 
-        var income = Array.Find(bulletin.Incomes.AsSpan().ToArray(), row => row.ResourceId == id);
+            var bulletin = StrategistDerivation.Derive(facts, window.Read(now, cycle));
+
+            var income = Array.Find(bulletin.Incomes.AsSpan().ToArray(), row => row.ResourceId == id);
+            Assert.True(income.Measured);
+            Assert.InRange(income.PerSecond.ToDouble(), 5.5d, 11.2d);
+            var lumber = Array.Find(
+                bulletin.Demand.AsSpan().ToArray(), row => row.ResourceId == id).Sinks[0];
+            Assert.Equal(Guid.Parse(Lumber), lumber.NodeId);
+            Assert.InRange(lumber.Tier, StrategistCostTier.Cheap, StrategistCostTier.Notable);
+        }
+    }
+
+    /// <summary>
+    /// A fresh game with no harvest producer reads "measuring income" for one wake: the second sample,
+    /// a minute later, covers the window — even when the two worlds it pinned are a hair under a
+    /// minute apart on the game clock.
+    /// </summary>
+    [Fact]
+    public void MinuteSamplesMeasureIncomeOnTheSecondWake()
+    {
+        var id = Guid.Parse(Mana);
+        var window = new StrategistIncomeWindow();
+        var (facts, _) = StrategistFactsText.Parse(Fixture);
+        const double required = StrategistIncomeWindow.MinimumSeconds;
+
+        window.Observe(1000d, required, new[] { Sample(id, 0d) });
+        var first = StrategistDerivation.Derive(facts, window.Read(1000d, required));
+        window.Observe(1059.8d, required, new[] { Sample(id, 599d) });
+        var second = StrategistDerivation.Derive(facts, window.Read(1059.8d, required));
+
+        Assert.False(Array.Find(first.Incomes.AsSpan().ToArray(), row => row.ResourceId == id).Measured);
+        var income = Array.Find(second.Incomes.AsSpan().ToArray(), row => row.ResourceId == id);
         Assert.True(income.Measured);
-        Assert.InRange(income.PerSecond.ToDouble(), 7d, 8.5d);
-        var lumber = Array.Find(
-            bulletin.Demand.AsSpan().ToArray(), row => row.ResourceId == id).Sinks[0];
-        Assert.Equal(Guid.Parse(Lumber), lumber.NodeId);
-        Assert.Equal(StrategistCostTier.Notable, lumber.Tier);
+        Assert.InRange(income.PerSecond.ToDouble(), 9.9d, 10.1d);
+    }
+
+    /// <summary>
+    /// Mana sat at its cap for the whole window, so the game kept none of its gain and the window
+    /// reads zero as a floor. Spent below the price since, it is not out of reach for lack of income.
+    /// </summary>
+    [Fact]
+    public void AWindowSpentAtTheCapIsAFloorNotNoIncome()
+    {
+        var capped = Fixture
+            .Replace($"resource {Mana} held=2e2 cap=1e5", $"resource {Mana} held=1e1 cap=1e5")
+            .Replace($"gain {Mana} gained=1.3e3 span=130", $"gain {Mana} gained=0e0 span=130 clipped");
+
+        var trinket = Goal(Derive(capped), Trinket).Costs[0];
+
+        Assert.Equal(StrategistCostTier.Measuring, trinket.Tier);
+        Assert.Equal(StrategistOutOfReach.None, trinket.OutOfReach);
     }
 
     /// <summary>
@@ -209,4 +286,24 @@ public sealed class StrategistFixtureTests
 
     private static StrategistIncomeWindow.Sample Sample(Guid id, double lifetime) =>
         new(id, new BigDouble(lifetime), false);
+
+    private static double ChoppedWood(double now, double harvest, double cycle)
+    {
+        var cycles = Math.Floor(now / cycle);
+        return (cycles * harvest + Math.Min(now - cycles * cycle, harvest)) * 100d;
+    }
+
+    private sealed class RecordingSink : IDecisionJournalRecordSink
+    {
+        internal List<DecisionJournalRecord> Records { get; } = new();
+
+        public bool TryAppend(in DecisionJournalRecord record)
+        {
+            Records.Add(record);
+            return true;
+        }
+
+        public bool TryFlush() => true;
+        public void Stop() { }
+    }
 }

@@ -43,7 +43,7 @@ internal static class StrategistDerivation
         {
             if (rows[index].ResourceId != resource.Id) continue;
             var row = rows[index];
-            var measured = row.SpanSeconds >= window.RequiredSeconds && row.SpanSeconds > 0d;
+            var measured = StrategistIncomeWindow.Covers(row.SpanSeconds, window.RequiredSeconds);
             return new StrategistIncome(
                 resource.Id,
                 measured,
@@ -77,14 +77,19 @@ internal static class StrategistDerivation
             return Price(StrategistCostTier.Measuring, StrategistOutOfReach.None, BigDouble.Zero);
         if (income.PerSecond <= BigDouble.Zero)
         {
-            if (missing > BigDouble.Zero)
-                return Price(StrategistCostTier.OutOfReach, StrategistOutOfReach.NoIncome, BigDouble.Zero);
-            // Held but not replaced. At the cap the game was discarding every gain, so spending costs
-            // nothing that would have been kept; anywhere else it spends a stock nothing refills.
-            return Price(
-                income.LowerBound ? StrategistCostTier.Trivial : StrategistCostTier.Expensive,
-                StrategistOutOfReach.None,
-                BigDouble.Zero);
+            // A window spent at the cap reads zero because the game discarded every gain: a floor,
+            // not an absence of income. Held, spending it costs nothing that would have been kept;
+            // short, only the next unclipped window can say how fast it refills.
+            if (income.LowerBound)
+            {
+                return Price(
+                    missing > BigDouble.Zero ? StrategistCostTier.Measuring : StrategistCostTier.Trivial,
+                    StrategistOutOfReach.None,
+                    BigDouble.Zero);
+            }
+            return missing > BigDouble.Zero
+                ? Price(StrategistCostTier.OutOfReach, StrategistOutOfReach.NoIncome, BigDouble.Zero)
+                : Price(StrategistCostTier.Expensive, StrategistOutOfReach.None, BigDouble.Zero);
         }
 
         return Price(

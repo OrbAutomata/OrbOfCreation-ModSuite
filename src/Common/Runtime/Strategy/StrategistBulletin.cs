@@ -17,7 +17,10 @@ internal enum StrategistCostTier
     /// <summary>Above the cap, or short with no income: no amount of waiting buys it.</summary>
     OutOfReach = 5,
 
-    /// <summary>The window has not yet covered a full producer cycle, so there is no income to divide by.</summary>
+    /// <summary>
+    /// No income to divide by yet: the window has not covered a full producer cycle, or it sat at the
+    /// cap throughout and a price has since fallen short.
+    /// </summary>
     Measuring = 6,
 
     /// <summary>A point pool: the price is allocated, not earned back over time.</summary>

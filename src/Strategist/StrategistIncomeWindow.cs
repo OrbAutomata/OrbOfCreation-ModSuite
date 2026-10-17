@@ -5,39 +5,44 @@ using OrbModding.Common.Runtime.Strategy;
 namespace OrbAutomata;
 
 /// <summary>
-/// The strategist's only retained state: each resource's lifetime gain sampled on the game's clock,
-/// long enough back to cover one full cycle of the slowest running producer.
+/// The strategist's only retained state: each resource's lifetime gain sampled on the game's clock once
+/// per strategist wake, long enough back to cover one full cycle of the slowest running producer.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Lifetime quantity is the game's own gross-gain counter: <c>ResourceSO.RegisterGain</c> adds every
 /// non-splash gain to it, bursts included, so gain over a window is the difference of two readings and
-/// a drain never hides it. The counter stops at the cap — a capped resource registers only the room it
-/// had — so a window that touched the cap reads a lower bound.
-/// </para>
-/// <para>
-/// Samples are kept at least a second apart, and further apart on long windows, so a long spell
-/// recharge costs a bounded number of samples, not one per world.
+/// a drain never hides it. Samples a minute apart therefore still read a sustained rate. The counter
+/// stops at the cap — a capped resource registers only the room it had — so a window with a sample at
+/// the cap reads a lower bound.
 /// </para>
 /// </remarks>
 internal sealed class StrategistIncomeWindow
 {
     internal const double MinimumSeconds = 60d;
-    private const int SamplesPerWindow = 120;
+
+    /// <summary>
+    /// World publications are a fraction of a second apart, so two wakes a minute apart can pin worlds
+    /// slightly less than a minute apart on the game clock. A span this close to the requirement
+    /// covers it.
+    /// </summary>
+    private const double ClockJitterSeconds = 1d;
 
     private Guid[] _ids = new Guid[0];
     private Ring[] _rings = new Ring[0];
     private int _count;
     private double _lastTime = double.NaN;
 
+    internal static bool Covers(double spanSeconds, double requiredSeconds) =>
+        spanSeconds > 0d && spanSeconds >= requiredSeconds - ClockJitterSeconds;
+
     /// <summary>Takes one reading. A clock that ran backwards is a different run, so history goes.</summary>
     internal void Observe(double now, double requiredSeconds, ReadOnlySpan<Sample> readings)
     {
         if (!double.IsNaN(_lastTime) && now < _lastTime) Clear();
         _lastTime = now;
-        var spacing = Math.Max(1d, requiredSeconds / SamplesPerWindow);
         for (var index = 0; index < readings.Length; index++)
-            RingFor(readings[index].ResourceId).Add(now, readings[index], spacing, requiredSeconds);
+            RingFor(readings[index].ResourceId).Add(now, readings[index], requiredSeconds);
     }
 
     internal StrategistWindowReading Read(double now, double requiredSeconds)
@@ -102,39 +107,21 @@ internal sealed class StrategistIncomeWindow
 
     private sealed class Ring
     {
-        private double[] _times = new double[8];
-        private BigDouble[] _lifetimes = new BigDouble[8];
-        private bool[] _atCap = new bool[8];
+        private double[] _times = new double[4];
+        private BigDouble[] _lifetimes = new BigDouble[4];
+        private bool[] _atCap = new bool[4];
         private int _start;
         private int _length;
-        private BigDouble _latestLifetime;
-        private double _latestTime;
-        private bool _latestAtCap;
-        private bool _hasLatest;
 
-        internal void Add(double now, in Sample sample, double spacing, double requiredSeconds)
+        internal void Add(double now, in Sample sample, double requiredSeconds)
         {
-            _latestTime = now;
-            _latestLifetime = sample.Lifetime;
-            _latestAtCap = sample.AtCap;
-            _hasLatest = true;
-            if (_length > 0)
-            {
-                var newest = (_start + _length - 1) % _times.Length;
-                if (now - _times[newest] < spacing)
-                {
-                    _atCap[newest] |= sample.AtCap;
-                    return;
-                }
-            }
-
             if (_length == _times.Length) Grow();
             var slot = (_start + _length) % _times.Length;
             _times[slot] = now;
             _lifetimes[slot] = sample.Lifetime;
             _atCap[slot] = sample.AtCap;
             _length++;
-            while (_length > 1 && now - _times[(_start + 1) % _times.Length] >= requiredSeconds)
+            while (_length > 1 && Covers(now - _times[(_start + 1) % _times.Length], requiredSeconds))
             {
                 _start = (_start + 1) % _times.Length;
                 _length--;
@@ -148,21 +135,22 @@ internal sealed class StrategistIncomeWindow
         internal bool TryRead(double now, double requiredSeconds, Guid id, out StrategistWindowRow row)
         {
             row = default;
-            if (!_hasLatest || _length == 0) return false;
+            if (_length == 0) return false;
             var anchor = 0;
             for (var offset = 1; offset < _length; offset++)
             {
-                if (now - _times[(_start + offset) % _times.Length] < requiredSeconds) break;
+                if (!Covers(now - _times[(_start + offset) % _times.Length], requiredSeconds)) break;
                 anchor = offset;
             }
 
-            var clipped = _latestAtCap;
+            var clipped = false;
             for (var offset = anchor; offset < _length; offset++)
                 clipped |= _atCap[(_start + offset) % _times.Length];
-            var slot = (_start + anchor) % _times.Length;
-            var gained = _latestLifetime - _lifetimes[slot];
+            var first = (_start + anchor) % _times.Length;
+            var newest = (_start + _length - 1) % _times.Length;
+            var gained = _lifetimes[newest] - _lifetimes[first];
             if (gained < BigDouble.Zero) gained = BigDouble.Zero;
-            row = new StrategistWindowRow(id, gained, _latestTime - _times[slot], clipped);
+            row = new StrategistWindowRow(id, gained, _times[newest] - _times[first], clipped);
             return true;
         }
 

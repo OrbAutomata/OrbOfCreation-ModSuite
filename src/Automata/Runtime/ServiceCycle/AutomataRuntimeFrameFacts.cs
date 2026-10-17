@@ -16,7 +16,7 @@ internal sealed class AutomataRuntimeFrameFacts
 {
     private AutomataRuntimeFrameFacts(
         WorldPublication<GameWorldState> world,
-        SuiteStrategy strategy,
+        StrategistBulletin? strategistBulletin,
         ConfigurationPublication configuration,
         bool emergencyStopEngaged,
         long acceptedFrameCount,
@@ -28,7 +28,7 @@ internal sealed class AutomataRuntimeFrameFacts
         string craftingInstancesUnavailableReason)
     {
         World = world;
-        Strategy = strategy;
+        StrategistBulletin = strategistBulletin;
         Configuration = configuration;
         EmergencyStopEngaged = emergencyStopEngaged;
         AcceptedFrameCount = acceptedFrameCount;
@@ -41,7 +41,7 @@ internal sealed class AutomataRuntimeFrameFacts
     }
 
     internal WorldPublication<GameWorldState> World { get; }
-    internal SuiteStrategy Strategy { get; }
+    internal StrategistBulletin? StrategistBulletin { get; }
     internal ConfigurationPublication Configuration { get; }
     internal bool EmergencyStopEngaged { get; }
     internal long AcceptedFrameCount { get; }
@@ -71,7 +71,7 @@ internal sealed class AutomataRuntimeFrameFacts
         var diagnostics = pump.DiagnosticsSnapshot;
         return new AutomataRuntimeFrameFacts(
             registry.World.ReadLatest(),
-            registry.Strategy.ReadLatest().Bulletin,
+            registry.Strategy.ReadStrategistBulletin(),
             configuration.ReadLatest(),
             host.EmergencyStopEngaged,
             diagnostics.AcceptedFrameCount,

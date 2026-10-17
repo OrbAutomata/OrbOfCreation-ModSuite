@@ -6,8 +6,8 @@ using RuntimeStrategyGeneration = OrbModding.Common.Runtime.StrategyGeneration;
 namespace OrbModding.Common.Runtime.ServiceCycle.Configuration;
 
 /// <summary>
-/// The write half of the shared strategy publication, for the strategist, the one service that
-/// decides what the suite wants.
+/// The write half of the shared strategy publication, for whichever service decides what the suite
+/// wants. Nothing publishes stances through it yet.
 /// </summary>
 /// <remarks>
 /// Separate from the publisher for the same reason the world's and the configuration's sinks are:
@@ -17,6 +17,16 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Configuration;
 public interface IServiceStrategyPublicationSink
 {
     RuntimeStrategyGeneration Publish(SuiteStrategy bulletin);
+}
+
+/// <summary>
+/// The write half of the strategist's latest bulletin. It is read, not evaluated against, so
+/// replacing it moves no strategy generation and wakes no service.
+/// </summary>
+internal interface IStrategistBulletinSink
+{
+    /// <summary>Replaces the latest bulletin and returns its sequence number.</summary>
+    ulong PublishStrategistBulletin(StrategistBulletin bulletin);
 }
 
 /// <summary>One immutable strategy bulletin together with the generation that identifies it.</summary>
@@ -39,14 +49,18 @@ public sealed class StrategyPublication
 /// <remarks>
 /// It starts on the neutral bulletin at generation one, which constrains nothing — so a suite with no
 /// strategist behaves exactly as it did before strategy was delivered, and a service reads a real
-/// bulletin from its first cycle instead of a missing one.
+/// bulletin from its first cycle instead of a missing one. Beside it sits the strategist's latest
+/// bulletin, a plain latest-value slot for the surfaces that show it.
 /// </remarks>
 public sealed class ServiceStrategyPublisher :
     IDisposable,
-    IServiceStrategyPublicationSink
+    IServiceStrategyPublicationSink,
+    IStrategistBulletinSink
 {
     private readonly PublicationLock _sync = new();
     private StrategyPublication _latest;
+    private StrategistBulletin? _strategistBulletin;
+    private ulong _strategistBulletinSequence;
     private bool _disposed;
 
     internal ServiceStrategyPublisher(SuiteStrategy initialBulletin)
@@ -71,6 +85,40 @@ public sealed class ServiceStrategyPublisher :
             var next = new StrategyPublication(_latest.Generation.Next(), bulletin);
             Volatile.Write(ref _latest, next);
             return next.Generation;
+        }
+    }
+
+    /// <summary>The strategist's latest bulletin, or null when it has not judged this game yet.</summary>
+    internal StrategistBulletin? ReadStrategistBulletin()
+    {
+        ThrowIfDisposed();
+        return Volatile.Read(ref _strategistBulletin);
+    }
+
+    ulong IStrategistBulletinSink.PublishStrategistBulletin(StrategistBulletin bulletin)
+    {
+        if (bulletin is null) throw new ArgumentNullException(nameof(bulletin));
+        lock (_sync)
+        {
+            ThrowIfDisposed();
+            Volatile.Write(ref _strategistBulletin, bulletin);
+            return ++_strategistBulletinSequence;
+        }
+    }
+
+    /// <summary>
+    /// A lifecycle replacement puts the neutral strategy back once and drops the bulletin: both judged
+    /// the world that is gone.
+    /// </summary>
+    internal void ResetForLifecycle()
+    {
+        lock (_sync)
+        {
+            ThrowIfDisposed();
+            Volatile.Write(
+                ref _latest,
+                new StrategyPublication(_latest.Generation.Next(), SuiteStrategyDefaults.Neutral));
+            Volatile.Write(ref _strategistBulletin, null);
         }
     }
 

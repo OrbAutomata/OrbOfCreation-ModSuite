@@ -16,9 +16,6 @@ internal enum SuiteStrategyProvenance
 
     /// <summary>Derived from an active milestone in the curated table.</summary>
     Milestone = 1,
-
-    /// <summary>Derived by the strategist from a published world.</summary>
-    Strategist = 2,
 }
 
 /// <summary>
@@ -65,12 +62,6 @@ public sealed record SuiteStrategy
     /// </summary>
     internal PublicationTable<SuiteResourceStance> Resources { get; init; } =
         PublicationTable<SuiteResourceStance>.Empty;
-
-    /// <summary>
-    /// What the strategist thinks, or null when it has not judged a world of this game yet. Nothing
-    /// consumes it: it is shown, so it can be checked before anything acts on it.
-    /// </summary>
-    internal StrategistBulletin? Bulletin { get; init; }
 
     /// <summary>
     /// Resolves the stance for one resource. Absent means <see cref="SuiteResourceStanceKind.Free"/>,

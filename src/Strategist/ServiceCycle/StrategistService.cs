@@ -40,13 +40,14 @@ internal struct StrategistCycleState
 /// world into facts and the window, derives the bulletin, and the one main-thread step publishes it.
 /// </summary>
 /// <remarks>
-/// It has no configuration and no switch. Nothing consumes the bulletin — the stance table stays
-/// empty — so publishing it changes no automation's behavior; it exists to be read.
+/// It has no configuration and no switch. The bulletin goes to its own latest-value slot, not into the
+/// strategy services evaluate against: the stance table stays empty and the strategy generation does
+/// not move, so publishing it changes no automation's behavior; it exists to be read.
 /// </remarks>
 internal static class StrategistService
 {
     internal static IAutomataServiceDefinition<StrategistCycleState, StrategistCycleAction> Define(
-        IServiceStrategyPublicationSink publish)
+        IStrategistBulletinSink publish)
     {
         if (publish is null) throw new ArgumentNullException(nameof(publish));
         var metadata = new AutomataServiceMetadata(
@@ -64,17 +65,13 @@ internal static class StrategistService
     }
 
     internal static ServiceActionResult Publish(
-        IServiceStrategyPublicationSink publish,
+        IStrategistBulletinSink publish,
         in StrategistCycleAction action)
     {
-        var generation = publish.Publish(new SuiteStrategy
-        {
-            Provenance = SuiteStrategyProvenance.Strategist,
-            Bulletin = action.Bulletin,
-        });
+        var sequence = publish.PublishStrategistBulletin(action.Bulletin);
         return ServiceActionResult.CommittedPublication(
             CommonActionResultCodes.Committed,
-            ServicePublicationEvidence.Strategy(generation));
+            ServicePublicationEvidence.StrategistBulletin(sequence));
     }
 
     /// <summary>

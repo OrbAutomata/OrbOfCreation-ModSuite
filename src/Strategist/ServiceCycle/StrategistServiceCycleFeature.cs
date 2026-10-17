@@ -15,7 +15,7 @@ internal sealed class StrategistServiceCycleFeature : IAutomataServiceCycleFeatu
 
     public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context) =>
         new StrategistFeatureRuntime(context.Registry.Register(
-            StrategistService.Define(context.Registry.StrategyPublication),
+            StrategistService.Define(context.Registry.StrategistBulletinPublication),
             ActionDispatchPolicy));
 }
 
