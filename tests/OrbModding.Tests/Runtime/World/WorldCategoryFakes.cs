@@ -2630,7 +2630,7 @@ internal sealed class FakePlotNodeAction
     public FakePrerequisites prerequisites = new();
     public FakeCostType elementCostType;
     public FakePlotPhase elementCostExitPhase;
-    public FakeResourceCostList actionDrain = new();
+    public FakeCraftingResourceCostList actionDrain = new();
     public List<FakeEffectBlock> actionEffects = new();
     public List<FakeEffectBlock> completeEffects = new();
 
@@ -2642,11 +2642,6 @@ internal enum FakeCostType
 {
     OnStart,
     OnExitPhase,
-}
-
-internal sealed class FakeResourceCostList
-{
-    public List<object> costs = new();
 }
 
 /// <summary>An authored effect block, read for its shape rather than its contents.</summary>
@@ -2977,6 +2972,7 @@ internal sealed class FakePlotNode
         actionInstances.Add(new FakePlotActionInstance
         {
             refObj = FakeIdObjectRef.Memoised(action.Identity),
+            action = action,
             quantity = quantity,
             engaged = engaged,
         });
@@ -3002,6 +2998,7 @@ internal sealed class FakePlotNode
         actionInstances.Add(new FakePlotActionInstance
         {
             refObj = FakeIdObjectRef.Serialized(action.Identity),
+            action = action,
         });
         return this;
     }
@@ -3010,8 +3007,15 @@ internal sealed class FakePlotNode
 internal sealed class FakePlotActionInstance
 {
     public FakeIdObjectRef refObj;
+    public FakePlotNodeAction? action;
     public int quantity;
     public bool engaged;
+    public BigDouble DrainCostMod = new(100);
+
+    public FakePlotNodeAction? GetAction() => action;
+
+    public FakeScribeScalingInfo GetPersistentScalingInfo(int count) =>
+        new() { DrainCostMod = DrainCostMod };
 
     public bool IsEmpty() => quantity <= 0;
 

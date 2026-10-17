@@ -202,6 +202,81 @@ internal readonly struct WorldPlotActionInstance
 }
 
 /// <summary>
+/// One resource a plot action drains each second while it runs on a plot, as the plot's diamond
+/// tooltip prints it: <c>actionDrain</c> scaled by the plot's
+/// <c>GetPersistentScalingInfo(1).GetDrainCostMod()</c>. Keyed by the pair because the modifier is
+/// the plot's.
+/// </summary>
+internal readonly struct WorldPlotActionDrain
+{
+    internal WorldPlotActionDrain(
+        Guid plotNodeId,
+        Guid plotNodeActionId,
+        int ordinal,
+        Guid resourceId,
+        BigDouble amount)
+    {
+        PlotNodeId = plotNodeId;
+        PlotNodeActionId = plotNodeActionId;
+        Ordinal = ordinal;
+        ResourceId = resourceId;
+        Amount = amount;
+    }
+
+    internal Guid PlotNodeId { get; }
+
+    internal Guid PlotNodeActionId { get; }
+
+    /// <summary>The entry's position in the authored list, which is the tooltip's order.</summary>
+    internal int Ordinal { get; }
+
+    internal Guid ResourceId { get; }
+
+    /// <summary>Per second, before the resource's own spend rounding.</summary>
+    internal BigDouble Amount { get; }
+}
+
+internal static class WorldPlotActionDrainDeriver
+{
+    internal static PublicationTable<WorldPlotActionDrain> Build(
+        WorldRelationBuffer<WorldPlotActionDrain> buffer) =>
+        WorldScribeRelationDeriver.Build(buffer, static (left, right) =>
+        {
+            var plot = left.PlotNodeId.CompareTo(right.PlotNodeId);
+            if (plot != 0) return plot;
+            var action = left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
+            return action != 0 ? action : left.Ordinal.CompareTo(right.Ordinal);
+        });
+
+    /// <summary>The pair's drain rows: the half-open range sorted by authored order.</summary>
+    internal static ReadOnlySpan<WorldPlotActionDrain> For(
+        PublicationTable<WorldPlotActionDrain> table,
+        Guid plotNodeId,
+        Guid plotNodeActionId)
+    {
+        var rows = table.AsSpan();
+        var low = 0;
+        var high = rows.Length;
+        while (low < high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (Compare(rows[middle], plotNodeId, plotNodeActionId) < 0) low = middle + 1;
+            else high = middle;
+        }
+
+        var end = low;
+        while (end < rows.Length && Compare(rows[end], plotNodeId, plotNodeActionId) == 0) end++;
+        return rows.Slice(low, end - low);
+    }
+
+    private static int Compare(in WorldPlotActionDrain row, Guid plotNodeId, Guid plotNodeActionId)
+    {
+        var byPlot = row.PlotNodeId.CompareTo(plotNodeId);
+        return byPlot != 0 ? byPlot : row.PlotNodeActionId.CompareTo(plotNodeActionId);
+    }
+}
+
+/// <summary>
 /// Range lookup over the instance table, which is sorted by plot, then action, then position.
 /// </summary>
 /// <remarks>
@@ -543,9 +618,18 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
     private readonly Func<object, int>? _instanceQuantity;
     private readonly Func<object, bool>? _instanceEngaged;
     private readonly Func<object, bool>? _instanceEmpty;
+    private readonly Func<object, object?>? _instanceAction;
+    private readonly Func<object, int, object?>? _instanceScaling;
+    private readonly Func<object, object?>? _actionDrain;
+    private readonly Func<object, IList?>? _drainEntries;
+    private readonly Func<object, Guid>? _drainResource;
+    private readonly Func<object, BigDouble>? _drainAmount;
+    private readonly Func<object, BigDouble>? _drainCostMod;
 
-    internal WorldPlotActionReader(Type? plotType)
+    internal WorldPlotActionReader(Type? plotType, Func<string, Type?> resolveType)
     {
+        if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
+
         _plotType = plotType;
         if (plotType is null)
         {
@@ -558,12 +642,27 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         _offered = bind.CollectionField("availableActions");
         _instances = bind.CollectionField("actionInstances");
 
-        var action = bind.Elements(bind.CollectionElementType("availableActions"), "PlotNodeActionSO");
+        var costType = resolveType("ResourceCostList");
+        var tupleType = resolveType("ResourceTuple");
+        var scalingType = resolveType("ScalingInfo");
+
+        var actionType = bind.CollectionElementType("availableActions");
+        var action = bind.Elements(actionType, "PlotNodeActionSO");
         _actionId = action.Call<Guid>("GetGuid");
         _prerequisitesConfirmed = action.NestedField<bool>("prerequisites", "available");
+        _actionDrain = action.Reference("actionDrain", costType);
+
+        var cost = bind.Elements(costType, "ResourceCostList");
+        _drainEntries = cost.CallList("GetEntries", tupleType);
+        var entry = bind.Elements(tupleType, "ResourceTuple");
+        _drainResource = entry.ReferenceGuid("resource");
+        _drainAmount = entry.Call<BigDouble>("GetValue");
+        _drainCostMod = bind.Elements(scalingType, "ScalingInfo").Call<BigDouble>("GetDrainCostMod");
 
         var instance = bind.Elements(
             bind.CollectionElementType("actionInstances"), "PlotNodeActionInstance");
+        _instanceAction = instance.CallObject("GetAction", actionType);
+        _instanceScaling = instance.CallObject<int>("GetPersistentScalingInfo", scalingType);
         _instanceActionGuid = instance.NestedField<Guid>("refObj", "_guid");
         _instanceActionId = instance.NestedField<string?>("refObj", "idStr");
         _instanceQuantity = instance.Call<int>("GetActualQuantity");
@@ -581,8 +680,10 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
     {
         var buffer = frame.PlotActions;
         var instances = frame.PlotActionInstances;
+        var drains = frame.PlotActionDrains;
         buffer.Reset();
         instances.Reset();
+        drains.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var plots = NativeAccessorBinder.StaticList(_plotType, "All");
@@ -600,7 +701,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
             try
             {
-                sampled += Read(plot, buffer, instances);
+                sampled += Read(plot, buffer, instances, drains);
             }
             catch (Exception ex)
             {
@@ -617,13 +718,14 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
     private int Read(
         object plot,
         WorldPlotActionBuffer buffer,
-        WorldPlotActionInstanceBuffer instances)
+        WorldPlotActionInstanceBuffer instances,
+        WorldRelationBuffer<WorldPlotActionDrain> drains)
     {
         var plotId = _plotId!(plot);
         if (plotId == Guid.Empty) return 0;
 
         var appended = Offered(plot, plotId, buffer);
-        Instantiated(plot, plotId, buffer, instances);
+        Instantiated(plot, plotId, buffer, instances, drains);
         return appended;
     }
 
@@ -683,7 +785,8 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         object plot,
         Guid plotId,
         WorldPlotActionBuffer buffer,
-        WorldPlotActionInstanceBuffer rows)
+        WorldPlotActionInstanceBuffer rows,
+        WorldRelationBuffer<WorldPlotActionDrain> drains)
     {
         var instances = _instances!(plot);
         if (instances is null) return;
@@ -706,6 +809,9 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
             if (actionId == Guid.Empty) continue;
 
             var existing = buffer.IndexOf(plotId, actionId);
+            if (existing < 0 || buffer[existing].InstanceCount == 0)
+                Drains(instance, plotId, actionId, drains);
+
             if (existing < 0)
             {
                 // Unknown, because this walk never read the action's latch: the pair exists only
@@ -727,6 +833,38 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
                 previous.OfferedCount,
                 previous.InstanceCount + 1,
                 previous.PrerequisiteEvidence));
+        }
+    }
+
+    /// <summary>
+    /// What the diamond tooltip prints as the action's drain. The game's tooltip passes the active
+    /// quantity, but nothing under <c>GetPersistentScalingInfo</c> reads it except the parallel ratio,
+    /// and no authored plot action is parallel.
+    /// </summary>
+    private void Drains(
+        object instance,
+        Guid plotId,
+        Guid actionId,
+        WorldRelationBuffer<WorldPlotActionDrain> drains)
+    {
+        var action = _instanceAction!(instance)
+            ?? throw new InvalidOperationException("a plot action instance referenced no action");
+        var entries = _drainEntries!(_actionDrain!(action)
+            ?? throw new InvalidOperationException("a plot action had no drain list"));
+        if (entries is null || entries.Count == 0) return;
+
+        var scaling = _instanceScaling!(instance, 1)
+            ?? throw new InvalidOperationException("a plot action instance had no scaling info");
+        var factor = OrbGameMath.AsPercent(_drainCostMod!(scaling));
+        for (var index = 0; index < entries.Count; index++)
+        {
+            var entry = entries[index]
+                ?? throw new InvalidOperationException("a plot action drain entry was null");
+            var resourceId = _drainResource!(entry);
+            if (resourceId == Guid.Empty)
+                throw new InvalidOperationException("a plot action drain named no resource");
+            drains.Append(new WorldPlotActionDrain(
+                plotId, actionId, index, resourceId, _drainAmount!(entry) * factor));
         }
     }
 

@@ -548,6 +548,13 @@ public sealed record GameWorldState
         PublicationTable<WorldPlotActionInstance>.Empty;
 
     /// <summary>
+    /// What each pair drains per second while it runs, sorted by plot, action, then authored order.
+    /// Read through <see cref="WorldPlotActionDrainDeriver.For"/>.
+    /// </summary>
+    internal PublicationTable<WorldPlotActionDrain> PlotActionDrains { get; init; } =
+        PublicationTable<WorldPlotActionDrain>.Empty;
+
+    /// <summary>
     /// The game's action queues, as occupancy. A plan may be shaped by what the last reading said
     /// fits; whether one more action actually fits is the action boundary's answer, not this table's.
     /// </summary>

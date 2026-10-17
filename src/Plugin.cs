@@ -307,6 +307,7 @@ public sealed class Plugin : BaseUnityPlugin
                 typeof(HoverTooltip),
                 typeof(Spell),
                 typeof(PassiveAbility),
+                typeof(PlotNodeActionInstance),
                 out _gameMcpTooltipNativeAccess,
                 out _gameMcpTooltipContractFailure))
         {

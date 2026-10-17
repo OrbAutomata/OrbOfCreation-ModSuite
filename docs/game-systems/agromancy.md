@@ -26,7 +26,9 @@ Harvesting has a setup layer and an action layer, and they are paid for out of d
 - **Plot actions** are the diamonds on a selected plot's panel, and they are paid in **plot
   quantity**. The small badge on each diamond is how many of the plot that action consumes; the
   diamond turns red and the action is refused when the plot holds fewer than the badge (observed:
-  Enrich at cost 3 going red once its plot dropped to 2).
+  Enrich at cost 3 going red once its plot dropped to 2). Some also drain resources **every second
+  they run** — Create Spring takes Space and Alchemic Scroll — which the diamond's hover prints as
+  `Drain -X/s`: the authored drain scaled by the plot's own drain modifier.
 
 Plot actions run in their **own queue**, separate from the one attributes and upgrades develop in
 (see [development-queue.md](development-queue.md)). Its size is **Parallel Agromancy Slots** — the

@@ -25,6 +25,8 @@ internal sealed class GameMcpTooltipNativeAccess
     private readonly Func<object, Guid> _spellRecipeId;
     private readonly Type _passiveAbilityType;
     private readonly Func<object, Guid> _passiveAbilityId;
+    private readonly Type _plotActionType;
+    private readonly Func<object, Guid> _plotActionId;
     private readonly int _mainThreadId;
 
     private GameMcpTooltipNativeAccess(
@@ -32,13 +34,17 @@ internal sealed class GameMcpTooltipNativeAccess
         Type spellType,
         Func<object, Guid> spellRecipeId,
         Type passiveAbilityType,
-        Func<object, Guid> passiveAbilityId)
+        Func<object, Guid> passiveAbilityId,
+        Type plotActionType,
+        Func<object, Guid> plotActionId)
     {
         _subTooltips = subTooltips;
         _spellType = spellType;
         _spellRecipeId = spellRecipeId;
         _passiveAbilityType = passiveAbilityType;
         _passiveAbilityId = passiveAbilityId;
+        _plotActionType = plotActionType;
+        _plotActionId = plotActionId;
         _mainThreadId = Environment.CurrentManagedThreadId;
     }
 
@@ -46,6 +52,7 @@ internal sealed class GameMcpTooltipNativeAccess
         Type? hoverTooltipType,
         Type? spellType,
         Type? passiveAbilityType,
+        Type? plotActionType,
         out GameMcpTooltipNativeAccess access,
         out string nativeDetail)
     {
@@ -79,8 +86,16 @@ internal sealed class GameMcpTooltipNativeAccess
             return false;
         }
 
+        var plotActionId = NativeAccessorBinder.CallReferenceGuid(plotActionType, "GetAction");
+        if (plotActionType is null || plotActionId is null)
+        {
+            nativeDetail = "PlotNodeActionInstance.GetAction was not the exact audited action accessor";
+            return false;
+        }
+
         access = new GameMcpTooltipNativeAccess(
-            read, spellType, spellRecipeId, passiveAbilityType, passiveAbilityId);
+            read, spellType, spellRecipeId, passiveAbilityType, passiveAbilityId,
+            plotActionType, plotActionId);
         nativeDetail = string.Empty;
         return true;
     }
@@ -91,10 +106,10 @@ internal sealed class GameMcpTooltipNativeAccess
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Most panels assign the asset itself, which carries its own id. The two panels holding the
-    /// things a player casts do not: the casting bar assigns the live <c>Spell</c> and the passive
-    /// bar the live <c>PassiveAbility</c>, and neither is an <c>IdScriptableObject</c>. Both are
-    /// one accessor away from the recipe asset they were built from — the same asset whose name
+    /// Most panels assign the asset itself, which carries its own id. Three do not: the casting bar
+    /// assigns the live <c>Spell</c>, the passive bar the live <c>PassiveAbility</c>, and a plot's
+    /// action diamond its <c>PlotNodeActionInstance</c>, and none is an <c>IdScriptableObject</c>.
+    /// Each is one accessor away from the asset it was built from — the same asset whose name
     /// they already print, because <c>GetName()</c> forwards to it — so the id on those rows is the
     /// game's own reference rather than anything reconstructed from the screen.
     /// </para>
@@ -135,6 +150,7 @@ internal sealed class GameMcpTooltipNativeAccess
         {
             if (_spellType.IsInstanceOfType(item)) uuid = _spellRecipeId(item);
             else if (_passiveAbilityType.IsInstanceOfType(item)) uuid = _passiveAbilityId(item);
+            else if (_plotActionType.IsInstanceOfType(item)) uuid = _plotActionId(item);
         }
         catch (Exception exception)
         {

@@ -19,17 +19,18 @@ public sealed class GameMcpTooltipNativeAccessTests
     }
 
     /// <summary>
-    /// The two recipe accessors are bound at startup like every other tooltip member, so a build
-    /// that moved either refuses the whole surface rather than quietly shipping panels with no ids
-    /// on them.
+    /// The three asset accessors are bound at startup like every other tooltip member, so a build
+    /// that moved any of them refuses the whole surface rather than quietly shipping panels with no
+    /// ids on them.
     /// </summary>
     [Fact]
-    public void StartupBindingRequiresBothRecipeAccessors()
+    public void StartupBindingRequiresEveryAssetAccessor()
     {
         Assert.False(GameMcpTooltipNativeAccess.TryCreate(
             typeof(global::HoverTooltip),
             typeof(MissingSubTooltips),
             typeof(global::PassiveAbility),
+            typeof(global::PlotNodeActionInstance),
             out _,
             out var spellReason));
         Assert.Contains("Spell.get_reference", spellReason);
@@ -38,9 +39,19 @@ public sealed class GameMcpTooltipNativeAccessTests
             typeof(global::HoverTooltip),
             typeof(global::Spell),
             typeof(MissingSubTooltips),
+            typeof(global::PlotNodeActionInstance),
             out _,
             out var passiveReason));
         Assert.Contains("PassiveAbility.get_reference", passiveReason);
+
+        Assert.False(GameMcpTooltipNativeAccess.TryCreate(
+            typeof(global::HoverTooltip),
+            typeof(global::Spell),
+            typeof(global::PassiveAbility),
+            typeof(MissingSubTooltips),
+            out _,
+            out var plotActionReason));
+        Assert.Contains("PlotNodeActionInstance.GetAction", plotActionReason);
     }
 
     [Fact]
@@ -81,8 +92,9 @@ public sealed class GameMcpTooltipNativeAccessTests
     }
 
     /// <summary>
-    /// An asset answers with its own id; the two live instances answer with the asset they were
-    /// built from; anything else answers with nothing, because there is no entity behind it.
+    /// An asset answers with its own id; the three live instances answer with the asset they were
+    /// built from, a plot's action diamond from inside the wrapper its panel builds; anything else
+    /// answers with nothing, because there is no entity behind it.
     /// </summary>
     [Fact]
     public void AnElementsIdIsTheEntityItIsAboutOrNothing()
@@ -111,6 +123,17 @@ public sealed class GameMcpTooltipNativeAccessTests
                 new global::PassiveAbility(passiveAsset), out var passiveId, out var passiveReason),
             passiveReason);
         Assert.Equal(passiveAsset.GetGuid(), passiveId);
+
+        var plotAction = new global::PlotNodeActionSO();
+        plotAction.SetGuid(Guid.Parse("55555555-0000-4000-8000-000000000001"));
+        Assert.True(
+            access.TryReadEntityId(
+                new global::OverwriteTooltip(
+                    new global::PlotNodeActionInstance(new global::PlotNodeSO(), plotAction)),
+                out var diamondId,
+                out var diamondReason),
+            diamondReason);
+        Assert.Equal(plotAction.GetGuid(), diamondId);
 
         Assert.True(
             access.TryReadEntityId(new FakeTooltip("control"), out var controlId, out var controlReason),
@@ -371,6 +394,7 @@ public sealed class GameMcpTooltipNativeAccessTests
             hoverTooltipType,
             typeof(global::Spell),
             typeof(global::PassiveAbility),
+            typeof(global::PlotNodeActionInstance),
             out access,
             out reason);
 

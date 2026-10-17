@@ -97,7 +97,8 @@ public sealed class WorldIdentityWalkTests
     /// would turn the collision check from a real invariant into noise everyone learns to ignore.
     /// <c>PlotActions</c> is worse: its rows are pairs, so neither of the two identities on one is
     /// the row's own, and both belong to a table that already claims them. <c>PlotActionInstances</c>
-    /// is that edge several times over, one row per instance the plot holds. <c>PlotAuthoring</c>,
+    /// and <c>PlotActionDrains</c> are that edge several times over, one row per instance the plot
+    /// holds or per resource the pair drains. <c>PlotAuthoring</c>,
     /// <c>PlotPhaseDescriptors</c> and <c>EffectBlocks</c> are all second readings of an entity the
     /// plot and action tables already claim, said about the entity rather than as it. So is
     /// <c>EntityRequirements</c>, whose rows are conditions on an upgrade, structure, or prerequisite
@@ -170,6 +171,7 @@ public sealed class WorldIdentityWalkTests
         "LevelEffects",
         "PlotActions",
         "PlotActionInstances",
+        "PlotActionDrains",
         "ActionQueueSlots",
         "SpellSlots",
         "SpellCosts",

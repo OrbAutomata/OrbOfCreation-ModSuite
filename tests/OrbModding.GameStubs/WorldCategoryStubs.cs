@@ -1728,7 +1728,7 @@ public sealed class PlotNodeActionSO : UpgradeableObject
     public ValueModifierRecord refundRating = new ValueModifierRecord(new BigDouble(0.0, 0));
 
     // What the action's author decided it costs: on what, on leaving which phase, and out of which
-    // resources. The suite reads the two enums and the length of the drain, never the drain itself.
+    // resources. The suite reads the two enums and, through a plot's instance, the drain itself.
     public CostType elementCostType;
     public PlotNodePhases elementCostExitPhase;
     public ResourceCostList actionDrain = new ResourceCostList();
@@ -2228,7 +2228,7 @@ public sealed class PlotNodeSO : IdScriptableObject
 /// One running action on a plot. Its identity travels as the serialized reference the game holds,
 /// which is a struct with a memoised guid beside the string it was parsed from.
 /// </summary>
-public sealed class PlotNodeActionInstance
+public sealed class PlotNodeActionInstance : ITooltipable
 {
     public IdObjectRef refObj;
     public int quantity;
@@ -2261,6 +2261,22 @@ public sealed class PlotNodeActionInstance
     public PlotNodeSO? GetElement() => plotNodeRefObj;
 
     public PlotNodeActionSO? GetAction() => action;
+
+    /// <summary>The plot's drain modifier, which the native chain folds in from the plot's speed.</summary>
+    public BigDouble DrainCostMod = new BigDouble(100);
+
+    public ScalingInfo GetPersistentScalingInfo(int count) =>
+        new ScalingInfo { DrainCostMod = DrainCostMod };
+
+    public string GetName() => "Plot action";
+    public string GetDisplayType() => "Action";
+    public UnityEngine.Sprite GetIcon() => new UnityEngine.Sprite();
+    public UnityEngine.Color GetColor() => UnityEngine.Color.white;
+    public bool IsColoredIcon() => false;
+    public bool HasAltTooltips() => false;
+    public string GetDescription() => string.Empty;
+    public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
+    public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
 
     /// <summary>The native row asks the exact action prerequisite container again.</summary>
     public bool IsVisible() => action?.prerequisites.Check() == true;

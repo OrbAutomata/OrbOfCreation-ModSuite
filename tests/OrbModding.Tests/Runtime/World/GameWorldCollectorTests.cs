@@ -5095,6 +5095,51 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
+    /// A plot action publishes the drain its diamond's hover prints: every authored entry, in the
+    /// authored order, scaled by the plot's own drain modifier.
+    /// </summary>
+    /// <remarks>
+    /// The modifier is the plot's, so the drain is keyed by the pair rather than by the action, and
+    /// it is read once per pair however many instances the plot holds.
+    /// </remarks>
+    [Fact]
+    public void APlotActionPublishesTheDrainItsDiamondPrints()
+    {
+        var space = new FakeResource();
+        var scroll = new FakeResource();
+        var create = new FakePlotNodeAction();
+        create.actionDrain.costs.Add(new FakeCraftingResourceTuple { resource = space, valueBig = new BigDouble(40) });
+        create.actionDrain.costs.Add(new FakeCraftingResourceTuple { resource = scroll, valueBig = new BigDouble(0.5) });
+        var destroy = new FakePlotNodeAction();
+        FakePlotNodeAction.All.AddRange(new[] { create, destroy });
+
+        var node = Guid.NewGuid();
+        var plot = new FakePlotNode { Identity = node }
+            .With(FakePlotPhase.Idle, 1)
+            .Offering(create)
+            .Offering(destroy)
+            .Running(create, quantity: 0)
+            .Running(create, quantity: 2)
+            .Running(destroy, quantity: 0);
+        plot.GetActionInstances()[0].DrainCostMod = new BigDouble(150);
+        FakePlotNode.All.Add(plot);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(report.IsComplete, report.Describe());
+        var drains = WorldPlotActionDrainDeriver.For(world.PlotActionDrains, node, create.Identity).ToArray();
+        Assert.Equal(2, drains.Length);
+        Assert.Equal(space.Identity, drains[0].ResourceId);
+        Assert.Equal(new BigDouble(60), drains[0].Amount);
+        Assert.Equal(scroll.Identity, drains[1].ResourceId);
+        Assert.Equal(new BigDouble(0.75), drains[1].Amount);
+        Assert.Equal(0, WorldPlotActionDrainDeriver.For(world.PlotActionDrains, node, destroy.Identity).Length);
+        Assert.Equal(2, world.PlotActionDrains.Count);
+    }
+
+    /// <summary>
     /// One plot's instances stay that plot's, and a second pass publishes each of them once.
     /// </summary>
     /// <remarks>

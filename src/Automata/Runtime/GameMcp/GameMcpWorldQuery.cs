@@ -3718,14 +3718,14 @@ internal static class GameMcpWorldQuery
                     "post_state_not_published",
                     "The press went through, but the plot action changed again before the game " +
                     "redrew it, so its new state cannot be read back.");
-            return new JObject
+            return WithAddedDrain(world, command, new JObject
             {
                 ["plot"] = EntityReference(world, command.TargetId),
                 ["action"] = EntityReference(world, command.SecondaryId),
                 ["active"] = observed,
-            }.Freeze();
+            });
         }
-        return new JObject
+        return WithAddedDrain(world, command, new JObject
         {
             ["plot"] = EntityReference(world, command.TargetId),
             ["action"] = EntityReference(world, command.SecondaryId),
@@ -3734,7 +3734,24 @@ internal static class GameMcpWorldQuery
                 ["before"] = before,
                 ["after"] = after,
             },
-        }.Freeze();
+        });
+    }
+
+    /// <summary>
+    /// An add also says what the action now drains each second, which is the running cost the plot
+    /// quantity it paid does not say.
+    /// </summary>
+    private static GameMcpValue WithAddedDrain(
+        GameWorldState world,
+        GameMcpCommand command,
+        JObject delta)
+    {
+        if (command.Mode == "add_plot_action")
+        {
+            var drains = ProjectPlotActionDrains(world, command.TargetId, command.SecondaryId);
+            if (drains.Count > 0) delta["drainCostsPerSecond"] = drains;
+        }
+        return delta.Freeze();
     }
 
     private static GameMcpValue? Property(GameMcpValue? value, string name)
@@ -5897,12 +5914,84 @@ internal static class GameMcpWorldQuery
             ? ProjectPlotAction(world, in plotAction)
             : row is WorldActionQueueSlot processingSlot
             ? ProjectAgromancyProcessing(world, in processingSlot)
-            : new GameMcpProjectedDomainValue(
-                AsDisplayed(row),
-                category.ScanFields,
-                category.Name,
-                category.ExpectedNativeType,
-                tableRow: false);
+            : row is WorldPlotNodeAction plotNodeAction
+            ? WithPlotNodeActionDrains(world, in plotNodeAction, ReflectedDetail(category, row))
+            : ReflectedDetail(category, row);
+
+    private static GameMcpProjectedDomainValue ReflectedDetail(
+        GameMcpWorldCategory category,
+        object row) =>
+        new(
+            AsDisplayed(row),
+            category.ScanFields,
+            category.Name,
+            category.ExpectedNativeType,
+            tableRow: false);
+
+    /// <summary>
+    /// What the action drains each second on every plot that offers it, which is what its diamond's
+    /// hover prints. A row names its plot only when the action drains on more than one, because the
+    /// plot's own scaling is a factor of the number.
+    /// </summary>
+    private static GameMcpValue WithPlotNodeActionDrains(
+        GameWorldState world,
+        in WorldPlotNodeAction action,
+        GameMcpProjectedDomainValue reflected)
+    {
+        var plots = new List<Guid>();
+        foreach (var drain in world.PlotActionDrains.AsSpan())
+        {
+            if (drain.PlotNodeActionId == action.PlotNodeActionId && !plots.Contains(drain.PlotNodeId))
+                plots.Add(drain.PlotNodeId);
+        }
+        if (plots.Count == 0) return reflected;
+
+        var drains = new JArray();
+        foreach (var plotId in plots)
+            AppendPlotActionDrains(world, plotId, action.PlotNodeActionId, plots.Count > 1, drains);
+        return reflected.With(new JObject { ["drainCostsPerSecond"] = drains }.Freeze());
+    }
+
+    /// <summary>
+    /// One plot action's drain on one plot, per second, as the diamond's hover prints it. The game
+    /// takes it every second the action runs, so it is a running cost beside the one-off plot
+    /// quantity the add decision prices.
+    /// </summary>
+    private static JArray ProjectPlotActionDrains(
+        GameWorldState world,
+        Guid plotNodeId,
+        Guid plotNodeActionId)
+    {
+        var result = new JArray();
+        AppendPlotActionDrains(world, plotNodeId, plotNodeActionId, namePlot: false, result);
+        return result;
+    }
+
+    private static void AppendPlotActionDrains(
+        GameWorldState world,
+        Guid plotNodeId,
+        Guid plotNodeActionId,
+        bool namePlot,
+        JArray result)
+    {
+        foreach (var drain in WorldPlotActionDrainDeriver.For(
+                     world.PlotActionDrains, plotNodeId, plotNodeActionId))
+        {
+            var price = PlayerFacingCost(world, drain.ResourceId, drain.Amount);
+            var row = new JObject
+            {
+                ["resourceId"] = drain.ResourceId.ToString("D"),
+                ["cost"] = new GameMcpDomainValue(price),
+            };
+            if (TryHarvestSpendableAmount(world, drain.ResourceId, out var amount))
+            {
+                (row["cost"], row["amount"]) = GameMcpNumberFormatter.CellsApart(price, amount);
+                row["affordable"] = CanAfford(world, drain.ResourceId, drain.Amount, amount);
+            }
+            if (namePlot) row["plot"] = EntityReference(world, plotNodeId);
+            result.Add(row);
+        }
+    }
 
     /// <summary>
     /// An upgrade with no ceiling has no ceiling to report: the game marks that with a negative
@@ -6072,14 +6161,20 @@ internal static class GameMcpWorldQuery
             world.ActionQueueSlots, action.PlotNodeId, action.PlotNodeActionId);
         var add = ProjectPlotActionDecision(world, in action, active);
         var remove = PlotActionRemoveDecision(active);
-        return new JObject
+        var result = new JObject
         {
             ["plot"] = EntityReference(world, action.PlotNodeId),
             ["action"] = EntityReference(world, action.PlotNodeActionId),
             ["active"] = active,
             ["add"] = asRow ? DecisionWord(add) : (object)add,
             ["remove"] = asRow ? DecisionWord(remove) : (object)remove,
-        }.Freeze();
+        };
+        if (!asRow)
+        {
+            var drains = ProjectPlotActionDrains(world, action.PlotNodeId, action.PlotNodeActionId);
+            if (drains.Count > 0) result["drainCostsPerSecond"] = drains;
+        }
+        return result.Freeze();
     }
 
     /// <summary>
