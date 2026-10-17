@@ -12,7 +12,7 @@ The full-trace mandate names four streams; raw capture data has no store, so a t
 the service decide" and not "what did it see". This needs a ruling on volume and on how a world payload
 is written before anyone writes a line of it.
 
-**Why it is not one more store.** The world republishes four times a second and its payload is the
+**Why it is not one more store.** The world republishes up to four times a second and its payload is the
 entire raw reading of the game rather than a settings tree — roughly a megabyte serialized, so an armed
 session writes on the order of 240 MB a minute against a ~100 MB on-disk mandate. The derived
 `GameWorldState` is the same magnitude, so recording the derived shape buys nothing. Nothing can be

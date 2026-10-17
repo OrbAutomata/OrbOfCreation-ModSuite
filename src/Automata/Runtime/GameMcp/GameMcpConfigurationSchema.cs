@@ -30,6 +30,7 @@ internal static class GameMcpConfigurationSchema
         object value = (section, key) switch
         {
             ("General", "Enabled") => configuration.General.Enabled,
+            ("General", "Pace") => configuration.General.Pace,
 
             // Addressed by the mod that owns it, per GameMcpConfigurationAddress; the file still
             // holds it at [General] Mode, and a caller naming that older address is refused there

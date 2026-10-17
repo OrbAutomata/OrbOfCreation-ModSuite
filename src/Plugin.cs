@@ -126,6 +126,7 @@ public sealed class Plugin : BaseUnityPlugin
     private readonly MentorMasteryEventJournal _mentorMasteryJournal = new();
     private AutomataActionFamilyOwnership? _automataActionFamilyOwnership;
     private AutomataServiceCycleActivation? _serviceCycleActivation;
+    private readonly AutomataWorldDemand _worldDemand = new();
     private AutomationFeatureControlRegistry? _automationFeatureControls;
     private QuickControlColumn? _quickControls;
     private EmergencyStopControl? _emergencyStopControl;
@@ -484,6 +485,7 @@ public sealed class Plugin : BaseUnityPlugin
                         new AutomataWorldCollectionFeature(
                             readFrameIdentity,
                             readAutoHarvestLifecycleEpoch,
+                            _worldDemand,
                             static report =>
                             {
                                 var line = report.Describe() + " " + report.DescribeCost();
@@ -1836,16 +1838,24 @@ public sealed class Plugin : BaseUnityPlugin
     {
         var deadline = Time.realtimeSinceStartup + GameMcpPostStateSettlement.WaitSeconds(command);
         GameMcpFrameContext? latest = null;
-        while (Time.realtimeSinceStartup < deadline)
+        _worldDemand.Begin();
+        try
         {
-            yield return null;
-            latest = CaptureGameMcpFrameContext(
-                command.Kind == GameMcpCommandKind.Prestige
-                    ? GameMcpFrameData.World | GameMcpFrameData.Scene
-                    : GameMcpFrameData.World);
-            if (GameMcpPostStateSettlement.IsReady(
-                    latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
-                break;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+                latest = CaptureGameMcpFrameContext(
+                    command.Kind == GameMcpCommandKind.Prestige
+                        ? GameMcpFrameData.World | GameMcpFrameData.Scene
+                        : GameMcpFrameData.World);
+                if (GameMcpPostStateSettlement.IsReady(
+                        latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
+                    break;
+            }
+        }
+        finally
+        {
+            _worldDemand.End();
         }
 
         GameMcpValue state;

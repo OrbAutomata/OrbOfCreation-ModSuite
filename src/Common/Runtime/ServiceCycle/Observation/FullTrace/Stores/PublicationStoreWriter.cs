@@ -16,7 +16,7 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Stores;
 /// configuration cost one payload rather than three — the deduplication the artifact is built around.
 /// </para>
 /// <para>
-/// The world store is not here. The world republishes four times a second and its payload is the whole
+/// The world store is not here. The world republishes up to four times a second and its payload is the whole
 /// raw reading of the game, so storing one per generation is a different problem in kind from storing
 /// one per settings save; it is deliberately left for its own decision rather than approximated here.
 /// </para>

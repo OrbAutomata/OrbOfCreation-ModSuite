@@ -23,6 +23,9 @@ internal sealed class ManualFullTraceSession
     internal IReadOnlyList<PublicationStoreEntry> PublicationStores() =>
         _directory.ReadPublicationStores();
 
+    internal string? PublicationValue(string store, ulong generation, string key) =>
+        _directory.ReadPublicationValue(store, generation, key);
+
     internal ServiceCycleTraceRoster Roster() => _directory.ReadRoster();
 
     internal IEnumerable<FullTraceSegmentDocument> Segments()

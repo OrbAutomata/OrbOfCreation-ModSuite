@@ -1,6 +1,6 @@
 # Shared world collection
 
-One registered service reads the whole game once per interval and publishes an immutable snapshot every
+One registered service reads the whole game once per [pace](#pace) interval and publishes an immutable snapshot every
 other service consumes. The game is read once, by one reader, at one instant, and the cost is paid once.
 
 [Back to dossier](README.md) · [How a service gets its data](service-data-flow.md) ·
@@ -14,7 +14,7 @@ configuration, world state and strategy and nothing else — is stated in
 
 ```
 64 category readers over the game's registries
-        │  Unity thread, once per 250 ms
+        │  Unity thread, once per pace interval (250 ms at Fastest)
         ▼
 GameWorldCollector ──fills──► GameWorldCycleFrame
                                 (samples, frame globals, collected frame, collected epoch)
@@ -37,7 +37,7 @@ ServiceCaptureContext.World  and  IServiceCycleWorkerDefinition.Evaluate(…, wo
   delegates.
 - **Identity catalog** validates and copies the live runtime registry once per lifecycle on the
   Unity thread. The frame and derived world carry that exact immutable snapshot reference; later
-  250-millisecond captures neither enumerate it again nor copy its rows into category tables.
+  captures neither enumerate it again nor copy its rows into category tables.
 - **Deriver** turns samples into rows — the ported half of the game's own math, including the full
   resource rate chain — on the worker, holding no native surface to reach for. It is pure and total:
   unreadable arithmetic fails neutral, so a NaN operand yields uncapped, zero-headroom output rather
@@ -497,6 +497,26 @@ This deliberately couples every consumer to collection's health: if collection s
 have already acted stop acting rather than working from a world that is falling behind. Emergency stop
 freezes the generation for the same reason and with the same effect.
 
+## Pace
+
+The player's **Automation pace** (`General.Pace`) sets how long collection waits after its last
+publication before reading again: Fastest 250 ms, Fast 500 ms, Balanced 1 s, Relaxed 5 s, CpuSaver
+30 s. Reading the game costs tens of milliseconds of Unity-thread time a pass, and every ordinary
+service runs on publication and is held by the gate above until the next reading, so this one interval
+paces the whole suite. `AutomataWorldCollectionService.IsDue` is the rule:
+
+- A lifecycle that has read nothing yet reads at once, whatever the pace.
+- A caller waiting on a world newer than its own press opens `AutomataWorldDemand`; while one is open,
+  collection reads at the Fastest interval. The MCP post-state wait is that caller, so its one-second
+  settlement holds at every pace.
+- An automation's own action is not a waiter. Its postcondition is proved at the action boundary, and
+  the gate holds it until the paced reading; pulling that reading forward would run every busy save at
+  Fastest.
+- "Not yet" is answered every 250 ms, so a pace change or a new waiter is seen within that, and a
+  slower pace counts from the last reading.
+
+MCP reads use the latest publication, so at a slow pace they can be up to one interval old.
+
 ## Layout
 
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
@@ -526,10 +546,10 @@ left its buffer reset, and recording that pass as read would claim the frame hol
 authored rows when it holds none — with no further epoch until the next lifecycle, recovery took a
 prestige. A reader that never bound is the opposite fact and does not hold the epoch open: nothing on
 this build will make it deliver, and waiting for it would re-walk every other structural category
-four times a second.
+on every pass.
 
 `WorldScribeRelations.cs` is the reader that belongs in that structural set and is not in it yet. Its
-enchantment-role half is authored data and it re-reads it every 250 ms, while its target sweep
+enchantment-role half is authored data and it re-reads it every pass, while its target sweep
 filters the whole structure registry once per role and latches every candidate's availability on the
 way past. It reads its members through the compiled accessors every other reader binds, so the
 overhead `NativeAccessorBinder` exists to have removed is gone; the manifest still records the sweep

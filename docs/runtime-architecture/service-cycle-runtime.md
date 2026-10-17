@@ -351,6 +351,7 @@ service is otherwise indistinguishable from that service having nothing to do. I
 because nothing about it is a timing condition — the answer can change on any frame. A source is exempt
 by shape, since gating the collector behind a generation only it can produce would deadlock the suite
 on its first frame, and shape is read off where the service's turn falls rather than declared.
+Collection's [pace](world-collection.md#pace) therefore spaces every acted service's turns too.
 
 ## Semantic observability
 

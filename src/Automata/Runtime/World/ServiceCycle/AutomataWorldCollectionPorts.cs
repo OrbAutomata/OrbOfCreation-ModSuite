@@ -85,7 +85,7 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
     /// Says what the pass managed — once, and again only when the answer changes.
     /// </summary>
     /// <remarks>
-    /// Collection runs four times a second, so announcing every pass would bury the log, and
+    /// Collection runs up to four times a second, so announcing every pass would bury the log, and
     /// announcing none of them leaves a build that renamed one member indistinguishable from a quiet
     /// game: the projection carries a count of unavailable categories and no member name anywhere.
     /// The population belongs in that comparison. Keying a healthy pass on the literal word
