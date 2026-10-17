@@ -3,6 +3,13 @@ using System;
 
 namespace OrbAutomata.GameMcp;
 
+internal enum GameMcpTile
+{
+    None = 0,
+    Plot = 1,
+    Spell = 2,
+}
+
 internal enum GameMcpGadgetAccess
 {
     Framebuffer = 1,
@@ -49,11 +56,17 @@ internal static class GameMcpGadgetPolicy
         !string.IsNullOrWhiteSpace(path) &&
         path.StartsWith("Canvas[0]/ContentArea[", StringComparison.Ordinal);
 
-    internal static bool IsPlotDestination(string screen, string? subtab) =>
+    internal static GameMcpTile TileAt(string screen, string? subtab) =>
         string.Equals(screen, "World", StringComparison.Ordinal) &&
-        string.Equals(subtab, "Agromancy", StringComparison.Ordinal);
+        string.Equals(subtab, "Agromancy", StringComparison.Ordinal)
+            ? GameMcpTile.Plot
+            : string.Equals(screen, "Magic", StringComparison.Ordinal) &&
+              string.Equals(subtab, "Spells", StringComparison.Ordinal)
+                ? GameMcpTile.Spell
+                : GameMcpTile.None;
 
     /// <summary>Where the selectable tiles live, for the refusal that has to say so.</summary>
-    internal const string TileDestinations = "Agromancy plots on World/Agromancy";
+    internal const string TileDestinations =
+        "Agromancy plots on World/Agromancy, spells on Magic/Spellbook/Spells";
 }
 #endif
