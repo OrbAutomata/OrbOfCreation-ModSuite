@@ -115,10 +115,7 @@ internal static class AutoConceptCycleEvaluator
         metrics = new AutoConceptDecisionMetrics(
             world.ConceptRecipes.Count, candidates.Count, active, owned, 0,
             AutoConceptDecisionKind.Idle, idle);
-        var trainingWake = TrainingWake(in config, in context, ref state);
-        return trainingWake.Ticks > 0
-            ? WakePolicy.AfterDecision(trainingWake)
-            : WakePolicy.OnPublication;
+        return WakePolicy.OnPublication;
     }
 
     private static List<Candidate> Project(
@@ -738,23 +735,6 @@ internal static class AutoConceptCycleEvaluator
                 return false;
         }
         return true;
-    }
-
-    private static MonotonicDuration TrainingWake(
-        in SuiteRuntimeConfiguration config,
-        in ServiceCycleContext context,
-        ref AutoConceptCycleState state)
-    {
-        var remaining = long.MaxValue;
-        var period = TimeSpan.FromSeconds(AutoConceptConfigurationPolicy.TrainingPeriodSeconds(config)).Ticks;
-        for (var index = 0; index < state.TrainingSessions.Count; index++)
-        {
-            var session = state.TrainingSessions.SessionAt(index);
-            if (!session.StartedAtTicks.HasValue) continue;
-            var deadline = checked(session.StartedAtTicks.Value + period);
-            remaining = Math.Min(remaining, Math.Max(0, deadline - context.DecisionAt.Ticks));
-        }
-        return new MonotonicDuration(remaining == long.MaxValue ? 0 : remaining);
     }
 
     private static int Normalize(int value, int count) =>

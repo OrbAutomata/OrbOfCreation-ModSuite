@@ -138,7 +138,7 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
             response.WakeDue,
             response.Cycle.Config,
             response.Cycle.World,
-            invalidatedByWorld: _runtime.Starts.WakeOnWorldPublication);
+            invalidatedByWorld: _runtime.Starts.WorldEndsWait(response.WakePolicy));
         _runtime.State.CycleConfiguration = null;
         _completion.ReturnMainOwnership(nonBlockingHandoff);
     }

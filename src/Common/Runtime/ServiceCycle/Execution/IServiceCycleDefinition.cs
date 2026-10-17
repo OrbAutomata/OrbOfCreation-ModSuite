@@ -49,13 +49,6 @@ public interface IServiceCycleDefinition<TState, TAction> :
     IServiceCycleMainThreadDefinition<TAction>
 {
     /// <summary>
-    /// Whether a newer world cuts this service's wait short. A service that samples the world on its
-    /// own clock says no, and then only its timed wake, a configuration change, or a new lifecycle
-    /// starts its next cycle.
-    /// </summary>
-    bool WakesOnWorldPublication { get; }
-
-    /// <summary>
     /// Creates the worker resource under the runtime's serialized reference-factory admission.
     /// The callback must finish in finite time and must not synchronously depend on another
     /// reference factory succeeding. The returned reference remains valid through the runtime's

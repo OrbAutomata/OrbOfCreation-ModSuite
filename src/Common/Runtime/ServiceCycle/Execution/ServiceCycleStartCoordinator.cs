@@ -70,7 +70,13 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
     private protected IMonotonicClock Clock { get; }
     private protected ServiceRunnerLifetime Lifetime { get; }
     private protected WorldGeneration LatestWorldGeneration => _world.ReadLatest().Generation;
-    internal bool WakeOnWorldPublication => _wakeOnWorldPublication;
+
+    /// <summary>
+    /// Whether a newer world ends this wait. Only a service that asked to wait for the next world is
+    /// woken by one; a timed wait runs its course, and the source never waits on its own publication.
+    /// </summary>
+    internal bool WorldEndsWait(WakePolicy wake) =>
+        _wakeOnWorldPublication && wake.Kind == WakePolicyKind.OnPublication;
 
     /// <summary>
     /// Whether the main thread is inside the service's capture callback right now.

@@ -143,7 +143,7 @@ public sealed partial class ServiceCycleArchitectureTests
             },
             MemberNames(typeof(IServiceCycleMainThreadDefinition<>)));
         Assert.Equal(
-            new[] { "WakesOnWorldPublication", "CreateWorkerDefinition" },
+            new[] { "CreateWorkerDefinition" },
             MemberNames(typeof(IServiceCycleDefinition<,>)));
     }
 

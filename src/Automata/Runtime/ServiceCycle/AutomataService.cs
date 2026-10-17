@@ -38,8 +38,7 @@ internal readonly struct AutomataServiceMetadata
     internal AutomataServiceMetadata(
         ServiceId serviceId,
         WakePolicy defaultWakePolicy,
-        ServiceFaultRecoveryPolicy faultRecoveryPolicy,
-        bool wakesOnWorldPublication = true)
+        ServiceFaultRecoveryPolicy faultRecoveryPolicy)
     {
         if (!serviceId.IsValid)
             throw new ArgumentException("A valid service identity is required.", nameof(serviceId));
@@ -51,13 +50,11 @@ internal readonly struct AutomataServiceMetadata
         ServiceId = serviceId;
         DefaultWakePolicy = defaultWakePolicy;
         FaultRecoveryPolicy = faultRecoveryPolicy;
-        WakesOnWorldPublication = wakesOnWorldPublication;
     }
 
     internal ServiceId ServiceId { get; }
     internal WakePolicy DefaultWakePolicy { get; }
     internal ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; }
-    internal bool WakesOnWorldPublication { get; }
 }
 
 internal static class AutomataService

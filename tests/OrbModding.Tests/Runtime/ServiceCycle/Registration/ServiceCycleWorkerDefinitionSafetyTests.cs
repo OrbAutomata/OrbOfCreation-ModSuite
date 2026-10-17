@@ -74,7 +74,6 @@ public sealed class ServiceCycleWorkerDefinitionSafetyTests
     {
         public ServiceId ServiceId => new("test.worker-safety");
         public WakePolicy DefaultWakePolicy => WakePolicy.Immediate;
-        public bool WakesOnWorldPublication => true;
         public ServiceFaultRecoveryPolicy FaultRecoveryPolicy => new(new MonotonicDuration(1), new MonotonicDuration(2));
         public IServiceCycleWorkerDefinition<SafetyState, SafetyAction>
             CreateWorkerDefinition() => new SafeWorker();

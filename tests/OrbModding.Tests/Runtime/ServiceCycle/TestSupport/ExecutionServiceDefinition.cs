@@ -24,7 +24,6 @@ internal class ExecutionServiceDefinition :
 
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; set; } = WakePolicy.Immediate;
-    public bool WakesOnWorldPublication { get; set; } = true;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; set; } = new(
         new MonotonicDuration(10), new MonotonicDuration(80));
 

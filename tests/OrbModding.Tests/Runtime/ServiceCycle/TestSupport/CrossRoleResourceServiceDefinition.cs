@@ -72,7 +72,6 @@ internal sealed class CrossRoleServiceDefinition :
 
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy => WakePolicy.AfterBatch(new MonotonicDuration(1_000));
-    public bool WakesOnWorldPublication => true;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy => new(
         new MonotonicDuration(10),
         new MonotonicDuration(80));

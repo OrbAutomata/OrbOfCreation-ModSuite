@@ -23,7 +23,6 @@ internal sealed class ComposedAutomataServiceDefinition<TState, TAction> :
         ServiceId = metadata.ServiceId;
         DefaultWakePolicy = metadata.DefaultWakePolicy;
         FaultRecoveryPolicy = metadata.FaultRecoveryPolicy;
-        WakesOnWorldPublication = metadata.WakesOnWorldPublication;
         _createWorker = createWorker ?? throw new ArgumentNullException(nameof(createWorker));
         _shouldStart = shouldStart ?? throw new ArgumentNullException(nameof(shouldStart));
         _describeAction = describeAction ?? throw new ArgumentNullException(nameof(describeAction));
@@ -33,7 +32,6 @@ internal sealed class ComposedAutomataServiceDefinition<TState, TAction> :
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; }
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; }
-    public bool WakesOnWorldPublication { get; }
 
     public IServiceCycleWorkerDefinition<
         TState,
