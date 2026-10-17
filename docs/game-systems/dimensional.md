@@ -33,6 +33,14 @@ Each Shaper upgrade is a one-off World-screen purchase that opens two more attri
 | | | Urn of Urns (Space + Thaumaturgy) | Lv 5: +3.98% Urn of Holding effect, +13.3% Urn of Expansion effect |
 | Cognitive Shaping | 600 Space + 200 Psi | Memory (Space + Psi) | Lv 3: +5.24% base Mental and Energetic capacity |
 | | | Sorcery (Space + Knowledge) | Lv 2: +5.14% base Magic and Elemental capacity |
+| Physical Shaping | 4e3 Space + 1e3 Verdant Energy | Physicality (Space + Verdant Energy) | Lv 0: +5.14% base Spacial, Natural and Essence capacity |
+| | | Spirality (Space + Skill) | Lv 0: +3.61% base Spacial rate |
+
+Physicality and Spirality read "Insufficient req. to use effectively" below Expert Expansion 2 and
+6 respectively. Physicality still took the Space cap from 7.99e3 to 1.33e4 within a minute
+(observed, four levels at Expert Expansion 1).
+
+**Gather Space** (1e4 Space) grants the first World Aspect Slot; see [aspects.md](aspects.md).
 
 These are the cap levers for every price above the Space cap ([capacity.md](capacity.md)).
 Conjure Space casts come further apart than the 3 s overcap timer ([overcap.md](overcap.md)), so

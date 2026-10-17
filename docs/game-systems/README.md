@@ -100,7 +100,9 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
   capacity attributes, and Tech Advancements opens Technology research.
 - [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
   runs with the screen closed.
-- [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.
+- [aspects.md](aspects.md) — Gather Space buys the world slots through which Workshop, Alchemy and
+  Rituals arrive.
+- [workshop.md](workshop.md) — how the Workshop opens, its two XP tracks, and the first artifact.
 - [disciplines.md](disciplines.md) — four disciplines change name between purchase page and
   advancement tab; several are unplayed.
 - [crafting.md](crafting.md) — Workshop recipe rows; crafts pay at submission.

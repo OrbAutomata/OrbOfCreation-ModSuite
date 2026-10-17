@@ -13,8 +13,8 @@ committed — and the committed total is never drawn. See [allocations.md](alloc
 | Wizardry | +1 Magical, +1 Glyph |
 | Scholar | +1 Cognitive, +1 Technology |
 | Alchemy | +1 Cognitive, +1 Materials |
-| Artificer | +1 Ability, +1 Equipment |
-| Construction | +1 Technology, +1 Equipment |
+| Artificer | +1 Ability, +1 Artifact Upgrades |
+| Construction | +1 Technology, +1 Artifact Upgrades |
 | Druid | +1 Ability, +1 Magical |
 | Mystic | +1 Technology, +1 Materials |
 | Shaper | +1 Technology, +1 Glyph |

@@ -39,6 +39,7 @@ sibling page that has none simply shows one strip fewer. Observed inner strips:
 | Magic > Spellbook | Unlock · Loadout · Spells · Spell Types |
 | Magic > Augments | Glyphcraft · Upgrade |
 | Scholar > Research | the school tabs — Expert · Technology · Innovation |
+| Workshop > Artifacts | Loadout · Create |
 | Workshop > Crafting | Manual · Automate |
 | Alchemy > Alchemy | Learn · Loadout |
 | Time > Time Runes | Create · Upgrade · Archive |
@@ -75,6 +76,7 @@ leaving a run means going through it. Returning to the menu fires the manual sav
 | World > Dimensional | [dimensional.md](dimensional.md) |
 | World > Aspects | [aspects.md](aspects.md) |
 | World > Agromancy | [agromancy.md](agromancy.md) |
+| Workshop > Workshop · Artificer | [workshop.md](workshop.md) |
 | Workshop > Artifacts | [artifacts.md](artifacts.md) |
 | Workshop > Crafting | [crafting.md](crafting.md) |
 | Alchemy > Alchemy | [alchemy.md](alchemy.md) |
