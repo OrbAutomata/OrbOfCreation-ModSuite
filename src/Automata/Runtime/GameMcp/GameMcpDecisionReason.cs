@@ -39,11 +39,12 @@ internal static class GameMcpDecisionReason
         {
             if (written > 0) text.Append("; ");
             written++;
-            text.Append(GameMcpNumberFormatter.Format(row.Needed))
+            var (needed, held) = GameMcpNumberFormatter.FormatApart(row.Needed, row.Held);
+            text.Append(needed)
                 .Append(' ')
                 .Append(row.Resource)
                 .Append(" (have ")
-                .Append(GameMcpNumberFormatter.Format(row.Held))
+                .Append(held)
                 .Append(')');
         }
         return written == 0 ? string.Empty : text.Append('.').ToString();

@@ -9,6 +9,7 @@ using OrbModding.Common.Runtime;
 using OrbAutomata.GameMcp;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.World;
+using OrbModding.Common.Runtime.GameMath;
 #endif
 
 namespace OrbAutomata;
@@ -293,7 +294,10 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 ordinal);
             var purchaseRefusal = ProjectPurchaseRefusal(
                 command, world.Snapshot, in result, lifecycle,
-                configuration.Generation.Value);
+                configuration.Generation.Value,
+                FindFeature(command.Kind) is AutoBuyFeatureRuntime bought
+                    ? bought.LastGameMcpSubmission.Diagnosis
+                    : default);
             if (purchaseRefusal is not null) return purchaseRefusal;
             var exactReason = ExactGameMcpReason(command, world.Snapshot, in result);
             GameMcpValue? details = null;
@@ -1147,7 +1151,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         GameWorldState world,
         in ServiceActionResult result,
         long lifecycle,
-        ulong configurationGeneration)
+        ulong configurationGeneration,
+        AutoBuyAdmissionDiagnosis liveRefusal = default)
     {
         // native_rejected is reserved for a native refusal the published world cannot explain. A
         // rejection whose cause the read side already names answers with that same name.
@@ -1177,6 +1182,20 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 lifecycle,
                 configurationGeneration);
         }
+
+        // The game re-checks the price when the press arrives, and a press seconds after another
+        // spend meets a price the published world still shows as met. The live cost list read at
+        // that refusal is the fresher fact, so it names the shortfall.
+        if (result.Disposition == ServiceActionDisposition.Skipped &&
+            liveRefusal.Classification == AutoBuyRefusalClassification.AffordabilityChanged)
+        {
+            var live = LiveShortfall(world, liveRefusal.LiveCosts);
+            return GameMcpCommandResult.Rejected(
+                "unaffordable",
+                live.Length == 0 ? GameMcpDecisionReason.For("unaffordable") : live,
+                lifecycle,
+                configurationGeneration);
+        }
         if (!WorldPurchaseCostLookup.TryFindRange(
                 world.PurchaseCosts, command.TargetId, out var start, out var count))
             return null;
@@ -1199,6 +1218,28 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             GameMcpDecisionReason.Shortfall(shortfalls),
             lifecycle,
             configurationGeneration);
+    }
+
+    private static string LiveShortfall(GameWorldState world, AutoBuyLiveCostSnapshot live)
+    {
+        if (!live.IsComplete) return string.Empty;
+        var shortfalls = new List<(string Resource, BigDouble Needed, BigDouble Held)>();
+        foreach (var row in live.Rows)
+        {
+            var covered = row.IsBandwidth
+                ? OrbGameMath.SnapFloorToInt(row.Available) >= OrbGameMath.SnapFloorToInt(row.Cost)
+                : row.Available.CompareTo(row.Cost) >= 0;
+            if (covered) continue;
+            var resource = EntityIdentityFormatter.Describe(row.ResourceId, world.EntityIdentities);
+
+            // Both live figures are in the native coordinate, so the one conversion that turns a
+            // native cost into the player's units turns the quality-scaled holding back too.
+            shortfalls.Add((
+                resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
+                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Cost),
+                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Available)));
+        }
+        return GameMcpDecisionReason.Shortfall(shortfalls);
     }
 
     /// <summary>

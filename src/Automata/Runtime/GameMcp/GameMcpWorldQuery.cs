@@ -6050,15 +6050,15 @@ internal static class GameMcpWorldQuery
             var cost = world.HarvestLifecycleCosts[index];
             if (cost.ElementId != elementId || cost.ActionId != actionId || cost.Kind != kind)
                 continue;
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
             var row = new JObject
             {
                 ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+                ["cost"] = new GameMcpDomainValue(price),
             };
             if (TryHarvestSpendableAmount(world, cost.ResourceId, out var amount))
             {
-                row["amount"] = new GameMcpDomainValue(amount);
+                (row["cost"], row["amount"]) = GameMcpNumberFormatter.CellsApart(price, amount);
                 row["affordable"] = CanAfford(
                     world, cost.ResourceId, cost.Amount, amount);
             }
@@ -6225,12 +6225,13 @@ internal static class GameMcpWorldQuery
                         world, cost.ResourceId, cost.AvailableAmount);
                     var affordable = CanAfford(
                         world, cost.ResourceId, cost.Amount, cost.AvailableAmount);
+                    var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
+                    var (priceCell, amountCell) = GameMcpNumberFormatter.CellsApart(price, amount);
                     costs.Add(new JObject
                     {
                         ["resourceId"] = cost.ResourceId.ToString("D"),
-                        ["cost"] = new GameMcpDomainValue(
-                            PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
-                        ["amount"] = new GameMcpDomainValue(amount),
+                        ["cost"] = priceCell,
+                        ["amount"] = amountCell,
                         ["affordable"] = affordable,
                     });
                     if (affordable) continue;
@@ -6238,7 +6239,7 @@ internal static class GameMcpWorldQuery
                         cost.ResourceId, world.EntityIdentities);
                     shortfalls.Add((
                         identity.HasName ? identity.Name : cost.ResourceId.ToString("D"),
-                        PlayerFacingCost(world, cost.ResourceId, cost.Amount),
+                        price,
                         amount));
                 }
                 initiate["costs"] = costs;
@@ -6419,8 +6420,10 @@ internal static class GameMcpWorldQuery
                     ["required"] = new GameMcpDomainValue(value.Required),
                 };
                 if (TryFindResource(world, value.ResourceId, out var pool))
-                    row["spendableAmount"] = new GameMcpDomainValue(
-                        WorldResourceCoordinate.SpendableAmount(in pool));
+                {
+                    (row["cost"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                        value.Remaining, WorldResourceCoordinate.SpendableAmount(in pool));
+                }
                 investment.Add(row);
             }
             result["investment"] = investment;
@@ -6944,15 +6947,17 @@ internal static class GameMcpWorldQuery
         for (var index = start; index < start + count; index++)
         {
             var cost = world.MasteryCosts[index];
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
             var row = new JObject
             {
                 ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+                ["cost"] = new GameMcpDomainValue(price),
             };
             if (TryFindResource(world, cost.ResourceId, out var pool))
-                row["amount"] = new GameMcpDomainValue(
-                    WorldResourceCoordinate.SpendableAmount(in pool));
+            {
+                (row["cost"], row["amount"]) = GameMcpNumberFormatter.CellsApart(
+                    price, WorldResourceCoordinate.SpendableAmount(in pool));
+            }
             row["affordable"] = cost.Affordable;
             costs.Add(row);
         }
@@ -8086,15 +8091,17 @@ internal static class GameMcpWorldQuery
         for (var index = start; index < start + count; index++)
         {
             var cost = world.AlchemyUsageCosts[index];
+            var amount = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
             var row = new JObject
             {
                 ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["amount"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+                ["amount"] = new GameMcpDomainValue(amount),
             };
             if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
-                row["spendableAmount"] = new GameMcpDomainValue(
-                    SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity));
+            {
+                (row["amount"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                    amount, SpendableAmount(world, cost.ResourceId, resource.Reading.Quantity));
+            }
             result.Add(row);
         }
         return result;
@@ -8785,15 +8792,18 @@ internal static class GameMcpWorldQuery
             for (var index = drainStart; index < drainStart + drainCount; index++)
             {
                 var drain = world.CraftingStationDrains[index];
+                var amount = PlayerFacingCost(world, drain.ResourceId, drain.Amount);
                 var row = new JObject
                 {
                     ["resourceId"] = drain.ResourceId.ToString("D"),
-                    ["amount"] = new GameMcpDomainValue(
-                        PlayerFacingCost(world, drain.ResourceId, drain.Amount)),
+                    ["amount"] = new GameMcpDomainValue(amount),
                 };
                 if (WorldLookup.TryFind(world.Resources, drain.ResourceId, out var resource))
-                    row["spendableAmount"] = new GameMcpDomainValue(
+                {
+                    (row["amount"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                        amount,
                         SpendableAmount(world, drain.ResourceId, resource.Reading.Quantity));
+                }
                 drains.Add(row);
             }
             result["drain"] = drains;
@@ -8900,18 +8910,18 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < costs.Count; index++)
         {
             var cost = costs[index];
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Cost);
             var row = new JObject
             {
                 ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Cost)),
+                ["cost"] = new GameMcpDomainValue(price),
             };
             var held = BigDouble.Zero;
             if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
             {
                 held = resource.Reading.Quantity;
-                row["spendableAmount"] = new GameMcpDomainValue(
-                    SpendableAmount(world, cost.ResourceId, held));
+                (row["cost"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                    price, SpendableAmount(world, cost.ResourceId, held));
             }
 
             // Every other cost row in the surface says which line the player is short on; a ritual
@@ -9041,11 +9051,11 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < costs.Count; index++)
         {
             var cost = costs[index];
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
             var row = new JObject
             {
                 ["resourceId"] = cost.ResourceId.ToString("D"),
-                ["cost"] = new GameMcpDomainValue(
-                    PlayerFacingCost(world, cost.ResourceId, cost.Amount)),
+                ["cost"] = new GameMcpDomainValue(price),
             };
 
             // What is held and whether it covers the price are the same reading, so they are
@@ -9054,8 +9064,8 @@ internal static class GameMcpWorldQuery
             if (WorldLookup.TryFind(world.Resources, cost.ResourceId, out var resource))
             {
                 var held = resource.Reading.Quantity;
-                row["spendableAmount"] = new GameMcpDomainValue(
-                    SpendableAmount(world, cost.ResourceId, held));
+                (row["cost"], row["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+                    price, SpendableAmount(world, cost.ResourceId, held));
                 row["affordable"] = CanAfford(world, cost.ResourceId, cost.Amount, held);
             }
             result.Add(row);
@@ -9199,10 +9209,11 @@ internal static class GameMcpWorldQuery
         in WorldPurchaseCost cost,
         bool asRow)
     {
+        var price = AdmittedCost(world, in cost);
         var result = new JObject
         {
             ["resourceId"] = cost.ResourceId.ToString("D"),
-            ["cost"] = new GameMcpDomainValue(AdmittedCost(world, in cost)),
+            ["cost"] = new GameMcpDomainValue(price),
         };
         // A price the publication could not compare against a same-generation holding says that,
         // rather than dropping the two columns that would have said it.
@@ -9213,8 +9224,8 @@ internal static class GameMcpWorldQuery
             return result;
         }
 
-        result["spendableAmount"] = new GameMcpDomainValue(
-            SpendableAmount(world, cost.ResourceId, cost.AvailableAmount));
+        (result["cost"], result["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+            price, SpendableAmount(world, cost.ResourceId, cost.AvailableAmount));
 
         // This row answers for its own resource. The whole-price verdict is what the rows fold
         // to, and a row that reported it claimed to be short of a resource it holds plenty of.
@@ -9444,6 +9455,9 @@ internal static class GameMcpWorldQuery
                         projected["capacity"] = new GameMcpDomainValue(resource.Capacity);
                     if (resource.Kind == WorldCraftingRecipeResourceKind.AuthoredInput)
                     {
+                        (projected["cost"], projected["amount"]) = GameMcpNumberFormatter.CellsApart(
+                            PlayerFacingCost(world, resource.ResourceId, resource.Amount),
+                            spendable);
                         projected["affordable"] = CanAfford(
                             world, resource.ResourceId, resource.Amount, resource.TrueQuantity);
                     }

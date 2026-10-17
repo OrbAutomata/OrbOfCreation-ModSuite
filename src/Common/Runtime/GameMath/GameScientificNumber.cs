@@ -82,6 +82,76 @@ internal static class GameScientificNumber
     }
 
     /// <summary>
+    /// A price and a holding that falls short of it, written so the gap shows: the screen's own
+    /// spellings where they already read as two numbers, otherwise both carried one more decimal
+    /// at a time until they do. Answers false, with the screen's spellings, when nothing needed
+    /// widening. The game has no such rule; this is the suite's, written in the screen's two forms.
+    /// </summary>
+    /// <remarks>
+    /// The screen rounds a 118.7 holding and a 119.2 price both to <c>119</c>, and a whole 41
+    /// beside a 40.96 reads <c>41</c> against <c>41.0</c>, so "reads the same" is a comparison of
+    /// the numbers the two spellings say, not of their characters.
+    /// </remarks>
+    internal static bool TryBeautifyApart(
+        BigDouble needed,
+        BigDouble held,
+        out string neededText,
+        out string heldText)
+    {
+        neededText = Beautify(needed);
+        heldText = Beautify(held);
+        if (!IsFinite(needed) || !IsFinite(held) || held < BigDouble.Zero || !(held < needed) ||
+            !ReadsAsSameNumber(neededText, heldText))
+        {
+            return false;
+        }
+
+        var plain = IsPlain(needed) && IsPlain(held);
+        var places = plain ? Math.Max(PlainDecimals(needed), PlainDecimals(held)) : 2;
+        for (var extra = 1; extra <= MaximumExtraDecimals; extra++)
+        {
+            var widenedNeeded = Widen(needed, plain, places + extra);
+            var widenedHeld = Widen(held, plain, places + extra);
+            if (ReadsAsSameNumber(widenedNeeded, widenedHeld)) continue;
+            neededText = widenedNeeded;
+            heldText = widenedHeld;
+            return true;
+        }
+
+        return false;
+    }
+
+    private const int MaximumExtraDecimals = 12;
+
+    private static bool IsFinite(BigDouble number) =>
+        !double.IsNaN(number.Mantissa) && !double.IsInfinity(number.Mantissa);
+
+    private static bool IsPlain(BigDouble number) =>
+        number < new BigDouble(1000d) && number >= new BigDouble(0.1d);
+
+    private static int PlainDecimals(BigDouble number)
+    {
+        if (number < BigDouble.One) return 3;
+        if (number < new BigDouble(10d)) return 2;
+        if (number < new BigDouble(100d)) return 1;
+        return 0;
+    }
+
+    private static string Widen(BigDouble number, bool plain, int places)
+    {
+        if (plain) return ToDecimalPlace(number.ToDouble(), places);
+        if (number == BigDouble.Zero) return "0";
+        return number.Mantissa.ToString("F" + places.ToString(CultureInfo.InvariantCulture),
+                CultureInfo.InvariantCulture) +
+            "e" + number.Exponent.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static bool ReadsAsSameNumber(string first, string second) =>
+        double.TryParse(first, NumberStyles.Float, CultureInfo.InvariantCulture, out var a) &&
+        double.TryParse(second, NumberStyles.Float, CultureInfo.InvariantCulture, out var b) &&
+        a == b;
+
+    /// <summary>
     /// The game's <c>Utils.BeautifyNumberScientific</c>: the plain form from a tenth up to a
     /// thousand, the exponent form either side of that, with the mantissa written to two decimals
     /// exactly as the original leaves it — a stored mantissa of 9.9999999 prints <c>10.00e5</c>.
