@@ -199,10 +199,7 @@ internal static class GameMcpPostStateSettlement
         if (command.Kind == GameMcpCommandKind.Cast &&
             string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
         {
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "The press went through, but no redrawn world showed this spell casting or a " +
-                "charge spent, so this answer cannot say what the cast did. Read the slot again.");
+            return GameMcpWorldQuery.FireWithoutSettledWorld(command);
         }
         if (command.Kind == GameMcpCommandKind.StructureLifecycle)
         {

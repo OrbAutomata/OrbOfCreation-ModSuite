@@ -3693,8 +3693,9 @@ spends the charge at the *end* of a cast — `Spell.Cast()` sets the prep state 
 readying when the next world lands while a faster one has already finished and dropped one. An
 instant spell with no recharge to wait out is finished and full again before the next world, so
 for it the slot's `casts` count rising since the press is the proof. Requiring both would time out half of all casts; requiring neither answered a world that had not
-yet seen the press. When neither face arrives inside the settlement budget the answer stays
-committed and says so, rather than describing a slot the cast has not reached. It carries no cast
+yet seen the press. When neither face arrives inside the settlement budget, which a heavy save's
+late world can cause, the answer is the press's own: `casting: yes` with the slot and `charging`,
+and none of the slot facts only a settled world holds. It carries no cast
 counter at all. The game writes that counter when a cast *completes*, frames after the press and
 sometimes before the next world is published, so it was the same number whether the press landed or
 was dropped. A press at a spell that is already running, or still starting its own cast, is refused
