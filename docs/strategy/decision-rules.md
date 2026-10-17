@@ -20,9 +20,9 @@ gate you can actually see, remembering that gates read purchased levels, so a vi
 satisfy one.
 
 **A cap-raiser is one purchase, not a line.** The four `Raise <thing> Level` rows re-price
-themselves by roughly ×267 per level, so the level you can afford is normally the only one you can
-afford. Buy it when it comes into reach and re-plan from the new price rather than budgeting a run
-of them.
+themselves steeply — ×3–4 per level early in a run (Raise Alchemy Level 100 → 1.4e4 over four
+levels), roughly ×267 per level late — so buy the level in reach and re-plan from the new price
+rather than budgeting a run of them.
 
 ## The watermark problem
 
@@ -43,6 +43,10 @@ at that instant, however good the tooltip looks.
 Efficiency multipliers win while the shared input binds; throughput adders win when spots or
 cooldowns bind. **The answer flips as rates grow**, so re-check it inside an era, not only at
 milestones.
+
+Alchemy Lv is throughput bought with efficiency: each level doubles a recipe's output for four
+times its inputs. While a recipe's input is the binder (Magebloom for Refine Occultic), a level
+beyond what the input supply sustains makes half as much per input once the stock runs dry.
 
 ## Commitment points
 
