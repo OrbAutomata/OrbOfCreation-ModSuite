@@ -17,8 +17,12 @@ the runes the run gives you** — roughly seven to ten. Breadth beats depth.
 - **Runes are few, so set up each roll before paying it.** Rarity, the number of options and the
   reroll budget are all fixed or spent at roll time. Level Discovery Rarity first, and hold an
   optional roll while a near unlock would add an option.
-- **Time Advancements are refunded at every reset**, so there is no spend-timing risk at all. The
-  only thing to get right is the split.
+- **Time Advancements come back only at reset**, so a level bought now is locked for the rest of the
+  run. Hold a reserve for runes still to come instead of sinking it into run-local runes.
+- **Persist Boost goes first when it shows up.** Each level makes one more level of every
+  Investment rune free and refunds TA already invested there
+  ([time-runes.md](../game-systems/time-runes.md)), so it pays back more than it costs — but only
+  if TA is left to buy its levels. A run that spent its TA before rolling it is soft-blocked.
 
 ## Pick the challenge posture, then honour it
 
