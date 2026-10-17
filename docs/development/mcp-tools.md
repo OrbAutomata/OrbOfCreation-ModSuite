@@ -1628,8 +1628,11 @@ one publishes it rather than silently losing it.
 `HarvestElementSO.availableActions`), which apply for a moment rather than while owned;
 `GlobalValues.challengeBaseRewards`, printed on every challenge and owned by no entity; and a tuple
 whose target is resolved at run time (`useTargetRef`), which names no target to publish. `amount` is
-the authored magnitude: a `ScalingWeightEffectMod` on the block (research level, challenge level)
-scales it in play, and the scaled number is not published.
+the authored magnitude: a `ScalingWeightEffectMod` on the block (research level, challenge level,
+alchemy power and speed) scales it in play, and the scaled number is not published. An alchemy
+recipe's row says so beside the block in `levelEffectsAt`: amounts are authored at Lv 1, 100 power
+and 100% speed, and `game_tooltip` shows the card's scaled number; see
+[alchemy.md](../game-systems/alchemy.md#what-an-equipped-recipes-effect-is-worth).
 
 #### What moves a thing: `modifiedBy`
 
@@ -1741,6 +1744,10 @@ remove decisions. An available add includes the live click-sized maximum and nam
 costs with current spendable holdings; an unavailable add carries only its binding reason. Concept
 recipes remain on `game_concept`, Alchemy discovery is the Learn tree's roll on `game_discover`, and recipe
 leveling belongs to the unified level surface rather than this list lifecycle.
+A recipe whose usage requirement is unmet while its core type authors a requirement penalty carries
+`usageRequirement`, the first unmet condition in its tooltip's words and the speed and drain-cost
+penalties in the modifier spelling: `Expert Alchemy at level 7 (at 3) not met: speed x0.250, drain
+cost x16 until it is`.
 
 The screen's Alchemy Lv adjuster is `game_alchemy(mode="set_alchemy_level", level=N)`; see the
 *Level dial loop*.
@@ -2402,7 +2409,10 @@ Remove asks the three questions `SpellManager.RemoveSpell` asks itself — full 
 not readying a cast — before it calls, because the refused branch is not a no-op: the game switches
 the spell to a time-based cooldown on the way out. The refusal names the recipe, quotes the game's
 own "Cannot remove a spell that is still recharging.", and states the live charges and the time to
-the next one. `Spell.CanRemove()` reads like the rule and is not it — the removal path never calls
+the next one. While Auto Cast is on it casts the spell again as soon as it can, so a removal pressed
+from any other screen never finds it full; the refusal then adds the way through: Auto Cast stands
+aside while Magic > Spellbook > Loadout is on screen, so `game_navigate(screen="Magic",
+subtab="Spellbook/Loadout")`, wait there until it reads full charges, and remove. `Spell.CanRemove()` reads like the rule and is not it — the removal path never calls
 it — and gating on it called slots stuck that the game would have cleared. Remove and move
 re-resolve the named slot and its live gates or slot range on the Unity main thread.
 Every mode acquires the family permit last and verifies only requested identity/outcome. Weight,
@@ -3238,7 +3248,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked, `game_agromancy set_druidry_level` before Unlock Druidry Levels, `game_alchemy set_alchemy_level` before Level Alchemy |
-| `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown | `spell-slots` remove decisions, `game_spell_loadout remove` |
+| `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown. While Auto Cast is on, both name the Loadout screen where it stands aside | `spell-slots` remove decisions, `game_spell_loadout remove` |
 | `native_not_discoverable` | The game never offers this entity a discovery action | `canDiscover` predicates on an entity no discovery tree's pool can hold |
 | `projection_refused` | The drain this assignment would add could not be read, so the call fails closed; the game refused nothing. Auto Concept's rate reserve, quantity floor, and its rule against draining a resource that sits at zero never produce it, because all three are read on the service's own call and nowhere else | `game_concept` |
 | `owning_screen_unknown` / `owning_screen_unreadable` / `owning_screen_contradictory` / `owning_screen_status_unmodelled` / `owning_screen_availability_unreadable` / `topology_not_captured` | The five distinct ways the purchase-screen admission chain says no, which used to share one number. Only `topology_not_captured` is fixed by waiting for the next lifecycle; its sentence names the epoch the topology is stamped at, the epoch the call asked for, and how many rows it holds. `owning_screen_unknown` has a second producer: an alchemy recipe whose own alchemy type is in neither audited set, so neither alchemy discovery screen claims it | `game_purchase`, `alchemy-recipes` `discover` decisions |

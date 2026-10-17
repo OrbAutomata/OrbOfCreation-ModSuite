@@ -5890,14 +5890,25 @@ internal static class GameMcpWorldQuery
             effects.Add(entry);
         }
 
+        var block = new JObject { ["levelEffects"] = effects };
+        if (row is WorldAlchemyRecipe) block["levelEffectsAt"] = AlchemyLevelEffectsAt;
         if (projected is GameMcpProjectedDomainValue reflected)
-            return reflected.With(new JObject { ["levelEffects"] = effects }.Freeze());
+            return reflected.With(block.Freeze());
         if (projected is not GameMcpObject frozen) return projected;
         var result = new JObject();
         result.CopyFrom(frozen);
-        result["levelEffects"] = effects;
+        result.CopyFrom(block);
         return result.Freeze();
     }
+
+    /// <summary>
+    /// Every alchemy recipe's persistent block carries a <c>ScalingWeightEffectMod</c>, and
+    /// <c>AlchemyInstance.ReengageRecipe</c> scales it by the instance's power and speed, so the
+    /// authored amount is the card's number only at that one point.
+    /// </summary>
+    internal const string AlchemyLevelEffectsAt =
+        "amounts are authored at Lv 1, 100 power and 100% speed; game_tooltip shows the card's " +
+        "scaled number";
 
     private static GameMcpValue ProjectRowFields(
         GameWorldState world,
@@ -8381,6 +8392,7 @@ internal static class GameMcpWorldQuery
             if (!instance.IsSettled) result["queuedCount"] = instance.QueuedQuantity;
         }
         AddAlchemyLoadoutDecision(world, result, recipe.RecipeId);
+        AddUsageRequirementPenalty(world, result, in recipe);
         AddDiscoveryDecision(
             world,
             result,
@@ -8388,6 +8400,35 @@ internal static class GameMcpWorldQuery
             AlchemyDiscoveryScreen(recipe.CoreTypeId),
             recipe.RecipeId);
         return result.Freeze();
+    }
+
+    /// <summary>
+    /// What an unmet usage requirement costs while it stays unmet: the core alchemy type's
+    /// <c>reqSpeedPenalty</c> and <c>reqCostPenalty</c>, which the recipe applies until
+    /// <c>usagePrerequisites.Check()</c> holds. Absent where the type authors no penalty.
+    /// </summary>
+    private static void AddUsageRequirementPenalty(
+        GameWorldState world,
+        JObject result,
+        in WorldAlchemyRecipe recipe)
+    {
+        if (!WorldLookup.TryFind(world.AlchemyTypes, recipe.CoreTypeId, out var core) ||
+            (core.RequirementSpeedPenalty.IsEmpty() && core.RequirementCostPenalty.IsEmpty()) ||
+            WorldRequirementEvaluator.Evaluate(
+                world, recipe.RecipeId, level: 0, WorldRequirementProgramKind.Usage) !=
+                WorldRequirementVerdict.Unmet)
+        {
+            return;
+        }
+
+        var needs = GameMcpEntityExplainer.FirstUnmetUsageNeeds(world, recipe.RecipeId);
+        var penalties = new List<string>(2);
+        if (!core.RequirementSpeedPenalty.IsEmpty())
+            penalties.Add("speed " + core.RequirementSpeedPenalty.ToStringValue());
+        if (!core.RequirementCostPenalty.IsEmpty())
+            penalties.Add("drain cost " + core.RequirementCostPenalty.ToStringValue());
+        result["usageRequirement"] = (needs.Length == 0 ? "Usage requirement" : needs) +
+            " not met: " + string.Join(", ", penalties) + " until it is";
     }
 
     /// <summary>

@@ -515,6 +515,15 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 "the shared spell loadout GameAction was not composed",
                 lifecycle,
                 configurationGeneration);
+        return SubmitSpellLoadout(_spellLoadout, command, lifecycle, configurationGeneration);
+    }
+
+    internal static GameMcpCommandResult SubmitSpellLoadout(
+        SpellLoadoutGameAction spellLoadout,
+        GameMcpCommand command,
+        long lifecycle,
+        ulong configurationGeneration)
+    {
         var kind = command.Mode switch
         {
             "remove" => SpellLoadoutActionKind.Remove,
@@ -526,7 +535,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.TargetId,
             command.Amount - 1,
             command.ExpectedLifecycleGeneration);
-        var submission = _spellLoadout.Submit(in action);
+        var submission = spellLoadout.Submit(in action);
         var result = SpellLoadoutActionResultMapper.Map(in submission);
         return GameMcpCommandResult.FromAction(
             in result,

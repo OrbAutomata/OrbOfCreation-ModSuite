@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -25,12 +26,16 @@ internal readonly struct WorldAlchemyType : IWorldEntity
         Guid alchemyTypeId,
         Guid selectedLevelId,
         bool maxUsageByMastery,
-        BigDouble level)
+        BigDouble level,
+        GameValueModifier requirementSpeedPenalty = default,
+        GameValueModifier requirementCostPenalty = default)
     {
         AlchemyTypeId = alchemyTypeId;
         SelectedLevelId = selectedLevelId;
         MaxUsageByMastery = maxUsageByMastery;
         Level = level;
+        RequirementSpeedPenalty = requirementSpeedPenalty;
+        RequirementCostPenalty = requirementCostPenalty;
     }
 
     internal Guid AlchemyTypeId { get; }
@@ -45,6 +50,14 @@ internal readonly struct WorldAlchemyType : IWorldEntity
 
     /// <summary>The type's level, which the game keeps as a modifier record rather than an integer.</summary>
     internal BigDouble Level { get; }
+
+    /// <summary>
+    /// <c>reqSpeedPenalty</c> and <c>reqCostPenalty</c>: the speed and drain cost a recipe whose core
+    /// type this is runs at while its usage requirement is unmet.
+    /// </summary>
+    internal GameValueModifier RequirementSpeedPenalty { get; }
+
+    internal GameValueModifier RequirementCostPenalty { get; }
 }
 
 internal sealed class WorldAlchemyTypeBinder : WorldPlainBinder<WorldAlchemyType>
@@ -53,6 +66,8 @@ internal sealed class WorldAlchemyTypeBinder : WorldPlainBinder<WorldAlchemyType
     private Func<object, Guid>? _selectedLevelId;
     private Func<object, bool>? _maxUsageByMastery;
     private Func<object, BigDouble>? _level;
+    private Func<object, GameValueModifier>? _speedPenalty;
+    private Func<object, GameValueModifier>? _costPenalty;
 
     internal override string Category => "alchemy types";
 
@@ -65,7 +80,19 @@ internal sealed class WorldAlchemyTypeBinder : WorldPlainBinder<WorldAlchemyType
         _selectedLevelId = bind.ReferenceGuid("selectedLevel");
         _maxUsageByMastery = bind.Field<bool>("maxUsageByMastery");
         _level = bind.ModifierRecord("level");
+        _speedPenalty = Penalty(bind, "reqSpeedPenalty");
+        _costPenalty = Penalty(bind, "reqCostPenalty");
         return bind.Failure;
+    }
+
+    private static Func<object, GameValueModifier>? Penalty(WorldMemberBinding bind, string field)
+    {
+        var type = bind.NestedEnumField(field, "type");
+        var amount = bind.NestedField<BigDouble>(field, "adjustReal");
+        var order = bind.NestedField<int>(field, "order");
+        if (type is null || amount is null || order is null) return null;
+        return entity => new GameValueModifier(
+            (GameValueModifierType)type(entity), amount(entity), order(entity));
     }
 
     internal override WorldAlchemyType Read(object entity) =>
@@ -73,5 +100,7 @@ internal sealed class WorldAlchemyTypeBinder : WorldPlainBinder<WorldAlchemyType
             _id!(entity),
             _selectedLevelId!(entity),
             _maxUsageByMastery!(entity),
-            _level!(entity));
+            _level!(entity),
+            _speedPenalty!(entity),
+            _costPenalty!(entity));
 }

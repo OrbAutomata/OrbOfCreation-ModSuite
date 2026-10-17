@@ -1743,6 +1743,39 @@ internal static class GameMcpEntityExplainer
     }
 
     /// <summary>
+    /// The first unmet condition of an entity's usage requirement, in the words its tooltip row
+    /// uses, or an empty string where no such condition has words.
+    /// </summary>
+    internal static string FirstUnmetUsageNeeds(GameWorldState world, Guid ownerId)
+    {
+        if (world is null) throw new ArgumentNullException(nameof(world));
+        if (!WorldEntityRequirementLookup.TryFindRange(
+                world.EntityRequirements, ownerId, out var start, out var count))
+        {
+            return string.Empty;
+        }
+
+        var rows = world.EntityRequirements.AsSpan();
+        for (var offset = 0; offset < count; offset++)
+        {
+            ref readonly var row = ref rows[start + offset];
+            if (row.Program != WorldRequirementProgramKind.Usage ||
+                row.NodeKind != WorldRequirementNodeKind.Leaf ||
+                row.Kind is WorldRequirementConditionKind.Unknown
+                    or WorldRequirementConditionKind.Literal
+                    or WorldRequirementConditionKind.PrerequisiteLink)
+            {
+                continue;
+            }
+            var evaluated = WorldRequirementEvaluator.ExplainLeaf(world, in row, level: 0);
+            if (evaluated.Verdict == WorldRequirementVerdict.Unmet)
+                return RequirementNeeds(world, in row, in evaluated);
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
     /// The requirement's target, named the way the player sees it, never as a bare UUID in prose.
     /// </summary>
     private static string RequirementTargetName(GameWorldState world, Guid targetId)
