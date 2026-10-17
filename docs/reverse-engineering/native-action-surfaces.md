@@ -444,6 +444,15 @@ Cost lineage differs by route too: the direct route prices `recipeCost.Multiply(
 the page route `GetTotalCost(previousQuantity, purchaseAmount)`. Quoting one route's price for the
 other misprices the craft.
 
+Both routes take their quantity from `GetPurchaseQuantity(previous)`, which reads the global
+multi-buy through `GetMultiBuyQuantity`: at 1 it is one craft (a level type with nothing queued
+starts at `GetStartingQuantity()`), at 2–99 that percentage of the most the stock affords, rounded
+up, and above 99 — the screen's Mx, 1000 — the most the stock affords. A Scroll recipe
+(`useQuantityAsLevel`) prices its quantity as the scroll's level through
+`MaximumCostTimesExpensive`. `QueueCraft` takes the quantity it is handed, so the page route can be
+given any quantity at or below the Mx one; `Execute` reads it itself, so the direct route is shaped
+only by holding the multi-buy.
+
 ### Level authority
 
 `CraftingRecipeTypeSO` saves two distinct values: `startingLevel`, the manual-crafting selector,
@@ -486,7 +495,7 @@ verifies both facts and fails loudly if an instance contradicts its containing q
 The visible automated add route is
 `UICraftingPage.ContextRecipeClick` → the recipe's multi-buy/automation helpers →
 `CraftingInstanceListVariable.AutomateCraft`. Its increment is capped by the global
-multi-buy. The instance-list click route calls `RemoveAutomation` for automated work;
+multi-buy; the suite passes one repetition. The instance-list click route calls `RemoveAutomation` for automated work;
 manual work calls `CancelCraft` and then removes the exact instance from the queue.
 `CancelCraft` contains no resource-cost or refund call, so cancellation success is queue
 state only and refund behavior remains a live-validation question.

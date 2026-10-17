@@ -442,7 +442,7 @@ rather than from the screen it is drawn on.
 | `game_spell_loadout` | Read staged Spellcraft glyphs; preview/add an explicit layout; or remove/move one equipped runtime spell |
 | `game_targeting` | Submit one exact eligible target or let the native request choose one |
 | `game_consumable` | Use, cancel, discard, randomize, or reorder one published consumable |
-| `game_craft` | Craft a recipe an explicit number of times (`amount` defaults to 1) or control its manual/automated instance |
+| `game_craft` | Craft a recipe an explicit number of times (`amount` defaults to 1, `"max"` is the screen's Mx) or control its manual/automated instance |
 | `game_discover` | Drive a Discovery Tree's roll: initiate, select, confirm, or reroll its offers |
 | `game_equipment` | Equip/increase or unequip/decrease an explicit amount of one created artifact |
 | `game_alchemy` | Add or remove uses of one ordinary Alchemy recipe through its visible list, or set the Alchemy Lv |
@@ -1377,7 +1377,8 @@ actual recipes and is the pre-decision surface for `game_craft`. A recipe row le
 `startingAmount`, `craftTimeSeconds`, and `canStart`; when false, `blockers` names the failed native
 visibility, purchase, queue, page-relation, or output-capacity axis. `execution` identifies the
 direct, existing-stack, or new-instance route. Page routes include current `queuedAmount` and the
-named queue's used/maximum slots. `purchaseAmount` and named `nextCosts` carry the exact next cost,
+named queue's used/maximum slots. `purchaseAmount` and named `nextCosts` carry the exact cost of one
+craft as the screen's x1 press takes it — the starting level for a Scroll — whatever the strip shows,
 canonical `spendableAmount`, and affordability before any mutation. Direct costs use the
 same `recipeCost.Multiply(purchaseAmount)` lineage as native `Execute`; page costs use the same
 `GetTotalCost(previous,purchaseAmount)` lineage as native `QueueCraft`. Named `types`, `inputs`,
@@ -1731,9 +1732,8 @@ instead.
 The `equipment` category is also the artifact-loadout pre-decision surface. Each row names the
 artifact and its primary equipment type, current/maximum stacks, global and type-slot occupancy,
 usage-cost resources with current holdings, and the next equip/unequip admission or refusal. Call
-`game_equipment` with `mode:"equip"` or `mode:"unequip"` and an explicit positive `amount`; the
-tool never reads or mirrors the UI multi-buy strip. A committed call returns the stack
-count before and after. Usage reservations, effects, and
+`game_equipment` with `mode:"equip"` or `mode:"unequip"` and an explicit positive `amount`. A
+committed call returns the stack count before and after. Usage reservations, effects, and
 attunement are post-state evidence, never payment-verification gates.
 
 ### Ordinary Alchemy loadout loop
@@ -1756,7 +1756,7 @@ The screen's Alchemy Lv adjuster is `game_alchemy(mode="set_alchemy_level", leve
 amount through the list's native counted mutation after revalidating live usage capacity. Success
 returns only the settled `activeCount` before and after. The action boundary revalidates exact recipe
 identity, ordinary-family classification, discovery, and capacity before invoking the explicit-count
-core used by the UI wrappers. The global multi-buy strip is never read or changed.
+core used by the UI wrappers.
 
 Loadout order carries no gameplay effect — nothing the game computes reads the position a recipe
 sits in — so there is no verb that reorders it, no `destination` argument on this surface, and no
@@ -3324,10 +3324,10 @@ A slot refusal states both sides — the slot asked for and the slots that exist
 so the retry needs no second read.
 
 A **schema bound** is the range the JSON input schema declares, and it is the suite's own policy on
-what is worth sending in one call — not a native fact. `game_purchase`, `game_craft` and `game_level_up` cap `amount`
+what is worth sending in one call — not a native fact. `game_purchase` and `game_level_up` cap `amount`
 at 1,000, `game_concept` at 1,000,000, and `game_agromancy` at 10,000; the paging tools cap `limit`
 at 200; every other `amount`,
-`slot`, `offset`, and dial `value` or `level` — `game_alchemy` and `game_equipment` among them — declares no
+`slot`, `offset`, and dial `value` or `level` — `game_alchemy`, `game_equipment` and `game_craft` among them — declares no
 ceiling at all, because the suite has no opinion there and the native bound decides. Where the suite
 has no ceiling it publishes none: the schema omits `maximum`, and a below-floor value is refused
 with "must be N or greater" rather than with an `int.MaxValue` placeholder printed in the shape of a
@@ -3342,6 +3342,11 @@ why: `queued: 9 of 10 asked; 1 was not taken because the action queue is full (1
 used).` The shortfall is never silent — turning 1,000 into 1 without saying so is indistinguishable
 from a satisfied `amount=1`, which is the defect that sentence exists to close. Auto Buy's planned
 batches clamp the same way and say nothing, because nobody is waiting on an answer to a plan.
+
+**No MCP verb reads the screen multiplier.** The x1/x5/x25/Mx strip is the player's own setting, and
+every verb that buys, crafts, equips or adds takes its count from its own `amount` instead, holding
+the game's multiplier at that count for the one native call where the game would read it. The
+strip is neither published nor settable, so a call means the same thing whatever the screen shows.
 
 **No automation setting shapes a manual press, on any verb.** A service's settings are the dials
 that service holds *itself* back with. A press a caller asked for is the player acting, and the
@@ -3825,23 +3830,22 @@ recipe, authored page/queue route, native purchase amount, affordability, and ro
 thread, then captures the shared crafting permit last. Direct recipes invoke native
 `CraftingRecipeSO.Execute`; page recipes re-drive the audited stack/new/instant
 `UICraftingPage.QueueCraft` sequence.
-`amount` (1 to 1,000, default 1, `craft` only) is how many times the call presses the recipe's
-Craft button. Each press is one submission of the same craft GameAction, with its own revalidation
-and postcondition, and takes what the screen's press takes: one item at multi-buy 1, the starting
-level for a Scroll recipe. A committed `craft` answers with the presses its own sentinel verified:
-`queued: N` for a queued craft, `completed: N` for a direct or instant one. Like `game_purchase`,
-the ask is taken as far as it goes. A press the game refuses after the first stops the batch, and
-the answer stays committed and says both numbers and why on one line: `queued: 3 of 45 asked; the
-rest stopped: The cost of another of this craft is not met.` A refused first press answers as that
-refusal. A press that faults after earlier ones landed answers as the fault, and its sentence opens
-with how many of the ask went through before it.
+`amount` (a positive whole number, default 1, `craft` only) is how many crafts the call queues. A
+count recipe queues the whole ask as one craft of that quantity, clamped to what the game's own Mx
+press would queue — the most the stock affords. A Scroll recipe's quantity is the scroll's level, so
+each scroll is one submission at the level the screen's x1 press takes. `amount="max"` queues what
+the screen's Mx press would, through the game's own most-affordable rule. A committed `craft`
+answers with the crafts its own sentinel verified: `queued: N` for a queued craft, `completed: N`
+for a direct or instant one. Like `game_purchase`, the ask is taken as far as the stock goes, and a
+shortfall says both numbers and why on one line: `queued: 3 of 45 asked; the rest stopped: The
+cost of another of this craft is not met.` A refused first submission answers as that refusal. One
+that faults after earlier crafts landed answers as the fault, and its sentence opens with how many
+of the ask went through before it.
 
 The other modes use the same authored page relation and exact recipe identity.
-`automate` repeats the UI's native multi-buy and automation-quantity calculation before calling
-`CraftingInstanceListVariable.AutomateCraft`; the two cancel modes call the exact manual or
-automated instance route shown by the UI. `cancel_automation` passes the negated multi-buy amount,
-matching the game's own automation strip, because the native control adds whatever it is given. The
-recipe row publishes manual queued amount and the
+`automate` adds one repetition through `CraftingInstanceListVariable.AutomateCraft`, and
+`cancel_automation` removes one; the two cancel modes call the exact manual or automated instance
+route shown by the UI. The recipe row publishes manual queued amount and the
 automated quantity/capacity needed for the next decision. Success is one settled change, published
 as `amount: {before, after}` in the strip's own badge coordinate — one `cancel_automation` on a
 doubled entry moves the badge 8 to 4 while the repetitions behind it move 4 to 3, so the response

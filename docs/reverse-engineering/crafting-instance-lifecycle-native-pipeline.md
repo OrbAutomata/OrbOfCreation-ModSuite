@@ -28,7 +28,9 @@ When `isAutoList` is true it calls
 `RemoveAutomation(instance, GlobalVariables.GetMultiBuy())` (`0x06001652`). Otherwise
 it calls `CraftingInstance.CancelCraft()` (`0x06000DE9`) and then removes the exact
 instance from the list. The intervening cancel sound is UI feedback, not gameplay
-state, so the GameAction invokes the same gameplay methods without synthesizing audio.
+state, so the GameAction invokes the same gameplay methods without synthesizing audio. It
+passes one repetition to `AutomateCraft` and `-1` to `RemoveAutomation` rather than the
+screen's multi-buy, so one call is one repetition whatever the strip shows.
 
 ## Native effects and sentinels
 
@@ -55,6 +57,6 @@ manual queued amount plus the automated quantity, capacity, and available contro
 Mutations return only the settled quantity transition.
 
 A supervised disposable-save pass must compare one automation increment and decrement
-to the visible multi-buy behavior, cancel one manual in-progress craft, verify automated
+to the x1 press, cancel one manual in-progress craft, verify automated
 zero removal, and observe whether any refund occurs without treating it as a success
 condition.
