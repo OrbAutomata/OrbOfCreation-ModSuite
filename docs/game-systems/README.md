@@ -96,6 +96,8 @@ All constants are read from game version 1.0.5 and are invalidated by a game upd
 
 - [concepts.md](concepts.md) — passive scalers; only a concept in a development slot levels or
   drains.
+- [dimensional.md](dimensional.md) — Conjure Space pays Space, The World opens the World screen's
+  attributes, and Urn of Holding grows the Space cap per second.
 - [agromancy.md](agromancy.md) — plots, nodes and growth phases in their own action queue; growth
   runs with the screen closed.
 - [aspects.md](aspects.md) — three pedestals through which Workshop, Alchemy and Rituals arrive.
