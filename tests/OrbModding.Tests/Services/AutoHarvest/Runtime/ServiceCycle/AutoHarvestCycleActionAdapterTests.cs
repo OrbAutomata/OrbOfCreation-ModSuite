@@ -408,12 +408,14 @@ public sealed class AutoHarvestCycleActionAdapterTests
         public NativeActionOutcome Submit(
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
-            AutoHarvestActionSafetyState safety)
+            AutoHarvestActionSafetyState safety,
+            Action quarantine)
         {
             _events.Add("mutate");
             SubmitCount++;
             Facts = facts;
             Safety = safety;
+            if (Result.CallOutcome.MutationAttempts > 0 && !Result.Verified) quarantine();
             return Result;
         }
     }

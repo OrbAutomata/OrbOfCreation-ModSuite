@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -15,6 +16,12 @@ internal readonly struct PlotLifecycleSubmission
         AfterQuantity = afterQuantity;
         MaximumAmount = maximumAmount;
     }
+
+    internal static PlotLifecycleSubmission Refused(
+        ServiceActionResultCode code,
+        string reason,
+        int maximumAmount = -1) =>
+        new(NativeActionOutcome.Reject(code, reason), maximumAmount: maximumAmount);
 
     internal NativeActionOutcome Outcome { get; }
     internal int BeforeQuantity { get; }

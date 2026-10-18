@@ -232,6 +232,15 @@ declares:
 - its **failure story** — what blocks, what the health surface says when the postcondition
   fails, and, for automation consumers only, what quarantines.
 
+`NativeGameAction` in Common is the shell a GameAction derives from; the action supplies only its
+binding factory, screen, admission, native call and sentinel. The shell answers in a fixed order:
+the wrong thread, then a missing binding set, then the run. An epoch the game cannot answer is a
+fault, never a replaced run. An expected throw during admission is a refusal, because nothing was
+sent. The native call goes through `NativeMutationVerifier`: a visible outcome commits, a missing
+one is a verification fault, and an expected throw or an unreadable after-state is a post-commit
+fault that names the game's error by its log reference. A GameAction not yet on the shell is
+migration debt.
+
 Mutation entry points, in strict order of preference:
 
 1. **A data-layer composite** the game already owns: `UpgradeSO.Purchase`,
@@ -293,7 +302,10 @@ defines what a postcondition is, not preflight authority.
 
 `NativeFailureClassifier.IsExpected` is the one list of exceptions that count as a failed native
 read or call, for every GameAction, adapter and reader. Any other exception is a suite defect and
-escapes to the boundary that reports it as a fault.
+escapes to the boundary that reports it as a fault. After a native call ran, `NativeMutationVerifier`
+classifies every throw first: it reads the after-state, records the outcome and runs the caller's
+quarantine, and only then lets an unexpected exception escape. The defect stays loud, and the
+quarantine already holds when the fault tracker retries the batch.
 
 ## MCP responses: worked, or why not
 

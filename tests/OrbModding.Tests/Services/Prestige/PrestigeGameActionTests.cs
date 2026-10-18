@@ -10,6 +10,7 @@ namespace OrbModding.Tests.Services.Prestige;
 public sealed class PrestigeGameActionTests : IDisposable
 {
     private long _epoch = 10;
+    private Exception? _epochFailure;
 
     public PrestigeGameActionTests()
     {
@@ -97,6 +98,20 @@ public sealed class PrestigeGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        using var boundary = Boundary();
+        _epochFailure = new InvalidOperationException("lifecycle unavailable");
+
+        var submission = boundary.Submit(new PrestigeAction(10));
+
+        Assert.True(submission.IsFault);
+        Assert.Equal(PrestigeActionResultCodes.ContractUnavailable, submission.Code);
+        Assert.Equal(0, submission.CallOutcome.MutationAttempts);
+        Assert.Equal(0, PersistentResetManager.instance.ResetCalls);
+    }
+
+    [Fact]
     public void Wrong_thread_refuses_before_native_access()
     {
         using var boundary = Boundary();
@@ -130,7 +145,7 @@ public sealed class PrestigeGameActionTests : IDisposable
 
     private PrestigeGameAction Boundary(Func<bool>? permit = null,
         Func<string, bool>? include = null) => new(
-        () => _epoch,
+        () => _epochFailure is { } failure ? throw failure : _epoch,
         permit ?? (() => true),
         static () => "PrestigeLifecycle ownership was revoked.",
         name => name switch

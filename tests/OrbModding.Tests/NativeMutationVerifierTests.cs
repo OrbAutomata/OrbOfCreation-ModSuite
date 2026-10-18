@@ -85,25 +85,30 @@ public sealed class NativeMutationVerifierTests : IDisposable
     }
 
     /// <summary>
-    /// A fault names the game's own exception, not the reflection wrapper around it: the view
-    /// toggles and the verifiers still reach the game through <c>MethodInfo.Invoke</c>.
+    /// A throw outside the expected native failures is classified and quarantined first, then
+    /// escapes, and its evidence names the game's own exception rather than the reflection wrapper
+    /// around it.
     /// </summary>
     [Fact]
-    public void ExecutionThrewNamesTheThrowersTypeAndFrameOnOneBoundedLine()
+    public void AnUnexpectedThrowIsClassifiedAndQuarantinedBeforeItEscapes()
     {
         var thrower = typeof(NativeMutationVerifierTests).GetMethod(
             nameof(ThrowFromNativeCode),
             BindingFlags.Static | BindingFlags.NonPublic)!;
+        NativeMutationEvidence<int>? quarantined = null;
 
-        var evidence = NativeMutationVerifier.Execute(
+        Assert.Throws<TargetInvocationException>(() => NativeMutationVerifier.Execute(
             "test queue",
             "candidate-reflected",
             "exact delta +1",
             () => 0,
             () => thrower.Invoke(null, null),
-            (before, after) => after == before + 1);
+            (before, after) => after == before + 1,
+            evidence => quarantined = evidence));
 
+        var evidence = Assert.NotNull(quarantined);
         Assert.Equal(NativeMutationOutcome.ExecutionThrew, evidence.Outcome);
+        Assert.IsType<TargetInvocationException>(evidence.Exception);
         Assert.Contains(typeof(NullReferenceException).FullName!, evidence.Detail);
         Assert.Contains(nameof(ThrowFromNativeCode), evidence.Detail);
         Assert.DoesNotContain(nameof(TargetInvocationException), evidence.Detail);

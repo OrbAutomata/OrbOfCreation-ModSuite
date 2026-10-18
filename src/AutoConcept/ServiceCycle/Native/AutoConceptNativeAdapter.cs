@@ -493,7 +493,9 @@ internal sealed class AutoConceptNativeAdapter :
             expectedChange,
             () => CaptureQueuedQuantity(candidate.Recipe),
             execute,
-            verify);
+            verify,
+            attempted => _blockedReason =
+                $"native Concept mutation blocked until the next lifecycle: {attempted.Format()}");
         _lastMutationEvidence = evidence;
         _lastNativeMutationOutcome = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified)
@@ -502,10 +504,8 @@ internal sealed class AutoConceptNativeAdapter :
             return true;
         }
 
-        reason = evidence.Format();
-        return evidence.MutationWasAttempted
-            ? Fail($"native Concept mutation blocked until the next lifecycle: {reason}", out reason)
-            : false;
+        reason = evidence.MutationWasAttempted ? _blockedReason! : evidence.Format();
+        return false;
     }
 
     private int CaptureQueuedQuantity(object recipe)

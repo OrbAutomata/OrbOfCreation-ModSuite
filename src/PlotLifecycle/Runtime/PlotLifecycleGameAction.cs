@@ -1,22 +1,21 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 /// <summary>Unity-main-thread boundary for every player-visible plot/action pair.</summary>
-internal sealed class PlotLifecycleGameAction : IDisposable
+internal sealed class PlotLifecycleGameAction : NativeGameAction<PlotLifecycleNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private const string Screen = "World > Agromancy";
+
+    private static readonly GameActionCodes Codes = new(
+        PlotLifecycleActionResultCodes.WrongThread,
+        PlotLifecycleActionResultCodes.ContractUnavailable,
+        PlotLifecycleActionResultCodes.MutationPermitUnavailable,
+        PlotLifecycleActionResultCodes.PostCommitFault,
+        PlotLifecycleActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private PlotLifecycleNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal PlotLifecycleGameAction(
         Func<long> readLifecycleEpoch,
@@ -25,90 +24,69 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Plot", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out PlotLifecycleNativeBindings? bindings, out string reason) =>
+                PlotLifecycleNativeBindings.TryCreate(
+                    out bindings, out reason, resolveType, includeContract))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(
-            _readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal PlotLifecycleSubmission Submit(in PlotLifecycleAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(PlotLifecycleActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
-            return Reject(PlotLifecycleActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("World > Agromancy", _bindingFailure));
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
-        }
-        if (action.LifecycleEpoch != epoch)
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        try
-        {
-            if (!TryResolve(action.PlotId, native.PlotType, out var plot, out var reason) ||
-                !TryResolve(action.ActionId, native.ActionType, out var actionObject, out reason))
-                return Reject(PlotLifecycleActionResultCodes.IdentityUnavailable, reason);
-            if (!TryResolve(PlotLifecycleNativeBindings.ActiveActionsId,
-                    native.ListType, out var list, out reason))
-                return Reject(PlotLifecycleActionResultCodes.ContractUnavailable, reason);
-            if (!native.PlotVisible(plot!))
-                return Reject(PlotLifecycleActionResultCodes.PlotUnavailable,
-                    EntityIdentityFormatter.PlayerName(action.PlotId) + " is not visible yet.");
-            var prototype = FindPrototype(native, plot!, actionObject!);
-            if (prototype is null)
-                return Reject(PlotLifecycleActionResultCodes.ActionUnavailable,
-                    EntityIdentityFormatter.PlayerName(action.ActionId) + " is not offered for " +
-                    EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
-            var current = native.FindInstance(list!, prototype);
-            if (current is not null && current.GetType() != native.InstanceType)
-                return Reject(PlotLifecycleActionResultCodes.ContractUnavailable,
-                    "The active plot action has an unexpected native type.");
-            var before = Quantity(native, current);
-            var admission = Admit(in action, native, prototype, list!, current, before);
-            if (admission.HasValue) return admission.Value;
-            if (!_tryCaptureMutationPermit())
-                return Reject(PlotLifecycleActionResultCodes.MutationPermitUnavailable,
-                    _readOwnershipFailure());
-            return Execute(in action, native, list!, prototype, current, before);
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return Reject(PlotLifecycleActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("World > Agromancy", exception));
-        }
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new PlotLifecycleSubmission(outcome),
+            native => Press(in request, native));
     }
 
-    internal void InvalidateLifecycle()
+    private PlotLifecycleSubmission Press(in PlotLifecycleAction action, PlotLifecycleNativeBindings native)
     {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
+        if (!_registry.TryResolveCurrent(action.PlotId, native.PlotType, out var plot, out var reason) ||
+            !_registry.TryResolveCurrent(action.ActionId, native.ActionType, out var actionObject, out reason))
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.IdentityUnavailable, reason);
+        if (!_registry.TryResolveCurrent(PlotLifecycleNativeBindings.ActiveActionsId,
+                native.ListType, out var list, out reason))
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.ContractUnavailable, reason);
+        if (!native.PlotVisible(plot))
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.PlotUnavailable,
+                EntityIdentityFormatter.PlayerName(action.PlotId) + " is not visible yet.");
+        var prototype = FindPrototype(native, plot, actionObject);
+        if (prototype is null)
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.ActionUnavailable,
+                EntityIdentityFormatter.PlayerName(action.ActionId) + " is not offered for " +
+                EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
+        var current = native.FindInstance(list, prototype);
+        if (current is not null && current.GetType() != native.InstanceType)
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.ContractUnavailable,
+                "The active plot action has an unexpected native type.");
+        var before = Quantity(native, current);
+        var admission = AdmitQuantity(in action, native, prototype, list, current, before);
+        if (admission.HasValue) return admission.Value;
+        if (!TryPermit(out var refusal)) return new PlotLifecycleSubmission(refusal);
+
+        var add = action.Kind == PlotLifecycleActionKind.Add;
+        var amount = action.Amount;
+        var expected = add ? checked(before + amount) : checked(before - amount);
+        var outcome = Execute(EntityIdentityFormatter.PlayerName(action.PlotId),
+            "The requested plot-action quantity change is visible.", before,
+            () => Quantity(native, native.FindInstance(list, prototype)),
+            () =>
+            {
+                if (add)
+                    native.AddInstance(list, prototype, amount);
+                else if (native.InstanceAtMinimum(current!))
+                    native.InstanceCancel(current!);
+                else
+                    native.RemoveInstance(list, current!, amount);
+            },
+            (_, after) => after == expected);
+        return outcome.Verified
+            ? new PlotLifecycleSubmission(outcome, before, expected)
+            : new PlotLifecycleSubmission(outcome);
     }
 
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-    }
-
-    private static PlotLifecycleSubmission? Admit(
+    private static PlotLifecycleSubmission? AdmitQuantity(
         in PlotLifecycleAction action,
         PlotLifecycleNativeBindings native,
         object prototype,
@@ -121,11 +99,11 @@ internal sealed class PlotLifecycleGameAction : IDisposable
             // Not an amount problem in any sense, and the one case where retrying with a smaller
             // amount is guaranteed useless: the pair is not active at all.
             if (current is null || before <= 0)
-                return Reject(PlotLifecycleActionResultCodes.NotActive,
+                return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.NotActive,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " is not active on " +
                     EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
             if (action.Amount > before)
-                return Reject(PlotLifecycleActionResultCodes.QuantityUnavailable,
+                return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.QuantityUnavailable,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " has only " + before +
                     " active " + (before == 1 ? "instance" : "instances") + " on " +
                     EntityIdentityFormatter.PlayerName(action.PlotId) + ".");
@@ -133,11 +111,11 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         }
 
         if (!native.InstanceVisible(prototype))
-            return Reject(PlotLifecycleActionResultCodes.ActionUnavailable,
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.ActionUnavailable,
                 EntityIdentityFormatter.PlayerName(action.ActionId) + " is not available for " +
                 EntityIdentityFormatter.PlayerName(action.PlotId) + " yet.");
         if (!native.InstanceAffordable(prototype))
-            return Reject(PlotLifecycleActionResultCodes.QuantityUnavailable,
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.QuantityUnavailable,
                 EntityIdentityFormatter.PlayerName(action.PlotId) +
                 " does not have enough remaining quantity for that action.");
         var maximumRemaining = native.InstanceMaximumRemaining(prototype);
@@ -145,60 +123,16 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         if (action.Amount > maximumRemaining || before + action.Amount > maximum)
         {
             var remaining = Math.Max(Math.Min(maximumRemaining, maximum - before), 0);
-            return Reject(PlotLifecycleActionResultCodes.QuantityUnavailable,
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.QuantityUnavailable,
                 "The plot currently allows at most " + remaining +
                 " more active instances of " + EntityIdentityFormatter.PlayerName(action.ActionId) + ".",
                 remaining);
         }
         if ((current is null || before <= 0) && !native.ListHasRoom(list))
-            return Reject(PlotLifecycleActionResultCodes.ActionListFull,
+            return PlotLifecycleSubmission.Refused(PlotLifecycleActionResultCodes.ActionListFull,
                 "The active plot-action list has no empty slot.");
         return null;
     }
-
-    private static PlotLifecycleSubmission Execute(
-        in PlotLifecycleAction action,
-        PlotLifecycleNativeBindings native,
-        object list,
-        object prototype,
-        object? current,
-        int before)
-    {
-        var stage = "NativeCallback";
-        try
-        {
-            if (action.Kind == PlotLifecycleActionKind.Add)
-                native.AddInstance(list, prototype, action.Amount);
-            else if (native.InstanceAtMinimum(current!))
-                native.InstanceCancel(current!);
-            else
-                native.RemoveInstance(list, current!, action.Amount);
-            stage = "Verification";
-            var after = Quantity(native, native.FindInstance(list, prototype));
-            return OutcomeObserved(in action, before, after)
-                ? Verified(before, after)
-                : Fault(in action, PlotLifecycleActionResultCodes.VerificationFailed, stage,
-                    NativeMutationOutcome.PostconditionFailed,
-                    GameActionAnswer.ChangeNotSeen("World > Agromancy"));
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            if (NativeMutationVerifier.TryReadAfterCall(
-                    () => Quantity(native, native.FindInstance(list, prototype)), out var after) &&
-                OutcomeObserved(in action, before, after)) return Verified(before, after);
-            return Fault(in action, PlotLifecycleActionResultCodes.PostCommitFault, stage,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("World > Agromancy", exception));
-        }
-    }
-
-    private static bool OutcomeObserved(
-        in PlotLifecycleAction action,
-        int before,
-        int after) =>
-        action.Kind == PlotLifecycleActionKind.Add
-            ? after == checked(before + action.Amount)
-            : after == checked(before - action.Amount);
 
     private static int Quantity(PlotLifecycleNativeBindings native, object? instance) =>
         instance is null ? 0 : Math.Max(native.InstanceQuantity(instance), 0);
@@ -221,54 +155,4 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         }
         return found;
     }
-
-    private bool TryResolve(Guid id, Type type, out object? value, out string reason)
-    {
-        var resolution = _registry.Resolve(id, type);
-        if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-        {
-            value = null;
-            reason = resolution.IsResolved
-                ? EntityIdentityFormatter.PlayerName(id) + " became stale."
-                : resolution.Reason;
-            return false;
-        }
-        value = resolution.Value;
-        reason = string.Empty;
-        return true;
-    }
-
-    private static PlotLifecycleSubmission Reject(
-        ServiceActionResultCode code,
-        string reason,
-        int maximumAmount = -1) =>
-        new(NativeActionOutcome.Reject(code, reason), 0, 0, maximumAmount);
-
-    private static PlotLifecycleSubmission Verified(int before, int after) =>
-        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
-            "The requested plot-action quantity change is visible."), before, after);
-
-    private static PlotLifecycleSubmission Fault(
-        in PlotLifecycleAction action,
-        ServiceActionResultCode code,
-        string stage,
-        NativeMutationOutcome outcome,
-        string reason) =>
-        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
-            "Plot " + stage + " failed on " + EntityIdentityFormatter.PlayerName(action.PlotId) +
-            ": " + reason));
-
-    private void BindLifecycle()
-    {
-        if (PlotLifecycleNativeBindings.TryCreate(
-                out var bindings, out var reason, _resolveType, _includeContract))
-        {
-            _bindings = bindings;
-            _bindingFailure = string.Empty;
-            return;
-        }
-        _bindings = null;
-        _bindingFailure = reason;
-    }
-
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace OrbModding.Common;
@@ -113,6 +114,30 @@ public sealed class TypedRegistryResolver
 
     public bool IsCurrent(TypedRegistryResolution resolution) =>
         resolution is not null && resolution.IsCurrent(_readGeneration());
+
+    /// <summary>
+    /// The live object a GameAction acts on, or the refusal it gives: the resolver's own reason, or
+    /// that a resolved object belongs to a lifecycle that has since been replaced.
+    /// </summary>
+    public bool TryResolveCurrent(
+        Guid uuid,
+        Type expectedType,
+        [NotNullWhen(true)] out object? value,
+        out string reason)
+    {
+        var resolution = Resolve(uuid, expectedType);
+        if (resolution.IsResolved && IsCurrent(resolution))
+        {
+            value = resolution.Value!;
+            reason = string.Empty;
+            return true;
+        }
+        value = null;
+        reason = resolution.IsResolved
+            ? EntityIdentityFormatter.PlayerName(uuid) + " became stale."
+            : resolution.Reason;
+        return false;
+    }
 
     public TypedRegistryResolution Resolve(Guid uuid, Type expectedType)
     {

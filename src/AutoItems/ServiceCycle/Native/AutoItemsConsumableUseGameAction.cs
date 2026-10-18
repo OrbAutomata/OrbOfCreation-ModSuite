@@ -145,6 +145,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         var itemId = action.ItemId;
         var family = action.Family;
         NativeMutationEvidence<int> evidence;
+        var failureReason = string.Empty;
         using (multiBuy)
         {
             evidence = NativeMutationVerifier.Execute(
@@ -153,7 +154,8 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 "the exact item enters the native preparation queue",
                 () => native.GetQueued(item),
                 () => Mutate(item, family, native),
-                (before, after) => after == before + 1);
+                (before, after) => after == before + 1,
+                attempted => failureReason = Quarantine(itemId, temporary, attempted.Detail));
         }
 
         var callOutcome = new NativeMutationCallOutcome(
@@ -167,32 +169,31 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 callOutcome,
                 $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} entered native preparation.");
         if (evidence.MutationWasAttempted)
-        {
-            string failureReason;
-            if (temporary)
-            {
-                failureReason =
-                    $"Temporary item {EntityIdentityFormatter.PlayerName(action.ItemId)} is quarantined for this lifecycle after " +
-                    $"an ambiguous consumable mutation: {evidence.Detail}";
-                _temporaryQuarantine[action.ItemId] = failureReason;
-            }
-            else
-            {
-                _quarantineReason =
-                    "Auto Items is quarantined for this lifecycle after an ambiguous consumable " +
-                    $"mutation on {EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}";
-                failureReason = _quarantineReason;
-            }
             return NativeActionOutcome.Fault(
                 AutoItemsActionResultCodes.Quarantined,
                 evidence.Outcome,
                 callOutcome,
                 failureReason);
-        }
         return NativeActionOutcome.FaultBeforeCall(
             AutoItemsActionResultCodes.ContractUnavailable,
             "Auto Items could not read the consumable preparation queue for " +
             $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}");
+    }
+
+    private string Quarantine(Guid itemId, bool temporary, string detail)
+    {
+        if (temporary)
+        {
+            var reason =
+                $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} is quarantined for this lifecycle after " +
+                $"an ambiguous consumable mutation: {detail}";
+            _temporaryQuarantine[itemId] = reason;
+            return reason;
+        }
+        _quarantineReason =
+            "Auto Items is quarantined for this lifecycle after an ambiguous consumable " +
+            $"mutation on {EntityIdentityFormatter.PlayerName(itemId)}: {detail}";
+        return _quarantineReason;
     }
 
     internal void InvalidateLifecycle()
