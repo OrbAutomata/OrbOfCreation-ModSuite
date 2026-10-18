@@ -23,7 +23,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         "crafting-instance.page-automation-action",
         "crafting-player.page-main-type-action",
         "abstract-list.value",
-        "id-scriptable-object.get-guid-action",
         "auto-scribe.recipe.get-main-type",
         "crafting-instance.queue-get-instance-action",
         "crafting-instance.queue-automate-action",
@@ -44,7 +43,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     private readonly Func<object, object?> _pageMainType;
     private readonly Func<object, IList?> _recipeValues;
     private readonly Func<object, IList?> _instanceValues;
-    private readonly Func<object, Guid> _identity;
     private readonly Func<object, object?> _recipeMainType;
     private readonly Func<object, object, object?> _getInstance;
     private readonly Func<object, object, int, object?> _automate;
@@ -69,7 +67,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         Func<object, object?> pageMainType,
         Func<object, IList?> recipeValues,
         Func<object, IList?> instanceValues,
-        Func<object, Guid> identity,
         Func<object, object?> recipeMainType,
         Func<object, object, object?> getInstance,
         Func<object, object, int, object?> automate,
@@ -93,7 +90,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
         _pageMainType = pageMainType;
         _recipeValues = recipeValues;
         _instanceValues = instanceValues;
-        _identity = identity;
         _recipeMainType = recipeMainType;
         _getInstance = getInstance;
         _automate = automate;
@@ -118,7 +114,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
     internal object PageAutomation(object page) => Exact(_pageAutomation(page), QueueType);
     internal object PageMainType(object page) =>
         _pageMainType(page) ?? throw new InvalidOperationException("Crafting page type was null.");
-    internal Guid Identity(object value) => _identity(value);
     internal object RecipeMainType(object recipe) =>
         _recipeMainType(recipe) ?? throw new InvalidOperationException("Crafting recipe type was null.");
     internal bool RecipeVisible(object recipe) => _visible(recipe);
@@ -174,7 +169,6 @@ internal sealed class CraftingInstanceLifecycleNativeBindings
                     "abstract-list.value", recipeList, "value", typeof(List<>).MakeGenericType(recipe)),
                 set.Field<Func<object, IList?>>(
                     "abstract-list.value", queue, "value", typeof(List<>).MakeGenericType(instance)),
-                set.StableUuid("id-scriptable-object.get-guid-action", recipe),
                 set.Call<Func<object, object?>>("auto-scribe.recipe.get-main-type", recipe, "GetMainType", recipeType),
                 set.Call<Func<object, object, object?>>(
                     "crafting-instance.queue-get-instance-action", queue, "GetInstance", instance, recipe),

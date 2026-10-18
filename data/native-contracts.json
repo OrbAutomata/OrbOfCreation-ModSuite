@@ -3353,44 +3353,7 @@
       "parameters": [],
       "owners": [
         "Automata Auto Concept drain",
-        "Automata cost-math verification",
-        "Automata world collection"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "big-double.exponent",
-      "assembly": "assembly-csharp-firstpass",
-      "type": "BigDouble",
-      "typeVisibility": "public",
-      "kind": "field",
-      "member": "exponent",
-      "visibility": "private",
-      "static": false,
-      "valueType": "System.Int64",
-      "owners": [
-        "Automata numeric bridge"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "big-double.mantissa",
-      "assembly": "assembly-csharp-firstpass",
-      "type": "BigDouble",
-      "typeVisibility": "public",
-      "kind": "field",
-      "member": "mantissa",
-      "visibility": "private",
-      "static": false,
-      "valueType": "System.Double",
-      "owners": [
-        "Automata numeric bridge"
+        "Automata cost-math verification"
       ],
       "usages": [
         "reflection"
@@ -8162,7 +8125,6 @@
         "Automata Auto Buy destination-capacity admission",
         "Automata spell workbench GameAction",
         "Automata Discovery Tree offer GameAction",
-        "Automata crafting-instance GameAction",
         "Automata Auto Items action boundary",
         "Automata Auto Cast",
         "Common Alchemy classifier",
@@ -20364,7 +20326,6 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary",
         "Automata consumable GameAction"
       ],
       "usages": [
@@ -23919,25 +23880,6 @@
       "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game walks a collection and hands back its members.", "evidence": "kind:method returning System.Collections.Generic.List`1<GlyphSO>; classified from its signature, no IL body audit"}
     },
     {
-      "id": "spell-workbench.recipe-get-glyphs-action",
-      "assembly": "assembly-csharp",
-      "type": "SpellRecipeSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetGlyphRecipe",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Collections.Generic.List`1<GlyphSO>",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
       "id": "spell-workbench.recipe-create-empty-action",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
@@ -24932,25 +24874,6 @@
       ],
       "owners": [
         "Automata spell composition GameAction"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "spell-composition.spell-get-augment-glyphs-action",
-      "assembly": "assembly-csharp",
-      "type": "Spell",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetAugmentGlyphs",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Collections.Generic.List`1<GlyphSO>",
-      "parameters": [],
-      "owners": [
-        "Automata spell workbench GameAction"
       ],
       "usages": [
         "reflection"
@@ -26896,8 +26819,13 @@
       "id": "equipment-loadout.list-at-maximum-action", "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "IsAtMax",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
-      "owners": ["Automata equipment loadout GameAction", "Common equipment decision world collection"],
-      "usages": ["reflection"], "place": "action"
+      "owners": ["Common equipment decision world collection"],
+      "usages": ["reflection"], "place": "capture",
+      "capture": {
+        "class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [],
+        "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.",
+        "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"
+      }
     },
     {
       "id": "equipment-loadout.list-values-action", "assembly": "assembly-csharp",

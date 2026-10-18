@@ -248,6 +248,20 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Equip_never_needs_a_member_the_press_does_not_read()
+    {
+        var target = Equipment();
+        Register(target);
+        using var boundary = Boundary(
+            includeContract: id => id != "equipment-loadout.list-at-maximum-action");
+
+        var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
+
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+        Assert.Equal(2, EquipmentManager.instance.equippedEquipment.GetStacks(target));
+    }
+
     private EquipmentLoadoutGameAction Boundary(Func<long>? epoch = null,
         Func<bool>? permit = null, Func<string, bool>? includeContract = null)
     {

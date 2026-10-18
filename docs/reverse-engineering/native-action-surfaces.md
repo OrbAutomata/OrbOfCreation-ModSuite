@@ -790,8 +790,9 @@ once; a per-spell output level does not exist to be set.
 stack and the resolved-glyph stack, invokes `SpellRecipeSO.LoadGlyphs`, then recomputes spell cost.
 There is no add-one or remove-one member: pass the complete intended stack, built through
 `AbstractStackedRecord<GlyphSO, IdReference<GlyphSO>>.Set(GlyphSO, int)` (`0x060029E8`), and an empty
-record clears. Read it back through `Spell.GetAugmentGlyphs()` (`0x06001075`) and
-`Spell.GetQuantityOfGlyph(GlyphSO)` (`0x06001049`).
+record clears. Read it back through the `Spell.augmentGlyphRefs` stack and
+`Spell.GetQuantityOfGlyph(GlyphSO)` (`0x06001049`); `Spell.GetAugmentGlyphs()` (`0x06001075`) returns
+one entry per distinct glyph and drops the counts.
 
 Admission is per glyph and then combined:
 

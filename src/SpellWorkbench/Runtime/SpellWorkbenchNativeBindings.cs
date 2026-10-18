@@ -31,7 +31,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.recipe-all-action",
         "id-scriptable-object.get-guid-action",
         "spell-recipe.is-discovered",
-        "spell-workbench.recipe-get-glyphs-action",
         "spell-workbench.recipe-create-empty-action",
         "spell-workbench.recipe-selected-level-action",
         "spell-workbench.recipe-usage-requirements-action",
@@ -54,7 +53,6 @@ internal sealed class SpellWorkbenchNativeBindings
         "spell-workbench.spell-set-level-action",
         "spell-workbench.spell-is-unique-action",
         "spell-composition.spell-set-augments-action",
-        "spell-composition.spell-get-augment-glyphs-action",
         "spell-composition.stacked-record-type-action",
         "spell-composition.stacked-record-construct-action",
         "spell-composition.stacked-record-set-action",
@@ -70,7 +68,7 @@ internal sealed class SpellWorkbenchNativeBindings
         Func<object?> manager, Func<IList> recipes,
         Func<object, object> core, Func<object, object> augments, Func<object, object> active,
         Func<object, IList> glyphValues, Func<object, IList> activeValues, Func<object, Guid> identity,
-        Func<object, IList> recipeGlyphs, Func<object, bool> discovered,
+        Func<object, bool> discovered,
         Func<object, bool> hasEnough,
         Func<object, IList> costEntries, Func<object, BigDouble> costValue,
         Func<object, object?> costResource, Func<object, BigDouble, bool> resourceHasAmount,
@@ -83,7 +81,7 @@ internal sealed class SpellWorkbenchNativeBindings
         Action<object, object> create, Func<object, int, object> createEmpty,
         Func<object, int> selectedLevel, Func<object, bool> usageRequirements,
         Action<object, int> setLevel, Action<object, object> setAugments,
-        Func<object, bool> unique, Func<object, IList> spellAugments,
+        Func<object, bool> unique,
         Func<object, object?> spellAugmentStack,
         Func<IList, object, bool> meetsNonLevelRequirements,
         Func<object> createStackedRecord, Action<object, object, int> setStackedRecord,
@@ -103,7 +101,6 @@ internal sealed class SpellWorkbenchNativeBindings
         ReadGlyphValues = glyphValues;
         ReadActiveValues = activeValues;
         ReadIdentity = identity;
-        ReadRecipeGlyphs = recipeGlyphs;
         IsDiscovered = discovered;
         HasEnough = hasEnough;
         ReadCostEntries = costEntries;
@@ -127,7 +124,6 @@ internal sealed class SpellWorkbenchNativeBindings
         SetSpellLevel = setLevel;
         SetSpellAugments = setAugments;
         IsUniqueSpell = unique;
-        ReadSpellAugments = spellAugments;
         ReadSpellAugmentStack = spellAugmentStack;
         MeetsNonLevelRequirements = meetsNonLevelRequirements;
         CreateStackedRecord = createStackedRecord;
@@ -160,7 +156,6 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Func<object, IList> ReadGlyphValues { get; }
     internal Func<object, IList> ReadActiveValues { get; }
     internal Func<object, Guid> ReadIdentity { get; }
-    internal Func<object, IList> ReadRecipeGlyphs { get; }
     internal Func<object, bool> IsDiscovered { get; }
     internal Func<object, bool> HasEnough { get; }
     internal Func<object, IList> ReadCostEntries { get; }
@@ -200,10 +195,9 @@ internal sealed class SpellWorkbenchNativeBindings
     internal Action<object, int> SetSpellLevel { get; }
     internal Action<object, object> SetSpellAugments { get; }
     internal Func<object, bool> IsUniqueSpell { get; }
-    internal Func<object, IList> ReadSpellAugments { get; }
 
     /// <summary>
-    /// The multiplicity record a loaded spell was baked from. <see cref="ReadSpellAugments"/>
+    /// The multiplicity record a loaded spell was baked from. <c>Spell.GetAugmentGlyphs()</c>
     /// projects it to distinct items and loses the counts, so only this can answer whether a spell
     /// carries two of a glyph or one.
     /// </summary>
@@ -254,8 +248,6 @@ internal sealed class SpellWorkbenchNativeBindings
                 set.Field<Func<object, IList>>("spell-workbench.list-value-action", glyphListType, "value", glyphList),
                 set.Field<Func<object, IList>>("spell-workbench.list-value-action", spellListType, "value", spellList),
                 set.StableUuid("id-scriptable-object.get-guid-action", identityType),
-                set.Call<Func<object, IList>>(
-                    "spell-workbench.recipe-get-glyphs-action", recipeType, "GetGlyphRecipe", glyphList),
                 set.Call<Func<object, bool>>("spell-recipe.is-discovered", recipeType, "IsDiscovered", typeof(bool)),
                 set.Call<Func<object, bool>>("resource-cost-list.has-enough", costType, "HasEnough", typeof(bool)),
                 set.Call<Func<object, IList>>("resource-cost-list.get-entries", costType, "GetEntries", costTupleList),
@@ -297,8 +289,6 @@ internal sealed class SpellWorkbenchNativeBindings
                     stackedType),
                 set.Call<Func<object, bool>>(
                     "spell-workbench.spell-is-unique-action", spellType, "IsUniqueSpell", typeof(bool)),
-                set.Call<Func<object, IList>>(
-                    "spell-composition.spell-get-augment-glyphs-action", spellType, "GetAugmentGlyphs", glyphList),
                 set.Field<Func<object, object?>>(
                     "spell-composition.spell-augment-stack-action", spellType, "augmentGlyphRefs", stackedType),
                 set.StaticCall<Func<IList, object, bool>>(

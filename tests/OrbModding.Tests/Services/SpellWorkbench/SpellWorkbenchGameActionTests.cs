@@ -822,6 +822,25 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("spell-workbench.recipe-get-glyphs-action")]
+    [InlineData("spell-composition.spell-get-augment-glyphs-action")]
+    public void LoadoutAddNeverNeedsAMemberThePressDoesNotRead(string unread)
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 2);
+        using var action = Action(include: id => id != unread);
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(),
+            Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
+
+        Assert.True(result.Verified, result.Reason);
+        var equipped = Assert.Single(SpellManager.instance!.activeSpells.value);
+        Assert.Equal(2, equipped.GetQuantityOfGlyph(augment));
+    }
+
     [Fact]
     public void OverflowFromANativeReadIsAnsweredAsUnreadable()
     {
