@@ -167,7 +167,7 @@ public sealed class ConfigurationSchemaStatusProjectionTests
         Assert.All(snapshot.Mods, mod =>
         {
             Assert.Empty(mod.Sections);
-            Assert.False(ModConfigPanel.CanApplySelection(mod, sessionDirty: true, sessionValid: true));
+            Assert.False(ModSettingsPage.CanApplySelection(mod, sessionDirty: true, sessionValid: true));
         });
         Assert.Empty(session.Values);
         Assert.False(session.IsDirty);
@@ -181,7 +181,7 @@ public sealed class ConfigurationSchemaStatusProjectionTests
     public void WorkerThreadSchemaTransitionOnlyMarksOneMainThreadRefresh()
     {
         var registry = new ConfigurationSchemaStatusRegistry();
-        var latch = new ConfigurationSchemaDirtyLatch();
+        var latch = new RuntimeDiagnosticsDirtyLatch();
         var mainThread = Thread.CurrentThread.ManagedThreadId;
         var callbackThread = mainThread;
         var projectionCalls = 0;

@@ -1,23 +1,6 @@
-using System.Threading;
 using OrbModding.Common;
 
 namespace OrbModConfig;
-
-internal sealed class ConfigurationSchemaDirtyLatch
-{
-    private int _dirty;
-
-    public ConfigurationSchemaDirtyLatch(bool initiallyDirty = false)
-    {
-        _dirty = initiallyDirty ? 1 : 0;
-    }
-
-    public bool IsDirty => Volatile.Read(ref _dirty) != 0;
-
-    public void MarkDirty() => Interlocked.Exchange(ref _dirty, 1);
-
-    public bool TryConsume() => Interlocked.Exchange(ref _dirty, 0) != 0;
-}
 
 internal readonly struct ConfigurationSchemaStatusProjection
 {
