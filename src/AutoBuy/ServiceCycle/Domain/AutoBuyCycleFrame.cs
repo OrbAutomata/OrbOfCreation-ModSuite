@@ -31,18 +31,9 @@ internal readonly struct AutoBuyGlobalRow
     public AutoBuyGlobalRow(
         int bulkDevelopment,
         long collectedAtEpoch)
-        : this(bulkDevelopment, collectedAtEpoch, default)
-    {
-    }
-
-    public AutoBuyGlobalRow(
-        int bulkDevelopment,
-        long collectedAtEpoch,
-        MonotonicTimestamp collectedAt)
     {
         BulkDevelopment = bulkDevelopment;
         CollectedAtEpoch = collectedAtEpoch;
-        CollectedAt = collectedAt;
     }
 
     public int BulkDevelopment { get; }
@@ -59,9 +50,6 @@ internal readonly struct AutoBuyGlobalRow
     /// which is the comparison that closes the game-reload race.
     /// </remarks>
     public long CollectedAtEpoch { get; }
-
-    /// <summary>When the world readings were captured, on the runtime's monotonic clock.</summary>
-    public MonotonicTimestamp CollectedAt { get; }
 }
 
 /// <summary>

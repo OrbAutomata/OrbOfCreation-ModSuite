@@ -2,41 +2,8 @@ using System;
 using System.Globalization;
 using System.Text;
 using OrbModding.Common;
-using OrbModding.Common.Runtime;
 
 namespace OrbAutomata;
-
-/// <summary>
-/// One earlier committed action in the same native batch, retained only when it may overlap the
-/// refused candidate's live resources or when its resources could not be read.
-/// </summary>
-internal readonly struct AutoBuyEarlierPurchase
-{
-    private readonly AutoBuyLiveCostRow[]? _costs;
-
-    public AutoBuyEarlierPurchase(
-        AutoBuyCandidateKind kind,
-        Guid uuid,
-        int actionIndex,
-        int committedLevels,
-        in AutoBuyLiveCostSnapshot costs)
-    {
-        Kind = kind;
-        Uuid = uuid;
-        ActionIndex = actionIndex;
-        CommittedLevels = committedLevels;
-        CostStatus = costs.Status;
-        _costs = costs.Rows.ToArray();
-    }
-
-    public AutoBuyCandidateKind Kind { get; }
-    public Guid Uuid { get; }
-    public int ActionIndex { get; }
-    public int CommittedLevels { get; }
-    public AutoBuyLiveCostReadStatus CostStatus { get; }
-    public ReadOnlySpan<AutoBuyLiveCostRow> Costs => _costs ?? Array.Empty<AutoBuyLiveCostRow>();
-    public bool HasCompleteCosts => CostStatus == AutoBuyLiveCostReadStatus.Complete;
-}
 
 /// <summary>
 /// Everything known about one purchase the worker planned and the game refused: who it was for, what
@@ -49,8 +16,6 @@ internal readonly struct AutoBuyEarlierPurchase
 /// </remarks>
 internal readonly struct AutoBuyRefusalReport
 {
-    private readonly AutoBuyEarlierPurchase[]? _earlierPurchases;
-
     public AutoBuyRefusalReport(
         AutoBuyCandidateKind kind,
         Guid uuid,
@@ -62,45 +27,6 @@ internal readonly struct AutoBuyRefusalReport
         ulong configGeneration,
         ulong lifecycleGeneration,
         ulong cycleId)
-        : this(
-            kind,
-            uuid,
-            requestedLevels,
-            in belief,
-            in diagnosis,
-            worldGeneration,
-            collectedAtEpoch,
-            configGeneration,
-            lifecycleGeneration,
-            cycleId,
-            batchId: 0,
-            actionIndex: 0,
-            worldCollectedAt: default,
-            admissionAttemptedAt: default,
-            latestWorldGenerationReadable: false,
-            latestWorldGeneration: 0,
-            earlierPurchases: Array.Empty<AutoBuyEarlierPurchase>())
-    {
-    }
-
-    public AutoBuyRefusalReport(
-        AutoBuyCandidateKind kind,
-        Guid uuid,
-        int requestedLevels,
-        in AutoBuyPlanBelief belief,
-        in AutoBuyAdmissionDiagnosis diagnosis,
-        ulong worldGeneration,
-        long collectedAtEpoch,
-        ulong configGeneration,
-        ulong lifecycleGeneration,
-        ulong cycleId,
-        ulong batchId,
-        int actionIndex,
-        MonotonicTimestamp worldCollectedAt,
-        MonotonicTimestamp admissionAttemptedAt,
-        bool latestWorldGenerationReadable,
-        ulong latestWorldGeneration,
-        AutoBuyEarlierPurchase[] earlierPurchases)
     {
         Kind = kind;
         Uuid = uuid;
@@ -112,14 +38,6 @@ internal readonly struct AutoBuyRefusalReport
         ConfigGeneration = configGeneration;
         LifecycleGeneration = lifecycleGeneration;
         CycleId = cycleId;
-        BatchId = batchId;
-        ActionIndex = actionIndex;
-        WorldCollectedAt = worldCollectedAt;
-        AdmissionAttemptedAt = admissionAttemptedAt;
-        LatestWorldGenerationReadable = latestWorldGenerationReadable;
-        LatestWorldGeneration = latestWorldGeneration;
-        _earlierPurchases = earlierPurchases ??
-            throw new ArgumentNullException(nameof(earlierPurchases));
     }
 
     public AutoBuyCandidateKind Kind { get; }
@@ -132,14 +50,6 @@ internal readonly struct AutoBuyRefusalReport
     public ulong ConfigGeneration { get; }
     public ulong LifecycleGeneration { get; }
     public ulong CycleId { get; }
-    public ulong BatchId { get; }
-    public int ActionIndex { get; }
-    public MonotonicTimestamp WorldCollectedAt { get; }
-    public MonotonicTimestamp AdmissionAttemptedAt { get; }
-    public bool LatestWorldGenerationReadable { get; }
-    public ulong LatestWorldGeneration { get; }
-    public ReadOnlySpan<AutoBuyEarlierPurchase> EarlierPurchases =>
-        _earlierPurchases ?? Array.Empty<AutoBuyEarlierPurchase>();
 
     /// <summary>The candidate as it appears in a log line: "Structure 99a0da45-...".</summary>
     public string Candidate => Kind + " " + EntityIdentityFormatter.Format(Uuid);
@@ -209,41 +119,6 @@ internal static class AutoBuyRefusalBundle
         }
         text.AppendLine();
 
-        text.AppendLine("Earlier committed purchases in this batch touching these resources:");
-        var earlier = report.EarlierPurchases;
-        if (earlier.Length == 0)
-        {
-            text.AppendLine("  none observed");
-        }
-        else
-        {
-            for (var index = 0; index < earlier.Length; index++)
-            {
-                ref readonly var purchase = ref earlier[index];
-                text.Append("  Action ").Append(Number(purchase.ActionIndex))
-                    .Append(": ").Append(purchase.Kind).Append(' ')
-                    .Append(EntityIdentityFormatter.Format(purchase.Uuid))
-                    .Append(", committed ").Append(Number(purchase.CommittedLevels))
-                    .Append(" level(s)");
-                if (!purchase.HasCompleteCosts)
-                {
-                    text.Append(", resource evidence unavailable: ")
-                        .Append(purchase.CostStatus).AppendLine();
-                    continue;
-                }
-
-                text.Append(", first-level resource(s): ");
-                var costs = purchase.Costs;
-                for (var rowIndex = 0; rowIndex < costs.Length; rowIndex++)
-                {
-                    if (rowIndex > 0) text.Append(", ");
-                    text.Append(EntityIdentityFormatter.Format(costs[rowIndex].ResourceId));
-                }
-                text.AppendLine();
-            }
-        }
-        text.AppendLine();
-
         var belief = report.Belief;
         text.AppendLine("What the plan believed, from the world it was made from:");
         text.Append("  IsAvailable: ").Append(Flag(belief.IsAvailable)).AppendLine();
@@ -285,45 +160,6 @@ internal static class AutoBuyRefusalBundle
         text.Append("  Config generation: ").Append(Number(report.ConfigGeneration)).AppendLine();
         text.Append("  Lifecycle generation: ").Append(Number(report.LifecycleGeneration)).AppendLine();
         text.Append("  Cycle: ").Append(Number(report.CycleId)).AppendLine();
-        text.Append("  Batch: ").Append(Number(report.BatchId)).AppendLine();
-        text.Append("  Action index: ").Append(Number(report.ActionIndex)).AppendLine();
-        text.Append("  World collected monotonic ticks: ")
-            .Append(Number(report.WorldCollectedAt.Ticks)).AppendLine();
-        text.Append("  Admission attempted monotonic ticks: ")
-            .Append(Number(report.AdmissionAttemptedAt.Ticks)).AppendLine();
-        if (report.AdmissionAttemptedAt >= report.WorldCollectedAt)
-        {
-            var elapsedTicks = report.AdmissionAttemptedAt.Ticks - report.WorldCollectedAt.Ticks;
-            text.Append("  Collection-to-admission elapsed milliseconds: ")
-                .Append(TimeSpan.FromTicks(elapsedTicks).TotalMilliseconds
-                    .ToString("R", CultureInfo.InvariantCulture))
-                .AppendLine();
-        }
-        else
-        {
-            text.AppendLine("  Collection-to-admission elapsed milliseconds: unavailable");
-        }
-        if (report.LatestWorldGenerationReadable)
-        {
-            text.Append("  Latest world generation at admission: ")
-                .Append(Number(report.LatestWorldGeneration)).AppendLine();
-            if (report.LatestWorldGeneration >= report.WorldGeneration)
-            {
-                text.Append("  World generations elapsed: ")
-                    .Append(Number(report.LatestWorldGeneration - report.WorldGeneration))
-                    .AppendLine();
-            }
-            else
-            {
-                text.AppendLine(
-                    "  World generations elapsed: invalid (latest generation is older than the pinned world)");
-            }
-        }
-        else
-        {
-            text.AppendLine("  Latest world generation at admission: unavailable");
-            text.AppendLine("  World generations elapsed: unavailable");
-        }
         return text.ToString();
     }
 

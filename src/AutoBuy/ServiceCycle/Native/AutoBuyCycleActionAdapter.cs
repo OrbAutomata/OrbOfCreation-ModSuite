@@ -46,8 +46,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         static message => Plugin.Log?.LogAutomataWarning(message));
     private readonly Func<AutoBuyCandidateKinds> _ownershipMask;
     private readonly IAutoBuyRefusalResponsePort _refusals;
-    private readonly IServiceWorldGenerationSource? _worldGenerations;
-    private readonly List<AutoBuyEarlierPurchase> _batchPurchases = new(16);
     private readonly Dictionary<Guid, BigDouble> _batchSpendVariance = new();
     private readonly HashSet<Guid> _batchUnpricedResources = new();
     private ulong _journalBatch;
@@ -76,7 +74,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         , AutomataProfileOperations profileOperations
 #endif
         , IAutoBuyRefusalResponsePort refusals
-        , IServiceWorldGenerationSource? worldGenerations = null
 #if SERVICE_CYCLE_PROFILE
         , Func<AutoBuyCandidateKind, bool>? gameMcpOwnership = null
 #endif
@@ -87,7 +84,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _ownershipMask = ownershipMask ?? throw new ArgumentNullException(nameof(ownershipMask));
         _refusals = refusals ?? throw new ArgumentNullException(nameof(refusals));
-        _worldGenerations = worldGenerations;
 #if SERVICE_CYCLE_PROFILE
         _profileOperations = profileOperations ??
             throw new ArgumentNullException(nameof(profileOperations));
@@ -304,16 +300,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             ReportRefusal(in action, levels, in submission, in context);
         var result = _guard.Finish(submission.Outcome, in action);
         if (result.Disposition == ServiceActionDisposition.Committed)
-        {
-            var liveCosts = submission.LiveCosts;
-            _batchPurchases.Add(new AutoBuyEarlierPurchase(
-                action.Kind,
-                action.Uuid,
-                context.ActionIndex,
-                submission.CommittedLevels,
-                in liveCosts));
             ReconcileSpend(in action, in submission);
-        }
         return result;
     }
 
@@ -332,11 +319,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         in AutoBuyPurchaseSubmission submission,
         in ServiceActionContext context)
     {
-        var latest = default(WorldGeneration);
-        var latestReadable = _worldGenerations is not null &&
-            _worldGenerations.TryGetLatestGeneration(out latest);
-        var liveCosts = submission.Diagnosis.LiveCosts;
-        var earlier = RelatedPurchases(in liveCosts);
         _refusals.ObserveRefusal(new AutoBuyRefusalReport(
             action.Kind,
             action.Uuid,
@@ -347,21 +329,13 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             action.CollectedAtEpoch,
             context.Cycle.Config.Value,
             context.Cycle.Lifecycle.Value,
-            context.Cycle.Cycle.Value,
-            context.Batch.Value,
-            context.ActionIndex,
-            action.WorldCollectedAt,
-            context.AttemptedAt,
-            latestReadable,
-            latestReadable ? latest.Value : 0,
-            earlier));
+            context.Cycle.Cycle.Value));
     }
 
     private void BeginBatch(ulong batch)
     {
         if (_journalBatch == batch) return;
         _journalBatch = batch;
-        _batchPurchases.Clear();
         _batchSpendVariance.Clear();
         _batchUnpricedResources.Clear();
     }
@@ -445,39 +419,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             _batchUnpricedResources.Add(planned[index].ResourceId);
         for (var index = 0; index < live.Length; index++)
             _batchUnpricedResources.Add(live[index].ResourceId);
-    }
-
-    private AutoBuyEarlierPurchase[] RelatedPurchases(in AutoBuyLiveCostSnapshot refusedCosts)
-    {
-        if (_batchPurchases.Count == 0) return Array.Empty<AutoBuyEarlierPurchase>();
-        var related = new List<AutoBuyEarlierPurchase>();
-        for (var index = 0; index < _batchPurchases.Count; index++)
-        {
-            var purchase = _batchPurchases[index];
-            if (!refusedCosts.IsComplete || !purchase.HasCompleteCosts ||
-                SharesResource(in purchase, in refusedCosts))
-            {
-                related.Add(purchase);
-            }
-        }
-
-        return related.ToArray();
-    }
-
-    private static bool SharesResource(
-        in AutoBuyEarlierPurchase purchase,
-        in AutoBuyLiveCostSnapshot refusedCosts)
-    {
-        var earlier = purchase.Costs;
-        var refused = refusedCosts.Rows;
-        for (var i = 0; i < earlier.Length; i++)
-        {
-            for (var j = 0; j < refused.Length; j++)
-            {
-                if (earlier[i].ResourceId == refused[j].ResourceId) return true;
-            }
-        }
-        return false;
     }
 
     private bool Owns(AutoBuyCandidateKind kind)

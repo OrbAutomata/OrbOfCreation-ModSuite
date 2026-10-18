@@ -41,7 +41,6 @@ public sealed class AutoBuyServiceCompositionTests
             collectedAtEpoch: 1,
             count: 1,
             belief: default,
-            worldCollectedAt: default,
             owningListId: list,
             owningViewId: view);
 

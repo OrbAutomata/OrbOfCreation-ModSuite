@@ -553,15 +553,14 @@ public sealed class AutoBuyCycleEvaluatorTests
     /// from and the availability it was admitted on.
     /// </summary>
     [Fact]
-    public void APlannedActionCarriesItsWorldStampAndTheAvailabilityItWasAdmittedOn()
+    public void APlannedActionCarriesTheAvailabilityItWasAdmittedOn()
     {
-        var builder = new FrameBuilder().CollectedAt(new MonotonicTimestamp(49_078_000_000));
+        var builder = new FrameBuilder();
         var resource = builder.Resource(1_000);
         builder.Upgrade(UpgradeA, new[] { (resource, 10.0) });
 
         var action = Assert.Single(Plan(builder.Build(), Config(), out _));
 
-        Assert.Equal(new MonotonicTimestamp(49_078_000_000), action.WorldCollectedAt);
         Assert.True(action.Belief.IsAvailable);
         Assert.Equal(1, action.Belief.PricedResourceCount);
     }
@@ -1153,17 +1152,10 @@ public sealed class AutoBuyCycleEvaluatorTests
         private readonly List<AutoBuyCostRow> _costs = new();
         private int _bulk = 1;
         private long _collectedAtEpoch = 1;
-        private MonotonicTimestamp _collectedAt;
 
         public FrameBuilder CollectedAtEpoch(long epoch)
         {
             _collectedAtEpoch = epoch;
-            return this;
-        }
-
-        public FrameBuilder CollectedAt(MonotonicTimestamp collectedAt)
-        {
-            _collectedAt = collectedAt;
             return this;
         }
 
@@ -1293,7 +1285,7 @@ public sealed class AutoBuyCycleEvaluatorTests
 
         public AutoBuyCycleFrame Build()
         {
-            var global = new AutoBuyGlobalRow(_bulk, _collectedAtEpoch, _collectedAt);
+            var global = new AutoBuyGlobalRow(_bulk, _collectedAtEpoch);
 
             return new AutoBuyCycleFrame(
                 global,

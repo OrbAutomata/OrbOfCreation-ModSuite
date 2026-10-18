@@ -211,7 +211,6 @@ public sealed class AutoBuyProfileTests : IDisposable
             () => AutoBuyCandidateKinds.All,
             operations,
             refusals,
-            null,
             _ => true);
 
         var manual = adapter.TryExecuteGameMcp(
@@ -334,7 +333,6 @@ public sealed class AutoBuyProfileTests : IDisposable
             () => AutoBuyCandidateKinds.All,
             operations,
             IgnoreRefusals.Instance,
-            null,
             _ => true);
 
         var result = adapter.TryExecuteGameMcp(
@@ -383,7 +381,6 @@ public sealed class AutoBuyProfileTests : IDisposable
             () => AutoBuyCandidateKinds.All,
             operations,
             IgnoreRefusals.Instance,
-            null,
             _ => true);
 
         manual.TryExecuteGameMcp(

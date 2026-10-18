@@ -127,12 +127,6 @@ public sealed partial class ServiceCycleRegistry : IDisposable
     public IServiceWorldPublicationSink<GameWorldState> WorldPublication => _world;
 
     /// <summary>
-    /// Read-only generation seam for action diagnostics. It exposes no snapshot and therefore cannot
-    /// become a second world-reading path.
-    /// </summary>
-    internal IServiceWorldGenerationSource WorldGenerations => _world;
-
-    /// <summary>
     /// The one configuration publication the suite has. Read by the runtime, which pins it once per
     /// cycle; never handed to a service.
     /// </summary>
