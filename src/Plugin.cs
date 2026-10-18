@@ -4643,8 +4643,6 @@ public sealed class Plugin : BaseUnityPlugin
         GameLifecycleMonitor.Shared.Current.IsGameplayReady &&
         GameLifecycleMonitor.Shared.IsCurrent(_lifecycleLease);
 
-    internal static bool AssemblyAuditAllowsMutation(AssemblyAuditResult audit) => audit.MatchesExpected;
-
     private static void BeforeSaveLoad(object __instance) =>
         ObserveLifecycle(GameLifecycleTransitionKind.SaveLoadStarted, SceneManager.GetActiveScene().name, __instance);
     private static void AfterSaveLoaded(object __instance) =>

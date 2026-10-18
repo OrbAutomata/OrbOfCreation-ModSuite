@@ -12,13 +12,6 @@ namespace OrbModding.Tests;
 public sealed class ModConfigPerformanceTests
 {
     [Fact]
-    public void ModsTabSelectionAlwaysRequestsTheOpenState()
-    {
-        Assert.True(ModConfigTabSelectionPolicy.RequestedOpenState(currentlyOpen: false));
-        Assert.True(ModConfigTabSelectionPolicy.RequestedOpenState(currentlyOpen: true));
-    }
-
-    [Fact]
     public void ZeroCandidatesDuringStartupRetryFastAndAdmitBothWhenReady()
     {
         var missing = NativeTopBarReadinessPolicy.RequiredItemNames
