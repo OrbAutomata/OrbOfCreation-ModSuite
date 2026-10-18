@@ -223,7 +223,9 @@ public sealed class Plugin : BaseUnityPlugin
         if (!configuration.Success)
         {
             _controlPlaneFailure = configuration.Status.Reason;
-            Logger.LogError(configuration.Status.Reason);
+            Logger.LogError(configuration.FailureCause.Length == 0
+                ? configuration.Status.Reason
+                : configuration.Status.Reason + " Cause: " + configuration.FailureCause);
             return;
         }
         var suite = configuration.Config!;

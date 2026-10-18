@@ -467,6 +467,40 @@ public sealed class ConfigurationSchemaTests
         Assert.Single(transitions);
     }
 
+    /// <summary>
+    /// A migration step that breaks keeps the short sentence for the player and hands the log what
+    /// broke. The sentence alone left a step that could not parse an old value indistinguishable
+    /// from every other unexpected failure.
+    /// </summary>
+    [Fact]
+    public void AMigrationStepThatThrowsKeepsWhatThrew()
+    {
+        var config = new ConfigFile();
+        config.SeedSerialized(Legacy.Section, Legacy.Key, "forty-one");
+        var plan = new ConfigurationSchemaPlan(1, new[]
+        {
+            new ConfigurationMigrationStep(0, 1, new[] { Legacy }, context =>
+            {
+                Assert.True(context.TryGet(Legacy, out var value));
+                context.Map(Legacy, Current, (int.Parse(value) + 1).ToString(), "mapped known value");
+            }),
+        });
+
+        var result = ConfigurationSchemaTransaction.Bind(
+            PluginId,
+            config,
+            plan,
+            BindCurrent,
+            new FakeFileOperations(),
+            new ConfigurationSchemaStatusRegistry());
+
+        Assert.False(result.Success);
+        Assert.Equal(
+            "Configuration migration failed; the prior file was restored and runtime configuration was not loaded.",
+            result.Status.Reason);
+        Assert.StartsWith("System.FormatException: ", result.FailureCause);
+    }
+
     [Fact]
     public void SnapshotReadFailureLeavesOriginalFileUntouchedAndFailsClosed()
     {
