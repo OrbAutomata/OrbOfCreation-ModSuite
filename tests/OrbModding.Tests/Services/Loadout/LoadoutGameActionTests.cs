@@ -348,7 +348,7 @@ public sealed class LoadoutGameActionTests : IDisposable
             BepInExAutomataConfiguration.Bind(new ConfigFile()).Current,
             new ConfigGeneration(1),
             new AutomataServiceCycleHostDependencies(
-                () => 1, () => lifecycle, new ServiceActionOutcomeWindowRegistry()),
+                () => 1, () => lifecycle, new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[] { new StrategistServiceCycleFeature() },
             new ManualLogSource(),
             actions =>

@@ -17,7 +17,7 @@ internal sealed class SuiteFramePumpState
     internal SuiteFramePumpState(
         ServiceCycleRegistry registry,
         ServiceCycleSemanticRecorder? semanticRecorder,
-        ServiceActionOutcomeWindowRegistry? outcomeWindows
+        ServiceActionTimelineRegistry? actionTimeline
 #if SERVICE_CYCLE_PROFILE
         , ServiceCycleProfileProbe profileProbe
 #endif
@@ -42,7 +42,7 @@ internal sealed class SuiteFramePumpState
             registry,
             serviceCapacity,
             semanticRecorder);
-        Journal = new SuiteFramePumpJournalSession(registry, serviceCapacity, outcomeWindows);
+        Journal = new SuiteFramePumpJournalSession(registry, serviceCapacity, actionTimeline);
         EvidenceScanner = new SuiteFramePumpEvidenceScanner(registry, serviceCapacity);
         ServiceFailures = new ServiceFailureBuffer();
 #if SERVICE_CYCLE_PROFILE

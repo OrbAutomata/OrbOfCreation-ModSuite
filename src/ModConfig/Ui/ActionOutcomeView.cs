@@ -21,7 +21,7 @@ internal sealed class ActionOutcomeView : IDisposable
     private const int DetailColumns = 2;
     private const float TimingHeight = 34f;
     private const float BottomGap = 7f;
-    private readonly IServiceActionOutcomeWindowSource _outcomes;
+    private readonly IServiceActionTimelineSource _outcomes;
     private readonly IServiceCyclePumpTimingSource _timings;
     private readonly TextMeshProUGUI _template;
     private readonly GameObject _root;
@@ -48,7 +48,7 @@ internal sealed class ActionOutcomeView : IDisposable
     internal ActionOutcomeView(
         RectTransform parent,
         TextMeshProUGUI template,
-        IServiceActionOutcomeWindowSource outcomes,
+        IServiceActionTimelineSource outcomes,
         IServiceCyclePumpTimingSource timings)
     {
         _template = template ?? throw new ArgumentNullException(nameof(template));

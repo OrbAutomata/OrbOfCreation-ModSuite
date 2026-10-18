@@ -24,7 +24,7 @@ internal sealed class RuntimeDiagnosticsPage : IDisposable
     private readonly IDiagnosticsBundleControl _diagnosticsBundle;
     private readonly IDifferentialVerificationControl _differentialVerification;
     private readonly IDecisionJournalStatusSource _decisionJournal;
-    private readonly IServiceActionOutcomeWindowSource _actionOutcomes;
+    private readonly IServiceActionTimelineSource _actionOutcomes;
     private readonly IServiceCyclePumpTimingSource _pumpTiming;
 #if SERVICE_CYCLE_PROFILE
     private readonly IPerformanceProfileControl _performanceProfile;
@@ -56,7 +56,7 @@ internal sealed class RuntimeDiagnosticsPage : IDisposable
         IDiagnosticsBundleControl diagnosticsBundle,
         IDifferentialVerificationControl differentialVerification,
         IDecisionJournalStatusSource decisionJournal,
-        IServiceActionOutcomeWindowSource actionOutcomes,
+        IServiceActionTimelineSource actionOutcomes,
         IServiceCyclePumpTimingSource pumpTiming
 #if SERVICE_CYCLE_PROFILE
         , IPerformanceProfileControl performanceProfile

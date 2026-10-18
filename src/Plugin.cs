@@ -468,7 +468,7 @@ public sealed class Plugin : BaseUnityPlugin
                     new AutomataServiceCycleHostDependencies(
                             readFrameIdentity,
                             readLifecycleEpoch,
-                            ServiceActionOutcomeWindowRegistry.Shared,
+                            ServiceActionTimelineRegistry.Shared,
                             pumpTiming: ServiceCyclePumpTimingRegistry.Shared,
                             observability: new AutomataServiceCycleObservabilityOptions(
 #if SERVICE_CYCLE_PROFILE
@@ -769,7 +769,7 @@ public sealed class Plugin : BaseUnityPlugin
             ConfigurationSchemaStatusRegistry.Shared,
             FeatureStatusRegistry.Shared,
             RuntimeDiagnosticsRegistry.Shared,
-            ServiceActionOutcomeWindowSources.Shared,
+            ServiceActionTimelineSources.Shared,
             ServiceCyclePumpTimingRegistry.Shared,
             DiagnosticsBundleRegistry.Shared,
             _mathVerification ??

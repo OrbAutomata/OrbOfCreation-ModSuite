@@ -11,24 +11,24 @@ internal sealed class SuiteFramePumpJournalSession
     private readonly int _serviceCapacity;
     private readonly ServiceCycleDecisionJournalObserver? _outcomeObserver;
     private readonly ServiceCycleDecisionJournalObserverFanout? _fanout;
-    private readonly ServiceActionOutcomeWindowRegistration? _outcomeRegistration;
+    private readonly ServiceActionTimelineRegistration? _outcomeRegistration;
     private IServiceCycleDecisionJournalObserver? _observer;
     private object? _runtimeOwner;
 
     internal SuiteFramePumpJournalSession(
         ServiceCycleRegistry registry,
         int serviceCapacity,
-        ServiceActionOutcomeWindowRegistry? outcomeWindows)
+        ServiceActionTimelineRegistry? actionTimeline)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _serviceCapacity = serviceCapacity;
-        if (outcomeWindows is null) return;
+        if (actionTimeline is null) return;
 
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
-        ServiceActionOutcomeWindowRegistration? registration = null;
+        var projection = ServiceActionTimelineProjection.Create(registry);
+        ServiceActionTimelineRegistration? registration = null;
         try
         {
-            registration = outcomeWindows.Register(projection);
+            registration = actionTimeline.Register(projection);
             var observer = new ServiceCycleDecisionJournalObserver(projection, serviceCapacity);
             var baselines = new DecisionJournalServiceBaseline[serviceCapacity];
             if (!ServiceCycleDecisionJournalBinder.TryBind(
@@ -38,7 +38,7 @@ internal sealed class SuiteFramePumpJournalSession
                     baselines))
             {
                 throw new InvalidOperationException(
-                    "The always-on action-outcome projection could not bind the settled service roster.");
+                    "The always-on action timeline could not bind the settled service roster.");
             }
             _outcomeObserver = observer;
             _fanout = new ServiceCycleDecisionJournalObserverFanout(observer);
@@ -83,7 +83,7 @@ internal sealed class SuiteFramePumpJournalSession
     {
         if (_observer is not null)
             throw new InvalidOperationException(
-                "An attached decision journal must stop before the action-outcome projection.");
+                "An attached decision journal must stop before the action timeline.");
         try { _outcomeObserver?.Stop(observedAt); }
         finally { _outcomeRegistration?.Dispose(); }
     }
