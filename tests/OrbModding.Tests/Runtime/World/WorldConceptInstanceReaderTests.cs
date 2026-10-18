@@ -392,15 +392,12 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
         first.instanceScaling.scaling = scaling;
         first.maxUsageSlots = new global::ValueModifierRecord(new BigDouble(9d, 0));
         first.drainCostMod = new global::ValueModifierRecord(new BigDouble(11d, 0));
-        first.drainCost = new global::ConceptCostVector(
-            new global::ConceptCostEntry(Resource(DrainResourceId), new BigDouble(12d, 0)));
-        first.bandwidthCost = new global::ConceptCostVector(
-            new global::ConceptCostEntry(Resource(BandwidthResourceId), new BigDouble(3d, 0)));
+        first.drainCost = Costs(Resource(DrainResourceId), new BigDouble(12d, 0));
+        first.bandwidthCost = Costs(Resource(BandwidthResourceId), new BigDouble(3d, 0));
 
         var second = Recipe(SecondRecipeId, CoreType(OtherCoreTypeId));
         second.instanceScaling.scaling = scaling;
-        second.drainCost = new global::ConceptCostVector(
-            new global::ConceptCostEntry(Resource(DrainResourceId), new BigDouble(40d, 0)));
+        second.drainCost = Costs(Resource(DrainResourceId), new BigDouble(40d, 0));
 
         var recipes = new global::AlchemyRecipeListVariable();
         recipes.value.Add(first);
@@ -425,14 +422,12 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
         {
             quantity = quantity,
             queuedQuantity = queued,
-            resourceDrain = new global::ConceptDrainState
+            resourceDrain = new global::ResourceDrain
             {
                 isDrainApplied = applied,
                 currentRatio = new BigDouble(current),
                 usageRatio = new BigDouble(usage),
-                Current = new global::ConceptCostVector(
-                    new global::ConceptCostEntry(
-                        Resource(CurrentResourceId), new BigDouble(quantity * 2d + 1d, 0))),
+                drainCostMult = Costs(Resource(CurrentResourceId), new BigDouble(quantity * 2d + 1d, 0)),
             },
         };
 
@@ -452,7 +447,10 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
         return core;
     }
 
-    private static global::ConceptResource Resource(Guid id) => new() { uuid = id.ToString() };
+    private static global::ResourceSO Resource(Guid id) => new() { uuid = id.ToString() };
+
+    private static global::ResourceCostList Costs(global::ResourceSO resource, BigDouble value) =>
+        new() { costs = { new global::ResourceTuple(resource, value) } };
 
     private static global::ValueModifierList ModifierList(
         global::ValueModifier.ValueModifierType type,

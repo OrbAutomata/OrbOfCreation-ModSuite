@@ -228,11 +228,10 @@ public sealed class AutomataTests
     }
 
     [Theory]
-    [InlineData(null, false, "zero-quantity state is unavailable")]
     [InlineData(true, false, "is at zero")]
     [InlineData(false, true, "")]
     public void AutoConceptPositiveDrainRequiresAuthoritativeNonzeroResource(
-        bool? nativeIsAtZero,
+        bool nativeIsAtZero,
         bool expected,
         string expectedReason)
     {

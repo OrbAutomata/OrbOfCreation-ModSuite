@@ -570,6 +570,12 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceDrain"}
     },
     {
+      "id": "auto-concept.instance-drain-action", "assembly": "assembly-csharp", "type": "AlchemyInstance", "typeVisibility": "public", "kind": "field", "member": "resourceDrain", "visibility": "private", "static": false, "valueType": "ResourceDrain", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "auto-concept.instance-construct-action", "assembly": "assembly-csharp", "type": "AlchemyInstance", "typeVisibility": "public", "kind": "method", "member": ".ctor", "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["AlchemyRecipeSO"], "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "alchemy-instance.get-drain-cost-mod",
       "assembly": "assembly-csharp",
       "type": "AlchemyInstance",
@@ -609,6 +615,9 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "auto-concept.instance-quantity-action", "assembly": "assembly-csharp", "type": "AlchemyInstance", "typeVisibility": "public", "kind": "field", "member": "quantity", "visibility": "public", "static": false, "valueType": "System.Int32", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "alchemy-instance.queued",
       "assembly": "assembly-csharp",
       "type": "AlchemyInstance",
@@ -626,6 +635,9 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "auto-concept.instance-queued-action", "assembly": "assembly-csharp", "type": "AlchemyInstance", "typeVisibility": "public", "kind": "field", "member": "queuedQuantity", "visibility": "private", "static": false, "valueType": "System.Int32", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-instance.reference-owner",
@@ -778,7 +790,6 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Common Alchemy classifier",
         "Automata world collection"
       ],
       "usages": [
@@ -786,6 +797,9 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "alchemy-recipe-list.type-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeListVariable", "typeVisibility": "public", "kind": "type", "owners": ["Common Alchemy classifier", "Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-recipe.advancement-effect-blocks",
@@ -836,9 +850,7 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<AlchemyTypeSO>",
       "owners": [
-        "Common Alchemy classifier",
         "Automata world collection",
-        "Automata Auto Concept action boundary",
         "Common keyword world collection"
       ],
       "usages": [
@@ -846,6 +858,12 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<AlchemyTypeSO>"}
+    },
+    {
+      "id": "alchemy-recipe.alchemy-types-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "field", "member": "alchemyTypes", "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<AlchemyTypeSO>", "owners": ["Common Alchemy classifier", "Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "alchemy-type.type-action", "assembly": "assembly-csharp", "type": "AlchemyTypeSO", "typeVisibility": "public", "kind": "type", "owners": ["Common Alchemy classifier", "Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-recipe.all",
@@ -1116,6 +1134,9 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ResourceCostList"}
     },
     {
+      "id": "auto-concept.recipe-drain-cost-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "field", "member": "drainCost", "visibility": "public", "static": false, "valueType": "ResourceCostList", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "alchemy-recipe.drain-cost-mod",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
@@ -1230,6 +1251,9 @@
         "reflection"
       ],
       "place": "action"
+    },
+    {
+      "id": "alchemy-recipe.is-available-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "method", "member": "IsAvailable", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Mentor alchemy", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-recipe.gain-mastery-xp",
@@ -1408,6 +1432,9 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "alchemy-recipe.mastery-level-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "field", "member": "masteryLevel", "visibility": "public", "static": false, "valueType": "System.Int32", "owners": ["Mentor alchemy", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "alchemy-recipe.mastery-xp",
       "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO",
@@ -1418,7 +1445,6 @@
       "static": false,
       "valueType": "BigDouble",
       "owners": [
-        "Mentor alchemy mutation verification",
         "Automata world collection"
       ],
       "usages": [
@@ -1426,6 +1452,9 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field BigDouble"}
+    },
+    {
+      "id": "alchemy-recipe.mastery-xp-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "field", "member": "masteryXp", "visibility": "public", "static": false, "valueType": "BigDouble", "owners": ["Mentor alchemy"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-recipe.mastery-xp-rate",
@@ -3335,8 +3364,7 @@
       "static": false,
       "valueType": "System.Int64",
       "owners": [
-        "Automata numeric bridge",
-        "Mentor numeric bridge"
+        "Automata numeric bridge"
       ],
       "usages": [
         "reflection"
@@ -3354,8 +3382,7 @@
       "static": false,
       "valueType": "System.Double",
       "owners": [
-        "Automata numeric bridge",
-        "Mentor numeric bridge"
+        "Automata numeric bridge"
       ],
       "usages": [
         "reflection"
@@ -5303,12 +5330,16 @@
       "returnType": "IExperienceElement",
       "parameters": [],
       "owners": [
-        "Mentor artifacts"
+        "Mentor artifacts",
+        "Mentor mastery observation"
       ],
       "usages": [
         "reflection"
       ],
       "place": "action"
+    },
+    {
+      "id": "mentor.experience-element.type-action", "assembly": "assembly-csharp", "type": "IExperienceElement", "typeVisibility": "public", "kind": "type", "owners": ["Mentor artifacts", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "equipment.increment-active",
@@ -5390,6 +5421,9 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
     },
     {
+      "id": "equipment.mastery-level-action", "assembly": "assembly-csharp", "type": "EquipmentSO", "typeVisibility": "public", "kind": "field", "member": "masteryLevel", "visibility": "public", "static": false, "valueType": "System.Int32", "owners": ["Mentor artifacts", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "equipment.mastery-xp",
       "assembly": "assembly-csharp",
       "type": "EquipmentSO",
@@ -5400,7 +5434,6 @@
       "static": false,
       "valueType": "BigDouble",
       "owners": [
-        "Mentor artifacts",
         "Automata world collection"
       ],
       "usages": [
@@ -5408,6 +5441,12 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field BigDouble"}
+    },
+    {
+      "id": "equipment.mastery-xp-action", "assembly": "assembly-csharp", "type": "EquipmentSO", "typeVisibility": "public", "kind": "field", "member": "masteryXp", "visibility": "public", "static": false, "valueType": "BigDouble", "owners": ["Mentor artifacts"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "equipment.is-created-action", "assembly": "assembly-csharp", "type": "EquipmentSO", "typeVisibility": "public", "kind": "field", "member": "isCreated", "visibility": "public", "static": false, "valueType": "System.Boolean", "owners": ["Mentor artifacts", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "equipment.power",
@@ -5427,25 +5466,6 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifierRecord"}
-    },
-    {
-      "id": "experience-container.clone",
-      "assembly": "assembly-csharp",
-      "type": "ExperienceContainer",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "Clone",
-      "visibility": "public",
-      "static": false,
-      "returnType": "ExperienceContainer",
-      "parameters": [],
-      "owners": [
-        "Mentor artifact mutation verification"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
     },
     {
       "id": "experience-container.gain",
@@ -5488,6 +5508,9 @@
         "reflection"
       ],
       "place": "action"
+    },
+    {
+      "id": "mentor.experience-container.type-action", "assembly": "assembly-csharp", "type": "ExperienceContainer", "typeVisibility": "public", "kind": "type", "owners": ["Mentor artifacts"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "experience-container.gained-levels",
@@ -5539,7 +5562,7 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Mentor artifact mutation verification"
+        "Mentor artifacts"
       ],
       "usages": [
         "reflection"
@@ -8101,15 +8124,13 @@
         "Automata identity",
         "Automata world collection",
         "Automata world-collection verification",
-        "Common Alchemy classifier",
         "Common keyword world collection",
         "Common live entity identity catalog",
         "Common type roster world collection",
         "Common type-modifier world collection",
         "Common typed registry resolver",
         "Common upgrade screen world publication",
-        "Common world collection",
-        "Mentor identity"
+        "Common world collection"
       ],
       "usages": [
         "reflection"
@@ -8135,7 +8156,11 @@
         "Automata Discovery Tree offer GameAction",
         "Automata crafting-instance GameAction",
         "Automata Auto Items action boundary",
-        "Automata Auto Cast"
+        "Automata Auto Cast",
+        "Common Alchemy classifier",
+        "Automata Auto Concept action boundary",
+        "Mentor mastery observation",
+        "Automata spell leveling"
       ],
       "usages": [
         "reflection"
@@ -10198,6 +10223,9 @@
       "place": "action"
     },
     {
+      "id": "spell-level.prerequisites.type-action", "assembly": "assembly-csharp", "type": "Prerequisites+Container", "typeVisibility": "public", "kind": "type", "owners": ["Automata spell leveling"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "prerequisites.check-at-level",
       "assembly": "assembly-csharp",
       "type": "Prerequisites+Container",
@@ -11727,6 +11755,12 @@
       "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning ResourceCostList; classified from its signature, no IL body audit"}
     },
     {
+      "id": "auto-concept.drain-current-action", "assembly": "assembly-csharp", "type": "ResourceDrain", "typeVisibility": "public", "kind": "method", "member": "GetCurrentDrain", "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [], "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "auto-concept.resource-drain.type-action", "assembly": "assembly-csharp", "type": "ResourceDrain", "typeVisibility": "public", "kind": "type", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "resource-drain.is-applied",
       "assembly": "assembly-csharp",
       "type": "ResourceDrain",
@@ -13039,7 +13073,6 @@
       "parameters": [],
       "owners": [
         "Automata resource snapshots",
-        "Automata Auto Concept drain",
         "Automata world collection"
       ],
       "usages": [
@@ -13102,7 +13135,6 @@
       "returnType": "BigDouble",
       "parameters": [],
       "owners": [
-        "Automata Auto Concept drain",
         "Automata rate-math verification"
       ],
       "usages": [
@@ -13112,23 +13144,7 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning BigDouble; classified from its signature, no IL body audit"}
     },
     {
-      "id": "resource.get-true-soft-cap",
-      "assembly": "assembly-csharp",
-      "type": "ResourceSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "GetTrueSoftCap",
-      "visibility": "public",
-      "static": false,
-      "returnType": "BigDouble",
-      "parameters": [],
-      "owners": [
-        "Automata Auto Concept action boundary"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
+      "id": "auto-concept.resource-true-rate-action", "assembly": "assembly-csharp", "type": "ResourceSO", "typeVisibility": "public", "kind": "method", "member": "GetTrueRate", "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": [], "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "resource.get-true-spend",
@@ -13164,25 +13180,6 @@
       "parameters": [],
       "owners": [
         "Automata rate-math verification"
-      ],
-      "usages": [
-        "reflection"
-      ],
-      "place": "action"
-    },
-    {
-      "id": "resource.has-max-quantity",
-      "assembly": "assembly-csharp",
-      "type": "ResourceSO",
-      "typeVisibility": "public",
-      "kind": "method",
-      "member": "HasMaxQuantity",
-      "visibility": "public",
-      "static": false,
-      "returnType": "System.Boolean",
-      "parameters": [],
-      "owners": [
-        "Automata Auto Concept action boundary"
       ],
       "usages": [
         "reflection"
@@ -14932,6 +14929,9 @@
       "place": "action"
     },
     {
+      "id": "spell-level.recipe-list.type-action", "assembly": "assembly-csharp", "type": "SpellRecipeListVariable", "typeVisibility": "public", "kind": "type", "owners": ["Automata spell leveling"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "spell-manager.can-cast-a-spell",
       "assembly": "assembly-csharp",
       "type": "SpellManager",
@@ -15456,6 +15456,9 @@
       "place": "patch"
     },
     {
+      "id": "spell-recipe.gain-mastery-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO", "typeVisibility": "public", "kind": "method", "member": "GainMasteryExp", "visibility": "public", "static": false, "returnType": "System.Void", "parameters": ["BigDouble"], "owners": ["Mentor spells"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "spell-recipe.get-level-cost",
       "assembly": "assembly-csharp",
       "type": "SpellRecipeSO",
@@ -15525,7 +15528,8 @@
       "parameters": [],
       "owners": [
         "Automata spell leveling",
-        "Mentor spells"
+        "Mentor spells",
+        "Mentor mastery observation"
       ],
       "usages": [
         "reflection"
@@ -15544,8 +15548,7 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata spell leveling",
-        "Mentor spells"
+        "Automata spell leveling"
       ],
       "usages": [
         "reflection"
@@ -15600,7 +15603,6 @@
       "static": false,
       "valueType": "BigDouble",
       "owners": [
-        "Mentor spell mutation verification",
         "Automata world collection"
       ],
       "usages": [
@@ -15608,6 +15610,9 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field BigDouble"}
+    },
+    {
+      "id": "spell-recipe.mastery-experience-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO", "typeVisibility": "public", "kind": "field", "member": "masteryExperience", "visibility": "public", "static": false, "valueType": "BigDouble", "owners": ["Mentor spells"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "spell-recipe.mastery-level",
@@ -15629,6 +15634,9 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Int32"}
+    },
+    {
+      "id": "spell-recipe.mastery-level-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO", "typeVisibility": "public", "kind": "field", "member": "masteryLevel", "visibility": "public", "static": false, "valueType": "System.Int32", "owners": ["Automata spell leveling", "Mentor spells", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "spell-recipe.penalty-usage-cost",
@@ -18993,6 +19001,9 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
     },
     {
+      "id": "upgrade.get-purchase-level-action", "assembly": "assembly-csharp", "type": "UpgradeSO", "typeVisibility": "public", "kind": "method", "member": "GetPurchaseLevel", "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata spell leveling"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "upgrade.get-queued-purchase-level",
       "assembly": "assembly-csharp",
       "type": "UpgradeSO",
@@ -21962,7 +21973,8 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Buy mutation"
+        "Automata Auto Buy mutation",
+        "Automata spell leveling"
       ],
       "usages": [
         "reflection"
@@ -23604,7 +23616,8 @@
       "owners": [
         "Automata spell workbench GameAction",
         "Automata spell loadout GameAction",
-        "Automata Auto Cast"
+        "Automata Auto Cast",
+        "Automata spell leveling"
       ],
       "usages": [
         "reflection"
@@ -26789,7 +26802,7 @@
     {
       "id": "equipment-loadout.equipment.type-action", "assembly": "assembly-csharp",
       "type": "EquipmentSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata equipment loadout GameAction", "Common equipment decision world collection"],
+      "owners": ["Automata equipment loadout GameAction", "Common equipment decision world collection", "Mentor artifacts", "Mentor mastery observation"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28404,7 +28417,7 @@
     {
       "id": "alchemy-loadout.recipe.type-action", "assembly": "assembly-csharp",
       "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection"],
+      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection", "Common Alchemy classifier", "Automata Auto Concept action boundary", "Mentor alchemy", "Mentor mastery observation"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28416,13 +28429,13 @@
     {
       "id": "alchemy-loadout.list.type-action", "assembly": "assembly-csharp",
       "type": "AlchemyInstanceListVariable", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection"],
+      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection", "Automata Auto Concept action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "alchemy-loadout.instance.type-action", "assembly": "assembly-csharp",
       "type": "AlchemyInstance", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection"],
+      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection", "Automata Auto Concept action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28499,7 +28512,7 @@
       "id": "alchemy-loadout.instance-reference-action", "assembly": "assembly-csharp",
       "type": "AbstractRefInstance`1", "typeVisibility": "public", "kind": "method", "member": "get_reference",
       "visibility": "public", "static": false, "returnType": "!0", "parameters": [],
-      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection"],
+      "owners": ["Automata ordinary Alchemy GameAction", "Common ordinary Alchemy loadout world collection", "Automata Auto Concept action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28836,19 +28849,19 @@
     {
       "id": "generic-level.cost.type-action", "assembly": "assembly-csharp",
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Discovery Tree offer GameAction", "Automata Auto Items action boundary", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Buy refusal diagnostics"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Discovery Tree offer GameAction", "Automata Auto Items action boundary", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple.type-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource.type-action", "assembly": "assembly-csharp",
       "type": "ResourceSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -29250,7 +29263,7 @@
     },
     {
       "id": "loadout.spell-recipe.type-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata spell workbench GameAction", "Automata spell loadout GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata spell workbench GameAction", "Automata spell loadout GameAction", "Automata Auto Cast", "Automata spell leveling", "Mentor spells", "Mentor mastery observation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment.type-action", "assembly": "assembly-csharp", "type": "EquipmentSO",
@@ -29494,11 +29507,11 @@
     },
     {
       "id": "loadout.cost-subtract-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "Subtract",
-      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["ResourceCostList"], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["ResourceCostList"], "owners": ["Automata player loadout GameAction", "Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.cost-multiply-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "Multiply",
-      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["BigDouble"], "owners": ["Automata player loadout GameAction", "Automata world-collection verification"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": ["BigDouble"], "owners": ["Automata player loadout GameAction", "Automata world-collection verification", "Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.cost-enough-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "HasEnough",
@@ -32742,10 +32755,6 @@
       {
         "path": "src/ModConfig/SteamKeyboardBridge.cs",
         "reason": "Reflects Steamworks.NET compatibility APIs, not Orb of Creation managed contracts."
-      },
-      {
-        "path": "src/Common/ReflectionUtil.cs",
-        "reason": "Generic reflection plumbing contains no native target declarations; concrete call-site literals are audited in their owning adapters."
       },
       {
         "path": "src/Common/Runtime/ServiceCycle/Contracts/TypeSafety/ServiceCycleTypeGraphWalker.cs",

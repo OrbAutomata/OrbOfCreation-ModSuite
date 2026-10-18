@@ -562,10 +562,10 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public int discRarityLevel;
     public BigDouble recipeTime;
     public readonly List<AlchemyTypeSO> alchemyTypes = new List<AlchemyTypeSO>();
-    public ConceptCostVector drainCost = new ConceptCostVector();
+    public ResourceCostList drainCost = new ResourceCostList();
     public ResourceCostList baseDiscoveryCost = new ResourceCostList();
     public ResourceCostList usageCost = new ResourceCostList();
-    public ConceptCostVector bandwidthCost = new ConceptCostVector();
+    public ResourceCostList bandwidthCost = new ResourceCostList();
     public ModifierListRef completionCostAdvanceMod = new ModifierListRef();
     public ModifierListRef drainCostLevelMod = new ModifierListRef();
     public Prerequisites.Container usagePrerequisites = new Prerequisites.Container();
@@ -603,7 +603,9 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public int GetExperienceLevel() => masteryLevel;
     public BigDouble GetExperience() => masteryXp;
     public BigDouble GetRequiredExperience() => experienceContainer.GetRequiredExperience();
-    public int GetMaxUsageSlots() => maxUsageSlots.GetValue().ToInt();
+    public Exception? MaxUsageReadFailure { get; set; }
+    public int GetMaxUsageSlots() =>
+        MaxUsageReadFailure is { } failure ? throw failure : maxUsageSlots.GetValue().ToInt();
     public AlchemyTypeSO GetCoreType() => coreType;
     public string GetName() => name;
     public void Discover()
@@ -2136,7 +2138,10 @@ public class ResourceSO : UpgradeableObject
     public BigDouble GetAttributeCostMod() => attributeCostMod.GetValue();
     public BigDouble GetTrueSpend(BigDouble amount) =>
         amount / BigDouble.Normalize(quality.GetValue().Mantissa, quality.GetValue().Exponent - 2);
-    public BigDouble GetTrueRate() => trueRate;
+    public Exception? TrueRateReadFailure { get; set; }
+    public BigDouble GetTrueRate() => TrueRateReadFailure is { } failure ? throw failure : trueRate;
+    public BigDouble GetModdedDrain() => drain.GetValue() / quality.GetValue().AsPercent();
+    public bool IsAtZero() => quantity <= new BigDouble(0.01);
     public bool IsAvailable() => available;
     public bool IsVisible() => visible;
     public bool IsBandwidthResource() => bandwidthResource;
@@ -3182,7 +3187,7 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
         if (ThrowAfterDiscovery)
             throw new InvalidOperationException("injected failure after discovery");
     }
-    public ExperienceContainer GetExperienceElement() => experienceContainer;
+    public IExperienceElement GetExperienceElement() => experienceContainer;
     public void IncrementActive(double deltaTime)
     {
     }
@@ -3277,7 +3282,7 @@ public sealed class EquipmentManager
     }
 }
 
-public sealed class ExperienceContainer
+public sealed class ExperienceContainer : IExperienceElement
 {
     private BigDouble experience;
     private int currentLevel;
@@ -3318,12 +3323,9 @@ public sealed class ExperienceContainer
 
     public int GetLevel() => currentLevel;
 
-    public ExperienceContainer Clone()
-    {
-        var clone = new ExperienceContainer();
-        clone.SetState(currentLevel, experience, cachedRequiredXp);
-        return clone;
-    }
+    public int GetExperienceLevel() => currentLevel;
+
+    public bool IsForceVisible() => false;
 
     private static BigDouble Add(BigDouble left, BigDouble right) => left + right;
 
@@ -3349,7 +3351,7 @@ public sealed class AlchemyInstance : AbstractRefInstance<AlchemyRecipeSO>
 
     public int quantity;
     public int queuedQuantity;
-    public ConceptDrainState resourceDrain = new ConceptDrainState();
+    public ResourceDrain resourceDrain = new ResourceDrain();
 
     public bool ThrowOnRead;
 
@@ -3483,90 +3485,14 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     }
 }
 
-public sealed class ConceptDrainState
+public sealed class ResourceDrain
 {
     public bool isDrainApplied = true;
     public BigDouble currentRatio = new BigDouble(1.0, 0);
     public BigDouble usageRatio = new BigDouble(1.0, 0);
-    public ConceptCostVector Current { get; set; } = new ConceptCostVector();
+    public ResourceCostList drainCostMult = new ResourceCostList();
     public BigDouble GetRatio() => new BigDouble(1.0, 0);
-    public ConceptCostVector GetCurrentDrain() => Current;
-}
-
-public sealed class ConceptCostVector
-{
-    public ConceptCostVector(params ConceptCostEntry[] entries)
-    {
-        costs = entries.ToList();
-    }
-
-    public List<ConceptCostEntry> costs;
-    public List<ConceptCostEntry> Entries => costs;
-    public IList GetEntries() => Entries;
-
-    public ConceptCostVector Multiply(BigDouble multiplier) => new ConceptCostVector(
-        Entries.Select(entry => new ConceptCostEntry(
-            entry.resource,
-            entry.Value * multiplier)).ToArray());
-
-    public ConceptCostVector Subtract(ConceptCostVector other)
-    {
-        var remaining = new List<ConceptCostEntry>();
-        foreach (var entry in Entries)
-        {
-            var previous = other.Entries.FirstOrDefault(item => ReferenceEquals(item.resource, entry.resource));
-            remaining.Add(new ConceptCostEntry(
-                entry.resource,
-                entry.Value - (previous?.Value ?? default)));
-        }
-        return new ConceptCostVector(remaining.ToArray());
-    }
-}
-
-public sealed class ConceptCostEntry
-{
-    public ConceptCostEntry(ConceptResource resource, BigDouble value)
-    {
-        this.resource = resource;
-        Value = value;
-        valueBig = value;
-    }
-
-    public ConceptResource resource;
-    private BigDouble valueBig;
-    public BigDouble Value { get; }
-    public BigDouble GetValue() => Value;
-}
-
-public sealed class ConceptResource : IdScriptableObject
-{
-    private string stableUuid;
-
-    public ConceptResource() => stableUuid = base.GetGuid().ToString("D");
-
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
-    public new string name = "Concept resource";
-    public bool AtZero { get; set; }
-    public BigDouble TrueRate { get; set; } = new BigDouble(100.0, 0);
-    public BigDouble ModdedDrain { get; set; } = new BigDouble(0.0, 0);
-    public BigDouble Quantity { get; set; } = new BigDouble(100.0, 0);
-    public BigDouble SoftCap { get; set; } = new BigDouble(100.0, 0);
-    public bool IsAtZero() => AtZero;
-    public BigDouble GetTrueSpend(BigDouble amount) => amount;
-    public BigDouble GetTrueRate() => TrueRate;
-    public BigDouble GetModdedDrain() => ModdedDrain;
-    public bool HasMaxQuantity() => true;
-    public BigDouble GetQuantity() => Quantity;
-    public BigDouble GetTrueSoftCap() => SoftCap;
-    public string GetName() => name;
+    public ResourceCostList GetCurrentDrain() => drainCostMult;
 }
 
 public sealed class EffectResultInfo

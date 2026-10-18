@@ -58,47 +58,4 @@ public static class ReflectionUtil
             LoadedTypes[typeName] = type;
         }
     }
-
-    public static object? InvokeNoArgs(object instance, string name)
-    {
-        var method = instance.GetType().GetMethod(name, InstanceFlags, null, Type.EmptyTypes, null);
-        if (method is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return method.Invoke(instance, Array.Empty<object>());
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return null;
-        }
-    }
-
-    public static object? ReadMember(object instance, string name)
-    {
-        var type = instance.GetType();
-        var field = type.GetField(name, InstanceFlags);
-        if (field is not null)
-        {
-            return field.GetValue(instance);
-        }
-
-        var property = type.GetProperty(name, InstanceFlags);
-        if (property is null || property.GetIndexParameters().Length > 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            return property.GetValue(instance);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return null;
-        }
-    }
 }

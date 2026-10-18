@@ -30,7 +30,7 @@ public sealed class NativeContractManifestTests
     /// terminator still keeps one call's literals from bleeding into the next.
     /// </remarks>
     private static readonly Regex LiteralSelectorPattern = new(
-        "(?:GetMethod|GetField|GetProperty|FindMethod|FindField|FindNoArgMethod|ResolveStaticNoArgMethod|InvokeNoArgs|TryInvokeBool|ReadMember|ReadBool|ReadInt|InvokeRequired)\\s*\\([^;]*?\"(?<target>[A-Za-z_][A-Za-z0-9_.+`]*)\"",
+        "(?:GetMethod|GetField|GetProperty|FindMethod|FindField|ReadBool|ReadInt)\\s*\\([^;]*?\"(?<target>[A-Za-z_][A-Za-z0-9_.+`]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex ReflectionUsePattern = new(
@@ -249,7 +249,7 @@ public sealed class NativeContractManifestTests
         // remember when a contract lands, and it silently drifted for nine of them; what has to
         // hold is that every declaration written into the manifest survives into the loaded model.
         Assert.Equal(DeclaredContractCount(), manifest.Contracts.Count);
-        Assert.Equal(10, manifest.SourceAudit.Exemptions.Count);
+        Assert.Equal(9, manifest.SourceAudit.Exemptions.Count);
         Assert.False(string.IsNullOrWhiteSpace(manifest.AuditedAt));
         Assert.False(string.IsNullOrWhiteSpace(manifest.GameBuild));
         Assert.False(string.IsNullOrWhiteSpace(manifest.Provenance));

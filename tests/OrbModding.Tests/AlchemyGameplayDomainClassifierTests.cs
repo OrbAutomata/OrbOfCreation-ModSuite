@@ -18,6 +18,24 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
     }
 
     [Fact]
+    public void Every_missing_member_disables_the_complete_alchemy_classifier_binding_set()
+    {
+        foreach (var missing in AlchemyGameplayDomainClassifierBindings.ContractIds)
+        {
+            IdScriptableObject.RuntimeLookup = new Dictionary<Guid, IdScriptableObject>();
+            var concept = Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid));
+            RegisterConceptRecipes(concept);
+            using var classifier = new AlchemyGameplayDomainClassifier(
+                registryResolver: null, resolveType: null, includeContract: id => id != missing);
+
+            Assert.False(classifier.TryInitialize(out var reason));
+            Assert.Equal(AlchemyDomainClassifierStatus.Blocked, classifier.Status);
+            Assert.Contains(missing, reason, StringComparison.Ordinal);
+            Assert.Equal(AlchemyGameplayDomain.Unknown, classifier.ClassifyRecipe(concept).Domain);
+        }
+    }
+
+    [Fact]
     public void ExactConceptRegistryAndTypeEvidenceClassifiesScholarRecipe()
     {
         var conceptType = Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid);

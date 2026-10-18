@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -48,32 +47,20 @@ internal sealed class AutoConceptNativeAdapter :
 
     private readonly AlchemyGameplayDomainClassifier _domainClassifier;
     private readonly TypedRegistryResolver _registryResolver;
+    private readonly AutoConceptNativeBindings? _bindings;
+    private readonly string _bindingFailure;
     private readonly List<object> _recipes = new();
     private readonly Dictionary<object, string> _recipeUuids = new(ReferenceEqualityComparer.Instance);
     private object? _activeConcepts;
     private TypedRegistryResolution? _activeConceptsResolution;
     private TypedRegistryResolution? _conceptRecipesResolution;
-    private Type? _recipeType;
-    private Type? _instanceType;
-    private FieldInfo? _activeValuesField;
-    private FieldInfo? _recipeTypesField;
-    private FieldInfo? _recipeDrainField;
-    private FieldInfo? _instanceQuantityField;
-    private FieldInfo? _instanceQueuedQuantityField;
-    private FieldInfo? _instanceDrainField;
-    private MethodInfo? _canAddInstance;
-    private MethodInfo? _isDiscovered;
-    private MethodInfo? _getNumEmptyTypelessSlots;
-    private MethodInfo? _getSlotsOnlyForType;
-    private MethodInfo? _getNumOfType;
-    private MethodInfo? _addInstances;
-    private MethodInfo? _removeInstances;
     private string? _blockedReason;
     private NativeMutationEvidence<int>? _lastMutationEvidence;
     private NativeMutationCallOutcome _lastNativeMutationOutcome;
 
     public string? BlockedReason => _blockedReason;
     public bool IsReady =>
+        _bindings is not null &&
         _activeConcepts is not null &&
         _activeConceptsResolution is not null &&
         _conceptRecipesResolution is not null &&
@@ -86,9 +73,19 @@ internal sealed class AutoConceptNativeAdapter :
     public AutoConceptNativeAdapter(
         AlchemyGameplayDomainClassifier domainClassifier,
         TypedRegistryResolver? registryResolver = null)
+        : this(domainClassifier, registryResolver, resolveType: null, includeContract: null)
+    {
+    }
+
+    internal AutoConceptNativeAdapter(
+        AlchemyGameplayDomainClassifier domainClassifier,
+        TypedRegistryResolver? registryResolver,
+        Func<string, Type?>? resolveType,
+        Func<string, bool>? includeContract)
     {
         _domainClassifier = domainClassifier ?? throw new ArgumentNullException(nameof(domainClassifier));
         _registryResolver = registryResolver ?? TypedRegistryResolver.Shared;
+        AutoConceptNativeBindings.TryCreate(out _bindings, out _bindingFailure, resolveType, includeContract);
     }
 
     public bool TryInitialize(out string reason)
@@ -103,6 +100,11 @@ internal sealed class AutoConceptNativeAdapter :
             reason = _blockedReason;
             return false;
         }
+        if (_bindings is not { } native)
+        {
+            reason = _bindingFailure;
+            return false;
+        }
         try
         {
             if (!_domainClassifier.TryInitialize(out var classifierReason))
@@ -112,21 +114,12 @@ internal sealed class AutoConceptNativeAdapter :
                     : Retry($"Auto Concept domain classifier is not ready: {classifierReason}", out reason);
             }
 
-            _recipeType = ReflectionUtil.FindLoadedType("AlchemyRecipeSO");
-            _instanceType = ReflectionUtil.FindLoadedType("AlchemyInstance");
-            var alchemyType = ReflectionUtil.FindLoadedType("AlchemyTypeSO");
-            var activeType = ReflectionUtil.FindLoadedType(KnownEntities.ActiveConcepts.ManagedTypeName);
-            var recipeListType = ReflectionUtil.FindLoadedType(KnownEntities.ConceptRecipes.ManagedTypeName);
-            if (_recipeType is null || _instanceType is null || alchemyType is null ||
-                activeType is null || recipeListType is null)
-                return Retry("native concept types are not registered yet", out reason);
-
             var activeId = KnownEntities.ActiveConcepts.Uuid;
             var recipesId = AlchemyGameplayDomainClassifier.ConceptRecipesUuid;
-            var activeResolution = _registryResolver.Resolve(activeId, activeType);
+            var activeResolution = _registryResolver.Resolve(activeId, native.ActiveListType);
             if (!activeResolution.IsResolved)
                 return HandleRegistryFailure(EntityIdentityFormatter.Format(activeId), activeResolution, out reason);
-            var recipesResolution = _registryResolver.Resolve(recipesId, recipeListType);
+            var recipesResolution = _registryResolver.Resolve(recipesId, native.RecipeListType);
             if (!recipesResolution.IsResolved)
                 return HandleRegistryFailure(EntityIdentityFormatter.Format(recipesId), recipesResolution, out reason);
             var active = activeResolution.Value!;
@@ -134,33 +127,7 @@ internal sealed class AutoConceptNativeAdapter :
             _activeConceptsResolution = activeResolution;
             _conceptRecipesResolution = recipesResolution;
 
-            _activeValuesField = FindField(activeType, "value", isStatic: false);
-            var recipeValuesField = FindField(recipeListType, "value", isStatic: false);
-            _recipeTypesField = FindField(_recipeType, "alchemyTypes", isStatic: false);
-            _recipeDrainField = FindField(_recipeType, "drainCost", isStatic: false);
-            _instanceQuantityField = FindField(_instanceType, "quantity", isStatic: false);
-            _instanceQueuedQuantityField = FindField(_instanceType, "queuedQuantity", isStatic: false);
-            _instanceDrainField = FindField(_instanceType, "resourceDrain", isStatic: false);
-            _canAddInstance = FindMethod(activeType, "CanAddInstance", _recipeType);
-            _isDiscovered = FindMethod(_recipeType, "IsDiscovered");
-            _getNumEmptyTypelessSlots = FindMethod(activeType, "GetNumEmptyTypelessSlots");
-            _getSlotsOnlyForType = FindMethod(
-                activeType, "GetSlotsOnlyForType", alchemyType);
-            _getNumOfType = FindMethod(
-                activeType, "GetNumOfType", alchemyType);
-            _addInstances = FindMethod(activeType, "AddAlchemyInstances", _recipeType, typeof(int));
-            _removeInstances = FindMethod(activeType, "RemoveAlchemyInstances", _recipeType, typeof(int));
-            if (_activeValuesField is null || recipeValuesField is null || _recipeTypesField is null ||
-                _recipeDrainField is null ||
-                _instanceQuantityField is null || _instanceQueuedQuantityField is null || _instanceDrainField is null ||
-                !Returns(_canAddInstance, typeof(bool)) || !Returns(_isDiscovered, typeof(bool)) ||
-                !Returns(_getNumEmptyTypelessSlots, typeof(int)) ||
-                !Returns(_getSlotsOnlyForType, typeof(int)) ||
-                !Returns(_getNumOfType, typeof(int)) ||
-                _addInstances is null || _removeInstances is null)
-                return Fail("native Active Concepts accessors are unavailable", out reason);
-
-            if (recipeValuesField.GetValue(recipes) is not IEnumerable scopedRecipes)
+            if (native.RecipeValues(recipes) is not { } scopedRecipes)
                 return Fail("ConceptRecipes runtime contents are unavailable", out reason);
             _recipes.Clear();
             _recipeUuids.Clear();
@@ -202,21 +169,22 @@ internal sealed class AutoConceptNativeAdapter :
         candidate = null;
         refusal = AutoConceptActionResultCodes.RecipeIdentityChanged;
         if (!TryInitialize(out reason)) return false;
+        var native = _bindings!;
         var active = ReadActiveByRecipe();
         foreach (var recipe in _recipes)
         {
             var uuid = _recipeUuids[recipe];
             if (!string.Equals(uuid, recipeId.ToString(), StringComparison.Ordinal)) continue;
-            if (!InvokeBoolean(_isDiscovered!, recipe))
+            if (!native.IsDiscovered(recipe))
             {
                 refusal = AutoConceptActionResultCodes.ConceptNotDiscovered;
                 reason = "the planned concept is no longer unlocked";
                 return false;
             }
-            var maximum = Math.Max(0, ReadInt(recipe, "GetMaxUsageSlots", "maxUsageSlots"));
+            var maximum = Math.Max(0, native.MaxUsageSlots(recipe));
             active.TryGetValue(recipe, out var instance);
-            var quantity = instance is null ? 0 : Convert.ToInt32(_instanceQuantityField!.GetValue(instance) ?? 0);
-            var queued = instance is null ? 0 : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(instance) ?? 0);
+            var quantity = instance is null ? 0 : native.Quantity(instance);
+            var queued = instance is null ? 0 : native.QueuedQuantity(instance);
             var identity = EntityIdentityFormatter.Describe(recipeId);
             candidate = new NativeConceptCandidate(
                 uuid,
@@ -235,7 +203,7 @@ internal sealed class AutoConceptNativeAdapter :
 
     public bool CanAdd(NativeConceptCandidate candidate) =>
         IsCurrentRecipe(candidate) &&
-        InvokeBoolean(_canAddInstance!, _activeConcepts!, candidate.Recipe);
+        _bindings!.CanAddInstance(_activeConcepts!, candidate.Recipe);
 
     private bool TryFindSafeTarget(
         NativeConceptCandidate candidate,
@@ -321,7 +289,7 @@ internal sealed class AutoConceptNativeAdapter :
         int desiredTarget,
         AutoConceptResourceLimits? limits)
     {
-        if (candidate.MaximumQuantity != ReadInt(candidate.Recipe, "GetMaxUsageSlots", "maxUsageSlots"))
+        if (candidate.MaximumQuantity != _bindings!.MaxUsageSlots(candidate.Recipe))
             return AutoConceptSubmission.Rejected(
                 AutoConceptActionResultCodes.MasteryLimitChanged,
                 "the native mastery quantity limit changed");
@@ -403,19 +371,20 @@ internal sealed class AutoConceptNativeAdapter :
         NativeConceptCandidate replacement)
     {
         if (CanAdd(replacement)) return true;
+        var native = _bindings!;
         if (_activeConcepts is null ||
-            _recipeTypesField!.GetValue(active.Recipe) is not IList activeTypes ||
-            _recipeTypesField.GetValue(replacement.Recipe) is not IList replacementTypes)
+            native.AlchemyTypes(active.Recipe) is not { } activeTypes ||
+            native.AlchemyTypes(replacement.Recipe) is not { } replacementTypes)
             return false;
 
-        var genericAfter = InvokeInt(_getNumEmptyTypelessSlots!, _activeConcepts) + 1;
+        var genericAfter = native.EmptyTypelessSlots(_activeConcepts) + 1;
         var activeTypeSet = new HashSet<object>(ReferenceEqualityComparer.Instance);
         for (var index = 0; index < activeTypes.Count; index++)
         {
             var type = activeTypes[index];
             if (type is null || !activeTypeSet.Add(type)) continue;
-            var count = InvokeInt(_getNumOfType!, _activeConcepts, type);
-            var slots = InvokeInt(_getSlotsOnlyForType!, _activeConcepts, type);
+            var count = native.NumOfType(_activeConcepts, type);
+            var slots = native.SlotsOnlyForType(_activeConcepts, type);
             if (count > 0 && count <= slots) genericAfter--;
         }
 
@@ -423,9 +392,9 @@ internal sealed class AutoConceptNativeAdapter :
         {
             var type = replacementTypes[index];
             if (type is null) continue;
-            var count = InvokeInt(_getNumOfType!, _activeConcepts, type);
+            var count = native.NumOfType(_activeConcepts, type);
             if (activeTypeSet.Contains(type) && count > 0) count--;
-            var slots = InvokeInt(_getSlotsOnlyForType!, _activeConcepts, type);
+            var slots = native.SlotsOnlyForType(_activeConcepts, type);
             if (genericAfter + Math.Max(slots - count, 0) > 0) return true;
         }
         return false;
@@ -445,9 +414,10 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "candidate identity, compatible slot, or quantity changed";
             return false;
         }
-        var maximum = ReadInt(candidate.Recipe, "GetMaxUsageSlots", "maxUsageSlots");
+        var native = _bindings!;
+        var maximum = native.MaxUsageSlots(candidate.Recipe);
         var current = FindActiveInstance(candidate.Recipe);
-        var quantity = current is null ? 0 : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(current) ?? 0);
+        var quantity = current is null ? 0 : native.QueuedQuantity(current);
         if (quantity < 0 || quantity + delta > maximum)
         {
             reason = "native mastery quantity limit changed";
@@ -457,7 +427,7 @@ internal sealed class AutoConceptNativeAdapter :
             candidate,
             "Auto Concept add",
             $"queued quantity exact delta +{delta}",
-            () => _addInstances!.Invoke(_activeConcepts, new object[] { candidate.Recipe, delta }),
+            () => native.AddInstances(_activeConcepts!, candidate.Recipe, delta),
             (before, after) => after == before + delta,
             out reason);
     }
@@ -492,8 +462,9 @@ internal sealed class AutoConceptNativeAdapter :
             reason = $"{quantityDescription} is no longer active";
             return false;
         }
-        var quantity = Convert.ToInt32(_instanceQuantityField!.GetValue(current) ?? 0);
-        var queuedQuantity = Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(current) ?? 0);
+        var native = _bindings!;
+        var quantity = native.Quantity(current);
+        var queuedQuantity = native.QueuedQuantity(current);
         if (queuedQuantity < delta || requireExactQuantity && (quantity != delta || queuedQuantity != delta))
         {
             reason = $"native {quantityDescription} changed";
@@ -503,7 +474,7 @@ internal sealed class AutoConceptNativeAdapter :
             candidate,
             "Auto Concept remove",
             $"queued quantity exact delta -{delta}",
-            () => _removeInstances!.Invoke(_activeConcepts, new object[] { candidate.Recipe, delta }),
+            () => native.RemoveInstances(_activeConcepts!, candidate.Recipe, delta),
             (before, after) => after == before - delta,
             out reason);
     }
@@ -540,9 +511,7 @@ internal sealed class AutoConceptNativeAdapter :
     private int CaptureQueuedQuantity(object recipe)
     {
         var instance = FindActiveInstance(recipe);
-        return instance is null
-            ? 0
-            : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(instance) ?? 0);
+        return instance is null ? 0 : _bindings!.QueuedQuantity(instance);
     }
 
     public void InvalidateLifecycle()
@@ -568,34 +537,27 @@ internal sealed class AutoConceptNativeAdapter :
         out AutoConceptProjectionRefusal refusal)
     {
         refusal = AutoConceptProjectionRefusal.Contract;
+        var native = _bindings!;
         try
         {
-            var temporary = Activator.CreateInstance(
-                _instanceType!,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                args: new[] { candidate.Recipe },
-                culture: null);
-            if (temporary is null) return FailProjection("native prospective instance could not be created", out reason);
-            _instanceQuantityField!.SetValue(temporary, targetQuantity);
-            var multiplier = ReflectionUtil.InvokeNoArgs(temporary, "GetDrainCostMod");
-            var percentMultiplier = multiplier is null ? null : ReflectionUtil.InvokeNoArgs(multiplier, "AsPercent");
-            var baseDrain = _recipeDrainField!.GetValue(candidate.Recipe);
-            var prospective = baseDrain is null || percentMultiplier is null
+            var temporary = native.NewInstance(candidate.Recipe);
+            native.SetQuantity(temporary, targetQuantity);
+            var baseDrain = native.DrainCost(candidate.Recipe);
+            var prospective = baseDrain is null
                 ? null
-                : InvokeCompatible(baseDrain, "Multiply", percentMultiplier);
+                : native.Multiply(baseDrain, native.AsPercent(native.DrainCostMod(temporary)));
             if (prospective is null) return FailProjection("native prospective drain vector is unavailable", out reason);
 
-            object? incremental = prospective;
+            var incremental = prospective;
             if (candidate.Instance is not null)
             {
-                var drain = _instanceDrainField!.GetValue(candidate.Instance);
-                var current = drain is null ? null : ReflectionUtil.InvokeNoArgs(drain, "GetCurrentDrain");
+                var drain = native.ResourceDrain(candidate.Instance);
+                var current = drain is null ? null : native.CurrentDrain(drain);
                 if (current is null) return FailProjection("current native drain vector is unavailable", out reason);
-                incremental = InvokeCompatible(prospective, "Subtract", current);
+                incremental = native.Subtract(prospective, current);
             }
             if (incremental is null) return FailProjection("incremental native drain vector is unavailable", out reason);
-            if (!TryReadCostEntries(incremental, out var entries))
+            if (!TryReadCostEntries(native, incremental, out var entries))
                 return FailProjection("incremental native drain vector is only partially decodable", out reason);
             if (entries.Count == 0)
             {
@@ -613,33 +575,31 @@ internal sealed class AutoConceptNativeAdapter :
                 // alone, and the only reader of ResourceDrain.AnyResourceAtZero in the whole
                 // assembly is StatusEffect.CheckIfExpired.
                 if (limits is not { } applied) continue;
-                var zeroState = ReflectionUtil.InvokeNoArgs(entry.Resource, "IsAtZero");
-                if (!AutoConceptResourcePolicy.TryAcceptPositiveDrain(zeroState, out var zeroReason))
-                {
-                    refusal = zeroState is true
-                        ? AutoConceptProjectionRefusal.Backpressure
-                        : AutoConceptProjectionRefusal.Contract;
-                    return FailProjection($"{ResourceName(entry.Resource)} {zeroReason}", out reason);
-                }
-                if (InvokeCompatible(entry.Resource, "GetTrueSpend", entry.NativeAmount) is not BigDouble adjustedIncrement ||
-                    adjustedIncrement.CompareTo(default) < 0)
-                    return FailProjection("resource quality conversion failed", out reason);
-                if (ReflectionUtil.InvokeNoArgs(entry.Resource, "GetTrueRate") is not BigDouble currentRate)
-                    return FailProjection("resource true rate is unavailable", out reason);
-                if (ReflectionUtil.InvokeNoArgs(entry.Resource, "GetModdedDrain") is not BigDouble currentDrain)
-                    return FailProjection("resource drain rate is unavailable", out reason);
-                if (AutoConceptResourcePolicy.BreaksRateReserve(
-                        currentRate, currentDrain, adjustedIncrement, applied.RateReservePercent))
+                if (!AutoConceptResourcePolicy.TryAcceptPositiveDrain(native.IsAtZero(entry.Resource), out var zeroReason))
                 {
                     refusal = AutoConceptProjectionRefusal.Backpressure;
-                    return FailProjection($"{ResourceName(entry.Resource)} would fall below the configured rate reserve", out reason);
+                    return FailProjection($"{ResourceName(native, entry.Resource)} {zeroReason}", out reason);
+                }
+                var adjustedIncrement = native.TrueSpend(entry.Resource, entry.Amount);
+                if (adjustedIncrement.CompareTo(default) < 0)
+                    return FailProjection("resource quality conversion failed", out reason);
+                if (AutoConceptResourcePolicy.BreaksRateReserve(
+                        native.TrueRate(entry.Resource),
+                        native.ModdedDrain(entry.Resource),
+                        adjustedIncrement,
+                        applied.RateReservePercent))
+                {
+                    refusal = AutoConceptProjectionRefusal.Backpressure;
+                    return FailProjection(
+                        $"{ResourceName(native, entry.Resource)} would fall below the configured rate reserve",
+                        out reason);
                 }
             }
             reason = "projected native drain is safe";
             refusal = AutoConceptProjectionRefusal.None;
             return true;
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException || ex is MissingMethodException || ex is MemberAccessException || ex is OverflowException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return FailProjection(ex.GetBaseException().Message, out reason);
         }
@@ -654,12 +614,13 @@ internal sealed class AutoConceptNativeAdapter :
 
     private Dictionary<object, object> ReadActiveByRecipe()
     {
+        var native = _bindings!;
         var result = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
-        if (_activeValuesField!.GetValue(_activeConcepts) is not IEnumerable values) return result;
+        if (native.ActiveValues(_activeConcepts!) is not { } values) return result;
         foreach (var instance in values)
         {
-            if (instance is null || instance.GetType() != _instanceType) continue;
-            var recipe = ReflectionUtil.ReadMember(instance, "reference");
+            if (instance is null || instance.GetType() != native.InstanceType) continue;
+            var recipe = native.Reference(instance);
             if (recipe is not null) result[recipe] = instance;
         }
         return result;
@@ -673,7 +634,7 @@ internal sealed class AutoConceptNativeAdapter :
     private bool IsCurrentRecipe(NativeConceptCandidate candidate)
     {
         if (!IsReady) return false;
-        if (candidate.Recipe.GetType() != _recipeType) return false;
+        if (candidate.Recipe.GetType() != _bindings!.RecipeType) return false;
         var classification = _domainClassifier.ClassifyRecipe(candidate.Recipe);
         if (classification.Domain != AlchemyGameplayDomain.ScholarConcept ||
             !classification.IsMutationGrade ||
@@ -686,86 +647,20 @@ internal sealed class AutoConceptNativeAdapter :
         return false;
     }
 
-    private static bool TryReadCostEntries(object? costList, out List<NativeCostEntry> result)
+    private static bool TryReadCostEntries(
+        AutoConceptNativeBindings native,
+        object costList,
+        out List<NativeCostEntry> result)
     {
         result = new List<NativeCostEntry>();
-        if (costList is null || ReflectionUtil.InvokeNoArgs(costList, "GetEntries") is not IList entries) return false;
+        if (native.CostEntries(costList) is not { } entries) return false;
         for (var index = 0; index < entries.Count; index++)
         {
-            var entry = entries[index];
-            if (entry is null) return false;
-            var resource = ReflectionUtil.ReadMember(entry, "resource");
-            var nativeAmount = ReflectionUtil.InvokeNoArgs(entry, "GetValue");
-            if (resource is null || nativeAmount is not BigDouble amount) return false;
-            result.Add(new NativeCostEntry(resource, nativeAmount, amount));
+            var entry = entries[index]!;
+            if (native.EntryResource(entry) is not { } resource) return false;
+            result.Add(new NativeCostEntry(resource, native.EntryValue(entry)));
         }
         return true;
-    }
-
-    private static object? InvokeCompatible(object instance, string name, object argument)
-    {
-        foreach (var method in instance.GetType().GetMethods(ReflectionUtil.InstanceFlags))
-        {
-            var parameters = method.GetParameters();
-            if (method.Name == name && parameters.Length == 1 && parameters[0].ParameterType.IsInstanceOfType(argument))
-                return method.Invoke(instance, new[] { argument });
-        }
-        return null;
-    }
-
-    private static int ReadInt(object instance, string methodName, string fieldName)
-    {
-        var value = ReflectionUtil.InvokeNoArgs(instance, methodName) ?? FindField(instance.GetType(), fieldName, false)?.GetValue(instance);
-        return Convert.ToInt32(value ?? 0);
-    }
-
-    private static bool InvokeBoolean(
-        MethodInfo method,
-        object instance,
-        params object[] arguments)
-    {
-        var value = method.Invoke(instance, arguments);
-        return value is bool result
-            ? result
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.FullName}.{method.Name} returned no Boolean value.");
-    }
-
-    private static int InvokeInt(MethodInfo method, object instance, params object[] arguments)
-    {
-        var value = method.Invoke(instance, arguments);
-        return value is int result
-            ? result
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.FullName}.{method.Name} returned no Int32 value.");
-    }
-
-    private static bool Returns(MethodInfo? method, Type returnType) =>
-        method is not null && method.ReturnType == returnType;
-
-    private static FieldInfo? FindField(Type type, string name, bool isStatic)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var field = current.GetField(name, ReflectionUtil.InstanceFlags | BindingFlags.Static | BindingFlags.DeclaredOnly);
-            if (field is not null && field.IsStatic == isStatic) return field;
-        }
-        return null;
-    }
-
-    private static MethodInfo? FindMethod(Type type, string name, params Type[] parameterTypes)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                ReflectionUtil.InstanceFlags | BindingFlags.DeclaredOnly,
-                null,
-                parameterTypes,
-                null);
-            if (method is not null) return method;
-        }
-        return null;
     }
 
     private bool HandleRegistryFailure(
@@ -798,9 +693,9 @@ internal sealed class AutoConceptNativeAdapter :
         return false;
     }
 
-    private static string ResourceName(object resource)
+    private static string ResourceName(AutoConceptNativeBindings native, object resource)
     {
-        var uuid = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(resource);
+        var uuid = native.ResourceId(resource);
         return uuid != Guid.Empty
             ? EntityIdentityFormatter.Format(uuid)
             : "resource";
@@ -808,14 +703,12 @@ internal sealed class AutoConceptNativeAdapter :
 
     private readonly struct NativeCostEntry
     {
-        public NativeCostEntry(object resource, object nativeAmount, BigDouble amount)
+        public NativeCostEntry(object resource, BigDouble amount)
         {
             Resource = resource;
-            NativeAmount = nativeAmount;
             Amount = amount;
         }
         public object Resource { get; }
-        public object NativeAmount { get; }
         public BigDouble Amount { get; }
     }
 

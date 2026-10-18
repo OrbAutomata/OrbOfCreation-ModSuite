@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -75,32 +74,26 @@ internal interface ISpellLevelNativePort
 internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLevelCapabilityPort, IDisposable
 {
     private readonly TypedRegistryResolver _registryResolver;
-    private Type? _recipeType;
+    private readonly SpellLevelNativeBindings? _bindings;
+    private readonly string _bindingFailure;
     private object? _manager;
     private object? _availableRecipes;
     private object? _levelAllUpgrade;
     private TypedRegistryResolution? _levelAllResolution;
-    private FieldInfo? _recipeValuesField;
-    private FieldInfo? _levelingPrerequisitesField;
-    private FieldInfo? _masteryLevelField;
-    private MethodInfo? _prerequisitesCheck;
-    private MethodInfo? _isDiscovered;
-    private MethodInfo? _isReady;
-    private MethodInfo? _getLevelCost;
-    private MethodInfo? _costHasEnough;
-    private MethodInfo? _costPerform;
-    private MethodInfo? _costEntries;
-    private FieldInfo? _entryResource;
-    private MethodInfo? _entryValue;
-    private MethodInfo? _resourceGuid;
-    private MethodInfo? _purchaseLevel;
-    private MethodInfo? _getUpgradePurchaseLevel;
-    private MethodInfo? _tryLevelAll;
     private string? _blockedReason;
 
     public SpellLevelNativeAdapter(TypedRegistryResolver? registryResolver = null)
+        : this(registryResolver, resolveType: null, includeContract: null)
+    {
+    }
+
+    internal SpellLevelNativeAdapter(
+        TypedRegistryResolver? registryResolver,
+        Func<string, Type?>? resolveType,
+        Func<string, bool>? includeContract)
     {
         _registryResolver = registryResolver ?? TypedRegistryResolver.Shared;
+        SpellLevelNativeBindings.TryCreate(out _bindings, out _bindingFailure, resolveType, includeContract);
     }
 
     private bool IsBound =>
@@ -114,6 +107,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     {
         if (!TryInitialize(out var reason))
             return SpellLevelSubmission.ContractUnavailable(reason);
+        var native = _bindings!;
 
         try
         {
@@ -132,7 +126,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             // Everything the snapshot could not say, asked of the game itself. Discovery is published
             // and re-read anyway: it is one call, and a boundary that trusts half a plan is harder to
             // reason about than one that trusts none of it.
-            if (_isDiscovered!.Invoke(recipe, Array.Empty<object>()) is not true)
+            if (!native.IsDiscovered(recipe))
             {
                 return SpellLevelSubmission.Rejected(
                     SpellLevelActionResultCodes.LevelNotAffordable, "the spell is no longer discovered");
@@ -144,15 +138,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                     SpellLevelActionResultCodes.ProgressionLocked, "spell leveling is not unlocked");
             }
 
-            if (_isReady!.Invoke(recipe, Array.Empty<object>()) is not true)
+            if (!native.IsReady(recipe))
             {
                 return SpellLevelSubmission.Rejected(
                     SpellLevelActionResultCodes.LevelNotAffordable,
                     "the spell no longer has a ready mastery level");
             }
 
-            var cost = _getLevelCost!.Invoke(recipe, Array.Empty<object>());
-            if (cost is null || _costHasEnough!.Invoke(cost, Array.Empty<object>()) is not true)
+            var cost = native.LevelCost(recipe);
+            if (cost is null || !native.HasEnough(cost))
             {
                 return SpellLevelSubmission.Rejected(
                     SpellLevelActionResultCodes.LevelNotAffordable, "the spell-level cost is no longer affordable");
@@ -175,10 +169,11 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     {
         capability = AutoSpellLevelCapability.Locked;
         if (!TryInitialize(out _)) return false;
+        var native = _bindings!;
 
         try
         {
-            if (ReadPurchaseLevel(_levelAllUpgrade!) > 0)
+            if (native.PurchasedLevel(_levelAllUpgrade!) > 0)
             {
                 capability = AutoSpellLevelCapability.All;
                 return true;
@@ -186,8 +181,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
             foreach (var recipe in ReadRecipes())
             {
-                if (recipe is null || recipe.GetType() != _recipeType) continue;
-                if (_isDiscovered!.Invoke(recipe, Array.Empty<object>()) is not true) continue;
+                if (recipe is null || recipe.GetType() != native.RecipeType) continue;
+                if (!native.IsDiscovered(recipe)) continue;
                 if (!PrerequisitesPass(recipe)) continue;
                 capability = AutoSpellLevelCapability.Single;
                 return true;
@@ -206,42 +201,26 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     public void InvalidateLifecycle()
     {
-        _recipeType = null;
         _manager = null;
         _availableRecipes = null;
         _levelAllUpgrade = null;
         _levelAllResolution = null;
-        _recipeValuesField = null;
-        _levelingPrerequisitesField = null;
-        _masteryLevelField = null;
-        _prerequisitesCheck = null;
-        _isDiscovered = null;
-        _isReady = null;
-        _getLevelCost = null;
-        _costHasEnough = null;
-        _costPerform = null;
-        _costEntries = null;
-        _entryResource = null;
-        _entryValue = null;
-        _resourceGuid = null;
-        _purchaseLevel = null;
-        _getUpgradePurchaseLevel = null;
-        _tryLevelAll = null;
         _blockedReason = null;
     }
 
     private SpellLevelSubmission SubmitSingle(Guid uuid, object recipe, object cost)
     {
+        var native = _bindings!;
         var charges = ReadCharges(cost);
         var evidence = NativeMutationVerifier.Execute(
             "Spell level single",
             uuid.ToString("D"),
             "mastery level exact delta +1",
-            () => ReadMasteryLevel(recipe),
+            () => native.MasteryLevel(recipe),
             () =>
             {
-                _costPerform!.Invoke(cost, Array.Empty<object>());
-                _purchaseLevel!.Invoke(recipe, Array.Empty<object>());
+                native.PerformCost(cost);
+                native.PurchaseLevel(recipe);
             },
             (before, after) => after == before + 1);
         return Complete(evidence, charges);
@@ -249,18 +228,17 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private ResourceCharge[]? ReadCharges(object cost)
     {
-        if (_costEntries!.Invoke(cost, Array.Empty<object>()) is not IList entries || entries.Count == 0)
+        var native = _bindings!;
+        if (native.CostEntries(cost) is not { Count: > 0 } entries)
             return null;
         var charges = new ResourceCharge[entries.Count];
         var count = 0;
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            var resource = entry is null ? null : _entryResource!.GetValue(entry);
+            var resource = entry is null ? null : native.EntryResource(entry);
             if (resource is null) continue;
-            charges[count++] = new ResourceCharge(
-                (Guid)_resourceGuid!.Invoke(resource, Array.Empty<object>())!,
-                (BigDouble)_entryValue!.Invoke(entry, Array.Empty<object>())!);
+            charges[count++] = new ResourceCharge(native.ResourceId(resource), native.EntryValue(entry!));
         }
         if (count == 0) return null;
         Array.Resize(ref charges, count);
@@ -269,9 +247,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private SpellLevelSubmission SubmitAll(Guid uuid)
     {
+        var native = _bindings!;
         // The capability is re-read rather than trusted: the worker decided All from a snapshot, and
         // an upgrade refunded or reset since then would make this a call the game refuses.
-        if (ReadPurchaseLevel(_levelAllUpgrade!) <= 0)
+        if (native.PurchasedLevel(_levelAllUpgrade!) <= 0)
         {
             return SpellLevelSubmission.Rejected(
                 SpellLevelActionResultCodes.LevelAllLocked,
@@ -282,15 +261,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         var prerequisitePassed = false;
         foreach (var recipe in ReadRecipes())
         {
-            if (recipe is null || recipe.GetType() != _recipeType) continue;
-            if (_isDiscovered!.Invoke(recipe, Array.Empty<object>()) is not true) continue;
+            if (recipe is null || recipe.GetType() != native.RecipeType) continue;
+            if (!native.IsDiscovered(recipe)) continue;
             discovered = true;
             if (!PrerequisitesPass(recipe)) continue;
             prerequisitePassed = true;
-            if (_isReady!.Invoke(recipe, Array.Empty<object>()) is not true) continue;
+            if (!native.IsReady(recipe)) continue;
 
-            var cost = _getLevelCost!.Invoke(recipe, Array.Empty<object>());
-            if (cost is null || _costHasEnough!.Invoke(cost, Array.Empty<object>()) is not true) continue;
+            var cost = native.LevelCost(recipe);
+            if (cost is null || !native.HasEnough(cost)) continue;
 
             return SubmitAllVerified(uuid);
         }
@@ -309,12 +288,14 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private SpellLevelSubmission SubmitAllVerified(Guid uuid)
     {
+        var native = _bindings!;
+        var manager = _manager!;
         var evidence = NativeMutationVerifier.Execute(
             "Spell level all",
             uuid == Guid.Empty ? "all ready spells" : uuid.ToString("D"),
             "total mastery level positive delta",
             ReadTotalMasteryLevels,
-            () => _tryLevelAll!.Invoke(_manager, Array.Empty<object>()),
+            () => native.TryLevelAll(manager),
             (before, after) => after > before);
         return Complete(evidence);
     }
@@ -340,17 +321,18 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private bool PrerequisitesPass(object recipe)
     {
-        var prerequisites = _levelingPrerequisitesField!.GetValue(recipe);
-        return prerequisites is not null &&
-            _prerequisitesCheck!.Invoke(prerequisites, Array.Empty<object>()) is true;
+        var native = _bindings!;
+        return native.LevelingPrerequisites(recipe) is { } prerequisites &&
+            native.PrerequisitesCheck(prerequisites);
     }
 
     private bool TryResolveRecipe(Guid uuid, out object recipe)
     {
+        var native = _bindings!;
         foreach (var candidate in ReadRecipes())
         {
-            if (candidate is null || candidate.GetType() != _recipeType) continue;
-            if (RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(candidate) != uuid) continue;
+            if (candidate is null || candidate.GetType() != native.RecipeType) continue;
+            if (native.RecipeId(candidate) != uuid) continue;
             recipe = candidate;
             return true;
         }
@@ -373,16 +355,16 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             return false;
         }
 
+        if (_bindings is not { } native)
+        {
+            reason = _bindingFailure;
+            return false;
+        }
+
         try
         {
-            var managerType = ReflectionUtil.FindLoadedType("SpellManager");
-            _recipeType = ReflectionUtil.FindLoadedType("SpellRecipeSO");
-            var upgradeType = ReflectionUtil.FindLoadedType(KnownEntities.UnlockLevelAllSpells.ManagedTypeName);
-            if (managerType is null || _recipeType is null || upgradeType is null)
-                return Retry("native spell-level types are not registered yet", out reason);
-
             var upgradeResolution = _registryResolver.Resolve(
-                KnownEntities.UnlockLevelAllSpells.Uuid, upgradeType);
+                KnownEntities.UnlockLevelAllSpells.Uuid, native.UpgradeType);
             if (!upgradeResolution.IsResolved)
             {
                 return HandleRegistryFailure(
@@ -394,87 +376,35 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             _levelAllUpgrade = upgradeResolution.Value;
             _levelAllResolution = upgradeResolution;
 
-            _manager = FindField(managerType, "instance", true)?.GetValue(null);
-            if (_manager is null || _manager.GetType() != managerType)
+            _manager = native.Manager();
+            if (_manager is null)
                 return Retry("SpellManager is not ready", out reason);
-            var availableField = FindField(managerType, "availableSpellRecipes", false);
-            _availableRecipes = availableField?.GetValue(_manager);
+            _availableRecipes = native.AvailableRecipes(_manager);
             if (_availableRecipes is null) return Retry("available spell recipes are not ready", out reason);
-
-            _recipeValuesField = FindField(_availableRecipes.GetType(), "value", false);
-            _levelingPrerequisitesField = FindField(_recipeType, "levelingPrerequisites", false);
-            _masteryLevelField = FindField(_recipeType, "masteryLevel", false);
-            _isDiscovered = FindMethod(_recipeType, "IsDiscovered");
-            _isReady = FindMethod(_recipeType, "IsReadyToLevelMastery");
-            _getLevelCost = FindMethod(_recipeType, "GetLevelCost");
-            _purchaseLevel = FindMethod(_recipeType, "PurchaseLevel");
-            _getUpgradePurchaseLevel = FindMethod(upgradeType, "GetPurchaseLevel");
-            _tryLevelAll = FindMethod(managerType, "TryLevelAllSpells");
-            if (_recipeValuesField is null || _levelingPrerequisitesField is null || _masteryLevelField is null ||
-                _isDiscovered is null || _isReady is null || _getLevelCost is null || _purchaseLevel is null ||
-                _getUpgradePurchaseLevel is null || _tryLevelAll is null)
-                return Block("native spell-level accessors are unavailable", out reason);
-
-            _prerequisitesCheck = FindMethod(_levelingPrerequisitesField.FieldType, "Check");
-            _costHasEnough = FindMethod(_getLevelCost.ReturnType, "HasEnough");
-            _costPerform = FindMethod(_getLevelCost.ReturnType, "PerformCost");
-            _costEntries = FindMethod(_getLevelCost.ReturnType, "GetEntries");
-            var entryType = _costEntries?.ReturnType.IsGenericType == true
-                ? _costEntries.ReturnType.GetGenericArguments()[0]
-                : null;
-            _entryResource = entryType is null ? null : FindField(entryType, "resource", false);
-            _entryValue = entryType is null ? null : FindMethod(entryType, "GetValue");
-            _resourceGuid = _entryResource is null ? null : FindMethod(_entryResource.FieldType, "GetGuid");
-            if (_prerequisitesCheck is null || _costHasEnough is null || _costPerform is null ||
-                _entryResource is null || _entryValue is null || _resourceGuid is null)
-                return Block("native spell prerequisite or cost accessors are unavailable", out reason);
 
             _ = ReadRecipes();
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex) || ex is FormatException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Block($"spell-level contract initialization failed: {ex.GetBaseException().Message}", out reason);
         }
     }
 
-    private IEnumerable ReadRecipes()
-    {
-        if (_recipeValuesField!.GetValue(_availableRecipes) is not IEnumerable recipes)
-            throw new InvalidOperationException("available spell recipe contents are unavailable");
-        return recipes;
-    }
-
-    private int ReadPurchaseLevel(object upgrade) =>
-        Convert.ToInt32(_getUpgradePurchaseLevel!.Invoke(upgrade, Array.Empty<object>()) ?? 0);
-
-    private int ReadMasteryLevel(object recipe) =>
-        Convert.ToInt32(_masteryLevelField!.GetValue(recipe) ?? 0);
+    private IList ReadRecipes() =>
+        _bindings!.RecipeValues(_availableRecipes!) ??
+        throw new InvalidOperationException("available spell recipe contents are unavailable");
 
     private long ReadTotalMasteryLevels()
     {
+        var native = _bindings!;
         long total = 0;
         foreach (var recipe in ReadRecipes())
-            if (recipe is not null && recipe.GetType() == _recipeType) total += Math.Max(0, ReadMasteryLevel(recipe));
+            if (recipe is not null && recipe.GetType() == native.RecipeType)
+                total += Math.Max(0, native.MasteryLevel(recipe));
         return total;
     }
-
-    private static FieldInfo? FindField(Type type, string name, bool isStatic)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly |
-                (isStatic ? BindingFlags.Static : BindingFlags.Instance);
-            var field = current.GetField(name, flags);
-            if (field is not null) return field;
-        }
-
-        return null;
-    }
-
-    private static MethodInfo? FindMethod(Type type, string name) =>
-        type.GetMethod(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, Type.EmptyTypes, null);
 
     private bool HandleRegistryFailure(
         string label,
@@ -499,5 +429,4 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         reason = message;
         return false;
     }
-
 }

@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -49,15 +48,14 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     [Trait("Category", "HeadlessIntegration")]
     public void BatchedDepthRefusesWhenTheLiveMasteryCapCannotHonorTheRequest()
     {
-        var resource = new ConceptResource();
+        var resource = new ResourceSO { trueRate = new BigDouble(100.0, 0) };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
             "Valid concept",
             new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid.ToString()) })
         {
             maxUsageSlots = new ValueModifierRecord(new BigDouble(2.0, 0)),
-            drainCost = new ConceptCostVector(
-                new ConceptCostEntry(resource, new BigDouble(10.0, 0))),
+            drainCost = Costs(resource, new BigDouble(10.0, 0)),
         };
         var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
@@ -116,15 +114,14 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     [Trait("Category", "HeadlessIntegration")]
     public void PositiveDrainFailsClosedWhenNativeResourceIsAtZero()
     {
-        var resource = new ConceptResource { AtZero = true };
+        var resource = new ResourceSO { quantity = BigDouble.Zero, trueRate = new BigDouble(100.0, 0) };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
             "Zero resource concept",
             new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
         {
             maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
-            drainCost = new ConceptCostVector(
-                new ConceptCostEntry(resource, new BigDouble(1.0, 0))),
+            drainCost = Costs(resource, new BigDouble(1.0, 0)),
         };
         var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
@@ -155,15 +152,14 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     [Trait("Category", "HeadlessIntegration")]
     public void APressIsNotRefusedByAResourceTheGameLetsRunAtZero()
     {
-        var resource = new ConceptResource { AtZero = true };
+        var resource = new ResourceSO { quantity = BigDouble.Zero, trueRate = new BigDouble(100.0, 0) };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
             "Zero resource concept",
             new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
         {
             maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
-            drainCost = new ConceptCostVector(
-                new ConceptCostEntry(resource, new BigDouble(1.0, 0))),
+            drainCost = Costs(resource, new BigDouble(1.0, 0)),
         };
         var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
@@ -189,10 +185,10 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     [Trait("Category", "HeadlessIntegration")]
     public void DialsThatRefuseTheWorkerDoNotRefuseAPress()
     {
-        var resource = new ConceptResource
+        var resource = new ResourceSO
         {
-            TrueRate = new BigDouble(100.0, 0),
-            Quantity = new BigDouble(10.0, 0),
+            trueRate = new BigDouble(100.0, 0),
+            quantity = new BigDouble(10.0, 0),
         };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
@@ -200,8 +196,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
         {
             maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
-            drainCost = new ConceptCostVector(
-                new ConceptCostEntry(resource, new BigDouble(50.0, 0))),
+            drainCost = Costs(resource, new BigDouble(50.0, 0)),
         };
         var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
@@ -242,10 +237,10 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         float reservePercent,
         bool accepted)
     {
-        var resource = new ConceptResource
+        var resource = new ResourceSO
         {
-            TrueRate = new BigDouble(trueRate),
-            Quantity = new BigDouble(10.0, 0),
+            trueRate = new BigDouble(trueRate),
+            quantity = new BigDouble(10.0, 0),
         };
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
@@ -253,8 +248,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
         {
             maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
-            drainCost = new ConceptCostVector(
-                new ConceptCostEntry(resource, new BigDouble(drain))),
+            drainCost = Costs(resource, new BigDouble(drain)),
         };
         var active = InstallNativeLists(recipe);
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
@@ -410,10 +404,10 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
             1,
             in belief);
 
-        var exception = Assert.Throws<TargetInvocationException>(
+        var exception = Assert.Throws<InvalidOperationException>(
             () => runtime.Submit(in action, DefaultLimits));
 
-        Assert.Contains("CanAddInstance failed", exception.GetBaseException().Message);
+        Assert.Equal("CanAddInstance failed", exception.Message);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -486,6 +480,168 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         Assert.Contains("injected discovery read failure", exception.GetBaseException().Message);
         Assert.Empty(active.value);
     }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void Every_missing_member_disables_the_complete_auto_concept_binding_set()
+    {
+        foreach (var missing in AutoConceptNativeBindings.ContractIds)
+        {
+            IdScriptableObject.RuntimeLookup.Clear();
+            var type = new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid.ToString());
+            var active = InstallNativeLists(RecipeWithType(RecipeId, "Concept", type));
+            using var runtime = new AutoConceptNativeAdapter(
+                new AlchemyGameplayDomainClassifier(),
+                registryResolver: null,
+                resolveType: null,
+                includeContract: id => id != missing);
+            var belief = new AutoConceptPlanBelief(0, 0, 1, Guid.Empty, 0);
+            var action = new AutoConceptCycleAction(
+                AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
+
+            Assert.False(runtime.TryInitialize(out var reason));
+            Assert.Contains(missing, reason, StringComparison.Ordinal);
+            var submission = runtime.Submit(in action, DefaultLimits);
+
+            Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);
+            Assert.False(submission.Outcome.ToResult().HasNativeEvidence);
+            Assert.Contains(missing, submission.Outcome.Reason, StringComparison.Ordinal);
+            Assert.False(runtime.IsReady);
+            Assert.Empty(active.value);
+        }
+    }
+
+    /// <summary>
+    /// The projection multiplies the drain through the game's <c>Multiply(BigDouble)</c>, not
+    /// whichever one-parameter <c>Multiply</c> on the runtime list accepts the argument.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void The_drain_projection_multiplies_through_the_declared_overload()
+    {
+        var resource = new ResourceSO { trueRate = new BigDouble(1.0), quantity = new BigDouble(10.0, 0) };
+        var active = InstallDrainingConcept(new DecoyCostList { costs = { new ResourceTuple(resource, new BigDouble(0.75)) } });
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+
+        var submission = runtime.Submit(in AddOne, new AutoConceptResourceLimits(50f));
+
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+        Assert.Contains("rate reserve", submission.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Empty(active.value);
+    }
+
+    /// <summary>
+    /// The quality conversion is the game's <c>ResourceSO.GetTrueSpend(BigDouble)</c>, not a
+    /// look-alike the runtime resource type declares.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void The_quality_conversion_calls_the_declared_true_spend()
+    {
+        var resource = new DecoySpendResource { trueRate = new BigDouble(1.0), quantity = new BigDouble(10.0, 0) };
+        var active = InstallDrainingConcept(Costs(resource, new BigDouble(0.75)));
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+
+        var submission = runtime.Submit(in AddOne, new AutoConceptResourceLimits(50f));
+
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+        Assert.Contains("rate reserve", submission.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Empty(active.value);
+    }
+
+    /// <summary>
+    /// The mastery limit is <c>GetMaxUsageSlots()</c> alone. A throw from it reaches the caller as
+    /// the game threw it; it never falls back to reading the <c>maxUsageSlots</c> record as a number.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void A_thrown_mastery_limit_read_reaches_the_caller_without_a_field_fallback()
+    {
+        var type = new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid.ToString());
+        var recipe = RecipeWithType(RecipeId, "Unreadable limit", type);
+        recipe.MaxUsageReadFailure = new InvalidOperationException("injected mastery limit read failure");
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+
+        var exception = Assert.Throws<InvalidOperationException>(() => runtime.Submit(in AddOne, DefaultLimits));
+
+        Assert.Equal("injected mastery limit read failure", exception.Message);
+        Assert.Empty(active.value);
+    }
+
+    /// <summary>
+    /// The projection reads the rate through the bound <c>ResourceSO.GetTrueRate()</c>, not a method
+    /// looked up by name on the runtime resource type at call time.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void The_drain_projection_reads_the_bound_true_rate()
+    {
+        var resource = new DecoyRateResource { trueRate = new BigDouble(1.0), quantity = new BigDouble(10.0, 0) };
+        var active = InstallDrainingConcept(Costs(resource, new BigDouble(0.75)));
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+
+        var submission = runtime.Submit(in AddOne, new AutoConceptResourceLimits(50f));
+
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+        Assert.Contains("rate reserve", submission.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Empty(active.value);
+    }
+
+    /// <summary>
+    /// An unexpected throw from the game inside the projection escapes loudly; it never becomes a
+    /// "rate is unavailable" refusal the worker would read as an ordinary hold.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void An_unexpected_throw_inside_the_drain_projection_escapes()
+    {
+        var resource = new ResourceSO
+        {
+            trueRate = new BigDouble(1.0),
+            quantity = new BigDouble(10.0, 0),
+            TrueRateReadFailure = new NullReferenceException("injected rate read failure"),
+        };
+        var active = InstallDrainingConcept(Costs(resource, new BigDouble(0.75)));
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+
+        var exception = Assert.Throws<NullReferenceException>(
+            () => runtime.Submit(in AddOne, new AutoConceptResourceLimits(50f)));
+
+        Assert.Equal("injected rate read failure", exception.Message);
+        Assert.Empty(active.value);
+    }
+
+    private static readonly AutoConceptCycleAction AddOne = new(
+        AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, new AutoConceptPlanBelief(0, 0, 4, Guid.Empty, 0));
+
+    private static AlchemyInstanceListVariable InstallDrainingConcept(ResourceCostList drainCost) =>
+        InstallNativeLists(new AlchemyRecipeSO(
+            RecipeId.ToString("D"),
+            "Draining concept",
+            new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
+        {
+            maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
+            drainCost = drainCost,
+        });
+
+    private sealed class DecoyCostList : ResourceCostList
+    {
+        public ResourceCostList Multiply(object factor) => new();
+    }
+
+    private sealed class DecoySpendResource : ResourceSO
+    {
+        public BigDouble GetTrueSpend(object amount) => BigDouble.Zero;
+    }
+
+    private sealed class DecoyRateResource : ResourceSO
+    {
+        public new BigDouble GetTrueRate() => new BigDouble(1.0, 6);
+    }
+
+    private static ResourceCostList Costs(ResourceSO resource, BigDouble value) =>
+        new() { costs = { new ResourceTuple(resource, value) } };
 
     private static AlchemyRecipeSO RecipeWithType(
         Guid id,

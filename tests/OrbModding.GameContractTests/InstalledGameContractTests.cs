@@ -329,10 +329,7 @@ public sealed class InstalledGameContractTests
         AssertMethod(assembly, "ResourceSO", "GetTrueSpend", false, "BigDouble", "BigDouble");
         AssertMethod(assembly, "ResourceSO", "GetTrueRate", false, "BigDouble");
         AssertMethod(assembly, "ResourceSO", "GetModdedDrain", false, "BigDouble");
-        AssertMethod(assembly, "ResourceSO", "GetQuantity", false, "BigDouble");
         AssertMethod(assembly, "ResourceSO", "IsAtZero", false, "System.Boolean");
-        AssertMethod(assembly, "ResourceSO", "GetTrueSoftCap", false, "BigDouble");
-        AssertMethod(assembly, "ResourceSO", "HasMaxQuantity", false, "System.Boolean");
     }
 
     [GameAssemblyFact]
@@ -763,7 +760,6 @@ public sealed class InstalledGameContractTests
         AssertMethod(assembly, "ExperienceContainer", "GetGainedLevels", false, "System.Int32");
         AssertMethod(assembly, "ExperienceContainer", "GetExperience", false, "BigDouble");
         AssertMethod(assembly, "ExperienceContainer", "GetLevel", false, "System.Int32");
-        AssertMethod(assembly, "ExperienceContainer", "Clone", false, "ExperienceContainer");
         Assert.Equal("BigDouble", assembly.GetFieldType("EquipmentSO+EquipmentSaveData", "mXp"));
         Assert.Equal("System.Int32", assembly.GetFieldType("EquipmentSO+EquipmentSaveData", "mLv"));
     }

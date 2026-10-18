@@ -6,10 +6,21 @@ using OrbModding.Common.Runtime.World;
 
 namespace OrbMentor;
 
+/// <summary>
+/// What the mastery hooks record, read through one binding set bound at install.
+/// </summary>
+/// <remarks>
+/// A hook runs inside the game's own call, so nothing it reads may throw back into the game. An
+/// expected native failure drops that one observation; anything else drops it too and goes to the
+/// failure log, once per install, because every later one has the same cause.
+/// </remarks>
 internal static class MentorMasteryPatchBridge
 {
     private static MentorMasteryEventJournal? _journal;
     private static Func<long>? _readLifecycleEpoch;
+    private static MentorMasteryObservationBindings? _bindings;
+    private static Action<string>? _failureLog;
+    private static bool _failureReported;
     private static int _suppressionDepth;
     private static object? _artifact;
     private static object? _artifactContainer;
@@ -17,11 +28,18 @@ internal static class MentorMasteryPatchBridge
 
     internal static void Install(
         MentorMasteryEventJournal journal,
-        Func<long> readLifecycleEpoch)
+        Func<long> readLifecycleEpoch,
+        Action<string> failureLog,
+        Func<string, Type?>? resolveType = null,
+        Func<string, bool>? includeContract = null)
     {
         _journal = journal ?? throw new ArgumentNullException(nameof(journal));
         _readLifecycleEpoch = readLifecycleEpoch ??
                               throw new ArgumentNullException(nameof(readLifecycleEpoch));
+        _failureLog = failureLog ?? throw new ArgumentNullException(nameof(failureLog));
+        _failureReported = false;
+        if (!MentorMasteryObservationBindings.TryCreate(out _bindings, out var reason, resolveType, includeContract))
+            failureLog("Mentor records no earned mastery XP: " + reason);
         _journal.Reset(Math.Max(0, _readLifecycleEpoch()));
     }
 
@@ -56,17 +74,17 @@ internal static class MentorMasteryPatchBridge
         _artifact = null;
         _artifactContainer = null;
         _artifactAmount = default;
-        if (_suppressionDepth != 0 || !IsGameplayScene()) return;
+        if (_suppressionDepth != 0 || !IsGameplayScene() || _bindings is not { } native) return;
         try
         {
-            var method = FindMethod(source.GetType(), "GetExperienceElement", Type.EmptyTypes);
-            var container = method?.Invoke(source, null);
+            var container = native.ExperienceElement(source);
             if (container is null) return;
             _artifact = source;
             _artifactContainer = container;
         }
-        catch
+        catch (Exception exception)
         {
+            Contain(exception, "an artifact's experience container");
             _artifact = null;
             _artifactContainer = null;
         }
@@ -116,28 +134,32 @@ internal static class MentorMasteryPatchBridge
         id = Guid.Empty;
         mastery = 0;
         eligible = false;
+        if (_bindings is not { } native) return false;
         try
         {
-            id = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(source);
-            var masteryField = FindField(source.GetType(), "masteryLevel");
-            if (masteryField is null) return false;
-            mastery = Convert.ToInt32(masteryField.GetValue(source) ?? 0);
-            if (domain == MasteryExperienceDomain.Artifact)
+            switch (domain)
             {
-                eligible = FindField(source.GetType(), "isCreated")?.GetValue(source) is true;
-            }
-            else
-            {
-                var availability = FindMethod(
-                    source.GetType(),
-                    domain == MasteryExperienceDomain.Spell ? "IsDiscovered" : "IsAvailable",
-                    Type.EmptyTypes);
-                eligible = availability?.Invoke(source, null) is true;
+                case MasteryExperienceDomain.Spell:
+                    id = native.SpellId(source);
+                    mastery = native.SpellMastery(source);
+                    eligible = native.SpellDiscovered(source);
+                    break;
+                case MasteryExperienceDomain.Artifact:
+                    id = native.EquipmentId(source);
+                    mastery = native.EquipmentMastery(source);
+                    eligible = native.EquipmentCreated(source);
+                    break;
+                default:
+                    id = native.AlchemyId(source);
+                    mastery = native.AlchemyMastery(source);
+                    eligible = native.AlchemyAvailable(source);
+                    break;
             }
             return true;
         }
-        catch
+        catch (Exception exception)
         {
+            Contain(exception, "a " + domain + " mastery source");
             return false;
         }
     }
@@ -151,39 +173,23 @@ internal static class MentorMasteryPatchBridge
     private static long ReadEpoch()
     {
         try { return _readLifecycleEpoch?.Invoke() ?? 0; }
-        catch { return 0; }
+        catch (Exception exception)
+        {
+            Contain(exception, "the lifecycle epoch");
+            return 0;
+        }
+    }
+
+    private static void Contain(Exception exception, string what)
+    {
+        if (NativeFailureClassifier.IsExpected(exception) ||
+            _failureReported || _failureLog is not { } log) return;
+        _failureReported = true;
+        log("Mentor's mastery hook could not read " + what + ", so that XP is not shared: " +
+            ExceptionDetail.Describe(exception));
     }
 
     private static bool IsGameplayScene() => MentorGameplayScene.IsActive();
-
-    private static FieldInfo? FindField(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var field = current.GetField(
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
-                BindingFlags.DeclaredOnly);
-            if (field is not null) return field;
-        }
-        return null;
-    }
-
-    private static MethodInfo? FindMethod(Type type, string name, Type[] parameters)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
-                BindingFlags.DeclaredOnly,
-                null,
-                parameters,
-                null);
-            if (method is not null) return method;
-        }
-        return null;
-    }
 
     private sealed class Suppression : IDisposable
     {

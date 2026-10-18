@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
@@ -13,43 +12,44 @@ internal interface IMentorNativePort
 
 internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
 {
-    private const BindingFlags InstanceFlags =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
     private readonly TypedRegistryResolver _registry;
     private readonly AlchemyGameplayDomainClassifier _alchemy;
+    private readonly MentorNativeBindings? _bindings;
+    private readonly string _bindingFailure;
 
     internal MentorNativeAdapter(
         TypedRegistryResolver? registry = null,
-        AlchemyGameplayDomainClassifier? alchemy = null)
+        AlchemyGameplayDomainClassifier? alchemy = null,
+        Func<string, Type?>? resolveType = null,
+        Func<string, bool>? includeContract = null)
     {
         _registry = registry ?? TypedRegistryResolver.Shared;
         _alchemy = alchemy ?? new AlchemyGameplayDomainClassifier();
+        MentorNativeBindings.TryCreate(out _bindings, out _bindingFailure, resolveType, includeContract);
     }
 
     public NativeActionOutcome Grant(in MentorCycleAction action)
     {
-        var typeName = action.Domain switch
+        if (_bindings is not { } native)
+            return Contract(_bindingFailure);
+        var type = action.Domain switch
         {
-            MasteryExperienceDomain.Spell => "SpellRecipeSO",
-            MasteryExperienceDomain.Artifact => "EquipmentSO",
-            _ => "AlchemyRecipeSO",
+            MasteryExperienceDomain.Spell => native.SpellType,
+            MasteryExperienceDomain.Artifact => native.EquipmentType,
+            _ => native.AlchemyType,
         };
-        var type = ReflectionUtil.FindLoadedType(typeName);
-        if (type is null)
-            return Contract($"native {typeName} type is unavailable");
         var resolution = _registry.Resolve(action.RecipientId, type);
         if (!resolution.IsResolved)
             return resolution.IsRetryable
                 ? Identity(resolution.Format())
                 : Contract(resolution.Format());
         var recipient = resolution.Value!;
+        var identity = action.RecipientId.ToString();
 
         try
         {
-            var mastery = ReadInt(recipient, "masteryLevel");
-            if (!IsAvailable(recipient, action.Domain) ||
-                mastery >= action.MasteryCeilingExclusive)
+            if (!IsAvailable(native, recipient, action.Domain) ||
+                Mastery(native, recipient, action.Domain) >= action.MasteryCeilingExclusive)
             {
                 return NativeActionOutcome.Reject(
                     CommonActionResultCodes.NativeRejected,
@@ -70,13 +70,10 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             }
 
             return action.Domain == MasteryExperienceDomain.Artifact
-                ? GrantArtifact(recipient, action.Amount)
-                : GrantDirect(recipient, action.Domain, action.Amount);
+                ? GrantArtifact(native, recipient, identity, action.Amount)
+                : GrantDirect(native, recipient, identity, action.Domain, action.Amount);
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException or ArgumentException or InvalidOperationException or
-            TargetException or MemberAccessException or MissingMemberException or FormatException or
-            OverflowException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Contract(ex.GetBaseException().Message);
         }
@@ -87,77 +84,56 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
     public void Dispose() => _alchemy.Dispose();
 
     private static NativeActionOutcome GrantDirect(
+        MentorNativeBindings native,
         object recipient,
+        string identity,
         MasteryExperienceDomain domain,
         MentorAmount amount)
     {
-        var experienceField = RequiredField(
-            recipient.GetType(),
-            domain == MasteryExperienceDomain.Spell ? "masteryExperience" : "masteryXp");
-        var method = RequiredMethod(
-            recipient.GetType(),
-            domain == MasteryExperienceDomain.Spell ? "GainMasteryExp" : "GainMasteryXp",
-            typeof(BigDouble));
+        var spell = domain == MasteryExperienceDomain.Spell;
+        var readExperience = spell ? native.SpellExperience : native.AlchemyExperience;
+        var gain = spell ? native.SpellGain : native.AlchemyGain;
         var expected = new BigDouble(amount.Mantissa, amount.Exponent);
         var evidence = NativeMutationVerifier.Execute(
             "Mentor mastery XP grant",
-            Describe(recipient),
+            identity,
             "mastery XP increased",
-            () => ReadBigDouble(experienceField, recipient),
+            () => readExperience(recipient),
             () =>
             {
                 using var ignored = MentorMasteryPatchBridge.Suppress();
-                method.Invoke(recipient, new object[] { expected });
+                gain(recipient, expected);
             },
             (before, after) => after.CompareTo(before) > 0);
         return FromEvidence(evidence);
     }
 
-    private static string Describe(object entity) =>
-        RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(entity).ToString();
-
-    private static NativeActionOutcome GrantArtifact(object equipment, MentorAmount amount)
+    private static NativeActionOutcome GrantArtifact(
+        MentorNativeBindings native,
+        object equipment,
+        string identity,
+        MentorAmount amount)
     {
-        var equipmentType = equipment.GetType();
-        var savedXp = RequiredField(equipmentType, "masteryXp");
-        var getContainer = RequiredMethod(equipmentType, "GetExperienceElement");
-        var gainLevels = RequiredMethod(equipmentType, "GainMasteryLevels", typeof(int));
-        var container = getContainer.Invoke(equipment, null) ??
-                        throw new MissingMemberException("artifact experience container is unavailable");
-        var containerType = container.GetType();
-        var gain = RequiredMethod(containerType, "GainExperience", typeof(BigDouble));
-        var gainedLevels = RequiredMethod(containerType, "GetGainedLevels");
-        var getLevel = RequiredMethod(containerType, "GetLevel");
-        var getExperience = RequiredMethod(containerType, "GetExperience");
+        var container = native.ExperienceElement(equipment) ??
+                        throw new InvalidOperationException("artifact experience container is unavailable");
         var value = new BigDouble(amount.Mantissa, amount.Exponent);
 
         var evidence = NativeMutationVerifier.Execute(
             "Mentor artifact mastery XP grant",
-            Describe(equipment),
+            identity,
             "artifact mastery progress increased",
-            () => CaptureArtifactProgress(container, getLevel, getExperience),
+            () => new MentorArtifactProgress(native.ContainerLevel(container), native.ContainerExperience(container)),
             () =>
             {
                 using var ignored = MentorMasteryPatchBridge.Suppress();
-                gain.Invoke(container, new object[] { value });
-                var actualLevels = Convert.ToInt32(gainedLevels.Invoke(container, null) ?? 0);
-                if (actualLevels > 0) gainLevels.Invoke(equipment, new object[] { actualLevels });
-                var actualXp = (BigDouble)(getExperience.Invoke(container, null) ??
-                                           throw new MissingMemberException("artifact XP is unavailable"));
-                savedXp.SetValue(equipment, actualXp);
+                native.ContainerGain(container, value);
+                var actualLevels = native.ContainerGainedLevels(container);
+                if (actualLevels > 0) native.GainMasteryLevels(equipment, actualLevels);
+                native.SetEquipmentXp(equipment, native.ContainerExperience(container));
             },
             static (before, after) => after.IsAfter(before));
         return FromEvidence(evidence);
     }
-
-    private static MentorArtifactProgress CaptureArtifactProgress(
-        object container,
-        MethodInfo getLevel,
-        MethodInfo getExperience) =>
-        new(
-            Convert.ToInt32(getLevel.Invoke(container, null) ?? 0),
-            (BigDouble)(getExperience.Invoke(container, null) ??
-                        throw new MissingMemberException("artifact XP is unavailable")));
 
     private static NativeActionOutcome FromEvidence<T>(NativeMutationEvidence<T> evidence)
     {
@@ -171,49 +147,21 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
                 evidence.Format(static state => state?.ToString() ?? "<null>"));
     }
 
-    private static bool IsAvailable(object recipient, MasteryExperienceDomain domain)
-    {
-        var name = domain switch
+    private static bool IsAvailable(MentorNativeBindings native, object recipient, MasteryExperienceDomain domain) =>
+        domain switch
         {
-            MasteryExperienceDomain.Spell => "IsDiscovered",
-            MasteryExperienceDomain.Artifact => "isCreated",
-            _ => "IsAvailable",
+            MasteryExperienceDomain.Spell => native.SpellDiscovered(recipient),
+            MasteryExperienceDomain.Artifact => native.EquipmentCreated(recipient),
+            _ => native.AlchemyAvailable(recipient),
         };
-        return domain == MasteryExperienceDomain.Artifact
-            ? RequiredField(recipient.GetType(), name).GetValue(recipient) is true
-            : RequiredMethod(recipient.GetType(), name).Invoke(recipient, null) is true;
-    }
 
-    private static int ReadInt(object target, string field) =>
-        Convert.ToInt32(RequiredField(target.GetType(), field).GetValue(target) ?? 0);
-
-    private static BigDouble ReadBigDouble(FieldInfo field, object target) =>
-        (BigDouble)(field.GetValue(target) ??
-                    throw new MissingMemberException(field.Name + " is unavailable"));
-    private static FieldInfo RequiredField(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
+    private static int Mastery(MentorNativeBindings native, object recipient, MasteryExperienceDomain domain) =>
+        domain switch
         {
-            var field = current.GetField(name, InstanceFlags | BindingFlags.DeclaredOnly);
-            if (field is not null) return field;
-        }
-        throw new MissingFieldException(type.FullName, name);
-    }
-
-    private static MethodInfo RequiredMethod(Type type, string name, params Type[] parameters)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                InstanceFlags | BindingFlags.DeclaredOnly,
-                null,
-                parameters,
-                null);
-            if (method is not null) return method;
-        }
-        throw new MissingMethodException(type.FullName, name);
-    }
+            MasteryExperienceDomain.Spell => native.SpellMastery(recipient),
+            MasteryExperienceDomain.Artifact => native.EquipmentMastery(recipient),
+            _ => native.AlchemyMastery(recipient),
+        };
 
     private static NativeActionOutcome Contract(string reason) =>
         NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);

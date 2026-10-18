@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -225,7 +224,6 @@ public sealed class AutoConceptCycleActionAdapterTests
         public AutoConceptSubmission Submit(
             in AutoConceptCycleAction action,
             AutoConceptResourceLimits? limits) =>
-            throw new TargetInvocationException(
-                new InvalidOperationException("CanAddInstance failed"));
+            throw new InvalidOperationException("CanAddInstance failed");
     }
 }
