@@ -45,10 +45,10 @@ public sealed class StructureLifecycleGameActionTests
         var alreadyResult = Submit(
             boundary, StructureLifecycleActionKind.Disable, disabled);
 
-        Assert.Equal(StructureLifecyclePreflight.NotAvailable,
-            unavailableResult.Preflight);
-        Assert.Equal(StructureLifecyclePreflight.AlreadyInState,
-            alreadyResult.Preflight);
+        Assert.Equal(StructureLifecycleActionResultCodes.NotAvailable,
+            unavailableResult.Code);
+        Assert.Equal(StructureLifecycleActionResultCodes.AlreadyInState,
+            alreadyResult.Code);
         Assert.Equal(0, unavailable.RemoveEffectsCalls);
         Assert.Equal(0, disabled.RemoveEffectsCalls);
     }
@@ -63,7 +63,7 @@ public sealed class StructureLifecycleGameActionTests
 
         var result = Submit(boundary, StructureLifecycleActionKind.Disable, structure);
 
-        Assert.Equal(StructureLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(StructureLifecycleActionResultCodes.VerificationFailed, result.Code);
         Assert.False(structure.disabled);
     }
 
@@ -77,7 +77,7 @@ public sealed class StructureLifecycleGameActionTests
         var result = ForeignThread.Run(() =>
             Submit(boundary, StructureLifecycleActionKind.Disable, structure));
 
-        Assert.Equal(StructureLifecyclePreflight.WrongThread, result.Preflight);
+        Assert.Equal(StructureLifecycleActionResultCodes.WrongThread, result.Code);
         Assert.False(structure.disabled);
     }
 
@@ -106,7 +106,7 @@ public sealed class StructureLifecycleGameActionTests
             registry: resolver);
     }
 
-    private static StructureLifecycleSubmission Submit(
+    private static NativeActionOutcome Submit(
         StructureLifecycleGameAction boundary,
         StructureLifecycleActionKind kind,
         StructureSO structure)

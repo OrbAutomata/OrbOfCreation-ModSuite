@@ -180,12 +180,12 @@ public sealed class GameMcpStreamableHttpProtocolTests
             "Initiate postconditions did not match the audited native transition: " +
             "expected Crafting mode 1, observed mode 0";
         var submission = new DiscoveryTreeOfferSubmission(
-            DiscoveryTreeOfferPreflight.VerificationFailed,
-            DiscoveryTreeOfferNativeStage.Verification,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(2, 1, 0),
-            reason);
-        var mapped = DiscoveryTreeOfferActionResultMapper.Map(in submission);
+            NativeActionOutcome.Fault(
+                DiscoveryTreeOfferActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(2, 1, 0),
+                reason));
+        var mapped = submission.Outcome.ToResult();
         var context = GameMcpTestHarness.Context(
             new GameWorldState
             {
@@ -211,11 +211,10 @@ public sealed class GameMcpStreamableHttpProtocolTests
             sourceOperation: operation,
             frameContext: context);
         var terminal = GameMcpCommandResult.FromAction(
-            in mapped,
+            mapped.WithReason(reason),
             command.Kind,
             observedLifecycleGeneration: 9,
             observedConfigurationGeneration: 3,
-            exactReason: reason,
             details: GameMcpDiscoveryTreeOfferProjection.Project(
                 DiscoveryTreeOfferActionKind.Initiate,
                 in submission));

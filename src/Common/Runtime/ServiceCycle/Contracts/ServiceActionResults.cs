@@ -171,7 +171,8 @@ public readonly struct ServiceActionResult
         ServiceActionEffect effect,
         bool hasNativeEvidence,
         ServiceNativeMutationEvidence nativeEvidence,
-        ServicePublicationEvidence publicationEvidence)
+        ServicePublicationEvidence publicationEvidence,
+        string reason)
     {
         Disposition = disposition;
         Code = code;
@@ -179,7 +180,10 @@ public readonly struct ServiceActionResult
         HasNativeEvidence = hasNativeEvidence;
         NativeEvidence = nativeEvidence;
         PublicationEvidence = publicationEvidence;
+        _reason = reason;
     }
+
+    private readonly string? _reason;
 
     public ServiceActionDisposition Disposition { get; }
     public ServiceActionResultCode Code { get; }
@@ -193,6 +197,10 @@ public readonly struct ServiceActionResult
     public bool HasNativeEvidence { get; }
     public ServiceNativeMutationEvidence NativeEvidence { get; }
     public ServicePublicationEvidence PublicationEvidence { get; }
+
+    /// <summary>The exact sentence a refusal or fault gives; empty on success.</summary>
+    public string Reason => _reason ?? string.Empty;
+
     public bool HasPublicationEvidence => Effect == ServiceActionEffect.Publication;
 
     /// <summary>
@@ -247,31 +255,42 @@ public readonly struct ServiceActionResult
             ServiceActionDisposition.Committed, code, ServiceActionEffect.Publication,
             false, default, publicationEvidence);
 
-    public static ServiceActionResult Rejected(ServiceActionResultCode code) =>
+    public static ServiceActionResult Rejected(ServiceActionResultCode code, string reason = "") =>
         Create(
             ServiceActionDisposition.Rejected, code, ServiceActionEffect.None,
-            false, default, default);
+            false, default, default, reason);
     public static ServiceActionResult Skipped(
-        ServiceActionResultCode code) =>
+        ServiceActionResultCode code,
+        string reason = "") =>
         Create(
             ServiceActionDisposition.Skipped, code, ServiceActionEffect.None,
-            false, default, default);
+            false, default, default, reason);
     public static ServiceActionResult Skipped(
         ServiceActionResultCode code,
-        ServiceNativeMutationEvidence nativeEvidence) =>
+        ServiceNativeMutationEvidence nativeEvidence,
+        string reason = "") =>
         Create(
             ServiceActionDisposition.Skipped, code, ServiceActionEffect.NativeMutation,
-            true, nativeEvidence, default);
-    public static ServiceActionResult Faulted(ServiceActionResultCode code) =>
+            true, nativeEvidence, default, reason);
+    public static ServiceActionResult Faulted(ServiceActionResultCode code, string reason = "") =>
         Create(
             ServiceActionDisposition.Faulted, code, ServiceActionEffect.None,
-            false, default, default);
+            false, default, default, reason);
     public static ServiceActionResult Faulted(
         ServiceActionResultCode code,
-        ServiceNativeMutationEvidence nativeEvidence) =>
+        ServiceNativeMutationEvidence nativeEvidence,
+        string reason = "") =>
         Create(
             ServiceActionDisposition.Faulted, code, ServiceActionEffect.NativeMutation,
-            true, nativeEvidence, default);
+            true, nativeEvidence, default, reason);
+
+    /// <summary>
+    /// The same result, answered with a sentence its reader composed from facts the action did
+    /// not see.
+    /// </summary>
+    public ServiceActionResult WithReason(string? reason) =>
+        new(Disposition, Code, Effect, HasNativeEvidence, NativeEvidence, PublicationEvidence,
+            Disposition == ServiceActionDisposition.Committed ? string.Empty : reason ?? string.Empty);
 
     private static ServiceActionResult Create(
         ServiceActionDisposition disposition,
@@ -279,7 +298,8 @@ public readonly struct ServiceActionResult
         ServiceActionEffect effect,
         bool hasNativeEvidence,
         ServiceNativeMutationEvidence nativeEvidence,
-        ServicePublicationEvidence publicationEvidence)
+        ServicePublicationEvidence publicationEvidence,
+        string reason = "")
     {
         if (!code.IsValid) throw new ArgumentException("A stable result code is required.", nameof(code));
         if (!IsAllowedCode(code, disposition))
@@ -333,7 +353,8 @@ public readonly struct ServiceActionResult
         }
 
         return new ServiceActionResult(
-            disposition, code, effect, hasNativeEvidence, nativeEvidence, publicationEvidence);
+            disposition, code, effect, hasNativeEvidence, nativeEvidence, publicationEvidence,
+            disposition == ServiceActionDisposition.Committed ? string.Empty : reason ?? string.Empty);
     }
 
     private static bool IsAllowedCode(

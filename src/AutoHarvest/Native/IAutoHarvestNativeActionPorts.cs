@@ -1,6 +1,5 @@
-#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
-#endif
 
 namespace OrbAutomata;
 
@@ -33,14 +32,14 @@ internal interface IAutoHarvestSubmissionStatePort
     /// </summary>
     object? ReadPrototype(in ResolvedAutoHarvestPair resolved);
 
-    AutoHarvestSubmissionFailureCode ValidateClickAdmission(
+    ServiceActionResultCode ValidateClickAdmission(
         in ResolvedAutoHarvestPair resolved,
         out object? prototype);
 }
 
 internal interface IAutoHarvestMutationPort
 {
-    AutoHarvestSubmissionResult Submit(
+    NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
         AutoHarvestActionSafetyState safety

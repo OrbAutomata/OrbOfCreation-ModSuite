@@ -301,10 +301,10 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 FindFeature(command.Kind) is AutoConceptFeatureRuntime concepts)
             {
                 var submission = concepts.LastGameMcpSubmission;
-                if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
-                    exactReason = submission.Reason;
+                if (!submission.Outcome.Verified && !string.IsNullOrEmpty(submission.Outcome.Reason))
+                    exactReason = submission.Outcome.Reason;
                 if (submission.MaximumAmount >= 0 &&
-                    submission.Preflight == AutoConceptPreflight.ResourceBackpressure)
+                    submission.Outcome.Code == AutoConceptActionResultCodes.AmountUnavailable)
                 {
                     details = new GameMcpObjectBuilder
                     {
@@ -321,12 +321,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 FindFeature(command.Kind) is AutoBuyFeatureRuntime purchases)
             {
                 var submission = purchases.LastGameMcpSubmission;
-                if (!submission.Verified && !string.IsNullOrEmpty(submission.Reason))
-                    exactReason = submission.Reason;
+                if (!submission.Outcome.Verified && !string.IsNullOrEmpty(submission.Outcome.Reason))
+                    exactReason = submission.Outcome.Reason;
 
                 // The full-queue refusal is written here rather than at the boundary, because the
                 // queue's capacity is a published world fact and the boundary reads only the room.
-                if (submission.Preflight == AutoBuyPurchasePreflight.ActionQueueFull)
+                if (submission.Outcome.Code == AutoBuyActionResultCodes.ActionQueueFull)
                     exactReason = GameMcpWorldQuery.ActionQueueFullReason(world.Snapshot);
 
                 // A refusal whose sentence names a ceiling carries that ceiling as a number too,
@@ -338,7 +338,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                         ["maximumAmount"] = submission.MaximumAmount,
                     }.Freeze();
                 }
-                else if (submission.Verified)
+                else if (submission.Outcome.Verified)
                 {
                     // A purchase is queued, not applied, so the answer is what the press queued and
                     // it is complete here: the count is the mutation's own verified queued-level
@@ -388,7 +388,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 var submission = casts.LastGameMcpSubmission;
                 exactReason = CastRefusalReason(
                     command, world.Snapshot, in result,
-                    submission.Verified, submission.Reason);
+                    submission.Outcome.Verified, submission.Outcome.Reason);
 
                 // The spell holding the slot rides as an entity, not only inside the sentence. A
                 // caller acting on it had nowhere to read its id but a regular expression over
@@ -403,11 +403,10 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 }
             }
             return GameMcpCommandResult.FromAction(
-                in result,
+                result.WithReason(exactReason),
                 command.Kind,
                 lifecycle,
                 configuration.Generation.Value,
-                exactReason,
                 details);
         }
         catch (GameMcpActionUnavailableException exception)
@@ -435,11 +434,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     {
         if (_disposed)
             return SpellWorkbenchLoadPreview.Refused(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The ServiceCycle runtime has been disposed.");
         if (_spellWorkbench is null)
             return SpellWorkbenchLoadPreview.Refused(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The shared spell workbench boundary is unavailable.");
         return _spellWorkbench.Preview(in request);
     }
@@ -448,11 +447,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     {
         if (_disposed)
             return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The ServiceCycle runtime has been disposed.");
         if (_spellWorkbench is null)
             return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The shared Spellcraft boundary is unavailable.");
         return _spellWorkbench.ReadStagedLayout();
     }
@@ -488,13 +487,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.Amount,
             command.ExpectedLifecycleGeneration);
         var submission = _spellComposition.Submit(in action);
-        var result = SpellCompositionActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
             command.Kind,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
             GameMcpSpellCompositionProjection.Project(in submission, command.PayloadKey));
     }
 
@@ -531,13 +529,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.Amount - 1,
             command.ExpectedLifecycleGeneration);
         var submission = spellLoadout.Submit(in action);
-        var result = SpellLoadoutActionResultMapper.Map(in submission);
+        var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
             command.Kind,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
             GameMcpSpellLoadoutProjection.Project(in submission));
     }
 
@@ -562,10 +559,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new TargetingAction(kind, command.TargetId, command.ExpectedLifecycleGeneration);
         var submission = _targeting.Submit(in action);
-        var result = TargetingActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
-            in result, command.Kind, lifecycle, configurationGeneration,
-            submission.Reason, GameMcpTargetingProjection.Project(in submission));
+            in result, command.Kind, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
     }
 
     private GameMcpCommandResult ExecuteConsumable(
@@ -603,13 +599,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             list,
             kind == ConsumablePlayerActionKind.Move ? command.Amount - 1 : -1);
         var submission = ((AutoItemsFeatureRuntime)feature).TryExecuteGameMcp(in action);
-        var result = ConsumablePlayerActionResultMapper.Map(in submission);
+        var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
             command.Kind,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
             GameMcpConsumableProjection.Project(in submission));
     }
 
@@ -638,14 +633,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             var instanceAction = new CraftingInstanceLifecycleAction(
                 kind, command.TargetId, command.ExpectedLifecycleGeneration);
             var instanceSubmission = _craftingInstances.Submit(in instanceAction);
-            var instanceResult = CraftingInstanceLifecycleActionResultMapper.Map(
-                in instanceSubmission);
+            var instanceResult = instanceSubmission.Outcome.ToResult();
             return GameMcpCommandResult.FromAction(
                 in instanceResult,
                 command.Kind,
                 lifecycle,
                 configurationGeneration,
-                instanceSubmission.Reason,
                 GameMcpCraftingProjection.Project(in instanceSubmission));
         }
         var feature = (AutoScribeServiceCycleFeature.Runtime)FindFeature(command.Kind);
@@ -683,9 +676,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new EquipmentLoadoutAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
         var submission = _equipmentLoadout.Submit(in action);
-        var result = EquipmentLoadoutActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpEquipmentLoadoutProjection.Project(in submission));
     }
 
@@ -711,9 +704,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new ChallengeAction(kind, command.TargetId, command.SecondaryId,
             command.ExpectedLifecycleGeneration);
         var submission = _challenges.Submit(in action);
-        var result = ChallengeActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpChallengeProjection.Project(in submission));
     }
 
@@ -736,9 +729,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new AlchemyLoadoutAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
         var submission = _alchemyLoadout.Submit(in action);
-        var result = AlchemyLoadoutActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpAlchemyLoadoutProjection.Project(in submission));
     }
 
@@ -753,9 +746,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 configurationGeneration);
         var action = new PrestigeAction(command.ExpectedLifecycleGeneration);
         var submission = _prestige.Submit(in action);
-        var result = PrestigeActionResultMapper.Map(in submission);
+        var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpPrestigeProjection.Project(in submission));
     }
 
@@ -783,9 +776,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             kind == RitualLifecycleActionKind.SetLevel ? command.Amount - 1 : 0,
             command.ExpectedLifecycleGeneration);
         var submission = _ritualLifecycle.Submit(in action);
-        var result = RitualLifecycleActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpRitualLifecycleProjection.Project(in submission));
     }
 
@@ -810,9 +803,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new HarvestLifecycleAction(kind, command.TargetId,
             command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
         var submission = _harvestLifecycle.Submit(in action);
-        var result = HarvestLifecycleActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpHarvestLifecycleProjection.Project(in submission));
     }
 
@@ -835,8 +828,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new PlotLifecycleAction(kind, command.TargetId,
             command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
         var submission = _plotLifecycle.Submit(in action);
-        var result = PlotLifecycleActionResultMapper.Map(in submission);
-        GameMcpValue? details = submission.Verified
+        var result = submission.Outcome.ToResult();
+        GameMcpValue? details = submission.Outcome.Verified
             ? new GameMcpObjectBuilder
             {
                 ["active"] = new GameMcpObjectBuilder
@@ -852,7 +845,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 }.Freeze()
                 : null;
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason, details);
+            configurationGeneration, details);
     }
 
     private GameMcpCommandResult ExecuteStructureLifecycle(
@@ -874,9 +867,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new StructureLifecycleAction(
             kind, command.TargetId, command.ExpectedLifecycleGeneration);
         var submission = _structureLifecycle.Submit(in action);
-        var result = StructureLifecycleActionResultMapper.Map(in submission);
+        var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpStructureLifecycleProjection.Project(in submission));
     }
 
@@ -892,15 +885,15 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         GameMcpNativeActionAdmission.AssertNativeType(command, "UIBackToMenuButton");
         var action = new ReturnToMenuAction(command.ExpectedLifecycleGeneration);
         var submission = _returnToMenu.Submit(in action);
-        var result = ReturnToMenuActionResultMapper.Map(in submission);
-        var details = submission.Verified
+        var result = submission.Outcome.ToResult();
+        var details = submission.Outcome.Verified
             // Which control the verb pressed, and whether it had to open a panel to reach it, are
             // how the suite drove the UI. The caller asked to be back at the main menu; the scene
             // it landed in is the whole answer.
             ? new GameMcpObjectBuilder { ["scene"] = "Start" }.Freeze()
             : new GameMcpObjectBuilder().Freeze();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason, details);
+            configurationGeneration, details);
     }
 
     private GameMcpCommandResult ExecuteGenericLevel(
@@ -923,9 +916,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new GenericLevelAction(kind, command.TargetId,
             command.DerivedNativeType, command.Amount, command.ExpectedLifecycleGeneration);
         var submission = _genericLevel.Submit(in action);
-        var result = GenericLevelActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpGenericLevelProjection.Project(in submission, world));
     }
 
@@ -956,9 +949,9 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new LoadoutAction(kind, command.TargetId, command.Amount - 1,
             enabled, command.PayloadValue, command.ExpectedLifecycleGeneration);
         var submission = _loadouts.Submit(in action);
-        var result = LoadoutActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, submission.Reason,
+            configurationGeneration,
             GameMcpLoadoutProjection.Project(in submission));
     }
 
@@ -985,22 +978,20 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new ResearchAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
         var submission = _research.Submit(in action);
-        var result = ResearchActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
 
         // The read block and this refusal answer the same gate, so they say the same sentence.
         // The GameAction sees an affordability verdict and no cost rows; the published world holds
         // the rows, so the sentence naming them is composed here, where both surfaces reach it.
-        var reason = submission.Preflight switch
-        {
-            ResearchPreflight.Unaffordable when
-                WorldLookup.TryFind(world.Research, command.TargetId, out var research) =>
-                GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts),
-            ResearchPreflight.Locked =>
-                GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId),
-            _ => submission.Reason,
-        };
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
-            configurationGeneration, reason,
+        var reason =
+            submission.Outcome.Code == ResearchActionResultCodes.Unaffordable &&
+            WorldLookup.TryFind(world.Research, command.TargetId, out var research)
+                ? GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts)
+                : submission.Outcome.Code == ResearchActionResultCodes.Locked
+                    ? GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId)
+                    : submission.Outcome.Reason;
+        return GameMcpCommandResult.FromAction(result.WithReason(reason), command.Kind, lifecycle,
+            configurationGeneration,
             GameMcpResearchProjection.Project(in submission));
     }
 
@@ -1026,13 +1017,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration,
             layout);
         var submission = _spellWorkbench.Submit(in action);
-        var result = SpellWorkbenchActionResultMapper.Map(in submission);
+        var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
             command.Kind,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
             GameMcpSpellWorkbenchProjection.Project(in submission));
     }
 
@@ -1062,13 +1052,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.SecondaryId,
             command.ExpectedLifecycleGeneration);
         var submission = _discoveryTreeOffers.Submit(in action);
-        var result = DiscoveryTreeOfferActionResultMapper.Map(in submission);
+        var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
             command.Kind,
             lifecycle,
             configurationGeneration,
-            submission.Reason,
             GameMcpDiscoveryTreeOfferProjection.Project(kind, in submission));
     }
 

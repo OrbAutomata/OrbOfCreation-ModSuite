@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -44,31 +45,31 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
     internal HarvestLifecycleSubmission Submit(in HarvestLifecycleAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(HarvestLifecyclePreflight.WrongThread,
+            return Reject(HarvestLifecycleActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(HarvestLifecyclePreflight.ContractUnavailable,
+            return Reject(HarvestLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("World > Agromancy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             if (!TryResolve(action.ElementId, native.ElementType, out var element, out var reason))
-                return Reject(HarvestLifecyclePreflight.IdentityUnavailable, reason);
+                return Reject(HarvestLifecycleActionResultCodes.IdentityUnavailable, reason);
             if (!TryResolve(HarvestLifecycleNativeBindings.ActiveElementsId,
                     native.ElementListType, out var elementList, out reason) ||
                 !TryResolve(HarvestLifecycleNativeBindings.ActiveActionsId,
                     native.ActionListType, out var actionList, out reason))
-                return Reject(HarvestLifecyclePreflight.ContractUnavailable, reason);
+                return Reject(HarvestLifecycleActionResultCodes.ContractUnavailable, reason);
 
             object? prototype = null;
             object? active = null;
@@ -83,15 +84,15 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
             else
             {
                 if (!TryResolve(action.ActionId, native.ActionType, out var actionObject, out reason))
-                    return Reject(HarvestLifecyclePreflight.IdentityUnavailable, reason);
+                    return Reject(HarvestLifecycleActionResultCodes.IdentityUnavailable, reason);
                 prototype = FindPrototype(native, element!, actionObject!);
                 if (prototype is null)
-                    return Reject(HarvestLifecyclePreflight.ActionUnavailable,
+                    return Reject(HarvestLifecycleActionResultCodes.ActionUnavailable,
                         EntityIdentityFormatter.PlayerName(action.ActionId) +
                         " is not offered for " + EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
                 active = native.FindAction(actionList!, prototype);
                 if (active is not null && active.GetType() != native.InstanceType)
-                    return Reject(HarvestLifecyclePreflight.ContractUnavailable,
+                    return Reject(HarvestLifecycleActionResultCodes.ContractUnavailable,
                         "The active harvest action has an unexpected native type.");
                 before = active is null ? 0 : native.InstanceCount(active);
                 var admission = AdmitAction(in action, native, prototype, actionList!, before, active);
@@ -99,14 +100,14 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
             }
 
             if (!_tryCaptureMutationPermit())
-                return Reject(HarvestLifecyclePreflight.MutationPermitUnavailable,
+                return Reject(HarvestLifecycleActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(in action, native, element!, elementList!, actionList!,
                 prototype, active, before);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(HarvestLifecyclePreflight.ContractUnavailable,
+            return Reject(HarvestLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
         }
     }
@@ -132,33 +133,33 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         int current)
     {
         if (!native.ElementVisible(element) || !native.ElementAvailable(element))
-            return Reject(HarvestLifecyclePreflight.NotVisible,
+            return Reject(HarvestLifecycleActionResultCodes.NotVisible,
                 EntityIdentityFormatter.PlayerName(action.ElementId) + " is not available yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveElement)
         {
             // Nothing active is a wrong target, not a wrong amount: no smaller ask succeeds.
             if (current <= 0)
-                return Reject(HarvestLifecyclePreflight.NotActive,
+                return Reject(HarvestLifecycleActionResultCodes.NotActive,
                     EntityIdentityFormatter.PlayerName(action.ElementId) + " is not active.");
             return action.Amount <= current
                 ? null
-                : Reject(HarvestLifecyclePreflight.AmountUnavailable,
+                : Reject(HarvestLifecycleActionResultCodes.AmountUnavailable,
                     EntityIdentityFormatter.PlayerName(action.ElementId) + " has only " + current +
                     " active " + Plural(current, "instance", "instances") + ".",
                     current);
         }
         if (current == 0 && !native.ElementListHasRoom(list))
-            return Reject(HarvestLifecyclePreflight.ElementListFull,
+            return Reject(HarvestLifecycleActionResultCodes.ElementListFull,
                 "The active harvest element list has no empty slot.");
         var cost = native.ElementUsageCost(element);
         if (cost is null || !native.CostHasEnough(cost))
-            return Reject(HarvestLifecyclePreflight.ElementUsageUnavailable,
+            return Reject(HarvestLifecycleActionResultCodes.ElementUsageUnavailable,
                 "There is not enough free resource capacity to activate " +
                 EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
         var maximum = native.ElementMaximumInstances(element).ToInt();
         return action.Amount <= maximum
             ? null
-            : Reject(HarvestLifecyclePreflight.AmountUnavailable,
+            : Reject(HarvestLifecycleActionResultCodes.AmountUnavailable,
                 "The current resource capacity allows at most " + maximum + " more " +
                 Plural(maximum, "instance", "instances") + " of " +
                 EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
@@ -174,30 +175,30 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         object? active)
     {
         if (!native.InstanceVisible(prototype))
-            return Reject(HarvestLifecyclePreflight.ActionUnavailable,
+            return Reject(HarvestLifecycleActionResultCodes.ActionUnavailable,
                 EntityIdentityFormatter.PlayerName(action.ActionId) + " is not available for " +
                 EntityIdentityFormatter.PlayerName(action.ElementId) + " yet.");
         if (action.Kind == HarvestLifecycleActionKind.RemoveAction)
         {
             if (active is null || current <= 0)
-                return Reject(HarvestLifecyclePreflight.NotActive,
+                return Reject(HarvestLifecycleActionResultCodes.NotActive,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " is not active on " +
                     EntityIdentityFormatter.PlayerName(action.ElementId) + ".");
             return action.Amount <= current
                 ? null
-                : Reject(HarvestLifecyclePreflight.AmountUnavailable,
+                : Reject(HarvestLifecycleActionResultCodes.AmountUnavailable,
                     EntityIdentityFormatter.PlayerName(action.ActionId) + " has only " + current +
                     " active " + Plural(current, "instance", "instances") + " on " +
                     EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
                     current);
         }
         if (active is null && !native.ActionListHasRoom(list))
-            return Reject(HarvestLifecyclePreflight.ActionListFull,
+            return Reject(HarvestLifecycleActionResultCodes.ActionListFull,
                 "The active harvest action list has no empty slot.");
         var maximum = native.InstanceMaximum(prototype);
         return current + action.Amount <= maximum
             ? null
-            : Reject(HarvestLifecyclePreflight.AmountUnavailable,
+            : Reject(HarvestLifecycleActionResultCodes.AmountUnavailable,
                 EntityIdentityFormatter.PlayerName(action.ActionId) + " allows at most " + maximum +
                 " active " + Plural(maximum, "instance", "instances") + " on " +
                 EntityIdentityFormatter.PlayerName(action.ElementId) + ".",
@@ -214,7 +215,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         object? active,
         int before)
     {
-        var stage = HarvestLifecycleNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             switch (action.Kind)
@@ -234,11 +235,11 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 default:
                     throw new InvalidOperationException("Unsupported harvest lifecycle action.");
             }
-            stage = HarvestLifecycleNativeStage.Verification;
+            stage = "Verification";
             return OutcomeObserved(in action, native, element, elementList, actionList,
                     prototype, before)
                 ? Verified()
-                : Fault(in action, HarvestLifecyclePreflight.VerificationFailed, stage,
+                : Fault(in action, HarvestLifecycleActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("World > Agromancy"));
         }
@@ -248,7 +249,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, element, elementList, actionList,
                         prototype, before), out var observed) && observed) return Verified();
-            return Fault(in action, HarvestLifecyclePreflight.PostCommitFault, stage,
+            return Fault(in action, HarvestLifecycleActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("World > Agromancy", exception));
         }
@@ -317,27 +318,25 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         amount == 1 ? singular : plural;
 
     private static HarvestLifecycleSubmission Reject(
-        HarvestLifecyclePreflight preflight,
+        ServiceActionResultCode code,
         string reason,
         int maximumAmount = -1) =>
-        HarvestLifecycleSubmission.Reject(preflight, reason, maximumAmount);
+        new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 
     private static HarvestLifecycleSubmission Verified() =>
-        new(HarvestLifecyclePreflight.Proceeded,
-            HarvestLifecycleNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        new(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1),
-            "The requested harvest-list transition is visible.");
+            "The requested harvest-list transition is visible."));
 
     private static HarvestLifecycleSubmission Fault(
         in HarvestLifecycleAction action,
-        HarvestLifecyclePreflight preflight,
-        HarvestLifecycleNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         string reason) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
+        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Harvest " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.ElementId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.ElementId) + ": " + reason));
 
     private void BindLifecycle()
     {

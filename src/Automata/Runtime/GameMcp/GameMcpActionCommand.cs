@@ -347,7 +347,6 @@ internal sealed class GameMcpCommandResult
         GameMcpCommandKind commandKind,
         long observedLifecycleGeneration,
         ulong observedConfigurationGeneration,
-        string? exactReason = null,
         GameMcpValue? details = null)
     {
         var code = GameMcpActionResultCodeNames.Name(result.Code, commandKind);
@@ -364,7 +363,7 @@ internal sealed class GameMcpCommandResult
             // saying no — the word has to follow the account, not the disposition alone.
             ServiceActionDisposition.Rejected or ServiceActionDisposition.Skipped =>
                 GameMcpDecisionReason.IsSuiteDefect(code) ||
-                (string.IsNullOrWhiteSpace(exactReason) &&
+                (string.IsNullOrWhiteSpace(result.Reason) &&
                  !GameMcpActionResultCodeNames.HasReason(result.Code, commandKind))
                     ? "failed"
                     : "refused",
@@ -372,9 +371,9 @@ internal sealed class GameMcpCommandResult
         };
         var reason = status == "committed"
             ? string.Empty
-            : string.IsNullOrWhiteSpace(exactReason)
+            : string.IsNullOrWhiteSpace(result.Reason)
                 ? GameMcpActionResultCodeNames.Reason(result.Code, commandKind)
-                : exactReason!;
+                : result.Reason;
         return new GameMcpCommandResult(
             status,
             code,

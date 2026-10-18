@@ -66,51 +66,6 @@ public sealed class AutoItemsCycleActionAdapterTests
         Assert.Equal(reason, health.Reason);
     }
 
-    [Fact]
-    public void TargetUnavailableMapsToANamedExpectedResultCode()
-    {
-        var submission = AutoItemsSubmission.Reject(
-            AutoItemsPreflight.TargetUnavailable,
-            "The live Scroll target selector found no valid structure target.");
-
-        var result = AutoItemsCycleActionAdapter.Map(in submission);
-
-        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoItemsActionResultCodes.TargetUnavailable, result.Code);
-    }
-
-    [Fact]
-    public void TargetingInProgressMapsToANamedExpectedResultCode()
-    {
-        var submission = AutoItemsSubmission.Reject(
-            AutoItemsPreflight.TargetingInProgress,
-            "A native targeting interaction is active.");
-
-        var result = AutoItemsCycleActionAdapter.Map(in submission);
-
-        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoItemsActionResultCodes.TargetingInProgress, result.Code);
-    }
-
-    [Fact]
-    public void AmbiguousMutationReceiptNamesQuarantineAndRetainsAttemptEvidence()
-    {
-        var submission = new AutoItemsSubmission(
-            AutoItemsPreflight.Quarantined,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0),
-            "Auto Items quarantined an ambiguous Relic submission.");
-
-        var result = AutoItemsCycleActionAdapter.Map(in submission);
-
-        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, result.Code);
-        Assert.True(result.HasNativeEvidence);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.NativeEvidence.Outcome);
-        Assert.Equal(1, result.NativeCallOutcome.MutationAttempts);
-        Assert.Equal(0, result.NativeCallOutcome.MutationsCommitted);
-    }
-
     private static AutoItemsConsumableUseGameAction GameAction()
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();

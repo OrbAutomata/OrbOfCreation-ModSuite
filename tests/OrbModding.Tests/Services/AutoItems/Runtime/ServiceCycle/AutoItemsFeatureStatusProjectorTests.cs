@@ -11,8 +11,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
     public void TargetFailureRetainsItsExactExplanationInFeatureHealth()
     {
         var health = new AutoItemsActionHealth();
-        var submission = AutoItemsSubmission.Reject(
-            AutoItemsPreflight.TargetUnavailable,
+        var submission = NativeActionOutcome.Reject(
+            AutoItemsActionResultCodes.TargetUnavailable,
             "The live Scroll target selector found no valid structure target at level 4.");
         health.Observe(in submission);
 
@@ -37,8 +37,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
     public void QuarantineIsAFeatureFaultWithTheExactMutationEvidence()
     {
         var health = new AutoItemsActionHealth();
-        var submission = AutoItemsSubmission.Reject(
-            AutoItemsPreflight.Quarantined,
+        var submission = NativeActionOutcome.FaultBeforeCall(
+            AutoItemsActionResultCodes.Quarantined,
             "Auto Items is quarantined for this lifecycle after item abc had no queue delta.");
         health.Observe(in submission);
 
@@ -63,8 +63,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
     public void TargetingRefusalIsATemporaryTargetingBlock()
     {
         var health = new AutoItemsActionHealth();
-        var submission = AutoItemsSubmission.Reject(
-            AutoItemsPreflight.TargetingInProgress,
+        var submission = NativeActionOutcome.Reject(
+            AutoItemsActionResultCodes.TargetingInProgress,
             "TargetingManager.IsTargeting() reported an active native targeting interaction.");
         health.Observe(in submission);
 

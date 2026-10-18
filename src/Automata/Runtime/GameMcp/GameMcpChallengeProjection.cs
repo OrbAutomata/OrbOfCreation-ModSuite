@@ -5,7 +5,7 @@ internal static class GameMcpChallengeProjection
 {
     internal static GameMcpValue Project(in ChallengeSubmission submission)
     {
-        if (submission.Verified) return new GameMcpObjectBuilder().Freeze();
+        if (submission.Outcome.Verified) return new GameMcpObjectBuilder().Freeze();
         var result = new GameMcpObjectBuilder();
 
         // A press that was attempted spends before it asks for offers, so its failure carries the
@@ -21,7 +21,7 @@ internal static class GameMcpChallengeProjection
             result["rerollsLeft"] = budget;
         }
         else if (submission.RerollsLeft >= 0) result["rerollsLeft"] = submission.RerollsLeft;
-        if (submission.CallOutcome.MutationAttempts > 0)
+        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
             result["missingOutcome"] = "requested challenge transition";
         return result.Freeze();
     }

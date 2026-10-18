@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -52,8 +53,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
     internal AutoScribeSubmission Submit(in AutoScribeCycleAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return AutoScribeSubmission.Reject(
-                AutoScribePreflight.WrongThread,
+            return AutoScribeSubmission.Fault(
+                AutoScribeActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         long liveLifecycle;
         try
@@ -62,21 +63,21 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoScribeSubmission.Reject(
-                AutoScribePreflight.ContractUnavailable,
+            return AutoScribeSubmission.Fault(
+                AutoScribeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
         if (liveLifecycle <= 0 || liveLifecycle != action.CollectedAtEpoch)
             return AutoScribeSubmission.Reject(
-                AutoScribePreflight.LifecycleReplaced,
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
         if (_quarantineReason.Length != 0)
-            return AutoScribeSubmission.Reject(
-                AutoScribePreflight.Quarantined,
+            return AutoScribeSubmission.Fault(
+                AutoScribeActionResultCodes.Quarantined,
                 _quarantineReason);
         if (_bindings is not { } native)
-            return AutoScribeSubmission.Reject(
-                AutoScribePreflight.ContractUnavailable,
+            return AutoScribeSubmission.Fault(
+                AutoScribeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Scholar > Scribe", _bindingFailure));
 
         try
@@ -91,14 +92,16 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                     out var reason,
                     out var rejection,
                     out var retryable))
-                return AutoScribeSubmission.Reject(rejection, reason, retryable);
+                return retryable
+                    ? AutoScribeSubmission.Reject(rejection, reason, retryable: true)
+                    : AutoScribeSubmission.Fault(rejection, reason);
             if (!Invoke<bool>(native.RecipeVisible, recipe))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.RecipeUnavailable,
+                    AutoScribeActionResultCodes.RecipeUnavailable,
                     $"The game is not showing {EntityIdentityFormatter.PlayerName(action.RecipeId)} yet.");
             if (!Invoke<bool>(native.QueueHasRoom, activeQueue))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.QueueFull,
+                    AutoScribeActionResultCodes.QueueFull,
                     "ActiveScribeInstances.HasEmptySpot() refused before payment.");
 
             var craftLevel = FindHighestAffordableLevel(
@@ -108,34 +111,34 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 action.Level);
             if (craftLevel < action.Level)
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.Unaffordable,
+                    AutoScribeActionResultCodes.Unaffordable,
                     $"Recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)} could not afford requested level " +
                     $"{action.Level} or any stronger level.");
             if (HasCompetingSupply(native, action.RecipeId, craftLevel, out reason))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.CompetingSupply,
+                    AutoScribeActionResultCodes.CompetingSupply,
                     reason);
             if (!TryValidateTarget(native, scroll, action.ScrollId, craftLevel, out reason))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.TargetUnavailable,
+                    AutoScribeActionResultCodes.TargetUnavailable,
                     reason);
 
             var level = new BigDouble(craftLevel, 0);
             var zero = BigDouble.Zero;
             var totalCost = InvokeObject(native.RecipeTotalCost, recipe, zero, level);
             if (totalCost.GetType() != native.ResourceCostType)
-                return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.ContractUnavailable,
+                return AutoScribeSubmission.Fault(
+                    AutoScribeActionResultCodes.ContractUnavailable,
                     "The game did not publish a price for this recipe, so nothing could be " +
                     "paid. Open Scholar > Scribe and read again.");
             if (!Invoke<bool>(native.CostHasEnough, totalCost))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.Unaffordable,
+                    AutoScribeActionResultCodes.Unaffordable,
                     $"GetTotalCost(0,{craftLevel}).HasEnough() refused recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)}.");
 
             if (!TryCaptureMutationPermit(out reason))
                 return AutoScribeSubmission.Reject(
-                    AutoScribePreflight.MutationPermitUnavailable,
+                    AutoScribeActionResultCodes.MutationPermitUnavailable,
                     reason);
 
             // Payment is deliberately the final pre-native risk. From here onward no metadata is
@@ -150,8 +153,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoScribeSubmission.Reject(
-                AutoScribePreflight.ContractUnavailable,
+            return AutoScribeSubmission.Fault(
+                AutoScribeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
         }
     }
@@ -183,7 +186,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         int craftLevel,
         BigDouble level)
     {
-        var stage = AutoScribeNativeStage.Payment;
+        var stage = "Payment";
         var nativeCalls = 1;
         object? instance = null;
         var instant = false;
@@ -192,7 +195,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             native.RecipePurchase.Invoke(recipe, new object[] { level, BigDouble.Zero });
 
-            stage = AutoScribeNativeStage.Construction;
+            stage = "Construction";
             nativeCalls = 2;
             instance = native.ConstructInstance.Invoke(new object[] { recipe, level }) ??
                 throw new InvalidOperationException("CraftingInstance construction returned null.");
@@ -200,11 +203,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 throw new InvalidOperationException(
                     "CraftingInstance construction returned the wrong native type.");
 
-            stage = AutoScribeNativeStage.Initiation;
+            stage = "Initiation";
             nativeCalls = 3;
             native.InstanceInitiate.Invoke(instance, Array.Empty<object>());
 
-            stage = AutoScribeNativeStage.Admission;
+            stage = "Admission";
             instant = Invoke<bool>(native.InstanceInstantCheck, instance);
             admissionKnown = true;
             nativeCalls = 4;
@@ -213,7 +216,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             else
                 native.QueueAdd.Invoke(activeQueue, new[] { instance });
 
-            stage = AutoScribeNativeStage.Verification;
+            stage = "Verification";
             var verified = instant
                 ? Invoke<bool>(native.InstanceExpired, instance)
                 : ContainsExactInstance(RequireList(
@@ -222,17 +225,14 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             if (!verified)
                 return Quarantine(
                     in action,
-                    AutoScribePreflight.VerificationFailed,
+                    AutoScribeActionResultCodes.VerificationFailed,
                     stage,
                     NativeMutationOutcome.PostconditionFailed,
                     nativeCalls,
                     GameActionAnswer.ChangeNotSeen("Scholar > Scribe"));
-            return new AutoScribeSubmission(
-                AutoScribePreflight.Proceeded,
-                stage,
-                NativeMutationOutcome.Verified,
+            return new AutoScribeSubmission(NativeActionOutcome.Commit(
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                "The exact crafted work reached its native destination.");
+                "The exact crafted work reached its native destination."));
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
@@ -243,15 +243,12 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 admissionKnown,
                 instant);
             if (landed)
-                return new AutoScribeSubmission(
-                    AutoScribePreflight.Proceeded,
-                    AutoScribeNativeStage.Verification,
-                    NativeMutationOutcome.Verified,
+                return new AutoScribeSubmission(NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "The exact crafted work was observable after native code threw.");
+                    "The exact crafted work was observable after native code threw."));
             return Quarantine(
                 in action,
-                AutoScribePreflight.PostPaymentFault,
+                AutoScribeActionResultCodes.PostPaymentFault,
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
@@ -261,8 +258,8 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
 
     private AutoScribeSubmission Quarantine(
         in AutoScribeCycleAction action,
-        AutoScribePreflight preflight,
-        AutoScribeNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         int nativeCalls,
         string reason)
@@ -270,12 +267,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         _quarantineReason =
             $"Auto Scribe is quarantined for this lifecycle after {stage} on " +
             $"{EntityIdentityFormatter.PlayerName(action.RecipeId)}: {reason}";
-        return new AutoScribeSubmission(
-            preflight,
-            stage,
+        return new AutoScribeSubmission(NativeActionOutcome.Fault(
+            code,
             outcome,
             new NativeMutationCallOutcome(nativeCalls, 1, 0),
-            _quarantineReason);
+            _quarantineReason));
     }
 
     private bool TryResolveRelation(
@@ -286,7 +282,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         out object recipeType,
         out object activeQueue,
         out string reason,
-        out AutoScribePreflight rejection,
+        out ServiceActionResultCode rejection,
         out bool retryable)
     {
         recipe = null!;
@@ -303,7 +299,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             reason =
                 $"Action recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)} and Scroll {EntityIdentityFormatter.PlayerName(action.ScrollId)} do not identify " +
                 "one audited Auto Scribe role.";
-            rejection = AutoScribePreflight.RelationshipMismatch;
+            rejection = AutoScribeActionResultCodes.RelationshipMismatch;
             return false;
         }
 
@@ -336,7 +332,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 registryResolution,
                 activeResolution,
                 automaticResolution);
-            rejection = AutoScribePreflight.IdentityUnavailable;
+            rejection = AutoScribeActionResultCodes.IdentityUnavailable;
             return false;
         }
 
@@ -351,7 +347,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             reason =
                 "The live recipe, Scroll, or enchantment identity did not equal the action relation.";
-            rejection = AutoScribePreflight.RelationshipMismatch;
+            rejection = AutoScribeActionResultCodes.RelationshipMismatch;
             return false;
         }
         if (!ValidateRecipeRegistry(native, registryResolution.Value!, out reason) ||
@@ -363,12 +359,12 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 recipeRole.Enchantment.Uuid,
                 out reason))
         {
-            rejection = AutoScribePreflight.RelationshipMismatch;
+            rejection = AutoScribeActionResultCodes.RelationshipMismatch;
             return false;
         }
 
         reason = string.Empty;
-        rejection = AutoScribePreflight.Proceeded;
+        rejection = CommonActionResultCodes.Committed;
         return true;
     }
 

@@ -100,7 +100,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         Narrate(in action, in submission);
         ObserveCapability(in action, in submission);
         _observeBoundaryStatus?.Invoke(submission);
-        return Map(in submission);
+        return submission.Outcome.ToResult();
     }
 
     /// <summary>
@@ -112,31 +112,30 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         in SpellLevelSubmission submission)
     {
         if (_observeCapability is null) return;
-        switch (submission.Preflight)
+        if (submission.Outcome.Code == SpellLevelActionResultCodes.ProgressionLocked)
         {
-            case SpellLevelPreflight.ProgressionLocked:
-                // SubmitAll has already revalidated the committed batch upgrade. A prerequisite
-                // refusal says the live set cannot move, not that the upgrade ceased to exist.
-                if (action.Kind == SpellLevelActionKind.Single)
-                    _observeCapability(AutoSpellLevelCapability.Locked);
-                break;
-            case SpellLevelPreflight.BatchUnavailable:
-                _observeCapability(AutoSpellLevelCapability.Single);
-                break;
+            // SubmitAll has already revalidated the committed batch upgrade. A prerequisite
+            // refusal says the live set cannot move, not that the upgrade ceased to exist.
+            if (action.Kind == SpellLevelActionKind.Single)
+                _observeCapability(AutoSpellLevelCapability.Locked);
+        }
+        else if (submission.Outcome.Code == SpellLevelActionResultCodes.LevelAllLocked)
+        {
+            _observeCapability(AutoSpellLevelCapability.Single);
         }
     }
 
     private static void Narrate(in SpellLevelCycleAction action, in SpellLevelSubmission submission)
     {
-        if (submission.Verified || submission.Preflight is not (
-                SpellLevelPreflight.Proceeded or SpellLevelPreflight.ContractUnavailable))
+        if (submission.Outcome.Verified ||
+            submission.Outcome.Code != CommonActionResultCodes.AdapterFault)
             return;
 
         var what = action.Kind == SpellLevelActionKind.All
             ? "every ready spell"
             : $"spell {EntityIdentityFormatter.Format(action.Uuid)}";
         var message =
-            $"Spell Leveling did not level {what}: {submission.Reason} " +
+            $"Spell Leveling did not level {what}: {submission.Outcome.Reason} " +
             $"(planned at mastery {action.Belief.MasteryLevel} with {action.Belief.ReadySpellCount} ready).";
         Plugin.Log?.LogAutomataWarning(message);
     }
@@ -167,29 +166,5 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         }
 
         return epoch > 0 && epoch == plannedEpoch;
-    }
-
-    private static ServiceActionResult Map(in SpellLevelSubmission submission)
-    {
-        switch (submission.Preflight)
-        {
-            case SpellLevelPreflight.ContractUnavailable:
-                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
-            case SpellLevelPreflight.ProgressionLocked:
-                return ServiceActionResult.Rejected(SpellLevelActionResultCodes.ProgressionLocked);
-            case SpellLevelPreflight.NotAffordable:
-                return ServiceActionResult.Rejected(SpellLevelActionResultCodes.LevelNotAffordable);
-            case SpellLevelPreflight.BatchUnavailable:
-                return ServiceActionResult.Rejected(SpellLevelActionResultCodes.LevelAllLocked);
-        }
-
-        var evidence = ServiceNativeMutationEvidence.Observed(submission.Outcome, submission.CallOutcome);
-        if (submission.Verified)
-            return ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence);
-
-        // An attempted mutation the verifier could not confirm is a fault, not a skip. The native port
-        // has already blocked itself until the next lifecycle, so this is reported once and the
-        // service backs off rather than re-probing a contract it no longer understands.
-        return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
     }
 }

@@ -32,7 +32,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Same(existing, page.craftingAutomationInstances.GetInstance(recipe));
         Assert.Equal(3, existing.GetAutomationQuantity());
         Assert.Equal(3, GlobalVariables.MultiBuy.Value);
@@ -50,7 +50,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         var result = Submit(
             boundary, recipe, CraftingInstanceLifecycleActionKind.CancelAutomation);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(4, existing.GetAutomationQuantity());
         Assert.Single(page.craftingAutomationInstances.value);
     }
@@ -69,8 +69,8 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         var second = Submit(
             boundary, recipe, CraftingInstanceLifecycleActionKind.CancelAutomation);
 
-        Assert.True(first.Verified, first.Reason);
-        Assert.True(second.Verified, second.Reason);
+        Assert.True(first.Outcome.Verified, first.Outcome.Reason);
+        Assert.True(second.Outcome.Verified, second.Outcome.Reason);
         Assert.Equal(7, existing.GetAutomationQuantity());
     }
 
@@ -86,7 +86,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         var result = Submit(
             boundary, recipe, CraftingInstanceLifecycleActionKind.CancelAutomation);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(existing.Removed);
         Assert.Empty(page.craftingAutomationInstances.value);
     }
@@ -102,7 +102,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.Equal(CraftingInstanceLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.True(result.SideEffect.Observed);
         Assert.Equal(2, result.SideEffect.AutomationBefore);
         Assert.Equal(3, result.SideEffect.AutomationAfter);
@@ -120,7 +120,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.Equal(CraftingInstanceLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.False(result.SideEffect.Observed);
     }
 
@@ -134,7 +134,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.CancelManual);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(existing.Removed);
         Assert.Empty(page.craftingQueueInstances.value);
     }
@@ -151,7 +151,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.Equal(CraftingInstanceLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(2, existing.GetAutomationQuantity());
     }
 
@@ -164,7 +164,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         var result = ForeignThread.Run(() =>
             Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate));
 
-        Assert.Equal(CraftingInstanceLifecyclePreflight.WrongThread, result.Preflight);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.WrongThread, result.Outcome.Code);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, page.craftingAutomationInstances.GetInstance(recipe)!.AutomationQuantity);
     }
 
@@ -211,10 +211,10 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
 
-        Assert.Equal(CraftingInstanceLifecyclePreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
         Assert.Equal(ServiceActionDisposition.Faulted,
-            CraftingInstanceLifecycleActionResultMapper.Map(in result).Disposition);
+            result.Outcome.ToResult().Disposition);
     }
 
     [Fact]

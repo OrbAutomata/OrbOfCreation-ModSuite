@@ -470,8 +470,7 @@ public sealed class AutoBuyProfileTests : IDisposable
         {
             Submitted = true;
             LastCount = count;
-            return AutoBuyPurchaseSubmission.Rejected(
-                AutoBuyPurchasePreflight.CandidateUnavailable);
+            return AutoBuyPurchaseSubmission.CandidateUnavailable();
         }
     }
 

@@ -4,6 +4,7 @@ using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.DiscoveryTree;
 
@@ -34,12 +35,12 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
         Assert.Equal(1, tree.nextItemCost.PerformCalls);
         Assert.Equal(1, tree.initiateCalls);
-        Assert.Equal(2, result.CallOutcome.NativeCallsAttempted);
-        Assert.Equal(1, result.CallOutcome.MutationsCommitted);
+        Assert.Equal(2, result.Outcome.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationsCommitted);
     }
 
     [Fact]
@@ -55,7 +56,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
     }
 
@@ -70,7 +71,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(0, tree.rerollsLeft);
     }
 
@@ -84,7 +85,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
         Assert.Equal(99, tree.rerollsLeft);
         Assert.True(tree.usedRerollsLastDiscover);
@@ -101,7 +102,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
     }
 
@@ -115,10 +116,10 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.VerificationFailed, result.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
-        Assert.Contains("did not enter Crafting mode", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("did not enter Crafting mode", result.Outcome.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -131,7 +132,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(item.GetGuid(), tree.selectedChoiceId.guid);
         Assert.False(item.discovered);
         Assert.Equal(1, tree.selectCalls);
@@ -147,7 +148,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(item.GetGuid(), tree.selectedChoiceId.guid);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
         Assert.Empty(tree.currentChoiceIds);
@@ -163,7 +164,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(item.GetGuid(), tree.selectedChoiceId.guid);
     }
 
@@ -178,7 +179,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(item.discovered);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
     }
@@ -194,7 +195,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(item.discovered);
     }
 
@@ -209,7 +210,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(item.discovered);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
     }
@@ -232,7 +233,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, tree.confirmCalls);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
         Assert.Equal(Guid.Empty, tree.selectedChoiceId.guid);
@@ -254,7 +255,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, tree.rerollCalls);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
     }
@@ -270,7 +271,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(item.discovered);
     }
 
@@ -288,14 +289,14 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, tree.rerollsLeft);
         Assert.True(tree.usedRerollsLastDiscover);
         Assert.Empty(tree.currentChoiceIds);
         Assert.Equal(new[] { item.GetGuid(), second.GetGuid() },
             tree.nextExcludedIds.Select(value => value.guid));
         Assert.Equal(Guid.Empty, tree.selectedChoiceId.guid);
-        Assert.Equal(2, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(2, result.Outcome.CallOutcome.NativeCallsAttempted);
     }
 
     /// <remarks>
@@ -313,11 +314,11 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.False(result.Verified);
-        Assert.Equal(DiscoveryTreeOfferPreflight.RerollUnavailable, result.Preflight);
-        Assert.Equal("No rerolls are left on this tree.", result.Reason);
+        Assert.False(result.Outcome.Verified);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.RerollUnavailable, result.Outcome.Code);
+        Assert.Equal("No rerolls are left on this tree.", result.Outcome.Reason);
         Assert.Equal(0, result.RerollsLeft);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
     }
 
     [Fact]
@@ -332,7 +333,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
         Assert.Equal(6, tree.rerollsLeft);
         Assert.False(tree.usedRerollsLastDiscover);
@@ -351,7 +352,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
     }
 
@@ -366,8 +367,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.Unaffordable, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.Unaffordable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
     }
@@ -382,8 +383,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.TreeUnavailable, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.TreeUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
     }
@@ -400,8 +401,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.WrongMode, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.WrongMode, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.selectCalls);
     }
 
@@ -418,8 +419,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.NoDiscoveries, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.NoDiscoveries, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
     }
@@ -434,8 +435,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.OfferUnavailable, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.OfferUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.selectCalls);
     }
 
@@ -449,7 +450,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, tree.selectCalls);
         Assert.Equal(item.GetGuid(), tree.selectedChoiceId.guid);
     }
@@ -464,8 +465,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.RerollUnavailable, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.RerollUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, tree.rerollCalls);
     }
 
@@ -480,9 +481,9 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.IdentityUnavailable, result.Preflight);
-        Assert.Equal("That id names more than one live discovery tree.", result.Reason);
-        Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.IdentityUnavailable, result.Outcome.Code);
+        Assert.Equal("That id names more than one live discovery tree.", result.Outcome.Reason);
+        Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
     }
 
     [Fact]
@@ -494,7 +495,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = ForeignThread.Run(() => action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch)));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.WrongThread, result.Preflight);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Equal(0, tree.initiateCalls);
     }
 
@@ -512,11 +513,11 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(0, result.CallOutcome.MutationsCommitted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationsCommitted);
         var next = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
-        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, next.Preflight);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.PostCommitFault, next.Outcome.Code);
     }
 
     [Fact]
@@ -531,7 +532,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.PostCommitFault, result.Outcome.Code);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Choice, tree.actionMode);
         Assert.False(item.discovered);
     }
@@ -552,7 +553,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Confirm, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
     }
 
@@ -568,8 +569,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Reroll, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
-        Assert.Equal(DiscoveryTreeOfferNativeStage.Verification, result.Stage);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(Guid.Empty, tree.selectedChoiceId.guid);
         Assert.Equal(0, tree.rerollsLeft);
     }
@@ -584,10 +584,10 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.VerificationFailed, result.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
-        Assert.Equal(1, result.CallOutcome.NativeCallsAttempted);
-        Assert.Equal(0, result.CallOutcome.MutationsCommitted);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
+        Assert.Equal(1, result.Outcome.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationsCommitted);
     }
 
     [Fact]
@@ -601,16 +601,16 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var stale = new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), epoch);
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.PostCommitFault, action.Submit(stale).Preflight);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.PostCommitFault, action.Submit(stale).Outcome.Code);
         epoch++;
         tree.throwAfterSelect = false;
         tree.suppressSelect = false;
         action.InvalidateLifecycle();
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.LifecycleReplaced, action.Submit(stale).Preflight);
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced, action.Submit(stale).Outcome.Code);
         var fresh = new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Select, tree.GetGuid(), item.GetGuid(), epoch);
-        Assert.True(action.Submit(fresh).Verified);
+        Assert.True(action.Submit(fresh).Outcome.Verified);
     }
 
     [Fact]
@@ -624,8 +624,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
             Assert.Contains(missing, action.BindingFailure, StringComparison.Ordinal);
             var result = action.Submit(new DiscoveryTreeOfferAction(
                 DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
-            Assert.Equal(DiscoveryTreeOfferPreflight.ContractUnavailable, result.Preflight);
-            Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
+            Assert.Equal(DiscoveryTreeOfferActionResultCodes.ContractUnavailable, result.Outcome.Code);
+            Assert.Equal(0, result.Outcome.CallOutcome.NativeCallsAttempted);
         }
         Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
@@ -652,8 +652,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         var result = action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
 
-        Assert.Equal(DiscoveryTreeOfferPreflight.MutationPermitUnavailable, result.Preflight);
-        Assert.Contains("revoked", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable, result.Outcome.Code);
+        Assert.Contains("revoked", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
     }

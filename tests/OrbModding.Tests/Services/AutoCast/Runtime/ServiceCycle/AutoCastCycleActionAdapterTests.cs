@@ -123,13 +123,13 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
         var submission = new AutoCastNativeAdapter().Fire(0, Ember, holdFullCharge: false);
 
-        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
+        Assert.Equal(AutoCastActionResultCodes.SlotIdentityChanged, submission.Outcome.Code);
         Assert.Equal(Frost, submission.Occupant);
-        Assert.Contains("slot 1", submission.Reason);
+        Assert.Contains("slot 1", submission.Outcome.Reason);
 
         // The handle a caller can type, not the 36-character canonical form no surface prints.
-        Assert.Contains(Frost.ToString("D").Substring(0, 6), submission.Reason);
-        Assert.DoesNotContain(Frost.ToString("D"), submission.Reason);
+        Assert.Contains(Frost.ToString("D").Substring(0, 6), submission.Outcome.Reason);
+        Assert.DoesNotContain(Frost.ToString("D"), submission.Outcome.Reason);
     }
 
     [Fact]
@@ -298,9 +298,9 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(AutoCastActionResultCodes.SlotIdentityChanged, result.Code);
-        Assert.Equal(AutoCastPreflight.SlotIdentityChanged, submission.Preflight);
-        Assert.Contains(expected, submission.Reason, StringComparison.Ordinal);
-        Assert.DoesNotContain("charge", submission.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AutoCastActionResultCodes.SlotIdentityChanged, submission.Outcome.Code);
+        Assert.Contains(expected, submission.Outcome.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("charge", submission.Outcome.Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, occupant.FireCalls);
     }
 

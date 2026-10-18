@@ -52,8 +52,8 @@ public sealed class PrestigeGameActionTests : IDisposable
         PersistentResetManager.instance.hasFetchedChallenges.value = false;
         var unfetched = Submit(boundary);
 
-        Assert.Equal(PrestigePreflight.WorldCycleIncomplete, incomplete.Preflight);
-        Assert.Equal(PrestigePreflight.ChallengesNotFetched, unfetched.Preflight);
+        Assert.Equal(PrestigeActionResultCodes.WorldCycleIncomplete, incomplete.Code);
+        Assert.Equal(PrestigeActionResultCodes.ChallengesNotFetched, unfetched.Code);
         Assert.Equal(0, permitCalls);
         Assert.Equal(0, PersistentResetManager.instance.ResetCalls);
     }
@@ -67,8 +67,8 @@ public sealed class PrestigeGameActionTests : IDisposable
         var first = Submit(boundary);
         var retry = Submit(boundary);
 
-        Assert.Equal(PrestigePreflight.VerificationFailed, first.Preflight);
-        Assert.Equal(PrestigePreflight.WorldCycleIncomplete, retry.Preflight);
+        Assert.Equal(PrestigeActionResultCodes.VerificationFailed, first.Code);
+        Assert.Equal(PrestigeActionResultCodes.WorldCycleIncomplete, retry.Code);
         Assert.Equal(1, PersistentResetManager.instance.ResetCalls);
     }
 
@@ -80,7 +80,7 @@ public sealed class PrestigeGameActionTests : IDisposable
 
         var submission = Submit(boundary);
 
-        Assert.Equal(PrestigePreflight.VerificationFailed, submission.Preflight);
+        Assert.Equal(PrestigeActionResultCodes.VerificationFailed, submission.Code);
         Assert.Equal(12, _epoch);
     }
 
@@ -100,12 +100,12 @@ public sealed class PrestigeGameActionTests : IDisposable
     public void Wrong_thread_refuses_before_native_access()
     {
         using var boundary = Boundary();
-        PrestigeSubmission submission = default;
+        NativeActionOutcome submission = default;
         var thread = new Thread(() => submission = Submit(boundary));
         thread.Start();
         thread.Join();
 
-        Assert.Equal(PrestigePreflight.WrongThread, submission.Preflight);
+        Assert.Equal(PrestigeActionResultCodes.WrongThread, submission.Code);
         Assert.Equal(0, PersistentResetManager.instance.ResetCalls);
     }
 
@@ -118,7 +118,7 @@ public sealed class PrestigeGameActionTests : IDisposable
         var submission = Submit(boundary);
 
         Assert.False(boundary.BindingsAvailable);
-        Assert.Equal(PrestigePreflight.ContractUnavailable, submission.Preflight);
+        Assert.Equal(PrestigeActionResultCodes.ContractUnavailable, submission.Code);
         Assert.Contains(withheld, boundary.BindingFailure, StringComparison.Ordinal);
         Assert.Equal(0, PersistentResetManager.instance.ResetCalls);
     }
@@ -142,6 +142,6 @@ public sealed class PrestigeGameActionTests : IDisposable
         },
         include);
 
-    private PrestigeSubmission Submit(PrestigeGameAction boundary) =>
+    private NativeActionOutcome Submit(PrestigeGameAction boundary) =>
         boundary.Submit(new PrestigeAction(_epoch));
 }

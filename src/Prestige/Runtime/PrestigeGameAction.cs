@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -32,48 +33,48 @@ internal sealed class PrestigeGameAction : IDisposable
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
 
-    internal PrestigeSubmission Submit(in PrestigeAction action)
+    internal NativeActionOutcome Submit(in PrestigeAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return PrestigeSubmission.Reject(PrestigePreflight.WrongThread,
+            return NativeActionOutcome.Reject(PrestigeActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(PrestigeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Time > Reset", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Time > Reset", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
-                return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
+                return NativeActionOutcome.Reject(PrestigeActionResultCodes.ContractUnavailable,
                     "The reset is not available from here — return to a loaded save and open " +
                     "Time > Reset.");
             if (!TryCapture(native, manager, epoch, out var before, out var captureFailure))
-                return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable, captureFailure);
+                return NativeActionOutcome.Reject(PrestigeActionResultCodes.ContractUnavailable, captureFailure);
             if (!before.WorldCycleComplete)
-                return PrestigeSubmission.Reject(PrestigePreflight.WorldCycleIncomplete,
+                return NativeActionOutcome.Reject(PrestigeActionResultCodes.WorldCycleIncomplete,
                     "Persistent reset is unavailable until the current world cycle is complete.");
             if (!before.ChallengesFetched)
-                return PrestigeSubmission.Reject(PrestigePreflight.ChallengesNotFetched,
+                return NativeActionOutcome.Reject(PrestigeActionResultCodes.ChallengesNotFetched,
                     "Persistent reset is unavailable until prestige challenges have been fetched and chosen.");
             if (!_tryCaptureMutationPermit())
-                return PrestigeSubmission.Reject(PrestigePreflight.MutationPermitUnavailable,
+                return NativeActionOutcome.Reject(PrestigeActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(native, manager, in before);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(PrestigeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Time > Reset", exception));
         }
     }
@@ -91,22 +92,21 @@ internal sealed class PrestigeGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
-    private PrestigeSubmission Execute(PrestigeNativeBindings native, object manager,
+    private NativeActionOutcome Execute(PrestigeNativeBindings native, object manager,
         in PrestigeAdmissionState before)
     {
-        var stage = PrestigeNativeStage.NativeTransaction;
+        var stage = "NativeTransaction";
         try
         {
             // PersistentReset() only schedules this transaction behind UIScreenFlash.FadeIn.
             // Tooling has no rendered-modal dependency, so invoke the exact transaction directly.
             native.Reset(manager);
-            stage = PrestigeNativeStage.Verification;
+            stage = "Verification";
             var observedEpoch = _readLifecycleEpoch();
             if (observedEpoch == checked(before.LifecycleEpoch + 1))
-                return new PrestigeSubmission(PrestigePreflight.Proceeded, stage,
-                    NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
+                return NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
                     "The persistent-reset lifecycle transition is visible.");
-            return Fault(PrestigePreflight.VerificationFailed, stage,
+            return Fault(PrestigeActionResultCodes.VerificationFailed, stage,
                 NativeMutationOutcome.PostconditionFailed,
                 "Expected lifecycle " + checked(before.LifecycleEpoch + 1) +
                 ", observed " + observedEpoch + ".");
@@ -115,11 +115,10 @@ internal sealed class PrestigeGameAction : IDisposable
         {
             var observedEpoch = ReadEpochBestEffort(before.LifecycleEpoch);
             if (observedEpoch == checked(before.LifecycleEpoch + 1))
-                return new PrestigeSubmission(PrestigePreflight.Proceeded,
-                    PrestigeNativeStage.Verification, NativeMutationOutcome.Verified,
+                return NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(1, 1, 1),
                     "The lifecycle advanced before the native exception.");
-            return Fault(PrestigePreflight.PostCommitFault, stage,
+            return Fault(PrestigeActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Time > Reset", exception));
         }
@@ -143,12 +142,12 @@ internal sealed class PrestigeGameAction : IDisposable
         return true;
     }
 
-    private static PrestigeSubmission Fault(PrestigePreflight preflight,
-        PrestigeNativeStage stage, NativeMutationOutcome outcome,
+    private static NativeActionOutcome Fault(ServiceActionResultCode code,
+        string stage, NativeMutationOutcome outcome,
         string reason)
     {
         var exactReason = "Prestige " + stage + " failed: " + reason;
-        return new PrestigeSubmission(preflight, stage, outcome,
+        return NativeActionOutcome.Fault(code, outcome,
             new NativeMutationCallOutcome(1, 1, 0), exactReason);
     }
 

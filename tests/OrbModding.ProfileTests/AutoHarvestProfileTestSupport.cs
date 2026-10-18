@@ -271,12 +271,12 @@ internal static class AutoHarvestProfileTestSupport
     /// </summary>
     private sealed class NoOpMutationPort : IAutoHarvestMutationPort
     {
-        public AutoHarvestSubmissionResult Submit(
+        public NativeActionOutcome Submit(
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
             AutoHarvestActionSafetyState safety,
             in ServiceActionContext context) =>
-            new(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected);
+            NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty);
     }
 
 }

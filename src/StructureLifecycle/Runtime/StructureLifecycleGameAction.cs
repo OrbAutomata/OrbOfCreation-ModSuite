@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -40,51 +41,51 @@ internal sealed class StructureLifecycleGameAction : IDisposable
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
 
-    internal StructureLifecycleSubmission Submit(in StructureLifecycleAction action)
+    internal NativeActionOutcome Submit(in StructureLifecycleAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(StructureLifecyclePreflight.WrongThread,
+            return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(StructureLifecyclePreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("the screen this structure is on", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(StructureLifecyclePreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(StructureLifecyclePreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             var resolution = _registry.Resolve(action.StructureId, native.StructureType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return Reject(StructureLifecyclePreflight.IdentityUnavailable,
+                return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved
                         ? EntityIdentityFormatter.PlayerName(action.StructureId) + " became stale."
                         : resolution.Reason);
             var structure = resolution.Value!;
             if (!native.Available(structure))
-                return Reject(StructureLifecyclePreflight.NotAvailable,
+                return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.NotAvailable,
                     EntityIdentityFormatter.PlayerName(action.StructureId) + " is not available yet.");
             var beforeDisabled = native.Disabled(structure);
             var expectedDisabled = action.Kind == StructureLifecycleActionKind.Disable;
             if (beforeDisabled == expectedDisabled)
-                return Reject(StructureLifecyclePreflight.AlreadyInState,
+                return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.AlreadyInState,
                     EntityIdentityFormatter.PlayerName(action.StructureId) + " is already " +
                     (expectedDisabled ? "disabled." : "enabled."));
             if (!_tryCaptureMutationPermit())
-                return Reject(StructureLifecyclePreflight.MutationPermitUnavailable,
+                return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(in action, native, structure, expectedDisabled);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(StructureLifecyclePreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(StructureLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
         }
     }
@@ -102,48 +103,43 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
-    private static StructureLifecycleSubmission Execute(
+    private static NativeActionOutcome Execute(
         in StructureLifecycleAction action,
         StructureLifecycleNativeBindings native,
         object structure,
         bool expectedDisabled)
     {
-        var stage = StructureLifecycleNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             native.Toggle(structure);
-            stage = StructureLifecycleNativeStage.Verification;
+            stage = "Verification";
             return native.Disabled(structure) == expectedDisabled
                 ? Verified()
-                : Fault(in action, StructureLifecyclePreflight.VerificationFailed, stage,
+                : Fault(in action, StructureLifecycleActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("the screen this structure is on"));
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (native.Disabled(structure) == expectedDisabled) return Verified();
-            return Fault(in action, StructureLifecyclePreflight.PostCommitFault, stage,
+            return Fault(in action, StructureLifecycleActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("the screen this structure is on", exception));
         }
     }
 
-    private static StructureLifecycleSubmission Reject(
-        StructureLifecyclePreflight preflight,
-        string reason) => StructureLifecycleSubmission.Reject(preflight, reason);
-
-    private static StructureLifecycleSubmission Verified() =>
-        new(StructureLifecyclePreflight.Proceeded, StructureLifecycleNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
+    private static NativeActionOutcome Verified() =>
+        NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
             "The requested structure state is visible.");
 
-    private static StructureLifecycleSubmission Fault(
+    private static NativeActionOutcome Fault(
         in StructureLifecycleAction action,
-        StructureLifecyclePreflight preflight,
-        StructureLifecycleNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         string reason) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
+        NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Structure " + stage + " failed on " +
             EntityIdentityFormatter.PlayerName(action.StructureId) + ": " + reason);
 

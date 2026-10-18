@@ -1,61 +1,36 @@
 using System;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
-
-internal enum AutoConceptPreflight
-{
-    Proceeded = 0,
-    ContractUnavailable,
-    RecipeIdentityChanged,
-    AssignmentUnsettled,
-    OwnershipChanged,
-    SlotUnavailable,
-    ProjectionRefused,
-    MasteryLimitChanged,
-    ResourceBackpressure,
-}
 
 internal readonly struct AutoConceptSubmission
 {
     private AutoConceptSubmission(
-        AutoConceptPreflight preflight,
-        NativeMutationCallOutcome callOutcome,
-        NativeMutationOutcome outcome,
-        string reason,
-        int appliedDelta,
-        int maximumAmount)
+        NativeActionOutcome outcome,
+        int appliedDelta = 0,
+        int maximumAmount = 0)
     {
-        Preflight = preflight;
-        CallOutcome = callOutcome;
         Outcome = outcome;
-        Reason = reason;
         AppliedDelta = appliedDelta;
         MaximumAmount = maximumAmount;
     }
 
-    public AutoConceptPreflight Preflight { get; }
-    public NativeMutationCallOutcome CallOutcome { get; }
-    public NativeMutationOutcome Outcome { get; }
-    public string Reason { get; }
+    public NativeActionOutcome Outcome { get; }
     public int AppliedDelta { get; }
     public int MaximumAmount { get; }
-    public bool Verified =>
-        Preflight == AutoConceptPreflight.Proceeded &&
-        CallOutcome.MutationAttempts == 1 &&
-        Outcome == NativeMutationOutcome.Verified;
 
-    internal static AutoConceptSubmission Rejected(
-        AutoConceptPreflight preflight,
-        string reason,
-        int maximumAmount = 0)
-    {
-        if (preflight == AutoConceptPreflight.Proceeded)
-            throw new ArgumentOutOfRangeException(nameof(preflight));
-        return new AutoConceptSubmission(
-            preflight, default, default, reason, 0, maximumAmount);
-    }
+    internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Reject(code, reason));
+
+    internal static AutoConceptSubmission Backpressure(string reason, int maximumAmount = 0) =>
+        new(
+            NativeActionOutcome.Skip(AutoConceptActionResultCodes.AmountUnavailable, reason),
+            maximumAmount: maximumAmount);
+
+    internal static AutoConceptSubmission ContractUnavailable(string reason) =>
+        new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     internal static AutoConceptSubmission Attempted(
         NativeMutationCallOutcome outcome,
@@ -63,12 +38,11 @@ internal readonly struct AutoConceptSubmission
         string reason,
         int appliedDelta) =>
         new(
-            AutoConceptPreflight.Proceeded,
-            outcome,
-            mutationOutcome,
-            reason,
-            appliedDelta,
-            0);
+            outcome.MutationAttempts == 1 && mutationOutcome == NativeMutationOutcome.Verified
+                ? NativeActionOutcome.Commit(outcome, reason)
+                : NativeActionOutcome.Fault(
+                    CommonActionResultCodes.AdapterFault, mutationOutcome, outcome, reason),
+            appliedDelta);
 }
 
 internal interface IAutoConceptNativePort

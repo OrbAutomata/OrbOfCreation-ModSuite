@@ -2,30 +2,9 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
-
-/// <summary>
-/// Preflight disposition of one native level submission, before any audited mutation was invoked.
-/// <see cref="Proceeded"/> means the mutation was attempted and the submission carries verifier
-/// evidence; the others are the reasons a submission never got that far.
-/// </summary>
-internal enum SpellLevelPreflight
-{
-    Proceeded = 0,
-
-    /// <summary>The native contract could not be bound or the spell is no longer in the registry.</summary>
-    ContractUnavailable,
-
-    /// <summary>No discovered spell's leveling prerequisite passes, so leveling is not unlocked.</summary>
-    ProgressionLocked,
-
-    /// <summary>The spell is no longer ready, or its level cost is no longer covered.</summary>
-    NotAffordable,
-
-    /// <summary>An <c>All</c> was planned but the level-all upgrade is no longer committed.</summary>
-    BatchUnavailable,
-}
 
 /// <summary>
 /// The neutral outcome of one native level submission: either a preflight rejection with no mutation,
@@ -34,32 +13,15 @@ internal enum SpellLevelPreflight
 /// </summary>
 internal readonly struct SpellLevelSubmission
 {
-    private SpellLevelSubmission(
-        SpellLevelPreflight preflight,
-        bool hasEvidence,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        string reason,
-        ResourceCharge[]? charges = null)
+    private SpellLevelSubmission(NativeActionOutcome outcome, ResourceCharge[]? charges = null)
     {
-        Preflight = preflight;
-        HasEvidence = hasEvidence;
         Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason;
         _charges = charges;
     }
 
     private readonly ResourceCharge[]? _charges;
 
-    public SpellLevelPreflight Preflight { get; }
-    public bool HasEvidence { get; }
-    public NativeMutationOutcome Outcome { get; }
-    public NativeMutationCallOutcome CallOutcome { get; }
-    public bool Verified => HasEvidence && Outcome == NativeMutationOutcome.Verified;
-
-    /// <summary>What the boundary would tell an operator, whichever way it went.</summary>
-    public string Reason { get; }
+    public NativeActionOutcome Outcome { get; }
 
     /// <summary>
     /// The price the game named for a single level on the frame that paid it. A level-all press
@@ -68,23 +30,24 @@ internal readonly struct SpellLevelSubmission
     public ReadOnlySpan<ResourceCharge> Charges =>
         _charges is null ? default : _charges.AsSpan();
 
-    public static SpellLevelSubmission Rejected(SpellLevelPreflight preflight, string reason)
-    {
-        if (preflight == SpellLevelPreflight.Proceeded)
-            throw new ArgumentOutOfRangeException(nameof(preflight));
-        return new SpellLevelSubmission(preflight, hasEvidence: false, default, default, reason);
-    }
+    public static SpellLevelSubmission Rejected(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Reject(code, reason));
+
+    public static SpellLevelSubmission ContractUnavailable(string reason) =>
+        new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     public static SpellLevelSubmission Attempted<TState>(
         NativeMutationEvidence<TState> evidence,
-        ResourceCharge[]? charges = null) =>
-        new(
-            SpellLevelPreflight.Proceeded,
-            hasEvidence: true,
-            evidence.Outcome,
-            NativeMutationCallOutcome.FromEvidence(evidence),
-            evidence.IsVerified ? string.Empty : evidence.Format(),
+        ResourceCharge[]? charges = null)
+    {
+        var calls = NativeMutationCallOutcome.FromEvidence(evidence);
+        return new(
+            evidence.IsVerified
+                ? NativeActionOutcome.Commit(calls, string.Empty)
+                : NativeActionOutcome.Fault(
+                    CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()),
             charges);
+    }
 }
 
 /// <summary>
@@ -150,7 +113,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     public SpellLevelSubmission Submit(SpellLevelActionKind kind, Guid uuid)
     {
         if (!TryInitialize(out var reason))
-            return SpellLevelSubmission.Rejected(SpellLevelPreflight.ContractUnavailable, reason);
+            return SpellLevelSubmission.ContractUnavailable(reason);
 
         try
         {
@@ -162,8 +125,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
             if (!TryResolveRecipe(uuid, out var recipe))
             {
-                return SpellLevelSubmission.Rejected(
-                    SpellLevelPreflight.ContractUnavailable,
+                return SpellLevelSubmission.ContractUnavailable(
                     "the planned spell is no longer in the available recipes");
             }
 
@@ -173,19 +135,19 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             if (_isDiscovered!.Invoke(recipe, Array.Empty<object>()) is not true)
             {
                 return SpellLevelSubmission.Rejected(
-                    SpellLevelPreflight.NotAffordable, "the spell is no longer discovered");
+                    SpellLevelActionResultCodes.LevelNotAffordable, "the spell is no longer discovered");
             }
 
             if (!PrerequisitesPass(recipe))
             {
                 return SpellLevelSubmission.Rejected(
-                    SpellLevelPreflight.ProgressionLocked, "spell leveling is not unlocked");
+                    SpellLevelActionResultCodes.ProgressionLocked, "spell leveling is not unlocked");
             }
 
             if (_isReady!.Invoke(recipe, Array.Empty<object>()) is not true)
             {
                 return SpellLevelSubmission.Rejected(
-                    SpellLevelPreflight.NotAffordable,
+                    SpellLevelActionResultCodes.LevelNotAffordable,
                     "the spell no longer has a ready mastery level");
             }
 
@@ -193,15 +155,14 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             if (cost is null || _costHasEnough!.Invoke(cost, Array.Empty<object>()) is not true)
             {
                 return SpellLevelSubmission.Rejected(
-                    SpellLevelPreflight.NotAffordable, "the spell-level cost is no longer affordable");
+                    SpellLevelActionResultCodes.LevelNotAffordable, "the spell-level cost is no longer affordable");
             }
 
             return SubmitSingle(uuid, recipe, cost);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return SpellLevelSubmission.Rejected(
-                SpellLevelPreflight.ContractUnavailable,
+            return SpellLevelSubmission.ContractUnavailable(
                 $"spell-level mutation failed: {ex.GetBaseException().Message}");
         }
     }
@@ -313,7 +274,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         if (ReadPurchaseLevel(_levelAllUpgrade!) <= 0)
         {
             return SpellLevelSubmission.Rejected(
-                SpellLevelPreflight.BatchUnavailable,
+                SpellLevelActionResultCodes.LevelAllLocked,
                 "the level-all upgrade is no longer committed");
         }
 
@@ -337,12 +298,12 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         if (discovered && !prerequisitePassed)
         {
             return SpellLevelSubmission.Rejected(
-                SpellLevelPreflight.ProgressionLocked,
+                SpellLevelActionResultCodes.ProgressionLocked,
                 "spell leveling is not unlocked");
         }
 
         return SpellLevelSubmission.Rejected(
-            SpellLevelPreflight.NotAffordable,
+            SpellLevelActionResultCodes.LevelNotAffordable,
             "no ready spell has an affordable level cost");
     }
 

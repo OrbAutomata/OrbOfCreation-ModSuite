@@ -30,52 +30,19 @@ internal readonly struct SpellCompositionAction
     internal long LifecycleEpoch { get; }
 }
 
-internal enum SpellCompositionPreflight
-{
-    Proceeded = 0,
-    LifecycleReplaced = 1,
-    ContractUnavailable = 2,
-    WrongThread = 4,
-    LevelOutOfRange = 6,
-    AlreadyInRequestedState = 7,
-    MutationPermitUnavailable = 15,
-    PostCommitFault = 16,
-    VerificationFailed = 17,
-    ControlLocked = 18,
-}
-
-internal enum SpellCompositionNativeStage
-{
-    None = 0,
-    Dial = 1,
-    Verification = 2,
-}
-
 internal readonly struct SpellCompositionSubmission
 {
     internal SpellCompositionSubmission(
-        SpellCompositionPreflight preflight,
-        SpellCompositionNativeStage stage,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        string reason,
+        NativeActionOutcome outcome,
         int minimum = -1,
         int maximum = -1)
     {
-        Preflight = preflight;
-        Stage = stage;
         Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
         Minimum = minimum;
         Maximum = maximum;
     }
 
-    internal SpellCompositionPreflight Preflight { get; }
-    internal SpellCompositionNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
-    internal string Reason { get; }
+    internal NativeActionOutcome Outcome { get; }
 
     /// <summary>
     /// The live native range this dial admits, read from the same capture the refusal sentence was
@@ -83,29 +50,18 @@ internal readonly struct SpellCompositionSubmission
     /// </summary>
     internal int Minimum { get; }
     internal int Maximum { get; }
-    internal bool Verified => Preflight == SpellCompositionPreflight.Proceeded &&
-        Outcome == NativeMutationOutcome.Verified;
 
     internal static SpellCompositionSubmission Reject(
-        SpellCompositionPreflight preflight,
+        ServiceActionResultCode code,
         string reason) =>
-        new(
-            preflight,
-            SpellCompositionNativeStage.None,
-            default,
-            default,
-            reason);
+        new(NativeActionOutcome.Reject(code, reason));
 
     internal static SpellCompositionSubmission OutOfRange(
         string reason,
         int minimum,
         int maximum) =>
         new(
-            SpellCompositionPreflight.LevelOutOfRange,
-            SpellCompositionNativeStage.None,
-            default,
-            default,
-            reason,
+            NativeActionOutcome.Reject(SpellCompositionActionResultCodes.LevelOutOfRange, reason),
             minimum,
             maximum);
 }

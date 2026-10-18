@@ -60,68 +60,33 @@ public sealed class AutoScribeCycleActionAdapterTests
     }
 
     [Fact]
-    public void PostPaymentFaultMapsToFaultedOutcomeWithItsExactCallShape()
-    {
-        var submission = new AutoScribeSubmission(
-            AutoScribePreflight.PostPaymentFault,
-            AutoScribeNativeStage.Construction,
-            NativeMutationOutcome.ExecutionThrew,
-            new NativeMutationCallOutcome(2, 1, 0),
-            "Construction failed after exact payment.");
-
-        var result = AutoScribeCycleActionAdapter.Map(in submission);
-
-        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, result.Code);
-        Assert.True(result.HasNativeEvidence);
-        Assert.Equal(NativeMutationOutcome.ExecutionThrew, result.NativeEvidence.Outcome);
-        Assert.Equal(2, result.NativeCallOutcome.NativeCallsAttempted);
-        Assert.Equal(1, result.NativeCallOutcome.MutationAttempts);
-        Assert.Equal(0, result.NativeCallOutcome.MutationsCommitted);
-    }
-
-    [Fact]
-    public void OrdinaryPreflightRejectionCarriesNoMutationEvidence()
-    {
-        var submission = AutoScribeSubmission.Reject(
-            AutoScribePreflight.QueueFull,
-            "ActiveScribeInstances.HasEmptySpot() refused before payment.");
-
-        var result = AutoScribeCycleActionAdapter.Map(in submission);
-
-        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(AutoScribeActionResultCodes.QueueFull, result.Code);
-        Assert.False(result.HasNativeEvidence);
-    }
-
-    [Fact]
     public void BackpressureAndFailuresHaveOneSharedClassification()
     {
         var health = new AutoScribeActionHealth();
         var registryWait = AutoScribeSubmission.Reject(
-            AutoScribePreflight.IdentityUnavailable,
+            AutoScribeActionResultCodes.IdentityUnavailable,
             "The lifecycle registry is not ready.",
             retryable: true);
         var permitWait = AutoScribeSubmission.Reject(
-            AutoScribePreflight.MutationPermitUnavailable,
+            AutoScribeActionResultCodes.MutationPermitUnavailable,
             "CraftingQueueSubmission is busy.");
-        var contradiction = AutoScribeSubmission.Reject(
-            AutoScribePreflight.RelationshipMismatch,
+        var contradiction = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.RelationshipMismatch,
             "The live recipe relation contradicted the audited role.");
 
         Assert.Equal(
             ServiceActionDisposition.Rejected,
-            AutoScribeCycleActionAdapter.Map(in registryWait).Disposition);
+            registryWait.Outcome.ToResult().Disposition);
         Assert.False(health.Observe(in registryWait));
         Assert.Equal(
             ServiceActionDisposition.Rejected,
-            AutoScribeCycleActionAdapter.Map(in permitWait).Disposition);
+            permitWait.Outcome.ToResult().Disposition);
         Assert.False(health.Observe(in permitWait));
         Assert.False(health.HasFailure);
 
         Assert.Equal(
             ServiceActionDisposition.Faulted,
-            AutoScribeCycleActionAdapter.Map(in contradiction).Disposition);
+            contradiction.Outcome.ToResult().Disposition);
         Assert.True(health.Observe(in contradiction));
         Assert.True(health.HasFailure);
     }
@@ -130,14 +95,13 @@ public sealed class AutoScribeCycleActionAdapterTests
     public void PersistentQuarantineDoesNotReenterTheWarningState()
     {
         const string reason = "Exact queue admission was not observed after payment.";
-        var failure = new AutoScribeSubmission(
-            AutoScribePreflight.VerificationFailed,
-            AutoScribeNativeStage.Verification,
+        var failure = new AutoScribeSubmission(NativeActionOutcome.Fault(
+            AutoScribeActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(4, 1, 0),
-            reason);
-        var quarantine = AutoScribeSubmission.Reject(
-            AutoScribePreflight.Quarantined,
+            reason));
+        var quarantine = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.Quarantined,
             reason);
         var health = new AutoScribeActionHealth();
 
@@ -146,33 +110,32 @@ public sealed class AutoScribeCycleActionAdapterTests
         Assert.False(health.Observe(in quarantine));
 
         Assert.Equal(failureRevision, health.Revision);
-        Assert.Equal(AutoScribePreflight.VerificationFailed, health.Preflight);
+        Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, health.Code);
         Assert.Equal(ServiceActionDisposition.Faulted,
-            AutoScribeCycleActionAdapter.Map(in quarantine).Disposition);
+            quarantine.Outcome.ToResult().Disposition);
     }
 
     [Fact]
     public void QuarantineRepeatReplacesAnUnrelatedInterveningFailureBeforeDeduplicating()
     {
         const string quarantineReason = "Exact queue admission was not observed after payment.";
-        var root = new AutoScribeSubmission(
-            AutoScribePreflight.VerificationFailed,
-            AutoScribeNativeStage.Verification,
+        var root = new AutoScribeSubmission(NativeActionOutcome.Fault(
+            AutoScribeActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(4, 1, 0),
-            quarantineReason);
-        var unrelated = AutoScribeSubmission.Reject(
-            AutoScribePreflight.WrongThread,
+            quarantineReason));
+        var unrelated = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.WrongThread,
             "Unity thread ownership changed.");
-        var quarantine = AutoScribeSubmission.Reject(
-            AutoScribePreflight.Quarantined,
+        var quarantine = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.Quarantined,
             quarantineReason);
         var health = new AutoScribeActionHealth();
 
         Assert.True(health.Observe(in root));
         Assert.True(health.Observe(in unrelated));
         Assert.True(health.Observe(in quarantine));
-        Assert.Equal(AutoScribePreflight.Quarantined, health.Preflight);
+        Assert.Equal(AutoScribeActionResultCodes.Quarantined, health.Code);
         Assert.Equal(quarantineReason, health.Reason);
         Assert.False(health.Observe(in quarantine));
     }
@@ -180,15 +143,12 @@ public sealed class AutoScribeCycleActionAdapterTests
     [Fact]
     public void VerifiedActionsAndLifecycleInvalidationClearHealthAndAllowRewarning()
     {
-        var failure = AutoScribeSubmission.Reject(
-            AutoScribePreflight.RelationshipMismatch,
+        var failure = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.RelationshipMismatch,
             "The live recipe relation contradicted the audited role.");
-        var verified = new AutoScribeSubmission(
-            AutoScribePreflight.Proceeded,
-            AutoScribeNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        var verified = new AutoScribeSubmission(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(4, 1, 1),
-            "The exact work was admitted.");
+            "The exact work was admitted."));
         var health = new AutoScribeActionHealth();
 
         Assert.True(health.Observe(in failure));

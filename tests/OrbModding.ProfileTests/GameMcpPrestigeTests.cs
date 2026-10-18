@@ -213,12 +213,14 @@ public sealed class GameMcpPrestigeTests
     [Fact]
     public void Failure_names_the_missing_outcome_while_success_yields_to_fresh_poststate()
     {
-        var failed = new PrestigeSubmission(PrestigePreflight.PostCommitFault,
-            PrestigeNativeStage.NativeTransaction, NativeMutationOutcome.ExecutionThrew,
-            new NativeMutationCallOutcome(1, 1, 0), "boom");
-        var success = new PrestigeSubmission(PrestigePreflight.Proceeded,
-            PrestigeNativeStage.Verification, NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1), "done");
+        var failed = NativeActionOutcome.Fault(
+            PrestigeActionResultCodes.PostCommitFault,
+            NativeMutationOutcome.ExecutionThrew,
+            new NativeMutationCallOutcome(1, 1, 0),
+            "boom");
+        var success = NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(1, 1, 1),
+            "done");
 
         var failure = Json(GameMcpPrestigeProjection.Project(in failed), World());
         var committed = Json(GameMcpPrestigeProjection.Project(in success), World());

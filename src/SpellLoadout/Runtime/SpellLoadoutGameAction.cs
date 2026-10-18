@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -49,28 +50,28 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
 
-    internal SpellLoadoutSubmission Submit(in SpellLoadoutAction action)
+    internal NativeActionOutcome Submit(in SpellLoadoutAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.WrongThread,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Magic > Spellbook > Loadout", _bindingFailure));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout", ex));
         }
         if (currentEpoch != action.LifecycleEpoch)
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.LifecycleReplaced,
+            return NativeActionOutcome.Reject(
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
@@ -79,15 +80,15 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             {
                 SpellLoadoutActionKind.Remove => Remove(in action, native),
                 SpellLoadoutActionKind.Move => Move(in action, native),
-                _ => SpellLoadoutSubmission.Reject(
-                    SpellLoadoutPreflight.ContractUnavailable,
+                _ => NativeActionOutcome.Reject(
+                    SpellLoadoutActionResultCodes.ContractUnavailable,
                     "Unknown spell loadout action kind " + (int)action.Kind + "."),
             };
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook > Loadout", ex));
         }
     }
@@ -105,32 +106,32 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
-    private SpellLoadoutSubmission Remove(
+    private NativeActionOutcome Remove(
         in SpellLoadoutAction action,
         SpellLoadoutNativeBindings native)
     {
         if (!TryAdmitScreen(native, out var screenRefusal, out var screenReason))
-            return SpellLoadoutSubmission.Reject(screenRefusal, screenReason);
+            return NativeActionOutcome.Reject(screenRefusal, screenReason);
         if (!TryResolve(native, action.SpellInstanceId, out var manager, out _, out var spell,
                 out var sourceSlot, out _, out var reason))
-            return SpellLoadoutSubmission.Reject(SpellLoadoutPreflight.IdentityUnavailable, reason);
+            return NativeActionOutcome.Reject(SpellLoadoutActionResultCodes.IdentityUnavailable, reason);
         if (!TryAdmitRemoval(native, spell, out var refusal, out var refusalReason))
-            return SpellLoadoutSubmission.Reject(refusal, refusalReason);
+            return NativeActionOutcome.Reject(refusal, refusalReason);
         if (!TryCapturePermit(out reason))
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.MutationPermitUnavailable,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.MutationPermitUnavailable,
                 reason);
 
         try
         {
             native.Remove(manager, spell);
             return TargetAbsent(native, action.SpellInstanceId)
-                ? Verified(new NativeMutationCallOutcome(1, 1, 1),
+                ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
                     "The exact runtime spell is absent from the loadout.")
                 : Fault(
                     in action,
-                    SpellLoadoutPreflight.VerificationFailed,
-                    SpellLoadoutNativeStage.Verification,
+                    SpellLoadoutActionResultCodes.VerificationFailed,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed,
                     new NativeMutationCallOutcome(1, 1, 0),
                     "The requested runtime spell remains equipped.");
@@ -138,14 +139,14 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (TargetAbsentBestEffort(native, action.SpellInstanceId))
-                return Verified(
+                return NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(1, 1, 1),
                     "The game errored while removing this spell, but the spell was gone " +
                     "from the slot afterwards.");
             return Fault(
                 in action,
-                SpellLoadoutPreflight.PostCommitFault,
-                SpellLoadoutNativeStage.Remove,
+                SpellLoadoutActionResultCodes.PostCommitFault,
+                "Remove",
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
                 GameActionAnswer.GameErrored("Magic > Spellbook > Loadout", ex));
@@ -159,7 +160,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     /// </summary>
     private bool TryAdmitScreen(
         SpellLoadoutNativeBindings native,
-        out SpellLoadoutPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         var resolution = _registry.Resolve(
@@ -167,19 +168,19 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             resolution.Value is not { } view)
         {
-            refusal = SpellLoadoutPreflight.ContractUnavailable;
+            refusal = SpellLoadoutActionResultCodes.ContractUnavailable;
             reason = "The game's Magic > Spellbook > Loadout screen could not be read, so " +
                 "whether the loadout bar can be worked at all is unknown.";
             return false;
         }
         if (!native.IsViewAvailable(view))
         {
-            refusal = SpellLoadoutPreflight.ScreenLocked;
+            refusal = SpellLoadoutActionResultCodes.ScreenLocked;
             reason = "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no " +
                 "loadout bar to change. Buy the Spellbook Loadout upgrade first.";
             return false;
         }
-        refusal = SpellLoadoutPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -193,13 +194,13 @@ internal sealed class SpellLoadoutGameAction : IDisposable
     private bool TryAdmitRemoval(
         SpellLoadoutNativeBindings native,
         object spell,
-        out SpellLoadoutPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         var name = RemovalTargetName(native, spell);
         if (native.IsCasting(spell) || native.IsReadyingCast(spell))
         {
-            refusal = SpellLoadoutPreflight.CastInProgress;
+            refusal = SpellLoadoutActionResultCodes.CastInProgress;
             reason = name + " is still recharging: it is mid-cast, and the game answers a " +
                 "removal now with \"Cannot remove a spell that is still recharging.\" " +
                 "Wait for the cast to finish." + AutoCastRoute(native.ReadMaximumCharges(spell));
@@ -208,7 +209,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (!native.IsAtMaxCharges(spell))
         {
             var maximum = native.ReadMaximumCharges(spell);
-            refusal = SpellLoadoutPreflight.SpellRecharging;
+            refusal = SpellLoadoutActionResultCodes.SpellRecharging;
             reason = name + " is still recharging: it holds " +
                 native.ReadCurrentCharges(spell) + " of " + maximum + " charges" +
                 NextChargeClause(native, spell) +
@@ -217,7 +218,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                 " of " + maximum + "." + AutoCastRoute(maximum);
             return false;
         }
-        refusal = SpellLoadoutPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -250,47 +251,47 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             : string.Empty;
     }
 
-    private SpellLoadoutSubmission Move(
+    private NativeActionOutcome Move(
         in SpellLoadoutAction action,
         SpellLoadoutNativeBindings native)
     {
         if (!TryAdmitScreen(native, out var screenRefusal, out var screenReason))
-            return SpellLoadoutSubmission.Reject(screenRefusal, screenReason);
+            return NativeActionOutcome.Reject(screenRefusal, screenReason);
         if (!TryResolve(native, action.SpellInstanceId, out _, out var active, out _,
                 out var sourceSlot, out var slotCount, out var reason))
-            return SpellLoadoutSubmission.Reject(SpellLoadoutPreflight.IdentityUnavailable, reason);
+            return NativeActionOutcome.Reject(SpellLoadoutActionResultCodes.IdentityUnavailable, reason);
         if (action.DestinationSlot >= slotCount)
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.DestinationOutOfRange,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.DestinationOutOfRange,
                 "There is no slot " + (action.DestinationSlot + 1) +
                 "; the loadout bar has slots 1 to " + slotCount + ".");
         if (sourceSlot == action.DestinationSlot)
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.AlreadyInRequestedState,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.AlreadyInRequestedState,
                 EntityIdentityFormatter.PlayerName(action.SpellInstanceId) +
                 " is already in slot " + (sourceSlot + 1) + ".");
         if (!TryCapturePermit(out reason))
-            return SpellLoadoutSubmission.Reject(
-                SpellLoadoutPreflight.MutationPermitUnavailable,
+            return NativeActionOutcome.Reject(
+                SpellLoadoutActionResultCodes.MutationPermitUnavailable,
                 reason);
 
         var nativeCalls = 0;
-        var stage = SpellLoadoutNativeStage.Swap;
+        var stage = "Swap";
         try
         {
             nativeCalls = 1;
             native.Swap(active, sourceSlot, action.DestinationSlot);
-            stage = SpellLoadoutNativeStage.Notify;
+            stage = "Notify";
             nativeCalls = 2;
             native.UpdateObservable(active);
             return TargetAtSlot(native, action.SpellInstanceId, action.DestinationSlot)
-                ? Verified(
+                ? NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(2, 1, 1),
                     "The exact runtime spell is in the requested slot.")
                 : Fault(
                     in action,
-                    SpellLoadoutPreflight.VerificationFailed,
-                    SpellLoadoutNativeStage.Verification,
+                    SpellLoadoutActionResultCodes.VerificationFailed,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed,
                     new NativeMutationCallOutcome(2, 1, 0),
                     "The requested runtime spell is not in the destination slot.");
@@ -298,12 +299,12 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (TargetAtSlotBestEffort(native, action.SpellInstanceId, action.DestinationSlot))
-                return Verified(
+                return NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(nativeCalls, 1, 1),
                     "The native reorder pipeline threw after the requested slot order became observable.");
             return Fault(
                 in action,
-                SpellLoadoutPreflight.PostCommitFault,
+                SpellLoadoutActionResultCodes.PostCommitFault,
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(nativeCalls, 1, 0),
@@ -422,34 +423,17 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
-    private static SpellLoadoutSubmission Verified(
-        NativeMutationCallOutcome callOutcome,
-        string reason)
-    {
-        return new SpellLoadoutSubmission(
-            SpellLoadoutPreflight.Proceeded,
-            SpellLoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            callOutcome,
-            reason);
-    }
-
-    private static SpellLoadoutSubmission Fault(
+    private static NativeActionOutcome Fault(
         in SpellLoadoutAction action,
-        SpellLoadoutPreflight preflight,
-        SpellLoadoutNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         NativeMutationCallOutcome callOutcome,
         string reason)
     {
         var exactReason = "Spell loadout " + stage + " failed on " +
             EntityIdentityFormatter.PlayerName(action.SpellInstanceId) + ": " + reason;
-        return new SpellLoadoutSubmission(
-            preflight,
-            stage,
-            outcome,
-            callOutcome,
-            exactReason);
+        return NativeActionOutcome.Fault(code, outcome, callOutcome, exactReason);
     }
 
     private bool TryCapturePermit(out string reason)

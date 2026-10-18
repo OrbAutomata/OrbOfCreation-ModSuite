@@ -285,12 +285,11 @@ public sealed class GameMcpResearchTests
     [Fact]
     public void Failure_names_the_missing_outcome_while_success_yields_to_fresh_world_poststate()
     {
-        var failed = new ResearchSubmission(ResearchPreflight.VerificationFailed,
-            ResearchNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0), "unchanged");
-        var success = new ResearchSubmission(ResearchPreflight.Proceeded,
-            ResearchNativeStage.Verification, NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1), "changed");
+        var failed = new ResearchSubmission(NativeActionOutcome.Fault(
+            ResearchActionResultCodes.VerificationFailed, NativeMutationOutcome.PostconditionFailed,
+            new NativeMutationCallOutcome(1, 1, 0), "unchanged"));
+        var success = new ResearchSubmission(NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(1, 1, 1), "changed"));
 
         var failure = Json(GameMcpResearchProjection.Project(in failed), World());
         var committed = Json(GameMcpResearchProjection.Project(in success), World());
@@ -589,7 +588,7 @@ public sealed class GameMcpResearchTests
         var refused = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpResearchProjection.Project(
                 ResearchSubmission.Reject(
-                    ResearchPreflight.AmountUnavailable,
+                    ResearchActionResultCodes.AmountUnavailable,
                     "Research Queue Mode is off, so one develop starts one level and this " +
                     "call takes at most 1 level.",
                     1)),
@@ -600,7 +599,7 @@ public sealed class GameMcpResearchTests
         var noCeiling = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpResearchProjection.Project(
                 ResearchSubmission.Reject(
-                    ResearchPreflight.DevelopUnavailable,
+                    ResearchActionResultCodes.DevelopUnavailable,
                     "The next research level is unavailable or unaffordable.")),
             EntityIdentityCatalogSnapshot.Unbound(1)));
 

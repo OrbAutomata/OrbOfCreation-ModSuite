@@ -7,13 +7,13 @@ internal static class GameMcpSpellCompositionProjection
 {
     internal static GameMcpValue Project(in SpellCompositionSubmission submission, string dial)
     {
-        if (submission.Verified) return new JObject().Freeze();
+        if (submission.Outcome.Verified) return new JObject().Freeze();
         var result = new JObject();
 
         // The commit names which dial moved; so does the refusal. Two dials share one tool, and a
         // refusal that named neither left the caller to remember what it had asked for.
         if (dial.Length > 0) result["dial"] = dial;
-        if (submission.CallOutcome.MutationAttempts > 0)
+        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
             result["missingOutcome"] = "requested dial value";
 
         // A refusal whose sentence names a range carries that same range as numbers, read from the

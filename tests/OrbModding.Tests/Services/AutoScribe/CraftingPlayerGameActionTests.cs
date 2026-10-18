@@ -5,6 +5,7 @@ using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.AutoScribe;
 
@@ -36,10 +37,10 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, recipe.ExecuteCalls);
         Assert.Equal(0, recipe.PurchaseCalls);
-        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
         Assert.Equal(BigDouble.One, result.Crafted);
         Assert.Equal(25, GlobalVariables.MultiBuy.Value);
     }
@@ -53,8 +54,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.VerificationFailed, result.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
         Assert.Equal(1, recipe.ExecuteCalls);
     }
 
@@ -67,8 +68,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.PageRelationAmbiguous, result.Preflight);
-        Assert.Contains("timed recipe", result.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(CraftingPlayerActionResultCodes.PageRelationAmbiguous, result.Outcome.Code);
+        Assert.Contains("timed recipe", result.Outcome.Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, recipe.ExecuteCalls);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
@@ -84,11 +85,11 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new BigDouble(3, 0), instance.Quantity);
         Assert.Single(page.craftingQueueInstances.value);
         Assert.Equal(1, recipe.PurchaseCalls);
-        Assert.Equal(new NativeMutationCallOutcome(2, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(2, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -100,7 +101,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, amount: 1_000_000);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         var instance = Assert.Single(page.craftingQueueInstances.value);
         Assert.Equal(new BigDouble(1_000_000, 0), instance.Quantity);
         Assert.Equal(new BigDouble(1_000_000, 0), result.Crafted);
@@ -118,7 +119,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, amount: 45);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new BigDouble(40, 0), result.Crafted);
         Assert.Equal(new BigDouble(40, 0), Assert.Single(page.craftingQueueInstances.value).Quantity);
     }
@@ -133,8 +134,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, amount: 3);
 
-        Assert.Equal(CraftingPlayerPreflight.Unaffordable, result.Preflight);
-        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+        Assert.Equal(CraftingPlayerActionResultCodes.Unaffordable, result.Outcome.Code);
+        Assert.Equal("The cost of another of this craft is not met.", result.Outcome.Reason);
         Assert.Equal(0, recipe.PurchaseCalls);
         Assert.Equal(25, GlobalVariables.MultiBuy.Value);
     }
@@ -152,8 +153,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, amount: 1);
 
-        Assert.Equal(CraftingPlayerPreflight.Unaffordable, result.Preflight);
-        Assert.Equal("The cost of another of this craft is not met.", result.Reason);
+        Assert.Equal(CraftingPlayerActionResultCodes.Unaffordable, result.Outcome.Code);
+        Assert.Equal("The cost of another of this craft is not met.", result.Outcome.Reason);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
 
@@ -167,7 +168,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, max: true);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new BigDouble(3.96, 9), result.Crafted);
         Assert.Equal(new BigDouble(3.96, 9), Assert.Single(page.craftingQueueInstances.value).Quantity);
         Assert.Equal(25, GlobalVariables.MultiBuy.Value);
@@ -185,7 +186,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, amount: 3);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(BigDouble.One, result.Crafted);
         Assert.Equal(new BigDouble(4, 0), Assert.Single(page.craftingQueueInstances.value).Quantity);
         Assert.Equal(25, GlobalVariables.MultiBuy.Value);
@@ -200,11 +201,11 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         var instance = Assert.Single(page.craftingQueueInstances.value);
         Assert.Same(recipe, instance.reference);
         Assert.True(instance.Initiated);
-        Assert.Equal(new NativeMutationCallOutcome(5, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(5, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -218,10 +219,10 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Empty(page.craftingQueueInstances.value);
         Assert.Equal(1, Assert.Single(recipe.InstantOutput.consumableCounts).Quantity);
-        Assert.Equal(new NativeMutationCallOutcome(4, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(4, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -236,8 +237,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.VerificationFailed, result.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
     }
 
     [Fact]
@@ -250,8 +251,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.PageRelationAmbiguous, result.Preflight);
-        Assert.Contains("more than one", result.Reason);
+        Assert.Equal(CraftingPlayerActionResultCodes.PageRelationAmbiguous, result.Outcome.Code);
+        Assert.Contains("more than one", result.Outcome.Reason);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
 
@@ -267,8 +268,8 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         page.craftingQueueInstances.Maximum = 2;
         var unaffordable = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.QueueFull, full.Preflight);
-        Assert.Equal(CraftingPlayerPreflight.Unaffordable, unaffordable.Preflight);
+        Assert.Equal(CraftingPlayerActionResultCodes.QueueFull, full.Outcome.Code);
+        Assert.Equal(CraftingPlayerActionResultCodes.Unaffordable, unaffordable.Outcome.Code);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
 
@@ -286,7 +287,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new BigDouble(2, 0), instance.Quantity);
         Assert.False(boundary.IsQuarantined);
     }
@@ -309,10 +310,10 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         boundary.InvalidateLifecycle();
         var retried = Submit(boundary, recipe);
 
-        Assert.Equal(CraftingPlayerPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, failed.Outcome);
-        Assert.Equal(CraftingPlayerPreflight.VerificationFailed, blocked.Preflight);
-        Assert.True(retried.Verified, retried.Reason);
+        Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, failed.Outcome.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, failed.Outcome.Mutation);
+        Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, blocked.Outcome.Code);
+        Assert.True(retried.Outcome.Verified, retried.Outcome.Reason);
     }
 
     [Fact]
@@ -331,10 +332,10 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         _permit = true;
         var wrongThread = ForeignThread.Run(() => Submit(boundary, recipe));
 
-        Assert.Equal(CraftingPlayerPreflight.LifecycleReplaced, stale.Preflight);
-        Assert.Equal(CraftingPlayerPreflight.LifecycleReplaced, invalid.Preflight);
-        Assert.Equal(CraftingPlayerPreflight.MutationPermitUnavailable, noPermit.Preflight);
-        Assert.Equal(CraftingPlayerPreflight.WrongThread, wrongThread.Preflight);
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced, stale.Outcome.Code);
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced, invalid.Outcome.Code);
+        Assert.Equal(CraftingPlayerActionResultCodes.MutationPermitUnavailable, noPermit.Outcome.Code);
+        Assert.Equal(CraftingPlayerActionResultCodes.WrongThread, wrongThread.Outcome.Code);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
 

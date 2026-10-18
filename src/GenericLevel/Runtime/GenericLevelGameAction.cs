@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -46,24 +47,24 @@ internal sealed class GenericLevelGameAction : IDisposable
     internal GenericLevelSubmission Submit(in GenericLevelAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(GenericLevelPreflight.WrongThread,
+            return Reject(GenericLevelActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(GenericLevelPreflight.ContractUnavailable,
+            return Reject(GenericLevelActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("the screen this is levelled on", _bindingFailure));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(GenericLevelPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(GenericLevelPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
         if (!native.TryTarget(action.NativeType, out var targetBinding))
-            return Reject(GenericLevelPreflight.WrongDomain,
+            return Reject(GenericLevelActionResultCodes.WrongDomain,
                 action.NativeType is "ResearchSO" or "SpellRecipeSO"
                     ? "Use the research or spell-level control for this entity."
                     : "This entity does not have an ordinary level-list control.");
@@ -72,21 +73,21 @@ internal sealed class GenericLevelGameAction : IDisposable
         {
             var resolution = _registry.Resolve(action.TargetId, targetBinding.TargetType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return Reject(GenericLevelPreflight.IdentityUnavailable,
+                return Reject(GenericLevelActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved
                         ? GameActionAnswer.Replaced("level target")
                         : resolution.Reason);
             var target = resolution.Value!;
             var admission = Admit(in action, native, targetBinding, target);
-            if (admission.Preflight != GenericLevelPreflight.Proceeded) return admission;
+            if (admission.Outcome.Code != CommonActionResultCodes.Committed) return admission;
             if (!_tryCaptureMutationPermit())
-                return Reject(GenericLevelPreflight.MutationPermitUnavailable,
+                return Reject(GenericLevelActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(in action, native, targetBinding, target);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(GenericLevelPreflight.ContractUnavailable,
+            return Reject(GenericLevelActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
         }
     }
@@ -111,43 +112,43 @@ internal sealed class GenericLevelGameAction : IDisposable
         object target)
     {
         if (binding.IsHidden is not null && binding.IsHidden(target))
-            return Reject(GenericLevelPreflight.Hidden,
+            return Reject(GenericLevelActionResultCodes.Hidden,
                 "This level target is hidden from the player.");
         if (binding.IsDiscovered is not null && !binding.IsDiscovered(target))
-            return Reject(GenericLevelPreflight.Undiscovered,
+            return Reject(GenericLevelActionResultCodes.Undiscovered,
                 "This level target has not been discovered.");
         if (!binding.IsVisible(target))
-            return Reject(GenericLevelPreflight.Hidden,
+            return Reject(GenericLevelActionResultCodes.Hidden,
                 "This level target is not visible on its level screen.");
         if (!binding.IsAvailable(target))
-            return Reject(GenericLevelPreflight.Unavailable,
+            return Reject(GenericLevelActionResultCodes.Unavailable,
                 "This level target is not available on its level screen.");
 
         if (action.Kind == GenericLevelActionKind.Purchase)
         {
             if (!binding.CanLevel(target))
-                return Reject(GenericLevelPreflight.CannotLevel,
+                return Reject(GenericLevelActionResultCodes.CannotLevel,
                     "This entity cannot gain another paid level.");
             var cost = binding.GetLevelCost(target);
             if (cost is null)
-                return Reject(GenericLevelPreflight.ContractUnavailable,
+                return Reject(GenericLevelActionResultCodes.ContractUnavailable,
                     "The next level price is unavailable.");
             return native.HasEnough(cost)
                 ? Proceed()
                 : Unaffordable(native, cost, "level");
         }
         if (action.Kind != GenericLevelActionKind.Bonus)
-            return Reject(GenericLevelPreflight.WrongDomain,
+            return Reject(GenericLevelActionResultCodes.WrongDomain,
                 "That level control is not available.");
         if (!binding.SupportsBonus)
-            return Reject(GenericLevelPreflight.BonusUnavailable,
+            return Reject(GenericLevelActionResultCodes.BonusUnavailable,
                 "This entity has no bonus-level button.");
         var bonusCost = binding.GetBonusCost!(target);
         if (bonusCost is null)
-            return Reject(GenericLevelPreflight.ContractUnavailable,
+            return Reject(GenericLevelActionResultCodes.ContractUnavailable,
                 "The next bonus-level price is unavailable.");
         if (!native.ResourcesVisible(bonusCost))
-            return Reject(GenericLevelPreflight.ResourcesHidden,
+            return Reject(GenericLevelActionResultCodes.ResourcesHidden,
                 "The resources required for a bonus level are not visible yet.");
         return native.HasEnough(bonusCost)
             ? Proceed()
@@ -163,7 +164,7 @@ internal sealed class GenericLevelGameAction : IDisposable
         var before = action.Kind == GenericLevelActionKind.Bonus
             ? binding.GetBonusLevels!(target)
             : binding.GetLevel(target);
-        var stage = GenericLevelNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         var tally = new GenericLevelChargeTally();
         try
         {
@@ -188,17 +189,17 @@ internal sealed class GenericLevelGameAction : IDisposable
                 }
             }
 
-            stage = GenericLevelNativeStage.Verification;
+            stage = "Verification";
             return Current(in action, binding, target) > before
                 ? Verified(in tally)
-                : Fault(in action, GenericLevelPreflight.VerificationFailed, stage,
+                : Fault(in action, GenericLevelActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     "The requested level did not increase.");
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (Current(in action, binding, target) > before) return Verified(in tally);
-            return Fault(in action, GenericLevelPreflight.PostCommitFault, stage,
+            return Fault(in action, GenericLevelActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("the screen this is levelled on", exception));
         }
@@ -218,7 +219,7 @@ internal sealed class GenericLevelGameAction : IDisposable
     {
         var rows = native.CostEntries(cost);
         if (rows is null)
-            return Reject(GenericLevelPreflight.ContractUnavailable,
+            return Reject(GenericLevelActionResultCodes.ContractUnavailable,
                 "The " + label + " price has no readable resource rows.");
         for (var index = 0; index < rows.Count; index++)
         {
@@ -228,40 +229,37 @@ internal sealed class GenericLevelGameAction : IDisposable
             if (resource is null) continue;
             var amount = native.CostValue(row);
             if (!native.HasResourceAmount(resource, amount))
-                return Reject(GenericLevelPreflight.Unaffordable,
+                return Reject(GenericLevelActionResultCodes.Unaffordable,
                     EntityIdentityFormatter.PlayerName(native.ResourceGuid(resource)) +
                     " is short for this " + label + ".");
         }
-        return Reject(GenericLevelPreflight.ContractUnavailable,
+        return Reject(GenericLevelActionResultCodes.ContractUnavailable,
             "The game refused this " + label +
             " price without identifying a short resource.");
     }
 
     private static GenericLevelSubmission Proceed() =>
-        new(GenericLevelPreflight.Proceeded, GenericLevelNativeStage.None,
-            NativeMutationOutcome.BeforeCaptureFailed, default, string.Empty);
+        new(NativeActionOutcome.Commit(default, string.Empty));
 
-    private static GenericLevelSubmission Reject(GenericLevelPreflight preflight, string reason) =>
-        GenericLevelSubmission.Reject(preflight, reason);
+    private static GenericLevelSubmission Reject(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Reject(code, reason));
 
     private static GenericLevelSubmission Verified(in GenericLevelChargeTally tally) =>
-        new(GenericLevelPreflight.Proceeded,
-            GenericLevelNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            "The requested level increase is visible.",
+        new(NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(1, 1, 1),
+                "The requested level increase is visible."),
             tally.Levels,
             tally.Rows());
 
     private static GenericLevelSubmission Fault(
         in GenericLevelAction action,
-        GenericLevelPreflight preflight,
-        GenericLevelNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         string reason) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
+        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Level " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason));
 
     private void BindLifecycle()
     {

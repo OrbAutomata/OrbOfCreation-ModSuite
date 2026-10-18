@@ -17,7 +17,7 @@ The suite ships as one BepInEx 5 DLL built by the single project `OrbModSuite.cs
 
 `Common` holds what every feature stands on. `Common/Runtime/World` is the shared game model: the one collected picture of the game that features and the MCP surface read. The rest of `Common` is gameplay-neutral safety and runtime orchestration. It must not own a feature's policy or retain native game objects, and it does not become a gameplay feature because several services use its scheduler.
 
-A capability folder owns exactly one GameAction for one native capability: its action, submission, native bindings, and result mapping. Features, tooling, and tests mutate the game through that GameAction.
+A capability folder owns exactly one GameAction for one native capability: its action, submission and native bindings. Every submission carries a `NativeActionOutcome`, whose `ToResult()` is the one mapping to a service-cycle result. Features, tooling, and tests mutate the game through that GameAction.
 
 Shared and feature folders:
 

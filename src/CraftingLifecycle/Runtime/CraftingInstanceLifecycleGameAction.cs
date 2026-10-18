@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -48,44 +49,44 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         in CraftingInstanceLifecycleAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(CraftingInstanceLifecyclePreflight.WrongThread,
+            return Reject(CraftingInstanceLifecycleActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
+            return Reject(CraftingInstanceLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Workshop > Crafting", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(CraftingInstanceLifecyclePreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(CraftingInstanceLifecyclePreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return Reject(CraftingInstanceLifecyclePreflight.IdentityUnavailable,
+                return Reject(CraftingInstanceLifecycleActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved ? GameActionAnswer.Replaced("recipe") : resolution.Reason);
             var recipe = resolution.Value!;
             if (!TryResolvePage(native, recipe, out var page, out var pageReason))
-                return Reject(CraftingInstanceLifecyclePreflight.PageRelationAmbiguous, pageReason);
+                return Reject(CraftingInstanceLifecycleActionResultCodes.PageRelationAmbiguous, pageReason);
             var queue = native.PageQueue(page!);
             var automation = native.PageAutomation(page!);
             var admission = Admit(in action, native, recipe, queue, automation);
-            if (admission.Preflight != CraftingInstanceLifecyclePreflight.Proceeded)
+            if (admission.Outcome.Code != CommonActionResultCodes.Committed)
                 return admission;
             if (!_tryCaptureMutationPermit())
-                return Reject(CraftingInstanceLifecyclePreflight.MutationPermitUnavailable,
+                return Reject(CraftingInstanceLifecycleActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(in action, native, recipe, queue, automation);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
+            return Reject(CraftingInstanceLifecycleActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
         }
     }
@@ -113,11 +114,11 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         if (action.Kind == CraftingInstanceLifecycleActionKind.Automate)
         {
             if (!native.RecipeVisible(recipe))
-                return Reject(CraftingInstanceLifecyclePreflight.NotVisible,
+                return Reject(CraftingInstanceLifecycleActionResultCodes.NotVisible,
                     "This recipe is not visible yet.");
             var existing = native.QueueInstance(automation, recipe);
             if (existing is null && !native.QueueHasRoom(automation))
-                return Reject(CraftingInstanceLifecyclePreflight.AutomationFull,
+                return Reject(CraftingInstanceLifecycleActionResultCodes.AutomationFull,
                     "The automated crafting list has no empty slot.");
             return Proceed();
         }
@@ -127,7 +128,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         var instance = native.QueueInstance(source, recipe);
         if (!ValidInstance(native, instance, action.RecipeId,
                 action.Kind == CraftingInstanceLifecycleActionKind.CancelAutomation))
-            return Reject(CraftingInstanceLifecyclePreflight.InstanceUnavailable,
+            return Reject(CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable,
                 action.Kind == CraftingInstanceLifecycleActionKind.CancelManual
                     ? "This recipe is not in the manual crafting queue."
                     : "This recipe is not in the automated crafting list.");
@@ -147,27 +148,27 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         var instance = native.QueueInstance(source, recipe);
         var before = action.Kind == CraftingInstanceLifecycleActionKind.CancelManual ||
             instance is null ? 0 : native.AutomationQuantity(instance);
-        var stage = CraftingInstanceLifecycleNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             if (action.Kind == CraftingInstanceLifecycleActionKind.Automate)
             {
                 if (instance is null && !native.QueueHasRoom(automation))
-                    return Reject(CraftingInstanceLifecyclePreflight.AutomationFull,
+                    return Reject(CraftingInstanceLifecycleActionResultCodes.AutomationFull,
                         "The automated crafting list filled before the action ran.");
                 instance = native.Automate(automation, recipe, 1);
             }
             else if (action.Kind == CraftingInstanceLifecycleActionKind.CancelAutomation)
             {
                 if (!ValidInstance(native, instance, action.RecipeId, expectedAuto: true))
-                    return Reject(CraftingInstanceLifecyclePreflight.InstanceUnavailable,
+                    return Reject(CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable,
                         "This recipe left the automated crafting list before cancellation.");
                 native.RemoveAutomation(automation, instance!, -1);
             }
             else if (action.Kind == CraftingInstanceLifecycleActionKind.CancelManual)
             {
                 if (!ValidInstance(native, instance, action.RecipeId, expectedAuto: false))
-                    return Reject(CraftingInstanceLifecyclePreflight.InstanceUnavailable,
+                    return Reject(CraftingInstanceLifecycleActionResultCodes.InstanceUnavailable,
                         "This recipe left the manual crafting queue before cancellation.");
                 native.Cancel(instance!);
                 native.QueueRemove(queue, instance!);
@@ -177,10 +178,10 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 throw new InvalidOperationException("Unsupported crafting-instance control.");
             }
 
-            stage = CraftingInstanceLifecycleNativeStage.Verification;
+            stage = "Verification";
             return OutcomeObserved(in action, native, recipe, queue, automation, instance, before)
                 ? Verified()
-                : Fault(in action, CraftingInstanceLifecyclePreflight.VerificationFailed, stage,
+                : Fault(in action, CraftingInstanceLifecycleActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Workshop > Crafting"),
                     SideEffect(in action, native, recipe, automation, instance, before));
@@ -191,7 +192,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, recipe, queue, automation, instance, before), out var observed) && observed)
                 return Verified();
-            return Fault(in action, CraftingInstanceLifecyclePreflight.PostCommitFault, stage,
+            return Fault(in action, CraftingInstanceLifecycleActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Crafting", exception),
                 SideEffect(in action, native, recipe, automation, instance, before));
@@ -309,31 +310,27 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
     }
 
     private static CraftingInstanceLifecycleSubmission Proceed() =>
-        new(CraftingInstanceLifecyclePreflight.Proceeded,
-            CraftingInstanceLifecycleNativeStage.None,
-            NativeMutationOutcome.BeforeCaptureFailed, default, string.Empty);
+        new(NativeActionOutcome.Commit(default, string.Empty));
 
     private static CraftingInstanceLifecycleSubmission Reject(
-        CraftingInstanceLifecyclePreflight preflight,
-        string reason) => CraftingInstanceLifecycleSubmission.Reject(preflight, reason);
+        ServiceActionResultCode code,
+        string reason) => new(NativeActionOutcome.Reject(code, reason));
 
     private static CraftingInstanceLifecycleSubmission Verified() =>
-        new(CraftingInstanceLifecyclePreflight.Proceeded,
-            CraftingInstanceLifecycleNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        new(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1),
-            "The requested crafting-instance transition is visible.");
+            "The requested crafting-instance transition is visible."));
 
     private static CraftingInstanceLifecycleSubmission Fault(
         in CraftingInstanceLifecycleAction action,
-        CraftingInstanceLifecyclePreflight preflight,
-        CraftingInstanceLifecycleNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         string reason,
         CraftingInstanceLifecycleSideEffect sideEffect) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
-            "Crafting " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason,
+        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
+                "Crafting " + stage + " failed on " +
+                EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason),
             sideEffect);
 
     private void BindLifecycle()

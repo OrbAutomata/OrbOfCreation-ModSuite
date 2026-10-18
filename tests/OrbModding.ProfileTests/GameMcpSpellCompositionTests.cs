@@ -154,12 +154,10 @@ public sealed class GameMcpSpellCompositionTests
     public void CommittedMutationReturnsOnlyTheSettledDialDelta()
     {
         var submission = new SpellCompositionSubmission(
-            SpellCompositionPreflight.Proceeded,
-            SpellCompositionNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            "the global output level is observable");
-        var mapped = SpellCompositionActionResultMapper.Map(in submission);
+            NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(1, 1, 1),
+                "the global output level is observable"));
+        var mapped = submission.Outcome.ToResult();
         var command = Command(
             "set_output_level",
             GameMcpTestHarness.Context(World(outputLevel: 4)));
@@ -168,7 +166,6 @@ public sealed class GameMcpSpellCompositionTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpSpellCompositionProjection.Project(in submission, "output"));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(outputLevel: 5)), command, terminal));
@@ -197,11 +194,11 @@ public sealed class GameMcpSpellCompositionTests
     public void FailureNamesTheSingleMissingOutcomeWithoutPersistentQuarantine()
     {
         var submission = new SpellCompositionSubmission(
-            SpellCompositionPreflight.VerificationFailed,
-            SpellCompositionNativeStage.Verification,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0),
-            "the requested composition was not observable");
+            NativeActionOutcome.Fault(
+                SpellCompositionActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0),
+                "the requested composition was not observable"));
 
         var failure = GameMcpTestHarness.Json(
             GameMcpSpellCompositionProjection.Project(in submission, "output"));

@@ -4,6 +4,7 @@ using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.SpellComposition;
 
@@ -48,7 +49,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 1, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, Player.Current.druidryOutputLevel.AsInt());
     }
 
@@ -60,7 +61,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(new SpellCompositionAction(LevelDial.Alchemy, 2, Epoch));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(2, Player.Current.alchemyOutputLevel.AsInt());
     }
 
@@ -76,8 +77,8 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(new SpellCompositionAction(dial, 1, Epoch));
 
-        Assert.Equal(SpellCompositionPreflight.ControlLocked, result.Preflight);
-        Assert.Contains(unlock, result.Reason);
+        Assert.Equal(SpellCompositionActionResultCodes.ControlLocked, result.Outcome.Code);
+        Assert.Contains(unlock, result.Outcome.Reason);
         Assert.Equal(0, Player.Current.druidryOutputLevel.SetCalls);
         Assert.Equal(0, Player.Current.alchemyOutputLevel.SetCalls);
     }
@@ -90,7 +91,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 4, Epoch));
 
-        Assert.Equal(SpellCompositionPreflight.LevelOutOfRange, result.Preflight);
+        Assert.Equal(SpellCompositionActionResultCodes.LevelOutOfRange, result.Outcome.Code);
         Assert.Equal(1, result.Minimum);
         Assert.Equal(3, result.Maximum);
         Assert.Equal(0, Player.Current.druidryOutputLevel.SetCalls);
@@ -103,7 +104,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(Output(7));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(7, Player.GetSpellOutputLevel().AsInt());
     }
 
@@ -114,7 +115,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(Reserve(8));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(8, Player.GetReserveLevel().AsInt());
     }
 
@@ -126,7 +127,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = action.Submit(Output(5));
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(5, Player.GetSpellOutputLevel().AsInt());
     }
 
@@ -148,8 +149,8 @@ public sealed class SpellCompositionGameActionTests : IDisposable
         var range = action.Submit(Output(13));
         var noOp = action.Submit(Output(2));
 
-        Assert.Equal(SpellCompositionPreflight.LevelOutOfRange, range.Preflight);
-        Assert.Equal(SpellCompositionPreflight.AlreadyInRequestedState, noOp.Preflight);
+        Assert.Equal(SpellCompositionActionResultCodes.LevelOutOfRange, range.Outcome.Code);
+        Assert.Equal(SpellCompositionActionResultCodes.AlreadyInRequestedState, noOp.Outcome.Code);
         Assert.Equal(0, Player.GetSpellOutputLevel().SetCalls);
     }
 
@@ -160,7 +161,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
         var result = ForeignThread.Run(() => action.Submit(Output(4)));
 
-        Assert.Equal(SpellCompositionPreflight.WrongThread, result.Preflight);
+        Assert.Equal(SpellCompositionActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Equal(2, Player.GetSpellOutputLevel().AsInt());
     }
 
@@ -176,7 +177,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
         {
             using var action = Action(include: id => id != missing);
             var result = action.Submit(Output(4));
-            Assert.Equal(SpellCompositionPreflight.ContractUnavailable, result.Preflight);
+            Assert.Equal(SpellCompositionActionResultCodes.ContractUnavailable, result.Outcome.Code);
         }
     }
 
@@ -187,11 +188,11 @@ public sealed class SpellCompositionGameActionTests : IDisposable
         using var unowned = Action(permit: false);
 
         Assert.Equal(
-            SpellCompositionPreflight.LifecycleReplaced,
-            stale.Submit(Output(4)).Preflight);
+            CommonActionResultCodes.LifecycleReplaced,
+            stale.Submit(Output(4)).Outcome.Code);
         Assert.Equal(
-            SpellCompositionPreflight.MutationPermitUnavailable,
-            unowned.Submit(Output(4)).Preflight);
+            SpellCompositionActionResultCodes.MutationPermitUnavailable,
+            unowned.Submit(Output(4)).Outcome.Code);
         Assert.Equal(2, Player.GetSpellOutputLevel().AsInt());
     }
 

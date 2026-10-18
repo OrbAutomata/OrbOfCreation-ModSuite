@@ -1,4 +1,6 @@
 using System;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -10,11 +12,11 @@ namespace OrbAutomata;
 internal sealed class AutoItemsActionHealth
 {
     internal bool HasFailure { get; private set; }
-    internal AutoItemsPreflight Preflight { get; private set; }
+    internal ServiceActionResultCode Code { get; private set; }
     internal string Reason { get; private set; } = string.Empty;
     internal long Revision { get; private set; }
 
-    internal void Observe(in AutoItemsSubmission submission)
+    internal void Observe(in NativeActionOutcome submission)
     {
         if (submission.Verified)
         {
@@ -24,9 +26,9 @@ internal sealed class AutoItemsActionHealth
 
         var reason = submission.Reason;
         if (string.IsNullOrWhiteSpace(reason))
-            reason = $"Auto Items failed at {submission.Preflight}.";
+            reason = "Auto Items failed without a reason.";
         HasFailure = true;
-        Preflight = submission.Preflight;
+        Code = submission.Code;
         Reason = reason;
         Revision = checked(Revision + 1);
     }
@@ -34,7 +36,7 @@ internal sealed class AutoItemsActionHealth
     internal void ObserveOwnership(string reason)
     {
         HasFailure = true;
-        Preflight = AutoItemsPreflight.MutationPermitUnavailable;
+        Code = AutoItemsActionResultCodes.MutationPermitUnavailable;
         Reason = string.IsNullOrWhiteSpace(reason)
             ? "Auto Items does not own the complete consumable-use transaction."
             : reason;
@@ -45,7 +47,7 @@ internal sealed class AutoItemsActionHealth
     {
         if (!HasFailure && Reason.Length == 0) return;
         HasFailure = false;
-        Preflight = AutoItemsPreflight.Proceeded;
+        Code = CommonActionResultCodes.Committed;
         Reason = string.Empty;
         Revision = checked(Revision + 1);
     }

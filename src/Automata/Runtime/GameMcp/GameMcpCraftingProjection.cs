@@ -29,27 +29,27 @@ internal static class GameMcpCraftingProjection
         while (max ? landed <= BigDouble.Zero : landed < asked)
         {
             var submission = press(command.Amount - (int)landed.ToDouble());
-            if (!submission.Verified)
+            if (!submission.Outcome.Verified)
             {
-                if (landed <= BigDouble.Zero || submission.CallOutcome.MutationAttempts > 0)
+                if (landed <= BigDouble.Zero ||
+                    submission.Outcome.CallOutcome.MutationAttempts > 0)
                 {
-                    var stopped = CraftingPlayerActionResultMapper.Map(in submission);
+                    var stopped = submission.Outcome.ToResult();
                     return GameMcpCommandResult.FromAction(
-                        in stopped,
-                        command.Kind,
-                        lifecycle,
-                        configurationGeneration,
-                        landed <= BigDouble.Zero
+                        stopped.WithReason(landed <= BigDouble.Zero
                             ? FirstRefusal(in submission, shortfall)
                             : GameMcpNumberFormatter.Format(landed) + " of " +
                               GameMcpNumberFormatter.Format(asked) + " asked went through " +
-                              "before this craft. " + submission.Reason,
+                              "before this craft. " + submission.Outcome.Reason),
+                        command.Kind,
+                        lifecycle,
+                        configurationGeneration,
                         Project(in submission));
                 }
-                remainder = submission.Reason;
+                remainder = submission.Outcome.Reason;
                 break;
             }
-            verified = CraftingPlayerActionResultMapper.Map(in submission);
+            verified = submission.Outcome.ToResult();
             completed = submission.Postcondition is
                 CraftingPlayerPostcondition.DirectEffectAdvanced or
                 CraftingPlayerPostcondition.InstantCompleted;
@@ -75,14 +75,15 @@ internal static class GameMcpCraftingProjection
         in CraftingPlayerSubmission submission,
         Func<string> shortfall)
     {
-        if (submission.Preflight != CraftingPlayerPreflight.Unaffordable) return submission.Reason;
+        if (submission.Outcome.Code != CraftingPlayerActionResultCodes.Unaffordable)
+            return submission.Outcome.Reason;
         var named = shortfall();
-        return named.Length == 0 ? submission.Reason : named;
+        return named.Length == 0 ? submission.Outcome.Reason : named;
     }
 
     internal static GameMcpValue Project(in CraftingPlayerSubmission submission)
     {
-        if (submission.Verified || submission.CallOutcome.MutationAttempts == 0)
+        if (submission.Outcome.Verified || submission.Outcome.CallOutcome.MutationAttempts == 0)
             return new JObject().Freeze();
         return new JObject
         {
@@ -93,7 +94,7 @@ internal static class GameMcpCraftingProjection
     internal static GameMcpValue Project(
         in CraftingInstanceLifecycleSubmission submission)
     {
-        if (submission.Verified || submission.CallOutcome.MutationAttempts == 0)
+        if (submission.Outcome.Verified || submission.Outcome.CallOutcome.MutationAttempts == 0)
             return new JObject().Freeze();
         var failure = new JObject
         {

@@ -41,19 +41,8 @@ internal sealed class MentorCycleActionAdapter : IMentorCycleActionPort
             return ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected);
 
         var grant = _native.Grant(in action);
-        if (grant.Status is MentorNativeGrantStatus.PostconditionFailed or MentorNativeGrantStatus.ContractUnavailable)
+        if (grant.Code == CommonActionResultCodes.AdapterFault)
             _warn($"Mentor could not grant {action.Domain} mastery XP to {EntityIdentityFormatter.Format(action.RecipientId)}: {grant.Reason}");
-        return grant.Status switch
-        {
-            MentorNativeGrantStatus.Committed => ServiceActionResult.Committed(
-                CommonActionResultCodes.Committed,
-                ServiceNativeMutationEvidence.Observed(grant.Outcome, grant.CallOutcome)),
-            MentorNativeGrantStatus.PostconditionFailed => ServiceActionResult.Faulted(
-                CommonActionResultCodes.AdapterFault,
-                ServiceNativeMutationEvidence.Observed(grant.Outcome, grant.CallOutcome)),
-            MentorNativeGrantStatus.ContractUnavailable =>
-                ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault),
-            _ => ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected),
-        };
+        return grant.ToResult();
     }
 }

@@ -76,8 +76,8 @@ public sealed class AutoScribeServiceStatusProjectionTests
     public void GenuineActionFailurePrecedesLaterEvidenceBackpressure()
     {
         const string failureReason = "The live recipe relation contradicted its audited role.";
-        var failure = AutoScribeSubmission.Reject(
-            AutoScribePreflight.RelationshipMismatch,
+        var failure = AutoScribeSubmission.Fault(
+            AutoScribeActionResultCodes.RelationshipMismatch,
             failureReason);
         var health = new AutoScribeActionHealth();
         Assert.True(health.Observe(in failure));

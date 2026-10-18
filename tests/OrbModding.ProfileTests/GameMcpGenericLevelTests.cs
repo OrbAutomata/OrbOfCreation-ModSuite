@@ -294,8 +294,8 @@ public sealed class GameMcpGenericLevelTests
             new ResourceCharge(CostResourceId, new BigDouble(1)),
         });
         var committed = GameMcpCommandResult.FromAction(
-            GenericLevelActionResultMapper.Map(in submission),
-            GameMcpCommandKind.GenericLevel, 9, 3, submission.Reason,
+            submission.Outcome.ToResult(),
+            GameMcpCommandKind.GenericLevel, 9, 3,
             GameMcpGenericLevelProjection.Project(in submission, before));
 
         var wire = Json(
@@ -315,11 +315,9 @@ public sealed class GameMcpGenericLevelTests
     }
 
     private static GenericLevelSubmission Bought(int levels, ResourceCharge[] charges) =>
-        new(GenericLevelPreflight.Proceeded,
-            GenericLevelNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            "The requested level increase is visible.",
+        new(NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(1, 1, 1),
+                "The requested level increase is visible."),
             levels,
             charges.Length == 0 ? null : charges);
 

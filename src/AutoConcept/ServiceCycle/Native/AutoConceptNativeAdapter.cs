@@ -281,19 +281,22 @@ internal sealed class AutoConceptNativeAdapter :
         _lastNativeMutationOutcome = default;
         if (!TryResolveCandidate(action.RecipeId, out var candidate, out var reason) ||
             candidate is null)
-            return AutoConceptSubmission.Rejected(
-                IsReady
-                    ? AutoConceptPreflight.RecipeIdentityChanged
-                    : AutoConceptPreflight.ContractUnavailable,
-                string.IsNullOrWhiteSpace(reason) ? "the planned recipe is no longer in ConceptRecipes" : reason);
+        {
+            var missing = string.IsNullOrWhiteSpace(reason)
+                ? "the planned recipe is no longer in ConceptRecipes"
+                : reason;
+            return IsReady
+                ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.RecipeIdentityChanged, missing)
+                : AutoConceptSubmission.ContractUnavailable(missing);
+        }
         if (!candidate.IsSettled)
             return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.AssignmentUnsettled,
+                AutoConceptActionResultCodes.AssignmentUnsettled,
                 "the live assignment has an in-flight quantity change");
         if (candidate.Quantity != action.Belief.Quantity ||
             candidate.QueuedQuantity != action.Belief.QueuedQuantity)
             return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.OwnershipChanged,
+                AutoConceptActionResultCodes.OwnershipChanged,
                 "the live quantity no longer matches the worker's ownership belief");
 
         if (action.Kind == AutoConceptActionKind.Add)
@@ -303,16 +306,16 @@ internal sealed class AutoConceptNativeAdapter :
         {
             if (candidate.Quantity != action.TargetOrDelta)
                 return AutoConceptSubmission.Rejected(
-                    AutoConceptPreflight.OwnershipChanged,
+                    AutoConceptActionResultCodes.OwnershipChanged,
                     "the rotation no longer owns the exact live assignment");
             if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason))
-                return AutoConceptSubmission.Rejected(AutoConceptPreflight.SlotUnavailable, reason);
+                return AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason);
             return SubmitRemove(candidate, action.TargetOrDelta, exact: true);
         }
 
         if (action.TargetOrDelta > candidate.Quantity)
             return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.OwnershipChanged,
+                AutoConceptActionResultCodes.OwnershipChanged,
                 "the owned quantity is no longer available");
         return SubmitRemove(candidate, action.TargetOrDelta, exact: false);
     }
@@ -324,11 +327,11 @@ internal sealed class AutoConceptNativeAdapter :
     {
         if (candidate.MaximumQuantity != ReadInt(candidate.Recipe, "GetMaxUsageSlots", "maxUsageSlots"))
             return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.MasteryLimitChanged,
+                AutoConceptActionResultCodes.MasteryLimitChanged,
                 "the native mastery quantity limit changed");
         if (!CanAdd(candidate))
             return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.SlotUnavailable,
+                AutoConceptActionResultCodes.SlotUnavailable,
                 "the native slot is no longer available");
         if (!TryFindSafeTarget(
                 candidate,
@@ -337,16 +340,13 @@ internal sealed class AutoConceptNativeAdapter :
                 out var safeTarget,
                 out var reason,
                 out var refusal))
-            return AutoConceptSubmission.Rejected(
-                refusal == AutoConceptProjectionRefusal.Backpressure
-                    ? AutoConceptPreflight.ResourceBackpressure
-                    : AutoConceptPreflight.ProjectionRefused,
-                reason);
+            return refusal == AutoConceptProjectionRefusal.Backpressure
+                ? AutoConceptSubmission.Backpressure(reason)
+                : AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.ProjectionRefused, reason);
         if (safeTarget != desiredTarget)
         {
             var maximumAdditional = Math.Max(0, safeTarget - candidate.Quantity);
-            return AutoConceptSubmission.Rejected(
-                AutoConceptPreflight.ResourceBackpressure,
+            return AutoConceptSubmission.Backpressure(
                 "The current resource limits allow at most " + maximumAdditional +
                 " more concept " + (maximumAdditional == 1 ? "assignment" : "assignments") + ".",
                 maximumAdditional);
@@ -354,7 +354,7 @@ internal sealed class AutoConceptNativeAdapter :
         var delta = safeTarget - candidate.Quantity;
         var succeeded = TryAdd(candidate, delta, out reason);
         return _lastNativeMutationOutcome.MutationAttempts == 0
-            ? AutoConceptSubmission.Rejected(AutoConceptPreflight.SlotUnavailable, reason)
+            ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason)
             : AutoConceptSubmission.Attempted(
                 _lastNativeMutationOutcome,
                 _lastMutationEvidence?.Outcome ?? NativeMutationOutcome.PostconditionFailed,
@@ -372,7 +372,7 @@ internal sealed class AutoConceptNativeAdapter :
             : TryRemoveOwned(candidate, delta, out reason);
         _ = succeeded;
         return _lastNativeMutationOutcome.MutationAttempts == 0
-            ? AutoConceptSubmission.Rejected(AutoConceptPreflight.OwnershipChanged, reason)
+            ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.OwnershipChanged, reason)
             : AutoConceptSubmission.Attempted(
                 _lastNativeMutationOutcome,
                 _lastMutationEvidence?.Outcome ?? NativeMutationOutcome.PostconditionFailed,

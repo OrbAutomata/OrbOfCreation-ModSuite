@@ -60,12 +60,11 @@ public sealed class GameMcpEquipmentLoadoutTests
     [Fact]
     public void Failure_names_the_missing_outcome_while_success_yields_to_newer_world_poststate()
     {
-        var failure = new EquipmentLoadoutSubmission(EquipmentLoadoutPreflight.VerificationFailed,
-            EquipmentLoadoutNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0), "stack unchanged");
-        var success = new EquipmentLoadoutSubmission(EquipmentLoadoutPreflight.Proceeded,
-            EquipmentLoadoutNativeStage.Verification, NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1), "stack changed");
+        var failure = new EquipmentLoadoutSubmission(NativeActionOutcome.Fault(
+            EquipmentLoadoutActionResultCodes.VerificationFailed, NativeMutationOutcome.PostconditionFailed,
+            new NativeMutationCallOutcome(1, 1, 0), "stack unchanged"));
+        var success = new EquipmentLoadoutSubmission(NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(1, 1, 1), "stack changed"));
 
         var failed = Json(GameMcpEquipmentLoadoutProjection.Project(in failure));
         var committed = Json(GameMcpEquipmentLoadoutProjection.Project(in success));
@@ -104,7 +103,7 @@ public sealed class GameMcpEquipmentLoadoutTests
         var refused = Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
-                    EquipmentLoadoutPreflight.AmountUnavailable,
+                    EquipmentLoadoutActionResultCodes.AmountUnavailable,
                     "This artifact can equip at most 2 more stacks with the current " +
                     "capacity and resources.",
                     2))));
@@ -114,7 +113,7 @@ public sealed class GameMcpEquipmentLoadoutTests
         var noCeiling = Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
-                    EquipmentLoadoutPreflight.NotCreated,
+                    EquipmentLoadoutActionResultCodes.NotCreated,
                     "The artifact has not been created."))));
 
         Assert.Null(noCeiling["maximumAmount"]);

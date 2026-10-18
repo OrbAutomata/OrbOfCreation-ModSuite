@@ -4,67 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
-
-/// <summary>
-/// Preflight disposition of one native cast submission, before any audited mutation was invoked.
-/// <see cref="Proceeded"/> means the mutation was attempted and the submission carries verifier
-/// evidence; the others are the reasons a submission never got that far.
-/// </summary>
-internal enum AutoCastPreflight
-{
-    Proceeded = 0,
-
-    /// <summary>The native contract could not be bound, or a previous mutation blocked it.</summary>
-    ContractUnavailable,
-
-    /// <summary>A target request is already open, so nothing can be submitted into it.</summary>
-    TargetingInProgress,
-
-    /// <summary>The game says the caster is not free.</summary>
-    CasterBusy,
-
-    /// <summary>The position no longer holds the spell the plan named.</summary>
-    SlotIdentityChanged,
-
-    /// <summary>The game refused the cast on its own readiness terms.</summary>
-    NotReady,
-
-    /// <summary>The spell has nothing to aim at.</summary>
-    NoValidTarget,
-
-    /// <summary>A full-charge hold was wanted and could not be taken, so no cast was submitted.</summary>
-    ChargeHoldRefused,
-
-    /// <summary>
-    /// The spell resolved in the named position, and the game says that spell has no charged cast.
-    /// </summary>
-    /// <remarks>
-    /// Asked only after the position resolved to the spell the caller named, so a moved or emptied
-    /// slot answers as the slot fact it is instead of as a claim about the spell's capabilities.
-    /// </remarks>
-    NotChargeable,
-
-    /// <summary>The requested active spell is not a toggle spell.</summary>
-    NotToggleable,
-
-    /// <summary>The requested toggle spell is not currently active.</summary>
-    AlreadyInactive,
-
-    /// <summary>The player's Cancellable Spells setting disables the native toggle-off path.</summary>
-    CancellationDisabled,
-
-    /// <summary>The spell is already running, so a fire press would start no cast.</summary>
-    /// <remarks>
-    /// <c>Spell.Fire</c> branches on <c>IsCasting()</c> before it looks at anything else: with
-    /// Cancellable Spells off it shows a warning and returns, and with it on it ends the running
-    /// cast instead of starting one. Neither is the cast the caller asked for, and neither moves the
-    /// game's own per-cast counter — which is what made a discarded press byte-identical to a real
-    /// one for a caller that could only read the counter.
-    /// </remarks>
-    AlreadyCasting,
-}
 
 /// <summary>
 /// The neutral outcome of one native cast submission: either a preflight rejection with no mutation,
@@ -73,30 +15,13 @@ internal enum AutoCastPreflight
 /// </summary>
 internal readonly struct AutoCastSubmission
 {
-    private AutoCastSubmission(
-        AutoCastPreflight preflight,
-        bool hasEvidence,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        string reason,
-        Guid occupant = default)
+    private AutoCastSubmission(NativeActionOutcome outcome, Guid occupant = default)
     {
-        Preflight = preflight;
-        HasEvidence = hasEvidence;
         Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason;
         Occupant = occupant;
     }
 
-    public AutoCastPreflight Preflight { get; }
-    public bool HasEvidence { get; }
-    public NativeMutationOutcome Outcome { get; }
-    public NativeMutationCallOutcome CallOutcome { get; }
-    public bool Verified => HasEvidence && Outcome == NativeMutationOutcome.Verified;
-
-    /// <summary>What the boundary would tell an operator, whichever way it went.</summary>
-    public string Reason { get; }
+    public NativeActionOutcome Outcome { get; }
 
     /// <summary>
     /// The spell found holding the slot this call named, when that is what refused it.
@@ -110,35 +35,45 @@ internal readonly struct AutoCastSubmission
     public Guid Occupant { get; }
 
     public static AutoCastSubmission Rejected(
-        AutoCastPreflight preflight,
+        ServiceActionResultCode code,
         string reason,
-        Guid occupant = default)
-    {
-        if (preflight == AutoCastPreflight.Proceeded)
-            throw new ArgumentOutOfRangeException(nameof(preflight));
-        return new AutoCastSubmission(
-            preflight, hasEvidence: false, default, default, reason, occupant);
-    }
+        Guid occupant = default) =>
+        new(NativeActionOutcome.Reject(code, reason), occupant);
+
+    public static AutoCastSubmission Skipped(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Skip(code, reason));
+
+    /// <summary>
+    /// Ordinary snapshot staleness for the service, exactly like an unready spell: the cast started
+    /// between planning and pressing. No penalty, and the MCP caller reads it as the refusal it is.
+    /// </summary>
+    public static AutoCastSubmission AlreadyCasting(string reason) =>
+        Skipped(AutoCastActionResultCodes.SpellAlreadyCasting, reason);
+
+    public static AutoCastSubmission ContractUnavailable(string reason) =>
+        new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     /// <summary>A charge release, which is a native call with nothing to verify a delta against.</summary>
     public static AutoCastSubmission Released(bool succeeded, string reason) =>
-        new(
-            AutoCastPreflight.Proceeded,
-            hasEvidence: true,
-            succeeded ? NativeMutationOutcome.Verified : NativeMutationOutcome.ExecutionThrew,
-            new NativeMutationCallOutcome(1, 1, succeeded ? 1 : 0),
-            reason);
+        new(succeeded
+            ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), reason)
+            : NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault,
+                NativeMutationOutcome.ExecutionThrew,
+                new NativeMutationCallOutcome(1, 1, 0),
+                reason));
 
     public static AutoCastSubmission Attempted<TState>(
         NativeMutationEvidence<TState> evidence,
-        int nativeCallsAttempted) =>
-        new(
-            AutoCastPreflight.Proceeded,
-            hasEvidence: true,
-            evidence.Outcome,
-            new NativeMutationCallOutcome(
-                Math.Max(1, nativeCallsAttempted), 1, evidence.IsVerified ? 1 : 0),
-            evidence.IsVerified ? string.Empty : evidence.Format());
+        int nativeCallsAttempted)
+    {
+        var calls = new NativeMutationCallOutcome(
+            Math.Max(1, nativeCallsAttempted), 1, evidence.IsVerified ? 1 : 0);
+        return new(evidence.IsVerified
+            ? NativeActionOutcome.Commit(calls, string.Empty)
+            : NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()));
+    }
 }
 
 /// <summary>
@@ -229,7 +164,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     public AutoCastSubmission Fire(int slotIndex, Guid spellRecipeId, bool holdFullCharge)
     {
         if (!TryInitialize(out var reason))
-            return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, reason);
+            return AutoCastSubmission.ContractUnavailable(reason);
 
         try
         {
@@ -238,7 +173,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (IsTargeting())
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.TargetingInProgress, "a target request was already active");
+                    AutoCastActionResultCodes.TargetingInProgress,
+                    "a target request was already active");
             }
 
             if (!TryResolveSlot(
@@ -246,7 +182,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+                    AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
 
             // SpellManager.CanCastASpell() is false while any loaded spell is readying a cast, this
@@ -254,20 +190,19 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // said when it is true.
             if (_isReadyingCast!.Invoke(spell, Array.Empty<object>()) is true)
             {
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.AlreadyCasting,
+                return AutoCastSubmission.AlreadyCasting(
                     "the spell is still starting its cast, so the press would start no cast");
             }
 
             if (IsCasterBusy())
             {
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.CasterBusy,
+                return AutoCastSubmission.Skipped(
+                    AutoCastActionResultCodes.NativeCasterBusy,
                     "another spell is still casting, and the game casts one spell at a time");
             }
 
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
-                return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
+                return AutoCastSubmission.ContractUnavailable(blocked);
 
             // Asked of the spell this position actually resolved to, not of a published loadout a
             // rearrangement can have outrun. A hold on a spell the game does not charge would set an
@@ -277,7 +212,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (holdFullCharge && _canCharge!.Invoke(spell, Array.Empty<object>()) is not true)
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.NotChargeable,
+                    AutoCastActionResultCodes.SpellNotChargeable,
                     "the game offers this spell no charged cast to hold");
             }
 
@@ -286,8 +221,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // press left no trace a caller could read afterwards.
             if (_isCasting!.Invoke(spell, Array.Empty<object>()) is true)
             {
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.AlreadyCasting,
+                return AutoCastSubmission.AlreadyCasting(
                     "the spell is already running, so the press would start no cast");
             }
 
@@ -295,20 +229,22 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // up to a generation old, and a cooldown that came back in between is the ordinary case.
             if (_canCast!.Invoke(spell, Array.Empty<object>()) is not true)
             {
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.NotReady, "the game refused the cast on its own readiness terms");
+                return AutoCastSubmission.Skipped(
+                    AutoCastActionResultCodes.SpellNotReady,
+                    "the game refused the cast on its own readiness terms");
             }
 
             if (!HasValidTargets(spell))
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.NoValidTarget, "the native target selector has no valid target");
+                    AutoCastActionResultCodes.NoValidTarget,
+                    "the native target selector has no valid target");
             }
 
             if (holdFullCharge && !TrySetChargeHold(spell, true, out var holdReason))
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.ChargeHoldRefused,
+                    AutoCastActionResultCodes.ChargeHoldRefused,
                     $"a charged-spell hold could not be established: {holdReason}");
             }
 
@@ -316,13 +252,12 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             // A hold taken for a cast that never landed is a charge input stuck down with nothing
             // holding it, so it is let go on every failing path exactly as the legacy engine did.
-            if (holdFullCharge && !submission.Verified) TrySetChargeHold(spell, false, out _);
+            if (holdFullCharge && !submission.Outcome.Verified) TrySetChargeHold(spell, false, out _);
             return submission;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoCastSubmission.Rejected(
-                AutoCastPreflight.ContractUnavailable,
+            return AutoCastSubmission.ContractUnavailable(
                 $"cast submission failed: {ex.GetBaseException().Message}");
         }
     }
@@ -330,7 +265,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     public AutoCastSubmission ReleaseCharge(int slotIndex, Guid spellRecipeId)
     {
         if (!TryInitialize(out var reason))
-            return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, reason);
+            return AutoCastSubmission.ContractUnavailable(reason);
 
         try
         {
@@ -342,7 +277,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+                    AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
 
             var released = TrySetChargeHold(spell, false, out var releaseReason);
@@ -350,8 +285,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoCastSubmission.Rejected(
-                AutoCastPreflight.ContractUnavailable,
+            return AutoCastSubmission.ContractUnavailable(
                 $"charge release failed: {ex.GetBaseException().Message}");
         }
     }
@@ -359,7 +293,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     public AutoCastSubmission ToggleOff(int slotIndex, Guid spellRecipeId)
     {
         if (!TryInitialize(out var reason))
-            return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, reason);
+            return AutoCastSubmission.ContractUnavailable(reason);
 
         try
         {
@@ -368,25 +302,25 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.SlotIdentityChanged, identityReason, occupant);
+                    AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
-                return AutoCastSubmission.Rejected(AutoCastPreflight.ContractUnavailable, blocked);
+                return AutoCastSubmission.ContractUnavailable(blocked);
             if (_isToggled!.Invoke(spell, Array.Empty<object>()) is not true)
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.NotToggleable,
+                    AutoCastActionResultCodes.SpellNotToggleable,
                     "the equipped spell is not a toggle spell");
             if (_isCasting!.Invoke(spell, Array.Empty<object>()) is not true)
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.AlreadyInactive,
+                    AutoCastActionResultCodes.SpellAlreadyInactive,
                     "the toggle spell is already off");
             if (_canCancelSpells!.Invoke(null, Array.Empty<object>()) is not true)
                 return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.CancellationDisabled,
+                    AutoCastActionResultCodes.CancellationDisabled,
                     "enable Cancellable Spells in the game's settings before turning this spell off");
             if (_canFire!.Invoke(spell, Array.Empty<object>()) is not true)
-                return AutoCastSubmission.Rejected(
-                    AutoCastPreflight.NotReady,
+                return AutoCastSubmission.Skipped(
+                    AutoCastActionResultCodes.SpellNotReady,
                     "the spell's visible cast button is not available right now");
 
             var nativeCalls = 0;
@@ -413,8 +347,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoCastSubmission.Rejected(
-                AutoCastPreflight.ContractUnavailable,
+            return AutoCastSubmission.ContractUnavailable(
                 "toggle-off submission failed: " + ex.GetBaseException().Message);
         }
     }

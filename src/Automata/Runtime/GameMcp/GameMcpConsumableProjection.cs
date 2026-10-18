@@ -1,11 +1,12 @@
 #if SERVICE_CYCLE_PROFILE
+using OrbModding.Common;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
 
 namespace OrbAutomata.GameMcp;
 
 internal static class GameMcpConsumableProjection
 {
-    internal static GameMcpValue Project(in ConsumablePlayerSubmission submission)
+    internal static GameMcpValue Project(in NativeActionOutcome submission)
     {
         if (submission.Verified) return new JObject().Freeze();
         var result = new JObject();

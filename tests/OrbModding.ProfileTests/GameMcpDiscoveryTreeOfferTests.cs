@@ -96,7 +96,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     public void Preflight_refusal_without_native_evidence_omits_the_receipt_body()
     {
         var submission = DiscoveryTreeOfferSubmission.Reject(
-            DiscoveryTreeOfferPreflight.TreeUnavailable,
+            DiscoveryTreeOfferActionResultCodes.TreeUnavailable,
             "the exact tree is unavailable");
 
         var projected = GameMcpTestHarness.Json(
@@ -134,11 +134,11 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     public void FaultNamesOnlyTheMissingOutcome()
     {
         var submission = new DiscoveryTreeOfferSubmission(
-            DiscoveryTreeOfferPreflight.VerificationFailed,
-            DiscoveryTreeOfferNativeStage.Verification,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0),
-            "the requested transition was not observed");
+            NativeActionOutcome.Fault(
+                DiscoveryTreeOfferActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0),
+                "the requested transition was not observed"));
 
         var projected = GameMcpTestHarness.Json(
             GameMcpDiscoveryTreeOfferProjection.Project(
@@ -973,7 +973,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 Guid.Empty,
                 lifecycle));
             calls++;
-            Assert.True(initiated.Verified, initiated.Reason);
+            Assert.True(initiated.Outcome.Verified, initiated.Outcome.Reason);
 
             // The native update loop materializes offers after Crafting. The fixture advances that
             // external transition, then every player decision below comes back from MCP reads.
@@ -1018,7 +1018,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 Guid.Empty,
                 lifecycle));
             calls++;
-            Assert.True(rerolled.Verified, rerolled.Reason);
+            Assert.True(rerolled.Outcome.Verified, rerolled.Outcome.Reason);
             Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
 
             tree.actionMode = DiscoveryTreeSO.DiscoveryTreeModes.Choice;
@@ -1058,7 +1058,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 readOffers[0],
                 lifecycle));
             calls++;
-            Assert.True(selected.Verified, selected.Reason);
+            Assert.True(selected.Outcome.Verified, selected.Outcome.Reason);
             var selectedWorld = DiscoveryWorld(
                 new WorldDiscoveryTree(
                     tree.GetGuid(), true, 2, BigDouble.Zero, tree.rerollsLeft, false,
@@ -1092,7 +1092,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 selectedOffer,
                 lifecycle));
             calls++;
-            Assert.True(confirmed.Verified, confirmed.Reason);
+            Assert.True(confirmed.Outcome.Verified, confirmed.Outcome.Reason);
 
             var nextCostResource = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
             var confirmedWorld = DiscoveryWorld(
@@ -1177,12 +1177,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var offer = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var resource = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
         var submission = new DiscoveryTreeOfferSubmission(
-            DiscoveryTreeOfferPreflight.Proceeded,
-            DiscoveryTreeOfferNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            "verified confirm");
-        var mapped = DiscoveryTreeOfferActionResultMapper.Map(in submission);
+            NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(1, 1, 1),
+                "verified confirm"));
+        var mapped = submission.Outcome.ToResult();
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm",
             tree, offer, "DiscoveryTreeSO", 1,
@@ -1192,7 +1190,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpDiscoveryTreeOfferProjection.Project(
                 DiscoveryTreeOfferActionKind.Confirm,
                 in submission));
@@ -1241,12 +1238,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     {
         var tree = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var submission = new DiscoveryTreeOfferSubmission(
-            DiscoveryTreeOfferPreflight.Proceeded,
-            DiscoveryTreeOfferNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(2, 2, 2),
-            "verified initiate");
-        var mapped = DiscoveryTreeOfferActionResultMapper.Map(in submission);
+            NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(2, 2, 2),
+                "verified initiate"));
+        var mapped = submission.Outcome.ToResult();
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "initiate",
             tree, Guid.Empty, "DiscoveryTreeSO", 1,
@@ -1256,7 +1251,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpDiscoveryTreeOfferProjection.Project(
                 DiscoveryTreeOfferActionKind.Initiate,
                 in submission));

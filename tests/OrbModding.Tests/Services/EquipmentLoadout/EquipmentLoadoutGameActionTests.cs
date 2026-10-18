@@ -34,10 +34,10 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(2, EquipmentManager.instance.equippedEquipment.GetStacks(target));
         Assert.Equal(2, GlobalVariables.MultiBuy.Value);
-        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target, EquipmentLoadoutActionKind.Unequip);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, EquipmentManager.instance.equippedEquipment.GetStacks(target));
     }
 
@@ -71,8 +71,8 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         EquipmentManager.instance.equippedEquipment.Maximum = 1;
         var globalFull = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 
-        Assert.Equal(EquipmentLoadoutPreflight.EquipmentTypeFull, typeFull.Preflight);
-        Assert.Equal(EquipmentLoadoutPreflight.LoadoutFull, globalFull.Preflight);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.EquipmentTypeFull, typeFull.Outcome.Code);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.LoadoutFull, globalFull.Outcome.Code);
         Assert.Equal(0, EquipmentManager.instance.EquipCalls);
     }
 
@@ -90,8 +90,8 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         target.usageCost.affordable = false;
         var unaffordable = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 
-        Assert.Equal(EquipmentLoadoutPreflight.NotCreated, notCreated.Preflight);
-        Assert.Equal(EquipmentLoadoutPreflight.UsageUnaffordable, unaffordable.Preflight);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.NotCreated, notCreated.Outcome.Code);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.UsageUnaffordable, unaffordable.Outcome.Code);
         Assert.Equal(0, permits);
         Assert.Equal(0, EquipmentManager.instance.EquipCalls);
     }
@@ -108,10 +108,10 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         target.Equip(2);
         var unequip = Submit(boundary, target, EquipmentLoadoutActionKind.Unequip, amount: 3);
 
-        Assert.Equal(EquipmentLoadoutPreflight.AmountUnavailable, equip.Preflight);
-        Assert.Contains("at most 4", equip.Reason, StringComparison.Ordinal);
-        Assert.Equal(EquipmentLoadoutPreflight.AmountUnavailable, unequip.Preflight);
-        Assert.Contains("only 2", unequip.Reason, StringComparison.Ordinal);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.AmountUnavailable, equip.Outcome.Code);
+        Assert.Contains("at most 4", equip.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.AmountUnavailable, unequip.Outcome.Code);
+        Assert.Contains("only 2", unequip.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, EquipmentManager.instance.EquipCalls);
         Assert.Equal(0, EquipmentManager.instance.UnEquipCalls);
     }
@@ -130,9 +130,9 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         boundary.InvalidateLifecycle();
         var retry = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 
-        Assert.Equal(EquipmentLoadoutPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(EquipmentLoadoutPreflight.VerificationFailed, secondFailure.Preflight);
-        Assert.True(retry.Verified, retry.Reason);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.VerificationFailed, failed.Outcome.Code);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.VerificationFailed, secondFailure.Outcome.Code);
+        Assert.True(retry.Outcome.Verified, retry.Outcome.Reason);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(2, EquipmentManager.instance.equippedEquipment.GetStacks(target));
     }
 
@@ -161,7 +161,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target, EquipmentLoadoutActionKind.Unequip);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(0, EquipmentManager.instance.equippedEquipment.GetStacks(target));
     }
 
@@ -174,7 +174,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         var result = ForeignThread.Run(() => Submit(boundary, target, EquipmentLoadoutActionKind.Equip));
 
-        Assert.Equal(EquipmentLoadoutPreflight.WrongThread, result.Preflight);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Equal(0, EquipmentManager.instance.EquipCalls);
     }
 

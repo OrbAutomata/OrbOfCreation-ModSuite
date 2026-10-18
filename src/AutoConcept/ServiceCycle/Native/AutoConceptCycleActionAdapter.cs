@@ -73,50 +73,21 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         }
 
         Narrate(in action, in submission);
-        return Map(in submission);
-    }
-
-    private static ServiceActionResult Map(in AutoConceptSubmission submission)
-    {
-        switch (submission.Preflight)
-        {
-            case AutoConceptPreflight.ContractUnavailable:
-                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
-            case AutoConceptPreflight.RecipeIdentityChanged:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.RecipeIdentityChanged);
-            case AutoConceptPreflight.AssignmentUnsettled:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.AssignmentUnsettled);
-            case AutoConceptPreflight.OwnershipChanged:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.OwnershipChanged);
-            case AutoConceptPreflight.SlotUnavailable:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.SlotUnavailable);
-            case AutoConceptPreflight.ProjectionRefused:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.ProjectionRefused);
-            case AutoConceptPreflight.MasteryLimitChanged:
-                return ServiceActionResult.Rejected(AutoConceptActionResultCodes.MasteryLimitChanged);
-            case AutoConceptPreflight.ResourceBackpressure:
-                return ServiceActionResult.Skipped(AutoConceptActionResultCodes.AmountUnavailable);
-        }
-
-        var evidence = ServiceNativeMutationEvidence.Observed(
-            submission.Outcome, submission.CallOutcome);
-        return submission.Verified
-            ? ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence)
-            : ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
+        return submission.Outcome.ToResult();
     }
 
     private static void Narrate(
         in AutoConceptCycleAction action,
         in AutoConceptSubmission submission)
     {
-        if (submission.Verified ||
-            submission.Preflight == AutoConceptPreflight.ResourceBackpressure) return;
+        if (submission.Outcome.Verified ||
+            submission.Outcome.Code == AutoConceptActionResultCodes.AmountUnavailable) return;
         var replacement = action.ReplacementId == Guid.Empty
             ? string.Empty
             : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}";
         var message =
             $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}{replacement}: " +
-            submission.Reason;
+            submission.Outcome.Reason;
         Plugin.Log?.LogAutomataWarning(message);
     }
 

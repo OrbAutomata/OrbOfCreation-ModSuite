@@ -33,10 +33,10 @@ public sealed class ResearchGameActionTests : IDisposable
 
         var result = Submit(boundary, target, ResearchActionKind.Develop);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(target.isDeveloping);
         Assert.True(target.isActive);
-        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed class ResearchGameActionTests : IDisposable
 
         var result = Submit(boundary, target, ResearchActionKind.Develop);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(0, target.queuedLevels);
         Assert.True(target.isDeveloping);
     }
@@ -71,9 +71,9 @@ public sealed class ResearchGameActionTests : IDisposable
         var resumed = Submit(boundary, target, ResearchActionKind.Resume);
         var cancelled = Submit(boundary, target, ResearchActionKind.Cancel);
 
-        Assert.True(paused.Verified, paused.Reason);
-        Assert.True(resumed.Verified, resumed.Reason);
-        Assert.True(cancelled.Verified, cancelled.Reason);
+        Assert.True(paused.Outcome.Verified, paused.Outcome.Reason);
+        Assert.True(resumed.Outcome.Verified, resumed.Outcome.Reason);
+        Assert.True(cancelled.Outcome.Verified, cancelled.Outcome.Reason);
         Assert.False(target.isDeveloping);
         Assert.False(target.isActive);
         Assert.Equal(0, target.queuedLevels);
@@ -91,7 +91,7 @@ public sealed class ResearchGameActionTests : IDisposable
 
         var result = Submit(boundary, target, ResearchActionKind.Bonus);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, target.selfBonusLevels);
         Assert.Equal(1, type.UsedBonusLevels);
     }
@@ -108,8 +108,8 @@ public sealed class ResearchGameActionTests : IDisposable
         var result = Submit(boundary, target, ResearchActionKind.Develop);
 
         // No amount would have been admitted, so the answer is the cause, not the ceiling.
-        Assert.Equal(ResearchPreflight.Unaffordable, result.Preflight);
-        Assert.DoesNotContain("at most", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ResearchActionResultCodes.Unaffordable, result.Outcome.Code);
+        Assert.DoesNotContain("at most", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, permits);
         Assert.False(target.isDeveloping);
     }
@@ -132,9 +132,9 @@ public sealed class ResearchGameActionTests : IDisposable
         var bonus = Submit(boundary, target, ResearchActionKind.Bonus);
 
         Assert.True(target.CanDevelop());
-        Assert.Equal(ResearchPreflight.Locked, develop.Preflight);
-        Assert.Equal(ResearchPreflight.Locked, bonus.Preflight);
-        Assert.Equal(ResearchActionResultCodes.Locked, ResearchActionResultMapper.Map(in develop).Code);
+        Assert.Equal(ResearchActionResultCodes.Locked, develop.Outcome.Code);
+        Assert.Equal(ResearchActionResultCodes.Locked, bonus.Outcome.Code);
+        Assert.Equal(ResearchActionResultCodes.Locked, develop.Outcome.ToResult().Code);
         Assert.Equal(0, permits);
         Assert.False(target.isDeveloping);
     }
@@ -155,10 +155,10 @@ public sealed class ResearchGameActionTests : IDisposable
         target.belowArtificialMaxLevel = false;
         var closedCap = Submit(boundary, target, ResearchActionKind.Develop);
 
-        Assert.True(openCaps.Verified, openCaps.Reason);
-        Assert.Equal(ResearchPreflight.LeewayExhausted, closedCap.Preflight);
-        Assert.Contains("leeway", closedCap.Reason, StringComparison.Ordinal);
-        Assert.Contains("level cap", closedCap.Reason, StringComparison.Ordinal);
+        Assert.True(openCaps.Outcome.Verified, openCaps.Outcome.Reason);
+        Assert.Equal(ResearchActionResultCodes.LeewayExhausted, closedCap.Outcome.Code);
+        Assert.Contains("leeway", closedCap.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Contains("level cap", closedCap.Outcome.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -168,10 +168,10 @@ public sealed class ResearchGameActionTests : IDisposable
         Register(target);
         using var boundary = Boundary();
 
-        Assert.True(Submit(boundary, target, ResearchActionKind.Develop).Verified);
+        Assert.True(Submit(boundary, target, ResearchActionKind.Develop).Outcome.Verified);
         var second = Submit(boundary, target, ResearchActionKind.Develop);
 
-        Assert.Equal(ResearchPreflight.AlreadyDeveloping, second.Preflight);
+        Assert.Equal(ResearchActionResultCodes.AlreadyDeveloping, second.Outcome.Code);
     }
 
     [Fact]
@@ -184,12 +184,12 @@ public sealed class ResearchGameActionTests : IDisposable
 
         var result = Submit(boundary, target, ResearchActionKind.Develop, amount: 3);
 
-        Assert.Equal(ResearchPreflight.AmountUnavailable, result.Preflight);
-        Assert.Contains("at most 1 level", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ResearchActionResultCodes.AmountUnavailable, result.Outcome.Code);
+        Assert.Contains("at most 1 level", result.Outcome.Reason, StringComparison.Ordinal);
 
         // The cap is this call's, not a budget: the sentence names the mode that caps it.
-        Assert.Contains("this call takes", result.Reason, StringComparison.Ordinal);
-        Assert.Contains("Research Queue Mode is off", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("this call takes", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Contains("Research Queue Mode is off", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, permits);
         Assert.False(target.isDeveloping);
     }
@@ -215,8 +215,8 @@ public sealed class ResearchGameActionTests : IDisposable
         var pause = Submit(boundary, target, ResearchActionKind.Pause);
         var bonus = Submit(boundary, target, ResearchActionKind.Bonus);
 
-        Assert.Equal(ResearchPreflight.InvalidState, pause.Preflight);
-        Assert.Equal(ResearchPreflight.InvalidState, bonus.Preflight);
+        Assert.Equal(ResearchActionResultCodes.InvalidState, pause.Outcome.Code);
+        Assert.Equal(ResearchActionResultCodes.InvalidState, bonus.Outcome.Code);
     }
 
     [Fact]
@@ -234,9 +234,9 @@ public sealed class ResearchGameActionTests : IDisposable
         target.ThrowAfterAction = true;
         var committed = Submit(boundary, target, ResearchActionKind.Develop);
 
-        Assert.Equal(ResearchPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(ResearchPreflight.VerificationFailed, retry.Preflight);
-        Assert.True(committed.Verified, committed.Reason);
+        Assert.Equal(ResearchActionResultCodes.VerificationFailed, failed.Outcome.Code);
+        Assert.Equal(ResearchActionResultCodes.VerificationFailed, retry.Outcome.Code);
+        Assert.True(committed.Outcome.Verified, committed.Outcome.Reason);
     }
 
     [Fact]
@@ -248,7 +248,7 @@ public sealed class ResearchGameActionTests : IDisposable
 
         var result = ForeignThread.Run(() => Submit(boundary, target, ResearchActionKind.Develop));
 
-        Assert.Equal(ResearchPreflight.WrongThread, result.Preflight);
+        Assert.Equal(ResearchActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.False(target.isDeveloping);
     }
 

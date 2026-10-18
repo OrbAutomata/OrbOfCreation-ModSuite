@@ -35,10 +35,10 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
 
-        Assert.Equal(AutoCastPreflight.AlreadyCasting, submission.Preflight);
+        Assert.Equal(AutoCastActionResultCodes.SpellAlreadyCasting, submission.Outcome.Code);
         Assert.Equal(
             "the spell is still starting its cast, so the press would start no cast",
-            submission.Reason);
+            submission.Outcome.Reason);
     }
 
     [Fact]

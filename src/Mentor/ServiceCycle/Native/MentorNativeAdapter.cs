@@ -1,13 +1,14 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbMentor;
 
 internal interface IMentorNativePort
 {
-    MentorNativeGrant Grant(in MentorCycleAction action);
+    NativeActionOutcome Grant(in MentorCycleAction action);
 }
 
 internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
@@ -26,7 +27,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         _alchemy = alchemy ?? new AlchemyGameplayDomainClassifier();
     }
 
-    public MentorNativeGrant Grant(in MentorCycleAction action)
+    public NativeActionOutcome Grant(in MentorCycleAction action)
     {
         var typeName = action.Domain switch
         {
@@ -50,8 +51,8 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             if (!IsAvailable(recipient, action.Domain) ||
                 mastery >= action.MasteryCeilingExclusive)
             {
-                return new MentorNativeGrant(
-                    MentorNativeGrantStatus.RecipientIneligible,
+                return NativeActionOutcome.Reject(
+                    CommonActionResultCodes.NativeRejected,
                     "recipient is no longer available below the source mastery ceiling");
             }
             if (action.Domain == MasteryExperienceDomain.Alchemy)
@@ -85,7 +86,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
 
     public void Dispose() => _alchemy.Dispose();
 
-    private static MentorNativeGrant GrantDirect(
+    private static NativeActionOutcome GrantDirect(
         object recipient,
         MasteryExperienceDomain domain,
         MentorAmount amount)
@@ -112,7 +113,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         return FromEvidence(evidence);
     }
 
-    private static MentorNativeGrant GrantArtifact(object equipment, MentorAmount amount)
+    private static NativeActionOutcome GrantArtifact(object equipment, MentorAmount amount)
     {
         var equipmentType = equipment.GetType();
         var savedXp = RequiredField(equipmentType, "masteryXp");
@@ -155,17 +156,16 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             (BigDouble)(getExperience.Invoke(container, null) ??
                         throw new MissingMemberException("artifact XP is unavailable")));
 
-    private static MentorNativeGrant FromEvidence<T>(NativeMutationEvidence<T> evidence)
+    private static NativeActionOutcome FromEvidence<T>(NativeMutationEvidence<T> evidence)
     {
         var call = NativeMutationCallOutcome.FromEvidence(evidence);
         return evidence.IsVerified
-            ? new MentorNativeGrant(
-                MentorNativeGrantStatus.Committed, string.Empty, evidence.Outcome, call)
-            : new MentorNativeGrant(
-                MentorNativeGrantStatus.PostconditionFailed,
-                evidence.Format(static state => state?.ToString() ?? "<null>"),
+            ? NativeActionOutcome.Commit(call, string.Empty)
+            : NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault,
                 evidence.Outcome,
-                call);
+                call,
+                evidence.Format(static state => state?.ToString() ?? "<null>"));
     }
 
     private static bool IsAvailable(object recipient, MasteryExperienceDomain domain)
@@ -212,11 +212,11 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         throw new MissingMethodException(type.FullName, name);
     }
 
-    private static MentorNativeGrant Contract(string reason) =>
-        new(MentorNativeGrantStatus.ContractUnavailable, reason);
+    private static NativeActionOutcome Contract(string reason) =>
+        NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
 
-    private static MentorNativeGrant Identity(string reason) =>
-        new(MentorNativeGrantStatus.IdentityChanged, reason);
+    private static NativeActionOutcome Identity(string reason) =>
+        NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, reason);
 
     private readonly struct MentorArtifactProgress
     {

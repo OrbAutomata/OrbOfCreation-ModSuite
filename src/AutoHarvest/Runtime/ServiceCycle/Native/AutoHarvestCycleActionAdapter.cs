@@ -121,9 +121,8 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
             , in context
 #endif
             );
-        var mapped = AutoHarvestActionResultMapper.FromMutation(result);
-        if (mapped.Code == AutoHarvestActionResultCodes.PairFaulted) _gates.Quarantine(action.Pair);
-        return mapped;
+        if (result.Code == AutoHarvestActionResultCodes.PairFaulted) _gates.Quarantine(action.Pair);
+        return result.ToResult();
     }
 
     /// <summary>

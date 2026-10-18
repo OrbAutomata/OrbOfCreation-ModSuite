@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using OrbAutomata;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoHarvest.Native;
@@ -83,36 +84,28 @@ public sealed class AutoHarvestNativeStateReaderTests
     }
 
     [Theory]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused)]
+    [InlineData(1031)]
+    [InlineData(1032)]
+    [InlineData(1033)]
+    [InlineData(1034)]
+    [InlineData(1035)]
     public void EachLiveClickTermReturnsItsOwnNamedRefusal(int failure)
     {
-        var expected = (AutoHarvestSubmissionFailureCode)failure;
+        var expected = new ServiceActionResultCode(failure);
         var world = PrototypeWorld.Create();
         var instance = world.AddInstance(world.Plot, world.Action);
-        switch (expected)
-        {
-            case AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused:
-                world.Plot.Visible = false;
-                break;
-            case AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused:
-                world.Instances.Clear();
-                break;
-            case AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused:
-                instance.RowVisible = false;
-                break;
-            case AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused:
-                instance.EnoughForOneInstance = false;
-                break;
-            case AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused:
-                instance.MaximumRemainingInstances = 0;
-                break;
-            default:
-                throw new InvalidOperationException("unexpected click gate fixture");
-        }
+        if (expected == AutoHarvestActionResultCodes.NativePlotVisibilityRefused)
+            world.Plot.Visible = false;
+        else if (expected == AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused)
+            world.Instances.Clear();
+        else if (expected == AutoHarvestActionResultCodes.NativeActionRowVisibilityRefused)
+            instance.RowVisible = false;
+        else if (expected == AutoHarvestActionResultCodes.NativeHasEnoughForOneInstanceRefused)
+            instance.EnoughForOneInstance = false;
+        else if (expected == AutoHarvestActionResultCodes.NativeMaximumRemainingInstancesRefused)
+            instance.MaximumRemainingInstances = 0;
+        else
+            throw new InvalidOperationException("unexpected click gate fixture");
 
         var actual = new AutoHarvestNativeStateReader().ValidateClickAdmission(
             world.Resolved,

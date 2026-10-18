@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using OrbAutomata;
 using OrbAutomata.Runtime.ServiceCycle.Profile;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using Xunit;
 using static OrbModding.ProfileTests.AutoHarvestProfileTestSupport;
@@ -42,7 +43,7 @@ public sealed class AutoHarvestNativeStateReaderProfileTests
             context,
             ServiceCycleProfileTemperature.Warm);
         object? prototype;
-        AutoHarvestSubmissionFailureCode admission;
+        ServiceActionResultCode admission;
         try
         {
             admission = reader.ValidateClickAdmission(fixture.Resolved, out prototype);
@@ -54,7 +55,7 @@ public sealed class AutoHarvestNativeStateReaderProfileTests
         }
 
         Assert.True(active.IsValid);
-        Assert.Equal(AutoHarvestSubmissionFailureCode.None, admission);
+        Assert.Equal(CommonActionResultCodes.Committed, admission);
         Assert.NotNull(prototype);
         Assert.Collection(
             measurement.Completed,

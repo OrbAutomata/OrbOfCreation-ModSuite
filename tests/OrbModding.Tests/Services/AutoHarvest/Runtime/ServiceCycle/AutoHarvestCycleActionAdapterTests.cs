@@ -66,7 +66,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
     public void AttemptedUnverifiedMutationQuarantinesThePair()
     {
         using var fixture = new Fixture();
-        fixture.Mutation.Result = new AutoHarvestSubmissionResult(
+        fixture.Mutation.Result = AutoHarvestMutationAdapter.FromVerifier(
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(1, 1, 0));
 
@@ -89,7 +89,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
     public void AnUnverifiedOutcomeWithNoAttemptIsNotAPairFault()
     {
         using var fixture = new Fixture();
-        fixture.Mutation.Result = new AutoHarvestSubmissionResult(
+        fixture.Mutation.Result = AutoHarvestMutationAdapter.FromVerifier(
             NativeMutationOutcome.BeforeCaptureFailed,
             new NativeMutationCallOutcome(0, 0, 0));
 
@@ -104,8 +104,9 @@ public sealed class AutoHarvestCycleActionAdapterTests
     public void NonAttemptedFinalPreflightRejectionDoesNotQuarantine()
     {
         using var fixture = new Fixture();
-        fixture.Mutation.Result = new AutoHarvestSubmissionResult(
-            AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected);
+        fixture.Mutation.Result = NativeActionOutcome.Reject(
+            CommonActionResultCodes.PolicyRejected,
+            string.Empty);
 
         var result = fixture.Execute();
 
@@ -364,17 +365,17 @@ public sealed class AutoHarvestCycleActionAdapterTests
         public MutationPort(List<string> events)
         {
             _events = events;
-            Result = new AutoHarvestSubmissionResult(
+            Result = AutoHarvestMutationAdapter.FromVerifier(
                 NativeMutationOutcome.Verified,
                 new NativeMutationCallOutcome(1, 1, 1));
         }
 
-        public AutoHarvestSubmissionResult Result { get; set; }
+        public NativeActionOutcome Result { get; set; }
         public int SubmitCount { get; private set; }
         public AutoHarvestPairFacts Facts { get; private set; }
         public AutoHarvestActionSafetyState Safety { get; private set; }
 
-        public AutoHarvestSubmissionResult Submit(
+        public NativeActionOutcome Submit(
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
             AutoHarvestActionSafetyState safety)

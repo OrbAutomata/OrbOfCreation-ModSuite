@@ -47,55 +47,8 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
         var submission = _gameAction.Submit(in action);
         var enteredFailure = _health.Observe(in submission);
         if (enteredFailure)
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Scribe {submission.Stage}/{submission.Preflight}: {submission.Reason}");
-        return Map(in submission);
-    }
-
-    internal static ServiceActionResult Map(in AutoScribeSubmission submission)
-    {
-        var code = submission.Preflight switch
-        {
-            AutoScribePreflight.IdentityUnavailable =>
-                AutoScribeActionResultCodes.IdentityUnavailable,
-            AutoScribePreflight.RelationshipMismatch =>
-                AutoScribeActionResultCodes.RelationshipMismatch,
-            AutoScribePreflight.RecipeUnavailable =>
-                AutoScribeActionResultCodes.RecipeUnavailable,
-            AutoScribePreflight.TargetUnavailable =>
-                AutoScribeActionResultCodes.TargetUnavailable,
-            AutoScribePreflight.QueueFull => AutoScribeActionResultCodes.QueueFull,
-            AutoScribePreflight.CompetingSupply =>
-                AutoScribeActionResultCodes.CompetingSupply,
-            AutoScribePreflight.Unaffordable => AutoScribeActionResultCodes.Unaffordable,
-            AutoScribePreflight.MutationPermitUnavailable =>
-                AutoScribeActionResultCodes.MutationPermitUnavailable,
-            AutoScribePreflight.ContractUnavailable =>
-                AutoScribeActionResultCodes.ContractUnavailable,
-            AutoScribePreflight.Quarantined => AutoScribeActionResultCodes.Quarantined,
-            AutoScribePreflight.PostPaymentFault =>
-                AutoScribeActionResultCodes.PostPaymentFault,
-            AutoScribePreflight.VerificationFailed =>
-                AutoScribeActionResultCodes.VerificationFailed,
-            AutoScribePreflight.LifecycleReplaced =>
-                CommonActionResultCodes.LifecycleReplaced,
-            AutoScribePreflight.WrongThread => AutoScribeActionResultCodes.WrongThread,
-            AutoScribePreflight.Proceeded => CommonActionResultCodes.Committed,
-            _ => CommonActionResultCodes.AdapterFault,
-        };
-        if (submission.CallOutcome.MutationAttempts > 0)
-        {
-            var evidence = ServiceNativeMutationEvidence.Observed(
-                submission.Outcome,
-                submission.CallOutcome);
-            return submission.Verified
-                ? ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence)
-                : ServiceActionResult.Faulted(code, evidence);
-        }
-        return AutoScribeSubmissionPolicy.Classify(in submission) ==
-            AutoScribeSubmissionClass.Backpressure
-            ? ServiceActionResult.Rejected(code)
-            : ServiceActionResult.Faulted(code);
+            Plugin.Log?.LogAutomataWarning($"Auto Scribe: {submission.Outcome.Reason}");
+        return submission.Outcome.ToResult();
     }
 
     private bool Owns() => AutoScribeActionFamilyAccess.Owns(_ownsActionFamily);

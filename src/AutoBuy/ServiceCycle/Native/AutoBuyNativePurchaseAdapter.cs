@@ -4,64 +4,14 @@ using System.Collections.Generic;
 using System.Reflection;
 using OrbModding;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.Runtime.ServiceCycle.Profile;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 #endif
 
 namespace OrbAutomata;
-
-/// <summary>
-/// Preflight disposition of a single native purchase submission, before any audited mutation
-/// was invoked. <see cref="Proceeded"/> means the native mutation was attempted and the
-/// submission carries verifier evidence; the others are the reasons a submission never got that far.
-/// </summary>
-internal enum AutoBuyPurchasePreflight
-{
-    Proceeded = 0,
-    CandidateUnavailable,
-    NotAdmissible,
-    AffordabilityUnavailable,
-    SingleBuyUnavailable,
-    OwningViewUnavailable,
-    OwningViewRelationMissing,
-    OwningViewRelationUnreadable,
-    OwningViewRelationContradictory,
-    StructureUnavailable,
-    DestinationCapacityFull,
-
-    /// <summary>
-    /// The capacity-bound destination has no slot unlocked at all, so the purchase has nowhere to
-    /// put what it buys: the World > Aspects pedestals before the first Gather Space.
-    /// </summary>
-    DestinationCapacityLocked,
-    DestinationCapacityContractUnavailable,
-    DestinationCapacityIdentityMismatch,
-
-    /// <summary>
-    /// The live action queue has no free slot at all, so nothing this call asked for can be queued.
-    /// Reached from the action adapter rather than the native adapter: it is decided by the live
-    /// queue reading, before a candidate is resolved and before any mutation is attempted. An ask
-    /// larger than the room is not this — that one fills what fits and says what it withheld.
-    /// </summary>
-    ActionQueueFull,
-
-    /// <summary>The suite never bound the owning-view topology contract on this build.</summary>
-    OwningViewTopologyUnbound,
-
-    /// <summary>
-    /// The topology holds no admission evidence for the lifecycle this purchase was planned under.
-    /// </summary>
-    OwningViewTopologyUncaptured,
-
-    /// <summary>The captured relation carries a status this build does not model.</summary>
-    OwningViewRelationStatusUnmodeled,
-
-    /// <summary>The live owning-screen availability read did not answer.</summary>
-    OwningViewAvailabilityUnreadable,
-}
 
 /// <summary>
 /// Which of the game's own gates the suite watched shut on a group that stopped short of the levels
@@ -93,15 +43,11 @@ internal enum AutoBuyGroupStop
 internal readonly struct AutoBuyPurchaseSubmission
 {
     private AutoBuyPurchaseSubmission(
-        AutoBuyPurchasePreflight preflight,
-        bool hasEvidence,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
+        NativeActionOutcome outcome,
         int requestedLevels,
         int committedLevels,
         in AutoBuyAdmissionDiagnosis diagnosis,
         in AutoBuyLiveCostSnapshot liveCosts,
-        string reason,
         int maximumAmount = -1,
         int withheldBySuite = 0,
         AutoBuyGroupStop groupStop = AutoBuyGroupStop.None,
@@ -110,36 +56,24 @@ internal readonly struct AutoBuyPurchaseSubmission
         NextLevelCosts = nextLevelCosts;
         GroupStop = groupStop;
         WithheldBySuite = withheldBySuite;
-        Preflight = preflight;
-        HasEvidence = hasEvidence;
         Outcome = outcome;
-        CallOutcome = callOutcome;
         RequestedLevels = requestedLevels;
         CommittedLevels = committedLevels;
         Diagnosis = diagnosis;
         LiveCosts = liveCosts;
-        Reason = reason;
         MaximumAmount = maximumAmount;
     }
 
-    public AutoBuyPurchasePreflight Preflight { get; }
-
     /// <summary>
-    /// The one sentence this refusal owes a caller, when the preflight class alone cannot carry it —
-    /// a topology refusal names the epoch it is stamped at, the epoch the plan asked for, and how
-    /// many rows it holds, because those three numbers are the whole difference between the causes.
-    /// Empty everywhere else: a class with a fixed sentence needs no second copy of it here.
+    /// The code, reason and call evidence of this submission. A topology refusal's reason names the
+    /// epoch it is stamped at, the epoch the plan asked for, and how many rows it holds, because
+    /// those three numbers are the whole difference between the causes.
     /// </summary>
-    public string Reason { get; }
-
-    public bool HasEvidence { get; }
-    public NativeMutationOutcome Outcome { get; }
-    public NativeMutationCallOutcome CallOutcome { get; }
-    public bool Verified => HasEvidence && Outcome == NativeMutationOutcome.Verified;
+    public NativeActionOutcome Outcome { get; }
 
     /// <summary>
-    /// Which admission term refused, when the preflight was
-    /// <see cref="AutoBuyPurchasePreflight.NotAdmissible"/>. Every other disposition leaves it unread.
+    /// Which admission term refused, when the game refused admission. Every other outcome leaves it
+    /// unread.
     /// </summary>
     public AutoBuyAdmissionDiagnosis Diagnosis { get; }
 
@@ -191,20 +125,18 @@ internal readonly struct AutoBuyPurchaseSubmission
     /// <summary>
     /// The live action queue holds nothing more, so no level of this ask can be queued. No mutation
     /// is attempted, and the ceiling it names is nought: this is the one purchase refusal a smaller
-    /// amount does not fix.
+    /// amount does not fix. Reached from the action adapter rather than the native adapter: it is
+    /// decided by the live queue reading, before a candidate is resolved. An ask larger than the
+    /// room is not this — that one fills what fits and says what it withheld.
     /// </summary>
     public static AutoBuyPurchaseSubmission ActionQueueFull() =>
         new(
-            AutoBuyPurchasePreflight.ActionQueueFull,
-            hasEvidence: false,
-            default,
-            default,
+            NativeActionOutcome.Reject(AutoBuyActionResultCodes.ActionQueueFull, string.Empty),
             0,
             0,
             default,
             AutoBuyLiveCostSnapshot.Unavailable(
                 AutoBuyLiveCostReadStatus.PurchaseCostUnavailable),
-            string.Empty,
             maximumAmount: 0);
 
     /// <summary>
@@ -213,51 +145,50 @@ internal readonly struct AutoBuyPurchaseSubmission
     /// </summary>
     public AutoBuyPurchaseSubmission WithSuiteWithheld(int withheld) =>
         new(
-            Preflight,
-            HasEvidence,
             Outcome,
-            CallOutcome,
             RequestedLevels,
             CommittedLevels,
             Diagnosis,
             LiveCosts,
-            Reason,
             MaximumAmount,
             Math.Max(0, withheld),
             GroupStop,
             NextLevelCosts);
 
-    public static AutoBuyPurchaseSubmission Rejected(AutoBuyPurchasePreflight preflight) =>
-        Rejected(preflight, default, string.Empty);
+    public static AutoBuyPurchaseSubmission Rejected(ServiceActionResultCode code) =>
+        Rejected(code, string.Empty);
 
-    public static AutoBuyPurchaseSubmission Rejected(
-        AutoBuyPurchasePreflight preflight,
-        string reason) =>
-        Rejected(preflight, default, reason);
+    public static AutoBuyPurchaseSubmission Rejected(ServiceActionResultCode code, string reason) =>
+        Refused(NativeActionOutcome.Reject(code, reason), default);
 
-    public static AutoBuyPurchaseSubmission Rejected(
-        AutoBuyPurchasePreflight preflight,
+    public static AutoBuyPurchaseSubmission CandidateUnavailable() =>
+        Refused(
+            NativeActionOutcome.FaultBeforeCall(
+                CommonActionResultCodes.AdapterFault,
+                "The candidate could not be resolved."),
+            default);
+
+    public static AutoBuyPurchaseSubmission AffordabilityUnavailable(
         in AutoBuyAdmissionDiagnosis diagnosis) =>
-        Rejected(preflight, in diagnosis, string.Empty);
+        Refused(
+            NativeActionOutcome.FaultBeforeCall(
+                CommonActionResultCodes.AdapterFault,
+                "Live affordability could not be read."),
+            in diagnosis);
 
-    private static AutoBuyPurchaseSubmission Rejected(
-        AutoBuyPurchasePreflight preflight,
-        in AutoBuyAdmissionDiagnosis diagnosis,
-        string reason)
+    public static AutoBuyPurchaseSubmission NotAdmissible(in AutoBuyAdmissionDiagnosis diagnosis) =>
+        Refused(
+            diagnosis.Classification == AutoBuyRefusalClassification.AffordabilityChanged
+                ? NativeActionOutcome.Skip(CommonActionResultCodes.Skipped, string.Empty)
+                : NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, string.Empty),
+            in diagnosis);
+
+    private static AutoBuyPurchaseSubmission Refused(
+        NativeActionOutcome outcome,
+        in AutoBuyAdmissionDiagnosis diagnosis)
     {
-        if (preflight == AutoBuyPurchasePreflight.Proceeded)
-            throw new ArgumentOutOfRangeException(nameof(preflight));
         var liveCosts = diagnosis.LiveCosts;
-        return new AutoBuyPurchaseSubmission(
-            preflight,
-            hasEvidence: false,
-            default,
-            default,
-            0,
-            0,
-            in diagnosis,
-            in liveCosts,
-            reason);
+        return new AutoBuyPurchaseSubmission(outcome, 0, 0, in diagnosis, in liveCosts);
     }
 
     public static AutoBuyPurchaseSubmission Attempted(
@@ -270,16 +201,19 @@ internal readonly struct AutoBuyPurchaseSubmission
         var committed = evidence.HasBefore && evidence.HasAfter
             ? Math.Max(0, evidence.After - evidence.Before)
             : 0;
+        var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         return new AutoBuyPurchaseSubmission(
-            AutoBuyPurchasePreflight.Proceeded,
-            hasEvidence: true,
-            evidence.Outcome,
-            NativeMutationCallOutcome.FromEvidence(evidence),
+            evidence.IsVerified
+                ? NativeActionOutcome.Commit(calls, string.Empty)
+                : NativeActionOutcome.Fault(
+                    CommonActionResultCodes.AdapterFault,
+                    evidence.Outcome,
+                    calls,
+                    $"The native purchase of {requestedLevels} levels did not apply."),
             requestedLevels,
             committed,
             default,
             in liveCosts,
-            string.Empty,
             maximumAmount: -1,
             withheldBySuite: 0,
             groupStop,
@@ -436,7 +370,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         )
     {
         if (kind is not (AutoBuyCandidateKind.Structure or AutoBuyCandidateKind.Upgrade) || count < 1)
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.CandidateUnavailable);
+            return AutoBuyPurchaseSubmission.CandidateUnavailable();
 
         bool resolved;
         object source;
@@ -455,7 +389,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         finally { resolutionStage.Complete(); }
 #endif
         if (!resolved)
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.CandidateUnavailable);
+            return AutoBuyPurchaseSubmission.CandidateUnavailable();
 
         var readable = false;
         var admitted = false;
@@ -467,9 +401,8 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         try
         {
 #endif
-        var gate = ReadLiveGate(kind, uuid, lifecycleEpoch, source, accessors, out var gateReason);
-        if (gate != AutoBuyPurchasePreflight.Proceeded)
-            return AutoBuyPurchaseSubmission.Rejected(gate, gateReason);
+        if (!PassesLiveGate(kind, uuid, lifecycleEpoch, source, accessors, out var gateRefusal))
+            return gateRefusal;
 
         // The shipped CanPurchase contracts differ materially. StructureSO checks only its
         // per-level requirements and ActionManager.CanLoadAction(); it checks neither IsAvailable()
@@ -485,14 +418,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         finally { admissionStage.Complete(); }
 #endif
         if (!readable)
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.CandidateUnavailable);
+            return AutoBuyPurchaseSubmission.CandidateUnavailable();
         if (!admitted)
         {
             // A refusal says either that affordability moved after collection or that the plan and
             // game disagree structurally. Take the fold apart here, on the cold path, while the same
             // native object is in hand.
-            return AutoBuyPurchaseSubmission.Rejected(
-                AutoBuyPurchasePreflight.NotAdmissible, accessors.Diagnose(source));
+            return AutoBuyPurchaseSubmission.NotAdmissible(accessors.Diagnose(source));
         }
 
         AutoBuyLiveCostSnapshot liveCosts;
@@ -504,13 +436,11 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             var diagnosis = accessors.Diagnose(source);
             if (diagnosis.HasEnough == AutoBuyAdmissionTerm.Refused)
             {
-                return AutoBuyPurchaseSubmission.Rejected(
-                    AutoBuyPurchasePreflight.NotAdmissible, in diagnosis);
+                return AutoBuyPurchaseSubmission.NotAdmissible(in diagnosis);
             }
             if (diagnosis.HasEnough != AutoBuyAdmissionTerm.Passed)
             {
-                return AutoBuyPurchaseSubmission.Rejected(
-                    AutoBuyPurchasePreflight.AffordabilityUnavailable, in diagnosis);
+                return AutoBuyPurchaseSubmission.AffordabilityUnavailable(in diagnosis);
             }
             liveCosts = diagnosis.LiveCosts;
         }
@@ -522,7 +452,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         if (kind == AutoBuyCandidateKind.Upgrade)
         {
             var capacity = accessors.ReadDestinationCapacity(source);
-            if (capacity != AutoBuyPurchasePreflight.Proceeded)
+            if (capacity != CommonActionResultCodes.Committed)
                 return AutoBuyPurchaseSubmission.Rejected(capacity);
         }
 
@@ -567,20 +497,20 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     /// availability read that did not answer. Only one of those is fixed by waiting, only one is a
     /// build problem, and the outage that motivated this split took a code trace to tell apart.
     /// </remarks>
-    private AutoBuyPurchasePreflight ReadLiveGate(
+    private bool PassesLiveGate(
         AutoBuyCandidateKind kind,
         Guid uuid,
         long lifecycleEpoch,
         object source,
         PurchaseAccessors accessors,
-        out string reason)
+        out AutoBuyPurchaseSubmission refusal)
     {
         var reads = default(NativePurchaseViewAdmissionReadCounts);
-        reason = string.Empty;
+        refusal = default;
         try
         {
             if (_viewAdmission is null)
-                return AutoBuyPurchasePreflight.OwningViewTopologyUnbound;
+                return Refuse(AutoBuyActionResultCodes.OwningViewTopologyUnbound, out refusal);
 
             if (!_viewAdmission.TryGetCaptured(
                 kind == AutoBuyCandidateKind.Structure
@@ -590,44 +520,49 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 lifecycleEpoch,
                 out var resolution))
             {
-                reason = AutoBuyPurchaseNarration.TopologyUncaptured(
-                    _viewAdmission.CapturedEpoch,
-                    lifecycleEpoch,
-                    _viewAdmission.CapturedCount);
-                return AutoBuyPurchasePreflight.OwningViewTopologyUncaptured;
+                refusal = AutoBuyPurchaseSubmission.Rejected(
+                    AutoBuyActionResultCodes.OwningViewTopologyUncaptured,
+                    AutoBuyPurchaseNarration.TopologyUncaptured(
+                        _viewAdmission.CapturedEpoch,
+                        lifecycleEpoch,
+                        _viewAdmission.CapturedCount));
+                return false;
             }
             switch (resolution.Relation.Status)
             {
                 case WorldPurchaseViewRelationStatus.Missing:
-                    return AutoBuyPurchasePreflight.OwningViewRelationMissing;
+                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationMissing, out refusal);
                 case WorldPurchaseViewRelationStatus.Unreadable:
-                    return AutoBuyPurchasePreflight.OwningViewRelationUnreadable;
+                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, out refusal);
                 case WorldPurchaseViewRelationStatus.Contradictory:
-                    return AutoBuyPurchasePreflight.OwningViewRelationContradictory;
+                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationContradictory, out refusal);
                 case WorldPurchaseViewRelationStatus.Resolved:
                     break;
                 default:
-                    return AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled;
+                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled, out refusal);
             }
 
             if (!_viewAdmission.TryReadAvailabilityProfiled(
                     in resolution,
                     ref reads,
                     out var viewAvailable))
-                return AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable;
+                return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, out refusal);
             if (!viewAvailable)
-                return AutoBuyPurchasePreflight.OwningViewUnavailable;
+                return Refuse(AutoBuyActionResultCodes.OwningViewUnavailable, out refusal);
 
             if (kind == AutoBuyCandidateKind.Structure)
             {
                 reads.AddMethodCall();
                 if (!accessors.TryReadStructureAvailability(source, out var structureAvailable))
-                    return AutoBuyPurchasePreflight.CandidateUnavailable;
+                {
+                    refusal = AutoBuyPurchaseSubmission.CandidateUnavailable();
+                    return false;
+                }
                 if (!structureAvailable)
-                    return AutoBuyPurchasePreflight.StructureUnavailable;
+                    return Refuse(AutoBuyActionResultCodes.StructureUnavailable, out refusal);
             }
 
-            return AutoBuyPurchasePreflight.Proceeded;
+            return true;
         }
         finally
         {
@@ -639,6 +574,12 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 _profileOperations.AddListEntry();
 #endif
         }
+    }
+
+    private static bool Refuse(ServiceActionResultCode code, out AutoBuyPurchaseSubmission refusal)
+    {
+        refusal = AutoBuyPurchaseSubmission.Rejected(code);
+        return false;
     }
 
     /// <summary>
@@ -673,13 +614,13 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 accessors.InvokePurchase(source);
                 for (var level = 1; level < count; level++)
                 {
-                    if (ReadLiveGate(
+                    if (!PassesLiveGate(
                             AutoBuyCandidateKind.Structure,
                             uuid,
                             lifecycleEpoch,
                             source,
                             accessors,
-                            out _) != AutoBuyPurchasePreflight.Proceeded ||
+                            out _) ||
                         !accessors.TryReadAdmission(source, out var admitted) || !admitted)
                     {
                         stop = AutoBuyGroupStop.NotAdmitted;
@@ -715,7 +656,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         if (!NativeMultiBuyScope.TryEnter(count, out var scope, out var scopeReason))
         {
             return AutoBuyPurchaseSubmission.Rejected(
-                AutoBuyPurchasePreflight.SingleBuyUnavailable,
+                AutoBuyActionResultCodes.SingleBuyUnavailable,
                 $"The suite could not set the game's multi-buy multiplier to {count}, so no " +
                 $"purchase was attempted: {scopeReason}.");
         }
@@ -957,11 +898,11 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 TryInvokeBool(_isAvailable, source, out available);
         }
 
-        public AutoBuyPurchasePreflight ReadDestinationCapacity(object source) =>
+        public ServiceActionResultCode ReadDestinationCapacity(object source) =>
             _kind != AutoBuyCandidateKind.Upgrade
-                ? AutoBuyPurchasePreflight.Proceeded
+                ? CommonActionResultCodes.Committed
                 : _destinationCapacity?.Read(source) ??
-                  AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                  AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
 
         /// <summary>
         /// Reads each admission term the game exposes on its own, so a refusal can name a cause. Only
@@ -1335,29 +1276,29 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                 }
             }
 
-            internal AutoBuyPurchasePreflight Read(object source)
+            internal ServiceActionResultCode Read(object source)
             {
                 try
                 {
                     if (_additions.GetValue(source) is not IList additions)
-                        return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                        return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                     for (var index = 0; index < additions.Count; index++)
                     {
                         var tuple = additions[index];
                         if (tuple is null || tuple.GetType() != _tupleType)
-                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                            return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                         var list = _tupleList.GetValue(tuple);
                         var element = _tupleElement.GetValue(tuple);
                         if (list is null || list.GetType() != _viewListType ||
                             element is null || element.GetType() != _viewType)
                         {
-                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                            return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                         }
 
                         if (!TryIdentity(_listIdentity, list, out var listId) ||
                             !TryIdentity(_viewIdentity, element, out _))
                         {
-                            return AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch;
+                            return AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch;
                         }
 
                         var maximum = _maxSizeVariable.GetValue(list);
@@ -1365,31 +1306,31 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                         if (maximum.GetType() != _intVariableType ||
                             !TryIdentity(_variableIdentity, maximum, out var maximumId))
                         {
-                            return AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch;
+                            return AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch;
                         }
 
                         var knownList = listId == KnownEntities.CreatedWorldAspects.Uuid;
                         var knownMaximum = maximumId == KnownEntities.WorldAspectSlots.Uuid;
                         if (knownList != knownMaximum)
-                            return AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch;
+                            return AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch;
                         if (!knownList)
-                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                            return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
 
                         if (_hasEmptySpot.Invoke(list, Array.Empty<object>()) is not bool empty)
-                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                            return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                         if (empty) continue;
                         if (_maximumValue.Invoke(maximum, Array.Empty<object>()) is not int slots)
-                            return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                            return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                         return slots <= 0
-                            ? AutoBuyPurchasePreflight.DestinationCapacityLocked
-                            : AutoBuyPurchasePreflight.DestinationCapacityFull;
+                            ? AutoBuyActionResultCodes.DestinationCapacityLocked
+                            : AutoBuyActionResultCodes.DestinationCapacityFull;
                     }
 
-                    return AutoBuyPurchasePreflight.Proceeded;
+                    return CommonActionResultCodes.Committed;
                 }
                 catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
-                    return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
+                    return AutoBuyActionResultCodes.DestinationCapacityContractUnavailable;
                 }
             }
 

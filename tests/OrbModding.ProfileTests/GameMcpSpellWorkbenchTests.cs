@@ -630,7 +630,7 @@ public sealed class GameMcpSpellWorkbenchTests
     public void LoadPreviewRefusalCarriesOnlyTheActionableReason()
     {
         var preview = SpellWorkbenchLoadPreview.Refused(
-            SpellWorkbenchPreflight.AugmentSlotsExceeded,
+            SpellWorkbenchActionResultCodes.AugmentSlotsExceeded,
             "This layout puts 3 different augments on Test Recipe and the game allows 1 at once " +
             "(Max Spell Augment Slots). Ask for 1 different augments or fewer, or raise that " +
             "limit first.");
@@ -658,9 +658,9 @@ public sealed class GameMcpSpellWorkbenchTests
     public void AResolvedGlyphIsRefusedAsAGateOrACeilingRatherThanAsAMiss()
     {
         var unavailable = SpellWorkbenchLoadPreview.Refused(
-            SpellWorkbenchPreflight.GlyphUnavailable, "Quick, in the screen's words.");
+            SpellWorkbenchActionResultCodes.GlyphUnavailable, "Quick, in the screen's words.");
         var overCapacity = SpellWorkbenchLoadPreview.Refused(
-            SpellWorkbenchPreflight.GlyphUsagesExceeded, "Quick, in the screen's numbers.");
+            SpellWorkbenchActionResultCodes.GlyphUsagesExceeded, "Quick, in the screen's numbers.");
 
         var locked = GameMcpTestHarness.Json(
             GameMcpSpellWorkbenchProjection.ProjectLoadPreview(in unavailable));
@@ -697,13 +697,10 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void SuccessIsOnlyNamedPostStateWhileFailuresNameTheMissingOutcome()
     {
-        var submission = new SpellWorkbenchSubmission(
-            SpellWorkbenchPreflight.Proceeded,
-            SpellWorkbenchNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        var submission = NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1),
             "the requested spell is loaded");
-        var mapped = SpellWorkbenchActionResultMapper.Map(in submission);
+        var mapped = submission.ToResult();
         var before = World(
             discovered: true,
             discoveryAffordable: true,
@@ -719,7 +716,6 @@ public sealed class GameMcpSpellWorkbenchTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpSpellWorkbenchProjection.Project(in submission));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after), command, terminal));
@@ -740,16 +736,15 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.Null(success["receipt"]);
         Assert.DoesNotContain("payment", success.ToString(), StringComparison.OrdinalIgnoreCase);
 
-        var refusedSubmission = SpellWorkbenchSubmission.Reject(
-            SpellWorkbenchPreflight.WrongSelection,
+        var refusedSubmission = NativeActionOutcome.Reject(
+            SpellWorkbenchActionResultCodes.WrongSelection,
             "the selected recipe changed");
         var refusal = GameMcpTestHarness.Json(
             GameMcpSpellWorkbenchProjection.Project(in refusedSubmission));
         Assert.Empty(refusal.Properties());
 
-        var failedSubmission = new SpellWorkbenchSubmission(
-            SpellWorkbenchPreflight.VerificationFailed,
-            SpellWorkbenchNativeStage.Verification,
+        var failedSubmission = NativeActionOutcome.Fault(
+            SpellWorkbenchActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(1, 1, 0),
             "the target was not discovered");

@@ -1723,7 +1723,7 @@ public sealed class Plugin : BaseUnityPlugin
                         out preview))
                 {
                     preview = SpellWorkbenchLoadPreview.Refused(
-                        SpellWorkbenchPreflight.ContractUnavailable,
+                        SpellWorkbenchActionResultCodes.ContractUnavailable,
                         "The suite is not running on this screen, so nothing can be previewed.");
                 }
                 execution = GameMcpToolExecution.Read(
@@ -1736,7 +1736,7 @@ public sealed class Plugin : BaseUnityPlugin
                     !_serviceCycleActivation.TryReadStagedSpellWorkbench(out staged))
                 {
                     staged = SpellWorkbenchStagedLayout.Unavailable(
-                        SpellWorkbenchPreflight.ContractUnavailable,
+                        SpellWorkbenchActionResultCodes.ContractUnavailable,
                         "The suite is not running on this screen, so nothing can be read here.");
                 }
                 execution = GameMcpToolExecution.Read(

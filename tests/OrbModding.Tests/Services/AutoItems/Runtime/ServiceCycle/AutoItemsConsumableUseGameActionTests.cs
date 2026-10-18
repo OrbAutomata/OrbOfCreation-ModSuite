@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems.Runtime.ServiceCycle;
@@ -95,7 +96,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var incoherentResult = gameAction.Submit(
             Action(incoherent, AutoItemsConsumableFamily.Relic));
 
-        Assert.Equal(AutoItemsPreflight.FamilyChanged, incoherentResult.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.FamilyChanged, incoherentResult.Code);
         Assert.Contains("[Relic, Potion]", incoherentResult.Reason);
         Assert.Equal(1, incoherent.GetQuantity());
         Assert.Equal(0, incoherentResult.CallOutcome.NativeCallsAttempted);
@@ -132,7 +133,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var durationResult = gameAction.Submit(in durationAction);
 
-        Assert.Equal(AutoItemsPreflight.TemporaryDurationChanged, durationResult.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.TemporaryDurationChanged, durationResult.Code);
         Assert.Contains("durationBase", durationResult.Reason);
 
         var costChanged = Item(AutoItemsConsumableFamily.Potion);
@@ -142,7 +143,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var costResult = gameAction.Submit(in costAction);
 
-        Assert.Equal(AutoItemsPreflight.TemporaryCostChanged, costResult.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.TemporaryCostChanged, costResult.Code);
         Assert.Contains("extra resource", costResult.Reason);
     }
 
@@ -165,7 +166,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var blockedTemporary = gameAction.Submit(in temporaryAction);
         var firedScroll = gameAction.Submit(in scrollAction);
 
-        Assert.Equal(AutoItemsPreflight.TemporaryEffectPresent, blockedTemporary.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.TemporaryEffectPresent, blockedTemporary.Code);
         Assert.Contains("pending or active", blockedTemporary.Reason);
         Assert.Equal(1, anotherTemporary.GetQuantity());
         Assert.True(firedScroll.Verified, firedScroll.Reason);
@@ -185,7 +186,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var held = gameAction.Submit(in relicAction);
 
         Assert.True(submitted.Verified, submitted.Reason);
-        Assert.Equal(AutoItemsPreflight.NativeBusy, held.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.NativeBusy, held.Code);
         Assert.Equal(1, relic.GetQuantity());
     }
 
@@ -199,7 +200,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.NativeBusy, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.NativeBusy, result.Code);
         Assert.Contains("Inventory.CanUseConsumable()", result.Reason);
         Assert.Equal(1, temporary.GetQuantity());
         Assert.Empty(temporary.consumableUsages);
@@ -219,9 +220,9 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var exactBlocked = gameAction.Submit(in brokenAction);
         var unrelated = gameAction.Submit(in healthyAction);
 
-        Assert.Equal(AutoItemsPreflight.Quarantined, ambiguous.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Outcome);
-        Assert.Equal(AutoItemsPreflight.Quarantined, exactBlocked.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, ambiguous.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Mutation);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, exactBlocked.Code);
         Assert.Contains(broken.GetGuid().ToString("D"), exactBlocked.Reason);
         Assert.True(unrelated.Verified, unrelated.Reason);
     }
@@ -235,7 +236,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.FamilyChanged, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.FamilyChanged, result.Code);
         Assert.Contains("Expected live execution family Scroll", result.Reason);
         Assert.Equal(1, item.GetQuantity());
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
@@ -251,7 +252,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.NativeBusy, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.NativeBusy, result.Code);
         Assert.Contains("Inventory.CanUseConsumable()", result.Reason);
         Assert.False(scroll.randomized);
         Assert.Equal(1, scroll.GetQuantity());
@@ -267,7 +268,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.TargetingInProgress, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.TargetingInProgress, result.Code);
         Assert.Contains("TargetingManager.IsTargeting()", result.Reason);
         Assert.Equal(1, relic.GetQuantity());
         Assert.Equal(0, relic.GetQueued());
@@ -286,7 +287,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.MutationPermitUnavailable, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.MutationPermitUnavailable, result.Code);
         Assert.Equal(
             "Automata Auto Items could not claim ConsumableUse; Other Items owns it.",
             result.Reason);
@@ -308,8 +309,8 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.Quarantined, result.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, result.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Mutation);
         Assert.Contains("ambiguous consumable mutation", result.Reason);
         Assert.Contains("quarantined", result.Reason);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), result.CallOutcome);
@@ -325,7 +326,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.CanFireRefused, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.CanFireRefused, result.Code);
 
         // The player is told the game refuses, not which native predicate said so. The code
         // carries that distinction; the sentence carries what a player can act on.
@@ -344,7 +345,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.TargetUnavailable, result.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.TargetUnavailable, result.Code);
         Assert.Contains("no valid structure target", result.Reason);
         Assert.Equal(0, result.CallOutcome.NativeCallsAttempted);
     }
@@ -360,11 +361,56 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var ambiguous = gameAction.Submit(in action);
         var blocked = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsPreflight.Quarantined, ambiguous.Preflight);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Outcome);
-        Assert.Equal(AutoItemsPreflight.Quarantined, blocked.Preflight);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, ambiguous.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Mutation);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, blocked.Code);
         Assert.Contains(relic.GetGuid().ToString("D"), blocked.Reason);
         Assert.Equal(0, blocked.CallOutcome.NativeCallsAttempted);
+    }
+
+    [Fact]
+    public void TargetUnavailableMapsToANamedExpectedResultCode()
+    {
+        var scroll = Item(AutoItemsConsumableFamily.Scroll, withTarget: false);
+        using var gameAction = GameAction();
+        var action = Action(scroll, AutoItemsConsumableFamily.Scroll);
+
+        var result = gameAction.Submit(in action).ToResult();
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoItemsActionResultCodes.TargetUnavailable, result.Code);
+    }
+
+    [Fact]
+    public void TargetingInProgressMapsToANamedExpectedResultCode()
+    {
+        TargetingManager.OpenRequests = 1;
+        var relic = Item(AutoItemsConsumableFamily.Relic);
+        using var gameAction = GameAction();
+        var action = Action(relic, AutoItemsConsumableFamily.Relic);
+
+        var result = gameAction.Submit(in action).ToResult();
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(AutoItemsActionResultCodes.TargetingInProgress, result.Code);
+    }
+
+    [Fact]
+    public void AmbiguousMutationReceiptNamesQuarantineAndRetainsAttemptEvidence()
+    {
+        var relic = Item(AutoItemsConsumableFamily.Relic);
+        relic.SelectionNoOp = true;
+        using var gameAction = GameAction();
+        var action = Action(relic, AutoItemsConsumableFamily.Relic);
+
+        var result = gameAction.Submit(in action).ToResult();
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(AutoItemsActionResultCodes.Quarantined, result.Code);
+        Assert.True(result.HasNativeEvidence);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.NativeEvidence.Outcome);
+        Assert.Equal(1, result.NativeCallOutcome.MutationAttempts);
+        Assert.Equal(0, result.NativeCallOutcome.MutationsCommitted);
     }
 
     [Fact]
@@ -528,8 +574,8 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var hidden = gameAction.Submit(in use);
         var noUsage = gameAction.Submit(in cancel);
 
-        Assert.Equal(ConsumablePlayerPreflight.NotVisible, hidden.Preflight);
-        Assert.Equal(ConsumablePlayerPreflight.NoCancellableUsage, noUsage.Preflight);
+        Assert.Equal(ConsumablePlayerActionResultCodes.NotVisible, hidden.Code);
+        Assert.Equal(ConsumablePlayerActionResultCodes.NoCancellableUsage, noUsage.Code);
         Assert.Equal(0, hidden.CallOutcome.NativeCallsAttempted);
         Assert.Equal(0, noUsage.CallOutcome.NativeCallsAttempted);
         Assert.Equal(1, item.GetQuantity());
@@ -556,7 +602,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
                 var result = gameAction.Submit(in action);
 
                 Assert.False(gameAction.PlayerBindingsAvailable);
-                Assert.Equal(ConsumablePlayerPreflight.ContractUnavailable, result.Preflight);
+                Assert.Equal(ConsumablePlayerActionResultCodes.ContractUnavailable, result.Code);
 
                 // Which binding was absent does not change what a player does next, so the answer
                 // only says the family is shut for the run. The maintainer who fixes it needs the
@@ -600,7 +646,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var faulted = gameAction.Submit(in move);
         var next = gameAction.Submit(in discard);
 
-        Assert.Equal(ConsumablePlayerPreflight.VerificationFailed, faulted.Preflight);
+        Assert.Equal(ConsumablePlayerActionResultCodes.VerificationFailed, faulted.Code);
         Assert.Equal(new[] { first, second }, Inventory.Current.allConsumables.value);
         Assert.True(next.Verified, next.Reason);
     }

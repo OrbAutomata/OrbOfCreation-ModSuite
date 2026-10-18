@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -103,64 +104,64 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
     internal EquipmentLoadoutSubmission Submit(in EquipmentLoadoutAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.WrongThread,
+            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
+            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Workshop > Artifacts", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,
+            return EquipmentLoadoutSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,
+            return EquipmentLoadoutSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             var resolution = _registry.Resolve(action.TargetId, native.EquipmentType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.IdentityUnavailable,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved ? GameActionAnswer.Replaced("artifact") : resolution.Reason);
             var target = resolution.Value!;
             if (!native.IsCreated(target))
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.NotCreated,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.NotCreated,
                     EntityIdentityFormatter.PlayerName(action.TargetId) + " has not been created.");
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.ContractUnavailable,
                     "The artifact loadout is not loaded right now.");
             var list = native.EquippedList(manager);
             var kind = native.ReadEquipmentType(target);
             var cost = native.UsageCost(target);
             if (list is null || kind is null || cost is null)
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.ContractUnavailable,
                     "The game did not answer whether this is allowed right now; open " +
                     "Workshop > Artifacts and read it again.");
             var before = Capture(native, list, target, kind, cost);
             if (action.Kind == EquipmentLoadoutActionKind.Equip)
             {
                 if (before.EquippedStacks >= before.MaximumStacks)
-                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.AlreadyInRequestedState,
+                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.AlreadyInRequestedState,
                         "The artifact is already equipped at its maximum stack level.");
                 if (before.EquippedStacks == 0 && before.UsedSlots >= before.MaximumSlots)
-                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LoadoutFull,
+                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.LoadoutFull,
                         "The equipment loadout has no open global slot.");
                 if (before.EquippedStacks == 0 && before.TypeUsedSlots >= before.TypeMaximumSlots)
-                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.EquipmentTypeFull,
+                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.EquipmentTypeFull,
                         "The artifact's equipment type has no open slot.");
                 if (!before.UsageAffordable || before.MaximumAffordableStacks <= 0)
-                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.UsageUnaffordable,
+                    return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.UsageUnaffordable,
                         "The native usage-cost evaluators refused this equipment increase.");
                 var maximumAdditional = Math.Min(
                     Math.Max(before.MaximumStacks - before.EquippedStacks, 0),
                     before.MaximumAffordableStacks);
                 if (action.Amount <= 0 || action.Amount > maximumAdditional)
                     return EquipmentLoadoutSubmission.Reject(
-                        EquipmentLoadoutPreflight.AmountUnavailable,
+                        EquipmentLoadoutActionResultCodes.AmountUnavailable,
                         "This artifact can equip at most " + maximumAdditional +
                         " more stacks with the current capacity and resources.",
                         maximumAdditional);
@@ -169,19 +170,19 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
             {
                 if (before.EquippedStacks == 0)
                     return EquipmentLoadoutSubmission.Reject(
-                        EquipmentLoadoutPreflight.AlreadyInRequestedState,
+                        EquipmentLoadoutActionResultCodes.AlreadyInRequestedState,
                         "The artifact is not equipped.");
                 if (action.Amount <= 0 || action.Amount > before.EquippedStacks)
                     return EquipmentLoadoutSubmission.Reject(
-                        EquipmentLoadoutPreflight.AmountUnavailable,
+                        EquipmentLoadoutActionResultCodes.AmountUnavailable,
                         "This artifact has only " + before.EquippedStacks +
                         " equipped stacks to remove.");
             }
             if (!_tryCaptureMutationPermit())
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.MutationPermitUnavailable,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             if (!NativeMultiBuyScope.TryEnter(action.Amount, out var scope, out var scopeReason))
-                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.MultiBuyUnavailable,
+                return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.MultiBuyUnavailable,
                     "The requested artifact amount could not be applied: " + scopeReason);
             using (scope)
                 return Execute(in action, native, manager, list, target,
@@ -189,7 +190,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
+            return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
         }
     }
@@ -211,16 +212,16 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         EquipmentLoadoutNativeBindings native, object manager, object list, object target,
         int beforeStacks, int requested)
     {
-        var stage = EquipmentLoadoutNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             if (action.Kind == EquipmentLoadoutActionKind.Equip) native.Equip(manager, target);
             else native.Unequip(manager, target);
-            stage = EquipmentLoadoutNativeStage.Verification;
+            stage = "Verification";
             var afterStacks = Math.Max(native.Stacks(list, target), 0);
             return OutcomeMatches(action.Kind, beforeStacks, afterStacks, requested)
                 ? Verified()
-                : Fault(in action, EquipmentLoadoutPreflight.VerificationFailed, stage,
+                : Fault(in action, EquipmentLoadoutActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     "Expected equipped stacks " + ExpectedStacks(action.Kind, beforeStacks, requested) +
                     ", observed " + afterStacks + ".");
@@ -231,7 +232,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                     () => Math.Max(native.Stacks(list, target), 0), out var observed) &&
                 OutcomeMatches(action.Kind, beforeStacks, observed, requested))
                 return Verified();
-            return Fault(in action, EquipmentLoadoutPreflight.PostCommitFault, stage,
+            return Fault(in action, EquipmentLoadoutActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Artifacts", exception));
         }
@@ -255,18 +256,17 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         after == ExpectedStacks(kind, before, requested);
 
     private static EquipmentLoadoutSubmission Verified() =>
-        new(EquipmentLoadoutPreflight.Proceeded, EquipmentLoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The requested artifact stack is equipped.");
+        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
+            "The requested artifact stack is equipped."));
 
     private static EquipmentLoadoutSubmission Fault(in EquipmentLoadoutAction action,
-        EquipmentLoadoutPreflight preflight, EquipmentLoadoutNativeStage stage,
+        ServiceActionResultCode code, string stage,
         NativeMutationOutcome outcome, string reason)
     {
         var exactReason = "Equipment loadout " + stage + " failed on " +
             EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
-        return new EquipmentLoadoutSubmission(preflight, stage, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason);
+        return new EquipmentLoadoutSubmission(NativeActionOutcome.Fault(code, outcome,
+            new NativeMutationCallOutcome(1, 1, 0), exactReason));
     }
 
     private void BindLifecycle()

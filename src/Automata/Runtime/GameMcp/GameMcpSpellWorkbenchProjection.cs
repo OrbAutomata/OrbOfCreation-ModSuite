@@ -1,4 +1,5 @@
 #if SERVICE_CYCLE_PROFILE
+using OrbModding.Common;
 using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
 using JArray = OrbAutomata.GameMcp.GameMcpArrayBuilder;
 
@@ -15,7 +16,7 @@ internal static class GameMcpSpellWorkbenchProjection
             {
                 ["status"] = "unavailable",
                 ["reasonCode"] = GameMcpActionResultCodeNames.Name(
-                    SpellWorkbenchActionResultMapper.Code(layout.Preflight),
+                    layout.Code,
                     GameMcpCommandKind.SpellWorkbench),
                 ["reason"] = layout.Reason,
             }.Freeze();
@@ -45,7 +46,7 @@ internal static class GameMcpSpellWorkbenchProjection
             {
                 ["status"] = "refused",
                 ["reasonCode"] = GameMcpActionResultCodeNames.Name(
-                    SpellWorkbenchActionResultMapper.Code(preview.Preflight),
+                    preview.Code,
                     GameMcpCommandKind.SpellWorkbench),
                 ["reason"] = preview.Reason,
             }.Freeze();
@@ -71,7 +72,7 @@ internal static class GameMcpSpellWorkbenchProjection
         return result.Freeze();
     }
 
-    internal static GameMcpValue Project(in SpellWorkbenchSubmission submission)
+    internal static GameMcpValue Project(in NativeActionOutcome submission)
     {
         if (submission.Verified || submission.CallOutcome.MutationAttempts == 0)
             return new JObject().Freeze();
