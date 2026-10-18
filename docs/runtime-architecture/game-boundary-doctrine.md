@@ -243,8 +243,11 @@ game's error by its log reference. An action of several presses — pay then act
 swap's give-up then take — makes them all inside that one call, under one sentinel for the whole
 effect. A press counts as an attempt even when the suite presses it back: a call that stops after
 pressing the game refuses only when it pressed its change back and the game rereads undone, and
-that refusal carries the one attempt; any other stop after a press is an attempted fault. Zero
-attempts means no press was made. A GameAction not yet on the shell is migration debt.
+that refusal carries the one attempt; any other stop after a press is an attempted fault. A call
+that throws partway is put back by the shell when it supplies a put-back: the call's exception
+stays the cause its log reference names, a throw from the put-back is logged in the same entry, and
+the answer says so when the put-back does not read back. Zero attempts means no press was made. A
+GameAction not yet on the shell is migration debt.
 
 Mutation entry points, in strict order of preference:
 
@@ -357,14 +360,15 @@ Spell-loadout add is the concrete complete-candidate case. On the Unity main thr
 GameAction builds a temporary spell at the recipe's selected level, bakes the requested glyph
 multiset into it, and follows the visible recipe button's gate order: non-level duration/toggle
 requirements; authored usage requirements (with the UI's selected-augment override); computed
-usage-budget affordability; an empty loadout slot; and unique-spell compatibility. Creation-cost
-affordability is then re-read from the exact core-plus-augment composition. After acquiring its
-mutation permit, the boundary stages the live selection, reruns those mutable gates, performs the
-cost, invokes native creation, and commits only when a new spell with the requested recipe identity
-and exact baked glyph multiset is observable. The player's staged Spellcraft selection is restored
-to what it was before the action, on every outcome including success. Duplicate request rows count
-cumulatively against each glyph's native usable maximum. Spell discovery is not part of this verb:
-it is the Magic > Spellbook > Unlock tree's roll.
+usage-budget affordability; an empty loadout slot; and unique-spell compatibility. Those gates are
+checked once, before anything is pressed. After acquiring its mutation permit, the boundary stages
+the requested augments over the live selection, verifies the staging by reading it back, and
+invokes native creation. The player's staged Spellcraft selection is put back on every outcome,
+success included, and it is part of the postcondition: the load commits only when a new spell with
+the requested recipe identity and exact baked glyph multiset is observable and that selection reads
+back as it was; when it does not, the answer says the selection changed. Duplicate request rows
+count cumulatively against each glyph's native usable maximum. Spell discovery is not part of this
+verb: it is the Magic > Spellbook > Unlock tree's roll.
 
 Discovery is one boundary because the game discovers through one mechanism: a Discovery Tree's
 roll. `DiscoveryTreeSO.DiscoverItem` is the only `IDiscoverable.Discover()` caller on a screen the

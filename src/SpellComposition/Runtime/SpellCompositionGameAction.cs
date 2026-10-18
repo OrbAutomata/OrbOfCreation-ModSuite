@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
@@ -12,17 +11,16 @@ namespace OrbAutomata;
 /// <c>Player</c> <c>IntVariable</c> beside the cap a Raise upgrade lifts, worked by the same
 /// <c>UINumberVariableAdjuster</c>.
 /// </summary>
-internal sealed class SpellCompositionGameAction : IDisposable
+internal sealed class SpellCompositionGameAction : NativeGameAction<SpellCompositionNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private static readonly GameActionCodes Codes = new(
+        SpellCompositionActionResultCodes.WrongThread,
+        SpellCompositionActionResultCodes.ContractUnavailable,
+        SpellCompositionActionResultCodes.MutationPermitUnavailable,
+        SpellCompositionActionResultCodes.PostCommitFault,
+        SpellCompositionActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private SpellCompositionNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal SpellCompositionGameAction(
         Func<long> readLifecycleEpoch,
@@ -31,68 +29,20 @@ internal sealed class SpellCompositionGameAction : IDisposable
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Level dial", Screen(LevelDial.Output), Codes, readLifecycleEpoch,
+            tryCaptureMutationPermit, readOwnershipFailure,
+            (out SpellCompositionNativeBindings? bindings, out string reason) =>
+                SpellCompositionNativeBindings.TryCreate(resolveType ?? ReflectionUtil.FindLoadedType,
+                    includeContract ?? (_ => true), out bindings, out reason))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ??
-            throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ??
-            throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(
-            _readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal SpellCompositionSubmission Submit(in SpellCompositionAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return SpellCompositionSubmission.Reject(
-                SpellCompositionActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
-            return SpellCompositionSubmission.Reject(
-                SpellCompositionActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached(Screen(action.Dial), _bindingFailure));
-
-        long currentEpoch;
-        try { currentEpoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return SpellCompositionSubmission.Reject(
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead(Screen(action.Dial), ex));
-        }
-        if (currentEpoch != action.LifecycleEpoch)
-            return SpellCompositionSubmission.Reject(
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        try { return SetDial(in action, native); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return SpellCompositionSubmission.Reject(
-                SpellCompositionActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead(Screen(action.Dial), ex));
-        }
-    }
-
-    internal void InvalidateLifecycle()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new SpellCompositionSubmission(outcome),
+            native => SetDial(in request, native), Screen(action.Dial));
     }
 
     private SpellCompositionSubmission SetDial(
@@ -120,90 +70,15 @@ internal sealed class SpellCompositionGameAction : IDisposable
             return SpellCompositionSubmission.Reject(
                 SpellCompositionActionResultCodes.AlreadyInRequestedState,
                 "The " + Name(action.Dial) + " is already " + current + ".");
-        if (!TryCapturePermit(out var reason))
-            return SpellCompositionSubmission.Reject(
-                SpellCompositionActionResultCodes.MutationPermitUnavailable,
-                reason);
+        if (!TryPermit(out var refusal)) return new SpellCompositionSubmission(refusal);
 
-        try
-        {
-            native.SetInt(variable, action.Value);
-            var observed = native.ReadInt(variable);
-            return observed == action.Value
-                ? Verified(
-                    "The " + Name(action.Dial) + " is now " + action.Value + ".")
-                : Fault(
-                    SpellCompositionActionResultCodes.VerificationFailed,
-                    "Verification",
-                    NativeMutationOutcome.PostconditionFailed,
-                    "Expected " + action.Value + ", observed " + observed + ".");
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            if (ReadCurrentBestEffort(native, variable, current) == action.Value)
-                return Verified(
-                    "The " + Name(action.Dial) + " setter threw after the requested value became observable.");
-            return Fault(
-                SpellCompositionActionResultCodes.PostCommitFault,
-                "Dial",
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored(Screen(action.Dial), ex));
-        }
-    }
-
-    private static int ReadCurrentBestEffort(
-        SpellCompositionNativeBindings native,
-        object variable,
-        int fallback)
-    {
-        try { return native.ReadInt(variable); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return fallback; }
-    }
-
-    private static SpellCompositionSubmission Verified(
-        string reason)
-    {
-        return new SpellCompositionSubmission(
-            NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), reason));
-    }
-
-    private static SpellCompositionSubmission Fault(
-        ServiceActionResultCode code,
-        string stage,
-        NativeMutationOutcome outcome,
-        string reason)
-    {
-        return new SpellCompositionSubmission(
-            NativeActionOutcome.Fault(
-                code,
-                outcome,
-                new NativeMutationCallOutcome(1, 1, 0),
-                "Level dial faulted after " + stage + ": " + reason));
-    }
-
-    private bool TryCapturePermit(out string reason)
-    {
-        if (_tryCaptureMutationPermit())
-        {
-            reason = string.Empty;
-            return true;
-        }
-        reason = _readOwnershipFailure();
-        if (reason.Length == 0)
-            reason = "The suite does not own the level-dial action family.";
-        return false;
-    }
-
-    private void BindLifecycle()
-    {
-        var resolve = _resolveType ?? ReflectionUtil.FindLoadedType;
-        var include = _includeContract ?? (_ => true);
-        if (!SpellCompositionNativeBindings.TryCreate(
-                resolve,
-                include,
-                out _bindings,
-                out _bindingFailure))
-            _bindings = null;
+        var value = action.Value;
+        return new SpellCompositionSubmission(Execute(Name(action.Dial),
+            "The " + Name(action.Dial) + " is now " + value + ".", current,
+            () => native.ReadInt(variable),
+            () => native.SetInt(variable, value),
+            (_, after) => after == value,
+            Screen(action.Dial)));
     }
 
     /// <summary>

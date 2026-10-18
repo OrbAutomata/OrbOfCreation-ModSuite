@@ -52,6 +52,21 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         Assert.Equal(new[] { first, last }, SpellManager.instance.activeSpells.value.Where(x => !x.IsEmpty()));
     }
 
+    [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Spell("Target");
+        SpellManager.instance!.activeSpells.value.Add(target);
+        using var action = Action(readEpoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = action.Submit(Remove(target));
+
+        Assert.True(result.IsFault);
+        Assert.Equal(SpellLoadoutActionResultCodes.ContractUnavailable, result.Code);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        Assert.Same(target, Assert.Single(SpellManager.instance.activeSpells.value));
+    }
+
     /// <summary>
     /// The gate the game applies to itself, answered before the call. Asking anyway does not fail
     /// harmlessly: the refused branch switches the spell to a time-based cooldown, so the player
@@ -379,10 +394,11 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
     private static SpellLoadoutGameAction Action(
         long epoch = Epoch,
         Func<bool>? permit = null,
-        Func<string, bool>? include = null)
+        Func<string, bool>? include = null,
+        Func<long>? readEpoch = null)
     {
         var action = new SpellLoadoutGameAction(
-            () => epoch,
+            readEpoch ?? (() => epoch),
             permit ?? (() => true),
             () => "test ownership unavailable",
             name => typeof(SpellManager).Assembly.GetTypes()

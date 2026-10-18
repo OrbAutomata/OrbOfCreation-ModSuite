@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
@@ -9,6 +11,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.SpellWorkbench;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class SpellWorkbenchGameActionTests : IDisposable
 {
     private const long Epoch = 41;
@@ -538,6 +541,100 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        using var action = Action(readEpoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.True(result.IsFault);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ContractUnavailable, result.Code);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    /// <summary>
+    /// Staging the requested augments is a press. A load that stops because the staging did not
+    /// land counts that press as an attempt, and refuses only once the player's own augment
+    /// selection reads back as it was.
+    /// </summary>
+    [Fact]
+    public void AStagingWriteThatDoesNotLandRefusesWithOneAttemptAndThePlayersSelectionBack()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 2);
+        var playerAugment = Augment();
+        SpellManager.instance!.selectedAugmentGlyphs.Stack(playerAugment, 1);
+        SpellManager.instance.selectedAugmentGlyphs.SuppressSetStack = true;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
+
+        Assert.False(result.Verified || result.IsFault, result.Reason);
+        Assert.Equal(SpellWorkbenchActionResultCodes.StagedWriteFailed, result.Code);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.EndsWith(GameActionAnswer.Undone(), result.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, SpellManager.instance.selectedAugmentGlyphs.GetStacks(playerAugment));
+        Assert.Empty(SpellManager.instance.activeSpells.value);
+    }
+
+    /// <summary>
+    /// When the load throws and putting the player's augments back throws too, the load's own
+    /// exception stays the cause the answer's reference names, and the put-back's is written into
+    /// the same log entry after it.
+    /// </summary>
+    [Fact]
+    public void ALoadThatThrowsKeepsItsCauseWhenPuttingTheSelectionBackThrowsToo()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 2);
+        SpellManager.instance!.selectedAugmentGlyphs.Stack(Augment(), 1);
+        SpellManager.instance.ThrowAfterCreation = true;
+        SpellManager.instance.selectedAugmentGlyphs.ThrowOnSetStackFromCall = 2;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
+
+        Assert.Equal(SpellWorkbenchActionResultCodes.PostCommitFault, result.Code);
+        var reference = Assert.Single(Regex.Matches(result.Reason, "MCP-[0-9A-F]{8}")
+            .Select(match => match.Value));
+        var entry = Assert.Single(logged, line => line.Contains(reference, StringComparison.Ordinal));
+        var cause = entry.IndexOf("injected failure after creation", StringComparison.Ordinal);
+        var putBack = entry.IndexOf("injected failure while writing the stack", StringComparison.Ordinal);
+        Assert.InRange(cause, 0, int.MaxValue);
+        Assert.True(putBack > cause, entry);
+    }
+
+    /// <summary>
+    /// A load that throws and leaves the requested augments staged in place of the player's own
+    /// says so, so the player's Spellcraft selection never changes without a word.
+    /// </summary>
+    [Fact]
+    public void ALoadThatThrowsAndCannotPutTheSelectionBackSaysTheSelectionChanged()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 2);
+        SpellManager.instance!.selectedAugmentGlyphs.Stack(Augment(), 1);
+        SpellManager.instance.ThrowAfterCreation = true;
+        SpellManager.instance.selectedAugmentGlyphs.SuppressSetStackFromCall = 2;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
+
+        Assert.Equal(SpellWorkbenchActionResultCodes.PostCommitFault, result.Code);
+        Assert.Contains(GameActionAnswer.GameErrored("Magic > Spellbook"), result.Reason, StringComparison.Ordinal);
+        Assert.EndsWith(GameActionAnswer.NotUndone("Magic > Spellbook"), result.Reason, StringComparison.Ordinal);
+        Assert.Equal(2, SpellManager.instance.selectedAugmentGlyphs.GetStacks(augment));
+    }
+
+    [Fact]
     public void OffThreadSubmissionRefusesBeforeNativeExecution()
     {
         var (recipe, _, _) = Recipe(discovered: true);
@@ -573,7 +670,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.Equal(SpellWorkbenchActionResultCodes.StagedWriteFailed, result.Code);
         Assert.Equal(
             "Staging the chosen augments into the game's augment selection did not land: 2x " +
-            Name(augment) + " was written and no glyphs came back.",
+            Name(augment) + " was written and no glyphs came back. " + GameActionAnswer.Undone(),
             result.Reason);
         Assert.Empty(SpellManager.instance.activeSpells.value);
     }
@@ -603,8 +700,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         Assert.Equal(SpellWorkbenchActionResultCodes.PostCommitFault, result.Code);
         Assert.EndsWith(
-            "The spell was loaded but the player's own augment selection could not be restored. " +
-            "Putting it back: Staging the chosen augments into the game's augment selection did " +
+            "The player's own augment selection could not be restored after the load; read the " +
+            "loadout before calling again. Putting it back: Staging the chosen augments into the game's augment selection did " +
             "not land: " + Name(stagedAugment) + " was written and 2x " + Name(augment) +
             " came back.",
             result.Reason,
@@ -860,10 +957,11 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     private static SpellWorkbenchGameAction Action(
         long epoch = Epoch,
         bool permit = true,
-        Func<string, bool>? include = null)
+        Func<string, bool>? include = null,
+        Func<long>? readEpoch = null)
     {
         var action = new SpellWorkbenchGameAction(
-            () => epoch,
+            readEpoch ?? (() => epoch),
             () => permit,
             () => "test ownership unavailable",
             name => typeof(SpellManager).Assembly.GetTypes()
@@ -875,6 +973,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
     public void Dispose()
     {
+        GameActionFaultLog.ConfigureLog(null);
         SpellRecipeSO.All.Clear();
         IdScriptableObject.RuntimeLookup.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(Epoch));

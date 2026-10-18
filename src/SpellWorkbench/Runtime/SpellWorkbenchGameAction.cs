@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -10,48 +9,36 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 namespace OrbAutomata;
 
 /// <summary>Lifecycle-bound explicit-layout loadout-add boundary.</summary>
-internal sealed class SpellWorkbenchGameAction : IDisposable
+internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbenchNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private const string Screen = "Magic > Spellbook";
+
+    private static readonly GameActionCodes Codes = new(
+        SpellWorkbenchActionResultCodes.WrongThread,
+        SpellWorkbenchActionResultCodes.ContractUnavailable,
+        SpellWorkbenchActionResultCodes.MutationPermitUnavailable,
+        SpellWorkbenchActionResultCodes.PostCommitFault,
+        SpellWorkbenchActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private SpellWorkbenchNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal SpellWorkbenchGameAction(Func<long> readLifecycleEpoch,
         Func<bool> tryCaptureMutationPermit, Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Spell workbench action", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out SpellWorkbenchNativeBindings? bindings, out string reason) =>
+                SpellWorkbenchNativeBindings.TryCreate(resolveType ?? ReflectionUtil.FindLoadedType,
+                    includeContract ?? (_ => true), out bindings, out reason))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(
-            _readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal SpellWorkbenchStagedLayout ReadStagedLayout()
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchActionResultCodes.WrongThread,
-                "The staged Spellcraft layout must be read on the Unity main thread.");
-        if (_bindings is not { } native)
-            return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure));
+        if (!TryEnter(out var native, out var refusal))
+            return SpellWorkbenchStagedLayout.Unavailable(refusal.Code, refusal.Reason);
         try
         {
             var manager = native.ReadManager();
@@ -81,7 +68,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         {
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Spellbook", exception));
+                GameActionAnswer.CouldNotRead(Screen, exception));
         }
     }
 
@@ -126,229 +113,53 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return true;
     }
 
-    internal bool TryValidateStoredSpell(
-        object spell,
-        out Guid spellId,
-        out Guid recipeId,
-        out object? usageCost,
-        out bool unique,
-        out string reason,
-        bool requireAvailableGlyphs = true)
-    {
-        spellId = Guid.Empty;
-        recipeId = Guid.Empty;
-        usageCost = null;
-        unique = false;
-        reason = string.Empty;
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-        {
-            reason = "Spell loadout validation must run on the Unity main thread.";
-            return false;
-        }
-        if (_bindings is not { } native)
-        {
-            reason = _bindingFailure;
-            return false;
-        }
-        if (spell is null || spell.GetType() != native.SpellType)
-        {
-            reason = "A saved spell has the wrong native type.";
-            return false;
-        }
-        var guid = native.ReadSpellGuid(spell);
-        if (guid is null || (spellId = native.ReadGuidValue(guid)) == Guid.Empty)
-        {
-            reason = "A saved spell has no stable instance identity.";
-            return false;
-        }
-        var recipe = native.ReadSpellReference(spell);
-        if (recipe is null || recipe.GetType() != native.RecipeType ||
-            (recipeId = native.ReadIdentity(recipe)) == Guid.Empty)
-        {
-            reason = "A saved spell has no valid recipe identity.";
-            return false;
-        }
-        var resolution = _registry.Resolve(recipeId, native.RecipeType);
-        if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
-            !ReferenceEquals(resolution.Value, recipe))
-        {
-            reason = EntityIdentityFormatter.PlayerName(recipeId) +
-                " is not the current spell recipe instance.";
-            return false;
-        }
-        if (!native.IsDiscovered(recipe))
-        {
-            reason = EntityIdentityFormatter.PlayerName(recipeId) + " has not been discovered.";
-            return false;
-        }
-
-        var glyphCounts = new Dictionary<Guid, int>();
-        var core = native.ReadRecipeGlyphs(recipe);
-        for (var index = 0; index < core.Count; index++)
-        {
-            var glyph = core[index];
-            if (glyph is null)
-            {
-                reason = "A saved spell has a missing core glyph.";
-                return false;
-            }
-            if (!TryValidateStoredGlyph(native, glyph, native.ReadIdentity(glyph), false,
-                    requireAvailableGlyphs, out reason) ||
-                !IncrementGlyph(native, glyph, glyphCounts, out reason))
-                return false;
-        }
-        var augments = native.ReadSpellAugments(spell);
-        for (var index = 0; index < augments.Count; index++)
-        {
-            var glyph = augments[index];
-            if (glyph is null)
-            {
-                reason = "A saved spell has a missing augment glyph.";
-                return false;
-            }
-            if (!TryValidateStoredGlyph(native, glyph, native.ReadIdentity(glyph), true,
-                    requireAvailableGlyphs, out reason) ||
-                !IncrementGlyph(native, glyph, glyphCounts, out reason))
-                return false;
-        }
-        if (!native.MeetsNonLevelRequirements(augments, spell))
-        {
-            reason = "The saved spell's glyph layout no longer meets its duration/toggle requirements.";
-            return false;
-        }
-        if (!native.HasMetUsageRequirements(recipe) && augments.Count == 0)
-        {
-            reason = "The saved spell no longer meets its usage requirements.";
-            return false;
-        }
-        usageCost = native.GetUsageCost(spell);
-        unique = native.IsUniqueSpell(spell);
-        reason = string.Empty;
-        return true;
-    }
-
-    private static bool TryValidateStoredGlyph(
-        SpellWorkbenchNativeBindings native,
-        object glyph,
-        Guid glyphId,
-        bool expectAugment,
-        bool requireAvailableGlyphs,
-        out string reason)
-    {
-        if (requireAvailableGlyphs)
-            return TryValidateGlyph(native, glyph, glyphId, expectAugment, out _, out reason);
-        if (glyph.GetType() != native.GlyphType)
-        {
-            reason = "A saved spell component has the wrong native type.";
-            return false;
-        }
-        if (native.IsGlyphAugment(glyph) != expectAugment)
-        {
-            reason = EntityIdentityFormatter.PlayerName(glyphId) +
-                " has the wrong core/augment role in the saved spell.";
-            return false;
-        }
-        reason = string.Empty;
-        return true;
-    }
-
-    private static bool IncrementGlyph(
-        SpellWorkbenchNativeBindings native,
-        object glyph,
-        Dictionary<Guid, int> counts,
-        out string reason)
-    {
-        var id = native.ReadIdentity(glyph);
-        counts.TryGetValue(id, out var count);
-        count++;
-        if (count > native.GetGlyphMaximumUsages(glyph))
-        {
-            reason = EntityIdentityFormatter.PlayerName(id) +
-                " exceeds its live usable count in the saved spell.";
-            return false;
-        }
-        counts[id] = count;
-        reason = string.Empty;
-        return true;
-    }
-
     internal NativeActionOutcome Submit(in SpellWorkbenchAction action)
     {
-        if (!TryResolveContext(
-                action.LifecycleEpoch,
-                action.SpellRecipeId,
-                out var native,
-                out var manager,
-                out var recipe,
-                out var preflight,
-                out var contextReason))
-            return NativeActionOutcome.Reject(preflight, contextReason);
-        try
-        {
-            return CreateWithLayout(in action, native, manager, recipe);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return NativeActionOutcome.Reject(SpellWorkbenchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
-        }
+        var request = action;
+        return Admit(action.LifecycleEpoch, native =>
+            TryResolveLoad(native, request.SpellRecipeId, out var manager, out var recipe,
+                out var refusal, out var reason)
+                ? CreateWithLayout(in request, native, manager, recipe)
+                : NativeActionOutcome.Reject(refusal, reason));
     }
 
     internal SpellWorkbenchLoadPreview Preview(in SpellWorkbenchLoadPreviewRequest request)
     {
-        if (!TryResolveContext(
-                request.LifecycleEpoch,
-                request.SpellRecipeId,
-                out var native,
-                out var manager,
-                out var recipe,
-                out var preflight,
-                out var contextReason))
+        var asked = request;
+        return Admit(request.LifecycleEpoch,
+            static outcome => SpellWorkbenchLoadPreview.Refused(outcome.Code, outcome.Reason),
+            native => PreviewLoad(in asked, native));
+    }
+
+    private SpellWorkbenchLoadPreview PreviewLoad(
+        in SpellWorkbenchLoadPreviewRequest request,
+        SpellWorkbenchNativeBindings native)
+    {
+        if (!TryResolveLoad(native, request.SpellRecipeId, out var manager, out var recipe,
+                out var preflight, out var contextReason))
             return SpellWorkbenchLoadPreview.Refused(preflight, contextReason);
-        try
-        {
-            if (!TryResolveGlyphLayout(
-                    request.AugmentGlyphs,
-                    expectAugment: true,
-                    native,
-                    out var augments,
-                    out var augmentRefusal,
-                    out var augmentReason))
-                return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason);
-            var replaced = native.HasEmpty(native.ReadActive(manager))
-                ? null
-                : FindLoadedCopy(native, manager, recipe);
-            if (!TryAdmitLoad(native, manager, recipe, augments, replaced,
-                    out preflight, out var admitReason))
-                return SpellWorkbenchLoadPreview.Refused(preflight, admitReason);
-            var candidate = BuildCandidate(native, recipe, augments);
-            return SpellWorkbenchLoadPreview.Admitted(
-                request.SpellRecipeId,
-                ReadUsageAllocation(native, native.GetUsageCost(candidate)),
-                replaced is { } copy
-                    ? EntityIdentityFormatter.PlayerName(request.SpellRecipeId) + " in slot " +
-                      (copy.Slot + 1) + " — remove it, then add"
-                    : string.Empty);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return SpellWorkbenchLoadPreview.Refused(
-                SpellWorkbenchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
-        }
-    }
-
-    internal void InvalidateLifecycle()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
+        if (!TryResolveGlyphLayout(
+                request.AugmentGlyphs,
+                expectAugment: true,
+                native,
+                out var augments,
+                out var augmentRefusal,
+                out var augmentReason))
+            return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason);
+        var replaced = native.HasEmpty(native.ReadActive(manager))
+            ? null
+            : FindLoadedCopy(native, manager, recipe);
+        if (!TryAdmitLoad(native, manager, recipe, augments, replaced,
+                out preflight, out var admitReason))
+            return SpellWorkbenchLoadPreview.Refused(preflight, admitReason);
+        var candidate = BuildCandidate(native, recipe, augments);
+        return SpellWorkbenchLoadPreview.Admitted(
+            request.SpellRecipeId,
+            ReadUsageAllocation(native, native.GetUsageCost(candidate)),
+            replaced is { } copy
+                ? EntityIdentityFormatter.PlayerName(request.SpellRecipeId) + " in slot " +
+                  (copy.Slot + 1) + " — remove it, then add"
+                : string.Empty);
     }
 
     /// <summary>Loads a discovered spell the way the Loadout list's own row loads it.</summary>
@@ -364,6 +175,10 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     /// Nothing here pays. The game charges nothing to put a spell in a slot; the only budget it
     /// weighs the load against is the usage allocation the loaded spell holds, and that is settled
     /// after the fact by the game's own recompute, never predicted here.
+    /// </para>
+    /// <para>
+    /// The player's staging is part of the outcome: a load commits only when the new spell is
+    /// there and the staging reads back as it was.
     /// </para>
     /// </remarks>
     private NativeActionOutcome CreateWithLayout(
@@ -381,93 +196,56 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
 
         var expectedLayout = ReadIds(native, augments);
         var before = ReadMatchingInstanceIds(native, manager, recipe, expectedLayout);
-        if (!TryCapturePermit(out var permitReason))
-            return NativeActionOutcome.Reject(
-                SpellWorkbenchActionResultCodes.MutationPermitUnavailable, permitReason);
-
-        var nativeCalls = 0;
-        var stage = "ClearSelection";
+        if (!TryPermit(out var permitRefusal)) return permitRefusal;
         if (!TryReadAugmentSelection(native, manager, out var previous, out var snapshotReason))
             return NativeActionOutcome.Reject(
                 SpellWorkbenchActionResultCodes.ContractUnavailable, snapshotReason);
-        try
-        {
-            var staged = TryStageAugments(
-                native, manager, augments, ref nativeCalls, out var stagingReason);
-            stage = "ApplySelection";
-            if (!staged)
-            {
-                return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
-                    ? NativeActionOutcome.Reject(
-                        SpellWorkbenchActionResultCodes.StagedWriteFailed, stagingReason)
-                    : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
-                        "ApplySelection",
-                        NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                        stagingReason +
-                        " The player's own augment selection could not be restored either. " +
-                        restoreFailure);
-            }
-
-            if (!TryReadAugmentSelection(native, manager, out var selected, out var readBackReason))
-            {
-                return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
-                    ? NativeActionOutcome.Reject(
-                        SpellWorkbenchActionResultCodes.StagedWriteFailed, readBackReason)
-                    : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
-                        "ApplySelection",
-                        NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                        readBackReason +
-                        " The player's own augment selection could not be restored either. " +
-                        restoreFailure);
-            }
-            if (!TryAdmitLoad(native, manager, recipe, selected, null, out refusal, out refusalReason))
-            {
-                if (RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure))
-                    return NativeActionOutcome.Reject(refusal, refusalReason);
-                return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
-                    "ApplySelection",
-                    NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                    "The game stopped admitting this load between the check and the staging (" +
-                    refusalReason + ") and the player's own augment selection could not be put " +
-                    "back. No spell was loaded; the Spellcraft selection on screen is the one " +
-                    "this call staged. " + restoreFailure);
-            }
-
-            stage = "Create";
-            native.Create(manager, recipe);
-            nativeCalls++;
-            if (!RestoreAugments(native, manager, previous, ref nativeCalls, out var unrestored))
-                return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
-                    "Verification",
-                    NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                    "The spell was loaded but the player's own augment selection could not be " +
-                    "restored. " + unrestored);
-            return HasNewMatchingInstance(
-                    native, manager, recipe, expectedLayout, before)
-                ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "A new spell with the exact requested augment layout is loaded.")
-                : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.VerificationFailed,
-                    "Verification",
-                    NativeMutationOutcome.PostconditionFailed, nativeCalls,
-                    "The game returned from the load without a spell carrying the requested " +
-                    "layout, so nothing is loaded and the player's own augment selection is " +
-                    "back as it was. Read the loadout before calling again.");
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            var restored = RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure);
-            if (restored && HasNewMatchingInstanceBestEffort(
-                    native, manager, recipe, expectedLayout, before))
-                return NativeActionOutcome.Commit(new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "The exact layout was loaded before the native fault.");
-            return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
-                stage, NativeMutationOutcome.ExecutionThrew, nativeCalls,
-                restored
-                    ? GameActionAnswer.GameErrored("Magic > Spellbook", ex)
-                    : "The augment selection you had staged could not be put back. " + restoreFailure +
-                        " " + GameActionAnswer.GameErrored("Magic > Spellbook", ex));
-        }
+        return Execute(EntityIdentityFormatter.PlayerName(action.SpellRecipeId),
+            "A new spell with the exact requested augment layout is loaded.", false,
+            () => HasNewInstance(before, ReadMatchingInstanceIds(native, manager, recipe, expectedLayout)) &&
+                Restored(native, manager, previous),
+            () => Load(native, manager, recipe, augments, previous),
+            static (_, landed) => landed,
+            putBackOnThrow: () => WriteAugments(native, manager, previous),
+            putBackLanded: () => Restored(native, manager, previous));
     }
+
+    /// <summary>
+    /// Every press of a load: stage the requested augments, prove they staged, press the row, and
+    /// stage the player's own augments back.
+    /// </summary>
+    /// <remarks>
+    /// The staging write is a press. A load that stops after it refuses only once the player's
+    /// staging reads back as it was, and that refusal counts the press as an attempt. A throw
+    /// anywhere here is put back by the shell.
+    /// </remarks>
+    private static NativeStop? Load(
+        SpellWorkbenchNativeBindings native,
+        object manager,
+        object recipe,
+        IList<object> augments,
+        IList<object> previous)
+    {
+        WriteAugments(native, manager, augments);
+        if (!TryReadBack(native, manager, augments, out var reason))
+        {
+            WriteAugments(native, manager, previous);
+            return NativeStop.Refused(SpellWorkbenchActionResultCodes.StagedWriteFailed, reason,
+                () => Restored(native, manager, previous));
+        }
+        native.Create(manager, recipe);
+        WriteAugments(native, manager, previous);
+        if (TryReadBack(native, manager, previous, out var unrestored)) return null;
+        return NativeStop.Fault(SpellWorkbenchActionResultCodes.PostCommitFault,
+            "The player's own augment selection could not be restored after the load; read " +
+            "the loadout before calling again. Putting it back: " + unrestored);
+    }
+
+    private static bool Restored(
+        SpellWorkbenchNativeBindings native,
+        object manager,
+        IList<object> previous) =>
+        TryReadBack(native, manager, previous, out _);
 
     /// <summary>Every fact the Loadout row's own button is disabled on, and nothing else.</summary>
     /// <remarks>
@@ -963,62 +741,34 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Writes one augment layout over the player's staging with the game's own stack write, and
-    /// proves it landed by reading the stack back.
-    /// </summary>
+    /// <summary>Writes one augment layout over the player's staging with the game's own stack write.</summary>
     /// <remarks>
     /// <c>SetStack</c> replaces the whole multiplicity record, so this both clears what was staged
-    /// and stages what was asked for in one call. The read-back is the postcondition: a write that
-    /// landed short is named here as the suite's own staging failure rather than travelling on to
-    /// create a spell with augments nobody asked for.
+    /// and stages what was asked for in one call.
     /// </remarks>
-    private static bool TryStageAugments(
+    private static void WriteAugments(
         SpellWorkbenchNativeBindings native,
         object manager,
-        IList<object> augmentGlyphs,
-        ref int nativeCalls,
-        out string reason)
+        IList<object> augmentGlyphs)
     {
         var record = native.CreateStackedRecord();
         SetStackedLayout(native, record, augmentGlyphs);
         native.SetListStack(native.ReadAugments(manager), record);
-        nativeCalls++;
-        if (!TryReadAugmentSelection(native, manager, out var staged, out reason)) return false;
-        if (!SameCounts(native, staged, augmentGlyphs))
-        {
-            reason = "Staging the chosen augments into the game's augment selection did not " +
-                "land: " + Describe(native, augmentGlyphs) + " was written and " +
-                Describe(native, staged) + " came back.";
-            return false;
-        }
-        reason = string.Empty;
-        return true;
     }
 
-    private static bool RestoreAugments(
+    /// <summary>Whether the live staging reads back as exactly <paramref name="expected"/>.</summary>
+    private static bool TryReadBack(
         SpellWorkbenchNativeBindings native,
         object manager,
-        IList<object> previous,
-        ref int nativeCalls,
-        out string failure)
+        IList<object> expected,
+        out string reason)
     {
-        try
-        {
-            if (TryStageAugments(native, manager, previous, ref nativeCalls, out var reason))
-            {
-                failure = string.Empty;
-                return true;
-            }
-            failure = "Putting it back: " + reason;
-            return false;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            failure = "Putting it back errored in the game." +
-                GameActionFaultLog.Record(ex, "Magic > Spellbook");
-            return false;
-        }
+        if (!TryReadAugmentSelection(native, manager, out var staged, out reason)) return false;
+        if (SameCounts(native, staged, expected)) return true;
+        reason = "Staging the chosen augments into the game's augment selection did not " +
+            "land: " + Describe(native, expected) + " was written and " +
+            Describe(native, staged) + " came back.";
+        return false;
     }
 
     private static string Describe(SpellWorkbenchNativeBindings native, IList<object> glyphs)
@@ -1075,14 +825,6 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return result;
     }
 
-    private static List<object> Copy(IList source)
-    {
-        var result = new List<object>(source.Count);
-        for (var index = 0; index < source.Count; index++)
-            if (source[index] is { } value) result.Add(value);
-        return result;
-    }
-
     private static Guid[] ReadMatchingInstanceIds(SpellWorkbenchNativeBindings native,
         object manager, object targetRecipe, Guid[] expectedLayout)
     {
@@ -1102,25 +844,6 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 matching.Add(instanceId);
         }
         return matching.ToArray();
-    }
-
-    private static bool HasNewMatchingInstance(
-        SpellWorkbenchNativeBindings native,
-        object manager,
-        object recipe,
-        Guid[] expectedLayout,
-        Guid[] before) =>
-        HasNewInstance(before, ReadMatchingInstanceIds(native, manager, recipe, expectedLayout));
-
-    private static bool HasNewMatchingInstanceBestEffort(
-        SpellWorkbenchNativeBindings native,
-        object manager,
-        object recipe,
-        Guid[] expectedLayout,
-        Guid[] before)
-    {
-        try { return HasNewMatchingInstance(native, manager, recipe, expectedLayout, before); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static Guid[] ReadIds(SpellWorkbenchNativeBindings native, IList values)
@@ -1182,62 +905,29 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return false;
     }
 
-    private bool TryResolveContext(
-        long requestedEpoch,
+    private static bool TryResolveLoad(
+        SpellWorkbenchNativeBindings native,
         Guid recipeId,
-        out SpellWorkbenchNativeBindings native,
         out object manager,
         out object recipe,
-        out ServiceActionResultCode preflight,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
-        native = null!;
-        manager = null!;
         recipe = null!;
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
+        manager = native.ReadManager()!;
+        if (manager is null)
         {
-            preflight = SpellWorkbenchActionResultCodes.WrongThread;
-            reason = GameActionAnswer.SuiteStopped();
+            refusal = SpellWorkbenchActionResultCodes.ContractUnavailable;
+            reason = "The spellbook is not loaded right now.";
             return false;
         }
-        if (_bindings is not { } available)
+        if (!TryResolveRecipe(native, recipeId, out recipe, out reason))
         {
-            preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
-            reason = GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure);
+            refusal = SpellWorkbenchActionResultCodes.IdentityUnavailable;
             return false;
         }
-        native = available;
-        try
-        {
-            var currentEpoch = _readLifecycleEpoch();
-            if (currentEpoch != requestedEpoch)
-            {
-                preflight = CommonActionResultCodes.LifecycleReplaced;
-                reason = GameActionAnswer.RunChanged();
-                return false;
-            }
-            manager = native.ReadManager()!;
-            if (manager is null)
-            {
-                preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
-                reason = "The spellbook is not loaded right now.";
-                return false;
-            }
-            if (!TryResolveRecipe(native, recipeId, out recipe, out reason))
-            {
-                preflight = SpellWorkbenchActionResultCodes.IdentityUnavailable;
-                return false;
-            }
-            preflight = CommonActionResultCodes.Committed;
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
-            reason = GameActionAnswer.CouldNotRead("Magic > Spellbook", ex);
-            return false;
-        }
+        refusal = CommonActionResultCodes.Committed;
+        return true;
     }
 
     private static bool TryResolveRecipe(SpellWorkbenchNativeBindings native, Guid id,
@@ -1257,35 +947,4 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             : "That id names more than one live spell recipe.";
         return false;
     }
-
-    private static NativeActionOutcome FaultAfterCommit(in SpellWorkbenchAction action,
-        ServiceActionResultCode code, string stage,
-        NativeMutationOutcome outcome, int nativeCalls, string reason)
-    {
-        var exactReason = $"Spell workbench action faulted after {stage} on " +
-            $"recipe {EntityIdentityFormatter.PlayerName(action.SpellRecipeId)}: {reason}";
-        return NativeActionOutcome.Fault(code, outcome,
-            new NativeMutationCallOutcome(nativeCalls, 1, 0), exactReason);
-    }
-
-    private bool TryCapturePermit(out string reason)
-    {
-        if (_tryCaptureMutationPermit()) { reason = string.Empty; return true; }
-        reason = _readOwnershipFailure();
-        if (reason.Length == 0) reason = "The suite does not own the spell workbench action family.";
-        return false;
-    }
-
-    private void BindLifecycle()
-    {
-        var resolveType = _resolveType ?? ReflectionUtil.FindLoadedType;
-        Func<string, bool> includeContract = _includeContract ?? (_ => true);
-        if (SpellWorkbenchNativeBindings.TryCreate(resolveType, includeContract, out var bindings, out var reason))
-        {
-            _bindings = bindings;
-            return;
-        }
-        _bindingFailure = reason;
-    }
-
 }

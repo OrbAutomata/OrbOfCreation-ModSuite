@@ -743,8 +743,6 @@ internal static class GameMcpDecisionReason
         // The suite staged a layout into the game's own selection lists and read back something
         // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
         // suite performs did not land, which is the suite's defect to answer for.
-        // The suite staged a layout into the game's own selection lists and read back something
-        // else. Nothing the caller passed is wrong and nothing in the game refused.
         ["staged_write_failed"] = new(ClassUnavailable, suiteDefect: true),
         // The suite could not pin the game's multi-buy multiplier for the press, so the press was
         // never made. This answered `native_rejected` — the game refusing — for a call the game

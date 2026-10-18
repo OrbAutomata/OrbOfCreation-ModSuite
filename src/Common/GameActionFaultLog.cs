@@ -38,10 +38,17 @@ internal static class GameActionFaultLog
     /// <summary>
     /// Writes the whole exception to the suite log under a fresh reference and returns the sentence
     /// fragment naming that reference, or an empty string when there is nothing to record or
-    /// nowhere to record it.
+    /// nowhere to record it. <paramref name="putBack"/> is what undoing the press threw after
+    /// <paramref name="exception"/>, written into the same entry after the cause.
     /// </summary>
-    internal static string Record(Exception? exception, string screen) =>
-        exception is null ? string.Empty : RecordDetail(exception.ToString(), screen);
+    internal static string Record(Exception? exception, string screen, Exception? putBack = null) =>
+        exception is null
+            ? string.Empty
+            : RecordDetail(
+                putBack is null
+                    ? exception.ToString()
+                    : exception + Environment.NewLine + "Putting the press back then threw: " + putBack,
+                screen);
 
     /// <summary>
     /// The same, for a maintainer's fact that never was an exception, such as which member of which

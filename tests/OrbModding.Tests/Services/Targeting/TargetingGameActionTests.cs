@@ -55,6 +55,21 @@ public sealed class TargetingGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Target();
+        Open(target);
+        using var action = Action(readEpoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(TargetingActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Empty(TargetingManager.SubmittedTargets);
+    }
+
+    [Fact]
     public void AbsentTargetRefusesBeforePermitOrMutation()
     {
         Open(Target());
@@ -181,9 +196,9 @@ public sealed class TargetingGameActionTests : IDisposable
         TargetingManager.OpenRequests = 1;
     }
     private static TargetingGameAction Action(long epoch = Epoch, Func<bool>? permit = null,
-        Func<string, bool>? include = null)
+        Func<string, bool>? include = null, Func<long>? readEpoch = null)
     {
-        var action = new TargetingGameAction(() => epoch, permit ?? (() => true),
+        var action = new TargetingGameAction(readEpoch ?? (() => epoch), permit ?? (() => true),
             () => "test ownership unavailable",
             name => typeof(TargetingManager).Assembly.GetTypes()
                 .FirstOrDefault(type => type.Name == name || type.FullName == name),

@@ -1,77 +1,57 @@
 using System;
-using System.Collections;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 /// <summary>The sole mutation boundary for the current native targeting request.</summary>
-internal sealed class TargetingGameAction : IDisposable
+internal sealed class TargetingGameAction : NativeGameAction<TargetingNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
-    private readonly int _mainThreadId;
-    private TargetingNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
+    private const string Screen = "Magic > Casting";
+
+    private const string Submitted =
+        "The exact target was assigned and its original request left the queue.";
+
+    private static readonly GameActionCodes Codes = new(
+        TargetingActionResultCodes.WrongThread,
+        TargetingActionResultCodes.ContractUnavailable,
+        TargetingActionResultCodes.MutationPermitUnavailable,
+        TargetingActionResultCodes.PostCommitFault,
+        TargetingActionResultCodes.VerificationFailed);
 
     internal TargetingGameAction(Func<long> readLifecycleEpoch, Func<bool> tryCaptureMutationPermit,
         Func<string> readOwnershipFailure, Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null)
+        : base("Targeting", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out TargetingNativeBindings? bindings, out string reason) =>
+                TargetingNativeBindings.TryCreate(resolveType ?? ReflectionUtil.FindLoadedType,
+                    includeContract ?? (_ => true), out bindings, out reason))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType; _includeContract = includeContract;
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal TargetingSubmission Submit(in TargetingAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return TargetingSubmission.Reject(TargetingActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
-            return TargetingSubmission.Reject(TargetingActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Casting", _bindingFailure));
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new TargetingSubmission(outcome, Guid.Empty),
+            native => Press(in request, native));
+    }
+
+    private TargetingSubmission Press(in TargetingAction action, TargetingNativeBindings native)
+    {
+        if (!native.IsTargeting())
+            return TargetingSubmission.Reject(TargetingActionResultCodes.NoPendingRequest,
+                "The game has no pending target request.");
+        var link = native.GetLink();
+        if (link is null || link.GetType() != native.LinkType)
+            return TargetingSubmission.Reject(TargetingActionResultCodes.NoPendingRequest,
+                "The game is not showing a targeting request right now.");
+        return action.Kind switch
         {
-            return TargetingSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
-        }
-        if (epoch != action.LifecycleEpoch)
-            return TargetingSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-        try
-        {
-            if (!native.IsTargeting())
-                return TargetingSubmission.Reject(TargetingActionResultCodes.NoPendingRequest,
-                    "The game has no pending target request.");
-            var link = native.GetLink();
-            if (link is null || link.GetType() != native.LinkType)
-                return TargetingSubmission.Reject(TargetingActionResultCodes.NoPendingRequest,
-                    "The game is not showing a targeting request right now.");
-            return action.Kind switch
-            {
-                TargetingActionKind.Submit => SubmitTarget(in action, native, link),
-                TargetingActionKind.Randomize => Randomize(in action, native, link),
-                TargetingActionKind.Cancel => Cancel(in action, native, link),
-                _ => TargetingSubmission.Reject(TargetingActionResultCodes.ContractUnavailable, "Unknown targeting mode."),
-            };
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return TargetingSubmission.Reject(TargetingActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Magic > Casting", ex));
-        }
+            TargetingActionKind.Submit => SubmitTarget(in action, native, link),
+            TargetingActionKind.Randomize => Randomize(native, link),
+            TargetingActionKind.Cancel => Cancel(native, link),
+            _ => TargetingSubmission.Reject(TargetingActionResultCodes.ContractUnavailable, "Unknown targeting mode."),
+        };
     }
 
     private TargetingSubmission SubmitTarget(in TargetingAction action,
@@ -97,134 +77,67 @@ internal sealed class TargetingGameAction : IDisposable
         if (!native.CheckTarget(link, candidate))
             return TargetingSubmission.Reject(TargetingActionResultCodes.NativeTargetRefused,
                 "The game refuses this target.");
-        if (!TryPermit(out var reason))
-            return TargetingSubmission.Reject(TargetingActionResultCodes.MutationPermitUnavailable, reason);
-        return MutateSubmit(in action, native, link, candidate);
+        if (!TryPermit(out var refusal)) return new TargetingSubmission(refusal, Guid.Empty);
+        var target = candidate;
+        var outcome = Execute(EntityIdentityFormatter.PlayerName(action.TargetId), Submitted, false,
+            () => SubmittedTo(native, link, target),
+            () => native.SubmitTarget(target),
+            static (_, landed) => landed);
+        return new TargetingSubmission(outcome, outcome.Verified ? action.TargetId : Guid.Empty);
     }
 
-    private TargetingSubmission Randomize(in TargetingAction action,
-        TargetingNativeBindings native, object link)
+    /// <summary>
+    /// The screen's randomize button: the game picks one target, and that pick is submitted as the
+    /// player's choice in the same press.
+    /// </summary>
+    private TargetingSubmission Randomize(TargetingNativeBindings native, object link)
     {
         if (native.GetAllTargets(link).Count == 0)
             return TargetingSubmission.Reject(TargetingActionResultCodes.TargetUnavailable,
                 "This targeting request is offering no target to pick.");
-        if (!TryPermit(out var reason))
-            return TargetingSubmission.Reject(TargetingActionResultCodes.MutationPermitUnavailable, reason);
-        object? candidate;
-        try { candidate = native.GetRandom(link); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return Fault(TargetingActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew, in action,
-                new NativeMutationCallOutcome(1, 1, 0),
-                "The game errored while picking a random target; pick a target by id instead.");
-        }
-        if (candidate is null || candidate.GetType() != native.StructureType)
-            return Fault(TargetingActionResultCodes.VerificationFailed,
-                NativeMutationOutcome.PostconditionFailed, in action,
-                new NativeMutationCallOutcome(1, 1, 0),
-                "The game's randomize button did not settle on one target; pick a target " +
-                "by id instead.");
-        if (!native.CheckTarget(link, candidate))
-            return Fault(TargetingActionResultCodes.VerificationFailed,
-                NativeMutationOutcome.PostconditionFailed, in action,
-                new NativeMutationCallOutcome(1, 1, 0),
-                "The game's randomize button picked a target it then refused; pick a target " +
-                "by id instead.");
-        return MutateSubmit(in action, native, link, candidate, 1);
+        if (!TryPermit(out var refusal)) return new TargetingSubmission(refusal, Guid.Empty);
+        object? picked = null;
+        var pickedId = Guid.Empty;
+        var outcome = Execute(nameof(TargetingActionKind.Randomize), Submitted, false,
+            () => picked is not null && SubmittedTo(native, link, picked),
+            () =>
+            {
+                var candidate = native.GetRandom(link);
+                if (candidate is null || candidate.GetType() != native.StructureType)
+                    return NativeStop.Fault(TargetingActionResultCodes.VerificationFailed,
+                        "The game's randomize button did not settle on one target; pick a target " +
+                        "by id instead.");
+                if (!native.CheckTarget(link, candidate))
+                    return NativeStop.Fault(TargetingActionResultCodes.VerificationFailed,
+                        "The game's randomize button picked a target it then refused; pick a " +
+                        "target by id instead.");
+                pickedId = native.GetGuid(candidate);
+                picked = candidate;
+                native.SubmitTarget(candidate);
+                return null;
+            },
+            static (_, landed) => landed);
+        return new TargetingSubmission(outcome, outcome.Verified ? pickedId : Guid.Empty);
     }
 
-    private TargetingSubmission MutateSubmit(in TargetingAction action,
-        TargetingNativeBindings native, object link, object candidate,
-        int priorCalls = 0)
-    {
-        var id = native.GetGuid(candidate);
-        try
-        {
-            native.SubmitTarget(candidate);
-            return Submitted(native, link, candidate)
-                ? Verified(id, priorCalls + 1,
-                    "The exact target was assigned and its original request left the queue.")
-                : Fault(TargetingActionResultCodes.VerificationFailed,
-                    NativeMutationOutcome.PostconditionFailed, in action,
-                    new NativeMutationCallOutcome(priorCalls + 1, 1, 0),
-                    "SubmitTarget did not assign the exact object and retire its request.");
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            if (Submitted(native, link, candidate))
-                return Verified(id, priorCalls + 1,
-                    "SubmitTarget threw after the exact requested outcome became observable.");
-            return Fault(TargetingActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew, in action,
-                new NativeMutationCallOutcome(priorCalls + 1, 1, 0),
-                GameActionAnswer.GameErrored("Magic > Casting", ex));
-        }
-    }
-
-    private TargetingSubmission Cancel(in TargetingAction action,
-        TargetingNativeBindings native, object link)
+    private TargetingSubmission Cancel(TargetingNativeBindings native, object link)
     {
         var resultInfo = native.ReadResultInfo(link);
         if (resultInfo is null)
             return TargetingSubmission.Reject(TargetingActionResultCodes.CancelUnavailable,
                 "This targeting request has nothing to cancel.");
-        if (!TryPermit(out var reason))
-            return TargetingSubmission.Reject(TargetingActionResultCodes.MutationPermitUnavailable, reason);
-        try
-        {
-            native.Cancel(resultInfo);
-            return native.IsCancelled(resultInfo) && OriginalRequestGone(native, link)
-                ? Verified(Guid.Empty, 1,
-                    "The cast was cancelled and its request left the action queue.")
-                : Fault(TargetingActionResultCodes.VerificationFailed,
-                    NativeMutationOutcome.PostconditionFailed, in action,
-                    new NativeMutationCallOutcome(1, 1, 0),
-                    GameActionAnswer.ChangeNotSeen("Magic > Casting"));
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            if (native.IsCancelled(resultInfo) && OriginalRequestGone(native, link))
-                return Verified(Guid.Empty, 1,
-                    "Cancel threw after the exact requested outcome became observable.");
-            return Fault(TargetingActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew, in action,
-                new NativeMutationCallOutcome(1, 1, 0),
-                GameActionAnswer.GameErrored("Magic > Casting", ex));
-        }
+        if (!TryPermit(out var refusal)) return new TargetingSubmission(refusal, Guid.Empty);
+        return new TargetingSubmission(Execute(nameof(TargetingActionKind.Cancel),
+            "The cast was cancelled and its request left the action queue.", false,
+            () => native.IsCancelled(resultInfo) && OriginalRequestGone(native, link),
+            () => native.Cancel(resultInfo),
+            static (_, landed) => landed), Guid.Empty);
     }
 
-    private static bool Submitted(TargetingNativeBindings native, object link, object candidate) =>
+    private static bool SubmittedTo(TargetingNativeBindings native, object link, object candidate) =>
         native.HasTarget(link) && ReferenceEquals(native.ReadTarget(link), candidate) &&
         OriginalRequestGone(native, link);
+
     private static bool OriginalRequestGone(TargetingNativeBindings native, object link) =>
         !native.IsTargeting() || !ReferenceEquals(native.GetLink(), link);
-    private static TargetingSubmission Verified(Guid submitted, int calls, string reason)
-    {
-        return new TargetingSubmission(
-            NativeActionOutcome.Commit(new NativeMutationCallOutcome(calls, 1, 1), reason), submitted);
-    }
-    private static TargetingSubmission Fault(ServiceActionResultCode code,
-        NativeMutationOutcome outcome, in TargetingAction action,
-        NativeMutationCallOutcome calls, string reason)
-    {
-        var exactReason = "Targeting " + action.Kind +
-            " could not prove its exact outcome: " + reason;
-        return new TargetingSubmission(NativeActionOutcome.Fault(code, outcome, calls, exactReason), Guid.Empty);
-    }
-    private bool TryPermit(out string reason)
-    {
-        if (_tryCaptureMutationPermit()) { reason = string.Empty; return true; }
-        reason = _readOwnershipFailure();
-        if (string.IsNullOrWhiteSpace(reason)) reason = "The targeting action family is not owned.";
-        return false;
-    }
-    internal void InvalidateLifecycle() { _bindings = null; _bindingFailure = string.Empty; BindLifecycle(); }
-    public void Dispose() { _bindings = null; _bindingFailure = string.Empty; }
-    private void BindLifecycle()
-    {
-        var resolve = _resolveType ?? ReflectionUtil.FindLoadedType;
-        var include = _includeContract ?? (_ => true);
-        if (!TargetingNativeBindings.TryCreate(resolve, include, out _bindings, out _bindingFailure)) _bindings = null;
-    }
 }
