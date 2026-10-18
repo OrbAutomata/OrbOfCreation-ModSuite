@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.World;
 
@@ -251,7 +252,7 @@ internal sealed class AutomataRateVerifier
             var record = NativeModifierRecordAccess.For(recordType);
             var hasActiveElements = FindNoArg(recordType, "HasActiveElements");
 
-            var getGuid = FindNoArg(resourceType, "GetGuid");
+            var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(resourceType);
             var quantity = resourceType.GetField("quantity", Instance);
             var lifetimeQuantity = resourceType.GetField("lifetimeQuantity", Instance);
             var calcRarityValue = resourceType.GetField("calcRarityValue", Instance);

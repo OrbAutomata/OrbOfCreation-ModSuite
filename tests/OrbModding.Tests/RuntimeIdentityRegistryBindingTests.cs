@@ -43,4 +43,56 @@ public sealed class RuntimeIdentityRegistryBindingTests
 
         Assert.Equal("native IdScriptableObject type is not loaded yet", refusal.Message);
     }
+
+    [Fact]
+    public void AnEntityAnswersThroughTheBoundIdentityContract()
+    {
+        var binding = new RuntimeIdentityRegistryBinding(() => typeof(IdScriptableObject));
+        var structure = new StructureSO();
+
+        var method = binding.StableUuidMethod(typeof(StructureSO));
+
+        Assert.Equal(typeof(IdScriptableObject), method?.DeclaringType);
+        Assert.Equal(structure.GetGuid(), method?.Invoke(structure, null));
+    }
+
+    /// <summary>
+    /// A few plain game objects, such as a consumable usage or a player loadout, carry an identity
+    /// without being an IdScriptableObject; they declare their own GetGuid.
+    /// </summary>
+    [Fact]
+    public void APlainObjectAnswersThroughItsOwnGetGuid()
+    {
+        var binding = new RuntimeIdentityRegistryBinding(() => typeof(IdScriptableObject));
+        var usage = new PlainIdentity();
+
+        var method = binding.StableUuidMethod(typeof(PlainIdentity));
+
+        Assert.Equal(usage.Id, method?.Invoke(usage, null));
+        Assert.Null(binding.StableUuidMethod(typeof(object)));
+    }
+
+    [Fact]
+    public void AnEntityHasNoIdentityWhileTheContractIsUnavailable()
+    {
+        Assert.Null(new RuntimeIdentityRegistryBinding(() => null).StableUuidMethod(typeof(StructureSO)));
+        Assert.Null(new RuntimeIdentityRegistryBinding(() => typeof(MismatchedIdentity))
+            .StableUuidMethod(typeof(MismatchedEntity)));
+    }
+
+    private sealed class PlainIdentity
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public Guid GetGuid() => Id;
+    }
+
+    private class MismatchedIdentity
+    {
+        public static Dictionary<Guid, object> RuntimeLookup = new();
+        public Guid GetGuid() => Guid.NewGuid();
+    }
+
+    private sealed class MismatchedEntity : MismatchedIdentity
+    {
+    }
 }

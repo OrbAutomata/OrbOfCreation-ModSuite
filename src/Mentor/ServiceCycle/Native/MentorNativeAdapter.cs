@@ -101,7 +101,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var expected = new BigDouble(amount.Mantissa, amount.Exponent);
         var evidence = NativeMutationVerifier.Execute(
             "Mentor mastery XP grant",
-            ReflectionUtil.ReadStableId(recipient) ?? "<unknown>",
+            Describe(recipient),
             "mastery XP increased",
             () => ReadBigDouble(experienceField, recipient),
             () =>
@@ -112,6 +112,9 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             (before, after) => after.CompareTo(before) > 0);
         return FromEvidence(evidence);
     }
+
+    private static string Describe(object entity) =>
+        RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(entity)?.ToString() ?? "<unknown>";
 
     private static NativeActionOutcome GrantArtifact(object equipment, MentorAmount amount)
     {
@@ -130,7 +133,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
 
         var evidence = NativeMutationVerifier.Execute(
             "Mentor artifact mastery XP grant",
-            ReflectionUtil.ReadStableId(equipment) ?? "<unknown>",
+            Describe(equipment),
             "artifact mastery progress increased",
             () => CaptureArtifactProgress(container, getLevel, getExperience),
             () =>

@@ -503,23 +503,27 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public static List<AlchemyRecipeSO> All = new List<AlchemyRecipeSO>();
     private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
 
-    public AlchemyRecipeSO()
-    {
-        uuid = base.GetGuid().ToString();
-    }
+    private string stableUuid;
+
+    public AlchemyRecipeSO() => stableUuid = base.GetGuid().ToString("D");
 
     public AlchemyRecipeSO(string uuid, string name, IEnumerable<AlchemyTypeSO> types)
     {
+        stableUuid = base.GetGuid().ToString("D");
         this.uuid = uuid;
         this.name = name;
         alchemyTypes.AddRange(types);
-        if (Guid.TryParse(uuid, out var guid))
-        {
-            base.SetGuid(guid);
-        }
     }
 
-    public new string uuid;
+    public new string uuid
+    {
+        get => stableUuid;
+        set
+        {
+            stableUuid = value;
+            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
+        }
+    }
     public new string name = "Alchemy";
     public bool discovered = true;
 
@@ -1016,7 +1020,9 @@ public sealed class ViewListVariable : GenericListVariable<ViewSO>
 public class UpgradeSO : IdScriptableObject, IActionable
 {
     public static List<UpgradeSO> All = new List<UpgradeSO>();
-    private string stableUuid = Guid.NewGuid().ToString();
+    private string stableUuid;
+
+    public UpgradeSO() => stableUuid = base.GetGuid().ToString("D");
     public new string uuid
     {
         get => stableUuid;
@@ -3086,7 +3092,9 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
     public List<PersistentEffectBlock> equipEffects = new List<PersistentEffectBlock>();
     public static List<EquipmentSO> All = new List<EquipmentSO>();
     private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
-    private string stableUuid = Guid.NewGuid().ToString();
+    private string stableUuid;
+
+    public EquipmentSO() => stableUuid = base.GetGuid().ToString("D");
     public new string uuid
     {
         get => stableUuid;
@@ -3513,10 +3521,22 @@ public sealed class ConceptCostEntry
     public BigDouble GetValue() => Value;
 }
 
-public sealed class ConceptResource
+public sealed class ConceptResource : IdScriptableObject
 {
-    public string uuid = Guid.NewGuid().ToString();
-    public string name = "Concept resource";
+    private string stableUuid;
+
+    public ConceptResource() => stableUuid = base.GetGuid().ToString("D");
+
+    public new string uuid
+    {
+        get => stableUuid;
+        set
+        {
+            stableUuid = value;
+            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
+        }
+    }
+    public new string name = "Concept resource";
     public bool AtZero { get; set; }
     public BigDouble TrueRate { get; set; } = new BigDouble(100.0, 0);
     public BigDouble ModdedDrain { get; set; } = new BigDouble(0.0, 0);
@@ -3530,7 +3550,6 @@ public sealed class ConceptResource
     public BigDouble GetQuantity() => Quantity;
     public BigDouble GetTrueSoftCap() => SoftCap;
     public string GetName() => name;
-    public Guid GetGuid() => Guid.TryParse(uuid, out var guid) ? guid : Guid.Empty;
 }
 
 public sealed class EffectResultInfo

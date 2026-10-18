@@ -396,8 +396,8 @@ internal sealed class AutomataRequirementVerifier
         {
             if (ownerType is null) return null;
 
-            var getGuid = ownerType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
-            if (getGuid is null || getGuid.ReturnType != typeof(Guid)) return null;
+            var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(ownerType);
+            if (getGuid is null) return null;
 
             FieldInfo? container = null;
             FieldInfo? tiers = null;
