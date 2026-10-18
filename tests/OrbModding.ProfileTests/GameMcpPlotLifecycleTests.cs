@@ -361,7 +361,7 @@ public sealed class GameMcpPlotLifecycleTests
         var row = Assert.Single(Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 913),
             "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
-        Assert.Equal("unreadable", (string?)row["add"]);
+        Assert.Equal("unreadable", (string?)row!["add"]);
         Assert.Equal(
             "The action queue was not readable in this world, so queue room is unknown.",
             (string?)Detail(world)["add"]!["reason"]);

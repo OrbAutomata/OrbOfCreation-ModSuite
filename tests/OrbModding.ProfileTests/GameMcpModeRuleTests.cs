@@ -97,7 +97,7 @@ public sealed class GameMcpModeRuleTests
                 yield return (
                     (string)tool["name"]!,
                     (string)rule["if"]!["properties"]!["mode"]!["const"]!,
-                    then["required"]?.Values<string>().ToArray()! ?? new string[0],
+                    then["required"]?.Values<string>().Select(field => field!).ToArray() ?? new string[0],
                     then["not"]?["anyOf"]?.Select(any => (string)any["required"]![0]!).ToArray()
                         ?? new string[0]);
             }
