@@ -583,7 +583,7 @@ public sealed class GameWorldCollectorTests : IDisposable
         // the two that belong to no per-type registry at all and are reached by uuid: the action
         // queues, the equipped spell loadout, the paired Concept registries, and the current
         // targeting request, plus the two ordered consumable lists, their frame-local use gate, and
-        // the runtime Brewing Station selector/lifecycle surface, the nine type rosters, whose
+        // the nine type rosters, whose
         // modifier records were already walked but whose assets had no row of their own, and the
         // six base agromancy verbs, whose keyword rows were walked while the assets a members line
         // counts had no row to be reached at, and the game's own statistic glossary, the words it
@@ -595,57 +595,16 @@ public sealed class GameWorldCollectorTests : IDisposable
         // up only as a consumer finding nothing where there was something.
         var report = Collector().Collect();
 
-        Assert.Equal(90, report.Categories.Length);
+        Assert.Equal(89, report.Categories.Length);
         Assert.True(report.IsComplete, report.Describe());
 
         // A few named explicitly, one per shape: a mastery track, a state machine, a lone flag, and a
         // levelled grouping type.
         foreach (var category in
-                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "crafting stations", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "recipe book glyphs", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics", "status effects", "character attributes", "damage types", "character modifiers", "character actions", "character types", "enchantments", "glyph types", "rune stones", "display types", "attribute groups", "attribute group members" })
+                 new[] { "resources", "harvest actions", "harvest resources", "harvest lifecycle", "time runes", "challenges", "challenge decisions", "views", "purchase view relations", "resource types", "crafting recipes", "crafting recipe state", "crafting decisions", "recipe books", "modifier variables", "structure costs", "upgrade costs", "plot actions", "action queues", "spell slots", "spell workbench", "spell authored graph", "ordinary alchemy loadout", "concept instances", "loadouts", "targeting", "consumable inventory", "plot authoring", "effect blocks", "entity requirements", "recipe book glyphs", "prerequisite link states", "entity keywords", "type modifiers", "type modifier contributions", "structure types", "ritual types", "harvest types", "plot node types", "research types", "consumable families", "harvest action types", "passive ability types", "time rune types", "statistics", "status effects", "character attributes", "damage types", "character modifiers", "character actions", "character types", "enchantments", "glyph types", "rune stones", "display types", "attribute groups", "attribute group members" })
         {
             Assert.Equal(WorldCategoryOutcome.Collected, report.For(category).Outcome);
         }
-    }
-
-    [Fact]
-    public void Brewing_station_selection_and_lifecycle_are_published_together()
-    {
-        var first = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
-        var second = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
-        var output = new FakeCraftingStationTooltipable { Identity = Guid.NewGuid() };
-        var firstElement = new FakeCraftingStationElement { tooltipable = first };
-        var secondElement = new FakeCraftingStationElement { tooltipable = second };
-        var outputElement = new FakeCraftingStationElement { tooltipable = output };
-        var structure = new FakeCraftingStructure();
-        var station = new FakeCraftingStation
-        {
-            reference = structure,
-            recipeId = new FakeCraftingStationGuid(Guid.NewGuid()),
-            firstIngredient = firstElement,
-            secondIngredient = secondElement,
-            output = outputElement,
-            loaded = true,
-            active = true,
-            level = 4,
-            minimumLevel = 2,
-            maximumLevel = 7,
-        };
-        structure.instances.value.Add(station);
-        FakeCraftingStructure.All.Add(structure);
-
-        var collector = Collector();
-        var report = collector.Collect();
-        var world = collector.Build();
-
-        Assert.True(report.IsComplete, report.Describe());
-        Assert.True(WorldCraftingStationLookup.TryFind(world.CraftingStations, station.Identity, out var row));
-        Assert.Equal(structure.Identity, row.StructureTypeId);
-        Assert.Equal(first.Identity, row.FirstIngredientId);
-        Assert.Equal(second.Identity, row.SecondIngredientId);
-        Assert.Equal(output.Identity, row.OutputId);
-        Assert.True(row.Loaded);
-        Assert.True(row.Active);
-        Assert.Equal(4, row.Level);
     }
 
     /// <summary>
@@ -664,28 +623,6 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("harvest lifecycle").Outcome);
         Assert.Equal(0, world.HarvestElementControls.Count);
-    }
-
-    /// <summary>
-    /// A station that throws after an earlier one was read withdraws the whole category, so no
-    /// station reads as absent while the report says the category could not be read.
-    /// </summary>
-    [Fact]
-    public void A_brewing_station_read_that_throws_part_way_leaves_no_stations_behind()
-    {
-        var structure = new FakeCraftingStructure();
-        var read = new FakeCraftingStation { reference = structure };
-        var throwing = new FakeCraftingStation { reference = structure, throwsOnLevel = true };
-        structure.instances.value.Add(read);
-        structure.instances.value.Add(throwing);
-        FakeCraftingStructure.All.Add(structure);
-
-        var collector = Collector();
-        var report = collector.Collect();
-        var world = collector.Build();
-
-        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("crafting stations").Outcome);
-        Assert.Equal(0, world.CraftingStations.Count);
     }
 
     [Fact]

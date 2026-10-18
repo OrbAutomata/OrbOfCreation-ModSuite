@@ -337,10 +337,6 @@ public sealed record GameWorldState
     internal PublicationTable<WorldCraftingQueueEntry> CraftingQueueEntries { get; init; } =
         PublicationTable<WorldCraftingQueueEntry>.Empty;
 
-    /// <summary>Runtime Brewing Stations, the targets the Brewing Station action resolves.</summary>
-    internal PublicationTable<WorldCraftingStation> CraftingStations { get; init; } =
-        PublicationTable<WorldCraftingStation>.Empty;
-
     internal PublicationTable<WorldPlayerLoadout> PlayerLoadouts { get; init; } =
         PublicationTable<WorldPlayerLoadout>.Empty;
     internal PublicationTable<WorldLoadoutEntry> PlayerLoadoutEntries { get; init; } =

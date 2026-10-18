@@ -28,7 +28,7 @@ public sealed class GameMcpCollectionSpansTests
             "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
-            "  unavailable: crafting-stations",
+            "  unavailable: harvest-lifecycle",
             text);
     }
 
@@ -144,7 +144,7 @@ public sealed class GameMcpCollectionSpansTests
             "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
-            "  unavailable: crafting-stations",
+            "  unavailable: harvest-lifecycle",
             Plugin.ProjectGameMcpTraceHealthText(context));
     }
 
@@ -159,7 +159,7 @@ public sealed class GameMcpCollectionSpansTests
             "  attributes: 5.118 ms, 180 rows\n" +
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
-            "  unavailable: crafting-stations",
+            "  unavailable: harvest-lifecycle",
             Plugin.ProjectGameMcpTraceHealthText(GameMcpTestHarness.Context(Pass())));
     }
 
@@ -191,11 +191,11 @@ public sealed class GameMcpCollectionSpansTests
                     firstFailure: string.Empty,
                     elapsedTicks: Ticks(0.512)),
                 new WorldCollectionCategoryStatus(
-                    "crafting stations",
+                    "harvest lifecycle",
                     WorldCategoryOutcome.Unavailable,
                     sampled: 0,
                     skipped: 0,
-                    firstFailure: "CraftingStationSO did not resolve on this build"),
+                    firstFailure: "a harvest lifecycle member did not resolve on this build"),
                 new WorldCollectionCategoryStatus(
                     "attributes",
                     WorldCategoryOutcome.Collected,

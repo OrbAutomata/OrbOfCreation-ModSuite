@@ -23,18 +23,6 @@ public sealed class WorldCategoryEmptyReadingTests
     }
 
     /// <summary>
-    /// Crafting stations counts instances, and the pinned build has no reachable path that creates
-    /// one, so zero is the complete answer on every save rather than a gap in this one.
-    /// </summary>
-    [Fact]
-    public void A_category_over_content_this_build_cannot_reach_says_that_instead()
-    {
-        Assert.Equal(
-            "counts stations in play, and this build authors none it can reach",
-            AutomataWorldCollectionCheck.EmptySampleIsExpected("crafting stations"));
-    }
-
-    /// <summary>
     /// The loud gap is the default, so a category nobody has ruled on is reported rather than
     /// excused — the direction that costs an investigation is the quiet one.
     /// </summary>

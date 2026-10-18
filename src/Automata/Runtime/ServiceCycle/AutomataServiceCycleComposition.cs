@@ -30,7 +30,6 @@ internal static class AutomataServiceCycleComposition
         Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
         Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
         Func<GenericLevelGameAction>? createGenericLevel = null,
-        Func<CraftingStationGameAction>? createCraftingStations = null,
         Func<CraftingInstanceLifecycleGameAction>? createCraftingInstances = null,
         Func<EquipmentLoadoutGameAction,
             AlchemyLoadoutGameAction, LoadoutGameAction>? createLoadouts = null,
@@ -59,7 +58,6 @@ internal static class AutomataServiceCycleComposition
                 createAlchemyLoadout,
                 createRitualLifecycle,
                 createGenericLevel,
-                createCraftingStations,
                 createCraftingInstances,
                 createLoadouts,
                 createHarvestLifecycle,
@@ -101,7 +99,6 @@ internal static class AutomataServiceCycleComposition
         Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
         Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
         Func<GenericLevelGameAction>? createGenericLevel = null,
-        Func<CraftingStationGameAction>? createCraftingStations = null,
         Func<CraftingInstanceLifecycleGameAction>? createCraftingInstances = null,
         Func<EquipmentLoadoutGameAction,
             AlchemyLoadoutGameAction, LoadoutGameAction>? createLoadouts = null,
@@ -133,7 +130,6 @@ internal static class AutomataServiceCycleComposition
         AlchemyLoadoutGameAction? alchemyLoadout = null;
         RitualLifecycleGameAction? ritualLifecycle = null;
         GenericLevelGameAction? genericLevel = null;
-        CraftingStationGameAction? craftingStations = null;
         CraftingInstanceLifecycleGameAction? craftingInstances = null;
         LoadoutGameAction? loadouts = null;
         HarvestLifecycleGameAction? harvestLifecycle = null;
@@ -203,7 +199,6 @@ internal static class AutomataServiceCycleComposition
             alchemyLoadout = createAlchemyLoadout?.Invoke();
             ritualLifecycle = createRitualLifecycle?.Invoke();
             genericLevel = createGenericLevel?.Invoke();
-            craftingStations = createCraftingStations?.Invoke();
             craftingInstances = createCraftingInstances?.Invoke();
             if (createLoadouts is not null)
             {
@@ -234,7 +229,6 @@ internal static class AutomataServiceCycleComposition
                 alchemyLoadout,
                 ritualLifecycle,
                 genericLevel,
-                craftingStations,
                 craftingInstances,
                 loadouts,
                 harvestLifecycle,
@@ -256,7 +250,6 @@ internal static class AutomataServiceCycleComposition
             alchemyLoadout?.Dispose();
             ritualLifecycle?.Dispose();
             genericLevel?.Dispose();
-            craftingStations?.Dispose();
             craftingInstances?.Dispose();
             loadouts?.Dispose();
             harvestLifecycle?.Dispose();

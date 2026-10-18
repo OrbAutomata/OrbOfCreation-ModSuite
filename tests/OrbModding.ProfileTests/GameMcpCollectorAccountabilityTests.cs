@@ -57,7 +57,7 @@ public sealed class GameMcpCollectorAccountabilityTests
     [Fact]
     public void EveryNameTheCollectionBlockPrintsIsAWorldCategoriesRow()
     {
-        // The 90 collectors the world runs and the pseudo-category a degraded modifier fold
+        // The 89 collectors the world runs and the pseudo-category a degraded modifier fold
         // appends, because the block prints that one on the same terms.
         var context = World(new GameWorldCollector().CategoryNames()
             .Select(name => new WorldCollectionCategoryStatus(
@@ -74,7 +74,7 @@ public sealed class GameMcpCollectorAccountabilityTests
             .Split('\n')
             .Where(line => line.StartsWith("  ", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(91, spans.Length);
+        Assert.Equal(90, spans.Length);
 
         var unresolved = new List<string>();
         foreach (var span in spans)
@@ -158,17 +158,17 @@ public sealed class GameMcpCollectorAccountabilityTests
     {
         var page = Categories(World(
             new WorldCollectionCategoryStatus(
-                "crafting stations",
+                "harvest lifecycle",
                 WorldCategoryOutcome.Unavailable,
                 sampled: 0,
                 skipped: 0,
-                firstFailure: "CraftingStationSO did not resolve on this build")));
+                firstFailure: "a harvest lifecycle member did not resolve on this build")));
 
-        var row = Assert.Single(page, item => (string?)item["category"] == "crafting-stations");
+        var row = Assert.Single(page, item => (string?)item["category"] == "harvest-lifecycle");
         Assert.Equal(0, (int)row["count"]!);
         Assert.Null(row["reasonCode"]);
         Assert.Equal(
-            "unlistable. It did not bind on this build: CraftingStationSO did not resolve on " +
+            "unlistable. It did not bind on this build: a harvest lifecycle member did not resolve on " +
             "this build",
             (string?)row["reason"]);
     }

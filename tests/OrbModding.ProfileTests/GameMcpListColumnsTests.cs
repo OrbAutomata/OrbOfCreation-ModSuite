@@ -351,7 +351,6 @@ public sealed class GameMcpListColumnsTests
                 "loadouts", "concept-instances", "ordinary-alchemy-loadout", "action-queues",
                 "plot-actions", "plot-action-instances", "harvest-resources",
                 "harvest-element-controls", "harvest-action-controls", "harvest-lifecycle-costs",
-                "crafting-stations", "crafting-station-options", "crafting-station-drains",
                             // The three type rosters whose wire name is not their collector's name.
                 "harvest-types", "harvest-action-types", "consumable-families",
                 "attribute-group-members",

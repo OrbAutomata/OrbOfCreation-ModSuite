@@ -257,7 +257,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
                 "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
                 "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
                 "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "crafting-stations", "harvest-lifecycle", "spell-slots", "targeting",
+                "harvest-lifecycle", "spell-slots", "targeting",
                 "attribute-group-members",
             })
             .Distinct(StringComparer.Ordinal)

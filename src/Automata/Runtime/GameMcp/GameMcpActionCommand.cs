@@ -38,7 +38,6 @@ internal enum GameMcpCommandKind
     AlchemyLoadout = 27,
     RitualLifecycle = 28,
     GenericLevel = 29,
-    CraftingStation = 30,
     Loadout = 31,
     HarvestLifecycle = 32,
     StructureLifecycle = 33,
@@ -1052,20 +1051,6 @@ internal static class GameMcpActionResultCodeNames
             if (code == ReturnToMenuActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
             if (code == ReturnToMenuActionResultCodes.PostCommitFault) return "post_commit_fault";
             if (code == ReturnToMenuActionResultCodes.VerificationFailed) return "verification_failed";
-        }
-        if (commandKind == GameMcpCommandKind.CraftingStation)
-        {
-            if (code == CraftingStationActionResultCodes.ContractUnavailable) return "contract_unavailable";
-            if (code == CraftingStationActionResultCodes.WrongThread) return "wrong_thread";
-            if (code == CraftingStationActionResultCodes.IdentityUnavailable) return "identity_unavailable";
-            if (code == CraftingStationActionResultCodes.SelectionUnavailable) return "selection_unavailable";
-            if (code == CraftingStationActionResultCodes.SelectionHidden) return "selection_hidden";
-            if (code == CraftingStationActionResultCodes.LevelOutOfRange) return "level_out_of_range";
-            if (code == CraftingStationActionResultCodes.NotLoaded) return "recipe_incomplete";
-            if (code == CraftingStationActionResultCodes.AlreadyInRequestedState) return "already_in_requested_state";
-            if (code == CraftingStationActionResultCodes.MutationPermitUnavailable) return "action_family_unavailable";
-            if (code == CraftingStationActionResultCodes.PostCommitFault) return "post_commit_fault";
-            if (code == CraftingStationActionResultCodes.VerificationFailed) return "verification_failed";
         }
         if (commandKind == GameMcpCommandKind.Loadout)
         {

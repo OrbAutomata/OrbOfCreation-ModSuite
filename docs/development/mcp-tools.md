@@ -4694,7 +4694,7 @@ are elided here, not by the tool:
 ```
 AGREE — 8442 facts compared, 8442 agree, 0 differ.
 AGREE (24 checks): Category binding 63, Category traversal 63, Spell type layer 6, …
-Category traversal — Empty on purpose: targeting samples only while a native targeting request is open, and none was; crafting stations counts stations in play, and this build authors none it can reach.
+Category traversal — Empty on purpose: targeting samples only while a native targeting request is open, and none was.
 Identities AGREE: 3323 compared, 0 empty, 0 repeated within a table, 3 tables keyed on more than the identity.
 Shared identities: 1934 entities, 1389 detail rows filed under one of them (largest: PurchaseViewRelations 409, AlchemyLoadout 125, SpellRecipeAuthoring 65).
 window: generation=3 frame=48213 entities=6683 collectors=61 collect=41.213ms ported=118.4ms native=2249.1ms elapsed=2407.741ms memos=5677 drifted=730 dirty=3558 uncalculated=612 widestDrift=StructureSO.passiveCostMod memo=100 recompute=4.44e-115 orders=116.4
@@ -4738,9 +4738,9 @@ The rules that make it read that way:
   `Shared identities:` line, with the tables holding the most such rows named, and scores nothing.
 - **A category that reads nothing is a gap unless zero is what it counts.** Most collectors count
   entities in the world, and zero of those is a real shortfall reported under `Category traversal`.
-  Two count something else — targeting samples only while a native request is open, crafting stations
-  count instances of content this build never creates — so they are named on the non-scoring
-  `Empty on purpose:` line with the reason, instead of accusing the build of losing them.
+  Targeting counts something else — it samples only while a native request is open — so it is named
+  on the non-scoring `Empty on purpose:` line with the reason, instead of accusing the build of
+  losing it.
 - **A check that could not read something says what went unchecked, not which class it is.** An
   `INCOMPLETE` per-check line names the entity the way every other sentence on this surface names
   one — name and short handle — and then the decision the pass therefore has no answer for, in the
