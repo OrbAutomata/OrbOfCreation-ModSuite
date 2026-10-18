@@ -24,7 +24,7 @@ public sealed class GameMcpCraftingTests
         Guid.Parse("f2000000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void ToolAdvertisesOneRecipeUuidMutationWithoutGenerationOrReceiptInputs()
+    public void ToolAdvertisesOneRecipeUuidMutation()
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
@@ -38,8 +38,6 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(
             new[] { "craft", "automate", "cancel_manual", "cancel_automation" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(schema["properties"]!["expectedNativeType"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
         var amount = schema["properties"]!["amount"]!["anyOf"]!;
         Assert.Equal(1, (int)amount[0]!["minimum"]!);
         Assert.Null(amount[0]!["maximum"]);

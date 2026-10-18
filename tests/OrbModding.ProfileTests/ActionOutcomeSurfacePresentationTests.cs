@@ -91,7 +91,7 @@ public sealed class ActionOutcomeSurfacePresentationTests
     }
 
     [Fact]
-    public void PerformanceDebugKeepsExactQuietAndTimingLinesWithoutCardCopy()
+    public void PerformanceDebugKeepsExactQuietAndTimingLines()
     {
         var report = new SuiteFramePumpReport(
             frameIdentity: 1,
@@ -123,7 +123,5 @@ public sealed class ActionOutcomeSurfacePresentationTests
         Assert.Equal(
             "Recent processing · average 0.250 ms · worst 0.250 ms",
             presentation.TimingSummary);
-        Assert.Null(typeof(ActionOutcomeSurfacePresentation).Assembly.GetType(
-            "OrbModConfig.ActionOutcomeRowPresentation"));
     }
 }

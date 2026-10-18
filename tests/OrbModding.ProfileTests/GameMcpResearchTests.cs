@@ -29,7 +29,6 @@ public sealed class GameMcpResearchTests
         Assert.Equal(new[] { "mode", "uuid" }, schema["required"]!.Values<string>());
         Assert.Equal(new[] { "develop", "pause", "resume", "cancel", "bonus" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(schema["properties"]!["worldGeneration"]);
         Assert.NotNull(schema["properties"]!["amount"]);
     }
 

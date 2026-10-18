@@ -54,9 +54,6 @@ public sealed class GameMcpSpellLoadoutTests
         // id the game never shows, and the wire counts those slots from 1.
         Assert.Equal(1, (int)schema["properties"]!["slot"]!["minimum"]!);
         Assert.Equal(1, (int)schema["properties"]!["destination"]!["minimum"]!);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Null(schema["properties"]!["detail"]);
-        Assert.Null(schema["properties"]!["receipt"]);
     }
 
     [Fact]

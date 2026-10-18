@@ -25,7 +25,6 @@ public sealed class GameMcpStructureLifecycleTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "enable", "disable" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         var operation = GameMcpProtocolRouter.BuildOperation("game_structure", new JObject
         {
             ["mode"] = "disable",

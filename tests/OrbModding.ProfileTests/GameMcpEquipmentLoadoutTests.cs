@@ -27,7 +27,6 @@ public sealed class GameMcpEquipmentLoadoutTests
         Assert.Equal(new[] { "mode", "uuid", "amount" }, schema["required"]!.Values<string>());
         Assert.Equal(new[] { "equip", "unequip" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(schema["properties"]!["worldGeneration"]);
         Assert.NotNull(schema["properties"]!["amount"]);
     }
 

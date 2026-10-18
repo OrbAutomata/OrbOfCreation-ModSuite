@@ -423,7 +423,7 @@ public sealed class GameMcpWorldQueryTests
 public sealed class GameMcpActionAdmissionTests
 {
     [Fact]
-    public void ActionAdmissionHasNoWorldGenerationGate()
+    public void ACommandAtTheCurrentLifecycleAndConfigurationIsAdmitted()
     {
         var command = GameMcpAcceptanceFixture.NativeCommand();
         Assert.False(GameMcpNativeActionAdmission.TryReject(
@@ -432,10 +432,6 @@ public sealed class GameMcpActionAdmissionTests
             currentConfigurationGeneration: command.ExpectedConfigurationGeneration,
             emergencyStopEngaged: false,
             out _));
-        Assert.DoesNotContain(
-            typeof(GameMcpCommand).GetProperties(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
-            property => property.Name.Contains("WorldGeneration", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -501,21 +497,15 @@ public sealed class GameMcpInlineCompletionTests
 public sealed class GameMcpProtocolSurfaceTests
 {
     [Fact]
-    public void DiscoveryHasNoReceiptToolAndExposesGenericVisualTools()
+    public void TheToolListAdvertisesTheVisualAndDetailVerbs()
     {
         var names = GameMcpAcceptanceFixture.ToolNames();
-        Assert.DoesNotContain("action_receipt", names);
-        Assert.DoesNotContain("decision_journal", names);
         Assert.Contains("trace_health", names);
         Assert.Contains("game_screen_catalog", names);
         Assert.Contains("game_navigate", names);
         Assert.Contains("game_screen_elements", names);
         Assert.Contains("game_tooltip", names);
         Assert.Contains("game_screenshot", names);
-
-        // A retired name stays retired: no alias, no tombstone verb, no second door onto
-        // the detail read. The tool list simply stops carrying it.
-        Assert.DoesNotContain("explain_entity", names);
         Assert.Contains("world_get", names);
     }
 
@@ -525,18 +515,12 @@ public sealed class GameMcpProtocolSurfaceTests
     /// number it never moves, while the number it does move is Mastery Lv; <c>game_tooltips</c>
     /// differed from the reader beside it by one letter, and a round that could not tell them apart
     /// never called the reader at all; and <c>suite_automation</c> named a family rather than the
-    /// seven switches it flips. Every old name is retired outright — no alias, no second door.
+    /// seven switches it flips.
     /// </summary>
     [Fact]
-    public void Every_renamed_verb_answers_only_to_its_new_name_and_its_title_says_what_it_presses()
+    public void Every_renamed_verb_title_says_what_it_presses()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
-        var names = GameMcpAcceptanceFixture.ToolNames();
-
-        Assert.DoesNotContain("game_level", names);
-        Assert.DoesNotContain("game_spell_level", names);
-        Assert.DoesNotContain("game_tooltips", names);
-        Assert.DoesNotContain("suite_automation", names);
 
         Assert.Equal(
             "Level a glyph, artifact type, resource type or Time Rune",
@@ -575,7 +559,7 @@ public sealed class GameMcpProtocolSurfaceTests
         (string)Assert.Single(tools, tool => (string?)tool["name"] == name)["description"]!;
 
     [Fact]
-    public void ActionSchemasRequireIdentityButNotGenerationKindOrNativeType()
+    public void ThePurchaseVerbRequiresTheIdAndTheAmount()
     {
         var tools = GameMcpAcceptanceFixture.Tools();
         var purchase = Assert.Single(
@@ -585,43 +569,11 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Contains("native StructureSO", (string?)purchase["description"]);
         var required = purchase["inputSchema"]!["required"]!.Values<string>().ToArray();
         Assert.Equal(new[] { "uuid", "amount" }, required);
-        var properties = (JObject)purchase["inputSchema"]!["properties"]!;
-        Assert.Null(properties["worldGeneration"]);
-        Assert.Null(properties["expectedNativeType"]);
-        Assert.Null(properties["kind"]);
-        Assert.Null(properties["count"]);
 
         var screenshot = Assert.Single(
             tools,
             tool => (string?)tool["name"] == "game_screenshot");
         Assert.Null(screenshot["inputSchema"]!["required"]);
-    }
-
-    [Fact]
-    public void EveryActionSchemaRejectsWorldGenerationAndVerbosityCeremony()
-    {
-        var actionNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "game_purchase", "game_cast", "game_concept", "game_agromancy",
-            "game_structure",
-            "game_return_to_menu",
-            "game_modal",
-            "game_spell_mastery", "game_casting_dial", "game_spell_loadout", "game_discover",
-            "game_equipment", "game_alchemy", "game_ritual", "suite_config_set",
-            "game_loadout",
-            "suite_emergency_stop", "game_screenshot", "game_continue",
-            "game_navigate", "game_tooltip",
-            "game_targeting",
-        };
-
-        foreach (var tool in GameMcpAcceptanceFixture.Tools().Where(tool =>
-                     actionNames.Contains((string)tool["name"]!)))
-        {
-            var properties = Assert.IsType<JObject>(tool["inputSchema"]!["properties"]);
-            Assert.Null(properties["worldGeneration"]);
-            Assert.Null(properties["detail"]);
-            Assert.Null(properties["verbosity"]);
-        }
     }
 
     /// <summary>

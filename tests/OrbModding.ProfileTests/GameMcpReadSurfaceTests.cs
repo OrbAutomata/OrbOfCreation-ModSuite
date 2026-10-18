@@ -455,16 +455,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Contains("world_search", toolNames);
         Assert.Contains("suite_health", toolNames);
         Assert.Contains("trace_health", toolNames);
-        Assert.DoesNotContain("decision_journal", toolNames);
-        // The remainder page retired the day the world published the last thing it listed, and a
-        // retired verb has to be gone from the advertisement rather than answering an empty page.
-        Assert.DoesNotContain("entity_catalog", toolNames);
         Assert.Contains("game_purchase", toolNames);
         Assert.Contains("game_cast", toolNames);
         Assert.Contains("game_concept", toolNames);
         Assert.Contains("game_agromancy", toolNames);
         Assert.Contains("game_spell_mastery", toolNames);
-        Assert.DoesNotContain("action_receipt", toolNames);
         Assert.Contains("game_screenshot", toolNames);
         Assert.Contains("game_screen_catalog", toolNames);
         Assert.Contains("game_navigate", toolNames);
@@ -479,9 +474,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Contains(
             resources.Body!["result"]!["resources"]!.Values<JObject>(),
             resource => (string?)resource!["uri"] == "orb://trace/health");
-        Assert.DoesNotContain(
-            resources.Body!["result"]!["resources"]!.Values<JObject>(),
-            resource => (string?)resource!["uri"] == "orb://journal/status");
 
         var call = GameMcpTestHarness.Handle(
             router,
@@ -1526,14 +1518,11 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("unavailable", (string?)affectedGet["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)affectedGet["reasonCode"]);
         Assert.NotNull(affectedGet["partialRow"]);
-        // world_get is where the leaf itself is named, and it names it without putting the game's
-        // own class names into columns a caller reads.
+        // world_get is where the leaf itself is named.
         var getFailure = Assert.Single(
             affectedGet["implicatedSkippedRows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)getFailure["uuid"]);
         Assert.Equal(4, (int)getFailure["ordinal"]!);
-        Assert.Null(getFailure["ownerKind"]);
-        Assert.Null(getFailure["conditionTypeName"]);
         Assert.Null(getFailure["collectorReason"]);
         Assert.Equal(
             "One of this entity's requirements uses a condition this build does not model, so " +

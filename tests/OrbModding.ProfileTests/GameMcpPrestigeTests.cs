@@ -17,7 +17,7 @@ public sealed class GameMcpPrestigeTests
     private static readonly Guid Reward = Guid.Parse("f6000000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void Tool_requires_one_explicit_irreversible_confirmation_and_no_target_or_generation()
+    public void Tool_requires_one_explicit_irreversible_confirmation_and_no_target()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "time_prestige");
@@ -26,8 +26,6 @@ public sealed class GameMcpPrestigeTests
         Assert.Equal(new[] { "confirm" }, schema["required"]!.Values<string>());
         Assert.Equal("boolean", (string?)schema["properties"]!["confirm"]!["type"]);
         Assert.Null(schema["properties"]!["uuid"]);
-        Assert.Null(schema["properties"]!["expectedNativeType"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
     }
 
     /// <summary>

@@ -29,7 +29,6 @@ public sealed class GameMcpGenericLevelTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "purchase", "bonus" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",

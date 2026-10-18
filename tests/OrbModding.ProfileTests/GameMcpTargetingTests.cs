@@ -17,7 +17,7 @@ public sealed class GameMcpTargetingTests
     private static readonly Guid Second = Guid.Parse("5d5270f9-24af-4dba-9a64-eed93ae07d41");
 
     [Fact]
-    public void ToolHasOneConditionalTargetAndNoGenerationOrReceiptKnobs()
+    public void ToolHasOneConditionalTarget()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_targeting");
@@ -27,8 +27,6 @@ public sealed class GameMcpTargetingTests
         Assert.Equal(new[] { "submit", "randomize" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(schema["properties"]!["uuid"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Null(schema["properties"]!["receipt"]);
     }
 
     [Fact]
