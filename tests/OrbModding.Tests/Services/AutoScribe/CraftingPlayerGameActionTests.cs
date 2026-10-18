@@ -89,7 +89,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Assert.Equal(new BigDouble(3, 0), instance.Quantity);
         Assert.Single(page.craftingQueueInstances.value);
         Assert.Equal(1, recipe.PurchaseCalls);
-        Assert.Equal(new NativeMutationCallOutcome(2, 1, 1), result.Outcome.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         var instance = Assert.Single(page.craftingQueueInstances.value);
         Assert.Same(recipe, instance.reference);
         Assert.True(instance.Initiated);
-        Assert.Equal(new NativeMutationCallOutcome(5, 1, 1), result.Outcome.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Empty(page.craftingQueueInstances.value);
         Assert.Equal(1, Assert.Single(recipe.InstantOutput.consumableCounts).Quantity);
-        Assert.Equal(new NativeMutationCallOutcome(4, 1, 1), result.Outcome.CallOutcome);
+        Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.Outcome.CallOutcome);
     }
 
     [Fact]
@@ -289,7 +289,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new BigDouble(2, 0), instance.Quantity);
-        Assert.False(boundary.IsQuarantined);
     }
 
     [Fact]
@@ -312,6 +311,10 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, failed.Outcome.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, failed.Outcome.Mutation);
+        Assert.Equal(
+            "One-shot crafting Verification failed on " + EntityIdentityFormatter.PlayerName(recipe.GetGuid()) +
+            ": " + GameActionAnswer.ChangeNotSeen("Scholar > Scribe"),
+            failed.Outcome.Reason);
         Assert.Equal(CraftingPlayerActionResultCodes.VerificationFailed, blocked.Outcome.Code);
         Assert.True(retried.Outcome.Verified, retried.Outcome.Reason);
     }
@@ -324,8 +327,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
         _lifecycle = 12;
         var stale = Submit(boundary, recipe, lifecycle: 11);
-        _lifecycle = 0;
-        var invalid = Submit(boundary, recipe, lifecycle: 0);
         _lifecycle = 11;
         _permit = false;
         var noPermit = Submit(boundary, recipe);
@@ -333,29 +334,60 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         var wrongThread = ForeignThread.Run(() => Submit(boundary, recipe));
 
         Assert.Equal(CommonActionResultCodes.LifecycleReplaced, stale.Outcome.Code);
-        Assert.Equal(CommonActionResultCodes.LifecycleReplaced, invalid.Outcome.Code);
         Assert.Equal(CraftingPlayerActionResultCodes.MutationPermitUnavailable, noPermit.Outcome.Code);
         Assert.Equal(CraftingPlayerActionResultCodes.WrongThread, wrongThread.Outcome.Code);
         Assert.Equal(0, recipe.PurchaseCalls);
     }
 
-    private AutoScribeOneShotCraftGameAction Boundary()
+    [Fact]
+    public void AnUnreadableLifecycleEpochFaultsBeforeTheNativeCall()
+    {
+        var recipe = Register(Recipe());
+        using var boundary = Boundary(
+            readLifecycleEpoch: static () => throw new InvalidOperationException("epoch unreadable"));
+
+        var result = Submit(boundary, recipe);
+
+        Assert.True(result.Outcome.IsFault, result.Outcome.Reason);
+        Assert.Equal(CraftingPlayerActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, recipe.ExecuteCalls);
+    }
+
+    [Fact]
+    public void ARecipeResolvedFromAReplacedRegistryIsRefusedBeforeAnyPress()
+    {
+        var recipe = Register(Recipe());
+        const int readsWhileResolving = 3;
+        var reads = 0;
+        using var boundary = Boundary(readGeneration: () => ++reads <= readsWhileResolving ? 11 : 12);
+
+        var result = Submit(boundary, recipe);
+
+        Assert.Equal(CraftingPlayerActionResultCodes.RecipeUnavailable, result.Outcome.Code);
+        Assert.Equal(EntityIdentityFormatter.PlayerName(recipe.GetGuid()) + " became stale.", result.Outcome.Reason);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, recipe.ExecuteCalls);
+    }
+
+    private AutoScribeOneShotCraftPlayerGameAction Boundary(
+        Func<long>? readLifecycleEpoch = null,
+        Func<long>? readGeneration = null)
     {
         IDictionary registry = _registry;
         var resolver = new TypedRegistryResolver(
-            () => _lifecycle,
+            readGeneration ?? (() => _lifecycle),
             () => TypedRegistrySourceSnapshot.Ready(registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
-        return new AutoScribeOneShotCraftGameAction(
+        return new AutoScribeOneShotCraftPlayerGameAction(
             resolver,
-            AutoScribeIdentityCatalog.Audited,
-            () => _lifecycle,
+            readLifecycleEpoch ?? (() => _lifecycle),
             () => _permit,
             static () => "CraftingQueueSubmission is not owned.");
     }
 
     private CraftingPlayerSubmission Submit(
-        AutoScribeOneShotCraftGameAction boundary,
+        AutoScribeOneShotCraftPlayerGameAction boundary,
         CraftingRecipeSO recipe,
         long? lifecycle = null,
         int amount = 1,

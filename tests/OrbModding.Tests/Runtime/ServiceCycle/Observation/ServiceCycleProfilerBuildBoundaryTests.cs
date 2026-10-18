@@ -67,6 +67,7 @@ public sealed class ServiceCycleProfilerBuildBoundaryTests
             typeof(AutoItemsFeatureRuntime),
             typeof(AutoItemsServiceAdapterComposition),
             typeof(AutoItemsConsumableUseGameAction),
+            typeof(AutoItemsConsumablePlayerGameAction),
             typeof(AutoItemsNativeBindings),
             typeof(AutoItemsScrollTargetPreflight),
             typeof(global::OrbModding.Plugin),

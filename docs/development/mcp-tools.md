@@ -2496,8 +2496,8 @@ identity/room/current quantity, outputs, and blockers. The MCP-only sequence is:
 Success returns how many presses queued or completed.
 It has no receipt, payment stanza, world-generation argument, or read-back requirement. A timed
 recipe without one stable loaded authored page refuses rather than guessing a queue; failure after
-native work names the one missing direct, instant-stock, or queued-recipe outcome. Auto Scribe calls the same GameAction with
-its own existing planner, so MCP crafting does not create a second Scribe implementation.
+native work says the change never showed up on Scholar > Scribe and may or may not have landed.
+Manual crafting is its own GameAction beside Auto Scribe's, under the same crafting permit.
 
 ### The detail read
 

@@ -8,11 +8,17 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.TargetingActions;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class TargetingGameActionTests : IDisposable
 {
     private const long Epoch = 17;
     public TargetingGameActionTests() => TargetingManager.Reset();
-    public void Dispose() => TargetingManager.Reset();
+
+    public void Dispose()
+    {
+        TargetingManager.Reset();
+        GameActionFaultLog.ConfigureLog(null);
+    }
 
     [Fact]
     public void SubmitCommitsOnlyTheExactUuidResolvedEligibleTarget()

@@ -206,8 +206,9 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
                 Restored(native, manager, previous),
             () => Load(native, manager, recipe, augments, previous),
             static (_, landed) => landed,
-            putBackOnThrow: () => WriteAugments(native, manager, previous),
-            putBackLanded: () => Restored(native, manager, previous));
+            putBack: new NativePutBack(
+                () => WriteAugments(native, manager, previous),
+                () => Restored(native, manager, previous)));
     }
 
     /// <summary>

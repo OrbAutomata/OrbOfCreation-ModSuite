@@ -1,65 +1,66 @@
 using System;
-using System.Collections;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-internal sealed partial class AutoItemsConsumableUseGameAction
+/// <summary>
+/// The player's own consumable presses on the Inventory screen: use, cancel a queued use, discard,
+/// set randomization, and move within a list. Each re-resolves the exact consumable and its live
+/// gates on Unity's main thread and verifies one outcome.
+/// </summary>
+internal sealed class AutoItemsConsumablePlayerGameAction
+    : NativeGameAction<ConsumablePlayerNativeBindings>
 {
+    private const string Screen = "Inventory";
+
+    private static readonly GameActionCodes Codes = new(
+        ConsumablePlayerActionResultCodes.WrongThread,
+        ConsumablePlayerActionResultCodes.ContractUnavailable,
+        ConsumablePlayerActionResultCodes.MutationPermitUnavailable,
+        ConsumablePlayerActionResultCodes.PostCommitFault,
+        ConsumablePlayerActionResultCodes.VerificationFailed);
+
+    private readonly TypedRegistryResolver _registry;
+
+    internal AutoItemsConsumablePlayerGameAction(
+        TypedRegistryResolver registry,
+        Func<long> readLifecycleEpoch,
+        Func<bool> tryCaptureMutationPermit,
+        Func<string> readOwnershipFailure,
+        Func<string, Type?>? resolveType = null,
+        Func<string, bool>? includeContract = null)
+        : base("Consumable", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out ConsumablePlayerNativeBindings? bindings, out string reason) =>
+                ConsumablePlayerNativeBindings.TryCreate(resolveType ?? ReflectionUtil.FindLoadedType,
+                    includeContract ?? (_ => true), out bindings, out reason))
+    {
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+    }
+
     internal NativeActionOutcome Submit(in ConsumablePlayerAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return NativeActionOutcome.Reject(
-                ConsumablePlayerActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_playerBindings is not { } native)
-            return NativeActionOutcome.Reject(
-                ConsumablePlayerActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Inventory", _playerBindingFailure));
-
-        long liveLifecycle;
-        try { liveLifecycle = _readLifecycleEpoch(); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        var request = action;
+        return Admit(action.LifecycleEpoch, native =>
         {
-            return NativeActionOutcome.Reject(
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Inventory", ex));
-        }
-        if (liveLifecycle != action.LifecycleEpoch)
-            return NativeActionOutcome.Reject(
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        var resolution = _registryResolver.Resolve(action.ConsumableId, native.ConsumableType);
-        if (!resolution.IsResolved)
-            return NativeActionOutcome.Reject(
-                ConsumablePlayerActionResultCodes.ItemUnavailable, resolution.Format());
-        var item = resolution.Value!;
-        try
-        {
-            return action.Kind switch
+            if (!_registry.TryResolveCurrent(request.ConsumableId, native.ConsumableType,
+                    out var item, out var reason))
+                return NativeActionOutcome.Reject(ConsumablePlayerActionResultCodes.ItemUnavailable, reason);
+            return request.Kind switch
             {
-                ConsumablePlayerActionKind.Use => PlayerUse(in action, item, native),
-                ConsumablePlayerActionKind.Cancel => PlayerCancel(in action, item, native),
-                ConsumablePlayerActionKind.Discard => PlayerDiscard(in action, item, native),
-                ConsumablePlayerActionKind.SetRandomization =>
-                    PlayerSetRandomization(in action, item, native),
-                ConsumablePlayerActionKind.Move => PlayerMove(in action, item, native),
+                ConsumablePlayerActionKind.Use => Use(in request, item, native),
+                ConsumablePlayerActionKind.Cancel => Cancel(in request, item, native),
+                ConsumablePlayerActionKind.Discard => Discard(in request, item, native),
+                ConsumablePlayerActionKind.SetRandomization => SetRandomization(in request, item, native),
+                ConsumablePlayerActionKind.Move => Move(in request, item, native),
                 _ => NativeActionOutcome.Reject(
                     ConsumablePlayerActionResultCodes.ContractUnavailable,
                     "Unknown consumable action mode."),
             };
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return NativeActionOutcome.Reject(
-                ConsumablePlayerActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Inventory", ex));
-        }
+        });
     }
 
-    private NativeActionOutcome PlayerUse(
+    private NativeActionOutcome Use(
         in ConsumablePlayerAction action,
         object item,
         ConsumablePlayerNativeBindings native)
@@ -82,24 +83,23 @@ internal sealed partial class AutoItemsConsumableUseGameAction
                 ConsumablePlayerActionResultCodes.CanFireRefused,
                 EntityIdentityFormatter.PlayerName(action.ConsumableId) +
                 " cannot be used right now.");
-        var beforeQueued = native.GetQueued(item);
-        if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
-        if (!NativeMultiBuyScope.TryEnterOne(out var multiBuy, out var reason))
+        var before = native.GetQueued(item);
+        if (!TryPermit(out var refusal)) return refusal;
+        if (!NativeMultiBuyScope.TryEnterOne(out var scope, out var reason))
             return NativeActionOutcome.Reject(
                 ConsumablePlayerActionResultCodes.MultiBuyUnavailable, reason);
 
-        using (multiBuy)
-        {
-            return Execute(
-                in action,
-                1,
-                () => native.SelectAndFire(item),
-                () => native.GetQueued(item) == checked(beforeQueued + 1),
-                "The exact consumable entered the native preparation queue.");
-        }
+        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
+            "The exact consumable entered the native preparation queue.", before,
+            () => native.GetQueued(item),
+            () =>
+            {
+                using (scope) native.SelectAndFire(item);
+            },
+            static (queued, after) => after == checked(queued + 1));
     }
 
-    private NativeActionOutcome PlayerCancel(
+    private NativeActionOutcome Cancel(
         in ConsumablePlayerAction action,
         object item,
         ConsumablePlayerNativeBindings native)
@@ -129,38 +129,36 @@ internal sealed partial class AutoItemsConsumableUseGameAction
             return NativeActionOutcome.Reject(
                 ConsumablePlayerActionResultCodes.NoCancellableUsage,
                 "The game is not showing a queued use of this item that could be cancelled.");
-        if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
+        if (!TryPermit(out var refusal)) return refusal;
 
-        return Execute(
-            in action,
-            1,
-            () => native.CancelUsage(item),
+        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
+            "The exact pending usage was cancelled and removed.", false,
             () => !HasUsage(native, item, selectedId) && native.IsCancelled(resultInfo),
-            "The exact pending usage was cancelled and removed.");
+            () => native.CancelUsage(item),
+            static (_, landed) => landed);
     }
 
-    private NativeActionOutcome PlayerDiscard(
+    private NativeActionOutcome Discard(
         in ConsumablePlayerAction action,
         object item,
         ConsumablePlayerNativeBindings native)
     {
-        var beforeAmount = native.GetQuantity(item);
-        if (beforeAmount <= 0)
+        var before = native.GetQuantity(item);
+        if (before <= 0)
             return NativeActionOutcome.Reject(
                 ConsumablePlayerActionResultCodes.NothingToDiscard,
                 "The exact consumable has no owned amount to discard.");
-        var discarded = Math.Min(action.Amount, beforeAmount);
-        if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
+        var discarded = Math.Min(action.Amount, before);
+        if (!TryPermit(out var refusal)) return refusal;
 
-        return Execute(
-            in action,
-            1,
+        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
+            "The requested clamped amount left the exact consumable holding.", before,
+            () => native.GetQuantity(item),
             () => native.Discard(item, discarded),
-            () => native.GetQuantity(item) == checked(beforeAmount - discarded),
-            "The requested clamped amount left the exact consumable holding.");
+            (held, after) => after == checked(held - discarded));
     }
 
-    private NativeActionOutcome PlayerSetRandomization(
+    private NativeActionOutcome SetRandomization(
         in ConsumablePlayerAction action,
         object item,
         ConsumablePlayerNativeBindings native)
@@ -174,17 +172,16 @@ internal sealed partial class AutoItemsConsumableUseGameAction
             return NativeActionOutcome.Reject(
                 ConsumablePlayerActionResultCodes.AlreadyInRequestedState,
                 "The consumable already has the requested randomization state.");
-        if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
+        if (!TryPermit(out var refusal)) return refusal;
 
-        return Execute(
-            in action,
-            1,
+        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
+            "The exact consumable now has the requested randomization state.", !requested,
+            () => native.IsRandomized(item),
             () => native.SetRandomization(item, requested),
-            () => native.IsRandomized(item) == requested,
-            "The exact consumable now has the requested randomization state.");
+            (_, after) => after == requested);
     }
 
-    private NativeActionOutcome PlayerMove(
+    private NativeActionOutcome Move(
         in ConsumablePlayerAction action,
         object item,
         ConsumablePlayerNativeBindings native)
@@ -225,64 +222,20 @@ internal sealed partial class AutoItemsConsumableUseGameAction
             return NativeActionOutcome.Reject(
                 ConsumablePlayerActionResultCodes.AlreadyInRequestedState,
                 "The exact consumable already occupies the requested destination.");
-        if (!TryPlayerPermit(in action, out var permitFailure)) return permitFailure;
-        var calls = action.List == ConsumablePlayerListKind.Hotbar ? 3 : 2;
+        if (!TryPermit(out var refusal)) return refusal;
         var destination = action.Destination;
-        var requestedList = action.List;
+        var hotbar = action.List == ConsumablePlayerListKind.Hotbar;
 
-        return Execute(
-            in action,
-            calls,
+        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
+            "The exact consumable moved to the requested list position.", false,
+            () => ReferenceEquals(native.GetListValues(list)[destination], item),
             () =>
             {
                 native.Swap(list, source, destination);
                 native.Update(list);
-                if (requestedList == ConsumablePlayerListKind.Hotbar)
-                    native.SetAt(list, destination, item);
+                if (hotbar) native.SetAt(list, destination, item);
             },
-            () => ReferenceEquals(native.GetListValues(list)[destination], item),
-            "The exact consumable moved to the requested list position.");
-    }
-
-    private NativeActionOutcome Execute(
-        in ConsumablePlayerAction action,
-        int calls,
-        Action mutate,
-        Func<bool> landed,
-        string success)
-    {
-        try
-        {
-            mutate();
-            return landed()
-                ? Verified(calls, success)
-                : PlayerFault(in action, ConsumablePlayerActionResultCodes.VerificationFailed,
-                    NativeMutationOutcome.PostconditionFailed, calls,
-                    "The requested transition did not become observable.");
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            if (LandedBestEffort(landed))
-                return Verified(calls,
-                    "The requested transition landed before the native exception.");
-            return PlayerFault(in action, ConsumablePlayerActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew, calls,
-                GameActionAnswer.GameErrored("Inventory", ex));
-        }
-    }
-
-    private bool TryPlayerPermit(
-        in ConsumablePlayerAction action,
-        out NativeActionOutcome failure)
-    {
-        if (TryCaptureMutationPermit(out var reason))
-        {
-            failure = default;
-            return true;
-        }
-        failure = NativeActionOutcome.Reject(
-            ConsumablePlayerActionResultCodes.MutationPermitUnavailable, reason);
-        return false;
+            static (_, landed) => landed);
     }
 
     private static bool HasUsage(
@@ -297,25 +250,4 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         }
         return false;
     }
-
-    private static bool LandedBestEffort(Func<bool> landed)
-    {
-        try { return landed(); }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
-    }
-
-    private static NativeActionOutcome Verified(int calls, string reason) =>
-        NativeActionOutcome.Commit(new NativeMutationCallOutcome(calls, 1, 1), reason);
-
-    private static NativeActionOutcome PlayerFault(
-        in ConsumablePlayerAction action,
-        ServiceActionResultCode code,
-        NativeMutationOutcome outcome,
-        int calls,
-        string reason) =>
-        NativeActionOutcome.Fault(code, outcome,
-            new NativeMutationCallOutcome(calls, 1, 0),
-            "Consumable " + action.Kind +
-            " could not prove the requested outcome: " + reason);
-
 }

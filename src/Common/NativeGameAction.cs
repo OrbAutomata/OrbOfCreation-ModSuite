@@ -207,12 +207,10 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
     /// <paramref name="call"/>, and one sentinel answers for the whole effect. A stop answers only
     /// when the sentinel does not hold and nothing threw, and it never answers with zero attempts.
     /// </summary>
-    /// <param name="putBackOnThrow">
+    /// <param name="putBack">
     /// Undoes what <paramref name="call"/> pressed when it throws partway. A fault after that throw
-    /// keeps the call's exception as its cause and tells the caller when
-    /// <paramref name="putBackLanded"/> does not read the undo back.
+    /// keeps the call's exception as its cause and tells the caller when the undo does not read back.
     /// </param>
-    /// <param name="putBackLanded">Whether the undo reads back; required with <paramref name="putBackOnThrow"/>.</param>
     protected NativeActionOutcome Execute<TState>(
         string target,
         string success,
@@ -221,14 +219,13 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         Func<NativeStop?> call,
         Func<TState, TState, bool> landed,
         string? screen = null,
-        Action? putBackOnThrow = null,
-        Func<bool>? putBackLanded = null)
+        NativePutBack? putBack = null)
     {
         var page = screen ?? _screen;
         NativeStop? stop = null;
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
             _feature, target, success, before, captureAfter, () => stop = call(), landed,
-            putBackOnThrow: putBackOnThrow);
+            putBackOnThrow: putBack?.Undo);
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified) return NativeActionOutcome.Commit(calls, success);
         var stage = evidence.Outcome == NativeMutationOutcome.ExecutionThrew ? "NativeCallback" : "Verification";
@@ -236,8 +233,8 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
             return NativeActionOutcome.Fault(_codes.PostCommitFault, evidence.Outcome, calls,
                 FaultReason(stage, target,
                     GameActionAnswer.GameErrored(page, exception, evidence.PutBackException) +
-                    (putBackLanded is null ||
-                     NativeMutationVerifier.TryReadAfterCall(putBackLanded, out var back) && back
+                    (putBack is null ||
+                     NativeMutationVerifier.TryReadAfterCall(putBack.Landed, out var back) && back
                         ? string.Empty
                         : " " + GameActionAnswer.NotUndone(page))));
         if (stop is not { } stopped)

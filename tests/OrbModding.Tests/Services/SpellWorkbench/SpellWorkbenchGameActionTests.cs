@@ -676,11 +676,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     /// <summary>
-    /// A full bar says how many slots it has and that nothing was spent, because "every slot is
-    /// occupied" without a number leaves a caller unable to tell a full bar from a bar it cannot
-    /// see.
-    /// </summary>
-    /// <summary>
     /// A load stages the requested augments over the player's own, then puts the player's back.
     /// When that second write does not land, the fault says what came back instead, so whoever
     /// reads it knows what the Spellcraft selection now holds.
@@ -708,6 +703,11 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A full bar says how many slots it has and that nothing was spent, because "every slot is
+    /// occupied" without a number leaves a caller unable to tell a full bar from a bar it cannot
+    /// see.
+    /// </summary>
     [Fact]
     public void LoadoutAddNamesTheSlotCountAndThatNothingWasStagedWhenTheBarIsFull()
     {

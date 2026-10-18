@@ -9,7 +9,7 @@ namespace OrbAutomata;
 /// Doctrine-shaped re-drive of the native Scribe UI composite. All fallible suite-owned reads and
 /// decisions finish before payment; the exact work admission is the one postcondition sentinel.
 /// </summary>
-internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
+internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
 {
     private readonly TypedRegistryResolver _registry;
     private readonly AutoScribeIdentityProfile _profile;
@@ -18,9 +18,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
     private readonly Func<string> _readOwnershipFailure;
     private readonly int _mainThreadId;
     private AutoScribeNativeBindings? _bindings;
-    private CraftingPlayerNativeBindings? _playerBindings;
     private string _bindingFailure = string.Empty;
-    private string _playerBindingFailure = string.Empty;
     private string _quarantineReason = string.Empty;
 
     internal AutoScribeOneShotCraftGameAction(
@@ -44,8 +42,6 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
 
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
-    internal bool PlayerCraftingBindingsAvailable => _playerBindings is not null;
-    internal string PlayerCraftingBindingFailure => _playerBindingFailure;
     internal bool IsQuarantined => _quarantineReason.Length != 0;
     internal string QuarantineReason => _quarantineReason;
 
@@ -163,9 +159,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
     internal void InvalidateLifecycle()
     {
         _bindings = null;
-        _playerBindings = null;
         _bindingFailure = string.Empty;
-        _playerBindingFailure = string.Empty;
         _quarantineReason = string.Empty;
         BindLifecycle();
     }
@@ -173,9 +167,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
     public void Dispose()
     {
         _bindings = null;
-        _playerBindings = null;
         _bindingFailure = string.Empty;
-        _playerBindingFailure = string.Empty;
         _quarantineReason = string.Empty;
     }
 
@@ -771,16 +763,6 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             _bindings = null;
             _bindingFailure = reason;
-        }
-        if (CraftingPlayerNativeBindings.TryCreate(out var player, out var playerReason))
-        {
-            _playerBindings = player;
-            _playerBindingFailure = string.Empty;
-        }
-        else
-        {
-            _playerBindings = null;
-            _playerBindingFailure = playerReason;
         }
     }
 
