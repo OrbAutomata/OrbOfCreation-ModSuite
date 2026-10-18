@@ -434,6 +434,21 @@ internal static class NativeAccessorBinder
         return Expression.Lambda<Func<object, IList?>>(read, source).Compile();
     }
 
+    /// <summary>Binds a field that is exactly a <c>List&lt;T&gt;</c> of <paramref name="exactElementType"/>.</summary>
+    internal static Func<object, IList?>? CollectionField(Type? owner, string name, Type? exactElementType)
+    {
+        if (owner is null || exactElementType is null) return null;
+        var expected = typeof(System.Collections.Generic.List<>).MakeGenericType(exactElementType);
+        var field = owner.GetField(name, Instance);
+        if (field is null || field.FieldType != expected) return null;
+
+        var source = Expression.Parameter(typeof(object), "source");
+        var read = Expression.Convert(
+            Expression.Field(Expression.Convert(source, owner), field), typeof(IList));
+
+        return Expression.Lambda<Func<object, IList?>>(read, source).Compile();
+    }
+
     /// <summary>
     /// Binds "read a field, then count the collection on it" — the shape
     /// <c>ModifierRecord.HasActiveElements()</c> takes.

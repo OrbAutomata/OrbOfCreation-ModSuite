@@ -1193,14 +1193,6 @@ public sealed class NativeContractManifestTests
     /// first cut: it catches a capture root reaching for something the manifest files as a
     /// transaction, which is the failure that matters.
     /// </para>
-    /// <para>
-    /// <b>It under-reports, and knowing by how much is the point of saying so here.</b> The walk sees
-    /// the reflection APIs and the world binder's own helpers; it does not see a feature binding's
-    /// private <c>Method(...)</c> and <c>Field(...)</c> wrappers, so
-    /// <c>LoadoutNativeBindings</c> — which sits inside a capture root and binds a transaction —
-    /// passes without being looked at. Splitting that file into its reading and mutating halves is
-    /// what lets the walk see it, and until then it is a named gap rather than a silent one.
-    /// </para>
     /// </remarks>
     [Fact]
     public void EveryCaptureRootSelectorNamesACaptureContract()
@@ -1353,6 +1345,7 @@ public sealed class NativeContractManifestTests
         ("instance", "CollectionCount", "_count = bind.CollectionCount(\"zzProbeField\");", new[] { "zzProbeField" }),
         ("instance", "CollectionElementType", "_element = bind.CollectionElementType(\"zzProbeField\");", new[] { "zzProbeField" }),
         ("instance", "CollectionField", "_values = bind.CollectionField(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "CollectionField", "_values = bind.CollectionField(\"zzProbeField\", elementType);", new[] { "zzProbeField" }),
         ("instance", "EnumField", "_kind = bind.EnumField(\"zzProbeField\");", new[] { "zzProbeField" }),
         ("instance", "Field", "_level = bind.Field<int>(\"zzProbeField\");", new[] { "zzProbeField" }),
         ("instance", "ModifierRecord", "_power = bind.ModifierRecord(\"zzProbeField\");", new[] { "zzProbeField" }),
@@ -1385,6 +1378,7 @@ public sealed class NativeContractManifestTests
         ("static", "CollectionCount", "_count = NativeAccessorBinder.CollectionCount(recordType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "CollectionElementType", "_element = NativeAccessorBinder.CollectionElementType(tooltipType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "CollectionField", "_values = NativeAccessorBinder.CollectionField(tooltipType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "CollectionField", "_values = NativeAccessorBinder.CollectionField(listType, \"zzProbeField\", elementType);", new[] { "zzProbeField" }),
         ("static", "EnumField", "_kind = NativeAccessorBinder.EnumField(modifierType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "Field", "_available = NativeAccessorBinder.Field<bool>(prerequisitesType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "NestedEnumField", "_kind = NativeAccessorBinder.NestedEnumField(thresholdType, \"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),

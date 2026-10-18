@@ -110,8 +110,6 @@ internal sealed class FakeLoadoutManager
     public FakePlayerLoadoutListVariable playerLoadouts = new();
     public FakeAlchemySnapshotListVariable alchemyLoadouts = new();
     public FakeEquipmentSnapshotListVariable equipmentLoadouts = new();
-    public FakeAlchemyInstanceList activeAlchemy = new();
-    public FakeEquipmentList activeEquipment = new();
     public FakeSpellLoadout activeSpells = new();
     public int RefusalFeedbacks { get; private set; }
 
@@ -122,15 +120,5 @@ internal sealed class FakeLoadoutManager
             return true;
         RefusalFeedbacks++;
         return false;
-    }
-
-    public void SetLoadout(FakePlayerLoadout target)
-    {
-        foreach (var loadout in playerLoadouts.value) loadout.isSelected = false;
-        target.isSelected = true;
-    }
-
-    public void SaveActiveLoadout()
-    {
     }
 }

@@ -3154,12 +3154,8 @@ public sealed class GameWorldCollectorTests : IDisposable
     private static class FakeGlobalVariables
     {
         private static readonly FakeCount MultiBuy = new(1);
-        private static readonly List<object> LoadoutIcons = new() { new object(), new object() };
-        private static readonly List<object> LoadoutColors = new() { new object(), new object() };
 
         public static FakeCount GetMultiBuy() => MultiBuy;
-        public static List<object> GetCustomSprites() => LoadoutIcons;
-        public static List<object> GetCustomColors() => LoadoutColors;
 
         public static void SetMultiBuy(int amount) => MultiBuy.SetValue(amount);
     }

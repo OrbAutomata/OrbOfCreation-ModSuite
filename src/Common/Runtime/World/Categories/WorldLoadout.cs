@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -100,60 +100,187 @@ internal readonly struct WorldSnapshotEntry
 
 internal sealed class WorldLoadoutReader : IWorldCategoryReader
 {
-    private readonly LoadoutNativeBindings? _bindings;
+    private readonly Type? _managerType;
+    private readonly Type? _playerType;
+    private readonly Type? _spellType;
+    private readonly Type? _equipmentType;
+    private readonly Type? _alchemyRecipeType;
+    private readonly Type? _alchemySnapshotListType;
+    private readonly Type? _equipmentSnapshotListType;
+    private readonly Func<object?>? _manager;
+    private readonly Func<object, object?>? _playerLoadouts;
+    private readonly Func<object, object?>? _alchemySnapshots;
+    private readonly Func<object, object?>? _equipmentSnapshots;
+    private readonly Func<object, bool>? _canSwap;
+    private readonly Func<object, IList?>? _playerValues;
+    private readonly Func<object, Guid>? _playerId;
+    private readonly Func<object, string>? _playerName;
+    private readonly Func<object, bool>? _playerSelected;
+    private readonly Func<object, bool>? _equipmentEnabled;
+    private readonly Func<object, bool>? _alchemyEnabled;
+    private readonly Func<object, IList?>? _playerSpells;
+    private readonly Func<object, object?>? _playerEquipmentRecord;
+    private readonly Func<object, object?>? _playerAlchemyRecord;
+    private readonly Func<object, object?>? _playerLabel;
+    private readonly Func<object, int>? _labelIcon;
+    private readonly Func<object, int>? _labelColor;
+    private readonly Func<object, Guid>? _identity;
+    private readonly Func<object, Guid>? _spellId;
+    private readonly Func<object, object?>? _spellReference;
+    private readonly Func<object, bool>? _spellEmpty;
+    private readonly Func<object, IList?>? _alchemySnapshotValues;
+    private readonly Func<object, IList?>? _equipmentSnapshotValues;
+    private readonly Func<object, bool>? _alchemySnapshotEmpty;
+    private readonly Func<object, bool>? _equipmentSnapshotEmpty;
+    private readonly Func<object, object?>? _alchemySnapshotRecord;
+    private readonly Func<object, object?>? _equipmentSnapshotRecord;
+    private readonly Func<object, IList?>? _alchemyRecordEntries;
+    private readonly Func<object, IList?>? _equipmentRecordEntries;
     private readonly string _unavailable;
 
     internal WorldLoadoutReader(Func<string, Type?> resolveType)
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
-        if (LoadoutNativeBindings.TryCreate(out var bindings, out var reason, resolveType))
+        var missing = new List<string>();
+        Type? Resolve(string name)
         {
-            _bindings = bindings;
-            _unavailable = string.Empty;
+            var type = resolveType(name);
+            if (type is null) missing.Add(name);
+            return type;
         }
-        else
+
+        _managerType = Resolve("LoadoutManager");
+        var playerListType = Resolve("PlayerLoadoutListVariable");
+        _playerType = Resolve("PlayerLoadout");
+        var labelType = Resolve("PlayerLoadout+LoadoutLabel");
+        _spellType = Resolve("Spell");
+        var spellListType = Resolve("SpellListVariable");
+        var spellRecipeType = Resolve("SpellRecipeSO");
+        _equipmentType = Resolve("EquipmentSO");
+        _alchemyRecipeType = Resolve("AlchemyRecipeSO");
+        _alchemySnapshotListType = Resolve("AlchemySnapshotListVariable");
+        _equipmentSnapshotListType = Resolve("EquipmentSnapshotListVariable");
+        var alchemySnapshotType = Resolve("AlchemySnapshot");
+        var equipmentSnapshotType = Resolve("EquipmentSnapshot");
+        var identityType = Resolve("IdScriptableObject");
+        var stackedType = Resolve("Stacked.StackedIdRecord`1");
+        if (missing.Count > 0)
         {
-            _unavailable = reason;
+            _unavailable = string.Join(", ", missing) + " did not resolve on this build";
+            return;
         }
+
+        var alchemyRecordType = stackedType!.MakeGenericType(_alchemyRecipeType!);
+        var equipmentRecordType = stackedType.MakeGenericType(_equipmentType!);
+
+        _manager = NativeAccessorBinder.StaticReference(_managerType, "instance", _managerType);
+        var manager = new WorldMemberBinding(_managerType!, "LoadoutManager");
+        _playerLoadouts = manager.Reference("playerLoadouts", playerListType);
+        _alchemySnapshots = manager.Reference("alchemyLoadouts", _alchemySnapshotListType);
+        _equipmentSnapshots = manager.Reference("equipmentLoadouts", _equipmentSnapshotListType);
+        var activeSpells = manager.Reference("activeSpells", spellListType);
+
+        var playerList = new WorldMemberBinding(playerListType!, "PlayerLoadoutListVariable");
+        _playerValues = playerList.CollectionField("value", _playerType);
+
+        var spellList = new WorldMemberBinding(spellListType!, "SpellListVariable");
+        var spellValues = spellList.CollectionField("value", _spellType);
+
+        var player = new WorldMemberBinding(_playerType!, "PlayerLoadout");
+        _playerId = player.StableUuid();
+        _playerName = player.Call<string>("GetName");
+        _playerSelected = player.Call<bool>("IsSelected");
+        _equipmentEnabled = player.Call<bool>("HasEquipment");
+        _alchemyEnabled = player.Call<bool>("HasAlchemy");
+        _playerSpells = player.CallList("GetSpells", _spellType);
+        _playerEquipmentRecord = player.Reference("equipment", equipmentRecordType);
+        _playerAlchemyRecord = player.Reference("alchemy", alchemyRecordType);
+        _playerLabel = player.CallObject("GetLabel", labelType);
+
+        var label = new WorldMemberBinding(labelType!, "PlayerLoadout+LoadoutLabel");
+        _labelIcon = label.Call<int>("GetIconIndex");
+        _labelColor = label.Call<int>("GetColorIndex");
+
+        var spell = new WorldMemberBinding(_spellType!, "Spell");
+        _spellEmpty = spell.Call<bool>("IsEmpty");
+        _spellReference = spell.CallObject("get_reference", spellRecipeType);
+        _spellId = spell.Call<Guid>("GetId");
+        var casting = spell.Call<bool>("IsCasting");
+        var readying = spell.Call<bool>("IsReadyingCast");
+
+        var alchemySnapshotList = new WorldMemberBinding(_alchemySnapshotListType!, "AlchemySnapshotListVariable");
+        _alchemySnapshotValues = alchemySnapshotList.CollectionField("value", alchemySnapshotType);
+        var equipmentSnapshotList = new WorldMemberBinding(_equipmentSnapshotListType!, "EquipmentSnapshotListVariable");
+        _equipmentSnapshotValues = equipmentSnapshotList.CollectionField("value", equipmentSnapshotType);
+
+        var alchemySnapshot = new WorldMemberBinding(alchemySnapshotType!, "AlchemySnapshot");
+        _alchemySnapshotEmpty = alchemySnapshot.Call<bool>("IsEmpty");
+        _alchemySnapshotRecord = alchemySnapshot.CallObject("GetRecord", alchemyRecordType);
+        var equipmentSnapshot = new WorldMemberBinding(equipmentSnapshotType!, "EquipmentSnapshot");
+        _equipmentSnapshotEmpty = equipmentSnapshot.Call<bool>("IsEmpty");
+        _equipmentSnapshotRecord = equipmentSnapshot.CallObject("GetRecord", equipmentRecordType);
+
+        var alchemyRecord = new WorldMemberBinding(alchemyRecordType, "StackedIdRecord<AlchemyRecipeSO>");
+        _alchemyRecordEntries = alchemyRecord.CallList("GetEntries",
+            typeof(ValueTuple<,>).MakeGenericType(_alchemyRecipeType!, typeof(int)));
+        var equipmentRecord = new WorldMemberBinding(equipmentRecordType, "StackedIdRecord<EquipmentSO>");
+        _equipmentRecordEntries = equipmentRecord.CallList("GetEntries",
+            typeof(ValueTuple<,>).MakeGenericType(_equipmentType!, typeof(int)));
+
+        var identity = new WorldMemberBinding(identityType!, "IdScriptableObject");
+        _identity = identity.StableUuid();
+
+        if (activeSpells is not null && spellValues is not null && casting is not null && readying is not null)
+            _canSwap = LoadoutNativeShapes.SpellsAllowSwap(activeSpells, spellValues, casting, readying);
+
+        var failures = new[]
+        {
+            _manager is null ? "LoadoutManager did not expose instance on this build" : string.Empty,
+            manager.Failure, playerList.Failure, spellList.Failure, player.Failure, label.Failure,
+            spell.Failure, alchemySnapshotList.Failure, equipmentSnapshotList.Failure,
+            alchemySnapshot.Failure, equipmentSnapshot.Failure, alchemyRecord.Failure,
+            equipmentRecord.Failure, identity.Failure,
+        };
+        _unavailable = string.Join("; ", failures.Where(failure => failure.Length > 0));
     }
 
     public string Category => "loadouts";
-    public bool IsAvailable => _bindings is not null;
+    public bool IsAvailable => _unavailable.Length == 0;
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
         ResetRows(frame);
-        if (_bindings is not { } native)
+        if (!IsAvailable)
             return WorldCategoryReport.Missing(Category, _unavailable);
         try
         {
-            var manager = native.Manager();
-            if (manager is null || manager.GetType() != native.ManagerType)
+            var manager = _manager!();
+            if (manager is null || manager.GetType() != _managerType)
                 return WorldCategoryReport.Missing(Category,
                     "LoadoutManager.instance is unavailable in this scene");
             var sampled = 0;
             var skipped = 0;
             var firstFailure = string.Empty;
-            var playerList = native.PlayerLoadouts(manager);
-            var players = playerList is null ? null : native.PlayerValues(playerList);
-            var canSwap = native.CanSwap(manager);
+            var playerList = _playerLoadouts!(manager);
+            var players = playerList is null ? null : _playerValues!(playerList);
+            var canSwap = _canSwap!(manager);
             for (var index = 0; index < (players?.Count ?? 0); index++)
             {
                 var player = players![index];
-                if (player is null || player.GetType() != native.PlayerLoadoutType)
+                if (player is null || player.GetType() != _playerType)
                 {
                     Skip(ref skipped, ref firstFailure,
                         "a player loadout had an unexpected native type");
                     continue;
                 }
-                var id = native.PlayerId(player);
+                var id = _playerId!(player);
                 if (id == Guid.Empty)
                 {
                     Skip(ref skipped, ref firstFailure,
                         "a player loadout had an empty identity");
                     continue;
                 }
-                var label = native.PlayerLabel(player);
+                var label = _playerLabel!(player);
                 if (label is null)
                 {
                     Skip(ref skipped, ref firstFailure,
@@ -166,18 +293,18 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                         "a player loadout had a duplicate identity");
                     continue;
                 }
-                var selected = native.PlayerSelected(player);
+                var selected = _playerSelected!(player);
                 frame.PlayerLoadouts.Append(new WorldPlayerLoadout(id,
-                    native.PlayerName(player), selected, native.EquipmentEnabled(player),
-                    native.AlchemyEnabled(player), native.LabelIcon(label),
-                    native.LabelColor(label), !selected && canSwap));
-                AppendPlayerEntries(native, player, id, frame.PlayerLoadoutEntries,
+                    _playerName!(player), selected, _equipmentEnabled!(player),
+                    _alchemyEnabled!(player), _labelIcon!(label),
+                    _labelColor!(label), !selected && canSwap));
+                AppendPlayerEntries(player, id, frame.PlayerLoadoutEntries,
                     ref skipped, ref firstFailure);
                 sampled++;
             }
-            sampled += AppendSnapshotList(native, native.AlchemySnapshots(manager), true,
+            sampled += AppendSnapshotList(_alchemySnapshots!(manager), true,
                 claimed, frame, ref skipped, ref firstFailure);
-            sampled += AppendSnapshotList(native, native.EquipmentSnapshots(manager), false,
+            sampled += AppendSnapshotList(_equipmentSnapshots!(manager), false,
                 claimed, frame, ref skipped, ref firstFailure);
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected,
                 sampled, skipped, firstFailure);
@@ -199,25 +326,25 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         frame.SnapshotEntries.Reset();
     }
 
-    private static void AppendPlayerEntries(LoadoutNativeBindings native, object player,
-        Guid ownerId, WorldRelationBuffer<WorldLoadoutEntry> destination,
+    private void AppendPlayerEntries(object player, Guid ownerId,
+        WorldRelationBuffer<WorldLoadoutEntry> destination,
         ref int skipped, ref string firstFailure)
     {
-        var spells = native.PlayerSpells(player);
+        var spells = _playerSpells!(player);
         for (var index = 0; index < (spells?.Count ?? 0); index++)
         {
             var spell = spells![index];
             if (spell is null) continue;
-            if (spell.GetType() != native.SpellType)
+            if (spell.GetType() != _spellType)
             {
                 Skip(ref skipped, ref firstFailure,
                     "a loadout's spell entry had an unexpected native type");
                 continue;
             }
-            if (native.SpellEmpty(spell)) continue;
-            var reference = native.SpellReference(spell);
-            var spellId = native.SpellId(spell);
-            var recipeId = reference is null ? Guid.Empty : native.Identity(reference);
+            if (_spellEmpty!(spell)) continue;
+            var reference = _spellReference!(spell);
+            var spellId = _spellId!(spell);
+            var recipeId = reference is null ? Guid.Empty : _identity!(reference);
             if (spellId == Guid.Empty || recipeId == Guid.Empty)
             {
                 Skip(ref skipped, ref firstFailure,
@@ -227,36 +354,35 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             destination.Append(new WorldLoadoutEntry(ownerId,
                 WorldLoadoutEntryKind.Spell, spellId, recipeId, 1));
         }
-        AppendRecord(native, native.PlayerEquipmentRecord(player), ownerId,
+        AppendRecord(_playerEquipmentRecord!(player), ownerId,
             WorldLoadoutEntryKind.Equipment, destination, ref skipped, ref firstFailure);
-        AppendRecord(native, native.PlayerAlchemyRecord(player), ownerId,
+        AppendRecord(_playerAlchemyRecord!(player), ownerId,
             WorldLoadoutEntryKind.Alchemy, destination, ref skipped, ref firstFailure);
     }
 
-    private static void AppendRecord(LoadoutNativeBindings native, object? record,
-        Guid ownerId, WorldLoadoutEntryKind kind,
+    private void AppendRecord(object? record, Guid ownerId, WorldLoadoutEntryKind kind,
         WorldRelationBuffer<WorldLoadoutEntry> destination,
         ref int skipped, ref string firstFailure)
     {
         var alchemy = kind == WorldLoadoutEntryKind.Alchemy;
         var entries = record is null
             ? null
-            : alchemy ? native.AlchemyRecordEntries(record) : native.EquipmentRecordEntries(record);
+            : alchemy ? _alchemyRecordEntries!(record) : _equipmentRecordEntries!(record);
         for (var index = 0; index < (entries?.Count ?? 0); index++)
         {
-            if (TryReadEntry(native, entries![index], alchemy, out var id, out var quantity,
+            if (TryReadEntry(entries![index], alchemy, out var id, out var quantity,
                     ref skipped, ref firstFailure))
                 destination.Append(new WorldLoadoutEntry(ownerId, kind, id, Guid.Empty, quantity));
         }
     }
 
-    private static bool TryReadEntry(LoadoutNativeBindings native, object? entry, bool alchemy,
+    private bool TryReadEntry(object? entry, bool alchemy,
         out Guid id, out int quantity, ref int skipped, ref string firstFailure)
     {
         id = Guid.Empty;
         var kind = alchemy ? "alchemy" : "equipment";
-        if (entry is null || !LoadoutNativeBindings.TryReadEntry(entry,
-                alchemy ? native.AlchemyRecipeType : native.EquipmentType,
+        if (entry is null || !LoadoutNativeShapes.TryReadEntry(entry,
+                alchemy ? _alchemyRecipeType! : _equipmentType!,
                 out var item, out quantity))
         {
             quantity = 0;
@@ -264,24 +390,23 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             return false;
         }
         if (quantity <= 0) return false;
-        id = native.Identity(item!);
+        id = _identity!(item!);
         if (id != Guid.Empty) return true;
         Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry had an empty identity");
         return false;
     }
 
-    private static int AppendSnapshotList(LoadoutNativeBindings native, object? owner,
-        bool alchemy, HashSet<Guid> claimed, GameWorldCycleFrame frame,
-        ref int skipped, ref string firstFailure)
+    private int AppendSnapshotList(object? owner, bool alchemy, HashSet<Guid> claimed,
+        GameWorldCycleFrame frame, ref int skipped, ref string firstFailure)
     {
-        var expected = alchemy ? native.AlchemySnapshotListType : native.EquipmentSnapshotListType;
+        var expected = alchemy ? _alchemySnapshotListType : _equipmentSnapshotListType;
         if (owner is null || owner.GetType() != expected)
         {
             Skip(ref skipped, ref firstFailure,
                 "a snapshot list had an unexpected native type");
             return 0;
         }
-        var id = native.Identity(owner);
+        var id = _identity!(owner);
         if (id == Guid.Empty || !claimed.Add(id))
         {
             Skip(ref skipped, ref firstFailure,
@@ -289,8 +414,8 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             return 0;
         }
         var values = alchemy
-            ? native.AlchemySnapshotValues(owner)
-            : native.EquipmentSnapshotValues(owner);
+            ? _alchemySnapshotValues!(owner)
+            : _equipmentSnapshotValues!(owner);
         frame.SnapshotLoadouts.Append(new WorldSnapshotLoadout(id,
             alchemy ? WorldSnapshotLoadoutKind.Alchemy : WorldSnapshotLoadoutKind.Equipment,
             values?.Count ?? 0));
@@ -304,18 +429,18 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                 continue;
             }
             var empty = alchemy
-                ? native.AlchemySnapshotEmpty(snapshot)
-                : native.EquipmentSnapshotEmpty(snapshot);
+                ? _alchemySnapshotEmpty!(snapshot)
+                : _equipmentSnapshotEmpty!(snapshot);
             frame.SnapshotSlots.Append(new WorldSnapshotSlot(id, slot, !empty));
             var record = alchemy
-                ? native.AlchemySnapshotRecord(snapshot)
-                : native.EquipmentSnapshotRecord(snapshot);
-            var entries = alchemy
-                ? record is null ? null : native.AlchemyRecordEntries(record)
-                : record is null ? null : native.EquipmentRecordEntries(record);
+                ? _alchemySnapshotRecord!(snapshot)
+                : _equipmentSnapshotRecord!(snapshot);
+            var entries = record is null
+                ? null
+                : alchemy ? _alchemyRecordEntries!(record) : _equipmentRecordEntries!(record);
             for (var index = 0; index < (entries?.Count ?? 0); index++)
             {
-                if (TryReadEntry(native, entries![index], alchemy, out var entryId,
+                if (TryReadEntry(entries![index], alchemy, out var entryId,
                         out var quantity, ref skipped, ref firstFailure))
                     frame.SnapshotEntries.Append(new WorldSnapshotEntry(
                         id, slot, entryId, quantity));

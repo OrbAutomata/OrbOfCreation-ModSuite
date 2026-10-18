@@ -496,6 +496,9 @@ internal sealed class WorldMemberBinding
     internal Func<object, IList?>? CollectionField(string name) =>
         Record(name, NativeAccessorBinder.CollectionField(_type, name));
 
+    internal Func<object, IList?>? CollectionField(string name, Type? exactElementType) =>
+        Record(name, NativeAccessorBinder.CollectionField(_type, name, exactElementType));
+
     /// <summary>The element type of a collection field, for binding accessors onto its entries.</summary>
     internal Type? CollectionElementType(string name) =>
         NativeAccessorBinder.CollectionElementType(_type, name);
