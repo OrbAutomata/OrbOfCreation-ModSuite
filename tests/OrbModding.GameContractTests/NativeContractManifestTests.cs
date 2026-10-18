@@ -1001,7 +1001,7 @@ public sealed class NativeContractManifestTests
         "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMultiBuy",
         "GetQueuedLevels", "GetRemainingFreeUsageSlots",
         "GetRemainingMaxUsageSlots", "GetStacks", "GetTypesEquipped",
-        "GetUsageCost", "HasMaxLevel", "IsAtMax", "IsChallengeRestricted", "IsItem",
+        "GetUsageCost", "HasMaxLevel", "IsChallengeRestricted", "IsItem",
         "IsResearchQueueMode", "IsWithinDevelopRangeAt",
         "MaximumCostTimes", "MaximumNumberInstances", "activeAlchemy",
         "activeChallenges", "challengeRerollsLeft", "equippedEquipment", "hasCompleteWorldCycle",

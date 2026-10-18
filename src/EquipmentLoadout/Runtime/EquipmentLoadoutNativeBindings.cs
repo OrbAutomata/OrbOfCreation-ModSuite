@@ -15,7 +15,7 @@ internal sealed class EquipmentLoadoutNativeBindings
         "equipment-loadout.manager-equipped-list-action", "equipment-loadout.equipment-created-action",
         "equipment-loadout.equipment-type-field-action", "equipment-loadout.equipment-maximum-action",
         "equipment-loadout.equipment-cost-action", "equipment-loadout.list-stacks-action",
-        "equipment-loadout.list-maximum-action", "equipment-loadout.list-at-maximum-action",
+        "equipment-loadout.list-maximum-action",
         "equipment-loadout.list-values-action", "equipment-loadout.list-type-count-action",
         "equipment-loadout.type-maximum-action", "equipment-loadout.cost-enough-action",
         "equipment-loadout.cost-maximum-times-action", "equipment-loadout.manager-equip-action",
@@ -26,7 +26,7 @@ internal sealed class EquipmentLoadoutNativeBindings
         Func<object?> manager, Func<object, object?> equippedList, Func<object, bool> isCreated,
         Func<object, object?> readEquipmentType, Func<object, int> maximumStacks,
         Func<object, object?> usageCost, Func<object, object, int> stacks,
-        Func<object, int> maximumSlots, Func<object, bool> atMaximum, Func<object, IList?> values,
+        Func<object, int> maximumSlots, Func<object, IList?> values,
         Func<object, object, int> typeCount, Func<object, int> typeMaximum,
         Func<object, bool> hasEnough, Func<object, BigDouble> maximumTimes,
         Action<object, object> equip, Action<object, object> unequip)
@@ -34,7 +34,7 @@ internal sealed class EquipmentLoadoutNativeBindings
         EquipmentType = equipmentType; ManagerType = managerType; Manager = manager;
         EquippedList = equippedList; IsCreated = isCreated; ReadEquipmentType = readEquipmentType;
         MaximumStacks = maximumStacks; UsageCost = usageCost; Stacks = stacks;
-        MaximumSlots = maximumSlots; AtMaximum = atMaximum; Values = values;
+        MaximumSlots = maximumSlots; Values = values;
         TypeCount = typeCount; TypeMaximum = typeMaximum; HasEnough = hasEnough;
         MaximumTimes = maximumTimes;
         Equip = equip; Unequip = unequip;
@@ -50,7 +50,6 @@ internal sealed class EquipmentLoadoutNativeBindings
     internal Func<object, object?> UsageCost { get; }
     internal Func<object, object, int> Stacks { get; }
     internal Func<object, int> MaximumSlots { get; }
-    internal Func<object, bool> AtMaximum { get; }
     internal Func<object, IList?> Values { get; }
     internal Func<object, object, int> TypeCount { get; }
     internal Func<object, int> TypeMaximum { get; }
@@ -84,7 +83,6 @@ internal sealed class EquipmentLoadoutNativeBindings
                 set.Call<Func<object, object, int>>(
                     "equipment-loadout.list-stacks-action", list, "GetStacks", typeof(int), equipment),
                 set.Call<Func<object, int>>("equipment-loadout.list-maximum-action", list, "GetMax", typeof(int)),
-                set.Call<Func<object, bool>>("equipment-loadout.list-at-maximum-action", list, "IsAtMax", typeof(bool)),
                 set.Field<Func<object, IList?>>("equipment-loadout.list-values-action", list, "value",
                     typeof(System.Collections.Generic.List<>).MakeGenericType(equipment)),
                 set.Call<Func<object, object, int>>(

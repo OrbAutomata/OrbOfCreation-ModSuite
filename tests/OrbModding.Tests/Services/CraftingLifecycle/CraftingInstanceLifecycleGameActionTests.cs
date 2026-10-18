@@ -193,6 +193,18 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Automate_never_needs_a_member_the_press_does_not_read()
+    {
+        var (recipe, page) = Surface();
+        using var boundary = Boundary(recipe, id => id != "id-scriptable-object.get-guid-action");
+
+        var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
+
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+        Assert.Equal(1, page.craftingAutomationInstances.GetInstance(recipe)!.AutomationQuantity);
+    }
+
     /// <summary>
     /// The game wrote a new automation entry and then threw. The entry is there to read, so the
     /// press committed and the exception only explains it.

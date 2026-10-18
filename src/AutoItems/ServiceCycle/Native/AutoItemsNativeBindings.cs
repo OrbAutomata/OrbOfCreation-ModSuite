@@ -50,7 +50,6 @@ internal sealed class AutoItemsNativeBindings
         "consumable.select-and-fire",
         "consumable.set-randomization",
         "consumable.is-randomized",
-        "consumable.get-quantity",
         "consumable.get-queued",
         "inventory.can-use-consumable",
         "targeting-manager.is-targeting",
@@ -95,7 +94,6 @@ internal sealed class AutoItemsNativeBindings
         Action<object> selectAndFire,
         Action<object, bool> setRandomization,
         Func<object, bool> isRandomized,
-        Func<object, int> getQuantity,
         Func<object, int> getQueued,
         Func<bool> canUseConsumable,
         Func<bool> isTargeting,
@@ -138,7 +136,6 @@ internal sealed class AutoItemsNativeBindings
         SelectAndFire = selectAndFire;
         SetRandomization = setRandomization;
         IsRandomized = isRandomized;
-        GetQuantity = getQuantity;
         GetQueued = getQueued;
         CanUseConsumable = canUseConsumable;
         IsTargeting = isTargeting;
@@ -182,7 +179,6 @@ internal sealed class AutoItemsNativeBindings
     internal Action<object> SelectAndFire { get; }
     internal Action<object, bool> SetRandomization { get; }
     internal Func<object, bool> IsRandomized { get; }
-    internal Func<object, int> GetQuantity { get; }
     internal Func<object, int> GetQueued { get; }
     internal Func<bool> CanUseConsumable { get; }
     internal Func<bool> IsTargeting { get; }
@@ -261,7 +257,6 @@ internal sealed class AutoItemsNativeBindings
                     "consumable.set-randomization", consumable, "SetRandomization", typeof(void), typeof(bool)),
                 set.Call<Func<object, bool>>(
                     "consumable.is-randomized", consumable, "IsRandomized", typeof(bool)),
-                set.Call<Func<object, int>>("consumable.get-quantity", consumable, "GetQuantity", typeof(int)),
                 set.Call<Func<object, int>>("consumable.get-queued", consumable, "GetQueued", typeof(int)),
                 set.StaticCall<Func<bool>>(
                     "inventory.can-use-consumable", inventory, "CanUseConsumable", typeof(bool)),
