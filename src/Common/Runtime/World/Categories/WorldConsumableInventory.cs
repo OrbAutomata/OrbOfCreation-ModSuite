@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -109,8 +107,6 @@ internal sealed class WorldConsumableInventoryBuffer
 /// </summary>
 internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
 {
-    private const BindingFlags AnyStatic =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _inventoryType;
     private readonly Type? _listType;
@@ -137,7 +133,7 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
             return;
         }
 
-        _instance = BindStaticReference(_inventoryType, "_instance", _inventoryType);
+        _instance = NativeAccessorBinder.StaticReference(_inventoryType, "_instance", _inventoryType);
         _inventoryList = NativeAccessorBinder.Reference(
             _inventoryType,
             "allConsumables",
@@ -146,7 +142,7 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
         _values = NativeAccessorBinder.CollectionField(_listType, "value");
         _maximum = NativeAccessorBinder.Call<int>(_listType, "GetMax");
         _identity = NativeAccessorBinder.Call<Guid>(_consumableType, "GetGuid");
-        _canUse = BindStaticCall<bool>(_inventoryType, "CanUseConsumable");
+        _canUse = NativeAccessorBinder.StaticCall<bool>(_inventoryType, "CanUseConsumable");
         _unavailable = _instance is null || _inventoryList is null || _hotbarList is null ||
             _values is null || _maximum is null || _identity is null || _canUse is null
                 ? "the complete consumable inventory read binding set is unavailable"
@@ -239,35 +235,4 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
         return values.Count;
     }
 
-    private static Func<object?>? BindStaticReference(
-        Type owner,
-        string name,
-        Type exactType)
-    {
-        var field = owner.GetField(name, AnyStatic);
-        if (field is null || !field.IsStatic || field.FieldType != exactType) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private static Func<T>? BindStaticCall<T>(Type owner, string name)
-    {
-        var method = owner.GetMethod(name, AnyStatic, null, Type.EmptyTypes, null);
-        if (method is null || !method.IsStatic || method.ReturnType != typeof(T)) return null;
-        try
-        {
-            return Expression.Lambda<Func<T>>(Expression.Call(method)).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
 }

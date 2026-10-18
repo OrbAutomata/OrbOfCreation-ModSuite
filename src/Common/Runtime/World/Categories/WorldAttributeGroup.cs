@@ -164,6 +164,7 @@ internal readonly struct WorldAttributeGroupMember
 internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
 {
     private readonly Type? _groupType;
+    private readonly Func<IList?>? _groups;
     private readonly string _unavailable;
 
     private readonly Func<object, Guid>? _groupId;
@@ -180,6 +181,7 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
         _groupType = resolveType("AttributeGroupSO");
+        _groups = NativeAccessorBinder.StaticListAccessor(_groupType, "All");
         if (_groupType is null)
         {
             _unavailable = "the AttributeGroupSO type was not found on this build";
@@ -214,7 +216,7 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
         frame.AttributeGroupMembers.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var groups = NativeAccessorBinder.StaticList(_groupType, "All");
+        var groups = _groups?.Invoke();
         if (groups is null)
             return WorldCategoryReport.Missing(Category, "the AttributeGroupSO registry was unreadable");
 

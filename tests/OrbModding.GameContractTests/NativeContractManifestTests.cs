@@ -30,7 +30,7 @@ public sealed class NativeContractManifestTests
     /// terminator still keeps one call's literals from bleeding into the next.
     /// </remarks>
     private static readonly Regex LiteralSelectorPattern = new(
-        "(?:GetMethod|GetField|GetProperty|FindMethod|FindField|FindNoArgMethod|ResolveStaticNoArgMethod|InvokeNoArgs|TryInvokeBool|ReadMember|ReadBool|ReadInt|InvokeRequired|ReadStaticList)\\s*\\([^;]*?\"(?<target>[A-Za-z_][A-Za-z0-9_.+`]*)\"",
+        "(?:GetMethod|GetField|GetProperty|FindMethod|FindField|FindNoArgMethod|ResolveStaticNoArgMethod|InvokeNoArgs|TryInvokeBool|ReadMember|ReadBool|ReadInt|InvokeRequired)\\s*\\([^;]*?\"(?<target>[A-Za-z_][A-Za-z0-9_.+`]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex ReflectionUsePattern = new(
@@ -56,8 +56,8 @@ public sealed class NativeContractManifestTests
         "BoxedField|CallList|CallObject|CallReferenceGuid|CallWithObjectArgument|Call|"
             + "CollectionCount|CollectionElementType|CollectionField"
             + "|EnumField|Field|ModifierRecord|NestedCollectionCount|NestedEnumField|NestedField"
-            + "|ReferenceGuid|Reference|StaticDictionary|StaticField|StaticListAccessor|StaticList"
-            + "|StaticReference|Through";
+            + "|ReferenceGuid|Reference|StaticCallObject|StaticCall|StaticDictionaryAccessor|StaticField"
+            + "|StaticListAccessor|StaticReference|Through";
 
     /// <summary>An argument list read to its own closing parenthesis, however deeply nested.</summary>
     /// <remarks>
@@ -984,20 +984,26 @@ public sealed class NativeContractManifestTests
     /// world binder reading a member the manifest files under a transaction, and every one had been
     /// doing so unseen. The census improving is what growth of that kind means.
     /// </para>
+    /// <para>
+    /// Seven more arrived the same way when the world categories' private accessor copies moved
+    /// onto the binder: Research's queue mode, multi-buy, development cost, develop range and cost
+    /// <c>Add</c>, and Ritual's <c>selectedRitual</c> and <c>IsItem</c> were read before, unseen.
+    /// </para>
     /// </remarks>
     private static readonly string[] CaptureRootActionSelectors =
     {
-        "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
+        "Add", "AllResourcesVisible", "CanAddInstance", "CanApplyBonusLevels", "CanCastASpell",
         "CanLevel", "GetActionInstances", "GetActivationCost",
-        "GetDevelopmentCost", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
+        "GetDevelopmentCost", "GetDevelopmentCostAtLevel", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
         "GetFreeLevels", "GetFreeUsageSlots", "GetLevelCost", "GetMaxLevel",
-        "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances",
+        "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMultiBuy",
         "GetQueuedLevels", "GetRemainingFreeUsageSlots",
         "GetRemainingMaxUsageSlots", "GetStacks", "GetTypesEquipped",
-        "GetUsageCost", "HasMaxLevel", "IsAtMax", "IsChallengeRestricted",
+        "GetUsageCost", "HasMaxLevel", "IsAtMax", "IsChallengeRestricted", "IsItem",
+        "IsResearchQueueMode", "IsWithinDevelopRangeAt",
         "MaximumCostTimes", "MaximumNumberInstances", "activeAlchemy",
         "activeChallenges", "challengeRerollsLeft", "equippedEquipment", "hasCompleteWorldCycle",
-        "hasFetchedChallenges", "preferredChallenges",
+        "hasFetchedChallenges", "preferredChallenges", "selectedRitual",
     };
 
     /// <summary>
@@ -1331,7 +1337,7 @@ public sealed class NativeContractManifestTests
     /// than as a note somebody took once. Each row's literals are deliberate nonsense, so a row
     /// passing means that shape carried the name out — not that some other pattern in
     /// <see cref="FindLiteralTargets"/> happened to know it. The form and member columns are what
-    /// name the failing case when one of the forty-three fails.
+    /// name the failing case when one fails.
     /// </remarks>
     private static readonly (string Form, string Member, string Source, string[] Expected)[] BinderShapes =
     {
@@ -1359,6 +1365,7 @@ public sealed class NativeContractManifestTests
         ("static", "CallList", "_all = NativeAccessorBinder.CallList(listType, \"ZzProbeCall\", stationType);", new[] { "ZzProbeCall" }),
         ("static", "CallObject", "_cost = NativeAccessorBinder.CallObject(recipeType, \"ZzProbeCall\", costType);", new[] { "ZzProbeCall" }),
         ("static", "CallObject", "_slot = NativeAccessorBinder.CallObject<int>(stationType, \"ZzProbeCall\", elementType);", new[] { "ZzProbeCall" }),
+        ("static", "CallObject", "_add = NativeAccessorBinder.CallObject(costType, \"ZzProbeCall\", costType, costType);", new[] { "ZzProbeCall" }),
         ("static", "CallReferenceGuid", "_coreId = NativeAccessorBinder.CallReferenceGuid(recipeType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),
         ("static", "CallWithObjectArgument", "_restricted = NativeAccessorBinder.CallWithObjectArgument<bool>(listType, \"ZzProbeCall\", challengeType);", new[] { "ZzProbeCall" }),
         ("static", "CollectionCount", "_count = NativeAccessorBinder.CollectionCount(recordType, \"zzProbeField\");", new[] { "zzProbeField" }),
@@ -1370,11 +1377,13 @@ public sealed class NativeContractManifestTests
         ("static", "NestedField", "_adjust = NativeAccessorBinder.NestedField<BigDouble>(thresholdType, \"zzProbeField\", \"zzProbeNested\");", new[] { "zzProbeField", "zzProbeNested" }),
         ("static", "Reference", "_recipes = NativeAccessorBinder.Reference(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "ReferenceGuid", "_resourceId = NativeAccessorBinder.ReferenceGuid(entryType, \"zzProbeField\");", new[] { "zzProbeField" }),
-        ("static", "StaticDictionary", "_lookup = NativeAccessorBinder.StaticDictionary(registryType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticCall", "_ready = NativeAccessorBinder.StaticCall<bool>(managerType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),
+        ("static", "StaticCallObject", "_target = NativeAccessorBinder.StaticCallObject(managerType, \"ZzProbeCall\", targetType);", new[] { "ZzProbeCall" }),
+        ("static", "StaticDictionaryAccessor", "_lookup = NativeAccessorBinder.StaticDictionaryAccessor(registryType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "StaticField", "_frame = NativeAccessorBinder.StaticField<long>(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
-        ("static", "StaticList", "_registry = NativeAccessorBinder.StaticList(challengeType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "StaticListAccessor", "_registry = NativeAccessorBinder.StaticListAccessor(challengeType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "StaticReference", "_manager = NativeAccessorBinder.StaticReference(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
+        ("static", "StaticReference", "_globals = NativeAccessorBinder.StaticReference(globalsType, \"zzProbeField\", globalsType);", new[] { "zzProbeField" }),
 
         // A selector built out of another selector: the outer call's own name sits past the inner
         // call's closing parenthesis, which is exactly where the audit used to stop reading.

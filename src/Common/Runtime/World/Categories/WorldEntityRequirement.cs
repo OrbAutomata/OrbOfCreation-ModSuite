@@ -816,6 +816,13 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     private readonly Type? _alchemyType;
     private readonly Type? _recipeBookType;
     private readonly Type? _resourceType;
+    private readonly Func<IList?>? _upgrades;
+    private readonly Func<IList?>? _structures;
+    private readonly Func<IList?>? _research;
+    private readonly Func<IList?>? _prerequisiteLinks;
+    private readonly Func<IList?>? _alchemyRecipes;
+    private readonly Func<IList?>? _recipeBooks;
+    private readonly Func<IList?>? _resources;
     private readonly string _unavailable;
 
     private readonly Func<object, Guid>? _recipeBookId;
@@ -878,6 +885,13 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         _alchemyType = alchemyType;
         _recipeBookType = recipeBookType;
         _resourceType = resourceType;
+        _upgrades = NativeAccessorBinder.StaticListAccessor(upgradeType, "All");
+        _structures = NativeAccessorBinder.StaticListAccessor(structureType, "All");
+        _research = NativeAccessorBinder.StaticListAccessor(researchType, "All");
+        _prerequisiteLinks = NativeAccessorBinder.StaticListAccessor(prerequisiteLinkType, "All");
+        _alchemyRecipes = NativeAccessorBinder.StaticListAccessor(alchemyType, "All");
+        _recipeBooks = NativeAccessorBinder.StaticListAccessor(recipeBookType, "All");
+        _resources = NativeAccessorBinder.StaticListAccessor(resourceType, "All");
         if (upgradeType is null || structureType is null || researchType is null ||
             prerequisiteLinkType is null || alchemyType is null || recipeBookType is null ||
             resourceType is null)
@@ -997,7 +1011,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var firstFailure = string.Empty;
 
         Walk(
-            NativeAccessorBinder.StaticList(_upgradeType, "All"),
+            _upgrades?.Invoke(),
             WorldRequirementOwnerKind.Upgrade,
             _upgradeId!,
             _upgradeContainer!,
@@ -1007,13 +1021,13 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             ref firstFailure,
             _upgradeUnlockContainer);
         WalkPrerequisiteLinks(
-            NativeAccessorBinder.StaticList(_prerequisiteLinkType, "All"),
+            _prerequisiteLinks?.Invoke(),
             buffer,
             ref sampled,
             ref unmodelled,
             ref firstFailure);
         Walk(
-            NativeAccessorBinder.StaticList(_researchType, "All"),
+            _research?.Invoke(),
             WorldRequirementOwnerKind.Research,
             _researchId!,
             _researchContainer!,
@@ -1024,7 +1038,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             _researchVisibilityContainer,
             _researchLevelVisibilityContainer);
         WalkKnownIds(
-            NativeAccessorBinder.StaticList(_alchemyType, "All"),
+            _alchemyRecipes?.Invoke(),
             WorldRequirementOwnerKind.AlchemyRecipe,
             WorldRequirementProgramKind.Usage,
             frame.AlchemyRecipes,
@@ -1034,7 +1048,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             ref unmodelled,
             ref firstFailure);
         Walk(
-            NativeAccessorBinder.StaticList(_structureType, "All"),
+            _structures?.Invoke(),
             WorldRequirementOwnerKind.Structure,
             _structureId!,
             _structureContainer!,
@@ -1044,7 +1058,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             ref firstFailure,
             _structureUnlockContainer);
         Walk(
-            NativeAccessorBinder.StaticList(_recipeBookType, "All"),
+            _recipeBooks?.Invoke(),
             WorldRequirementOwnerKind.RecipeBook,
             _recipeBookId!,
             _recipeBookContainer!,
@@ -1055,7 +1069,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         // A resource has no per-level program at all: nothing about it is bought a level at a time.
         // Its one container is the unlock gate ResourceSO.CheckVisibility() consults every frame.
         Walk(
-            NativeAccessorBinder.StaticList(_resourceType, "All"),
+            _resources?.Invoke(),
             WorldRequirementOwnerKind.Resource,
             _resourceId!,
             container: null,

@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -255,8 +253,6 @@ internal sealed class WorldChallengeContextBuffer
 /// <summary>One read-only main-thread capture of challenge selections, offers, and rerolls.</summary>
 internal sealed class WorldChallengeContextReader : IWorldCategoryReader
 {
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private readonly Type? _challengeType;
     private readonly Type? _challengeManagerType;
     private readonly Type? _resetManagerType;
@@ -301,8 +297,8 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
         var intType = resolveType("IntVariable");
         var boolType = resolveType("BoolVariable");
         var resourceType = resolveType("ResourceSO");
-        _challengeManager = StaticReference(_challengeManagerType, "instance", _challengeManagerType);
-        _resetManager = StaticReference(_resetManagerType, "instance", _resetManagerType);
+        _challengeManager = NativeAccessorBinder.StaticReference(_challengeManagerType, "instance", _challengeManagerType);
+        _resetManager = NativeAccessorBinder.StaticReference(_resetManagerType, "instance", _resetManagerType);
         _preferred = NativeAccessorBinder.Reference(_challengeManagerType, "preferredChallenges", listType);
         _timeOffers = NativeAccessorBinder.Reference(_challengeManagerType, "activeChallenges", listType);
         _prestigeOffers = NativeAccessorBinder.Reference(_resetManagerType, "activeChallenges", listType);
@@ -513,18 +509,5 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             if (value is null || value.GetType() != _challengeType) continue;
             append(_id!(value), _restricted!(preferred, value));
         }
-    }
-
-    private static Func<object?>? StaticReference(Type? owner, string name, Type? exactType)
-    {
-        if (owner is null || exactType is null) return null;
-        var field = owner.GetField(name, Static);
-        if (field is null || field.FieldType != exactType) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(Expression.Convert(
-                Expression.Field(null, field), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
     }
 }

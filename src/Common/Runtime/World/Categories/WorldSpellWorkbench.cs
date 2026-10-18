@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -189,18 +188,18 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
         var managerType = resolveType("SpellManager");
         var spellListType = resolveType("SpellListVariable");
-        _manager = BindStaticReference(managerType, "instance", managerType);
+        _manager = NativeAccessorBinder.StaticReference(managerType, "instance", managerType);
         _active = NativeAccessorBinder.Reference(managerType, "activeSpells", spellListType);
         _used = NativeAccessorBinder.Call<int>(spellListType, "GetUsedSpots");
         _maximum = NativeAccessorBinder.Call<int>(spellListType, "GetMax");
         _hasEmpty = NativeAccessorBinder.Call<bool>(spellListType, "HasEmptySpot");
         var playerType = resolveType("Player");
         var intVariableType = resolveType("IntVariable");
-        _player = BindStaticReference(playerType, "_instance", playerType);
-        _outputLevel = BindStaticObjectCall(playerType, "GetSpellOutputLevel", intVariableType);
+        _player = NativeAccessorBinder.StaticReference(playerType, "_instance", playerType);
+        _outputLevel = NativeAccessorBinder.StaticCallObject(playerType, "GetSpellOutputLevel", intVariableType);
         _maximumOutputLevel = NativeAccessorBinder.Reference(
             playerType, "maxSpellOutputLevel", intVariableType);
-        _reserveLevel = BindStaticObjectCall(playerType, "GetReserveLevel", intVariableType);
+        _reserveLevel = NativeAccessorBinder.StaticCallObject(playerType, "GetReserveLevel", intVariableType);
         _maximumReserveLevel = NativeAccessorBinder.Reference(
             playerType, "maxReserveLevel", intVariableType);
         _druidryLevel = NativeAccessorBinder.Reference(
@@ -309,35 +308,4 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         }
     }
 
-    private static Func<object?>? BindStaticReference(Type? owner, string name, Type? exactType)
-    {
-        if (owner is null || exactType is null) return null;
-        var field = owner.GetField(name, Static);
-        if (field is null || field.FieldType != exactType) return null;
-        try
-        {
-            var read = Expression.Convert(Expression.Field(null, field), typeof(object));
-            return Expression.Lambda<Func<object?>>(read).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private static Func<object?>? BindStaticObjectCall(Type? owner, string name, Type? resultType)
-    {
-        if (owner is null || resultType is null) return null;
-        var method = owner.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || !method.IsStatic || method.ReturnType != resultType) return null;
-        try
-        {
-            var call = Expression.Convert(Expression.Call(method), typeof(object));
-            return Expression.Lambda<Func<object?>>(call).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
 }

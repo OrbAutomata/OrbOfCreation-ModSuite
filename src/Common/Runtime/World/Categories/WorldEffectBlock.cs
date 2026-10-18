@@ -214,6 +214,7 @@ internal static class WorldEffectBlockDeriver
 internal sealed class WorldEffectBlockReader : IWorldCategoryReader
 {
     private readonly Type? _actionType;
+    private readonly Func<IList?>? _actions;
     private readonly Type? _modType;
     private readonly Type? _scriptType;
     private readonly string _unavailable;
@@ -240,6 +241,7 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
         _actionType = actionType;
+        _actions = NativeAccessorBinder.StaticListAccessor(actionType, "All");
         _modType = resolveType("ScalingWeightEffectMod");
         _scriptType = resolveType("TreasurePoolInstantEffect");
         if (actionType is null || _modType is null || _scriptType is null)
@@ -288,7 +290,7 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
         buffer.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var actions = NativeAccessorBinder.StaticList(_actionType, "All");
+        var actions = _actions?.Invoke();
         if (actions is null)
         {
             return WorldCategoryReport.Missing(

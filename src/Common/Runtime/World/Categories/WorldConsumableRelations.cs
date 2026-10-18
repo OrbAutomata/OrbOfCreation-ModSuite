@@ -433,6 +433,8 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
 
     private readonly Type? _nativeType;
     private readonly Type? _registryType;
+    private readonly Func<IList?>? _entities;
+    private readonly Func<IDictionary?>? _registry;
     private readonly Type? _consumableTypeType;
     private readonly WorldConsumableBinder _binder = new();
     private readonly string _unavailable;
@@ -463,6 +465,8 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
     {
         _nativeType = nativeType;
         _registryType = registryType;
+        _entities = NativeAccessorBinder.StaticListAccessor(nativeType, "All");
+        _registry = NativeAccessorBinder.StaticDictionaryAccessor(registryType, "RuntimeLookup");
         if (nativeType is null)
         {
             _unavailable = "the ConsumableSO type was not found on this build";
@@ -528,14 +532,14 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         frame.ConsumableMaximumCarryLoadVariableId = Guid.Empty;
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var entities = NativeAccessorBinder.StaticList(_nativeType, "All");
+        var entities = _entities?.Invoke();
         if (entities is null)
             return WorldCategoryReport.Missing(Category, "the ConsumableSO registry was unreadable");
         if (entities.Count == 0)
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, 0, 0, string.Empty);
 
-        var registry = NativeAccessorBinder.StaticDictionary(_registryType, "RuntimeLookup");
+        var registry = _registry?.Invoke();
         var globalType = registry?[GlobalConsumableTypeId];
         if (globalType is null || globalType.GetType() != _consumableTypeType)
             return WorldCategoryReport.Missing(

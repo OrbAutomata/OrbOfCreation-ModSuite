@@ -206,6 +206,9 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
     private readonly Func<object, Guid>? _playerVariableId;
 
     private readonly WorldLevelEffectHolder[] _holders;
+    private readonly Func<IList?>? _glyphs;
+    private readonly Func<IList?>? _upgrades;
+    private readonly Func<IList?>? _structures;
     private readonly WorldLevelEffectScripts _scripts;
     private readonly Func<object, Guid>? _upgradeId;
     private readonly Func<object, IList?>? _numberVariableEffects;
@@ -243,6 +246,8 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
         _glyphType = resolveType("GlyphSO");
         _upgradeType = resolveType("UpgradeSO");
+        _glyphs = NativeAccessorBinder.StaticListAccessor(_glyphType, "All");
+        _upgrades = NativeAccessorBinder.StaticListAccessor(_upgradeType, "All");
         if (_glyphType is null || _upgradeType is null)
         {
             _unavailable = "the " + (_glyphType is null ? "GlyphSO" : "UpgradeSO") +
@@ -300,6 +305,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         // An attribute authors one property per rank of the same shape an upgrade's permanent
         // effects are, so the tuple accessors bound above read both.
         _structureType = resolveType("StructureSO");
+        _structures = NativeAccessorBinder.StaticListAccessor(_structureType, "All");
         if (_structureType is null)
         {
             missing.Add("the StructureSO type was not found on this build");
@@ -376,7 +382,8 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         var block = bind.Elements(bind.CollectionElementType(field), typeName + "." + field);
         var scripts = block.CollectionField("effectScripts");
         if (bind.Failure.Length > 0) missing.Add(bind.Failure);
-        return new WorldLevelEffectHolder(type, typeName, ownerId, blocks, scripts, when);
+        return new WorldLevelEffectHolder(
+            NativeAccessorBinder.StaticListAccessor(type, "All"), typeName, ownerId, blocks, scripts, when);
     }
 
     public string Category => "effect factors";
@@ -392,7 +399,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         _nextOrdinal.Clear();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var glyphs = NativeAccessorBinder.StaticList(_glyphType, "All");
+        var glyphs = _glyphs?.Invoke();
         if (glyphs is null)
             return WorldCategoryReport.Missing(Category, "the GlyphSO registry was unreadable");
 
@@ -425,7 +432,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             }
         }
 
-        var upgrades = NativeAccessorBinder.StaticList(_upgradeType, "All");
+        var upgrades = _upgrades?.Invoke();
         if (upgrades is null)
             return WorldCategoryReport.Missing(Category, "the UpgradeSO registry was unreadable");
 
@@ -448,7 +455,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             }
         }
 
-        var structures = NativeAccessorBinder.StaticList(_structureType, "All");
+        var structures = _structures?.Invoke();
         if (structures is null)
             return WorldCategoryReport.Missing(Category, "the StructureSO registry was unreadable");
 
@@ -473,7 +480,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
         for (var holder = 0; holder < _holders.Length; holder++)
         {
-            var owners = NativeAccessorBinder.StaticList(_holders[holder].Type, "All");
+            var owners = _holders[holder].Registry?.Invoke();
             if (owners is null)
             {
                 return WorldCategoryReport.Missing(
@@ -675,14 +682,14 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 internal readonly struct WorldLevelEffectHolder
 {
     internal WorldLevelEffectHolder(
-        Type? type,
+        Func<IList?>? registry,
         string typeName,
         Func<object, Guid>? ownerId,
         Func<object, IList?>? blocks,
         Func<object, IList?>? scripts,
         string when)
     {
-        Type = type;
+        Registry = registry;
         TypeName = typeName;
         OwnerId = ownerId;
         Blocks = blocks;
@@ -690,7 +697,7 @@ internal readonly struct WorldLevelEffectHolder
         When = when;
     }
 
-    internal Type? Type { get; }
+    internal Func<IList?>? Registry { get; }
     internal string TypeName { get; }
     internal Func<object, Guid>? OwnerId { get; }
     internal Func<object, IList?>? Blocks { get; }

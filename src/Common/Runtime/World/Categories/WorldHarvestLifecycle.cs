@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
@@ -158,7 +157,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         _instanceCount = NativeAccessorBinder.Field<int>(_instanceType, "instances");
         _instanceBaseCost = NativeAccessorBinder.CallObject(
             _instanceType, "ComputeResourceCost", costType);
-        _instanceScaling = BindBoxedCall<int>(_instanceType, "GetScalingInfo", scalingType);
+        _instanceScaling = NativeAccessorBinder.CallObject<int>(_instanceType, "GetScalingInfo", scalingType);
         _drainCostMod = NativeAccessorBinder.Call<BigDouble>(scalingType, "GetDrainCostMod");
         _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.ReferenceGuid(tupleType, "resource");
@@ -349,27 +348,6 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         _instanceBaseCost is not null && _instanceScaling is not null &&
         _drainCostMod is not null && _costEntries is not null &&
         _costResource is not null && _costAmount is not null && _costEnough is not null;
-
-    private static Func<object, TArgument, object?>? BindBoxedCall<TArgument>(
-        Type? owner, string name, Type? exactResult)
-    {
-        if (owner is null || exactResult is null) return null;
-        var method = owner.GetMethod(name, Instance, null, new[] { typeof(TArgument) }, null);
-        if (method is null || method.ReturnType != exactResult) return null;
-        try
-        {
-            var source = Expression.Parameter(typeof(object), "source");
-            var argument = Expression.Parameter(typeof(TArgument), "argument");
-            return Expression.Lambda<Func<object, TArgument, object?>>(
-                Expression.Convert(
-                    Expression.Call(Expression.Convert(source, owner), method, argument),
-                    typeof(object)), source, argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
 
     private static void Skip(ref int skipped, ref string firstFailure, string reason)
     {

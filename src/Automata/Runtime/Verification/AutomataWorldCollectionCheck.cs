@@ -656,7 +656,7 @@ internal sealed class AutomataWorldCollectionCheck
     private void CheckCostPerQuantity(GameWorldState world)
     {
         var type = _resolveType("StructureSO");
-        var registry = NativeAccessorBinder.StaticList(type, "All");
+        var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
         var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
         var reference = type?.GetField("costPerQuantity", Instance);
         var getModifier = reference?.FieldType.GetMethod("GetModifier", Instance, null, Type.EmptyTypes, null);
@@ -938,7 +938,7 @@ internal sealed class AutomataWorldCollectionCheck
             var type = _resolveType(typeName);
             if (type is null) continue;
 
-            var registry = NativeAccessorBinder.StaticList(type, "All");
+            var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
             var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
             if (registry is null || getGuid is null)
             {
@@ -1829,7 +1829,7 @@ internal sealed class AutomataWorldCollectionCheck
             var type = _resolveType(typeName);
             if (type is null) continue;
 
-            var registry = NativeAccessorBinder.StaticList(type, "All");
+            var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
             if (registry is null) continue;
 
             var records = ValueModifierRecordFields(type);
@@ -2029,7 +2029,7 @@ internal sealed class AutomataWorldCollectionCheck
         var type = _resolveType(typeName);
         if (type is null || table.Count == 0) return;
 
-        var registry = NativeAccessorBinder.StaticList(type, "All");
+        var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
         var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
         if (registry is null || getGuid is null)
         {
