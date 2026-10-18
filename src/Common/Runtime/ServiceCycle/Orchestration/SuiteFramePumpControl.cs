@@ -19,21 +19,8 @@ internal sealed class SuiteFramePumpControl
     internal bool RequestLifecycleReplacement(LifecycleGeneration generation)
     {
         _state.EnsureAvailable();
-        var cancelsInFlightCycle = false;
-        if (_state.Traces.HasHostTrace)
-        {
-            for (var ordinal = 0; ordinal < _state.Transitioned.Length; ordinal++)
-            {
-                if (_state.Registry.GetSlot(ordinal).IsBetweenCycles) continue;
-                cancelsInFlightCycle = true;
-                break;
-            }
-        }
-
         var accepted = _state.Registry.RequestLifecycle(generation);
         if (!accepted) return false;
-        if (cancelsInFlightCycle)
-            _state.Traces.InvalidateHostTrace();
         var observedAt = _state.Clock.Now;
         for (var ordinal = 0; ordinal < _state.Transitioned.Length; ordinal++)
             _state.EvidenceEmitter.LifecycleRequested(ordinal, generation, observedAt);
