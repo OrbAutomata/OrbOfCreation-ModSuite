@@ -21,7 +21,6 @@ internal sealed class SuiteEmergencyStopState
     internal EmergencyStopTransitionGeneration Transition => _transition;
     internal EmergencyStopContext Active => _active;
     internal EmergencyStopContext Latest => _latest;
-    internal SuiteEmergencyStopSnapshot Snapshot => new(_engaged, _transition, _active, _latest);
     internal bool IsEffective => _engaged || _engagedThisFrame;
 
     internal EmergencyStopContext EffectiveContext =>

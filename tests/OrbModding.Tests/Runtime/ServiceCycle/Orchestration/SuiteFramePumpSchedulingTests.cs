@@ -34,7 +34,7 @@ public sealed class SuiteFramePumpSchedulingTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => pump.PumpFrame(-1));
 
-        Assert.Equal(0, pump.AcceptedFrameCount);
+        Assert.False(pump.HasAcceptedFrame);
         Assert.Equal(0, definition.StartCount);
         Assert.False(pump.SemanticTrace?.EmissionFaulted ?? false);
     }
@@ -90,7 +90,7 @@ public sealed class SuiteFramePumpSchedulingTests
         Assert.Equal(1, first.ActionExecutionCount);
         Assert.Equal(1, second.ActionExecutionCount);
         Assert.Equal(1, third.ActionExecutionCount);
-        Assert.Equal(frame - 10, pump.AcceptedFrameCount);
+        Assert.Equal(lastAccepted, pump.LastAcceptedFrameIdentity);
     }
 
     [Fact]

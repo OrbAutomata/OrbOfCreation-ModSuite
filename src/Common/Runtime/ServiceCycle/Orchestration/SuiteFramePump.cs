@@ -60,9 +60,8 @@ public sealed class SuiteFramePump : IDisposable
     public EmergencyStopTransitionGeneration EmergencyTransition => _state.Emergency.Transition;
     public EmergencyStopContext ActiveEmergency => _state.Emergency.Active;
     public EmergencyStopContext LatestEmergency => _state.Emergency.Latest;
-    public long AcceptedFrameCount => _state.Observability.AcceptedFrameCount;
-    public bool HasAcceptedFrame => _state.Observability.HasAcceptedFrame;
-    public long LastAcceptedFrameIdentity => _state.Observability.LastAcceptedFrameIdentity;
+    public bool HasAcceptedFrame => _state.HasAcceptedFrame;
+    public long LastAcceptedFrameIdentity => _state.LastAcceptedFrameIdentity;
     public bool IsDisposed => _state.IsDisposed;
     public LifecycleGeneration CurrentLifecycle => _state.Registry.CurrentLifecycle;
     public ServiceCycleSemanticTraceSource? SemanticTrace => _state.Traces.HostTraceSource;
@@ -202,19 +201,6 @@ public sealed class SuiteFramePump : IDisposable
         _state.Journal.EnsureUnowned();
         _state.DisposeRegistry();
         _state.MarkDisposed();
-    }
-
-    internal SuiteFramePumpCumulativeSnapshot DiagnosticsSnapshot
-    {
-        get
-        {
-            EnsureDiagnosticsAvailable();
-            var emergency = _state.Emergency.Snapshot;
-            return _state.Observability.Snapshot(
-                _state.Registry.CurrentLifecycle,
-                in emergency,
-                _state.Registry.LifecyclePositionTransitionCount);
-        }
     }
 
     internal ServiceCycleRegistry DiagnosticsRegistry

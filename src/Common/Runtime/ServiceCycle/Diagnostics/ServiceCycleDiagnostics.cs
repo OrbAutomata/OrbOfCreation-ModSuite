@@ -13,7 +13,6 @@ public static class ServiceCycleDiagnostics
         if (pump is null) throw new ArgumentNullException(nameof(pump));
         var registry = pump.DiagnosticsRegistry;
         registry.AssertDiagnosticsRead();
-        var pumpSnapshot = pump.DiagnosticsSnapshot;
         var observedAt = pump.DiagnosticsNow;
 
         var required = registry.OrdinalCount;
@@ -24,18 +23,11 @@ public static class ServiceCycleDiagnostics
             var snapshot = ServiceCycleServiceDiagnosticsProjector.Project(
                 registry.GetSlot(ordinal),
                 observedAt,
-                pumpSnapshot.EmergencyStopEngaged);
+                pump.IsEmergencyStopEngaged);
             if (snapshot.Availability != ServiceCycleDiagnosticsAvailability.Available)
                 unavailable++;
             if (ordinal < written) destination[ordinal] = snapshot;
         }
         return new ServiceCycleDiagnosticsCopyResult(required, written, unavailable);
-    }
-
-    public static ServiceCyclePumpDiagnosticsSnapshot ReadPump(SuiteFramePump pump)
-    {
-        if (pump is null) throw new ArgumentNullException(nameof(pump));
-        var source = pump.DiagnosticsSnapshot;
-        return new ServiceCyclePumpDiagnosticsSnapshot(in source);
     }
 }

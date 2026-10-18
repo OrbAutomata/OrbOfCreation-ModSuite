@@ -287,6 +287,36 @@ public sealed class SuiteFramePumpEmergencyTests
         Assert.Equal(EmergencyStopReason.SuiteShutdown, pump.ActiveEmergency.Reason);
     }
 
+    [Fact]
+    public void AnEmergencyBetweenFramesRejectsTheActiveBatchOnceAndTheNextFrameRejectsNothing()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var definition = new ExecutionServiceDefinition("pump.emergency.between-frames")
+        {
+            ActionCount = 3,
+        };
+        using var registration = registry.Register(
+            definition,
+            new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
+        var frame = ServiceRunnerTestWait.PrepareBatch(pump, registration);
+
+        pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
+        pump.SetEmergencyStop(true, EmergencyStopReason.UserRequested);
+        var nextFrame = pump.PumpFrame(frame);
+
+        Assert.Equal(0, nextFrame.EmergencyBatchesRejected);
+        Assert.Equal(0, definition.ActionExecutionCount);
+        Assert.Equal(BatchTerminalDisposition.Rejected, registration.Runner.Snapshot.PreviousReceipt.Disposition);
+        Assert.Equal(CommonActionResultCodes.EmergencyStop, registration.Runner.Snapshot.PreviousReceipt.ResultCode);
+        Assert.Equal(
+            EmergencyStopReason.SafetyInterlock,
+            registration.Runner.Snapshot.PreviousReceipt.EmergencyStop.Reason);
+    }
+
     private static long PrepareBatch(
         SuiteFramePump pump,
         ServiceRegistration<ExecutionState, ExecutionAction> registration)
