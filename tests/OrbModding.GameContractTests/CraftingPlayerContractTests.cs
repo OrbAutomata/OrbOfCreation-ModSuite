@@ -5,8 +5,6 @@ namespace OrbModding.GameContractTests;
 
 public sealed class CraftingPlayerContractTests
 {
-    private const int MxMultiBuy = 1000;
-
     [GameAssemblyFact]
     public void CraftingPlayerBinding_PinsEveryNewNativeMemberToken()
     {
@@ -192,7 +190,6 @@ public sealed class CraftingPlayerContractTests
             "CraftingRecipeSO.GetMultiBuyQuantity no longer compares the multi-buy against 99.");
         var target = compare + 5 + (sbyte)body[compare + 4];
         Assert.Equal(new byte[] { 0x07, 0x2A }, body[target..(target + 2)]);
-        Assert.True(MxMultiBuy > 99);
     }
 
     [GameAssemblyFact]
