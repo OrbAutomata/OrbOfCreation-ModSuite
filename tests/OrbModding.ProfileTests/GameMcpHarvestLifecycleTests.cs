@@ -78,7 +78,7 @@ public sealed class GameMcpHarvestLifecycleTests
             GameMcpTestHarness.Page(missing));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +
-            "'actionUuid' is accepted only for action modes",
+            "'actionUuid' is not accepted for mode 'add_element'",
             GameMcpTestHarness.Page(extra));
     }
 

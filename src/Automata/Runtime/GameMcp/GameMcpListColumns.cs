@@ -362,6 +362,10 @@ internal static class GameMcpListColumns
             "plot_quantity_insufficient" => "plot_short",
             "plot_action_list_full" => "list_full",
 
+            // The queue the list would be read from was not published or did not agree with
+            // itself, so whether it has room was never read.
+            "queue_not_published" or "queue_reading_inconsistent" => Unreadable,
+
             // The game latches this prerequisite only when the action is started, so the read is
             // what is missing rather than the permission.
             "prerequisite_unverified" => "unverified",

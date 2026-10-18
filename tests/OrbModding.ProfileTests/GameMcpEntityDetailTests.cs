@@ -600,6 +600,25 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.DoesNotContain("evaluatedFrame", gate.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An authored empty AND group compares nothing and the game counts it met. The explanation used
+    /// to call it an unsupported value and unmet, beside needs text saying the group is empty.
+    /// </summary>
+    [Fact]
+    public void An_empty_and_group_is_explained_as_met()
+    {
+        var owner = Upgrade();
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.AndRequirement());
+
+        var result = Explain(Collect(), owner.GetGuid(), 922);
+
+        var group = Assert.Single(
+            Assert.IsType<JObject>(result["requirements"]!["root"])["children"]!.OfType<JObject>())!;
+        Assert.Equal("nothing — this group is empty", (string?)group["needs"]);
+        Assert.True((bool)group["met"]!);
+        Assert.Null(group["reasonCode"]);
+    }
+
     [Fact]
     public void A_met_gate_reads_as_what_its_tier_needs_and_points_at_it()
     {
@@ -716,6 +735,44 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         // Levels waiting are the research row's own number; their sum with the built ones is not.
         Assert.Equal(0, (int)cap["queuedLevels"]!);
         Assert.Null(cap["committedLevel"]);
+    }
+
+    /// <summary>
+    /// A description read that throws is a failed read, not an authored-empty description: the page
+    /// says the text is unavailable and the fault reaches the suite log under a reference.
+    /// </summary>
+    [Fact]
+    public void A_description_read_that_throws_says_so_and_names_the_fault()
+    {
+        var glyphId = Guid.Parse("168e3734-1ecb-4938-bd4a-d011ff13e202");
+        var native = new global::GlyphSO { DisplayName = "Weak", ThrowOnGetDescription = true };
+        native.SetGuid(glyphId);
+        global::IdScriptableObject.RuntimeLookup[glyphId] = native;
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        try
+        {
+            var world = new GameWorldState
+            {
+                AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
+                {
+                    new WorldGlyph(
+                        glyphId, 0, 0, 1, false, true, false, false, false, false,
+                        0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
+                }),
+                CollectedAtEpoch = 38,
+                CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+            };
+
+            var description = (string?)Explain(world, glyphId, 925)["description"];
+
+            Assert.StartsWith("Description unavailable. Reference MCP-", description);
+            Assert.Contains(logged, line => line.Contains("GetDescription failed", StringComparison.Ordinal));
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]
@@ -1446,6 +1503,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             {
                 GameWorldStateDeriver.Derive(in rawUpgrade),
             }),
+            UpgradeListMemberships = GameMcpTestHarness.OnTheUpgradesList(upgradeId),
             PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new[]
             {
                 PriceLine(upgradeId, heldId, held: 400, resourceAffordable: true),
@@ -1485,6 +1543,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             {
                 GameWorldStateDeriver.Derive(in rawUpgrade),
             }),
+            UpgradeListMemberships = GameMcpTestHarness.OnTheUpgradesList(upgradeId),
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -1522,6 +1581,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             {
                 GameWorldStateDeriver.Derive(in rawUpgrade),
             }),
+            UpgradeListMemberships = GameMcpTestHarness.OnTheUpgradesList(upgradeId),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[]
             {
                 new WorldGlyph(

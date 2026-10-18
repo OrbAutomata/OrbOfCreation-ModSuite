@@ -4371,12 +4371,13 @@ public sealed class Plugin : BaseUnityPlugin
             }
             if (entityId != Guid.Empty) details["uuid"] = entityId.ToString("D");
         }
-        catch (Exception)
+        catch (Exception exception)
         {
             if (linkFailure.Length > 0) return TooltipsUnreadableBecause(linkFailure);
             return GadgetRejected(
                 "tooltip_read_faulted",
-                "The game errored while producing this tooltip, so its text cannot be read.");
+                "Reading this tooltip failed, so its text cannot be read." +
+                GameActionFaultLog.Record(exception, "tooltip"));
         }
         var result = GadgetCommitted(
             "tooltip_read",

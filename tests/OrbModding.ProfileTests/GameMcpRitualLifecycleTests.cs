@@ -68,7 +68,7 @@ public sealed class GameMcpRitualLifecycleTests
             "field 'level' is missing for mode 'set_level'", GameMcpTestHarness.Page(missing));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +
-            "'level' is accepted only for mode 'set_level'", GameMcpTestHarness.Page(extra));
+            "'level' is not accepted for mode 'select'", GameMcpTestHarness.Page(extra));
     }
 
     [Fact]

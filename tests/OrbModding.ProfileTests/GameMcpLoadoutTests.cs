@@ -75,7 +75,7 @@ public sealed class GameMcpLoadoutTests
             "field 'slot' is missing for mode 'snapshot_load'", GameMcpTestHarness.Page(missing));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +
-            "'name' is accepted only for mode 'rename'", GameMcpTestHarness.Page(extra));
+            "'name' is not accepted for mode 'select'", GameMcpTestHarness.Page(extra));
     }
 
     [Fact]

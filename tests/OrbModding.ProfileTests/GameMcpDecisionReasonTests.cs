@@ -460,6 +460,35 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
+    /// The class table in the MCP reference is what a caller branches on, so every code it lists
+    /// carries exactly the class the server sends for it.
+    /// </summary>
+    [Fact]
+    public void Every_code_the_reference_files_under_a_class_is_sent_with_that_class()
+    {
+        var lines = File.ReadAllLines(
+            Path.Combine(RepositoryRoot(), "docs", "development", "mcp-tools.md"));
+        var header = Array.IndexOf(lines, "| Class | Internal codes that reach it |");
+        Assert.True(header >= 0, "could not find the class table");
+        var filed = new List<(string Class, string Code)>();
+        for (var line = header + 2;
+             line < lines.Length && lines[line].StartsWith("| `ERR_", StringComparison.Ordinal);
+             line++)
+        {
+            var cells = lines[line].Split('|');
+            var reasonClass = cells[1].Trim().Trim('`');
+            foreach (Match code in Regex.Matches(cells[2], "`([a-z_]+)`"))
+                filed.Add((reasonClass, code.Groups[1].Value));
+        }
+
+        Assert.NotEmpty(filed);
+        Assert.All(filed, row => Assert.True(
+            GameMcpDecisionReason.Class(row.Code) == row.Class,
+            row.Code + " is filed under " + row.Class + " but sent as " +
+            GameMcpDecisionReason.Class(row.Code)));
+    }
+
+    /// <summary>
     /// Every comparison this build ships has a phrase in the screen's words, and no phrase is
     /// written for a comparison that does not exist.
     /// </summary>

@@ -238,9 +238,10 @@ internal static class GameMcpEntityExplainer
                 ? tooltip.GetDescription()?.Trim() ?? string.Empty
                 : string.Empty;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
-            return string.Empty;
+            return "Description unavailable." +
+                GameActionFaultLog.Record(exception, "description of " + uuid.ToString("D"));
         }
     }
 
@@ -296,6 +297,13 @@ internal static class GameMcpEntityExplainer
                 // a finished upgrade fell to the locked sentence — "the game keeps this locked, and
                 // says nothing about what would unlock it" — for a thing that is done rather than
                 // shut. `canPurchase` already knew the difference; both words read it now.
+                if (upgrade.Reading.Available &&
+                    !WorldUpgradeScreenLists.TryReadScreenGate(world, id, out _))
+                {
+                    result["available"] = Verdict(false, "owning_screen_unknown");
+                    result["canPurchase"] = Verdict(false, "owning_screen_unknown");
+                    break;
+                }
                 if (upgrade.Reading.Available &&
                     GameMcpWorldQuery.IsUpgradeScreenLocked(world, id, out var screenView))
                 {

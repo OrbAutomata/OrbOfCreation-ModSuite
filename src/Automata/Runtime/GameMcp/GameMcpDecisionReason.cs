@@ -173,8 +173,7 @@ internal static class GameMcpDecisionReason
         // category nothing is filed under: the caller named a grouping word this surface has none
         // of, and the sentence beside it names the ones it does have.
         "unknown_section" or
-        "query_required" or "mutually_exclusive" or "missing_required" or "unexpected_field" or
-        "unexpected_for_mode" or "argument_validation_failed" or "filter_not_supported" or
+        "query_required" or "argument_validation_failed" or "filter_not_supported" or
         // The word the caller passed is not one this filter takes. Named apart from
         // `invalid_state`, which is the target being in the wrong state for a verb: one producer
         // code cannot mean both, and while they shared a spelling this table answered the first
@@ -270,7 +269,7 @@ internal static class GameMcpDecisionReason
         "glyph_usages_exceeded" or
         "no_rerolls" or "reroll_unavailable" or "element_capacity_unavailable" or
         "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
-        "usage_budget_unavailable" or "research_leeway_exhausted" or "multi_buy_unavailable" or
+        "usage_budget_unavailable" or "multi_buy_unavailable" or
         "augment_slots_exceeded" or
         // Both resource axes of a recipe. Their rows already answer
         // resource_or_headroom_insufficient one by one, and the axis that aggregates them says the
@@ -317,7 +316,7 @@ internal static class GameMcpDecisionReason
         // list yet. A gate the unlock container beside it names, not a thing that is missing and
         // not a claim about what any screen draws.
         "not_in_resource_list" or
-        "native_unavailable" or "native_leeway_exhausted" => ClassLocked,
+        "native_unavailable" or "research_leeway_exhausted" or "native_leeway_exhausted" => ClassLocked,
 
         // The suite or the game could not read or serve the fact.
         "contract_unavailable" or "feature_contract_unavailable" or "pair_contract_unavailable" or

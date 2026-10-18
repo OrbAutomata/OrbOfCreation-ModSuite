@@ -599,7 +599,7 @@ says so in the same words the `unlistable:` sentence uses. `unknown_category` is
 nothing collects, and the retired `glyphs` keeps its pointer to both of its homes.
 
 `world_get` takes either a `uuids` list or the singular `uuid` alias; supplying
-both is a `mutually_exclusive` validation failure, and either form returns the same list shape. It
+both is refused at validation, and either form returns the same list shape. It
 requires nothing else: an id resolves its own table, so a caller holding one from a search, a
 refusal, or an action response reads it without first learning where it lives. `category` stays
 accepted and optional, and names which table the row is read from — the only way to reach a row
@@ -1155,6 +1155,12 @@ than the verdict, because asking for the verdict would make the game latch that 
 per-pass capture. All 125 authored recipes on the pinned build are `Discover`, so no row reaches it
 today, but a recipe on the other branch reads `state: unreadable` rather than being quietly called
 locked.
+
+**So does an upgrade whose screen this suite cannot read.** When the screen membership is withheld,
+names a list the build does not pin, or is claimed by two screen panels, nobody asked whether the
+row's screen is unlocked. The row reads `state: unreadable`, is left out of `state=available`, and
+its `available` and `canPurchase` verdicts say `owning_screen_unknown`. The strategist uses the
+same answer, so it never plans around an upgrade the game may not draw.
 
 **`challenges` says three things, in three columns.** `state` is the lifecycle above; `run` is
 `ChallengeSO.state` — `idle`, `queued`, `active`, `passed`, `failed`, the game's own five, one
@@ -1948,7 +1954,8 @@ The `plot-nodes` category is the tile catalog. `agromancy-plot-actions` enumerat
 `PlotNodeSO` / `PlotNodeActionSO` pair authored by the game, not only Auto Harvest's fruit and
 treasure collect pairs. Each row names both handles, shows the active quantity, and answers `add`
 and `remove` with one word each: `yes`, or what stands in the way — `not_offered`, `ambiguous`,
-`unpriced`, `plot_short`, `list_full`, `inactive`, `unverified`. The detail projection behind a
+`unpriced`, `plot_short`, `list_full`, `inactive`, `unverified`, or `unreadable` when the
+Agromancy queue itself could not be read. The detail projection behind a
 mutation or an explanation carries the full decision: the plot quantity one instance consumes, the
 current maximum additional count (the game's own remaining-instance count, which can exceed the
 10,000 this verb accepts in one call), the sentence for a block, and `drainCostsPerSecond`: each
@@ -2384,8 +2391,7 @@ The MCP-only loadout sequence is:
 `slot` addresses the loadout bar for `remove`/`move`, and `destination` belongs to `move` only. A
 refused `remove` or `move` echoes that `slot`, never the spell instance behind it, which no catalog
 names; its sentence names the spell.
-Anything else is a named `unexpected_for_mode` validation failure rather than a silently ignored
-field.
+Anything else is refused at validation, naming the field and the mode, rather than ignored.
 
 Add is the Loadout list row's own click, in one call. The game's load path reads the augment
 staging and nothing else, so add snapshots the player's staging, clears it, stages exactly the
@@ -3153,14 +3159,13 @@ most, so an old code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |
-| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `unexpected_for_mode`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `tile_destination_mismatch`, `ambiguous_modal` |
+| `ERR_INPUT` | `invalid_uuid`, `invalid_offset`, `invalid_limit`, `unknown_category`, `category_not_listable`, `argument_validation_failed`, `invalid_state_filter`, `slot_out_of_range`, `configuration_write_rejected`, `wrong_configuration_surface`, `screen_match_failed`, `composite_identity_required`, `tooltip_offset_invalid`, `tile_destination_mismatch`, `ambiguous_modal` |
 | `ERR_NOT_FOUND` | `unknown_uuid`, `slot_empty`, `not_active`, `no_pending_target`, `no_current_offers`, `tooltip_match_failed`, `tooltip_content_unavailable`, `native_plot_not_resolved`, `no_modal_named` |
 | `ERR_STATE` | `invalid_state`, `already_ran`, `already_maxed`, `already_developing`, `multiple_modals_open`, `modal_already_open`, `switch_blocked`, `slot_occupied`, `reroll_already_used`, `cast_in_progress`, `spell_recharging`, `charge_unavailable`, `spell_not_chargeable`, `batch_spend_drift`, `resources_uncovered`, `attuning`, `tree_holds_this_offer`, `continue_wrong_scene` |
 | `ERR_LIMIT` | `amount_unavailable`, `automation_full`, `loadout_full`, `queue_full`, `destination_full`, `research_queue_full`, `no_rerolls`, `level_cap_reached`, `artificial_research_cap_reached`, `research_investment_cap_reached`, `bandwidth_blocked`, `drain_blocked`, `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable`, `usage_unaffordable`, `level_not_affordable`, `insufficient_quantity`, `insufficient_bandwidth` |
-| `ERR_LOCKED` | `not_available`, `level_all_locked`, `native_unavailable`, `collector_not_listable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `discovered_by_roll_only`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `research_locked`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable` |
-| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`,
-`stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `modal_not_offered`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `tooltip_depth_exceeded`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
+| `ERR_LOCKED` | `not_available`, `level_all_locked`, `native_unavailable`, `no_discoveries_in_reach`, `hidden_or_undiscovered`, `native_hidden`, `hidden_discovery`, `discovered_by_roll_only`, `requirements_unmet`, `requirement_unmet`, `native_not_discoverable`, `recipe_not_discovered`, `not_discovered_or_offered`, `prerequisites_unmet`, `cannot_level`, `screen_locked`, `unlock_conditions_unmet`, `research_locked`, `tree_unavailable`, `research_leeway_exhausted`, `native_leeway_exhausted`, `glyph_unavailable` |
+| `ERR_UNAVAILABLE` | `world_not_published`, `lifecycle_no_game`, `contract_unavailable`, `post_state_timeout`, `category_not_collected`, `configuration_unpublished`, `configuration_not_available`, `stale_configuration_generation`, `configuration_write_unconfirmed`, `runtime_not_available`, `price_unavailable`, `affordability_unavailable`, `requirement_unevaluable`, `threshold_scaling_unavailable`, `unsupported_requirement_value`, `requirement_cycle`, `requirement_depth_exceeded`, `queue_not_published`, `queue_reading_inconsistent`, `entity_catalog_unavailable`, `topology_not_captured`, `owning_screen_unknown`, `owning_screen_unreadable`, `owning_screen_contradictory`, `owning_screen_status_unmodelled`, `owning_screen_availability_unreadable`, `single_buy_unavailable`, `unsupported_control`, `modal_not_offered`, `native_navigation_unavailable`, `native_plot_navigation_unavailable`, `native_plot_list_unavailable`, `native_probe_unavailable`, `tooltip_contract_unavailable`, `tooltip_read_faulted`, `tooltip_depth_exceeded`, `continue_contract_unavailable`, `navigation_request_invalid`, `unsupported_probe` |
 | `ERR_REFUSED` | `native_rejected`, `native_purchase_refused`, `native_can_develop_refused`, `projection_refused`, `native_tab_rejected`, `subtab_selection_failed` — the game's own gate said no and reported nothing else |
 
 These placements are worth reading twice, because the obvious guess is wrong.
@@ -3259,7 +3264,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `destination_full` | Every slot this upgrade would fill is already occupied | `game_purchase` on a slot-filling upgrade |
 | `single_buy_unavailable` | The suite could not hold the game's multi-buy multiplier at one for the press, so nothing was pressed and nothing was spent. It answered `native_rejected` — the game refusing — for a call the game never saw | the single-buy purchase path |
 | `bandwidth_blocked` / `drain_blocked` | The whole-recipe verdict for the two resource axes its per-resource rows already answer one by one: something it consumes has no bandwidth left, or something it drains is at its limit. Both codes used to be built by string concatenation, so no class or sentence table had ever met either | `world_get` recipe blockers |
-| `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; the game erroring while producing the text; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
+| `tooltip_offset_invalid` / `tooltip_match_failed` / `tooltip_content_unavailable` / `tooltip_contract_unavailable` / `tooltip_read_faulted` / `tooltip_depth_exceeded` | A page marker the live element list never printed and which changes when the screen does; a path matching no active element or several; an element the game draws no tooltip for; the suite unable to attach to the game's tooltips for this run, which only a restart clears; reading the text throwing, whether in the game or in the suite, with the exception in the suite log under the reference the sentence names; and an authored node tree deeper or wider than the suite will walk in one answer, so the walk was abandoned and none of its text is returned. Only the fourth and the last are the suite's own, and the binding layer's account of the fourth goes to the suite log rather than to the caller | `game_screen_elements`, `game_tooltip` |
 | `native_navigation_unavailable` / `native_plot_navigation_unavailable` / `native_plot_list_unavailable` / `native_plot_not_resolved` / `native_spell_navigation_unavailable` / `native_spell_list_unavailable` / `native_spell_not_resolved` / `tile_destination_mismatch` | The game is not showing its screen tabs, which it does only while a save is open; this build exposes no plot or spell list to select from; the screen is showing no such list or more than one, so which tile was meant is unclear; no plot or spell in this run carries that id; and a tile asked for anywhere but the plot and spell pages, which the sentence names | `game_navigate` |
 | `modal_not_offered` / `no_modal_named` / `ambiguous_modal` / `modal_already_open` | The panel named is not one the suite presses, and the sentence names the ones it does; no chrome control on this screen opens a panel by that name, and the sentence names the ones it does open; two controls answer to one name; and a different panel is already covering the board, so the chrome beneath it takes no presses | `game_modal open` |
 | `native_probe_unavailable` | The named fact exists, but this build exposes no reading of it | `game_probe` |
@@ -3411,8 +3416,9 @@ question, so none of them is a synonym for another:
 A decision block carries a bound exactly when the verb it decides takes the input that bound caps.
 `game_consumable discard` publishes `maximumAmount` because `discard` takes an `amount`; its sibling
 `use` publishes none because `use` takes none — one call, one consumable. Which arguments a mode
-accepts is declared once, in that tool's `inputSchema` mode rules, and `use` lists `amount` as
-forbidden there; a decision block is where the game's live answer lives, never a second copy of the
+accepts is declared once, in that tool's `inputSchema` mode rules, and the server enforces exactly
+those rules: `use` lists `amount` as forbidden there, so a `use` with an `amount` is refused, never
+run with the field dropped. A decision block is where the game's live answer lives, never a second copy of the
 call signature.
 
 Two shapes were retired rather than joined: a bound named only in an English sentence, and a
@@ -4548,8 +4554,8 @@ A tail naming none says to re-read the catalog instead, because the screen has m
 The reply is compact plain screen text.
 
 **`game_tooltip` takes `path` or `uuid`, exactly one per call.** A path names a place on the screen
-and a uuid names a thing, so sending both is two questions in one call and is refused as
-`mutually_exclusive`; sending neither is refused as `missing_required`. Roughly nine in ten
+and a uuid names a thing, so sending both is two questions in one call and is refused at
+validation, and so is sending neither. Roughly nine in ten
 hoverable elements are bound to an entity, so a caller holding an id from a search, a list, or an
 action response reads the screen's words about it with no catalog detour. The remaining tenth is
 chrome with no entity at all, including the suite's own controls, and `path` is the only address

@@ -75,7 +75,7 @@ public sealed class GameMcpLevelDialTests
             }));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field 'level' is " +
-            "accepted only for mode 'set_druidry_level'",
+            "not accepted for mode 'add_element'",
             Call(router, 3, "game_agromancy", new JObject
             {
                 ["mode"] = "add_element",
@@ -85,7 +85,7 @@ public sealed class GameMcpLevelDialTests
             }));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: required field " +
-            "'uuid' is missing",
+            "'uuid' is missing for mode 'add'",
             Call(router, 4, "game_alchemy", new JObject { ["mode"] = "add", ["amount"] = 1 }));
     }
 

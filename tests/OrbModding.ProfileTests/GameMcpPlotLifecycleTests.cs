@@ -349,7 +349,25 @@ public sealed class GameMcpPlotLifecycleTests
         Json(GameMcpWorldQuery.ProjectEntityState(
             world, "agromancy-plot-actions", world.PlotActions[0]), world);
 
-    private static GameWorldState World(bool prerequisitesReady, int active)
+    /// <summary>
+    /// An Agromancy queue the world did not publish is a read that failed, not a list with no room.
+    /// Saying "full" sent a caller off to free a slot that was never the problem.
+    /// </summary>
+    [Fact]
+    public void An_unpublished_plot_action_queue_is_unreadable_rather_than_full()
+    {
+        var world = World(prerequisitesReady: true, active: 0, queuePublished: false);
+
+        var row = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 913),
+            "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
+        Assert.Equal("unreadable", (string?)row["add"]);
+        Assert.Equal(
+            "The action queue was not readable in this world, so queue room is unknown.",
+            (string?)Detail(world)["add"]!["reason"]);
+    }
+
+    private static GameWorldState World(bool prerequisitesReady, int active, bool queuePublished = true)
     {
         var pair = new WorldPlotAction(
             new RawPlotAction(PlotId, ActionId, 1, active > 0 ? 1 : 0,
@@ -383,12 +401,14 @@ public sealed class GameMcpPlotLifecycleTests
                         0, false, PlotId, ActionId, active, true),
                 })
                 : PublicationTable<WorldActionQueueSlot>.Empty,
-            ActionQueues = PublicationTable<WorldActionQueue>.Create(new[]
-            {
-                new WorldActionQueue(PlotLifecycleNativeBindings.ActiveActionsId,
-                    Guid.Empty, 4, active > 0 ? 1 : 0, active > 0 ? 3 : 4,
-                    hasEmptySlot: true, consistent: true),
-            }),
+            ActionQueues = queuePublished
+                ? PublicationTable<WorldActionQueue>.Create(new[]
+                {
+                    new WorldActionQueue(PlotLifecycleNativeBindings.ActiveActionsId,
+                        Guid.Empty, 4, active > 0 ? 1 : 0, active > 0 ? 3 : 4,
+                        hasEmptySlot: true, consistent: true),
+                })
+                : PublicationTable<WorldActionQueue>.Empty,
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus("plot nodes", WorldCategoryOutcome.Collected,

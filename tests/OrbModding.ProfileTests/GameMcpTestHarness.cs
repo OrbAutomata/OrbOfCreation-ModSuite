@@ -19,6 +19,18 @@ namespace OrbModding.ProfileTests;
 
 internal static class GameMcpTestHarness
 {
+    /// <summary>
+    /// Every upgrade on the game's ungrouped Upgrades list and no screen panel, published through
+    /// the production deriver. A live world always publishes where its upgrades are drawn.
+    /// </summary>
+    internal static PublicationTable<WorldUpgradeListMembership> OnTheUpgradesList(params Guid[] upgrades)
+    {
+        var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
+        foreach (var upgrade in upgrades)
+            buffer.Append(new WorldUpgradeListMembership(upgrade, KnownEntities.UpgradesAll.Uuid));
+        return WorldUpgradeListMembershipDeriver.Build(buffer);
+    }
+
     private static readonly Lazy<EntityIdentityCatalogSnapshot> Identities =
         new(LoadIdentityFixture);
 

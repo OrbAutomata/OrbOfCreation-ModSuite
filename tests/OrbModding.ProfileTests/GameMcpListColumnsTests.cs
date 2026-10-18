@@ -316,6 +316,7 @@ public sealed class GameMcpListColumnsTests
     {
         "not_offered", "ambiguous_offer", "cost_unavailable", "plot_quantity_insufficient",
         "plot_action_list_full", "prerequisite_unverified", "not_active", "insufficient_bandwidth",
+        "queue_not_published", "queue_reading_inconsistent",
     };
 
     /// <summary>Brew Mana Potion: an ordinary Alchemy recipe the Scholar screen never draws.</summary>
@@ -1326,6 +1327,35 @@ public sealed class GameMcpListColumnsTests
         var opened = GameMcpTestHarness.Context(UpgradesWorld(memberships, upgrades));
         Assert.True(
             (bool)GameMcpTestHarness.Detail(opened, Aspect)["predicates"]!["available"]!["available"]!);
+    }
+
+    /// <summary>
+    /// A row whose screen membership was withheld has no screen anyone asked about, so it is not
+    /// offered: the page says the suite could not read it, the available search leaves it out, and
+    /// the detail read names the gap instead of inviting a purchase the game may not draw.
+    /// </summary>
+    [Fact]
+    public void An_upgrade_whose_screen_cannot_be_read_is_never_offered()
+    {
+        var context = GameMcpTestHarness.Context(UpgradesWorld(
+            Array.Empty<WorldUpgradeListMembership>(), new[] { Upgrade(Capped, bounded: true) }));
+
+        Assert.Equal(
+            "unreadable",
+            (string?)Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50)))
+                .Single()["state"]);
+        Assert.Empty(GameMcpTestHarness
+            .Json(GameMcpWorldQuery.Search(
+                context, string.Empty, 0, 50, "upgrades", stateFilter: "available"))["rows"]!);
+        var predicates = GameMcpTestHarness.Detail(context, Capped)["predicates"]!;
+        Assert.All(new[] { "available", "canPurchase" }, name =>
+        {
+            Assert.False((bool)predicates[name]!["available"]!);
+            Assert.Equal(
+                "Which screen the game draws this on could not be told, so whether that screen is " +
+                "unlocked is unknown.",
+                (string?)predicates[name]!["reason"]);
+        });
     }
 
     /// <summary>
