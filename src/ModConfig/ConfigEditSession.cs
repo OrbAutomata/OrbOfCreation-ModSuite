@@ -269,14 +269,19 @@ internal sealed class ConfigEditSession
         }
         catch (Exception ex)
         {
+            var unrestored = new List<string>();
             foreach (var pair in originals)
             {
+                var source = pair.Key.Setting.Source;
                 try
                 {
-                    pair.Key.Setting.Source.SetSerializedValue(pair.Value);
+                    source.SetSerializedValue(pair.Value);
                 }
-                catch
+                catch (Exception rollback)
                 {
+                    if (source.GetSerializedValue() != pair.Value)
+                        unrestored.Add(
+                            $"{pair.Key.Setting.Section}.{pair.Key.Setting.Key}: {rollback.GetBaseException().Message}");
                 }
             }
 
@@ -286,12 +291,16 @@ internal sealed class ConfigEditSession
                 {
                     configFile.Save();
                 }
-                catch
+                catch (Exception rollback)
                 {
+                    unrestored.Add($"{System.IO.Path.GetFileName(configFile.ConfigFilePath)}: {rollback.GetBaseException().Message}");
                 }
             }
 
             error = ex.GetBaseException().Message;
+            if (unrestored.Count != 0)
+                error += " Putting the previous values back also failed, so the file may hold some " +
+                         "of the new ones: " + string.Join("; ", unrestored);
             return false;
         }
     }

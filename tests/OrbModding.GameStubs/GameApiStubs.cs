@@ -3945,6 +3945,8 @@ namespace BepInEx.Configuration
 
         public int? ThrowOnSaveCall { get; set; }
 
+        public bool ThrowOnEverySave { get; set; }
+
         public int? ThrowOnReloadCall { get; set; }
 
         public event EventHandler<SettingChangedEventArgs>? SettingChanged;
@@ -3979,7 +3981,7 @@ namespace BepInEx.Configuration
         public void Save()
         {
             SaveCalls++;
-            if (ThrowOnSaveCall == SaveCalls)
+            if (ThrowOnEverySave || ThrowOnSaveCall == SaveCalls)
             {
                 throw new InvalidOperationException($"simulated config save failure on call {SaveCalls}");
             }
