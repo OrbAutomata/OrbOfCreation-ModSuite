@@ -124,14 +124,14 @@ public sealed class GameMcpReturnToMenuTests
                 new ServiceActionOutcomeWindowRegistry()),
             new IAutomataServiceCycleFeature[] { feature },
             new ManualLogSource(),
-            createReturnToMenu: () => new ReturnToMenuGameAction(
+            composeGameActions: actions => actions.Add(new ReturnToMenuGameAction(
                 () => lifecycle,
                 () => true,
                 () => string.Empty,
                 () => "Main",
                 type => type == typeof(UIBackToMenuButton)
                     ? new object[] { button }
-                    : Array.Empty<object>()));
+                    : Array.Empty<object>())));
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.ReturnToMenu, lifecycle, 1, "return_to_menu",
             Guid.Empty, Guid.Empty, "UIBackToMenuButton",

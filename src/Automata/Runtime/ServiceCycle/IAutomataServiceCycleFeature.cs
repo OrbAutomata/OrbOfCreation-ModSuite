@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -10,14 +11,16 @@ namespace OrbAutomata;
 
 /// <summary>
 /// Application context handed to a feature during composition. The feature performs
-/// its typed registration against the cycle registry and keeps its service generics local.
+/// its typed registration against the cycle registry and keeps its service generics local, and
+/// registers any GameAction it composes into <see cref="GameActions"/>, which owns it from then on.
 /// </summary>
 internal readonly struct AutomataServiceCycleFeatureContext
 {
     internal AutomataServiceCycleFeatureContext(
         ServiceCycleRegistry registry,
         ConfigGeneration configurationGeneration,
-        long lifecycleValue
+        long lifecycleValue,
+        LifecycleGameActions gameActions
 #if SERVICE_CYCLE_PROFILE
         , ServiceCycleProfileProbe profileProbe
 #endif
@@ -26,6 +29,7 @@ internal readonly struct AutomataServiceCycleFeatureContext
         Registry = registry;
         ConfigurationGeneration = configurationGeneration;
         LifecycleValue = lifecycleValue;
+        GameActions = gameActions;
 #if SERVICE_CYCLE_PROFILE
         ProfileProbe = profileProbe;
 #endif
@@ -34,6 +38,7 @@ internal readonly struct AutomataServiceCycleFeatureContext
     internal ServiceCycleRegistry Registry { get; }
     internal ConfigGeneration ConfigurationGeneration { get; }
     internal long LifecycleValue { get; }
+    internal LifecycleGameActions GameActions { get; }
 #if SERVICE_CYCLE_PROFILE
     internal ServiceCycleProfileProbe ProfileProbe { get; }
 #endif

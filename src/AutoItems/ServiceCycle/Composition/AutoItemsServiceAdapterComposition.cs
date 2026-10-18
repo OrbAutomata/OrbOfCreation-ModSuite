@@ -8,22 +8,20 @@ internal sealed class AutoItemsServiceAdapterComposition
     private AutoItemsServiceAdapterComposition(
         IAutomataServiceDefinition<AutoItemsCycleState, AutoItemsCycleAction> definition,
         AutoItemsConsumableUseGameAction gameAction,
-        AutoItemsConsumablePlayerGameAction playerAction,
         AutoItemsActionHealth health)
     {
         Definition = definition;
         GameAction = gameAction;
-        PlayerAction = playerAction;
         Health = health;
     }
 
     internal IAutomataServiceDefinition<AutoItemsCycleState, AutoItemsCycleAction> Definition { get; }
     internal AutoItemsConsumableUseGameAction GameAction { get; }
-    internal AutoItemsConsumablePlayerGameAction PlayerAction { get; }
     internal AutoItemsActionHealth Health { get; }
 
     internal static AutoItemsServiceAdapterComposition Create(
-        AutoItemsFeatureDependencies dependencies)
+        AutoItemsFeatureDependencies dependencies,
+        LifecycleGameActions gameActions)
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
         var health = new AutoItemsActionHealth();
@@ -31,11 +29,13 @@ internal sealed class AutoItemsServiceAdapterComposition
             dependencies.RegistryResolver,
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
-        var playerAction = new AutoItemsConsumablePlayerGameAction(
+#if SERVICE_CYCLE_PROFILE
+        gameActions.Add(new AutoItemsConsumablePlayerGameAction(
             dependencies.RegistryResolver,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
-            dependencies.ReadOwnershipFailure);
+            dependencies.ReadOwnershipFailure));
+#endif
         var actions = new AutoItemsCycleActionAdapter(
             gameAction,
             dependencies.ReadLifecycleEpoch,
@@ -45,7 +45,6 @@ internal sealed class AutoItemsServiceAdapterComposition
         return new AutoItemsServiceAdapterComposition(
             AutoItemsService.Define(actions),
             gameAction,
-            playerAction,
             health);
     }
 }

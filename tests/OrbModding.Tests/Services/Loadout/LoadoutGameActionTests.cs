@@ -1,7 +1,11 @@
 using System;
 using System.Linq;
+using BepInEx.Configuration;
+using BepInEx.Logging;
 using OrbAutomata;
+using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
 using OrbModding.Common.Runtime.World;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
@@ -312,6 +316,69 @@ public sealed class LoadoutGameActionTests : IDisposable
             StringComparison.Ordinal);
         Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
         Assert.Equal(0, LoadoutManager.instance.activeEquipment.GetStacks(equipment));
+    }
+
+    /// <summary>
+    /// Loadout reads saved sections through its Equipment and Alchemy children. A child the
+    /// runtime did not rebind would keep last run's bindings while its live epoch check passed, so
+    /// both are registered beside Loadout and rebound because they exist.
+    /// </summary>
+    [Fact]
+    public void The_runtime_rebinds_the_children_a_loadout_reads_through()
+    {
+        var equipment = Equipment("Ward", 1);
+        var owner = new EquipmentSnapshotListVariable();
+        owner.SetGuid(Guid.NewGuid());
+        var slot = new EquipmentSnapshot();
+        var saved = new Stacked.StackedIdRecord<EquipmentSO>();
+        saved.Set(equipment, 1);
+        slot.SaveSnapshot(saved);
+        owner.value.Add(slot);
+        LoadoutManager.instance.equipmentLoadouts = owner;
+        var lifecycle = Epoch;
+        var withheld = true;
+        var missingEquipment = EquipmentLoadoutNativeBindings.ContractIds.First();
+        var missingAlchemy = AlchemyLoadoutNativeBindings.ContractIds.First();
+        var resolve = new Func<string, Type?>(name => typeof(LoadoutManager).Assembly.GetTypes()
+            .FirstOrDefault(type => type.Name == name || type.FullName == name));
+        EquipmentLoadoutGameAction? equipmentChild = null;
+        AlchemyLoadoutGameAction? alchemyChild = null;
+        LoadoutGameAction? loadouts = null;
+        using var runtime = AutomataServiceCycleComposition.Create(
+            BepInExAutomataConfiguration.Bind(new ConfigFile()).Current,
+            new ConfigGeneration(1),
+            new AutomataServiceCycleHostDependencies(
+                () => 1, () => lifecycle, new ServiceActionOutcomeWindowRegistry()),
+            new IAutomataServiceCycleFeature[] { new StrategistServiceCycleFeature() },
+            new ManualLogSource(),
+            actions =>
+            {
+                equipmentChild = actions.Add(new EquipmentLoadoutGameAction(() => lifecycle,
+                    static () => true, static () => "Equipment ownership unavailable", resolve,
+                    id => !withheld || id != missingEquipment));
+                alchemyChild = actions.Add(new AlchemyLoadoutGameAction(() => lifecycle,
+                    static () => true, static () => "Alchemy ownership unavailable", resolve,
+                    id => !withheld || id != missingAlchemy));
+                loadouts = actions.Add(new LoadoutGameAction(() => lifecycle, static () => true,
+                    static () => "loadout ownership unavailable", equipmentChild, alchemyChild,
+                    resolve));
+            });
+        var before = loadouts!.Submit(new LoadoutAction(
+            LoadoutActionKind.SnapshotLoad, owner.GetGuid(), 0, false, string.Empty, lifecycle));
+        var alchemyBoundBefore = alchemyChild!.BindingsAvailable;
+
+        withheld = false;
+        lifecycle++;
+        runtime.InvalidateLifecycle();
+        var after = loadouts.Submit(new LoadoutAction(
+            LoadoutActionKind.SnapshotLoad, owner.GetGuid(), 0, false, string.Empty, lifecycle));
+
+        Assert.Equal(LoadoutActionResultCodes.EntryUnavailable, before.Outcome.Code);
+        Assert.False(alchemyBoundBefore);
+        Assert.True(after.Outcome.Verified, after.Outcome.Reason);
+        Assert.Equal(1, LoadoutManager.instance.activeEquipment.GetStacks(equipment));
+        Assert.True(equipmentChild!.BindingsAvailable, equipmentChild.BindingFailure);
+        Assert.True(alchemyChild.BindingsAvailable, alchemyChild.BindingFailure);
     }
 
     [Fact]

@@ -19,14 +19,14 @@ internal sealed class AutoItemsServiceCycleFeature : IAutomataServiceCycleFeatur
     public IAutomataServiceCycleFeatureRuntime Register(
         in AutomataServiceCycleFeatureContext context)
     {
-        var adapters = AutoItemsServiceAdapterComposition.Create(_dependencies);
+        var adapters = AutoItemsServiceAdapterComposition.Create(
+            _dependencies, context.GameActions);
         var registration = context.Registry.Register(
             adapters.Definition,
             ActionDispatchPolicy);
         return new AutoItemsFeatureRuntime(
             _dependencies,
             adapters.GameAction,
-            adapters.PlayerAction,
             adapters.Health,
             registration,
             context.LifecycleValue,
@@ -38,7 +38,6 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
 {
     private readonly AutoItemsFeatureDependencies _dependencies;
     private readonly AutoItemsConsumableUseGameAction _gameAction;
-    private readonly AutoItemsConsumablePlayerGameAction _playerAction;
     private readonly AutoItemsActionHealth _health;
     private readonly ServiceRegistration<AutoItemsCycleState, AutoItemsCycleAction> _registration;
     private readonly long _lifecycleValue;
@@ -48,7 +47,6 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
     internal AutoItemsFeatureRuntime(
         AutoItemsFeatureDependencies dependencies,
         AutoItemsConsumableUseGameAction gameAction,
-        AutoItemsConsumablePlayerGameAction playerAction,
         AutoItemsActionHealth health,
         ServiceRegistration<AutoItemsCycleState, AutoItemsCycleAction> registration,
         long lifecycleValue,
@@ -56,7 +54,6 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
     {
         _dependencies = dependencies;
         _gameAction = gameAction;
-        _playerAction = playerAction;
         _health = health;
         _registration = registration;
         _lifecycleValue = lifecycleValue;
@@ -84,14 +81,9 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
         ConfigGeneration configurationGeneration)
     {
         _gameAction.InvalidateLifecycle();
-        _playerAction.InvalidateLifecycle();
         _health.InvalidateLifecycle();
         _diagnostics?.ObserveLifecycle(nativeLifecycle, configurationGeneration);
     }
-
-    internal NativeActionOutcome TryExecuteGameMcp(
-        in ConsumablePlayerAction action) =>
-        _playerAction.Submit(in action);
 
     public void DisposeDiagnostics() => _diagnostics = null;
 
@@ -99,6 +91,5 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
     {
         _registration.Dispose();
         _gameAction.Dispose();
-        _playerAction.Dispose();
     }
 }
