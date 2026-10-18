@@ -39,6 +39,7 @@ public readonly struct NativeActionOutcome
     public NativeMutationCallOutcome CallOutcome { get; }
     public string Reason { get; }
     public bool Verified => _kind == Kind.Commit;
+    public bool IsFault => _kind is Kind.Fault or Kind.FaultBeforeCall;
 
     public static NativeActionOutcome Reject(ServiceActionResultCode code, string reason) =>
         new(Kind.Reject, code, NativeMutationOutcome.BeforeCaptureFailed, default, reason);

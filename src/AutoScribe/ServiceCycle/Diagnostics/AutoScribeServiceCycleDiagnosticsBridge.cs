@@ -103,7 +103,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
 
     private AutoScribeFeatureStatus Project()
     {
-        var ownsActionFamily = AutoScribeActionFamilyAccess.Owns(
+        var ownsActionFamily = AutomationCycleGuard.Owns(
             _dependencies.OwnsActionFamily);
         return ProjectStatus(
             _dependencies.Profile,

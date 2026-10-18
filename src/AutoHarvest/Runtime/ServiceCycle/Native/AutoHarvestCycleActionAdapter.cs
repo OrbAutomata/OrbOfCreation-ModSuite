@@ -1,4 +1,5 @@
 using System;
+using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.Configuration;
@@ -17,6 +18,10 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     private readonly IAutoHarvestContractCircuit _contractCircuit;
     private readonly Func<bool> _ownsActionFamily;
     private readonly Func<bool> _tryCaptureMutationPermit;
+    private readonly AutomationCycleGuard<AutoHarvestCycleAction> _guard = new(
+        static action => "Auto Harvest failed to collect " +
+            EntityIdentityFormatter.Format(AutoHarvestPairSpecification.For(action.Pair).Plot.Uuid),
+        static message => Plugin.Log?.LogAutomataWarning(message));
 #if SERVICE_CYCLE_PROFILE
     private readonly AutomataProfileOperations _profileOperations;
     private readonly IAutoHarvestProfileBindingObservation _profileBindings;
@@ -75,7 +80,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
 
         if (_gates.IsQuarantined(action.Pair))
             return ServiceActionResult.Faulted(AutoHarvestActionResultCodes.PairFaulted);
-        if (!_ownsActionFamily() || !_tryCaptureMutationPermit())
+        if (!_guard.Owns(_ownsActionFamily) || !_tryCaptureMutationPermit())
             return ServiceActionResult.Rejected(AutoHarvestActionResultCodes.ActionFamilyUnavailable);
 
         ResolvedAutoHarvestPair resolved;
@@ -104,7 +109,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return _guard.Fault(ex, in action).ToResult();
         }
 #if SERVICE_CYCLE_PROFILE
         finally
@@ -122,7 +127,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
 #endif
             );
         if (result.Code == AutoHarvestActionResultCodes.PairFaulted) _gates.Quarantine(action.Pair);
-        return result.ToResult();
+        return _guard.Finish(in result, in action);
     }
 
     /// <summary>

@@ -28,6 +28,19 @@ public sealed class MentorCycleActionAdapterTests
     }
 
     [Fact]
+    public void AnUnreadableLifecycleEpochFaultsBeforeTheNativePort()
+    {
+        var native = new NativePort(default);
+        var warnings = new System.Collections.Generic.List<string>();
+
+        var result = Execute(native, warn: warnings.Add, readEpoch: static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Contains("The lifecycle epoch is unreadable.", Assert.Single(warnings));
+    }
+
+    [Fact]
     public void LifecycleAndOwnershipAreRevalidatedBeforeTheNativePort()
     {
         var native = new NativePort(default);
@@ -79,9 +92,11 @@ public sealed class MentorCycleActionAdapterTests
         NativePort native,
         long epoch = 1,
         bool permit = true,
-        Action<string>? warn = null)
+        Action<string>? warn = null,
+        Func<long>? readEpoch = null)
     {
-        var adapter = new MentorCycleActionAdapter(native, () => epoch, _ => permit, warn ?? (_ => { }));
+        var adapter = new MentorCycleActionAdapter(
+            native, readEpoch ?? (() => epoch), _ => permit, warn ?? (_ => { }));
         var action = new MentorCycleAction(
             MasteryExperienceDomain.Spell,
             Recipient,

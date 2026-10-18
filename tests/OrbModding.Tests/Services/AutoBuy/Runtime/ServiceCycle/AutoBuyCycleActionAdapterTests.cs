@@ -112,6 +112,35 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(2, structure.queuedQuantity);
     }
 
+    [Fact]
+    public void Execute_UnreadableLifecycleEpoch_FaultsWithoutMutation()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 1,
+        };
+        global::StructureSO.All.Add(structure);
+        var adapter = new AutoBuyCycleActionAdapter(
+            NativeAdapter(),
+            new FakeQueueRoom(64, true),
+            static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."),
+            () => AutoBuyCandidateKinds.All,
+            IgnoreRefusals.Instance);
+
+        var result = adapter.TryExecute(
+            new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), PlannedEpoch, count: 1, default),
+            Config(true, true, 0),
+            Context());
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(1, structure.queuedQuantity);
+    }
+
     /// <summary>
     /// The mirror of the case above, and the one that matters for safety: a plan made against the run
     /// the game has since left is refused however current the runner believes it is.

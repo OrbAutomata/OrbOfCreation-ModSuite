@@ -12,6 +12,9 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoScribeActionHealth _health;
+    private readonly AutomationCycleGuard<AutoScribeCycleAction> _guard = new(
+        static action => $"Auto Scribe failed to craft {EntityIdentityFormatter.Format(action.RecipeId)}",
+        static message => Plugin.Log?.LogAutomataWarning(message));
 
     internal AutoScribeCycleActionAdapter(
         AutoScribeOneShotCraftGameAction gameAction,
@@ -36,33 +39,16 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
         // policy; the worker pinned Roles when the cycle opened.
         if (!AutoScribeConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
-        if (!Owns())
+        if (!_guard.Owns(_ownsActionFamily))
         {
             return ServiceActionResult.Rejected(
                 AutoScribeActionResultCodes.MutationPermitUnavailable);
         }
-        if (!EpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         var submission = _gameAction.Submit(in action);
-        var enteredFailure = _health.Observe(in submission);
-        if (enteredFailure)
-            Plugin.Log?.LogAutomataWarning($"Auto Scribe: {submission.Outcome.Reason}");
-        return submission.Outcome.ToResult();
-    }
-
-    private bool Owns() => AutoScribeActionFamilyAccess.Owns(_ownsActionFamily);
-
-    private bool EpochMatches(long planned)
-    {
-        try
-        {
-            var current = _readLifecycleEpoch();
-            return current > 0 && current == planned;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
+        _health.Observe(in submission);
+        return _guard.Finish(submission.Outcome, in action);
     }
 }

@@ -40,6 +40,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     private readonly IAutoBuyNativePurchasePort _purchases;
     private readonly IAutoBuyQueueRoomPort _queueRoom;
     private readonly Func<long> _readLifecycleEpoch;
+    private readonly AutomationCycleGuard<AutoBuyCycleAction> _guard = new(
+        static action => $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}",
+        static message => Plugin.Log?.LogAutomataWarning(message));
     private readonly Func<AutoBuyCandidateKinds> _ownershipMask;
     private readonly IAutoBuyRefusalResponsePort _refusals;
     private readonly IServiceWorldGenerationSource? _worldGenerations;
@@ -196,8 +199,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         if (!manualOwnershipProven && !Owns(action.Kind))
             return ServiceActionResult.Rejected(AutoBuyActionResultCodes.ActionFamilyUnavailable);
 
-        if (!NativeEpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         // Planning already charged every queued action to one snapshot ledger. Reconcile the
         // verified receipts from earlier actions before asking the native purchase boundary again:
@@ -289,19 +292,15 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return _guard.Fault(ex, in action).ToResult();
         }
 
         LastSubmission = withheldBySuite > 0
             ? submission.WithSuiteWithheld(withheldBySuite)
             : submission;
-        if (!submission.Outcome.Verified)
-            Narrate(action.Kind, action.Uuid, submission);
         if (requireAutomationPolicy && AutoBuyPurchaseNarration.IsAdmissionRefusal(in submission))
             ReportRefusal(in action, levels, in submission, in context);
-        var result = submission.Outcome.ToResult();
+        var result = _guard.Finish(submission.Outcome, in action);
         if (result.Disposition == ServiceActionDisposition.Committed)
         {
             var liveCosts = submission.LiveCosts;
@@ -479,17 +478,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         return false;
     }
 
-    // One actionable warning for an actual refusal or failure. Successful actions are carried by the
-    // compact journal sentinel and must not turn the general BepInEx log into an action ledger.
-    private static void Narrate(
-        AutoBuyCandidateKind kind,
-        Guid uuid,
-        in AutoBuyPurchaseSubmission submission)
-    {
-        var warning = AutoBuyPurchaseNarration.DescribeWarning(kind, uuid, in submission);
-        if (warning is not null) Plugin.Log?.LogAutomataWarning(warning);
-    }
-
     private bool Owns(AutoBuyCandidateKind kind)
     {
         var mask = _ownershipMask();
@@ -497,32 +485,4 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             ? (mask & AutoBuyCandidateKinds.Structures) != 0
             : (mask & AutoBuyCandidateKinds.Upgrades) != 0;
     }
-
-    /// <summary>
-    /// Whether the game is still the run this purchase was planned for.
-    /// </summary>
-    /// <remarks>
-    /// The live half stays live: this is the only thing that re-reads the game's epoch after a plan is
-    /// made, and reading it here rather than trusting a captured copy is what closes the reload race.
-    /// What changed is the other half. It used to be the runner's own lifecycle, frozen when the
-    /// runner was built, so a world already collected under a new epoch was refused merely because the
-    /// host had not been told to replace the runner yet. It is now the epoch the snapshot this plan
-    /// was made from was collected under, which is what the plan is actually about. Zero matches
-    /// nothing on either side, so an unstamped world and an unreadable game both refuse.
-    /// </remarks>
-    private bool NativeEpochMatches(long plannedEpoch)
-    {
-        long epoch;
-        try
-        {
-            epoch = _readLifecycleEpoch();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-
-        return epoch > 0 && epoch == plannedEpoch;
-    }
-
 }

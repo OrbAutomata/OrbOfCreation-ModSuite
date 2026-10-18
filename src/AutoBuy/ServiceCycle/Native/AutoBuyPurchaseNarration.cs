@@ -4,7 +4,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-/// <summary>Actionable Auto Buy refusal and failure lines for the general BepInEx log.</summary>
+/// <summary>Auto Buy's own log lines and the refusal sentences its boundary writes.</summary>
 internal static class AutoBuyPurchaseNarration
 {
     /// <summary>
@@ -60,48 +60,6 @@ internal static class AutoBuyPurchaseNarration
             : "The purchase-screen topology holds no admission evidence for this run: it is " +
               $"stamped at epoch {stampedEpoch} with {rows} row(s), and this purchase was planned " +
               $"at epoch {askedEpoch}.";
-
-    /// <summary>
-    /// Returns one warning for a refusal that requires attention, or null for successful and ordinary
-    /// no-op outcomes already represented by the compact action journal.
-    /// </summary>
-    public static string? DescribeWarning(
-        AutoBuyCandidateKind kind,
-        Guid uuid,
-        in AutoBuyPurchaseSubmission submission)
-    {
-        if (submission.Outcome.Verified || IsAdmissionRefusal(in submission))
-            return null;
-
-        var candidate = $"{kind} {EntityIdentityFormatter.Format(uuid)}";
-        var fragment = RefusalFragment(submission.Outcome.Code);
-        return fragment is null
-            ? $"Auto Buy failed to purchase {candidate}: {submission.Outcome.Reason}"
-            : $"Auto Buy failed to purchase {candidate}: {fragment}.";
-    }
-
-    private static string? RefusalFragment(ServiceActionResultCode code)
-    {
-        if (code == AutoBuyActionResultCodes.OwningViewUnavailable) return "owning view unavailable";
-        if (code == AutoBuyActionResultCodes.OwningViewRelationMissing) return "owning view relation missing";
-        if (code == AutoBuyActionResultCodes.OwningViewRelationUnreadable) return "owning view relation unreadable";
-        if (code == AutoBuyActionResultCodes.OwningViewTopologyUnbound)
-            return "the owning view topology contract never bound";
-        if (code == AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled)
-            return "the owning view relation carries an unmodelled status";
-        if (code == AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable)
-            return "live owning view availability could not be read";
-        if (code == AutoBuyActionResultCodes.OwningViewRelationContradictory)
-            return "owning view relation contradictory";
-        if (code == AutoBuyActionResultCodes.StructureUnavailable) return "structure unavailable";
-        if (code == AutoBuyActionResultCodes.DestinationCapacityFull) return "destination capacity full";
-        if (code == AutoBuyActionResultCodes.DestinationCapacityLocked) return "no destination slot unlocked";
-        if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
-            return "destination capacity contract unavailable";
-        if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
-            return "destination capacity identity mismatch";
-        return null;
-    }
 
     public static bool IsAdmissionRefusal(in AutoBuyPurchaseSubmission submission) =>
         submission.Outcome.Code == CommonActionResultCodes.Skipped ||

@@ -37,6 +37,14 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoCastManualPauseState _manualPause;
+    private readonly AutomationCycleGuard<AutoCastCycleAction> _guard = new(
+        static action => "Auto Cast failed to " + action.Kind switch
+        {
+            AutoCastActionKind.ReleaseCharge => $"release the charged spell in slot {action.SlotIndex + 1}",
+            AutoCastActionKind.ToggleOff => $"turn off the toggled spell in slot {action.SlotIndex + 1}",
+            _ => $"cast the spell in slot {action.SlotIndex + 1}",
+        },
+        static message => Plugin.Log?.LogAutomataWarning(message));
     private HeldCharge? _serviceHold;
 
     /// <summary>
@@ -86,11 +94,11 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         if (!release && requireAutomationPolicy && !AutoCastConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
-        if (!release && !Owns())
+        if (!release && !_guard.Owns(_ownsActionFamily))
             return ServiceActionResult.Rejected(AutoCastActionResultCodes.ActionFamilyUnavailable);
 
-        if (!NativeEpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         // The pause is the service standing down after the player cast by hand. A press the
         // player asked for through the verb is that manual cast, not something held back by one.
@@ -131,9 +139,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Cast failed to cast the spell in slot {action.SlotIndex + 1}: adapter fault ({ex.GetBaseException().Message}).");
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return _guard.Fault(ex, in action).ToResult();
         }
 
         LastSubmission = submission;
@@ -141,8 +147,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
             _serviceHold = new HeldCharge(action.SlotIndex, action.SpellRecipeId);
         else if (release && submission.Outcome.Verified && _serviceHold?.SpellRecipeId == action.SpellRecipeId)
             _serviceHold = null;
-        Narrate(in action, in submission);
-        return submission.Outcome.ToResult();
+        return _guard.Finish(submission.Outcome, in action);
     }
 
     /// <summary>Whether a full-charge hold this service took is still pressed down.</summary>
@@ -173,62 +178,6 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
 
     /// <summary>A lifecycle boundary replaced every spell, and with them every charge input.</summary>
     internal void ForgetServiceHold() => _serviceHold = null;
-
-    /// <summary>
-    /// Preserves an unconditional warning when a native mutation was attempted but did not land.
-    /// </summary>
-    /// <remarks>
-    /// Ordinary preflight refusals and successes belong to ServiceCycle observation products rather
-    /// than the BepInEx log. A failure past preflight remains a warning.
-    /// </remarks>
-    private static void Narrate(
-        in AutoCastCycleAction action,
-        in AutoCastSubmission submission)
-    {
-        var what = action.Kind switch
-        {
-            AutoCastActionKind.ReleaseCharge =>
-                $"release the charged spell in slot {action.SlotIndex + 1}",
-            AutoCastActionKind.ToggleOff =>
-                $"turn off the toggled spell in slot {action.SlotIndex + 1}",
-            _ => $"cast the spell in slot {action.SlotIndex + 1}",
-        };
-        if (submission.Outcome.Verified) return;
-
-        var message =
-            $"Auto Cast did not {what}: {submission.Outcome.Reason} " +
-            $"(planned from a snapshot with {action.Belief.EligibleSlots} eligible slots).";
-        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
-            Plugin.Log?.LogAutomataWarning(message);
-    }
-
-    private bool Owns()
-    {
-        try
-        {
-            return _ownsActionFamily();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    /// <summary>Whether the game is still the run this cast was planned for.</summary>
-    private bool NativeEpochMatches(long plannedEpoch)
-    {
-        long epoch;
-        try
-        {
-            epoch = _readLifecycleEpoch();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-
-        return epoch > 0 && epoch == plannedEpoch;
-    }
 
     private readonly record struct HeldCharge(int SlotIndex, Guid SpellRecipeId);
 }

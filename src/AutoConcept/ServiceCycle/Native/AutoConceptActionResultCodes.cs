@@ -13,4 +13,5 @@ internal static class AutoConceptActionResultCodes
     public static ServiceActionResultCode ProjectionRefused => new(3333, "projection_refused");
     public static ServiceActionResultCode MasteryLimitChanged => new(3334, "mastery_limit_changed");
     public static ServiceActionResultCode AmountUnavailable => new(3335, "amount_unavailable");
+    public static ServiceActionResultCode ConceptNotDiscovered => new(3336, "not_discovered");
 }

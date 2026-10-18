@@ -66,6 +66,64 @@ public sealed class AutoItemsCycleActionAdapterTests
         Assert.Equal(reason, health.Reason);
     }
 
+    [Fact]
+    public void AnUnreadableLifecycleEpochFaults()
+    {
+        var health = new AutoItemsActionHealth();
+        using var gameAction = GameAction();
+        var adapter = new AutoItemsCycleActionAdapter(
+            gameAction,
+            static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."),
+            static () => true,
+            static () => string.Empty,
+            health);
+        var config = Configuration(AutoItemsOperationMode.Active);
+        var action = new AutoItemsCycleAction(
+            Guid.NewGuid(),
+            AutoItemsConsumableFamily.Scroll,
+            collectedAtEpoch: 7,
+            plannedLevel: 1);
+        var context = Context();
+
+        var result = adapter.TryExecute(in action, in config, in context);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+    }
+
+    [Fact]
+    public void AnExpectedNativeThrowFaultsAsAnAdapterFault()
+    {
+        var health = new AutoItemsActionHealth();
+        using var gameAction = GameAction();
+        var adapter = new AutoItemsCycleActionAdapter(
+            gameAction,
+            static () => 7,
+            static () => true,
+            static () => string.Empty,
+            health);
+        var config = Configuration(AutoItemsOperationMode.Active);
+        var action = new AutoItemsCycleAction(
+            Guid.NewGuid(),
+            AutoItemsConsumableFamily.Scroll,
+            collectedAtEpoch: 7,
+            plannedLevel: 1);
+        var context = Context();
+        global::TargetingManager.IsTargetingFault = new InvalidOperationException("stub targeting read");
+        try
+        {
+            var result = adapter.TryExecute(in action, in config, in context);
+
+            Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+            Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+            Assert.True(health.HasFailure);
+        }
+        finally
+        {
+            global::TargetingManager.IsTargetingFault = null;
+        }
+    }
+
     private static AutoItemsConsumableUseGameAction GameAction()
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();
