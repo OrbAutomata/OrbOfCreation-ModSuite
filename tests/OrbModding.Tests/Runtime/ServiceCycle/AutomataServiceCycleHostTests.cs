@@ -110,6 +110,130 @@ public sealed class AutomataServiceCycleHostTests
         Assert.Equal("semanticRecorder", error.ParamName);
     }
 
+    /// <summary>
+    /// A game read that throws faults the whole capture, and the log names what threw and where. The
+    /// capture fault alone told the status line that the world could not be read, never why. A streak
+    /// of the same fault is logged once, so a read that keeps throwing does not flood the player log.
+    /// </summary>
+    [Fact]
+    public void ACaptureThatThrowsLogsWhatThrewOncePerFaultStreak()
+    {
+        var frame = 1L;
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(1), clock);
+        var definition = new SourceServiceDefinition("host.capture-fault")
+        {
+            CaptureCallback = ReadAMissingGameObject,
+        };
+        using var registration = registry.RegisterSource(definition, new LifecycleGeneration(1));
+        var messages = new System.Collections.Generic.List<string>();
+        using var host = new AutomataServiceCycleHost(
+            registry,
+            () => frame,
+            pumpTiming: null,
+            semanticTrace: null,
+            serviceFailureLog: messages.Add);
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        TickUntil(host, clock, ref frame, () => definition.CaptureCount == 2);
+
+        var logged = Assert.Single(messages);
+        Assert.StartsWith(
+            $"ServiceCycle capture for service {definition.ServiceId.Value} threw, so it published " +
+            "nothing and retries with backoff: System.NullReferenceException: ",
+            logged);
+        Assert.Contains(nameof(ReadAMissingGameObject), logged);
+
+        definition.CaptureCallback = null;
+        TickUntil(host, clock, ref frame, () => definition.CaptureCount == 3);
+        definition.CaptureCallback = ReadAMissingGameObject;
+        TickUntil(host, clock, ref frame, () => definition.CaptureCount == 4);
+
+        Assert.Equal(2, messages.Count);
+        Assert.Equal(messages[0][..messages[0].IndexOf(" at ", StringComparison.Ordinal)],
+            messages[1][..messages[1].IndexOf(" at ", StringComparison.Ordinal)]);
+    }
+
+    private static void TickUntil(
+        AutomataServiceCycleHost host,
+        ThreadSafeTestClock clock,
+        ref long frame,
+        Func<bool> reached)
+    {
+        var deadline = System.Diagnostics.Stopwatch.StartNew();
+        while (true)
+        {
+            host.Tick();
+            if (reached()) return;
+            if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
+                throw new TimeoutException("The service never reached the expected capture.");
+            clock.Advance(new MonotonicDuration(1_000));
+            frame++;
+            System.Threading.Thread.Yield();
+        }
+    }
+
+    [Fact]
+    public void AStartDecisionThatThrowsLogsWhatThrew()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(1), clock);
+        var definition = new SourceServiceDefinition("host.start-fault")
+        {
+            ShouldStartCallback = static () => throw new InvalidOperationException("start exploded"),
+        };
+        using var registration = registry.RegisterSource(definition, new LifecycleGeneration(1));
+        var messages = new System.Collections.Generic.List<string>();
+        using var host = new AutomataServiceCycleHost(
+            registry,
+            () => 1,
+            pumpTiming: null,
+            semanticTrace: null,
+            serviceFailureLog: messages.Add);
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        host.Tick();
+
+        Assert.StartsWith(
+            $"ServiceCycle start decision for service {definition.ServiceId.Value} threw, so no " +
+            "cycle opened and it retries with backoff: System.InvalidOperationException: start exploded",
+            Assert.Single(messages));
+    }
+
+    /// <summary>
+    /// Running out of memory is not a capture fault the suite can back off from. It leaves the capture
+    /// boundary the way it leaves the action boundary.
+    /// </summary>
+    [Fact]
+    public void AProcessFatalCaptureFailureIsNotContained()
+    {
+        using var registry = new ServiceCycleRegistry(
+            1,
+            new LifecycleGeneration(1),
+            new ThreadSafeTestClock(100));
+        using var registration = registry.RegisterSource(
+            new SourceServiceDefinition("host.capture-fatal")
+            {
+                CaptureCallback = static () => throw new OutOfMemoryException(),
+            },
+            new LifecycleGeneration(1));
+        using var host = new AutomataServiceCycleHost(
+            registry,
+            () => 1,
+            pumpTiming: null,
+            semanticTrace: null);
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        Assert.Throws<OutOfMemoryException>(() => host.Tick());
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void ReadAMissingGameObject()
+    {
+        object? missing = null;
+        _ = missing!.GetHashCode();
+    }
+
     [Fact]
     public void ClaimedPumpShutdownRunsExactlyOnce()
     {

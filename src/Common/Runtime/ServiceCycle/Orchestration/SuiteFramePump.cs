@@ -168,18 +168,18 @@ public sealed class SuiteFramePump : IDisposable
     }
 #endif
 
-    internal int ActionFailureCount => _state.ActionFailures.Count;
+    internal int ServiceFailureCount => _state.ServiceFailures.Count;
 
-    internal ServiceActionFailure ActionFailureAt(int index)
+    internal ServiceFailure ServiceFailureAt(int index)
     {
         EnsureIdle("Action-attribution failures cannot be read while a frame is being pumped.");
-        return _state.ActionFailures.At(index);
+        return _state.ServiceFailures.At(index);
     }
 
-    internal void ClearActionFailures()
+    internal void ClearServiceFailures()
     {
         EnsureIdle("Action-attribution failures cannot be cleared while a frame is being pumped.");
-        _state.ActionFailures.Clear();
+        _state.ServiceFailures.Clear();
     }
 
     /// <summary>

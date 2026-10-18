@@ -85,30 +85,21 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
         {
             var snapshot = configuration.Snapshot;
             result = _definition.Capture(_frame, in snapshot, in captureContext);
-            if (!result.IsValid)
-                throw new InvalidOperationException(
-                    "The service returned an invalid capture result.");
         }
-        catch
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            var captureFaultedAt = Clock.Now;
-            var record = RecordStartFault(ServiceFaultCategory.Capture, captureFaultedAt);
-            var faultedCapture = new ServiceCaptureFact(
-                captureContext,
-                default,
-                captureStartedAt,
-                captureFaultedAt,
-                record.Fault,
-                record.RetryDue);
-            return new ServiceCycleStartAttempt(
-                false, startFact, faultedCapture, default, opening.Batch, default,
-                record.Fault, record.RetryDue,
-                startInvocation: startInvocation);
+            return CaptureFaulted(
+                in captureContext, captureStartedAt, in startFact, in startInvocation, opening.Batch,
+                ExceptionDetail.Describe(exception));
         }
         finally
         {
             IsCapturing = false;
         }
+        if (!result.IsValid)
+            return CaptureFaulted(
+                in captureContext, captureStartedAt, in startFact, in startInvocation, opening.Batch,
+                "the service returned an invalid capture result");
         var captureObservedAt = Clock.Now;
         var committedCapture = new ServiceCaptureFact(
             captureContext,
@@ -147,5 +138,29 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
             in committedCapture,
             in recoveredFault,
             nonBlockingProbe);
+    }
+
+    private ServiceCycleStartAttempt CaptureFaulted(
+        in ServiceCaptureContext captureContext,
+        MonotonicTimestamp captureStartedAt,
+        in ServiceStartDecisionFact startFact,
+        in ServiceStartInvocationFact startInvocation,
+        BatchId batch,
+        string reason)
+    {
+        var captureFaultedAt = Clock.Now;
+        var record = RecordStartFault(ServiceFaultCategory.Capture, captureFaultedAt);
+        var faultedCapture = new ServiceCaptureFact(
+            captureContext,
+            default,
+            captureStartedAt,
+            captureFaultedAt,
+            record.Fault,
+            record.RetryDue);
+        return new ServiceCycleStartAttempt(
+            false, startFact, faultedCapture, default, batch, default,
+            record.Fault, record.RetryDue,
+            startInvocation: startInvocation,
+            failureReason: reason);
     }
 }

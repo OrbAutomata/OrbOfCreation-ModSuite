@@ -57,26 +57,17 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         {
             var snapshot = configuration.Snapshot;
             start = _definition.ShouldStart(in snapshot, in startContext);
-            if (!start.IsValid)
-                throw new InvalidOperationException(
-                    "The service returned an invalid start decision.");
         }
-        catch
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            var startFaultedAt = Clock.Now;
-            var record = RecordStartFault(ServiceFaultCategory.Start, startFaultedAt);
-            var invocation = new ServiceStartInvocationFact(
-                startContext,
-                startAttemptedAt,
-                startFaultedAt);
-            return new ServiceCycleStartAttempt(
-                false, default, default, default, default, default,
-                record.Fault, record.RetryDue, startInvocation: invocation);
+            return StartFaulted(in startContext, startAttemptedAt, ExceptionDetail.Describe(exception));
         }
         finally
         {
             IsInvokingStartCallback = false;
         }
+        if (!start.IsValid)
+            return StartFaulted(in startContext, startAttemptedAt, "the service returned an invalid start decision");
         var startObservedAt = Clock.Now;
         var startInvocation = new ServiceStartInvocationFact(
             startContext,
@@ -122,5 +113,22 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
             nonBlockingProbe,
             ordinal,
             observer);
+    }
+
+    private ServiceCycleStartAttempt StartFaulted(
+        in ServiceCycleStartContext startContext,
+        MonotonicTimestamp startAttemptedAt,
+        string reason)
+    {
+        var startFaultedAt = Clock.Now;
+        var record = RecordStartFault(ServiceFaultCategory.Start, startFaultedAt);
+        var invocation = new ServiceStartInvocationFact(
+            startContext,
+            startAttemptedAt,
+            startFaultedAt);
+        return new ServiceCycleStartAttempt(
+            false, default, default, default, default, default,
+            record.Fault, record.RetryDue, startInvocation: invocation,
+            failureReason: reason);
     }
 }

@@ -155,7 +155,7 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             pumpTiming: null,
             semanticTrace: null,
             actionOutcomes: null,
-            actionFailureLog: messages.Add);
+            serviceFailureLog: messages.Add);
         var pump = host.Pump;
         TestWorldCollector.CollectedAtActivation(registry);
         using var storage = new DecisionJournalRuntimeTestStorage();
@@ -212,7 +212,7 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             pumpTiming: null,
             semanticTrace: null,
             actionOutcomes: null,
-            actionFailureLog: messages.Add);
+            serviceFailureLog: messages.Add);
         TestWorldCollector.CollectedAtActivation(registry);
 
         Assert.Equal(frameIdentity, ServiceRunnerTestWait.PrepareBatch(host.Pump, registration));

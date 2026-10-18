@@ -44,19 +44,19 @@ internal sealed class SuiteFramePumpState
             semanticRecorder);
         Journal = new SuiteFramePumpJournalSession(registry, serviceCapacity, outcomeWindows);
         EvidenceScanner = new SuiteFramePumpEvidenceScanner(registry, serviceCapacity);
-        ActionFailures = new ServiceActionFailureBuffer();
+        ServiceFailures = new ServiceFailureBuffer();
 #if SERVICE_CYCLE_PROFILE
         EvidenceProfiler = new SuiteFramePumpEvidenceProfiler(profileProbe);
         EvidenceEmitter = new SuiteFramePumpEvidenceEmitter(
             Traces,
             Journal,
-            ActionFailures,
+            ServiceFailures,
             EvidenceProfiler);
 #else
         EvidenceEmitter = new SuiteFramePumpEvidenceEmitter(
             Traces,
             Journal,
-            ActionFailures);
+            ServiceFailures);
 #endif
     }
 
@@ -68,7 +68,7 @@ internal sealed class SuiteFramePumpState
     internal SuiteFramePumpTraceSession Traces { get; }
     internal SuiteFramePumpJournalSession Journal { get; }
     internal SuiteFramePumpEvidenceScanner EvidenceScanner { get; }
-    internal ServiceActionFailureBuffer ActionFailures { get; }
+    internal ServiceFailureBuffer ServiceFailures { get; }
     internal SuiteFramePumpEvidenceEmitter EvidenceEmitter { get; }
 #if SERVICE_CYCLE_PROFILE
     internal SuiteFramePumpEvidenceProfiler EvidenceProfiler { get; }
@@ -103,7 +103,7 @@ internal sealed class SuiteFramePumpState
     internal void PrepareFrame()
     {
         Emergency.BeginFrame();
-        ActionFailures.BeginFrame();
+        ServiceFailures.BeginFrame();
         Array.Clear(Transitioned, 0, Transitioned.Length);
     }
 

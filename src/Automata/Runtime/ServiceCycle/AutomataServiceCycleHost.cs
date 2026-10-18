@@ -18,7 +18,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
 {
     private readonly Func<long> _readFrameIdentity;
     private readonly IServiceCyclePumpTimingSink? _pumpTiming;
-    private readonly Action<string>? _actionFailureLog;
+    private readonly Action<string>? _serviceFailureLog;
     private readonly SuiteFramePump _pump;
     private readonly int _serviceCapacity;
     private readonly ServiceCycleTraceRoster _roster;
@@ -33,10 +33,10 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceCycleProfileProbe profileProbe,
-        Action<string>? actionFailureLog = null)
+        Action<string>? serviceFailureLog = null)
         : this(
             registry, readFrameIdentity, pumpTiming, semanticTrace, null, profileProbe,
-            actionFailureLog) { }
+            serviceFailureLog) { }
 
     internal AutomataServiceCycleHost(
         ServiceCycleRegistry registry,
@@ -45,7 +45,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceActionOutcomeWindowRegistry? actionOutcomes,
         ServiceCycleProfileProbe profileProbe,
-        Action<string>? actionFailureLog = null)
+        Action<string>? serviceFailureLog = null)
 #else
     internal AutomataServiceCycleHost(
         ServiceCycleRegistry registry,
@@ -53,14 +53,14 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceActionOutcomeWindowRegistry? actionOutcomes = null,
-        Action<string>? actionFailureLog = null)
+        Action<string>? serviceFailureLog = null)
 #endif
     {
         if (registry is null) throw new ArgumentNullException(nameof(registry));
         _readFrameIdentity = readFrameIdentity ??
             throw new ArgumentNullException(nameof(readFrameIdentity));
         _pumpTiming = pumpTiming;
-        _actionFailureLog = actionFailureLog;
+        _serviceFailureLog = serviceFailureLog;
         _serviceCapacity = registry.OrdinalCount;
         // Read before the seal, while every registration is present and nothing can add another: this
         // is the one moment the suite knows its whole roster.
@@ -90,29 +90,39 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         _pump.ApplyConfiguredEmergencyStop();
         _observability?.BeforePump();
         var report = _pump.PumpFrame(_readFrameIdentity());
-        LogActionFailures();
+        LogServiceFailures();
         _pumpTiming?.Observe(in report);
         _observability?.AfterPump();
         return report;
     }
 
-    private void LogActionFailures()
+    private void LogServiceFailures()
     {
         try
         {
-            if (_actionFailureLog is null) return;
-            for (var index = 0; index < _pump.ActionFailureCount; index++)
+            if (_serviceFailureLog is null) return;
+            for (var index = 0; index < _pump.ServiceFailureCount; index++)
             {
-                var failure = _pump.ActionFailureAt(index);
+                var failure = _pump.ServiceFailureAt(index);
                 var service = _roster[failure.ServiceOrdinal].MachineId;
-                _actionFailureLog(failure.Site == ServiceActionFailureSite.Execution
-                    ? $"ServiceCycle action for service {service} threw, so its batch stopped " +
-                      $"with an adapter fault: {failure.Reason}"
-                    : $"ServiceCycle action attribution failed for service {service}; " +
-                      $"the action executed and the journal marked attribution failed: {failure.Reason}");
+                _serviceFailureLog(failure.Site switch
+                {
+                    ServiceFailureSite.Start =>
+                        $"ServiceCycle start decision for service {service} threw, so no cycle " +
+                        $"opened and it retries with backoff: {failure.Reason}",
+                    ServiceFailureSite.Capture =>
+                        $"ServiceCycle capture for service {service} threw, so it published nothing " +
+                        $"and retries with backoff: {failure.Reason}",
+                    ServiceFailureSite.Execution =>
+                        $"ServiceCycle action for service {service} threw, so its batch stopped " +
+                        $"with an adapter fault: {failure.Reason}",
+                    _ =>
+                        $"ServiceCycle action attribution failed for service {service}; " +
+                        $"the action executed and the journal marked attribution failed: {failure.Reason}",
+                });
             }
         }
-        finally { _pump.ClearActionFailures(); }
+        finally { _pump.ClearServiceFailures(); }
     }
 
     internal void AttachObservability(

@@ -15,7 +15,8 @@ internal readonly struct ServiceCycleStartAttempt
         ServiceFault fault = default,
         MonotonicTimestamp retryDue = default,
         ServiceFaultRecoveryFact recoveredFault = default,
-        ServiceStartInvocationFact startInvocation = default)
+        ServiceStartInvocationFact startInvocation = default,
+        string? failureReason = null)
     {
         Queued = queued;
         StartDecisionFact = startDecisionFact;
@@ -27,6 +28,7 @@ internal readonly struct ServiceCycleStartAttempt
         RetryDue = retryDue;
         RecoveredFault = recoveredFault;
         StartInvocation = startInvocation;
+        FailureReason = failureReason;
     }
 
     internal bool Queued { get; }
@@ -39,6 +41,9 @@ internal readonly struct ServiceCycleStartAttempt
     internal MonotonicTimestamp RetryDue { get; }
     internal ServiceFaultRecoveryFact RecoveredFault { get; }
     internal ServiceStartInvocationFact StartInvocation { get; }
+
+    /// <summary>What threw, or what was invalid, when the start decision or the capture faulted.</summary>
+    internal string? FailureReason { get; }
     internal ServiceStartDecision StartDecision => StartDecisionFact.Decision;
     internal ServiceCaptureResult CaptureResult => CaptureFact.Result;
     internal bool CaptureAttempted => CaptureFact.IsPresent;

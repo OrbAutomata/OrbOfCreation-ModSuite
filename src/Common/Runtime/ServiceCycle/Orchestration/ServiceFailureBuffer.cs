@@ -3,17 +3,19 @@ using System.Collections.Generic;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
-internal enum ServiceActionFailureSite
+internal enum ServiceFailureSite
 {
+    Start,
+    Capture,
     Attribution,
     Execution,
 }
 
-internal readonly struct ServiceActionFailure
+internal readonly struct ServiceFailure
 {
-    internal ServiceActionFailure(
+    internal ServiceFailure(
         int serviceOrdinal,
-        ServiceActionFailureSite site,
+        ServiceFailureSite site,
         string reason)
     {
         ServiceOrdinal = serviceOrdinal;
@@ -22,13 +24,13 @@ internal readonly struct ServiceActionFailure
     }
 
     internal int ServiceOrdinal { get; }
-    internal ServiceActionFailureSite Site { get; }
+    internal ServiceFailureSite Site { get; }
     internal string Reason { get; }
 }
 
-internal sealed class ServiceActionFailureBuffer
+internal sealed class ServiceFailureBuffer
 {
-    private readonly List<ServiceActionFailure> _failures = new();
+    private readonly List<ServiceFailure> _failures = new();
 
     internal int Count => _failures.Count;
 
@@ -36,14 +38,14 @@ internal sealed class ServiceActionFailureBuffer
 
     internal void Observe(
         int serviceOrdinal,
-        ServiceActionFailureSite site,
+        ServiceFailureSite site,
         string reason) =>
-        _failures.Add(new ServiceActionFailure(
+        _failures.Add(new ServiceFailure(
             serviceOrdinal,
             site,
             reason));
 
-    internal ServiceActionFailure At(int index) => _failures[index];
+    internal ServiceFailure At(int index) => _failures[index];
 
     internal void Clear() => _failures.Clear();
 }
