@@ -80,8 +80,10 @@ internal sealed class RuntimeIdentityRegistryBinding
         if (_getGuid is null)
         {
             var source = Read();
-            if (!source.IsReady || _getGuid is null)
-                throw new MissingMethodException("IdScriptableObject", "GetGuid");
+            if (_getGuid is null)
+                throw new InvalidOperationException(_requireStableIdentityContract
+                    ? source.Reason
+                    : "this identity binding does not read IdScriptableObject.GetGuid");
         }
 
         return _getGuid.Invoke(value, Array.Empty<object>()) is Guid uuid ? uuid : null;
