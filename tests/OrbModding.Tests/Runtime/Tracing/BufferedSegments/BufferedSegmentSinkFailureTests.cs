@@ -27,7 +27,6 @@ public sealed class BufferedSegmentSinkFailureTests
         Assert.Equal(BufferedSegmentFaultReason.BufferExhausted, faulting.FaultReason);
         Assert.Equal(4, faulting.FirstIncompleteSequence);
         Assert.Equal(3, faulting.AcceptedRecords);
-        Assert.Equal(3, faulting.SealedBlocks);
 
         consumer.WriteRelease.Set();
         ForSignal(consumer.CompletionObserved, "partial-flush exhaustion drain");
@@ -89,7 +88,6 @@ public sealed class BufferedSegmentSinkFailureTests
         Assert.Equal(2, metrics.AcceptedRecords);
         Assert.Equal(0, metrics.WrittenRecords);
         Assert.Equal(2, metrics.DiscardedRecords);
-        Assert.Equal(1, metrics.DiscardedBlocks);
         Assert.Equal(0, metrics.PendingBlocks);
         Assert.Equal(1, metrics.FirstIncompleteSequence);
     }

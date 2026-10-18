@@ -11,9 +11,7 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
     private long _writtenRecords;
     private long _discardedRecords;
     private long _bytesWritten;
-    private long _sealedBlocks;
     private long _writtenBlocks;
-    private long _discardedBlocks;
     private int _pendingBlocks;
     private int _peakPendingBlocks;
     private ReusableSegmentBlockLane<TRecord>? _lane;
@@ -118,7 +116,6 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
 
     internal void RecordSealed()
     {
-        Interlocked.Increment(ref _sealedBlocks);
         var pending = Interlocked.Increment(ref _pendingBlocks);
         var peak = Volatile.Read(ref _peakPendingBlocks);
         while (pending > peak)
@@ -137,9 +134,8 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
         Interlocked.Decrement(ref _pendingBlocks);
     }
 
-    internal void RecordDiscarded(int blocks, int pendingBlocks, long records)
+    internal void RecordDiscarded(int pendingBlocks, long records)
     {
-        Interlocked.Add(ref _discardedBlocks, blocks);
         Interlocked.Add(ref _discardedRecords, records);
         Interlocked.Add(ref _pendingBlocks, -pendingBlocks);
     }
@@ -199,9 +195,7 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
             writtenRecords,
             Interlocked.Read(ref _discardedRecords),
             Interlocked.Read(ref _bytesWritten),
-            Interlocked.Read(ref _sealedBlocks),
             writtenBlocks,
-            Interlocked.Read(ref _discardedBlocks),
             Volatile.Read(ref _pendingBlocks),
             Volatile.Read(ref _peakPendingBlocks),
             fault?.FirstIncompleteSequence ?? 0,

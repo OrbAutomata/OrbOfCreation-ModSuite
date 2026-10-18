@@ -122,32 +122,6 @@ public readonly struct GameLifecycleTransition
         string.IsNullOrWhiteSpace(value) ? "unnamed" : value;
 }
 
-public readonly struct GameLifecycleDiagnostic
-{
-    public GameLifecycleDiagnostic(
-        long generation,
-        GameLifecycleState state,
-        GameLifecycleTransitionKind kind,
-        long frame,
-        string sceneName,
-        string source)
-    {
-        Generation = generation;
-        State = state;
-        Kind = kind;
-        Frame = frame;
-        SceneName = sceneName;
-        Source = source;
-    }
-
-    public long Generation { get; }
-    public GameLifecycleState State { get; }
-    public GameLifecycleTransitionKind Kind { get; }
-    public long Frame { get; }
-    public string SceneName { get; }
-    public string Source { get; }
-}
-
 public readonly struct GameLifecycleLease
 {
     public GameLifecycleLease(long generation)
@@ -160,9 +134,8 @@ public readonly struct GameLifecycleLease
 
 public sealed class GameLifecycleMonitor
 {
-    private const int DiagnosticCapacity = 32;
+    private const int ObservationsPerFrameCapacity = 32;
     private readonly Func<int> _readThreadId;
-    private readonly Queue<GameLifecycleDiagnostic> _diagnostics = new(DiagnosticCapacity);
     private readonly List<GameLifecycleObservation> _observationsThisFrame = new(8);
     private GameLifecycleSnapshot _current = new(
         GameLifecycleState.NoGame,
@@ -185,8 +158,6 @@ public sealed class GameLifecycleMonitor
     public event Action<GameLifecycleTransition>? Transitioned;
 
     public GameLifecycleSnapshot Current => _current;
-
-    public IReadOnlyList<GameLifecycleDiagnostic> Diagnostics => _diagnostics.ToArray();
 
     /// <summary>
     /// Names where a throwing transition subscriber is reported. A host that never sets it, a test
@@ -245,15 +216,6 @@ public sealed class GameLifecycleMonitor
             observation.Kind,
             observation.Frame);
         RecordObservation(observation);
-        var diagnostic = new GameLifecycleDiagnostic(
-            _current.Generation,
-            _current.State,
-            observation.Kind,
-            observation.Frame,
-            _current.SceneName,
-            observation.Source);
-        if (_diagnostics.Count == DiagnosticCapacity) _diagnostics.Dequeue();
-        _diagnostics.Enqueue(diagnostic);
         transition = new GameLifecycleTransition(previous, _current, observation.Source);
         reason = string.Empty;
         DispatchTransition(transition);
@@ -312,7 +274,7 @@ public sealed class GameLifecycleMonitor
             _observationsThisFrame.Clear();
         }
 
-        if (_observationsThisFrame.Count == DiagnosticCapacity)
+        if (_observationsThisFrame.Count == ObservationsPerFrameCapacity)
             _observationsThisFrame.RemoveAt(0);
         _observationsThisFrame.Add(observation);
     }

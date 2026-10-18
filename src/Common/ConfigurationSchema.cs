@@ -346,11 +346,6 @@ public sealed class ConfigurationSchemaStatusRegistry : IConfigurationSchemaStat
             catch { }
         }
     }
-
-    internal void ClearForTests()
-    {
-        lock (_gate) _statuses.Clear();
-    }
 }
 
 public interface IConfigurationFileOperations
