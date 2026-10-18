@@ -3939,7 +3939,7 @@ public sealed class Plugin : BaseUnityPlugin
                 candidate.Label!.text?.Trim() ?? string.Empty,
                 candidate.Path,
                 ParentPath(candidate.Path),
-                NativeViewAdapter.IsAlive(NativeViewAdapter.ReadView(candidate.Component)) &&
+                NativeObjectLiveness.IsAlive(NativeViewAdapter.ReadView(candidate.Component)) &&
                     NativeViewAdapter.IsActive(NativeViewAdapter.ReadView(candidate.Component)!),
                 () =>
                 {

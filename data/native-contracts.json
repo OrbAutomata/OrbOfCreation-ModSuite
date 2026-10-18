@@ -366,6 +366,24 @@
       "place": "action"
     },
     {
+      "id": "action-manager.instance",
+      "assembly": "assembly-csharp",
+      "type": "ActionManager",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "instance",
+      "visibility": "public",
+      "static": true,
+      "valueType": "ActionManager",
+      "owners": [
+        "Automata Auto Buy queue"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "actionable-list-variable.max-queued-items",
       "assembly": "assembly-csharp",
       "type": "ActionableListVariable",

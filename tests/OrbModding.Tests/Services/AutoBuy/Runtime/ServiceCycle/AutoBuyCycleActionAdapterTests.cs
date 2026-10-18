@@ -1270,25 +1270,51 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// The game reads the queue through <c>ActionManager.instance</c>, which is null while no manager
-    /// is loaded. That throw is not an expected game refusal, so it stays loud instead of reading as
-    /// a queue that could not answer.
+    /// Before the first game loads, <c>ActionManager.instance</c> is null and the game's own
+    /// <c>GetRemainingRoom</c> would throw. The read answers that no game is loaded instead.
     /// </summary>
     [Fact]
-    public void ReadRemainingRoom_NoActionManagerLoaded_TheUnexpectedThrowEscapes()
+    public void ReadRemainingRoom_BeforeAnyGameLoaded_AnswersThatNoGameIsLoaded()
     {
         global::ActionManager.instance = null!;
+
+        Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+    }
+
+    /// <summary>
+    /// After leaving a game the manager is destroyed but still referenced, and the game's call would
+    /// answer the abandoned scene's room. That number is not a reading.
+    /// </summary>
+    [Fact]
+    public void ReadRemainingRoom_AfterLeavingTheGame_AnswersThatNoGameIsLoaded()
+    {
+        global::ActionManager.RemainingRoom = 5;
+        global::ActionManager.instance.destroyed = true;
+
+        Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+    }
+
+    /// <summary>
+    /// A throw the classifier does not expect is a suite defect, so it stays loud instead of reading
+    /// as a queue that could not answer.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowFromTheQueueRoomReadEscapes()
+    {
+        global::ActionManager.RemainingRoomFault = new NullReferenceException();
 
         Assert.Throws<NullReferenceException>(
             () => new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out _));
     }
 
     /// <summary>
-    /// The structure admission fold reaches the queue through the same null manager. An unexpected
-    /// throw there escapes to the batch boundary, never becoming an unresolved candidate.
+    /// An unexpected throw from the structure admission fold escapes to the batch boundary, never
+    /// becoming an unresolved candidate.
     /// </summary>
     [Fact]
-    public void Execute_NoActionManagerLoadedWhileAdmitting_TheUnexpectedThrowEscapes()
+    public void AnUnexpectedThrowFromAdmissionEscapes()
     {
         var structure = new global::StructureSO
         {
@@ -1298,7 +1324,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             queuedQuantity = 3,
         };
         Publish(structure);
-        global::ActionManager.instance = null!;
+        global::ActionManager.AdmissionFault = new NullReferenceException();
 
         Assert.Throws<NullReferenceException>(() => Execute(
             AutoBuyCandidateKind.Structure,
@@ -1899,6 +1925,8 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         global::ViewSO.All.Add(owningView);
         global::GlobalVariables.MultiBuy = new global::IntVariable();
         global::ActionManager.instance = new global::ActionManager();
+        global::ActionManager.RemainingRoomFault = null;
+        global::ActionManager.AdmissionFault = null;
         NativeMultiBuyScope.ResetQuarantineForTests();
     }
 

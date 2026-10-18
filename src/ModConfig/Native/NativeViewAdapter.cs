@@ -258,12 +258,6 @@ internal static class NativeViewAdapter
         }
     }
 
-    public static bool IsAlive(object? value)
-    {
-        if (value is null) return false;
-        return value is not UnityEngine.Object unityObject || unityObject != null;
-    }
-
     public static object? ReadView(Component component) =>
         GetButtonContract(component.GetType()).ViewField.GetValue(component);
 
@@ -284,7 +278,7 @@ internal static class NativeViewAdapter
     {
         try
         {
-            if (!IsAlive(view)) return;
+            if (!NativeObjectLiveness.IsAlive(view)) return;
             GetViewContract(view.GetType()).SetActive.Invoke(view, new object[] { active });
         }
         catch (Exception ex)

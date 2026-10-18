@@ -29,30 +29,44 @@ internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
     internal static readonly string[] ContractIds =
     {
         "auto-buy.action-manager.type-action",
+        "action-manager.instance",
         "action-manager.get-remaining-room",
     };
 
-    private readonly Func<int>? _getRemainingRoom;
+    private readonly Bindings? _bindings;
     private readonly string _bindingFailure;
 
     public AutoBuyNativeQueueRoomAdapter(Func<string, bool>? includeContract = null) =>
         NativeBindingSet.TryBind("auto-buy queue room", ContractIds, null, includeContract, set =>
         {
             var actionManager = set.Type("auto-buy.action-manager.type-action", "ActionManager");
-            return set.StaticCall<Func<int>>(
-                "action-manager.get-remaining-room", actionManager, "GetRemainingRoom", typeof(int));
-        }, out _getRemainingRoom, out _bindingFailure);
+            return new Bindings(
+                set.StaticField<Func<object?>>("action-manager.instance", actionManager, "instance", actionManager),
+                set.StaticCall<Func<int>>(
+                    "action-manager.get-remaining-room", actionManager, "GetRemainingRoom", typeof(int)));
+        }, out _bindings, out _bindingFailure);
 
+    /// <remarks>
+    /// The game sets <c>ActionManager.instance</c> once, when the <c>Main</c> scene loads, and never
+    /// clears it: before the first game it is null and <c>GetRemainingRoom</c> throws, and after
+    /// leaving a game it is destroyed and the call answers the abandoned scene's number. Neither is a
+    /// reading, so both answer that no game is loaded.
+    /// </remarks>
     public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
     {
         remainingRoom = 0;
         reason = _bindingFailure;
-        if (_getRemainingRoom is null)
+        if (_bindings is not { } native)
             return false;
+        if (!NativeObjectLiveness.IsAlive(native.Instance()))
+        {
+            reason = "no game is loaded: ActionManager.instance is absent or destroyed";
+            return false;
+        }
 
         try
         {
-            remainingRoom = _getRemainingRoom();
+            remainingRoom = native.GetRemainingRoom();
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -61,4 +75,6 @@ internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
             return false;
         }
     }
+
+    private sealed record Bindings(Func<object?> Instance, Func<int> GetRemainingRoom);
 }

@@ -156,7 +156,7 @@ public sealed class ActionableListVariable : StackableListVariable<IActionable>
     public IntVariable maxQueuedItems = new IntVariable();
 }
 
-public sealed class ActionManager
+public sealed class ActionManager : UnityEngine.MonoBehaviour
 {
     public static ActionManager instance = new ActionManager();
 
@@ -164,8 +164,15 @@ public sealed class ActionManager
 
     public static int RemainingRoom { get; set; }
 
+    /// <summary>Thrown by <see cref="GetRemainingRoom"/> when set; no game state does this.</summary>
+    public static Exception? RemainingRoomFault { get; set; }
+
+    /// <summary>Thrown by <see cref="CanLoadAction"/> when set; no game state does this.</summary>
+    public static Exception? AdmissionFault { get; set; }
+
     public static int GetRemainingRoom()
     {
+        if (RemainingRoomFault is { } fault) throw fault;
         _ = instance.actionableItems;
         return RemainingRoom;
     }
@@ -178,6 +185,7 @@ public sealed class ActionManager
     /// </summary>
     public static bool CanLoadAction(IActionable actionable)
     {
+        if (AdmissionFault is { } fault) throw fault;
         _ = instance.actionableItems;
         return actionable switch
         {
@@ -4499,6 +4507,25 @@ namespace UnityEngine
     public class Object
     {
         public string name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// What <c>Object.Destroy</c> leaves behind in the game: the C# reference survives, and
+        /// Unity's equality answers it as null. A test sets it to model an unloaded scene.
+        /// </summary>
+        public bool destroyed { get; set; }
+
+        public static bool operator ==(Object? x, Object? y)
+        {
+            var xNull = x is null || x.destroyed;
+            var yNull = y is null || y.destroyed;
+            return xNull || yNull ? xNull && yNull : ReferenceEquals(x, y);
+        }
+
+        public static bool operator !=(Object? x, Object? y) => !(x == y);
+
+        public override bool Equals(object? other) => ReferenceEquals(this, other);
+
+        public override int GetHashCode() => base.GetHashCode();
 
         public static T Instantiate<T>(T original, Transform parent, bool worldPositionStays) where T : Object, new()
         {
