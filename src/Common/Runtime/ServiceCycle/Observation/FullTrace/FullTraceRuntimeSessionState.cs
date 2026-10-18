@@ -26,7 +26,8 @@ internal readonly struct FullTraceRuntimeSessionSnapshot
         FullTraceTerminalReason terminalReason,
         BufferedSegmentFaultReason faultReason,
         bool storesLost,
-        int storeCount)
+        int storeCount,
+        string faultCause = "")
     {
         State = state;
         AcceptedRecords = acceptedRecords;
@@ -39,6 +40,7 @@ internal readonly struct FullTraceRuntimeSessionSnapshot
         FaultReason = faultReason;
         StoresLost = storesLost;
         StoreCount = storeCount;
+        FaultCause = faultCause;
     }
 
     internal FullTraceRuntimeSessionState State { get; }
@@ -50,6 +52,9 @@ internal readonly struct FullTraceRuntimeSessionSnapshot
     internal bool ManifestCommitted { get; }
     internal FullTraceTerminalReason TerminalReason { get; }
     internal BufferedSegmentFaultReason FaultReason { get; }
+
+    /// <summary>What storage threw, when a throw is what stopped the trace; empty otherwise.</summary>
+    internal string FaultCause { get; }
 
     /// <summary>
     /// True once a publication store failed to write. The events are still complete, so this does

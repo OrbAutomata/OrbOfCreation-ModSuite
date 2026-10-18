@@ -18,7 +18,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
 {
     private readonly Func<long> _readFrameIdentity;
     private readonly IServiceCyclePumpTimingSink? _pumpTiming;
-    private readonly Action<string>? _attributionFailureLog;
+    private readonly Action<string>? _actionFailureLog;
     private readonly SuiteFramePump _pump;
     private readonly int _serviceCapacity;
     private readonly ServiceCycleTraceRoster _roster;
@@ -33,10 +33,10 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceCycleProfileProbe profileProbe,
-        Action<string>? attributionFailureLog = null)
+        Action<string>? actionFailureLog = null)
         : this(
             registry, readFrameIdentity, pumpTiming, semanticTrace, null, profileProbe,
-            attributionFailureLog) { }
+            actionFailureLog) { }
 
     internal AutomataServiceCycleHost(
         ServiceCycleRegistry registry,
@@ -45,7 +45,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceActionOutcomeWindowRegistry? actionOutcomes,
         ServiceCycleProfileProbe profileProbe,
-        Action<string>? attributionFailureLog = null)
+        Action<string>? actionFailureLog = null)
 #else
     internal AutomataServiceCycleHost(
         ServiceCycleRegistry registry,
@@ -53,14 +53,14 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
         ServiceActionOutcomeWindowRegistry? actionOutcomes = null,
-        Action<string>? attributionFailureLog = null)
+        Action<string>? actionFailureLog = null)
 #endif
     {
         if (registry is null) throw new ArgumentNullException(nameof(registry));
         _readFrameIdentity = readFrameIdentity ??
             throw new ArgumentNullException(nameof(readFrameIdentity));
         _pumpTiming = pumpTiming;
-        _attributionFailureLog = attributionFailureLog;
+        _actionFailureLog = actionFailureLog;
         _serviceCapacity = registry.OrdinalCount;
         // Read before the seal, while every registration is present and nothing can add another: this
         // is the one moment the suite knows its whole roster.
@@ -90,27 +90,29 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         _pump.ApplyConfiguredEmergencyStop();
         _observability?.BeforePump();
         var report = _pump.PumpFrame(_readFrameIdentity());
-        LogAttributionFailures();
+        LogActionFailures();
         _pumpTiming?.Observe(in report);
         _observability?.AfterPump();
         return report;
     }
 
-    private void LogAttributionFailures()
+    private void LogActionFailures()
     {
         try
         {
-            if (_attributionFailureLog is null) return;
-            for (var index = 0; index < _pump.AttributionFailureCount; index++)
+            if (_actionFailureLog is null) return;
+            for (var index = 0; index < _pump.ActionFailureCount; index++)
             {
-                var failure = _pump.AttributionFailureAt(index);
+                var failure = _pump.ActionFailureAt(index);
                 var service = _roster[failure.ServiceOrdinal].MachineId;
-                _attributionFailureLog(
-                    $"ServiceCycle action attribution failed for service {service}; " +
-                    $"the action executed and the journal marked attribution failed: {failure.Reason}");
+                _actionFailureLog(failure.Site == ServiceActionFailureSite.Execution
+                    ? $"ServiceCycle action for service {service} threw, so its batch stopped " +
+                      $"with an adapter fault: {failure.Reason}"
+                    : $"ServiceCycle action attribution failed for service {service}; " +
+                      $"the action executed and the journal marked attribution failed: {failure.Reason}");
             }
         }
-        finally { _pump.ClearAttributionFailures(); }
+        finally { _pump.ClearActionFailures(); }
     }
 
     internal void AttachObservability(

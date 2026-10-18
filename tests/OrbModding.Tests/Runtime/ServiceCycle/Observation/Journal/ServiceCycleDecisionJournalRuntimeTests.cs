@@ -155,7 +155,7 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             pumpTiming: null,
             semanticTrace: null,
             actionOutcomes: null,
-            attributionFailureLog: messages.Add);
+            actionFailureLog: messages.Add);
         var pump = host.Pump;
         TestWorldCollector.CollectedAtActivation(registry);
         using var storage = new DecisionJournalRuntimeTestStorage();
@@ -184,6 +184,68 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             $"ServiceCycle action attribution failed for service {definition.ServiceId.Value}; " +
             "the action executed and the journal marked attribution failed: attribution exploded",
             messages[0]);
+    }
+
+    /// <summary>
+    /// A service whose action throws stops its batch with an adapter fault, and the log says what
+    /// threw. The fault code alone told whoever read the status that something failed, never what.
+    /// </summary>
+    [Fact]
+    public void AThrowingActionFaultsItsBatchAndLogsWhatThrew()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var definition = new ExecutionServiceDefinition("journal.runtime.execution-failure")
+        {
+            ActionCount = 2,
+            ThrowOnExecute = new InvalidOperationException("adapter exploded"),
+        };
+        using var registration = registry.Register(
+            definition,
+            new LifecycleGeneration(1),
+            ServiceActionDispatchPolicy.Bounded(2));
+        var messages = new List<string>();
+        var frameIdentity = 3L;
+        using var host = new AutomataServiceCycleHost(
+            registry,
+            () => frameIdentity,
+            pumpTiming: null,
+            semanticTrace: null,
+            actionOutcomes: null,
+            actionFailureLog: messages.Add);
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        Assert.Equal(frameIdentity, ServiceRunnerTestWait.PrepareBatch(host.Pump, registration));
+        Assert.Equal(1, host.Tick().ActionsAttempted);
+
+        Assert.Equal(
+            $"ServiceCycle action for service {definition.ServiceId.Value} threw, so its batch " +
+            "stopped with an adapter fault: adapter exploded",
+            Assert.Single(messages));
+    }
+
+    /// <summary>
+    /// Running out of memory is not an action fault the suite can retry past. It leaves the action
+    /// boundary the way it leaves every other boundary that checks for it.
+    /// </summary>
+    [Fact]
+    public void AProcessFatalActionFailureIsNotContained()
+    {
+        var clock = new ThreadSafeTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var definition = new ExecutionServiceDefinition("journal.runtime.execution-fatal")
+        {
+            ActionCount = 1,
+            ThrowOnExecute = new OutOfMemoryException(),
+        };
+        using var registration = registry.Register(definition, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        var frame = ServiceRunnerTestWait.PrepareBatch(pump, registration);
+
+        Assert.Throws<OutOfMemoryException>(() => pump.PumpFrame(frame));
     }
 
     [Fact]

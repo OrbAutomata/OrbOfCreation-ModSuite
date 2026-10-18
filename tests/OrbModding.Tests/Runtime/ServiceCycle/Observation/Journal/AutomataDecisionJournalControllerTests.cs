@@ -133,6 +133,33 @@ public sealed class AutomataDecisionJournalControllerTests
     }
 
     /// <summary>
+    /// A journal that died writing says what the storage said. "Write failed" alone left a full
+    /// disk and a revoked permission looking the same on the status page.
+    /// </summary>
+    [Fact]
+    public void ABackgroundWriteFailureNamesWhatTheStorageSaid()
+    {
+        using var registry = Registry(new IncrementingTestClock(100));
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new DecisionJournalRuntimeTestStorage(failCommit: true);
+        var status = new DecisionJournalStatusRegistry();
+        var options = Options(status, new Source(storage));
+        var controller = Assert.IsType<AutomataDecisionJournalController>(
+            AutomataDecisionJournalController.TryCreate(
+                pump,
+                in options,
+                new ManualLogSource()));
+        using var teardown = new JournalTeardown(controller);
+        AdvanceTo(controller, status, DecisionJournalStatusState.Recording);
+
+        Assert.True(pump.PumpFrame(1).Accepted);
+        AdvanceTo(controller, status, DecisionJournalStatusState.Faulted);
+
+        Assert.Equal("DecisionJournalWriter", status.Status.FaultSite);
+        Assert.Equal("Injected journal commit failure.", status.Status.FaultMessage);
+    }
+
+    /// <summary>
     /// A stopped journal reports the observation it died in and what it disagreed with.
     /// </summary>
     /// <remarks>

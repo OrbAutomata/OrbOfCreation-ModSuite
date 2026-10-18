@@ -13,7 +13,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
 {
     private readonly SuiteFramePumpTraceSession _traces;
     private readonly SuiteFramePumpJournalSession _journal;
-    private readonly ServiceActionAttributionFailureBuffer _attributionFailures;
+    private readonly ServiceActionFailureBuffer _actionFailures;
 #if SERVICE_CYCLE_PROFILE
     private readonly SuiteFramePumpEvidenceProfiler _profiler;
 #endif
@@ -21,7 +21,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
     internal SuiteFramePumpEvidenceEmitter(
         SuiteFramePumpTraceSession traces,
         SuiteFramePumpJournalSession journal,
-        ServiceActionAttributionFailureBuffer attributionFailures
+        ServiceActionFailureBuffer actionFailures
 #if SERVICE_CYCLE_PROFILE
         , SuiteFramePumpEvidenceProfiler profiler
 #endif
@@ -29,7 +29,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
     {
         _traces = traces;
         _journal = journal;
-        _attributionFailures = attributionFailures;
+        _actionFailures = actionFailures;
 #if SERVICE_CYCLE_PROFILE
         _profiler = profiler;
 #endif
@@ -126,7 +126,9 @@ internal sealed class SuiteFramePumpEvidenceEmitter
         }
         _journal.Observer?.ActionDispatched(ordinal, in dispatch, observedAt);
         if (dispatch.AttributionFailureReason is { } reason)
-            _attributionFailures.Observe(ordinal, reason);
+            _actionFailures.Observe(ordinal, ServiceActionFailureSite.Attribution, reason);
+        if (dispatch.ExecutionFailureReason is { } thrown)
+            _actionFailures.Observe(ordinal, ServiceActionFailureSite.Execution, thrown);
     }
 
     internal void StartAttemptObserved(

@@ -46,7 +46,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Time > Challenges"));
+                GameActionAnswer.NotAttached("Time > Challenges", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

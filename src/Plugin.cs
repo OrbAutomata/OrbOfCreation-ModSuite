@@ -194,6 +194,10 @@ public sealed class Plugin : BaseUnityPlugin
             message => Logger.LogWarning(message),
             message => Logger.LogError(message));
         GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
+        GameLifecycleMonitor.Shared.ConfigureFailureLog(message => Logger.LogError(message));
+        GameplayInvalidationBus.Shared.ConfigureFailureLog(message => Logger.LogError(message));
+        NativeViewAdapter.ConfigureFailureLog(message => Logger.LogWarning(message));
+        SteamKeyboardBridge.ConfigureFailureLog(message => Logger.LogWarning(message));
         EntityIdentityCatalog.Shared.Reset(GameLifecycleMonitor.Shared.Current.Generation);
 
         RunAutomaticSaveBackup();
@@ -223,7 +227,9 @@ public sealed class Plugin : BaseUnityPlugin
         if (!configuration.Success)
         {
             _controlPlaneFailure = configuration.Status.Reason;
-            Logger.LogError(configuration.Status.Reason);
+            Logger.LogError(configuration.FailureCause.Length == 0
+                ? configuration.Status.Reason
+                : configuration.Status.Reason + " Cause: " + configuration.FailureCause);
             return;
         }
         var suite = configuration.Config!;

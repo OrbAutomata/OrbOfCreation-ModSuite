@@ -102,7 +102,7 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         observer?.ActionAttempted(ordinal, in context);
         var executionStartedAt = _runtime.Clock.Now;
         var attribution = DescribeAction(in action, out var attributionFailureReason);
-        var result = ExecuteAction(in action, in snapshot, in context);
+        var result = ExecuteAction(in action, in snapshot, in context, out var executionFailureReason);
 
         var observedAt = _runtime.Clock.Now;
         var actionFact = new ServiceActionFact(
@@ -142,26 +142,30 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in pendingRecovery,
                 index,
                 observedAt,
-                nonBlockingHandoff);
+                nonBlockingHandoff,
+                executionFailureReason);
     }
 
     private ServiceActionResult ExecuteAction(
         in TAction action,
         in SuiteRuntimeConfiguration snapshot,
-        in ServiceActionContext context)
+        in ServiceActionContext context,
+        out string? failureReason)
     {
+        failureReason = null;
         try
         {
             var result = _runtime.Definition.TryExecute(
                 in action,
                 in snapshot,
                 in context);
-            return result.IsValid
-                ? result
-                : ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            if (result.IsValid) return result;
+            failureReason = "the service returned an invalid action result";
+            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
-        catch
+        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
         {
+            failureReason = RootMessage(exception);
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
     }
@@ -183,12 +187,17 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         }
         catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
         {
-            var root = exception.GetBaseException();
-            failureReason = string.IsNullOrWhiteSpace(root.Message)
-                ? root.GetType().FullName ?? root.GetType().Name
-                : root.Message;
+            failureReason = RootMessage(exception);
             return ServiceActionJournalAttribution.Failed;
         }
+    }
+
+    private static string RootMessage(Exception exception)
+    {
+        var root = exception.GetBaseException();
+        return string.IsNullOrWhiteSpace(root.Message)
+            ? root.GetType().FullName ?? root.GetType().Name
+            : root.Message;
     }
 
 }

@@ -51,7 +51,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(RitualLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Rituals"));
+                GameActionAnswer.NotAttached("Rituals", _bindingFailure));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }

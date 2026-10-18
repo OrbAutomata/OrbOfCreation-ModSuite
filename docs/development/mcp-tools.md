@@ -3033,8 +3033,9 @@ to the suite log under that same reference, which is what a report of the proble
 exception text never reaches a caller, who can do nothing with a stack trace and should not be
 handed one as an explanation. That holds across the whole transport rather than only the tool
 answers: a value a read projection cannot produce names the key it failed on, a screenshot the run
-folder will not store says screenshots cannot be stored right now, and a tooltip row whose value
-throws says its text is unavailable — each ending with the same `MCP-…` reference and none of them
+folder will not store says screenshots cannot be stored right now, a tooltip row whose value
+throws says its text is unavailable, and a press on a screen the suite could not attach to says it
+will refuse there until the run restarts, with the member that would not bind in the log — each ending with the same `MCP-…` reference and none of them
 carrying a path, a member, or a .NET type.
 
 One request is answered differently, and it is the only one: a body that is not JSON-RPC comes back

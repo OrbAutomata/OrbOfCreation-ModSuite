@@ -582,6 +582,34 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     /// occupied" without a number leaves a caller unable to tell a full bar from a bar it cannot
     /// see.
     /// </summary>
+    /// <summary>
+    /// A load stages the requested augments over the player's own, then puts the player's back.
+    /// When that second write does not land, the fault says what came back instead, so whoever
+    /// reads it knows what the Spellcraft selection now holds.
+    /// </summary>
+    [Fact]
+    public void ASelectionThatCannotBePutBackAfterTheLoadSaysWhatCameBack()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        var augment = Augment(maximum: 2);
+        var stagedAugment = Augment();
+        SpellManager.instance!.selectedAugmentGlyphs.Stack(stagedAugment, 1);
+        SpellManager.instance.selectedAugmentGlyphs.SuppressSetStackFromCall = 2;
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch,
+            new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
+
+        Assert.Equal(SpellWorkbenchPreflight.PostCommitFault, result.Preflight);
+        Assert.EndsWith(
+            "The spell was loaded but the player's own augment selection could not be restored. " +
+            "Putting it back: Staging the chosen augments into the game's augment selection did " +
+            "not land: " + Name(stagedAugment) + " was written and 2x " + Name(augment) +
+            " came back.",
+            result.Reason,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void LoadoutAddNamesTheSlotCountAndThatNothingWasStagedWhenTheBarIsFull()
     {

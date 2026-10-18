@@ -403,10 +403,12 @@ public sealed class GameplayInvalidationBusTests
     }
 
     [Fact]
-    public void SubscriberFailureIsIsolatedAndRecorded()
+    public void SubscriberFailureIsIsolatedAndLogsWhatThrew()
     {
         var monitor = new GameLifecycleMonitor(() => 1);
         using var bus = new GameplayInvalidationBus(monitor, readThreadId: () => 1);
+        var log = new List<string>();
+        bus.ConfigureFailureLog(log.Add);
         var healthyCalls = 0;
         using var failing = bus.Subscribe(
             new GameplayInvalidationFilter(GameplayInvalidationKind.Configuration),
@@ -420,10 +422,9 @@ public sealed class GameplayInvalidationBusTests
         bus.Pump(1, 16);
 
         Assert.Equal(1, healthyCalls);
-        Assert.Equal(1, bus.GetSnapshot().DispatchFailures);
-        var failure = Assert.Single(bus.DispatchFailures);
-        Assert.Equal("failing", failure.Subscriber);
-        Assert.Contains(nameof(InvalidOperationException), failure.ExceptionType, StringComparison.Ordinal);
+        var failure = Assert.Single(log);
+        Assert.Contains("subscriber failing threw handling Configuration", failure, StringComparison.Ordinal);
+        Assert.Contains("InvalidOperationException: boom", failure, StringComparison.Ordinal);
     }
 
     [Fact]

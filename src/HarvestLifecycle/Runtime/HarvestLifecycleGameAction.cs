@@ -48,7 +48,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(HarvestLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("World > Agromancy"));
+                GameActionAnswer.NotAttached("World > Agromancy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

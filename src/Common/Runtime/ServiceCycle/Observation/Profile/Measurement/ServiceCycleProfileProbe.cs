@@ -9,10 +9,14 @@ internal sealed class ServiceCycleProfileProbe
     private readonly int _ownerThreadId = Environment.CurrentManagedThreadId;
     private IServiceCycleProfileMeasurementPort? _measurement;
     private int _fault;
+    private Exception? _faultException;
 
     internal bool IsAttached => _measurement is not null;
     internal ServiceCycleProfileProbeFault Fault =>
         (ServiceCycleProfileProbeFault)Volatile.Read(ref _fault);
+
+    /// <summary>What the measurement port threw, when a throw is what faulted the probe.</summary>
+    internal Exception? FaultException => Volatile.Read(ref _faultException);
 
     internal void Attach(IServiceCycleProfileMeasurementPort measurement)
     {
@@ -46,19 +50,21 @@ internal sealed class ServiceCycleProfileProbe
         }
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
-            Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed);
+            Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
         }
         return default;
     }
 
-    internal void Fail(ServiceCycleProfileProbeFault fault)
+    internal void Fail(ServiceCycleProfileProbeFault fault, Exception? exception = null)
     {
         if (fault == ServiceCycleProfileProbeFault.None)
             throw new ArgumentOutOfRangeException(nameof(fault));
-        Interlocked.CompareExchange(
-            ref _fault,
-            (int)fault,
-            (int)ServiceCycleProfileProbeFault.None);
+        if (Interlocked.CompareExchange(
+                ref _fault,
+                (int)fault,
+                (int)ServiceCycleProfileProbeFault.None) == (int)ServiceCycleProfileProbeFault.None &&
+            exception is not null)
+            Volatile.Write(ref _faultException, exception);
     }
 
     private void AssertOwnerThread()

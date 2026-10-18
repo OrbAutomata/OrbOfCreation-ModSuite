@@ -46,7 +46,7 @@ internal sealed class CraftingStationGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(CraftingStationPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Workshop > Crafting"));
+                GameActionAnswer.NotAttached("Workshop > Crafting", _bindingFailure));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }

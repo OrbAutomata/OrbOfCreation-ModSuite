@@ -75,13 +75,16 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
             (int)BufferedSegmentStatus.Stopped,
             (int)BufferedSegmentStatus.Stopping);
 
-    internal void LatchFault(BufferedSegmentFaultReason reason, long firstIncompleteSequence)
+    internal void LatchFault(
+        BufferedSegmentFaultReason reason,
+        long firstIncompleteSequence,
+        System.Exception? cause = null)
     {
         if (reason == BufferedSegmentFaultReason.None)
             throw new System.ArgumentOutOfRangeException(nameof(reason));
         if (firstIncompleteSequence <= 0)
             firstIncompleteSequence = Interlocked.Read(ref _writtenRecords) + 1;
-        var candidate = new BufferedSegmentFault(reason, firstIncompleteSequence);
+        var candidate = new BufferedSegmentFault(reason, firstIncompleteSequence, cause);
         while (true)
         {
             var current = Volatile.Read(ref _fault);
@@ -201,20 +204,24 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
             Interlocked.Read(ref _discardedBlocks),
             Volatile.Read(ref _pendingBlocks),
             Volatile.Read(ref _peakPendingBlocks),
-            fault?.FirstIncompleteSequence ?? 0);
+            fault?.FirstIncompleteSequence ?? 0,
+            fault?.Cause);
     }
 
     private sealed class BufferedSegmentFault
     {
         internal BufferedSegmentFault(
             BufferedSegmentFaultReason reason,
-            long firstIncompleteSequence)
+            long firstIncompleteSequence,
+            System.Exception? cause)
         {
             Reason = reason;
             FirstIncompleteSequence = firstIncompleteSequence;
+            Cause = cause;
         }
 
         internal BufferedSegmentFaultReason Reason { get; }
         internal long FirstIncompleteSequence { get; }
+        internal System.Exception? Cause { get; }
     }
 }

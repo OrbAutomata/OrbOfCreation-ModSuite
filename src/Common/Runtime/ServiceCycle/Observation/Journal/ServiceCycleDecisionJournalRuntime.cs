@@ -250,22 +250,31 @@ internal sealed class ServiceCycleDecisionJournalRuntime : IDisposable
     }
 
     /// <summary>
-    /// Every snapshot carries whatever named the producer's failure.
+    /// Every snapshot carries whatever named the journal's failure: the producer's, then storage's
+    /// refusal to prune, then the writer's.
     /// </summary>
     /// <remarks>
     /// The observer keeps the first contained exception, so reading it here rather than latching it
     /// at <see cref="BeginFaultStop"/> means a fault raised while stopping is reported too, and no
-    /// ordering between the fault and the snapshot can lose it.
+    /// ordering between the fault and the snapshot can lose it. A failed prune is named ahead of the
+    /// writer because the writer's own fault is then only the consumer refusing to go on.
     /// </remarks>
     private DecisionJournalRuntimeSnapshot CreateSnapshot(
         in BufferedSegmentMetrics transport,
-        in DecisionJournalConsumerMetrics consumer) => new(
-        _state,
-        _attached,
-        in transport,
-        in consumer,
-        _observer.FaultException,
-        _observer.FaultSite);
+        in DecisionJournalConsumerMetrics consumer)
+    {
+        var (exception, site) = _observer.FaultException is { } produced
+            ? (produced, _observer.FaultSite)
+            : consumer.FaultException is { } pruned
+                ? (pruned, RetentionSite)
+                : transport.FaultCause is { } written
+                    ? (written, WriterSite)
+                    : ((Exception?)null, _observer.FaultSite);
+        return new(_state, _attached, in transport, in consumer, exception, site);
+    }
+
+    private const string RetentionSite = "DecisionJournalRetention";
+    private const string WriterSite = "DecisionJournalWriter";
 
     private void EnsureOwner()
     {

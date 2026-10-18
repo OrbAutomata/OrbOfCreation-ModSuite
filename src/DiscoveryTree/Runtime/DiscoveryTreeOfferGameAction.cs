@@ -48,7 +48,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         if (_bindings is not { } native)
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("the screen this tree is drawn on"));
+                GameActionAnswer.NotAttached("the screen this tree is drawn on", _bindingFailure));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }

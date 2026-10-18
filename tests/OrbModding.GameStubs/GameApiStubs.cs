@@ -877,10 +877,15 @@ public class StackableListVariable<T> : GenericListVariable<T>
     /// </summary>
     public bool SuppressSetStack { get; set; }
 
+    public int? SuppressSetStackFromCall { get; set; }
+
+    private int _setStackCalls;
+
     /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
     public virtual void SetStack(Stacked.StackedIdRecord<T> record)
     {
-        if (SuppressSetStack) return;
+        _setStackCalls++;
+        if (SuppressSetStack || _setStackCalls >= SuppressSetStackFromCall) return;
         itemStack.ImportItems(record.ToList());
         SetValue(itemStack.GetItems());
     }
@@ -3945,6 +3950,8 @@ namespace BepInEx.Configuration
 
         public int? ThrowOnSaveCall { get; set; }
 
+        public bool ThrowOnEverySave { get; set; }
+
         public int? ThrowOnReloadCall { get; set; }
 
         public event EventHandler<SettingChangedEventArgs>? SettingChanged;
@@ -3979,7 +3986,7 @@ namespace BepInEx.Configuration
         public void Save()
         {
             SaveCalls++;
-            if (ThrowOnSaveCall == SaveCalls)
+            if (ThrowOnEverySave || ThrowOnSaveCall == SaveCalls)
             {
                 throw new InvalidOperationException($"simulated config save failure on call {SaveCalls}");
             }

@@ -92,6 +92,7 @@ internal class ExecutionServiceDefinition :
     internal Action? ShouldStartCallback { get; set; }
     internal Action? ActionCallback { get; set; }
     internal bool ThrowOnDescribeAction { get; set; }
+    internal Exception? ThrowOnExecute { get; set; }
     internal MonotonicTimestamp LastActionAttemptedAt { get; private set; }
     internal int StateCreateCount => _worker.StateCreateCount;
     internal int StateReleaseCount => _worker.StateReleaseCount;
@@ -132,6 +133,7 @@ internal class ExecutionServiceDefinition :
         ActionExecutionCount++;
         LastActionAttemptedAt = context.AttemptedAt;
         ActionCallback?.Invoke();
+        if (ThrowOnExecute is { } thrown) throw thrown;
         LastExecutedSetting = TestSuiteConfiguration.SettingOf(config);
         if (context.ActionIndex == FaultAtIndex)
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);

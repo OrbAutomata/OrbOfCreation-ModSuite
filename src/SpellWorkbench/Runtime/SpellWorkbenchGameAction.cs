@@ -50,7 +50,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Spellbook"));
+                GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure));
         try
         {
             var manager = native.ReadManager();
@@ -396,30 +396,32 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             stage = SpellWorkbenchNativeStage.ApplySelection;
             if (!staged)
             {
-                return RestoreAugments(native, manager, previous, ref nativeCalls)
+                return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
                     ? SpellWorkbenchSubmission.Reject(
                         SpellWorkbenchPreflight.StagedWriteFailed, stagingReason)
                     : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                         SpellWorkbenchNativeStage.ApplySelection,
                         NativeMutationOutcome.PostconditionFailed, nativeCalls,
                         stagingReason +
-                        " The player's own augment selection could not be restored either.");
+                        " The player's own augment selection could not be restored either. " +
+                        restoreFailure);
             }
 
             if (!TryReadAugmentSelection(native, manager, out var selected, out var readBackReason))
             {
-                return RestoreAugments(native, manager, previous, ref nativeCalls)
+                return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
                     ? SpellWorkbenchSubmission.Reject(
                         SpellWorkbenchPreflight.StagedWriteFailed, readBackReason)
                     : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                         SpellWorkbenchNativeStage.ApplySelection,
                         NativeMutationOutcome.PostconditionFailed, nativeCalls,
                         readBackReason +
-                        " The player's own augment selection could not be restored either.");
+                        " The player's own augment selection could not be restored either. " +
+                        restoreFailure);
             }
             if (!TryAdmitLoad(native, manager, recipe, selected, null, out refusal, out refusalReason))
             {
-                if (RestoreAugments(native, manager, previous, ref nativeCalls))
+                if (RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure))
                     return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.ApplySelection,
@@ -427,19 +429,18 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     "The game stopped admitting this load between the check and the staging (" +
                     refusalReason + ") and the player's own augment selection could not be put " +
                     "back. No spell was loaded; the Spellcraft selection on screen is the one " +
-                    "this call staged.");
+                    "this call staged. " + restoreFailure);
             }
 
             stage = SpellWorkbenchNativeStage.Create;
             native.Create(manager, recipe);
             nativeCalls++;
-            var restored = RestoreAugments(native, manager, previous, ref nativeCalls);
-            if (!restored)
+            if (!RestoreAugments(native, manager, previous, ref nativeCalls, out var unrestored))
                 return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
                     SpellWorkbenchNativeStage.Verification,
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
                     "The spell was loaded but the player's own augment selection could not be " +
-                    "restored.");
+                    "restored. " + unrestored);
             return HasNewMatchingInstance(
                     native, manager, recipe, expectedLayout, before)
                 ? Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
@@ -453,7 +454,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         catch (Exception ex) when (IsExpected(ex))
         {
-            var restored = RestoreAugments(native, manager, previous, ref nativeCalls);
+            var restored = RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure);
             if (restored && HasNewMatchingInstanceBestEffort(
                     native, manager, recipe, expectedLayout, before))
                 return Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
@@ -462,8 +463,8 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 stage, NativeMutationOutcome.ExecutionThrew, nativeCalls,
                 restored
                     ? GameActionAnswer.GameErrored("Magic > Spellbook", ex)
-                    : "The augment selection you had staged could not be put back. " +
-                        GameActionAnswer.GameErrored("Magic > Spellbook", ex));
+                    : "The augment selection you had staged could not be put back. " + restoreFailure +
+                        " " + GameActionAnswer.GameErrored("Magic > Spellbook", ex));
         }
     }
 
@@ -998,14 +999,23 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         SpellWorkbenchNativeBindings native,
         object manager,
         IList<object> previous,
-        ref int nativeCalls)
+        ref int nativeCalls,
+        out string failure)
     {
         try
         {
-            return TryStageAugments(native, manager, previous, ref nativeCalls, out _);
+            if (TryStageAugments(native, manager, previous, ref nativeCalls, out var reason))
+            {
+                failure = string.Empty;
+                return true;
+            }
+            failure = "Putting it back: " + reason;
+            return false;
         }
         catch (Exception ex) when (IsExpected(ex))
         {
+            failure = "Putting it back errored in the game." +
+                GameActionFaultLog.Record(ex, "Magic > Spellbook");
             return false;
         }
     }
@@ -1192,7 +1202,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } available)
         {
             preflight = SpellWorkbenchPreflight.ContractUnavailable;
-            reason = GameActionAnswer.NotAttached("Magic > Spellbook");
+            reason = GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure);
             return false;
         }
         native = available;

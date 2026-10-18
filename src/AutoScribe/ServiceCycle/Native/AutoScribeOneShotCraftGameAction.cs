@@ -77,7 +77,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         if (_bindings is not { } native)
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Scribe"));
+                GameActionAnswer.NotAttached("Scholar > Scribe", _bindingFailure));
 
         try
         {

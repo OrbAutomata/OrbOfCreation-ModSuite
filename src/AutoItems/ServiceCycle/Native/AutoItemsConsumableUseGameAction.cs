@@ -68,7 +68,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         if (_bindings is not { } native)
             return AutoItemsSubmission.Reject(
                 AutoItemsPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Inventory"));
+                GameActionAnswer.NotAttached("Inventory", _bindingFailure));
         if (InvokeBool(native.IsTargeting, null))
             return AutoItemsSubmission.Reject(
                 AutoItemsPreflight.TargetingInProgress,

@@ -49,7 +49,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(ReturnToMenuPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("the game's own screen"));
+                GameActionAnswer.NotAttached("the game's own screen", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

@@ -52,7 +52,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Workshop > Crafting"));
+                GameActionAnswer.NotAttached("Workshop > Crafting", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

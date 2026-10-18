@@ -191,6 +191,9 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
             }
             else
             {
+                if (source.EmissionFaulted)
+                    unavailable = "The recent-event buffer stopped recording when its trace threw: " +
+                        source.EmissionFaultCause;
                 hostTrace = HostTraceSnapshotWriter.Capture(
                     source,
                     new FullTraceSessionId(checked((ulong)Interlocked.Increment(ref _nextSnapshotIdentity))),

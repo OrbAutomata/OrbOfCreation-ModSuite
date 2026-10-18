@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
@@ -56,12 +57,33 @@ public sealed class MentorCycleActionAdapterTests
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.NativeEvidence.Outcome);
     }
 
+    /// <summary>
+    /// A grant the game's contract no longer supports stops Mentor with an adapter fault, and the
+    /// player reading the log needs the one sentence that says which contract broke.
+    /// </summary>
+    [Fact]
+    public void AnUnavailableContractLogsWhyTheGrantFailed()
+    {
+        var native = new NativePort(new MentorNativeGrant(
+            MentorNativeGrantStatus.ContractUnavailable,
+            "native SpellRecipeSO type is unavailable"));
+        var warnings = new List<string>();
+
+        var result = Execute(native, warn: warnings.Add);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        var warning = Assert.Single(warnings);
+        Assert.Contains("native SpellRecipeSO type is unavailable", warning, StringComparison.Ordinal);
+        Assert.Contains(Recipient.ToString(), warning, StringComparison.Ordinal);
+    }
+
     private static ServiceActionResult Execute(
         NativePort native,
         long epoch = 1,
-        bool permit = true)
+        bool permit = true,
+        Action<string>? warn = null)
     {
-        var adapter = new MentorCycleActionAdapter(native, () => epoch, _ => permit);
+        var adapter = new MentorCycleActionAdapter(native, () => epoch, _ => permit, warn ?? (_ => { }));
         var action = new MentorCycleAction(
             MasteryExperienceDomain.Spell,
             Recipient,

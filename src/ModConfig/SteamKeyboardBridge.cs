@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using OrbModding.Common;
 using TMPro;
 
 namespace OrbModConfig;
@@ -10,6 +11,18 @@ internal static class SteamKeyboardBridge
     private static readonly Type? UtilsType = Type.GetType("Steamworks.SteamUtils, Facepunch.Steamworks.Win64", false);
     private static TMP_InputField? _activeInput;
     private static bool _subscribed;
+    private static Action<string>? _failureLog;
+    private static bool _failureReported;
+
+    /// <summary>
+    /// Names where the first failure of the Steam Deck keyboard is reported. A Steamworks build that
+    /// moved these members fails the same way every time, so only the first is written.
+    /// </summary>
+    internal static void ConfigureFailureLog(Action<string>? log)
+    {
+        _failureLog = log;
+        _failureReported = false;
+    }
 
     public static bool TryShow(TMP_InputField input, string description, ConfigEditorKind kind)
     {
@@ -28,9 +41,10 @@ internal static class SteamKeyboardBridge
             if (method.Invoke(null, new object[] { inputMode, lineMode, description, maximum, input.text }) is true) return true;
             _activeInput = null;
         }
-        catch
+        catch (Exception ex)
         {
             _activeInput = null;
+            ReportFailure("could not open, so the setting falls back to the ordinary text field", ex);
         }
         return false;
     }
@@ -53,8 +67,16 @@ internal static class SteamKeyboardBridge
             var value = UtilsType.GetMethod("GetEnteredGamepadText", BindingFlags.Static | BindingFlags.Public)?.Invoke(null, null) as string;
             if (value is not null) input.text = value;
         }
-        catch
+        catch (Exception ex)
         {
+            ReportFailure("returned no text, so what was typed on it was not entered", ex);
         }
+    }
+
+    private static void ReportFailure(string what, Exception exception)
+    {
+        if (_failureReported || _failureLog is not { } log) return;
+        _failureReported = true;
+        log($"The Steam Deck keyboard {what}: {ExceptionDetail.Describe(exception)}");
     }
 }

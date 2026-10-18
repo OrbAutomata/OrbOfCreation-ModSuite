@@ -472,11 +472,13 @@ public sealed class ConfigurationSchemaBindResult<T> where T : class
     internal ConfigurationSchemaBindResult(
         T? config,
         ConfigurationSchemaStatus status,
-        IReadOnlyList<ConfigurationMigrationDiagnostic> diagnostics)
+        IReadOnlyList<ConfigurationMigrationDiagnostic> diagnostics,
+        string failureCause = "")
     {
         Config = config;
         Status = status;
         Diagnostics = diagnostics;
+        FailureCause = failureCause;
     }
 
     public bool Success => Config is not null;
@@ -486,6 +488,12 @@ public sealed class ConfigurationSchemaBindResult<T> where T : class
     public ConfigurationSchemaStatus Status { get; }
 
     public IReadOnlyList<ConfigurationMigrationDiagnostic> Diagnostics { get; }
+
+    /// <summary>
+    /// What threw, when an unexpected exception is why the bind failed; empty otherwise. It is for
+    /// the log, beside the status sentence the player reads.
+    /// </summary>
+    public string FailureCause { get; }
 }
 
 public static class ConfigurationSchemaTransaction
@@ -650,7 +658,7 @@ public static class ConfigurationSchemaTransaction
                 backupCreated,
                 ConfigurationMigrationException.RenderSafeReason(ex.Code));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             return Fail<T>(
                 pluginId,
@@ -665,7 +673,8 @@ public static class ConfigurationSchemaTransaction
                 fromVersion,
                 plan.CurrentVersion,
                 backupCreated,
-                "Configuration migration failed; the prior file was restored and runtime configuration was not loaded.");
+                "Configuration migration failed; the prior file was restored and runtime configuration was not loaded.",
+                ExceptionDetail.Describe(ex));
         }
         finally
         {
@@ -782,7 +791,8 @@ public static class ConfigurationSchemaTransaction
         int fromVersion,
         int toVersion,
         bool backupCreated,
-        string reason)
+        string reason,
+        string failureCause = "")
         where T : class
     {
         try
@@ -819,7 +829,8 @@ public static class ConfigurationSchemaTransaction
             loaded: false,
             backupCreated,
             reason);
-        return new ConfigurationSchemaBindResult<T>(null, failed, Array.Empty<ConfigurationMigrationDiagnostic>());
+        return new ConfigurationSchemaBindResult<T>(
+            null, failed, Array.Empty<ConfigurationMigrationDiagnostic>(), failureCause);
     }
 
     private static void TryReload(ConfigFile file)

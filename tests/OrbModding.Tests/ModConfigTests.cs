@@ -785,6 +785,32 @@ public sealed class ModConfigTests
         Assert.True(session.IsDirty);
     }
 
+    /// <summary>
+    /// A disk that refuses the save usually refuses the rollback's save too. The player is then
+    /// told the file may hold part of what they applied, and which file, instead of only the
+    /// first failure that implies everything was put back.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void EditSession_ARollbackThatAlsoFailsSaysTheFileMayHoldTheNewValues()
+    {
+        var config = new ConfigFile("/BepInEx/config/orbmodding.suite.cfg") { ThrowOnEverySave = true };
+        config.Bind("General", "Count", 4, "Count");
+        var catalog = ConfigCatalog.Build(new[]
+        {
+            new ConfigPluginSource("plugin", "Plugin", "1.0.0", config),
+        });
+        var session = new ConfigEditSession(catalog);
+        session.Get(catalog.Mods.Single().Sections.Single().Settings.Single()).Stage("8");
+
+        var applied = session.Apply(out var error);
+
+        Assert.False(applied);
+        Assert.StartsWith("simulated config save failure on call 1", error, StringComparison.Ordinal);
+        Assert.Contains("may hold some of the new ones", error, StringComparison.Ordinal);
+        Assert.Contains("orbmodding.suite.cfg: simulated config save failure on call 2", error, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
     public void EditSession_ThrowingSettingChangedSubscriberLeavesNoPartialCommit()

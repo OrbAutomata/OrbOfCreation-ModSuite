@@ -22,6 +22,7 @@ internal sealed class DecisionJournalSegmentConsumer : IBufferedSegmentConsumer<
     private int _staleTemporaryFilesRemoved;
     private long _evictedSegments;
     private int _faultReason;
+    private Exception? _faultException;
 
     internal DecisionJournalSegmentConsumer(
         IRestartAwareTraceSegmentStorage storage,
@@ -42,7 +43,8 @@ internal sealed class DecisionJournalSegmentConsumer : IBufferedSegmentConsumer<
         Volatile.Read(ref _incompatibleSegmentsPruned),
         Volatile.Read(ref _staleTemporaryFilesRemoved),
         Interlocked.Read(ref _evictedSegments),
-        (DecisionJournalConsumerFaultReason)Volatile.Read(ref _faultReason));
+        (DecisionJournalConsumerFaultReason)Volatile.Read(ref _faultReason),
+        Volatile.Read(ref _faultException));
 
     /// <summary>
     /// Recovers the store, and hands storage the journal's own test for continuing it.
@@ -115,8 +117,9 @@ internal sealed class DecisionJournalSegmentConsumer : IBufferedSegmentConsumer<
                 Volatile.Write(ref _retainedSegments, retained - 1);
                 Interlocked.Increment(ref _evictedSegments);
             }
-            catch
+            catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
             {
+                Interlocked.CompareExchange(ref _faultException, exception, null);
                 Interlocked.CompareExchange(
                     ref _faultReason,
                     (int)DecisionJournalConsumerFaultReason.RetentionFailed,
@@ -161,7 +164,8 @@ internal readonly struct DecisionJournalConsumerMetrics
         int incompatibleSegmentsPruned,
         int staleTemporaryFilesRemoved,
         long evictedSegments,
-        DecisionJournalConsumerFaultReason faultReason)
+        DecisionJournalConsumerFaultReason faultReason,
+        Exception? faultException = null)
     {
         RetainedSegments = retainedSegments;
         StartupPrunedSegments = startupPrunedSegments;
@@ -169,6 +173,7 @@ internal readonly struct DecisionJournalConsumerMetrics
         StaleTemporaryFilesRemoved = staleTemporaryFilesRemoved;
         EvictedSegments = evictedSegments;
         FaultReason = faultReason;
+        FaultException = faultException;
     }
 
     internal int RetainedSegments { get; }
@@ -177,5 +182,8 @@ internal readonly struct DecisionJournalConsumerMetrics
     internal int StaleTemporaryFilesRemoved { get; }
     internal long EvictedSegments { get; }
     internal DecisionJournalConsumerFaultReason FaultReason { get; }
+
+    /// <summary>What storage threw when the oldest segment would not delete.</summary>
+    internal Exception? FaultException { get; }
     internal bool CannotContinue => FaultReason != DecisionJournalConsumerFaultReason.None;
 }

@@ -40,16 +40,23 @@ internal static class GameActionFaultLog
     /// fragment naming that reference, or an empty string when there is nothing to record or
     /// nowhere to record it.
     /// </summary>
-    internal static string Record(Exception? exception, string screen)
+    internal static string Record(Exception? exception, string screen) =>
+        exception is null ? string.Empty : RecordDetail(exception.ToString(), screen);
+
+    /// <summary>
+    /// The same, for a maintainer's fact that never was an exception, such as which member of which
+    /// type would not bind.
+    /// </summary>
+    internal static string RecordDetail(string detail, string screen)
     {
         Action<string>? log;
         lock (Sync)
         {
             log = _log;
         }
-        if (exception is null || log is null) return string.Empty;
+        if (detail.Length == 0 || log is null) return string.Empty;
         var reference = "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
-        log("Game action fault " + reference + " on " + screen + ": " + exception);
+        log("Game action fault " + reference + " on " + screen + ": " + detail);
         return " Reference " + reference + " is in the suite log.";
     }
 }

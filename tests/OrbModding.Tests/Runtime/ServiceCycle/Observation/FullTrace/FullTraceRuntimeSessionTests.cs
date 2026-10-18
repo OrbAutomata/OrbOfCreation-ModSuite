@@ -87,6 +87,28 @@ public sealed class FullTraceRuntimeSessionTests
     }
 
     /// <summary>
+    /// A trace that ended incomplete because storage refused a segment names what storage said.
+    /// </summary>
+    [Fact]
+    public void ASegmentWriteFailureKeepsWhatTheStorageSaid()
+    {
+        using var registry = Registry("trace.session.write-failure-cause");
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new MemorySessionStorage(failSegmentWrite: true);
+        using var session = new FullTraceRuntimeSession(pump, 1);
+        session.Start(new FullTraceSessionId(803), new ServiceCycleTraceSessionId(804), storage);
+        AdvanceTo(session, FullTraceRuntimeSessionState.Recording);
+
+        pump.PumpFrame(1);
+        session.RequestStop();
+        AdvanceTo(session, FullTraceRuntimeSessionState.Incomplete);
+
+        Assert.StartsWith(
+            "System.InvalidOperationException: Injected segment write failure.",
+            session.Snapshot.FaultCause);
+    }
+
+    /// <summary>
     /// A shutdown that reached the recorder mid-cycle ends the recording early and loses nothing, and
     /// the manifest says exactly that: the reason names the shutdown, the completeness answers for
     /// the records.
