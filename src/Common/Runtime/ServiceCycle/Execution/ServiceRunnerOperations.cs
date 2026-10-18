@@ -72,7 +72,8 @@ internal readonly struct ServiceActionDispatch
         ServiceFault fault = default,
         MonotonicTimestamp retryDue = default,
         ServiceFaultRecoveryFact recoveredFault = default,
-        string? attributionFailureReason = null)
+        string? attributionFailureReason = null,
+        string? executionFailureReason = null)
     {
         var attributionFailed =
             attribution.RouteStatus == ServiceActionRouteStatus.AttributionFailed;
@@ -88,6 +89,7 @@ internal readonly struct ServiceActionDispatch
         RetryDue = retryDue;
         RecoveredFault = recoveredFault;
         AttributionFailureReason = attributionFailureReason;
+        ExecutionFailureReason = executionFailureReason;
     }
 
     internal ServiceActionFact ActionFact { get; }
@@ -100,4 +102,7 @@ internal readonly struct ServiceActionDispatch
     internal MonotonicTimestamp RetryDue { get; }
     internal ServiceFaultRecoveryFact RecoveredFault { get; }
     internal string? AttributionFailureReason { get; }
+
+    /// <summary>What the service's action threw, when a throw is why its batch faulted.</summary>
+    internal string? ExecutionFailureReason { get; }
 }

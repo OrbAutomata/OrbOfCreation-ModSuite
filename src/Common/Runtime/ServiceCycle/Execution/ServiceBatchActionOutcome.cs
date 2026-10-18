@@ -88,7 +88,8 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         in ServiceFaultRecoveryFact pendingRecovery,
         int index,
         MonotonicTimestamp observedAt,
-        bool nonBlockingHandoff)
+        bool nonBlockingHandoff,
+        string? executionFailureReason)
     {
         var terminal = BatchReceipt.Terminated(
             _runtime.State.ActiveCycle,
@@ -130,7 +131,8 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
             fault,
             retryDue,
             CommitRecovery(in pendingRecovery),
-            attributionFailureReason);
+            attributionFailureReason,
+            executionFailureReason);
     }
 
     private ServiceFaultRecoveryFact CommitRecovery(
