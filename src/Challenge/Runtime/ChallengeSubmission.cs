@@ -28,24 +28,6 @@ internal readonly struct ChallengeAdmissionState
     internal int RerollsLeft { get; }
 }
 
-/// <summary>
-/// The reroll budget an attempted press started from and the budget settled after it, or -1 on
-/// either side when that reading is not this outcome's axis or could not be taken.
-/// </summary>
-internal readonly struct ChallengeBudget
-{
-    internal ChallengeBudget(int before, int after)
-    {
-        Before = before;
-        After = after;
-    }
-
-    internal static ChallengeBudget NotTheAxis => new(-1, -1);
-
-    internal int Before { get; }
-    internal int After { get; }
-}
-
 internal readonly struct ChallengeSubmission
 {
     internal ChallengeSubmission(NativeActionOutcome outcome, int rerollsLeft = -1,

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -94,6 +95,61 @@ public sealed class ChallengeGameActionTests : IDisposable
         Assert.Equal(ChallengeActionResultCodes.SelectionRestricted, refused.Outcome.Code);
         Assert.Equal(new[] { blocking, held }, ChallengeManager.instance.preferredChallenges.value);
         Assert.Equal(0, refused.Outcome.CallOutcome.MutationsCommitted);
+    }
+
+    /// <summary>
+    /// The give-up was a press, so a refused swap reports it as one attempt, says the row was put
+    /// back, and stays a refusal only because the row reads as held again.
+    /// </summary>
+    [Fact]
+    public void A_refused_swap_counts_its_pressed_back_give_up_as_one_attempt()
+    {
+        var unique = LimitedType();
+        var held = Register(Challenge());
+        var blocking = Register(Challenge(unique));
+        var wanted = Register(Challenge(unique));
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 2;
+        ChallengeManager.instance.preferredChallenges.value.Add(held);
+        ChallengeManager.instance.preferredChallenges.value.Add(blocking);
+        using var boundary = Boundary();
+
+        var refused = Submit(boundary, ChallengeActionKind.Select, wanted, held);
+
+        Assert.Equal(ChallengeActionResultCodes.SelectionRestricted, refused.Outcome.Code);
+        Assert.Equal(ServiceActionDisposition.Rejected, refused.Outcome.ToResult().Disposition);
+        Assert.Equal(1, refused.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, refused.Outcome.CallOutcome.MutationsCommitted);
+        Assert.EndsWith(GameActionAnswer.Undone(), refused.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Equal(2, ChallengeManager.instance.preferredChallenges.ToggleCalls);
+    }
+
+    /// <summary>
+    /// A give-up the game does not take back leaves the caller one selection poorer, so it is an
+    /// attempted fault, never a refusal a caller would retry as if nothing had changed.
+    /// </summary>
+    [Fact]
+    public void A_refused_swap_whose_give_up_does_not_come_back_is_an_attempted_fault()
+    {
+        var unique = LimitedType();
+        var held = Register(Challenge());
+        var blocking = Register(Challenge(unique));
+        var wanted = Register(Challenge(unique));
+        ChallengeManager.instance.activeChallenges.value.Add(wanted);
+        ChallengeManager.instance.preferredChallenges.Maximum = 2;
+        ChallengeManager.instance.preferredChallenges.value.Add(held);
+        ChallengeManager.instance.preferredChallenges.value.Add(blocking);
+        ChallengeManager.instance.preferredChallenges.TogglesThatLand = 1;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, ChallengeActionKind.Select, wanted, held);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(ChallengeActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Contains(GameActionAnswer.NotUndone("Time > Challenges"), result.Outcome.Reason,
+            StringComparison.Ordinal);
+        Assert.Equal(new[] { blocking }, ChallengeManager.instance.preferredChallenges.value);
     }
 
     /// <summary>
@@ -294,6 +350,21 @@ public sealed class ChallengeGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Register(Challenge());
+        ChallengeManager.instance.activeChallenges.value.Add(target);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, ChallengeActionKind.Queue, target);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(ChallengeActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, target.QueueToggleCalls);
+    }
+
+    [Fact]
     public void Unity_thread_and_complete_binding_set_are_fail_closed()
     {
         var target = Register(Challenge());
@@ -310,12 +381,14 @@ public sealed class ChallengeGameActionTests : IDisposable
         }
     }
 
-    private ChallengeGameAction Boundary(Func<string, bool>? includeContract = null)
+    private ChallengeGameAction Boundary(
+        Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null)
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
-        return new ChallengeGameAction(() => Epoch, () => true,
+        return new ChallengeGameAction(epoch ?? (() => Epoch), () => true,
             static () => "ChallengeLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);
     }

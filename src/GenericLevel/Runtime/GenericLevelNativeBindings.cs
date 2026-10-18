@@ -8,7 +8,7 @@ using OrbModding.Common;
 namespace OrbAutomata;
 
 /// <summary>Exact v1.0.5 binding matrix for the four level-list controls owned here.</summary>
-internal sealed class GenericLevelNativeBindings
+internal sealed class GenericLevelNativeBindings : INativeCostRows
 {
     internal static readonly string[] ContractIds =
     {
@@ -91,11 +91,11 @@ internal sealed class GenericLevelNativeBindings
 
     internal Func<object, bool> HasEnough { get; }
     internal Func<object, bool> ResourcesVisible { get; }
-    internal Func<object, IList?> CostEntries { get; }
-    internal Func<object, object?> CostResource { get; }
-    internal Func<object, BigDouble> CostValue { get; }
-    internal Func<object, Guid> ResourceGuid { get; }
-    internal Func<object, BigDouble, bool> HasResourceAmount { get; }
+    public Func<object, IList?> CostEntries { get; }
+    public Func<object, object?> CostResource { get; }
+    public Func<object, BigDouble> CostValue { get; }
+    public Func<object, Guid> ResourceGuid { get; }
+    public Func<object, BigDouble, bool> HasResourceAmount { get; }
 
     internal bool TryTarget(string nativeType, out GenericLevelTargetBinding binding) =>
         _targets.TryGetValue(nativeType, out binding!);

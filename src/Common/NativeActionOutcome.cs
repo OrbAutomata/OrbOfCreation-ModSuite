@@ -45,6 +45,16 @@ public readonly struct NativeActionOutcome
         new(Kind.Reject, code, NativeMutationOutcome.BeforeCaptureFailed, default, reason);
 
     /// <summary>
+    /// A refusal that came after the game was pressed and the suite pressed it back, verified by
+    /// re-reading: the attempt stays on the call counts, so zero attempts still means no press.
+    /// </summary>
+    public static NativeActionOutcome RefusedAfterUndo(
+        ServiceActionResultCode code,
+        NativeMutationCallOutcome callOutcome,
+        string reason) =>
+        new(Kind.Reject, code, NativeMutationOutcome.PostconditionFailed, callOutcome, reason);
+
+    /// <summary>
     /// A stop that is ordinary staleness rather than a refusal: the plan raced the game, and the
     /// service tries again without a penalty.
     /// </summary>

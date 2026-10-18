@@ -6,7 +6,7 @@ using OrbModding.Common;
 namespace OrbAutomata;
 
 /// <summary>Complete lifecycle binding set for the visible Ritual selection and run controls.</summary>
-internal sealed class RitualLifecycleNativeBindings
+internal sealed class RitualLifecycleNativeBindings : INativeCostRows
 {
     internal static readonly string[] ContractIds =
     {
@@ -126,11 +126,11 @@ internal sealed class RitualLifecycleNativeBindings
     internal Func<object, object?> ActivationCost { get; }
     internal Func<object, bool> HasEnough { get; }
     internal Action<object> PerformCost { get; }
-    internal Func<object, IList?> CostEntries { get; }
-    internal Func<object, object?> CostResource { get; }
-    internal Func<object, BigDouble> CostValue { get; }
-    internal Func<object, Guid> ResourceGuid { get; }
-    internal Func<object, BigDouble, bool> HasResourceAmount { get; }
+    public Func<object, IList?> CostEntries { get; }
+    public Func<object, object?> CostResource { get; }
+    public Func<object, BigDouble> CostValue { get; }
+    public Func<object, Guid> ResourceGuid { get; }
+    public Func<object, BigDouble, bool> HasResourceAmount { get; }
     internal Action<object> ActivateSelected { get; }
     internal Func<object?> BattleManager { get; }
     internal Func<object, bool> IsInCombat { get; }

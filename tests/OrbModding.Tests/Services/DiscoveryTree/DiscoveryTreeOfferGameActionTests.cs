@@ -39,7 +39,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
         Assert.Equal(1, tree.nextItemCost.PerformCalls);
         Assert.Equal(1, tree.initiateCalls);
-        Assert.Equal(2, result.Outcome.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(1, result.Outcome.CallOutcome.NativeCallsAttempted);
         Assert.Equal(1, result.Outcome.CallOutcome.MutationsCommitted);
     }
 
@@ -119,7 +119,8 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         Assert.Equal(DiscoveryTreeOfferActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
         Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Idle, tree.actionMode);
-        Assert.Contains("did not enter Crafting mode", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Contains(GameActionAnswer.ChangeNotSeen("the screen this tree is drawn on"),
+            result.Outcome.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -296,7 +297,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
         Assert.Equal(new[] { item.GetGuid(), second.GetGuid() },
             tree.nextExcludedIds.Select(value => value.guid));
         Assert.Equal(Guid.Empty, tree.selectedChoiceId.guid);
-        Assert.Equal(2, result.Outcome.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(1, result.Outcome.CallOutcome.NativeCallsAttempted);
     }
 
     /// <remarks>
@@ -640,6 +641,22 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
 
         Assert.Throws<NullReferenceException>(() => action.Submit(new DiscoveryTreeOfferAction(
             DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch)));
+        Assert.Equal(0, tree.initiateCalls);
+    }
+
+    [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var tree = Tree();
+        using var action = Action(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch));
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(DiscoveryTreeOfferActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, tree.nextItemCost.PerformCalls);
         Assert.Equal(0, tree.initiateCalls);
     }
 

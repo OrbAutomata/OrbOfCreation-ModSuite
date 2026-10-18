@@ -86,7 +86,7 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
     /// Runs <paramref name="admission"/> on the Unity main thread, against this lifecycle's
     /// bindings, in the run the action was planned for. An expected throw from admission is a
     /// refusal; the native call itself never reaches that catch, because
-    /// <see cref="Execute{TState}"/> classifies every throw after it.
+    /// <c>Execute</c> classifies every throw after it.
     /// </summary>
     /// <param name="answer">Wraps a prologue answer in the feature's submission.</param>
     protected TSubmission Admit<TSubmission>(
@@ -172,18 +172,48 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         TState before,
         Func<TState> captureAfter,
         Action call,
+        Func<TState, TState, bool> landed) =>
+        Execute(target, success, before, captureAfter,
+            () =>
+            {
+                call();
+                return null;
+            },
+            landed);
+
+    /// <summary>
+    /// The same, for a call of several presses that can stop partway: every press runs inside
+    /// <paramref name="call"/>, and one sentinel answers for the whole effect. A stop answers only
+    /// when the sentinel does not hold and nothing threw, and it never answers with zero attempts.
+    /// </summary>
+    protected NativeActionOutcome Execute<TState>(
+        string target,
+        string success,
+        TState before,
+        Func<TState> captureAfter,
+        Func<NativeStop?> call,
         Func<TState, TState, bool> landed)
     {
+        NativeStop? stop = null;
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
-            _feature, target, success, before, captureAfter, call, landed);
+            _feature, target, success, before, captureAfter, () => stop = call(), landed);
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified) return NativeActionOutcome.Commit(calls, success);
         var stage = evidence.Outcome == NativeMutationOutcome.ExecutionThrew ? "NativeCallback" : "Verification";
-        return evidence.Exception is { } exception
-            ? NativeActionOutcome.Fault(_codes.PostCommitFault, evidence.Outcome, calls,
-                FaultReason(stage, target, GameActionAnswer.GameErrored(_screen, exception)))
-            : NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
+        if (evidence.Exception is { } exception)
+            return NativeActionOutcome.Fault(_codes.PostCommitFault, evidence.Outcome, calls,
+                FaultReason(stage, target, GameActionAnswer.GameErrored(_screen, exception)));
+        if (stop is not { } stopped)
+            return NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
                 FaultReason(stage, target, GameActionAnswer.ChangeNotSeen(_screen)));
+        if (stopped.Undone is null)
+            return NativeActionOutcome.Fault(stopped.Code, evidence.Outcome, calls,
+                FaultReason(stage, target, stopped.Reason));
+        return NativeMutationVerifier.TryReadAfterCall(stopped.Undone, out var undone) && undone
+            ? NativeActionOutcome.RefusedAfterUndo(stopped.Code, calls,
+                stopped.Reason + " " + GameActionAnswer.Undone())
+            : NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
+                FaultReason(stage, target, stopped.Reason + " " + GameActionAnswer.NotUndone(_screen)));
     }
 
     private string FaultReason(string stage, string target, string reason) =>

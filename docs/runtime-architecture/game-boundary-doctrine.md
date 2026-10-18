@@ -239,7 +239,12 @@ missing binding set, then the run. An epoch the game cannot answer is a fault, n
 run. An expected throw during admission is a refusal, because nothing was sent. The native call
 goes through `NativeMutationVerifier`: a visible outcome commits, a missing one is a verification
 fault, and an expected throw or an unreadable after-state is a post-commit fault that names the
-game's error by its log reference. A GameAction not yet on the shell is migration debt.
+game's error by its log reference. An action of several presses — pay then act, open then press, a
+swap's give-up then take — makes them all inside that one call, under one sentinel for the whole
+effect. A press counts as an attempt even when the suite presses it back: a call that stops after
+pressing the game refuses only when it pressed its change back and the game rereads undone, and
+that refusal carries the one attempt; any other stop after a press is an attempted fault. Zero
+attempts means no press was made. A GameAction not yet on the shell is migration debt.
 
 Mutation entry points, in strict order of preference:
 

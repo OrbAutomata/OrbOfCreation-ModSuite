@@ -861,12 +861,18 @@ public class GenericListVariable<T> : AbstractListVariable<T>
     }
 
     public bool SuppressToggle { get; set; }
+
+    /// <summary>
+    /// How many presses land before the list starts ignoring them, as the game's own <c>Add</c>
+    /// silently does once the list turns immutable or full.
+    /// </summary>
+    public int TogglesThatLand { get; set; } = int.MaxValue;
     public bool ThrowAfterToggle { get; set; }
     public int ToggleCalls { get; private set; }
     public void Toggle(T element)
     {
         ToggleCalls++;
-        if (!SuppressToggle)
+        if (!SuppressToggle && ToggleCalls <= TogglesThatLand)
         {
             if (value.Contains(element)) value.Remove(element);
             else value.Add(element);
