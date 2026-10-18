@@ -25,6 +25,7 @@ internal sealed class MentorCycleActionAdapter : IMentorCycleActionPort
         _captureMutationPermit = captureMutationPermit ??
                                  throw new ArgumentNullException(nameof(captureMutationPermit));
         _guard = new AutomationCycleGuard<MentorCycleAction>(
+            "Mentor",
             static action => $"Mentor could not grant {action.Domain} mastery XP to {EntityIdentityFormatter.Format(action.RecipientId)}",
             warn ?? throw new ArgumentNullException(nameof(warn)));
     }

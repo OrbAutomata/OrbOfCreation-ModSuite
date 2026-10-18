@@ -38,6 +38,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoCastManualPauseState _manualPause;
     private readonly AutomationCycleGuard<AutoCastCycleAction> _guard = new(
+        "Auto Cast",
         static action => "Auto Cast failed to " + action.Kind switch
         {
             AutoCastActionKind.ReleaseCharge => $"release the charged spell in slot {action.SlotIndex + 1}",

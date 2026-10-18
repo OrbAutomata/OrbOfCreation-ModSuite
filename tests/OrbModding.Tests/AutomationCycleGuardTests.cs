@@ -6,9 +6,14 @@ using Xunit;
 
 namespace OrbModding.Tests;
 
-public sealed class AutomationCycleGuardTests
+public sealed class AutomationCycleGuardTests : IDisposable
 {
     private readonly List<string> _warnings = new();
+    private readonly List<string> _faults = new();
+
+    public AutomationCycleGuardTests() => GameActionFaultLog.ConfigureLog(_faults.Add);
+
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
 
     [Fact]
     public void ARepeatingFaultIsLoggedOnceUntilAnActionLands()
@@ -52,17 +57,38 @@ public sealed class AutomationCycleGuardTests
     }
 
     [Fact]
-    public void AnExpectedThrowFaultsWithoutItsMessageAndIsLoggedOnceWithIt()
+    public void AnExpectedThrowFaultsUnderAReferenceToItsLoggedCause()
     {
         var guard = Guard();
 
         var fault = guard.Fault(new InvalidOperationException("native list was null"), "slot 3");
         var result = guard.Finish(in fault, "slot 3");
 
+        var logged = Assert.Single(_faults);
+        Assert.Contains("native list was null", logged);
+        var reference = " Reference " + logged.Split(' ')[3] + " is in the suite log.";
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Empty(result.Reason);
-        Assert.Equal("Test failed on slot 3: adapter fault (native list was null).", Assert.Single(_warnings));
+        Assert.Equal("Test faulted at the native boundary." + reference, result.Reason);
+        Assert.Equal(
+            "Test failed on slot 3: adapter fault (native list was null)." + reference,
+            Assert.Single(_warnings));
+    }
+
+    [Fact]
+    public void AnUnreadableEpochFaultsUnderAReferenceToItsLoggedCause()
+    {
+        var guard = Guard();
+
+        Assert.False(guard.TryAdmitEpoch(
+            static () => throw new InvalidOperationException("epoch read failed"), 7, "slot 1", out var refusal));
+
+        var logged = Assert.Single(_faults);
+        Assert.Contains("epoch read failed", logged);
+        Assert.Equal(ServiceActionDisposition.Faulted, refusal.Disposition);
+        Assert.Equal(
+            "Test faulted at the native boundary. Reference " + logged.Split(' ')[3] + " is in the suite log.",
+            refusal.Reason);
     }
 
     [Theory]
@@ -86,5 +112,5 @@ public sealed class AutomationCycleGuardTests
     }
 
     private AutomationCycleGuard<string> Guard() =>
-        new(static action => "Test failed on " + action, _warnings.Add);
+        new("Test", static action => "Test failed on " + action, _warnings.Add);
 }

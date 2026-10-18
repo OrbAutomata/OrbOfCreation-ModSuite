@@ -14,6 +14,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
     private readonly Func<string> _readOwnershipFailure;
     private readonly AutoItemsActionHealth _health;
     private readonly AutomationCycleGuard<AutoItemsCycleAction> _guard = new(
+        "Auto Items",
         static action => $"Auto Items failed to use {EntityIdentityFormatter.Format(action.ItemId)}",
         static message => Plugin.Log?.LogAutomataWarning(message));
 

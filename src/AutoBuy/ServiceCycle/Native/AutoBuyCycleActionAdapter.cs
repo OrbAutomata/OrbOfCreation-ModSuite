@@ -41,6 +41,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     private readonly IAutoBuyQueueRoomPort _queueRoom;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly AutomationCycleGuard<AutoBuyCycleAction> _guard = new(
+        "Auto Buy",
         static action => $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}",
         static message => Plugin.Log?.LogAutomataWarning(message));
     private readonly Func<AutoBuyCandidateKinds> _ownershipMask;

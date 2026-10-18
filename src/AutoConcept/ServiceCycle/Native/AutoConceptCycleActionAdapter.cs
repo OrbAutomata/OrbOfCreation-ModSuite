@@ -17,6 +17,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutomationCycleGuard<AutoConceptCycleAction> _guard = new(
+        "Auto Concept",
         static action => $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}" +
             (action.ReplacementId == Guid.Empty
                 ? string.Empty

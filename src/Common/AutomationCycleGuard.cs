@@ -31,13 +31,15 @@ public static class AutomationCycleGuard
 /// </remarks>
 public sealed class AutomationCycleGuard<TAction>
 {
+    private readonly string _feature;
     private readonly Func<TAction, string> _describe;
     private readonly Action<string> _warn;
     private ServiceActionResultCode? _loggedFaultCode;
     private string _loggedFaultReason = string.Empty;
 
-    public AutomationCycleGuard(Func<TAction, string> describe, Action<string> warn)
+    public AutomationCycleGuard(string feature, Func<TAction, string> describe, Action<string> warn)
     {
+        _feature = feature ?? throw new ArgumentNullException(nameof(feature));
         _describe = describe ?? throw new ArgumentNullException(nameof(describe));
         _warn = warn ?? throw new ArgumentNullException(nameof(warn));
     }
@@ -61,8 +63,8 @@ public sealed class AutomationCycleGuard<TAction>
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            _warn($"{_describe(action)}: the game's lifecycle epoch could not be read ({ex.GetBaseException().Message}).");
-            refusal = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            var reason = Record(ex, "the game's lifecycle epoch could not be read", in action);
+            refusal = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, reason);
             return false;
         }
 
@@ -76,15 +78,23 @@ public sealed class AutomationCycleGuard<TAction>
     }
 
     /// <summary>
-    /// An expected throw from the submission: logged with its message and answered without it, so
-    /// no exception text reaches the wire. <see cref="Finish"/> does not log it a second time.
+    /// An expected throw from the submission. The whole exception goes to the suite log under a
+    /// reference, and the answer names that reference instead of the exception text, so the cause
+    /// stays findable without reaching the wire. <see cref="Finish"/> does not log it a second time.
     /// </summary>
     public NativeActionOutcome Fault(Exception exception, in TAction action)
     {
-        _warn($"{_describe(action)}: adapter fault ({exception.GetBaseException().Message}).");
+        var reason = Record(exception, "adapter fault", in action);
         _loggedFaultCode = CommonActionResultCodes.AdapterFault;
-        _loggedFaultReason = string.Empty;
-        return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, string.Empty);
+        _loggedFaultReason = reason;
+        return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
+    }
+
+    private string Record(Exception exception, string what, in TAction action)
+    {
+        var reference = GameActionFaultLog.Record(exception, _feature);
+        _warn($"{_describe(action)}: {what} ({exception.GetBaseException().Message}).{reference}");
+        return _feature + " faulted at the native boundary." + reference;
     }
 
     public ServiceActionResult Finish(in NativeActionOutcome outcome, in TAction action)

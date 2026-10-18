@@ -13,6 +13,7 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoScribeActionHealth _health;
     private readonly AutomationCycleGuard<AutoScribeCycleAction> _guard = new(
+        "Auto Scribe",
         static action => $"Auto Scribe failed to craft {EntityIdentityFormatter.Format(action.RecipeId)}",
         static message => Plugin.Log?.LogAutomataWarning(message));
 

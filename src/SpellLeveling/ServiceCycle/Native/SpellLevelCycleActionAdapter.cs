@@ -34,6 +34,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
     private readonly Action<AutoSpellLevelCapability>? _observeCapability;
     private readonly Action<SpellLevelSubmission>? _observeBoundaryStatus;
     private readonly AutomationCycleGuard<SpellLevelCycleAction> _guard = new(
+        "Spell Leveling",
         static action => "Spell Leveling failed to buy a mastery level for " +
             (action.Kind == SpellLevelActionKind.All
                 ? "every ready spell"

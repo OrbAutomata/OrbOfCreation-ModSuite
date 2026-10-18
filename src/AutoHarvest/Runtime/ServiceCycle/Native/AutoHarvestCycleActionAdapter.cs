@@ -19,6 +19,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     private readonly Func<bool> _ownsActionFamily;
     private readonly Func<bool> _tryCaptureMutationPermit;
     private readonly AutomationCycleGuard<AutoHarvestCycleAction> _guard = new(
+        "Auto Harvest",
         static action => "Auto Harvest failed to collect " +
             EntityIdentityFormatter.Format(AutoHarvestPairSpecification.For(action.Pair).Plot.Uuid),
         static message => Plugin.Log?.LogAutomataWarning(message));
