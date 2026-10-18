@@ -379,9 +379,11 @@ public sealed class ScrollCoveragePlannerTests
     {
         Assert.Null(AutoScribeRoleSelection.ParsePublication(string.Empty, _profile.Roles));
 
-        var selected = AutoScribeRoleSelection.ParsePublication(
+        Assert.Equal(0, AutoScribeRoleSelection.ParsePublication(
             "scribe.power,native-uuid-is-not-a-role",
-            _profile.Roles);
+            _profile.Roles)!.Count);
+
+        var selected = AutoScribeRoleSelection.ParsePublication("scribe.power", _profile.Roles);
 
         Assert.NotNull(selected);
         Assert.Equal(1, selected!.Count);

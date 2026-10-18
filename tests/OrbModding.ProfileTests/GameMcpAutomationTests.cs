@@ -32,6 +32,20 @@ public sealed class GameMcpAutomationTests
     }
 
     [Fact]
+    public void A_misspelled_scribe_role_is_described_as_writing_nothing()
+    {
+        var configuration = new SuiteRuntimeConfiguration
+        {
+            AutoScribe = new AutoScribeConfiguration { Roles = "scribe.power,scribe.advancment" },
+        };
+
+        var line = GameMcpAutomationPolicy.AutoScribe(configuration);
+
+        Assert.Contains("'scribe.advancment'", line, StringComparison.Ordinal);
+        Assert.Contains("writes nothing", line, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Every_feature_is_named_in_the_tool_description_so_one_read_explains_the_surface()
     {
         var description = (string)Assert.Single(
