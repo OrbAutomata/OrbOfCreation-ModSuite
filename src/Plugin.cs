@@ -347,7 +347,7 @@ public sealed class Plugin : BaseUnityPlugin
                 stampPath,
                 DateTime.UtcNow);
         }
-        catch (Exception exception) when (!AutomaticSaveBackup.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _automaticSaveBackup = AutomaticSaveBackupStatus.Failed(
                 AutomaticSaveBackupTrigger.FreshInstall,

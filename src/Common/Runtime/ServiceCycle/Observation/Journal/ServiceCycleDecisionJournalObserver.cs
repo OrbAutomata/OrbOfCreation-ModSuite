@@ -3,7 +3,6 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
 
@@ -171,5 +170,5 @@ internal sealed partial class ServiceCycleDecisionJournalObserver : IServiceCycl
     }
 
     private static bool CanContain(Exception exception) =>
-        !BufferedSegmentFailurePolicy.IsProcessFatal(exception);
+        !ExceptionDetail.IsProcessFatal(exception);
 }

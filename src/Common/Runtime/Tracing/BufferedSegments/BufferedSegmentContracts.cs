@@ -157,12 +157,6 @@ internal interface IBufferedSegmentConsumer<TRecord> where TRecord : struct
     void Complete(in BufferedSegmentCompletion completion);
 }
 
-internal static class BufferedSegmentFailurePolicy
-{
-    internal static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
-}
-
 internal static class BufferedSegmentShutdown
 {
     /// <summary>

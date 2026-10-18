@@ -52,7 +52,7 @@ internal ref struct ServiceCycleProfileStageScope
                 probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortRejected);
             return result;
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
             return ServiceCycleProfileMeasurementResult.Faulted;
@@ -73,13 +73,10 @@ internal ref struct ServiceCycleProfileStageScope
             if (measurement.Abandon(in token) == ServiceCycleProfileMeasurementResult.Faulted)
                 probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortRejected);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
         }
     }
-
-    private static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 }
 #endif

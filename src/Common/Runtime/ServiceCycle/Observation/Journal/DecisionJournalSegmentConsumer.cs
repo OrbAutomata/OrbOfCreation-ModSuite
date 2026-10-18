@@ -117,7 +117,7 @@ internal sealed class DecisionJournalSegmentConsumer : IBufferedSegmentConsumer<
                 Volatile.Write(ref _retainedSegments, retained - 1);
                 Interlocked.Increment(ref _evictedSegments);
             }
-            catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
                 Interlocked.CompareExchange(ref _faultException, exception, null);
                 Interlocked.CompareExchange(

@@ -2,7 +2,6 @@ using System;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 #if SERVICE_CYCLE_PROFILE
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 #endif
@@ -163,7 +162,7 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
             failureReason = "the service returned an invalid action result";
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             failureReason = RootMessage(exception);
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
@@ -185,7 +184,7 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
             failureReason = "the service returned an invalid attribution value";
             return ServiceActionJournalAttribution.Failed;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             failureReason = RootMessage(exception);
             return ServiceActionJournalAttribution.Failed;

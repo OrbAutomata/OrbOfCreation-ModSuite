@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using BepInEx.Logging;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
@@ -59,7 +60,7 @@ internal sealed class AutomataDecisionJournalController
                 spec.BlockCount,
                 spec.CheckpointInterval);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             var controller = new AutomataDecisionJournalController(
                 null,

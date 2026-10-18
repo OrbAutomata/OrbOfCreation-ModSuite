@@ -53,7 +53,7 @@ internal sealed class ServiceCycleDecisionJournalRuntime : IDisposable
                 maximumCommittedSegments,
                 blockCount);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             pump.ReleaseDecisionJournalRuntime(_ownership);
             throw;
@@ -123,7 +123,7 @@ internal sealed class ServiceCycleDecisionJournalRuntime : IDisposable
             }
             if (_attached) _state = DecisionJournalRuntimeState.Recording;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             BeginFaultStop();
             return Snapshot;

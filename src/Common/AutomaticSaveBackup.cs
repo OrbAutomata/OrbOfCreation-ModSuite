@@ -294,7 +294,7 @@ internal static class AutomaticSaveBackupStampCodec
                 fileCount);
             return true;
         }
-        catch (Exception exception) when (!AutomaticSaveBackup.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return false;
         }
@@ -380,7 +380,7 @@ internal static class AutomaticSaveBackup
                         trigger = AutomaticSaveBackupTrigger.CorruptStamp;
                     }
                 }
-                catch (Exception exception) when (!IsProcessFatal(exception))
+                catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
                 {
                     trigger = AutomaticSaveBackupTrigger.CorruptStamp;
                     stamp = null;
@@ -431,7 +431,7 @@ internal static class AutomaticSaveBackup
                 trigger,
                 fileSystem);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return AutomaticSaveBackupStatus.Failed(trigger, DescribeFailure(exception));
         }
@@ -473,7 +473,7 @@ internal static class AutomaticSaveBackup
                 {
                     sourceBytes = fileSystem.ReadAllBytes(sourcePath);
                 }
-                catch (Exception exception) when (!IsProcessFatal(exception))
+                catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
                 {
                     throw new IOException(
                         "Could not read active save file '" + fileName + "' cleanly.",
@@ -522,7 +522,7 @@ internal static class AutomaticSaveBackup
                 retention.PrunedCount,
                 retention.Failures);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             if (stagingExists)
             {
@@ -530,7 +530,7 @@ internal static class AutomaticSaveBackup
                 {
                     fileSystem.DeleteDirectory(stagingPath);
                 }
-                catch (Exception cleanupException) when (!IsProcessFatal(cleanupException))
+                catch (Exception cleanupException) when (!ExceptionDetail.IsProcessFatal(cleanupException))
                 {
                     throw new IOException(
                         DescribeFailure(exception) +
@@ -556,7 +556,7 @@ internal static class AutomaticSaveBackup
                 return new RetentionOutcome(0, failures);
             directories = fileSystem.EnumerateDirectories(backupRoot);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             failures.Add("Could not enumerate automatic backup retention: " + DescribeFailure(exception));
             return new RetentionOutcome(0, failures);
@@ -576,7 +576,7 @@ internal static class AutomaticSaveBackup
                 fileSystem.DeleteDirectory(candidates[index]);
                 pruned++;
             }
-            catch (Exception exception) when (!IsProcessFatal(exception))
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
                 failures.Add(
                     "Could not prune owned automatic backup '" +
@@ -610,7 +610,7 @@ internal static class AutomaticSaveBackup
             return string.Equals(NormalizeDirectory(parent), fullRoot, StringComparison.Ordinal) &&
                    IsOwnedBackupName(Path.GetFileName(fullPath));
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return false;
         }
@@ -648,7 +648,7 @@ internal static class AutomaticSaveBackup
             normalized = NormalizeDirectory(path);
             return normalized.Length != 0;
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             normalized = string.Empty;
             return false;
@@ -669,9 +669,6 @@ internal static class AutomaticSaveBackup
         }
         return message;
     }
-
-    internal static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 
     private readonly struct RetentionOutcome
     {

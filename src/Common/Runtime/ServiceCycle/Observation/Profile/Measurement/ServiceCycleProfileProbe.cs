@@ -48,7 +48,7 @@ internal sealed class ServiceCycleProfileProbe
                 return new ServiceCycleProfileStageScope(this, measurement, in token);
             Fail(ServiceCycleProfileProbeFault.MeasurementPortRejected);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
         }
@@ -72,8 +72,5 @@ internal sealed class ServiceCycleProfileProbe
         if (Environment.CurrentManagedThreadId != _ownerThreadId)
             throw new InvalidOperationException("The service-cycle profile probe is owner-thread affine.");
     }
-
-    private static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 }
 #endif

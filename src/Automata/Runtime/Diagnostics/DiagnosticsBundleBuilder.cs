@@ -9,7 +9,6 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Format;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbAutomata;
 
@@ -255,7 +254,7 @@ internal static class DiagnosticsBundleBuilder
                 ReadAllBytes(request.ConfigurationPath, FileShare.ReadWrite),
                 request.Redactor);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             var reason = "The suite configuration was unavailable: " + Describe(exception);
             notices.Add(reason);
@@ -296,7 +295,7 @@ internal static class DiagnosticsBundleBuilder
                         "Identifiable save " + Path.GetFileName(path) +
                         " was copied as " + memberName + ".");
                 }
-                catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+                catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
                 {
                     unavailable++;
                     notices.Add(
@@ -316,7 +315,7 @@ internal static class DiagnosticsBundleBuilder
             notices.Add(identity);
             return members;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             identity = "The active save could not be identified or copied: " + Describe(exception);
             notices.Add(identity);
@@ -347,7 +346,7 @@ internal static class DiagnosticsBundleBuilder
             }
             return BundleMember.Text("BepInEx/LogOutput.log", bytes, request.Redactor);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             var reason = "The BepInEx log was unavailable: " + Describe(exception);
             notices.Add(reason);
@@ -453,7 +452,7 @@ internal static class DiagnosticsBundleBuilder
                     firstTick,
                     lastTick));
             }
-            catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
                 notices.Add("Journal segment " + Path.GetFileName(files[index].Path) +
                     " was unavailable or invalid: " + Describe(exception));

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using BepInEx;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -75,7 +75,7 @@ internal static class AutomataTraceRunRoot
                     candidates.Add(name);
             }
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return 0;
         }
@@ -92,7 +92,7 @@ internal static class AutomataTraceRunRoot
                 Directory.Delete(Path.Combine(root, candidates[index]), recursive: true);
                 removed++;
             }
-            catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
                 // A folder the user is reading, or one the filesystem refuses, is left for the next
                 // launch. Retention is best-effort; it never denies the suite its own recording.
