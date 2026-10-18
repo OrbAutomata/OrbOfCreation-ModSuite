@@ -1,81 +1,67 @@
 using System;
-using System.Collections;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-internal sealed partial class AutoScribeOneShotCraftGameAction
+/// <summary>
+/// The player's own craft press on Scholar > Scribe: the page's queued craft when the recipe is
+/// drawn on one authored page, otherwise the recipe's direct execution under a pinned multi-buy.
+/// </summary>
+internal sealed class AutoScribeOneShotCraftPlayerGameAction
+    : NativeGameAction<CraftingPlayerNativeBindings>
 {
+    private const string Screen = "Scholar > Scribe";
     private const int MxMultiBuy = 1000;
+
+    private static readonly GameActionCodes Codes = new(
+        CraftingPlayerActionResultCodes.WrongThread,
+        CraftingPlayerActionResultCodes.ContractUnavailable,
+        CraftingPlayerActionResultCodes.MutationPermitUnavailable,
+        CraftingPlayerActionResultCodes.PostCommitFault,
+        CraftingPlayerActionResultCodes.VerificationFailed);
+
+    private readonly TypedRegistryResolver _registry;
+
+    internal AutoScribeOneShotCraftPlayerGameAction(
+        TypedRegistryResolver registry,
+        Func<long> readLifecycleEpoch,
+        Func<bool> tryCaptureMutationPermit,
+        Func<string> readOwnershipFailure)
+        : base("One-shot crafting", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out CraftingPlayerNativeBindings? bindings, out string reason) =>
+                CraftingPlayerNativeBindings.TryCreate(out bindings, out reason))
+    {
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+    }
 
     internal CraftingPlayerSubmission Submit(in CraftingPlayerAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_playerBindings is not { } native)
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Scribe", _playerBindingFailure));
-
-        long liveLifecycle;
-        try
-        {
-            liveLifecycle = _readLifecycleEpoch();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
-        }
-        if (liveLifecycle <= 0 || liveLifecycle != action.LifecycleEpoch)
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
-        if (!resolution.IsResolved)
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.RecipeUnavailable,
-                resolution.Format());
-        var recipe = resolution.Value!;
-        try
-        {
-            if (!native.RecipeVisible(recipe))
-                return CraftingPlayerSubmission.Reject(
-                    in action,
-                    CraftingPlayerActionResultCodes.NotVisible,
-                    "The game is not showing this recipe yet.");
-            if (!TryFindPage(native, recipe, out var page, out var pageReason))
-                return CraftingPlayerSubmission.Reject(
-                    in action,
-                    CraftingPlayerActionResultCodes.PageRelationAmbiguous,
-                    pageReason);
-            if (page is not null) return SubmitQueued(in action, native, recipe, page);
-            if (!NativeMultiBuyScope.TryEnter(
-                    action.Max ? MxMultiBuy : 1, out var scope, out var scopeReason))
-                return CraftingPlayerSubmission.Reject(
-                    in action,
-                    CraftingPlayerActionResultCodes.ContractUnavailable,
-                    "The game's multi-buy could not be held for this craft: " + scopeReason);
-            using (scope)
-                return SubmitDirect(in action, native, recipe);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
-        }
+        var request = action;
+        return Admit(action.LifecycleEpoch,
+            outcome => new CraftingPlayerSubmission(outcome, request.RecipeId),
+            native =>
+            {
+                if (!_registry.TryResolveCurrent(request.RecipeId, native.RecipeType,
+                        out var recipe, out var reason))
+                    return CraftingPlayerSubmission.Reject(in request,
+                        CraftingPlayerActionResultCodes.RecipeUnavailable, reason);
+                if (!native.RecipeVisible(recipe))
+                    return CraftingPlayerSubmission.Reject(in request,
+                        CraftingPlayerActionResultCodes.NotVisible,
+                        "The game is not showing this recipe yet.");
+                if (!TryFindPage(native, recipe, out var page, out var pageReason))
+                    return CraftingPlayerSubmission.Reject(in request,
+                        CraftingPlayerActionResultCodes.PageRelationAmbiguous, pageReason);
+                if (page is not null) return SubmitQueued(in request, native, recipe, page);
+                if (!NativeMultiBuyScope.TryEnter(
+                        request.Max ? MxMultiBuy : 1, out var scope, out var scopeReason))
+                    return CraftingPlayerSubmission.Reject(in request,
+                        CraftingPlayerActionResultCodes.ContractUnavailable,
+                        "The game's multi-buy could not be held for this craft: " + scopeReason);
+                using (scope)
+                    return SubmitDirect(in request, native, recipe);
+            });
     }
 
     private CraftingPlayerSubmission SubmitDirect(
@@ -84,75 +70,24 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         object recipe)
     {
         if (native.RecipeTime(recipe) > 0d)
-            return CraftingPlayerSubmission.Reject(
-                in action,
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.PageRelationAmbiguous,
                 "A timed recipe had no stable authored UICraftingPage relation; direct execution was refused.");
         var purchase = native.RecipePurchaseAmount(recipe, BigDouble.One);
-        if (purchase <= BigDouble.Zero)
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.Unaffordable,
-                "The cost of this craft is not met.");
-        if (!native.RecipeCanBuy(recipe))
-            return CraftingPlayerSubmission.Reject(
-                in action,
+        if (purchase <= BigDouble.Zero || !native.RecipeCanBuy(recipe))
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of this craft is not met.");
         var crafted = native.RecipeLevelled(recipe) ? BigDouble.One : purchase;
         var revisionBefore = native.RecipeEffectRevision(recipe);
-        if (!TryPlayerCraftingPermit(in action, out var permitFailure)) return permitFailure;
+        if (!TryPermit(out var refusal)) return new CraftingPlayerSubmission(refusal, action.RecipeId);
 
-        try
-        {
-            native.RecipeExecute(recipe);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            if (RecipeEffectAdvancedBestEffort(native, recipe, revisionBefore))
-                return Verified(
-                    in action,
-                    1,
-                    "The exact recipe advanced its native craft-effect publication before Execute threw.",
-                    CraftingPlayerPostcondition.DirectEffectAdvanced,
-                    crafted);
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.PostCommitFault,
-                "DirectExecute",
-                NativeMutationOutcome.ExecutionThrew,
-                1,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-        }
-        int revisionAfter;
-        try
-        {
-            revisionAfter = native.RecipeEffectRevision(recipe);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.PostCommitFault,
-                "Verification",
-                NativeMutationOutcome.AfterCaptureFailed,
-                1,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-        }
-        if (revisionAfter <= revisionBefore)
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.VerificationFailed,
-                "Verification",
-                NativeMutationOutcome.PostconditionFailed,
-                1,
-                GameActionAnswer.ChangeNotSeen("Scholar > Scribe"));
-        return Verified(
-            in action,
-            1,
-            "The exact recipe advanced its native craft-effect publication.",
-            CraftingPlayerPostcondition.DirectEffectAdvanced,
-            crafted);
+        var outcome = Execute(EntityIdentityFormatter.PlayerName(action.RecipeId),
+            "The exact recipe advanced its native craft-effect publication.", revisionBefore,
+            () => native.RecipeEffectRevision(recipe),
+            () => native.RecipeExecute(recipe),
+            static (before, after) => after > before);
+        return Answer(in action, outcome, CraftingPlayerPostcondition.DirectEffectAdvanced, crafted);
     }
 
     private CraftingPlayerSubmission SubmitQueued(
@@ -164,14 +99,12 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         var queue = native.PageQueue(page);
         var mainType = native.PageMainType(page);
         if (!ReferenceEquals(mainType, native.RecipeMainType(recipe)))
-            return CraftingPlayerSubmission.Reject(
-                in action,
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.PageRelationAmbiguous,
                 "This recipe is not the one the game draws on this page.");
         var mode = native.PageCraftMode(page);
         if (mode is not 0 and not 1)
-            return CraftingPlayerSubmission.Reject(
-                in action,
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.PageRelationAmbiguous,
                 "UICraftingPage craftMode was neither native stack mode 0 nor new-instance mode 1.");
         var previous = native.QueueQuantity(queue, recipe);
@@ -179,201 +112,82 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         if (!TryPressQuantity(
                 native, recipe, previous, levelled && !action.Max ? 1 : MxMultiBuy,
                 out var purchase, out var pressFailure))
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.ContractUnavailable,
-                pressFailure);
+            return CraftingPlayerSubmission.Reject(in action,
+                CraftingPlayerActionResultCodes.ContractUnavailable, pressFailure);
         if (!levelled && !action.Max && purchase > new BigDouble(action.Amount, 0))
             purchase = new BigDouble(action.Amount, 0);
         if (purchase <= BigDouble.Zero)
-            return CraftingPlayerSubmission.Reject(
-                in action,
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of another of this craft is not met.");
         var crafted = levelled ? BigDouble.One : purchase;
         var requestedTotal = previous + (purchase < BigDouble.One ? BigDouble.One : purchase);
-        if (!native.RecipeCanBuyAt(recipe, requestedTotal))
-            return CraftingPlayerSubmission.Reject(
-                in action,
-                CraftingPlayerActionResultCodes.Unaffordable,
-                "The cost of another of this craft is not met.");
-        var totalCost = native.RecipeTotalCost(recipe, previous, purchase);
-        if (!native.CostHasEnough(totalCost))
-            return CraftingPlayerSubmission.Reject(
-                in action,
+        if (!native.RecipeCanBuyAt(recipe, requestedTotal) ||
+            !native.CostHasEnough(native.RecipeTotalCost(recipe, previous, purchase)))
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of another of this craft is not met.");
 
         var existing = mode == 0 ? FindInstance(native, queue, action.RecipeId) : null;
         if (existing is null && !native.QueueHasRoom(queue))
-            return CraftingPlayerSubmission.Reject(
-                in action,
+            return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.QueueFull,
                 "The Manual crafting queue has no empty slot.");
         var previousInstanceQuantity = existing is null
             ? BigDouble.Zero
             : native.InstanceQuantity(existing);
-        if (!TryPlayerCraftingPermit(in action, out var permitFailure)) return permitFailure;
+        if (!TryPermit(out var refusal)) return new CraftingPlayerSubmission(refusal, action.RecipeId);
 
-        var stage = "Payment";
-        var calls = 1;
         object? created = null;
         var instant = false;
-        var admissionKnown = false;
-        try
-        {
-            native.RecipePurchase(recipe, purchase, previous);
-            if (existing is not null)
+        var outcome = Execute(EntityIdentityFormatter.PlayerName(action.RecipeId),
+            "The exact craft reached the Manual crafting queue.", false,
+            () => existing is not null
+                ? native.InstanceQuantity(existing) > previousInstanceQuantity
+                : created is not null && (instant
+                    ? native.InstanceExpired(created)
+                    : ContainsExactInstance(native, queue, created)),
+            () =>
             {
-                stage = "Admission";
-                calls = 2;
-                native.InstanceAddQuantity(existing, purchase);
-                return VerifyStacked(
-                    in action,
-                    native,
-                    existing,
-                    previousInstanceQuantity,
-                    calls,
-                    crafted);
-            }
-
-            stage = "Construction";
-            calls = 2;
-            created = native.ConstructInstance(recipe, purchase);
-            calls = 3;
-            instant = native.InstanceIsInstant(created);
-            admissionKnown = true;
-            if (instant)
-            {
-                stage = "Admission";
-                calls = 4;
-                native.InstanceInstant(created);
-                return VerifyInstant(in action, native, created, calls, crafted);
-            }
-
-            stage = "Initiation";
-            calls = 4;
-            native.InstanceInitiate(created);
-            stage = "Admission";
-            calls = 5;
-            native.QueueAdd(queue, created);
-            return VerifyQueued(
-                in action,
-                native,
-                queue,
-                created,
-                calls,
-                crafted);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            var landed = existing is not null
-                ? InstanceQuantityBestEffort(native, existing) > previousInstanceQuantity
-                : created is not null && admissionKnown && (instant
-                    ? InstanceExpiredBestEffort(native, created)
-                    : ContainsExactInstanceBestEffort(
-                        native, queue, created));
-            if (landed)
-            {
-                return new CraftingPlayerSubmission(
-                    NativeActionOutcome.Commit(
-                        new NativeMutationCallOutcome(calls, 1, 1),
-                        "The exact queued outcome was observed after native code threw."),
-                    action.RecipeId,
-                    existing is not null
-                        ? CraftingPlayerPostcondition.InstanceQuantityIncreased
-                        : instant
-                            ? CraftingPlayerPostcondition.InstantCompleted
-                            : CraftingPlayerPostcondition.QueueAdmitted,
-                    crafted);
-            }
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.PostCommitFault,
-                stage,
-                NativeMutationOutcome.ExecutionThrew,
-                calls,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-        }
-    }
-
-    private CraftingPlayerSubmission VerifyStacked(
-        in CraftingPlayerAction action,
-        CraftingPlayerNativeBindings native,
-        object instance,
-        BigDouble previous,
-        int calls,
-        BigDouble crafted)
-    {
-        if (native.InstanceQuantity(instance) <= previous)
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.VerificationFailed,
-                "Verification",
-                NativeMutationOutcome.PostconditionFailed,
-                calls,
-                "The exact crafting instance quantity did not increase.");
-        return Verified(in action, calls,
-            "The exact crafting instance quantity increased.",
-            CraftingPlayerPostcondition.InstanceQuantityIncreased,
+                native.RecipePurchase(recipe, purchase, previous);
+                if (existing is not null)
+                {
+                    native.InstanceAddQuantity(existing, purchase);
+                    return;
+                }
+                created = native.ConstructInstance(recipe, purchase);
+                instant = native.InstanceIsInstant(created);
+                if (instant)
+                {
+                    native.InstanceInstant(created);
+                    return;
+                }
+                native.InstanceInitiate(created);
+                native.QueueAdd(queue, created);
+            },
+            static (_, landed) => landed);
+        return Answer(in action, outcome,
+            existing is not null
+                ? CraftingPlayerPostcondition.InstanceQuantityIncreased
+                : instant
+                    ? CraftingPlayerPostcondition.InstantCompleted
+                    : CraftingPlayerPostcondition.QueueAdmitted,
             crafted);
     }
 
-    private CraftingPlayerSubmission VerifyInstant(
+    private static CraftingPlayerSubmission Answer(
         in CraftingPlayerAction action,
-        CraftingPlayerNativeBindings native,
-        object instance,
-        int calls,
-        BigDouble crafted)
-    {
-        if (!native.InstanceExpired(instance))
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.VerificationFailed,
-                "Verification",
-                NativeMutationOutcome.PostconditionFailed,
-                calls,
-                "The exact instant crafting instance did not reach native completion.");
-        return Verified(in action, calls,
-            "The exact instant crafting instance reached native completion.",
-            CraftingPlayerPostcondition.InstantCompleted,
-            crafted);
-    }
-
-    private CraftingPlayerSubmission VerifyQueued(
-        in CraftingPlayerAction action,
-        CraftingPlayerNativeBindings native,
-        object queue,
-        object instance,
-        int calls,
-        BigDouble crafted)
-    {
-        if (!ContainsExactInstance(native, queue, instance))
-            return PlayerCraftingFault(
-                in action,
-                CraftingPlayerActionResultCodes.VerificationFailed,
-                "Verification",
-                NativeMutationOutcome.PostconditionFailed,
-                calls,
-                "The exact crafting instance was not admitted to the authored queue.");
-        return Verified(in action, calls,
-            "The exact crafting instance was admitted to the authored queue.",
-            CraftingPlayerPostcondition.QueueAdmitted,
-            crafted);
-    }
-
-    private static CraftingPlayerSubmission Verified(
-        in CraftingPlayerAction action,
-        int calls,
-        string reason,
+        NativeActionOutcome outcome,
         CraftingPlayerPostcondition postcondition,
         BigDouble crafted) =>
-        new CraftingPlayerSubmission(
-            NativeActionOutcome.Commit(new NativeMutationCallOutcome(calls, 1, 1), reason),
-            action.RecipeId,
-            postcondition,
-            crafted);
+        outcome.Verified
+            ? new CraftingPlayerSubmission(outcome, action.RecipeId, postcondition, crafted)
+            : new CraftingPlayerSubmission(outcome, action.RecipeId);
 
+    /// <summary>
+    /// How many crafts one press buys. The game's own purchase quantity reads the global multi-buy
+    /// itself, so the read runs under the multiplier the press will use.
+    /// </summary>
     private static bool TryPressQuantity(
         CraftingPlayerNativeBindings native,
         object recipe,
@@ -452,95 +266,5 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             if (ReferenceEquals(values[index], instance))
                 return true;
         return false;
-    }
-
-    private static bool ContainsExactInstanceBestEffort(
-        CraftingPlayerNativeBindings native,
-        object queue,
-        object instance)
-    {
-        try
-        {
-            return ContainsExactInstance(native, queue, instance);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    private static BigDouble InstanceQuantityBestEffort(
-        CraftingPlayerNativeBindings native,
-        object instance)
-    {
-        try
-        {
-            return native.InstanceQuantity(instance);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return BigDouble.NaN;
-        }
-    }
-
-    private static bool InstanceExpiredBestEffort(
-        CraftingPlayerNativeBindings native,
-        object instance)
-    {
-        try
-        {
-            return native.InstanceExpired(instance);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    private static bool RecipeEffectAdvancedBestEffort(
-        CraftingPlayerNativeBindings native,
-        object recipe,
-        int before)
-    {
-        try
-        {
-            return native.RecipeEffectRevision(recipe) > before;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    private bool TryPlayerCraftingPermit(
-        in CraftingPlayerAction action,
-        out CraftingPlayerSubmission failure)
-    {
-        if (TryCaptureMutationPermit(out var reason))
-        {
-            failure = default;
-            return true;
-        }
-        failure = CraftingPlayerSubmission.Reject(
-            in action,
-            CraftingPlayerActionResultCodes.MutationPermitUnavailable,
-            reason);
-        return false;
-    }
-
-    private static CraftingPlayerSubmission PlayerCraftingFault(
-        in CraftingPlayerAction action,
-        ServiceActionResultCode code,
-        string stage,
-        NativeMutationOutcome outcome,
-        int calls,
-        string reason)
-    {
-        var exactReason = "One-shot crafting " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason;
-        return new CraftingPlayerSubmission(
-            NativeActionOutcome.Fault(
-                code, outcome, new NativeMutationCallOutcome(calls, 1, 0), exactReason),
-            action.RecipeId);
     }
 }

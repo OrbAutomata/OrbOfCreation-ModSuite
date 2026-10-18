@@ -46,7 +46,7 @@ never requests equal-level stock churn: frontier crafts are needed for uncovered
 replace dead weaker stock for free when capacity is full. Auto Scribe never calls `Discard()` and
 owns no cleanup action.
 
-`AutoScribeOneShotCraftGameAction` owns the only mutation boundary. It resolves one complete
+`AutoScribeOneShotCraftGameAction` owns Auto Scribe's mutation boundary. It resolves one complete
 lifecycle-scoped binding set before use, re-resolves the action's recipe, Scroll, enchantment,
 registry, and queue identities live, proves the complete role relationship, then preflights
 visibility, queue room, competing supply, a valid native target, affordability, exact cost, and
@@ -72,10 +72,10 @@ Live identity resolution preserves the registry's retryability verdict. `Registr
 health, warn once per failure state, and remain visible until verified recovery or lifecycle
 replacement.
 
-The same `AutoScribeOneShotCraftGameAction` also owns the manual one-shot player capability exposed
-as `game_craft`. Its player overload leaves the Auto Scribe planner and mutation boundary unchanged, but
-widens exact live revalidation to every concrete `CraftingRecipeSO`: native direct `Execute`, or the
-authored page's stack/new/instant queue route. MCP success returns the named recipe plus the
+`AutoScribeOneShotCraftPlayerGameAction` owns the manual one-shot player capability exposed as
+`game_craft`, beside the Auto Scribe boundary and under the same crafting permit. It revalidates
+every concrete `CraftingRecipeSO` live: native direct `Execute`, or the authored page's
+stack/new/instant queue route. MCP success returns the named recipe plus the
 smallest observable delta: queue length before and after, or direct completion. Payment accounting
 is not a player-action success gate. Direct execution verifies the recipe's monotonic native
 `craft` publication; stacking verifies a quantity increase; new work verifies exact-instance queue

@@ -24,6 +24,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
         return new Runtime(
             _dependencies,
             adapters.GameAction,
+            adapters.PlayerAction,
             adapters.Health,
             registration,
             context.LifecycleValue,
@@ -34,6 +35,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
     {
         private readonly AutoScribeFeatureDependencies _dependencies;
         private readonly AutoScribeOneShotCraftGameAction _gameAction;
+        private readonly AutoScribeOneShotCraftPlayerGameAction _playerAction;
         private readonly AutoScribeActionHealth _health;
         private readonly ServiceRegistration<AutoScribeCycleState, AutoScribeCycleAction> _registration;
         private readonly long _lifecycle;
@@ -43,6 +45,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
         internal Runtime(
             AutoScribeFeatureDependencies dependencies,
             AutoScribeOneShotCraftGameAction gameAction,
+            AutoScribeOneShotCraftPlayerGameAction playerAction,
             AutoScribeActionHealth health,
             ServiceRegistration<AutoScribeCycleState, AutoScribeCycleAction> registration,
             long lifecycle,
@@ -50,6 +53,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
         {
             _dependencies = dependencies;
             _gameAction = gameAction;
+            _playerAction = playerAction;
             _health = health;
             _registration = registration;
             _lifecycle = lifecycle;
@@ -75,6 +79,7 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
             ConfigGeneration configurationGeneration)
         {
             _gameAction.InvalidateLifecycle();
+            _playerAction.InvalidateLifecycle();
             _health.InvalidateLifecycle();
             _diagnostics?.ObserveLifecycle(nativeLifecycle, configurationGeneration);
         }
@@ -82,18 +87,17 @@ internal sealed class AutoScribeServiceCycleFeature : IAutomataServiceCycleFeatu
         public void DisposeDiagnostics() => _diagnostics = null;
 
         internal CraftingPlayerSubmission TryExecuteGameMcp(in CraftingPlayerAction action) =>
-            _gameAction.Submit(in action);
+            _playerAction.Submit(in action);
 
-        internal bool PlayerCraftingBindingsAvailable =>
-            _gameAction.PlayerCraftingBindingsAvailable;
+        internal bool PlayerCraftingBindingsAvailable => _playerAction.BindingsAvailable;
 
-        internal string PlayerCraftingBindingFailure =>
-            _gameAction.PlayerCraftingBindingFailure;
+        internal string PlayerCraftingBindingFailure => _playerAction.BindingFailure;
 
         public void DisposeRegistration()
         {
             _registration.Dispose();
             _gameAction.Dispose();
+            _playerAction.Dispose();
         }
     }
 }

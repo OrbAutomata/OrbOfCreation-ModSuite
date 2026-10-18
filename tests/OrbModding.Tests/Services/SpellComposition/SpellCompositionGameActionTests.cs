@@ -8,6 +8,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.SpellComposition;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class SpellCompositionGameActionTests : IDisposable
 {
     private const long Epoch = 73;
@@ -255,5 +256,6 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     {
         IdScriptableObject.RuntimeLookup.Clear();
         Player.Current = new Player();
+        GameActionFaultLog.ConfigureLog(null);
     }
 }

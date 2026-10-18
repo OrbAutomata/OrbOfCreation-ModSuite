@@ -248,7 +248,9 @@ that refusal carries the one attempt; any other stop after a press is an attempt
 that throws partway is put back by the shell when it supplies a put-back: the call's exception
 stays the cause its log reference names, a throw from the put-back is logged in the same entry, and
 the answer says so when the put-back does not read back. Zero attempts means no press was made. A
-GameAction not yet on the shell is migration debt.
+press is a press of the player's controls: pinning the game's multi-buy multiplier around one is
+scaffolding, guarded by the scope's verified restore and its suite-wide quarantine, and counts no
+attempt. A GameAction not yet on the shell is migration debt.
 
 Mutation entry points, in strict order of preference:
 

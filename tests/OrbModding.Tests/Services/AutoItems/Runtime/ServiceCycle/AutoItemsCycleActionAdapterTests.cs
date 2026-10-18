@@ -10,8 +10,11 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems.Runtime.ServiceCycle;
 
-public sealed class AutoItemsCycleActionAdapterTests
+[Collection(GameActionFaultLogCollection.Name)]
+public sealed class AutoItemsCycleActionAdapterTests : IDisposable
 {
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
+
     [Fact]
     public void DirectAdapterUsesOnlyThePinnedConfigurationAndRejectsDisabledIntent()
     {
@@ -131,7 +134,6 @@ public sealed class AutoItemsCycleActionAdapterTests
         finally
         {
             global::TargetingManager.IsTargetingFault = null;
-            GameActionFaultLog.ConfigureLog(null);
         }
     }
 

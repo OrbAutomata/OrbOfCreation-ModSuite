@@ -7,15 +7,18 @@ internal sealed class AutoScribeServiceAdapterComposition
     private AutoScribeServiceAdapterComposition(
         IAutomataServiceDefinition<AutoScribeCycleState, AutoScribeCycleAction> definition,
         AutoScribeOneShotCraftGameAction gameAction,
+        AutoScribeOneShotCraftPlayerGameAction playerAction,
         AutoScribeActionHealth health)
     {
         Definition = definition;
         GameAction = gameAction;
+        PlayerAction = playerAction;
         Health = health;
     }
 
     internal IAutomataServiceDefinition<AutoScribeCycleState, AutoScribeCycleAction> Definition { get; }
     internal AutoScribeOneShotCraftGameAction GameAction { get; }
+    internal AutoScribeOneShotCraftPlayerGameAction PlayerAction { get; }
     internal AutoScribeActionHealth Health { get; }
 
     internal static AutoScribeServiceAdapterComposition Create(
@@ -26,6 +29,11 @@ internal sealed class AutoScribeServiceAdapterComposition
         var gameAction = new AutoScribeOneShotCraftGameAction(
             dependencies.RegistryResolver,
             dependencies.Profile,
+            dependencies.ReadLifecycleEpoch,
+            dependencies.TryCaptureMutationPermit,
+            dependencies.ReadOwnershipFailure);
+        var playerAction = new AutoScribeOneShotCraftPlayerGameAction(
+            dependencies.RegistryResolver,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
@@ -41,6 +49,7 @@ internal sealed class AutoScribeServiceAdapterComposition
                 dependencies.OwnsActionFamily,
                 () => gameAction.IsQuarantined),
             gameAction,
+            playerAction,
             health);
     }
 }

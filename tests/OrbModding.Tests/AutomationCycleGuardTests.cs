@@ -6,6 +6,7 @@ using Xunit;
 
 namespace OrbModding.Tests;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutomationCycleGuardTests : IDisposable
 {
     private readonly List<string> _warnings = new();
