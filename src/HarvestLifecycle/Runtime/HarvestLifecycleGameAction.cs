@@ -65,9 +65,9 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         {
             if (!TryResolve(action.ElementId, native.ElementType, out var element, out var reason))
                 return Reject(HarvestLifecycleActionResultCodes.IdentityUnavailable, reason);
-            if (!TryResolve(HarvestLifecycleNativeBindings.ActiveElementsId,
+            if (!TryResolve(KnownEntities.ActiveHarvestElements.Uuid,
                     native.ElementListType, out var elementList, out reason) ||
-                !TryResolve(HarvestLifecycleNativeBindings.ActiveActionsId,
+                !TryResolve(KnownEntities.ActiveHarvestActions.Uuid,
                     native.ActionListType, out var actionList, out reason))
                 return Reject(HarvestLifecycleActionResultCodes.ContractUnavailable, reason);
 

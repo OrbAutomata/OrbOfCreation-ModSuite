@@ -97,12 +97,12 @@ public sealed class TypedRegistryResolver
 
     private readonly Func<long> _readGeneration;
     private readonly Func<TypedRegistrySourceSnapshot> _readRegistry;
-    private readonly Func<object, Guid?> _readStableUuid;
+    private readonly Func<object, Guid> _readStableUuid;
 
     public TypedRegistryResolver(
         Func<long> readGeneration,
         Func<TypedRegistrySourceSnapshot> readRegistry,
-        Func<object, Guid?> readStableUuid)
+        Func<object, Guid> readStableUuid)
     {
         _readGeneration = readGeneration ?? throw new ArgumentNullException(nameof(readGeneration));
         _readRegistry = readRegistry ?? throw new ArgumentNullException(nameof(readRegistry));
@@ -223,7 +223,7 @@ public sealed class TypedRegistryResolver
                 $"registered UUID resolves to {value.GetType().FullName ?? value.GetType().Name}, not {expectedType.FullName ?? expectedType.Name}");
         }
 
-        Guid? resolvedUuid;
+        Guid resolvedUuid;
         try
         {
             resolvedUuid = _readStableUuid(value);
@@ -242,7 +242,7 @@ public sealed class TypedRegistryResolver
                 generation,
                 "stable UUID accessor failed: " + ex.GetBaseException().Message);
         }
-        if (!resolvedUuid.HasValue || resolvedUuid.Value == Guid.Empty || resolvedUuid.Value != uuid)
+        if (resolvedUuid == Guid.Empty || resolvedUuid != uuid)
         {
             return Result(
                 uuid,
@@ -255,7 +255,7 @@ public sealed class TypedRegistryResolver
                     EvidenceSource.StableIdentity |
                     EvidenceSource.RuntimeRegistry),
                 generation,
-                $"registered value stable UUID {resolvedUuid?.ToString() ?? "unavailable"} does not match key {uuid}");
+                $"registered value stable UUID {resolvedUuid} does not match key {uuid}");
         }
 
         return EnsureCurrent(Result(

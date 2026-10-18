@@ -195,7 +195,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         var readEpoch = epoch ?? (() => Epoch);
         var resolver = new TypedRegistryResolver(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IHasGuid item ? item.GetGuid() : null);
+            value => value is IHasGuid item ? item.GetGuid() : Guid.Empty);
         return new EquipmentLoadoutGameAction(readEpoch, permit ?? (() => true),
             static () => "EquipmentLoadout ownership was revoked.",
             includeContract: includeContract, registry: resolver);

@@ -213,7 +213,7 @@ public sealed class GenericLevelGameActionTests
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new GenericLevelGameAction(() => Epoch, static () => true,
             static () => "GenericLevel ownership was revoked.",
             includeContract: includeContract, registry: resolver);

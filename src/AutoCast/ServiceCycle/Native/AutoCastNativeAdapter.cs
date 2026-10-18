@@ -722,7 +722,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
         var liveId = recipe is null
             ? Guid.Empty
-            : RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(recipe) ?? Guid.Empty;
+            : RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(recipe);
         if (liveId != spellRecipeId)
         {
             occupant = liveId;

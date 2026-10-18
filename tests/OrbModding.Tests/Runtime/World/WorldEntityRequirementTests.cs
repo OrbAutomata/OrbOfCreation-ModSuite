@@ -381,7 +381,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });
         gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UpgradeRequirement
         {
-            item = new global::UpgradeSO { ThrowOnGetGuid = true },
+            item = new global::UpgradeSO { GetGuidFailure = new InvalidOperationException("GetGuid failed") },
             reqType = Requirements.UpgradeRequirementType.AtLeast,
         });
 

@@ -238,7 +238,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
         if (recipe is not null) _registry.Add(recipe.GetGuid(), recipe);
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new CraftingInstanceLifecycleGameAction(
             () => Epoch,
             static () => true,

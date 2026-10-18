@@ -251,6 +251,24 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
         Assert.Contains("enchant effects", report.FirstFailure, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Only a classified native failure degrades the category. Any other throw is a defect, and it
+    /// leaves the reader so the whole world pass faults instead of publishing a partial world.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedNativeThrowFaultsThePassInsteadOfDegradingTheCategory()
+    {
+        Seed();
+        var failure = new NullReferenceException("guid container was destroyed");
+        global::StructureSO.All[0].GetGuidFailure = failure;
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 3 };
+
+        var thrown = Assert.Throws<NullReferenceException>(
+            () => Reader().Collect(new HashSet<Guid>(), frame));
+
+        Assert.Same(failure, thrown);
+    }
+
     private static void AssertRecipe(
         in WorldScribeRecipe row,
         Guid recipeId,

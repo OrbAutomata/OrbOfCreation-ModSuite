@@ -8,11 +8,6 @@ namespace OrbAutomata;
 /// <summary>Exact v1.0.5 binding set for the active harvest element/action lists.</summary>
 internal sealed class HarvestLifecycleNativeBindings
 {
-    internal static readonly Guid ActiveElementsId =
-        new("5a9f8001-3ae2-4799-86b6-5198763e0fe2");
-    internal static readonly Guid ActiveActionsId =
-        new("e4a9d4c3-61cc-4f94-bab9-7bc8e841cc32");
-
     internal static readonly string[] ContractIds =
     {
         "harvest-lifecycle.element.type-action",

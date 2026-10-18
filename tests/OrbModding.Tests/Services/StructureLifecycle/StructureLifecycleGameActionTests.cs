@@ -97,7 +97,7 @@ public sealed class StructureLifecycleGameActionTests
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new StructureLifecycleGameAction(
             () => Epoch,
             static () => true,

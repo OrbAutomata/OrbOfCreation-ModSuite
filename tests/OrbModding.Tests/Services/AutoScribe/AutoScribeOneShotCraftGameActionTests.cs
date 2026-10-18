@@ -442,7 +442,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var resolver = new TypedRegistryResolver(
             () => _lifecycle,
             readRegistry,
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new AutoScribeOneShotCraftGameAction(
             resolver,
             _profile,

@@ -75,7 +75,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                 nativeRegistryReads++;
                 return TypedRegistrySourceSnapshot.NotReady("not needed while disabled");
             },
-            _ => null);
+            _ => Guid.Empty);
         var runtimeDiagnostics = new RuntimeDiagnosticsRegistry();
         using var runtime = CreateRuntime(
             configuration.Snapshot(),
@@ -128,7 +128,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             new TypedRegistryResolver(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
-                _ => null));
+                _ => Guid.Empty));
         var snapshot = new MutableConfiguration().Snapshot();
 
         runtime.PublishSavedConfiguration(snapshot, new ConfigGeneration(1));
@@ -155,7 +155,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                 new TypedRegistryResolver(
                     () => lifecycle,
                     () => TypedRegistrySourceSnapshot.NotReady("unused"),
-                    _ => null)));
+                    _ => Guid.Empty)));
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                 new TypedRegistryResolver(
                     () => lifecycle,
                     () => TypedRegistrySourceSnapshot.NotReady("unused"),
-                    _ => null),
+                    _ => Guid.Empty),
                 runtimeDiagnostics: runtimeDiagnostics,
                 observability: new AutomataServiceCycleObservabilityOptions(
                     default,
@@ -210,7 +210,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             new TypedRegistryResolver(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
-                _ => null),
+                _ => Guid.Empty),
             observability: new AutomataServiceCycleObservabilityOptions(
                 default,
                 new AutomataDecisionJournalOptions(
@@ -250,7 +250,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             new TypedRegistryResolver(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
-                _ => null),
+                _ => Guid.Empty),
             observability: new AutomataServiceCycleObservabilityOptions(
                 default,
                 new AutomataDecisionJournalOptions(

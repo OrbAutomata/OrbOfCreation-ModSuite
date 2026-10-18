@@ -95,7 +95,7 @@ public sealed class GameMcpReturnToMenuTests
         var resolver = new TypedRegistryResolver(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
-            _ => null);
+            _ => Guid.Empty);
         var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(

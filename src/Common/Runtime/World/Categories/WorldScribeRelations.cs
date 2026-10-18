@@ -243,12 +243,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                 skipped: 0,
                 firstFailure: string.Empty);
         }
-        // A compiled accessor hands a native fault straight back, where MethodInfo.Invoke used to
-        // deliver every one of them wrapped as TargetInvocationException. Degrading the category on
-        // any of them keeps the fail-closed answer the reflective path gave — and keeps it at the
-        // category, which is where the shared reader already puts it, rather than letting one
-        // transient native throw out into the pass.
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(

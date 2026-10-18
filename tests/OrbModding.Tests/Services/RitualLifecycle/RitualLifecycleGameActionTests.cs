@@ -221,7 +221,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new RitualLifecycleGameAction(() => Epoch, static () => true,
             static () => "RitualLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

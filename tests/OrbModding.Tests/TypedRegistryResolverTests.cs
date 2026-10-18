@@ -193,6 +193,30 @@ public sealed class TypedRegistryResolverTests
             resolver.Resolve(Guid.Empty, typeof(Entity)).Status);
     }
 
+    /// <summary>
+    /// Only the classified native failures become a refusal. Any other throw from the game's identity
+    /// read is a defect and reaches the action boundary as itself, so it is reported as a fault.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedIdentityThrowEscapesResolutionAsItself()
+    {
+        var uuid = Guid.NewGuid();
+        var failure = new NullReferenceException("guid container was destroyed");
+        var structure = new StructureSO { GetGuidFailure = failure };
+        IdScriptableObject.RuntimeLookup[uuid] = structure;
+        try
+        {
+            var thrown = Assert.Throws<NullReferenceException>(
+                () => TypedRegistryResolver.Shared.Resolve(uuid, typeof(StructureSO)));
+
+            Assert.Same(failure, thrown);
+        }
+        finally
+        {
+            IdScriptableObject.RuntimeLookup.Remove(uuid);
+        }
+    }
+
     private static TypedRegistryResolver Resolver(
         Func<TypedRegistrySourceSnapshot> readRegistry,
         Func<long>? readGeneration = null) =>

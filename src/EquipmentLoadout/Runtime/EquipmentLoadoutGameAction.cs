@@ -64,28 +64,28 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
             return false;
         }
         var id = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(candidate);
-        if (id is null || id == Guid.Empty)
+        if (id == Guid.Empty)
         {
             reason = "A saved artifact has no stable identity.";
             return false;
         }
-        var resolution = _registry.Resolve(id.Value, native.EquipmentType);
+        var resolution = _registry.Resolve(id, native.EquipmentType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             !ReferenceEquals(resolution.Value, candidate))
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id) +
                 " is not the current artifact instance.";
             return false;
         }
         if (!native.IsCreated(candidate))
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) + " has not been created.";
+            reason = EntityIdentityFormatter.PlayerName(id) + " has not been created.";
             return false;
         }
         var maximum = Math.Max(native.MaximumStacks(candidate), 0);
         if (quantity <= 0 || quantity > maximum)
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) + " stores " + quantity +
+            reason = EntityIdentityFormatter.PlayerName(id) + " stores " + quantity +
                 " stacks, but the live maximum is " + maximum + ".";
             return false;
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 
 namespace OrbModding.Common;
@@ -10,9 +11,9 @@ namespace OrbModding.Common;
 /// </summary>
 /// <remarks>
 /// Binding is lazy because the game assembly is not guaranteed to be loaded at plugin construction.
-/// Once the exact public declarations resolve, both mutation-grade typed resolution and the
-/// lifecycle identity catalog use these same members. A shape mismatch is terminal for the current
-/// process; an unloaded type or null registry is merely not ready yet.
+/// Once the exact public declarations resolve, they are compiled once, and both mutation-grade typed
+/// resolution and the lifecycle identity catalog read through those same delegates. A shape mismatch
+/// is terminal for the current process; an unloaded type or null registry is merely not ready yet.
 /// </remarks>
 internal sealed class RuntimeIdentityRegistryBinding
 {
@@ -23,8 +24,9 @@ internal sealed class RuntimeIdentityRegistryBinding
 
     private readonly Func<Type?> _resolveIdentityType;
     private readonly bool _requireStableIdentityContract;
-    private FieldInfo? _runtimeLookup;
-    private MethodInfo? _getGuid;
+    private Func<IDictionary?>? _runtimeLookup;
+    private MethodInfo? _getGuidMethod;
+    private Func<object, Guid>? _getGuid;
     private string? _contractFailure;
 
     internal RuntimeIdentityRegistryBinding(
@@ -64,17 +66,19 @@ internal sealed class RuntimeIdentityRegistryBinding
                 return TypedRegistrySourceSnapshot.ContractUnavailable(_contractFailure);
             }
 
-            _runtimeLookup = lookup;
-            _getGuid = getGuid;
+            _getGuidMethod = getGuid;
+            _getGuid = getGuid is null ? null : Compile(getGuid);
+            _runtimeLookup = Expression.Lambda<Func<IDictionary?>>(
+                Expression.Convert(Expression.Field(null, lookup!), typeof(IDictionary))).Compile();
         }
 
-        return _runtimeLookup.GetValue(null) is IDictionary registry
+        return _runtimeLookup() is { } registry
             ? TypedRegistrySourceSnapshot.Ready(registry)
             : TypedRegistrySourceSnapshot.NotReady(
                 "native IdScriptableObject.RuntimeLookup is not ready");
     }
 
-    internal Guid? ReadStableUuid(object value)
+    internal Guid ReadStableUuid(object value)
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
         if (_getGuid is null)
@@ -86,7 +90,18 @@ internal sealed class RuntimeIdentityRegistryBinding
                     : "this identity binding does not read IdScriptableObject.GetGuid");
         }
 
-        return _getGuid.Invoke(value, Array.Empty<object>()) is Guid uuid ? uuid : null;
+        return _getGuid(value);
+    }
+
+    /// <summary>
+    /// The compiled identity read for <paramref name="type"/>, through <see cref="StableUuidMethod"/>'s
+    /// accepted shapes. Every <c>IdScriptableObject</c> shares the one delegate this binding compiled.
+    /// </summary>
+    internal Func<object, Guid>? StableUuid(Type type)
+    {
+        var method = StableUuidMethod(type);
+        if (method is null) return null;
+        return method == _getGuidMethod ? _getGuid : Compile(method);
     }
 
     /// <summary>
@@ -106,8 +121,15 @@ internal sealed class RuntimeIdentityRegistryBinding
         var identityType = _resolveIdentityType();
         if (method is null || method.ReturnType != typeof(Guid) || identityType is null) return null;
         if (method.DeclaringType != identityType) return method;
-        if (_getGuid is null) Read();
-        return _getGuid;
+        if (_getGuidMethod is null) Read();
+        return _getGuidMethod;
+    }
+
+    private static Func<object, Guid> Compile(MethodInfo getGuid)
+    {
+        var source = Expression.Parameter(typeof(object), "source");
+        return Expression.Lambda<Func<object, Guid>>(
+            Expression.Call(Expression.Convert(source, getGuid.DeclaringType!), getGuid), source).Compile();
     }
 
     internal static bool HasExactRuntimeLookupContract(FieldInfo? field, Type idType)
