@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using OrbModding.Common;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,6 +18,18 @@ internal static class NativeViewAdapter
     private static readonly object Gate = new();
     private static readonly Dictionary<Type, NativeButtonContract> ButtonContracts = new();
     private static readonly Dictionary<Type, NativeViewContract> ViewContracts = new();
+    private static Action<string>? _failureLog;
+    private static bool _failureReported;
+
+    /// <summary>
+    /// Names where the first failure to show, hide or read a native view is reported. Every later
+    /// one has the same cause, a view contract that drifted, so only the first is written.
+    /// </summary>
+    internal static void ConfigureFailureLog(Action<string>? log)
+    {
+        _failureLog = log;
+        _failureReported = false;
+    }
     public static bool TryCaptureButtonStateVisuals(
         out NativeButtonStateVisualPrimitives? primitives,
         out string reason)
@@ -260,8 +273,9 @@ internal static class NativeViewAdapter
         {
             return GetViewContract(view.GetType()).IsActive.Invoke(view, null) as bool? == true;
         }
-        catch
+        catch (Exception ex)
         {
+            ReportFailure("read whether", view, ex);
             return false;
         }
     }
@@ -273,7 +287,18 @@ internal static class NativeViewAdapter
             if (!IsAlive(view)) return;
             GetViewContract(view.GetType()).SetActive.Invoke(view, new object[] { active });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            ReportFailure(active ? "show" : "hide", view, ex);
+        }
+    }
+
+    private static void ReportFailure(string what, object view, Exception exception)
+    {
+        if (_failureReported || _failureLog is not { } log) return;
+        _failureReported = true;
+        log($"Mod Config could not {what} the game's {view.GetType().Name} view, so the screen beside " +
+            $"the Mods tab may be wrong until the game redraws it: {ExceptionDetail.Describe(exception)}");
     }
 
     /// <summary>

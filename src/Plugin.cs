@@ -196,6 +196,8 @@ public sealed class Plugin : BaseUnityPlugin
         GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
         GameLifecycleMonitor.Shared.ConfigureFailureLog(message => Logger.LogError(message));
         GameplayInvalidationBus.Shared.ConfigureFailureLog(message => Logger.LogError(message));
+        NativeViewAdapter.ConfigureFailureLog(message => Logger.LogWarning(message));
+        SteamKeyboardBridge.ConfigureFailureLog(message => Logger.LogWarning(message));
         EntityIdentityCatalog.Shared.Reset(GameLifecycleMonitor.Shared.Current.Generation);
 
         RunAutomaticSaveBackup();
