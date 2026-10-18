@@ -227,8 +227,9 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            var observed = ReadStacksBestEffort(native, list, target);
-            if (observed >= 0 && OutcomeMatches(action.Kind, beforeStacks, observed, requested))
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => Math.Max(native.Stacks(list, target), 0), IsExpected, out var observed) &&
+                OutcomeMatches(action.Kind, beforeStacks, observed, requested))
                 return Verified();
             return Fault(in action, EquipmentLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -252,13 +253,6 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
     private static bool OutcomeMatches(EquipmentLoadoutActionKind kind,
         int before, int after, int requested) =>
         after == ExpectedStacks(kind, before, requested);
-
-    private static int ReadStacksBestEffort(
-        EquipmentLoadoutNativeBindings native, object list, object target)
-    {
-        try { return Math.Max(native.Stacks(list, target), 0); }
-        catch (Exception exception) when (IsExpected(exception)) { return -1; }
-    }
 
     private static EquipmentLoadoutSubmission Verified() =>
         new(EquipmentLoadoutPreflight.Proceeded, EquipmentLoadoutNativeStage.Verification,
