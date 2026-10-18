@@ -73,11 +73,18 @@ the three sharing percentages, artifact/alchemy enablement, and diagnostics.
 ## Safety and lifecycle
 
 The game remains authoritative at the action boundary. Spell and alchemy grants
-must produce the expected saved-XP transition. Artifact grants predict the
-native `ExperienceContainer` level and residual-XP transition on a clone, then
-verify mastery, container, and saved XP together. A throw, no-op, partial,
-unexpected, unsaved, or unobservable mutation faults the action rather than
-claiming success.
+verify that saved mastery XP increased. Artifact grants run the native
+`ExperienceContainer` gain, apply the levels it reports, write its residual XP
+back to the artifact, and verify that the container's level or XP advanced. A
+no-op or unobservable mutation faults the action rather than claiming success;
+a throw after the native call is a fault unless that progress is visible.
+
+The grant path binds every native member once, as one complete set; a missing
+member disables all three domains and names that contract. The four patches
+read their sources through their own set bound at install. If that set is
+incomplete, Mentor logs the missing contract and records no earned XP. A hook
+never throws back into the game: an unexpected exception drops that one
+observation and is logged once per install.
 
 Mastery plus the relevant spellbook, artifact-workshop, or alchemy view must be
 available before that domain plans work. Scene, save-load, reset, NG+, and

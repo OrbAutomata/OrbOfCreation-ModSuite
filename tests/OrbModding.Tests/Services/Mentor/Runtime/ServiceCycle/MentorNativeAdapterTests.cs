@@ -75,8 +75,76 @@ public sealed class MentorNativeAdapterTests : IDisposable
 
         Assert.True(result.Verified);
         Assert.Equal(new BigDouble(5), equipment.masteryXp);
-        Assert.Equal(new BigDouble(5), equipment.GetExperienceElement().GetExperience());
+        Assert.Equal(new BigDouble(5), ((ExperienceContainer)equipment.GetExperienceElement()).GetExperience());
         Assert.Equal(2, equipment.masteryLevel);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void Every_missing_member_disables_the_complete_mentor_binding_set()
+    {
+        foreach (var missing in MentorNativeBindings.ContractIds)
+        {
+            IdScriptableObject.RuntimeLookup.Clear();
+            var spell = new SpellRecipeSO
+            {
+                uuid = Recipient.ToString("D"),
+                discovered = true,
+                masteryLevel = 2,
+            };
+            IdScriptableObject.RuntimeLookup[Recipient] = spell;
+            using var adapter = new MentorNativeAdapter(includeContract: id => id != missing);
+            var action = Action(MasteryExperienceDomain.Spell, 5);
+
+            var result = adapter.Grant(in action);
+
+            Assert.True(
+                result.Code == CommonActionResultCodes.AdapterFault &&
+                result.Reason.Contains(missing, StringComparison.Ordinal),
+                missing + " did not disable the set: " + result.Reason);
+            Assert.Equal(0, spell.MasteryGrantCalls);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AnUnexpectedGameThrowWhileRevalidatingARecipientEscapesInsteadOfBecomingAContractFault()
+    {
+        var spell = new SpellRecipeSO
+        {
+            uuid = Recipient.ToString("D"),
+            discovered = true,
+            masteryLevel = 2,
+            DiscoveredReadFailure = new NullReferenceException("injected discovery read failure"),
+        };
+        IdScriptableObject.RuntimeLookup[Recipient] = spell;
+        using var adapter = new MentorNativeAdapter();
+        var action = Action(MasteryExperienceDomain.Spell, 5);
+
+        Assert.Throws<NullReferenceException>(() => adapter.Grant(in action));
+        Assert.Equal(0, spell.MasteryGrantCalls);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AnExpectedGameFailureWhileRevalidatingARecipientIsAContractFaultBeforeAnyGrant()
+    {
+        var spell = new SpellRecipeSO
+        {
+            uuid = Recipient.ToString("D"),
+            discovered = true,
+            masteryLevel = 2,
+            DiscoveredReadFailure = new InvalidOperationException("injected discovery read failure"),
+        };
+        IdScriptableObject.RuntimeLookup[Recipient] = spell;
+        using var adapter = new MentorNativeAdapter();
+        var action = Action(MasteryExperienceDomain.Spell, 5);
+
+        var result = adapter.Grant(in action);
+
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal("injected discovery read failure", result.Reason);
+        Assert.Equal(0, spell.MasteryGrantCalls);
     }
 
     private static MentorCycleAction Action(

@@ -348,6 +348,40 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         Assert.Equal(AutoSpellLevelCapability.All, all);
     }
 
+    [Fact]
+    public void Every_missing_member_disables_the_complete_spell_level_binding_set()
+    {
+        foreach (var missing in SpellLevelNativeBindings.ContractIds)
+        {
+            ResetNativeState();
+            var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+            var levels = new SpellLevelNativeAdapter(null, null, id => id != missing);
+
+            var result = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+            Assert.True(
+                result.Disposition == ServiceActionDisposition.Faulted &&
+                result.Code == CommonActionResultCodes.AdapterFault &&
+                result.Reason.Contains(missing, StringComparison.Ordinal),
+                missing + " did not disable the set: " + result.Reason);
+            Assert.Equal(1, spell.masteryLevel);
+            Assert.Equal(0, spell.GetLevelCost().PerformCalls);
+            Assert.False(levels.TryReadCapability(out _));
+        }
+    }
+
+    [Fact]
+    public void AnUnexpectedGameThrowWhilePreflightingALevelEscapesWithoutSpending()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.DiscoveredReadFailure = new NullReferenceException("injected discovery read failure");
+        var levels = new SpellLevelNativeAdapter();
+
+        Assert.Throws<NullReferenceException>(() => levels.Submit(SpellLevelActionKind.Single, Id(spell)));
+        Assert.Equal(1, spell.masteryLevel);
+        Assert.Equal(0, spell.GetLevelCost().PerformCalls);
+    }
+
     // ---- Helpers -----------------------------------------------------------------------------
 
     private static Guid Id(global::SpellRecipeSO spell) => Guid.Parse(spell.uuid);

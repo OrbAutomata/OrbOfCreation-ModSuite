@@ -3187,7 +3187,7 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
         if (ThrowAfterDiscovery)
             throw new InvalidOperationException("injected failure after discovery");
     }
-    public ExperienceContainer GetExperienceElement() => experienceContainer;
+    public IExperienceElement GetExperienceElement() => experienceContainer;
     public void IncrementActive(double deltaTime)
     {
     }
@@ -3282,7 +3282,7 @@ public sealed class EquipmentManager
     }
 }
 
-public sealed class ExperienceContainer
+public sealed class ExperienceContainer : IExperienceElement
 {
     private BigDouble experience;
     private int currentLevel;
@@ -3323,12 +3323,9 @@ public sealed class ExperienceContainer
 
     public int GetLevel() => currentLevel;
 
-    public ExperienceContainer Clone()
-    {
-        var clone = new ExperienceContainer();
-        clone.SetState(currentLevel, experience, cachedRequiredXp);
-        return clone;
-    }
+    public int GetExperienceLevel() => currentLevel;
+
+    public bool IsForceVisible() => false;
 
     private static BigDouble Add(BigDouble left, BigDouble right) => left + right;
 

@@ -393,7 +393,8 @@ public sealed class Plugin : BaseUnityPlugin
         _harmony = new Harmony(PluginIds.SuiteGuid);
         MentorMasteryPatchBridge.Install(
             _mentorMasteryJournal,
-            () => GameLifecycleMonitor.Shared.Current.Generation);
+            () => GameLifecycleMonitor.Shared.Current.Generation,
+            message => Logger.LogError(message));
         foreach (var patchType in HarmonyPatchTypes)
             _harmony.CreateClassProcessor(patchType).Patch();
         ComposeGameTickFaultObservation();
