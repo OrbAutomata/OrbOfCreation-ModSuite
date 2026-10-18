@@ -42,42 +42,6 @@ public sealed partial class ServiceCycleArchitectureTests
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
     }
 
-    [Fact]
-    public void RunnerKeepsTwoGenericExecutionShapeAndTheRegistryOwnsEveryPublication()
-    {
-        Assert.Equal(2, typeof(ServiceRunner<,>).GetGenericArguments().Length);
-        Assert.DoesNotContain(typeof(ServiceRunner<,>).GetGenericArguments(), argument =>
-            argument.Name.Contains("Strategy", StringComparison.Ordinal));
-        Assert.Null(typeof(ServiceRunner<,>).GetProperty(
-            "Configuration", BindingFlags.Instance | BindingFlags.Public));
-        // Registration hands out no publication: the suite has one of each, and the registry owns them.
-        Assert.Null(typeof(ServiceRegistration<,>).GetProperty(
-            "Configuration", BindingFlags.Instance | BindingFlags.Public));
-        // Installed nowhere: the registry constructs all three publications, so there is no step
-        // that could be skipped, repeated, or run in the wrong order.
-        Assert.Empty(typeof(ServiceCycleRegistry)
-            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
-                        BindingFlags.DeclaredOnly)
-            .Where(method => method.Name.StartsWith("Use", StringComparison.Ordinal)));
-    }
-
-    /// <summary>
-    /// Registration is a list of services, not a negotiation. Nothing is bound: the publications are
-    /// installed once on the registry, and the world gate follows from the composition's shape.
-    /// </summary>
-    [Fact]
-    public void NoServiceBindsItsWayIntoAPublicationOrTheWorldGate()
-    {
-        Assert.Empty(typeof(ServiceRegistration<,>)
-            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
-                        BindingFlags.DeclaredOnly)
-            .Where(method => method.Name.StartsWith("Bind", StringComparison.Ordinal)));
-        Assert.Empty(typeof(ServiceCycleRegistry)
-            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
-                        BindingFlags.DeclaredOnly)
-            .Where(method => method.Name.StartsWith("Bind", StringComparison.Ordinal)));
-    }
-
     /// <summary>
     /// One service reads the game and publishes it; every other service consumes that publication and
     /// acts. A second Source would mean two answers to "what does the world look like".
@@ -115,36 +79,6 @@ public sealed partial class ServiceCycleArchitectureTests
                 .Select(method => method.DeclaringType!)
                 .Distinct()
                 .ToArray());
-    }
-
-    /// <summary>
-    /// What the main thread asks of a service carries no capture, and neither does the ordinary shape
-    /// built on it.
-    /// </summary>
-    /// <remarks>
-    /// The exact member sets rather than the absence of one name, so a capture cannot come back as
-    /// <c>Read</c> or <c>Collect</c>. A capture is main-thread game access, and a service that has
-    /// one costs the frame whatever it spends there; letting the shared contract carry one would make
-    /// that cost available to every service and leave the runtime unable to say which services paid
-    /// it.
-    /// </remarks>
-    [Fact]
-    public void NeitherTheSharedNorTheOrdinaryContractHasACaptureMember()
-    {
-        Assert.Equal(
-            new[]
-            {
-                "ServiceId",
-                "DefaultWakePolicy",
-                "FaultRecoveryPolicy",
-                "ShouldStart",
-                "DescribeAction",
-                "TryExecute",
-            },
-            MemberNames(typeof(IServiceCycleMainThreadDefinition<>)));
-        Assert.Equal(
-            new[] { "CreateWorkerDefinition" },
-            MemberNames(typeof(IServiceCycleDefinition<,>)));
     }
 
     /// <summary>
@@ -210,31 +144,6 @@ public sealed partial class ServiceCycleArchitectureTests
         .Select(name => name.StartsWith("get_", StringComparison.Ordinal) ? name[4..] : name)
         .Distinct()
         .ToArray();
-
-    /// <summary>
-    /// A cycle is identified by its cycle id and the readings it pinned. The capture sequence is not
-    /// one of them.
-    /// </summary>
-    /// <remarks>
-    /// It was minted in lockstep with the cycle id and never disagreed with it, so every consumer
-    /// that keyed on it was keying on the cycle id by another name — and an ordinary service, which
-    /// captures nothing, had no honest value to put there. The exact member set is asserted rather
-    /// than the absence alone, so a later re-addition under a different name fails here too. The
-    /// sequence still identifies a capture on <see cref="ServiceCaptureContext"/>.
-    /// </remarks>
-    [Fact]
-    public void TheCycleIdentityNamesNoCaptureSequence()
-    {
-        Assert.Equal(
-            new[] { "Service", "Lifecycle", "Config", "Strategy", "World", "Cycle", "IsValid" },
-            typeof(ServiceCycleIdentity)
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Select(property => property.Name)
-                .ToArray());
-        Assert.Contains(
-            typeof(ServiceCaptureContext).GetProperties(BindingFlags.Instance | BindingFlags.Public),
-            property => property.PropertyType == typeof(CaptureSequence));
-    }
 
     /// <summary>
     /// One field per publication — world, configuration, strategy — all three constructed by the

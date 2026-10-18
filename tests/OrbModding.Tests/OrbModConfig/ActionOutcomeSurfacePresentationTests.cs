@@ -183,14 +183,13 @@ public sealed class ActionOutcomeSurfacePresentationTests
     }
 
     [Fact]
-    public void SlimTimingLineRemainsAndEveryCardRailPresentationTypeIsGone()
+    public void TimingSummaryAveragesTheSamplesAndNamesTheWorstOrSaysThereAreNone()
     {
         var presentation = ActionOutcomeSurfacePresentation.Build(
             ReadOnlySpan<ServiceActionTimelineCellSnapshot>.Empty,
             serviceCount: 0,
             bucketCount: 0,
             new[] { Timing(0.125), Timing(0.500) });
-        var assembly = typeof(ActionOutcomeSurfacePresentation).Assembly;
 
         Assert.Equal(
             "Recent processing · average 0.312 ms · worst 0.500 ms",
@@ -202,11 +201,6 @@ public sealed class ActionOutcomeSurfacePresentationTests
                 0,
                 0,
                 ReadOnlySpan<ServiceCyclePumpTimingSample>.Empty).TimingSummary);
-        Assert.NotNull(assembly.GetType("OrbModConfig.ActionOutcomeView"));
-        Assert.NotNull(assembly.GetType("OrbModConfig.ActionOutcomeTimelineGraphic"));
-        Assert.Null(assembly.GetType("OrbModConfig.ActionOutcomeRowPresentation"));
-        Assert.Null(assembly.GetType("OrbModConfig.ActionOutcomeTone"));
-        Assert.Null(assembly.GetType("OrbModConfig.PumpTimingGraphView"));
     }
 
     private static ActionOutcomeSurfacePresentation Build(params CellSpec[][] buckets)

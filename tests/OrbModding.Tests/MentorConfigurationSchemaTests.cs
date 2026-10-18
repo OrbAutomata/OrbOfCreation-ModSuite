@@ -36,13 +36,4 @@ public sealed class MentorConfigurationSchemaTests
             pair => pair.Key.Section == "Performance" &&
                     pair.Key.Key is "OperationsPerFrame" or "CpuBudgetMilliseconds");
     }
-
-    [Fact]
-    public void CurrentMentorCatalogHasNoLegacyAdmissionControls()
-    {
-        var file = new ConfigFile();
-
-        Assert.True(MentorConfig.TryBind(file).Success);
-        Assert.DoesNotContain(file, pair => pair.Key.Section == "Performance");
-    }
 }

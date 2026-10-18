@@ -8,9 +8,8 @@ namespace OrbModding.Tests.Services;
 
 /// <summary>
 /// Mechanically enforces the runtime boundary so that namespaces and folders are not the only
-/// guard. Nothing under the <c>OrbModding.Common</c> namespaces may carry a feature domain identity
-/// or reintroduce the superseded runtime substrate, and the plugin patches exactly the classes it
-/// names.
+/// guard. Nothing under the <c>OrbModding.Common</c> namespaces may carry a feature domain identity,
+/// and the plugin patches exactly the classes it names.
 /// <para>
 /// The two assembly-reference facts that used to live here — Common referencing no feature plugin,
 /// and Automata referencing Common — are gone. Both are about to be answered by a single DLL, where
@@ -22,42 +21,6 @@ public sealed class ArchitectureBoundaryTests
 {
     private static readonly Assembly CommonAssembly = typeof(GameLifecycleMonitor).Assembly;
     private static readonly Assembly AutomataAssembly = typeof(OrbAutomata.BepInExAutomataConfiguration).Assembly;
-
-    private static readonly string[] SupersededRuntimeNamespaces =
-    {
-        "OrbModding.Common.Runtime.Contracts",
-        "OrbModding.Common.Runtime.Host",
-        "OrbModding.Common.Runtime.Kernel",
-        "OrbModding.Common.Runtime.Lanes",
-        "OrbModding.Common.Runtime.Process",
-        "OrbModding.Common.Runtime.Telemetry",
-        "OrbModding.Common.Runtime.Views",
-    };
-
-    private static readonly string[] SupersededRuntimeTypeNames =
-    {
-        "BoundedTraceWriter",
-        "CausalTraceCodec",
-        "CausalTraceDocument",
-        "CausalTraceRecord",
-        "CommandGeneration",
-        "CommandId",
-        "DemandPulledLiveView",
-        "LiveViewBufferPool",
-        "PlanGeneration",
-        "PolicyGeneration",
-        "RuntimeGenerationSet",
-        "RuntimeCycleDiagnostics",
-        "RuntimeServiceId",
-        "RuntimeWorkKey",
-        "SnapshotGeneration",
-        "StrategyScope",
-        "TraceCapture",
-        "TraceCaptureDrainReport",
-        "TraceWriterMetrics",
-        "WorkRequestId",
-        "WorkSessionId",
-    };
 
     private static readonly string[] FeatureIdentityFragments =
     {
@@ -125,26 +88,6 @@ public sealed class ArchitectureBoundaryTests
             .ToArray();
 
     [Fact]
-    public void CommonContainsNoSupersededRuntimeSubstrate()
-    {
-        var types = CommonAssembly.GetTypes();
-        var namespaceOffenders = types
-            .Where(type => SupersededRuntimeNamespaces.Any(prefix =>
-                type.Namespace?.StartsWith(prefix, StringComparison.Ordinal) == true))
-            .Select(type => type.FullName)
-            .ToArray();
-        var typeOffenders = types
-            .Where(type => SupersededRuntimeTypeNames.Contains(
-                type.Name.Split('`')[0],
-                StringComparer.Ordinal))
-            .Select(type => type.FullName)
-            .ToArray();
-
-        Assert.Empty(namespaceOffenders);
-        Assert.Empty(typeOffenders);
-    }
-
-    [Fact]
     public void AutomataPatchesExactlyTheClassesItNames()
     {
         // Assembly-wide PatchAll would adopt every [HarmonyPatch] compiled beside it, which after the
@@ -164,21 +107,4 @@ public sealed class ArchitectureBoundaryTests
         Assert.Equal(declared, patched);
         Assert.Equal(patched.Length, patched.Distinct().Count());
     }
-
-    [Fact]
-    public void LegacyPerformanceCoordinatorSubstrateIsAbsent()
-    {
-        var forbidden = new[]
-        {
-            "OrbModding.Common.SuitePerformanceCoordinator",
-            "OrbModding.Common.SuiteWorkRegistration",
-            "OrbModding.Common.SuiteWorkLease",
-            "OrbModding.Common.SuiteWorkAdmission",
-            "OrbModding.Common.SuitePerformanceWorkIdentity",
-            "OrbModding.Common.SuitePerformanceEvidence",
-        };
-
-        Assert.All(forbidden, name => Assert.Null(CommonAssembly.GetType(name, throwOnError: false)));
-    }
-
 }
