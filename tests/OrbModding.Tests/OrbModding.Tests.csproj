@@ -41,6 +41,5 @@
     <None Include="../../data/known-entities.tsv" Link="data/known-entities.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../tools/generate-known-entities.ps1" Link="tools/generate-known-entities.ps1" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../tools/generate-known-entities.sh" Link="tools/generate-known-entities.sh" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../fixtures/automata/*.log" Link="fixtures/automata/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -109,11 +109,7 @@ internal sealed class ModConfigUiShell : IDisposable
         }
     }
 
-    public void SelectMods()
-    {
-        var requestedOpen = ModConfigTabSelectionPolicy.RequestedOpenState(_open);
-        TrySetOpen(requestedOpen, restorePreviousNativeView: !requestedOpen);
-    }
+    public void SelectMods() => TrySetOpen(true, restorePreviousNativeView: false);
 
     /// <summary>Shows the stuck-game notice, or removes it when <paramref name="notice"/> is null.</summary>
     public void ShowStuckGameNotice(string? notice)

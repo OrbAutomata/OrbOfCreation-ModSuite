@@ -4,11 +4,6 @@ using System.Linq;
 
 namespace OrbModConfig;
 
-internal static class ModConfigTabSelectionPolicy
-{
-    internal static bool RequestedOpenState(bool currentlyOpen) => true;
-}
-
 internal enum NativeUiStartupReadinessKind
 {
     Ready,
