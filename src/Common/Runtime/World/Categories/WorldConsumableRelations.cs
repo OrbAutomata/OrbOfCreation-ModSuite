@@ -478,7 +478,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         _types = bind.CollectionField("consumableTypes");
         var typeEntry = bind.CollectionElementType("consumableTypes");
         _consumableTypeType = typeEntry;
-        _typeId = bind.Elements(typeEntry, "ConsumableSO.consumableTypes[]").Call<Guid>("GetGuid");
+        _typeId = bind.Elements(typeEntry, "ConsumableSO.consumableTypes[]").StableUuid();
         _maximumCarryLoadVariableId = bind
             .Elements(typeEntry, "GlobalConsumableType")
             .ReferenceGuid("maximumCarryLoad");
@@ -495,7 +495,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         _usages = bind.CollectionField("consumableUsages");
         _usageType = bind.CollectionElementType("consumableUsages");
         var usageBind = bind.Elements(_usageType, "ConsumableSO.consumableUsages[]");
-        _usageId = usageBind.Call<Guid>("GetGuid");
+        _usageId = usageBind.StableUuid();
         _usageEngaged = usageBind.Field<bool>("en");
         _usageRemainingDuration = usageBind.Field<BigDouble>("dr");
         _usageMaximumDuration = usageBind.Field<BigDouble>("maxDr");

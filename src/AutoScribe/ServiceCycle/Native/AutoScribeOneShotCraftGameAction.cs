@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -95,11 +94,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 return retryable
                     ? AutoScribeSubmission.Reject(rejection, reason, retryable: true)
                     : AutoScribeSubmission.Fault(rejection, reason);
-            if (!Invoke<bool>(native.RecipeVisible, recipe))
+            if (!native.RecipeVisible(recipe))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.RecipeUnavailable,
                     $"The game is not showing {EntityIdentityFormatter.PlayerName(action.RecipeId)} yet.");
-            if (!Invoke<bool>(native.QueueHasRoom, activeQueue))
+            if (!native.QueueHasRoom(activeQueue))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.QueueFull,
                     "ActiveScribeInstances.HasEmptySpot() refused before payment.");
@@ -125,13 +124,15 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
 
             var level = new BigDouble(craftLevel, 0);
             var zero = BigDouble.Zero;
-            var totalCost = InvokeObject(native.RecipeTotalCost, recipe, zero, level);
+            var totalCost = Returned(
+                native.RecipeTotalCost(recipe, zero, level),
+                "CraftingRecipeSO.GetTotalCost");
             if (totalCost.GetType() != native.ResourceCostType)
                 return AutoScribeSubmission.Fault(
                     AutoScribeActionResultCodes.ContractUnavailable,
                     "The game did not publish a price for this recipe, so nothing could be " +
                     "paid. Open Scholar > Scribe and read again.");
-            if (!Invoke<bool>(native.CostHasEnough, totalCost))
+            if (!native.CostHasEnough(totalCost))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.Unaffordable,
                     $"GetTotalCost(0,{craftLevel}).HasEnough() refused recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)}.");
@@ -193,34 +194,33 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         var admissionKnown = false;
         try
         {
-            native.RecipePurchase.Invoke(recipe, new object[] { level, BigDouble.Zero });
+            native.RecipePurchase(recipe, level, BigDouble.Zero);
 
             stage = "Construction";
             nativeCalls = 2;
-            instance = native.ConstructInstance.Invoke(new object[] { recipe, level }) ??
-                throw new InvalidOperationException("CraftingInstance construction returned null.");
+            instance = native.ConstructInstance(recipe, level);
             if (instance.GetType() != native.InstanceType)
                 throw new InvalidOperationException(
                     "CraftingInstance construction returned the wrong native type.");
 
             stage = "Initiation";
             nativeCalls = 3;
-            native.InstanceInitiate.Invoke(instance, Array.Empty<object>());
+            native.InstanceInitiate(instance);
 
             stage = "Admission";
-            instant = Invoke<bool>(native.InstanceInstantCheck, instance);
+            instant = native.InstanceInstantCheck(instance);
             admissionKnown = true;
             nativeCalls = 4;
             if (instant)
-                native.InstanceInstant.Invoke(instance, Array.Empty<object>());
+                native.InstanceInstant(instance);
             else
-                native.QueueAdd.Invoke(activeQueue, new[] { instance });
+                native.QueueAdd(activeQueue, instance);
 
             stage = "Verification";
             var verified = instant
-                ? Invoke<bool>(native.InstanceExpired, instance)
+                ? native.InstanceExpired(instance)
                 : ContainsExactInstance(RequireList(
-                    native.InstanceListValue.GetValue(activeQueue),
+                    native.InstanceListValue(activeQueue),
                     "ActiveScribeInstances.value"), instance);
             if (!verified)
                 return Quarantine(
@@ -340,9 +340,9 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         scroll = scrollResolution.Value!;
         recipeType = typeResolution.Value!;
         activeQueue = activeResolution.Value!;
-        if (Invoke<Guid>(native.Identity, recipe) != action.RecipeId ||
-            Invoke<Guid>(native.ConsumableIdentity, scroll) != action.ScrollId ||
-            Invoke<Guid>(native.EnchantmentIdentity, enchantmentResolution.Value!) !=
+        if (native.Identity(recipe) != action.RecipeId ||
+            native.ConsumableIdentity(scroll) != action.ScrollId ||
+            native.EnchantmentIdentity(enchantmentResolution.Value!) !=
                 recipeRole.Enchantment.Uuid)
         {
             reason =
@@ -373,7 +373,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         object registry,
         out string reason)
     {
-        if (native.RecipeListValue.GetValue(registry) is not IList values)
+        if (native.RecipeListValue(registry) is not { } values)
         {
             reason = "ScribeCraftingRecipes.value was not a live native list.";
             return false;
@@ -400,7 +400,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 "The game's scribe recipe list holds an entry this build does not model.";
                     return false;
                 }
-                if (Invoke<Guid>(native.Identity, value) == role.Recipe.Value.Uuid)
+                if (native.Identity(value) == role.Recipe.Value.Uuid)
                     found = true;
             }
             if (!found)
@@ -422,7 +422,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         Guid expectedEnchantment,
         out string reason)
     {
-        if (native.CraftingTypes.GetValue(recipe) is not IEnumerable types)
+        if (native.CraftingTypes(recipe) is not { } types)
         {
             reason = "The game did not publish what this recipe scribes.";
             return false;
@@ -438,9 +438,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             typeCount++;
         }
         if (typeCount != 1 ||
-            native.UseQuantityAsLevel.GetValue(recipe) is not true ||
-            native.IsLevelType.GetValue(recipeType) is not true ||
-            !ReferenceEquals(InvokeObject(native.RecipeMainType, recipe), recipeType))
+            !native.UseQuantityAsLevel(recipe) ||
+            !native.IsLevelType(recipeType) ||
+            !ReferenceEquals(
+                Returned(native.RecipeMainType(recipe), "CraftingRecipeSO.GetMainType"),
+                recipeType))
         {
             reason =
                 "The live recipe did not prove exactly one levelled Scribe crafting-type relation.";
@@ -449,11 +451,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
 
         var outputs = 0;
         foreach (var blockValue in RequireEnumerable(
-                     native.CompleteEffects.GetValue(recipe),
+                     native.CompleteEffects(recipe),
                      "CraftingRecipeSO.completeEffects"))
         {
             if (blockValue is null || blockValue.GetType() != native.InstantBlockType ||
-                native.EffectScripts.GetValue(blockValue) is not IEnumerable scripts)
+                native.EffectScripts(blockValue) is not { } scripts)
             {
                 reason = "The live recipe complete-effect graph changed type.";
                 return false;
@@ -467,7 +469,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 }
                 if (script.GetType() != native.GainType) continue;
                 outputs++;
-                if (!ReferenceEquals(native.GainConsumable.GetValue(script), scroll))
+                if (!ReferenceEquals(native.GainConsumable(script), scroll))
                 {
                     reason = "The live Scribe recipe output was not the action Scroll.";
                     return false;
@@ -484,11 +486,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         var requestCount = 0;
         var enchantCount = 0;
         foreach (var blockValue in RequireEnumerable(
-                     native.OnUseEffects.GetValue(scroll),
+                     native.OnUseEffects(scroll),
                      "ConsumableSO.onUseEffects"))
         {
             if (blockValue is null || blockValue.GetType() != native.InstantBlockType ||
-                native.EffectScripts.GetValue(blockValue) is not IEnumerable scripts)
+                native.EffectScripts(blockValue) is not { } scripts)
             {
                 reason = "The live Scroll on-use graph changed type.";
                 return false;
@@ -503,9 +505,9 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 if (script.GetType() == native.RequestType) requestCount++;
                 if (script.GetType() != native.EnchantScriptType) continue;
                 enchantCount++;
-                var enchantment = native.EnchantScriptEnchantment.GetValue(script);
+                var enchantment = native.EnchantScriptEnchantment(script);
                 if (enchantment is null || enchantment.GetType() != native.EnchantmentType ||
-                    Invoke<Guid>(native.EnchantmentIdentity, enchantment) != expectedEnchantment)
+                    native.EnchantmentIdentity(enchantment) != expectedEnchantment)
                 {
                     reason =
                         $"The live Scroll enchantment did not equal audited {EntityIdentityFormatter.PlayerName(expectedEnchantment)}.";
@@ -542,7 +544,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 reason = resolution.Format();
                 return true;
             }
-            if (native.InstanceListValue.GetValue(resolution.Value!) is not IList work)
+            if (native.InstanceListValue(resolution.Value!) is not { } work)
             {
                 reason = $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} did not expose its exact CraftingInstance list.";
                 return true;
@@ -555,9 +557,9 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                     reason = $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} contained a non-CraftingInstance value.";
                     return true;
                 }
-                if (Invoke<Guid>(native.InstanceRecipe, value) == recipeId &&
-                    Level(InvokeObject(native.InstanceQuantity, value)) >= level &&
-                    !Invoke<bool>(native.InstanceExpired, value))
+                if (native.InstanceRecipe(value) == recipeId &&
+                    Level(native.InstanceQuantity(value)) >= level &&
+                    !native.InstanceExpired(value))
                 {
                     reason =
                         $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} already supplies recipe {EntityIdentityFormatter.PlayerName(recipeId)} at level " +
@@ -580,20 +582,20 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         object? options = null;
         var requests = 0;
         foreach (var blockValue in RequireEnumerable(
-                     native.OnUseEffects.GetValue(scroll),
+                     native.OnUseEffects(scroll),
                      "ConsumableSO.onUseEffects"))
         {
             if (blockValue is null || blockValue.GetType() != native.InstantBlockType ||
-                native.EffectScripts.GetValue(blockValue) is not IEnumerable scripts)
+                native.EffectScripts(blockValue) is not { } scripts)
             {
                 reason = "The live Scroll target graph changed type.";
                 return false;
             }
             foreach (var script in scripts)
             {
-                if (script?.GetType() != native.RequestType) continue;
+                if (script is null || script.GetType() != native.RequestType) continue;
                 requests++;
-                options = native.TargetOptions.GetValue(script);
+                options = native.TargetOptions(script);
             }
         }
         if (requests != 1 || options is null || options.GetType() != native.OptionsType)
@@ -602,18 +604,15 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 $"Scroll {EntityIdentityFormatter.PlayerName(scrollId)} did not expose exactly one exact TargetSelectOptions.";
             return false;
         }
-        var targeting = InvokeObject(native.GetTargeting, options);
+        var targeting = Returned(native.GetTargeting(options), "TargetSelectOptions.GetTargeting");
         if (targeting.GetType() != native.TargetType)
         {
             reason = $"Scroll {EntityIdentityFormatter.PlayerName(scrollId)} did not resolve the exact TargetStructure selector.";
             return false;
         }
-        var scaling = InvokeObject(
-            native.ScalingBasic,
-            target: null,
-            new BigDouble(level, 0));
+        var scaling = Returned(native.ScalingBasic(new BigDouble(level, 0)), "ScalingInfo.Basic");
         if (scaling.GetType() != native.ScalingType ||
-            native.GetRandomList.Invoke(targeting, new[] { scaling }) is not ICollection candidates)
+            native.GetRandomList(targeting, scaling) is not { } candidates)
         {
             reason = $"Scroll {EntityIdentityFormatter.PlayerName(scrollId)} target selection changed contract.";
             return false;
@@ -637,11 +636,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             !CanBuyAt(native, recipe, minimumLevel))
             return 0;
 
-        var sharedMaximum = Math.Max(
-            1,
-            Require<int>(
-                native.MaxStartingLevel.GetValue(recipeType),
-                "CraftingRecipeTypeSO.maxStartingLevel"));
+        var sharedMaximum = Math.Max(1, native.MaxStartingLevel(recipeType));
         var affordable = minimumLevel;
         if (sharedMaximum > affordable)
         {
@@ -703,10 +698,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         AutoScribeNativeBindings native,
         object recipe,
         int level) =>
-        Invoke<bool>(
-            native.RecipeCanBuyAt,
-            recipe,
-            new BigDouble(level, 0));
+        native.RecipeCanBuyAt(recipe, new BigDouble(level, 0));
 
     private static bool ContainsExactInstance(IList work, object instance)
     {
@@ -725,9 +717,9 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         try
         {
             if (instance is null || !admissionKnown) return false;
-            if (instant) return Invoke<bool>(native.InstanceExpired, instance);
+            if (instant) return native.InstanceExpired(instance);
             return ContainsExactInstance(RequireList(
-                native.InstanceListValue.GetValue(activeQueue),
+                native.InstanceListValue(activeQueue),
                 "ActiveScribeInstances.value"), instance);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -814,32 +806,11 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         value as IEnumerable ??
         throw new InvalidOperationException(contract + " was not enumerable.");
 
-    private static T Require<T>(object? value, string contract) =>
-        value is T typed
-            ? typed
-            : throw new InvalidOperationException(contract + " changed type.");
+    private static object Returned(object? value, string member) =>
+        value ?? throw new InvalidOperationException(member + " returned null.");
 
-    private static object InvokeObject(
-        MethodInfo method,
-        object? target,
-        params object[] arguments) =>
-        method.Invoke(target, arguments) ??
-        throw new InvalidOperationException(
-            $"{method.DeclaringType?.Name}.{method.Name} returned null.");
-
-    private static T Invoke<T>(
-        MethodInfo method,
-        object? target,
-        params object[] arguments) =>
-        method.Invoke(target, arguments) is T value
-            ? value
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.Name}.{method.Name} changed return type.");
-
-    private static int Level(object value)
+    private static int Level(BigDouble number)
     {
-        if (value is not BigDouble number)
-            throw new InvalidOperationException("CraftingInstance.GetQuantity changed type.");
         var scalar = number.ToDouble();
         if (!double.IsFinite(scalar) || scalar < 1d || scalar > int.MaxValue)
             throw new InvalidOperationException("CraftingInstance quantity was not a valid level.");

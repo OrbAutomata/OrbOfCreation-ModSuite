@@ -97,7 +97,7 @@ internal sealed class WorldPassiveAbilityBinder : WorldPlainBinder<WorldPassiveA
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _muted = bind.Field<bool>("muted");
         _touched = bind.Field<bool>("touched");
         _hidden = bind.Field<bool>("hidden");

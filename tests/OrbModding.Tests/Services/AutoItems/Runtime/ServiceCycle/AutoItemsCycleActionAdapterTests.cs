@@ -135,6 +135,36 @@ public sealed class AutoItemsCycleActionAdapterTests
         }
     }
 
+    [Fact]
+    public void AnUnexpectedNativeThrowEscapesTheAdapterInsteadOfBecomingAnAdapterFault()
+    {
+        var health = new AutoItemsActionHealth();
+        using var gameAction = GameAction();
+        var adapter = new AutoItemsCycleActionAdapter(
+            gameAction,
+            static () => 7,
+            static () => true,
+            static () => string.Empty,
+            health);
+        var config = Configuration(AutoItemsOperationMode.Active);
+        var action = new AutoItemsCycleAction(
+            Guid.NewGuid(),
+            AutoItemsConsumableFamily.Scroll,
+            collectedAtEpoch: 7,
+            plannedLevel: 1);
+        var context = Context();
+        global::TargetingManager.IsTargetingFault = new NullReferenceException("stub targeting read");
+        try
+        {
+            Assert.Throws<NullReferenceException>(() => adapter.TryExecute(in action, in config, in context));
+            Assert.False(health.HasFailure);
+        }
+        finally
+        {
+            global::TargetingManager.IsTargetingFault = null;
+        }
+    }
+
     private static AutoItemsConsumableUseGameAction GameAction()
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();

@@ -317,13 +317,13 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             listType, "IsChallengeRestricted", _challengeType);
         _asInt = NativeAccessorBinder.Call<int>(intType, "AsInt");
         _getBool = NativeAccessorBinder.Call<bool>(boolType, "GetValue");
-        _id = NativeAccessorBinder.Call<Guid>(_challengeType, "GetGuid");
-        _resourceId = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
+        _id = NativeAccessorBinder.StableUuid(_challengeType);
+        _resourceId = NativeAccessorBinder.StableUuid(resourceType);
         var challengeTypeType = resolveType("ChallengeTypeSO");
         _challengeTypeRegistry = NativeAccessorBinder.StaticListAccessor(challengeTypeType, "All");
         _challengeRegistry = NativeAccessorBinder.StaticListAccessor(_challengeType, "All");
         _challengeTypeList = NativeAccessorBinder.CollectionField(_challengeType, "challengeTypes");
-        _challengeTypeId = NativeAccessorBinder.Call<Guid>(challengeTypeType, "GetGuid");
+        _challengeTypeId = NativeAccessorBinder.StableUuid(challengeTypeType);
         _challengeTypeWeight = NativeAccessorBinder.Field<double>(challengeTypeType, "weight");
         _challengeTypeRestricted =
             NativeAccessorBinder.Field<bool>(challengeTypeType, "restrictedInstances");

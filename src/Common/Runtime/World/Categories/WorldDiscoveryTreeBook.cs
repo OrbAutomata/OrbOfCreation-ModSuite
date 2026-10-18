@@ -113,9 +113,9 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
         }
 
         var tree = new WorldMemberBinding(_treeType, "DiscoveryTreeSO");
-        _treeIdentity = tree.Call<Guid>("GetGuid");
+        _treeIdentity = tree.StableUuid();
         var book = new WorldMemberBinding(_bookType, "RecipeBookSO");
-        _bookIdentity = book.Call<Guid>("GetGuid");
+        _bookIdentity = book.StableUuid();
         _bookList = NativeAccessorBinder.Reference(_treeType, "availableRecipeBooks");
         _members = NativeAccessorBinder.CollectionField(listType, "value");
         _registry = NativeAccessorBinder.StaticListAccessor(_treeType, "All");

@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
+using System.Collections.Generic;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -10,6 +10,12 @@ internal sealed class ConsumablePlayerNativeBindings
 {
     internal static readonly string[] ContractIds =
     {
+        "consumable.type",
+        "consumable-usage.type",
+        "targeting.effect-result-info.type-action",
+        "inventory.type",
+        "consumable-player.ref-list.type-action",
+        "targeting.manager.type-action",
         "consumable.is-visible",
         "consumable.can-fire",
         "consumable.select-and-fire",
@@ -130,242 +136,64 @@ internal sealed class ConsumablePlayerNativeBindings
         Func<string, Type?> resolveType,
         Func<string, bool> include,
         out ConsumablePlayerNativeBindings? bindings,
-        out string reason)
-    {
-        bindings = null;
-        try
+        out string reason) =>
+        NativeBindingSet.TryBind("consumable player", ContractIds, resolveType, include, set =>
         {
-            foreach (var id in ContractIds)
-                if (!include(id))
-                    throw new InvalidOperationException("Required contract " + id + " was withheld.");
-            Type T(string name) => resolveType(name) ??
-                throw new InvalidOperationException(name + " was unavailable.");
-            var consumable = T("ConsumableSO");
-            var usage = T("ConsumableUsage");
-            var resultInfo = T("EffectResultInfo");
-            var inventory = T("Inventory");
-            var list = T("ConsumableRefListVariable");
-            var manager = T("TargetingManager");
-            var usageList = typeof(System.Collections.Generic.List<>).MakeGenericType(usage);
-            var consumableList = typeof(System.Collections.Generic.List<>).MakeGenericType(consumable);
+            var consumable = set.Type("consumable.type", "ConsumableSO");
+            var usage = set.Type("consumable-usage.type", "ConsumableUsage");
+            var resultInfo = set.Type("targeting.effect-result-info.type-action", "EffectResultInfo");
+            var inventory = set.Type("inventory.type", "Inventory");
+            var list = set.Type("consumable-player.ref-list.type-action", "ConsumableRefListVariable");
+            var manager = set.Type("targeting.manager.type-action", "TargetingManager");
+            var usageList = typeof(List<>).MakeGenericType(usage);
+            var consumableList = typeof(List<>).MakeGenericType(consumable);
 
-            bindings = new ConsumablePlayerNativeBindings(
+            return new ConsumablePlayerNativeBindings(
                 consumable,
                 usage,
                 list,
-                InstanceFunc<bool>(Method(consumable, "IsVisible", typeof(bool))),
-                InstanceFunc<bool>(Method(consumable, "CanFire", typeof(bool))),
-                InstanceAction(Method(consumable, "SelectAndFire", typeof(void))),
-                InstanceAction(Method(consumable, "CancelUsage", typeof(void))),
-                InstanceAction<int>(Method(consumable, "Discard", typeof(void), typeof(int))),
-                InstanceAction<bool>(Method(
-                    consumable,
-                    "SetRandomization",
-                    typeof(void),
-                    typeof(bool))),
-                InstanceFunc<bool>(Method(consumable, "IsRandomized", typeof(bool))),
-                InstanceField<bool>(Field(consumable, "canBeRandomized", typeof(bool))),
-                InstanceFunc<int>(Method(consumable, "GetQuantity", typeof(int))),
-                InstanceFunc<int>(Method(consumable, "GetQueued", typeof(int))),
-                InstanceList(Field(consumable, "consumableUsages", usageList)),
-                InstanceObjectField(Field(consumable, "nextUsage", usage)),
-                InstanceField<bool>(Field(usage, "en", typeof(bool))),
-                InstanceFunc<Guid>(Method(usage, "GetGuid", typeof(Guid))),
-                InstanceObject(Method(usage, "GetResultInfo", resultInfo)),
-                InstanceFunc<bool>(Method(resultInfo, "IsCancelled", typeof(bool))),
-                StaticFunc<bool>(Method(inventory, "CanUseConsumable", typeof(bool), true)),
-                StaticFunc<bool>(Method(manager, "IsTargeting", typeof(bool), true)),
-                StaticObjectField(Field(inventory, "_instance", inventory, true)),
-                InstanceObjectField(Field(inventory, "allConsumables", list)),
-                InstanceObjectField(Field(inventory, "hotBar", list)),
-                InstanceList(Field(HierarchyFieldOwner(list, "value"), "value", consumableList)),
-                InstanceAction<int, int>(HierarchyMethod(
-                    list,
-                    "SwapPositions",
-                    typeof(void),
-                    typeof(int),
-                    typeof(int))),
-                InstanceAction(HierarchyMethod(list, "UpdateObservable", typeof(void))),
-                InstanceObjectAction<int>(HierarchyMethod(
-                    list,
-                    "SetAt",
-                    typeof(void),
-                    typeof(int),
-                    consumable)));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or ArgumentException or AmbiguousMatchException)
-        {
-            reason = "The complete consumable player binding set is unavailable: " + ex.Message;
-            return false;
-        }
-    }
-
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-    private static MethodInfo Method(
-        Type type,
-        string name,
-        Type result,
-        params Type[] parameters) => Method(type, name, result, false, parameters);
-
-    private static MethodInfo Method(
-        Type type,
-        string name,
-        Type result,
-        bool isStatic,
-        params Type[] parameters)
-    {
-        var method = type.GetMethod(name, isStatic ? Static : Instance, null, parameters, null);
-        if (method is null || method.IsStatic != isStatic || method.ReturnType != result)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return method;
-    }
-
-    private static MethodInfo HierarchyMethod(
-        Type type,
-        string name,
-        Type result,
-        params Type[] parameters)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                Instance | BindingFlags.DeclaredOnly,
-                null,
-                parameters,
-                null);
-            if (method is not null && method.ReturnType == result) return method;
-        }
-        throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-    }
-
-    private static Type HierarchyFieldOwner(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-            if (current.GetField(name, Instance | BindingFlags.DeclaredOnly) is not null)
-                return current;
-        throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-    }
-
-    private static FieldInfo Field(
-        Type type,
-        string name,
-        Type valueType,
-        bool isStatic = false)
-    {
-        var field = type.GetField(name, isStatic ? Static : Instance);
-        if (field is null || field.IsStatic != isStatic || field.FieldType != valueType)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return field;
-    }
-
-    private static Func<T> StaticFunc<T>(MethodInfo method) =>
-        Expression.Lambda<Func<T>>(Expression.Call(method)).Compile();
-
-    private static Func<object?> StaticObjectField(FieldInfo field) =>
-        Expression.Lambda<Func<object?>>(
-            Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-
-    private static Func<object, T> InstanceFunc<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, T>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-            target).Compile();
-    }
-
-    private static Func<object, T> InstanceField<T>(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, T>>(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-            target).Compile();
-    }
-
-    private static Func<object, object?> InstanceObject(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, object?>>(
-            Expression.Convert(
-                Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-                typeof(object)),
-            target).Compile();
-    }
-
-    private static Func<object, object?> InstanceObjectField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, object?>>(
-            Expression.Convert(
-                Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-                typeof(object)),
-            target).Compile();
-    }
-
-    private static Func<object, IList> InstanceList(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, IList>>(
-            Expression.Convert(
-                Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-                typeof(IList)),
-            target).Compile();
-    }
-
-    private static Action<object> InstanceAction(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-            target).Compile();
-    }
-
-    private static Action<object, T> InstanceAction<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(T), "value");
-        return Expression.Lambda<Action<object, T>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method, value),
-            target,
-            value).Compile();
-    }
-
-    private static Action<object, T1, T2> InstanceAction<T1, T2>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var first = Expression.Parameter(typeof(T1), "first");
-        var second = Expression.Parameter(typeof(T2), "second");
-        return Expression.Lambda<Action<object, T1, T2>>(
-            Expression.Call(
-                Expression.Convert(target, method.DeclaringType!),
-                method,
-                first,
-                second),
-            target,
-            first,
-            second).Compile();
-    }
-
-    private static Action<object, T, object> InstanceObjectAction<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var first = Expression.Parameter(typeof(T), "first");
-        var value = Expression.Parameter(typeof(object), "value");
-        return Expression.Lambda<Action<object, T, object>>(
-            Expression.Call(
-                Expression.Convert(target, method.DeclaringType!),
-                method,
-                first,
-                Expression.Convert(value, method.GetParameters()[1].ParameterType)),
-            target,
-            first,
-            value).Compile();
-    }
+                set.Call<Func<object, bool>>("consumable.is-visible", consumable, "IsVisible", typeof(bool)),
+                set.Call<Func<object, bool>>("consumable.can-fire", consumable, "CanFire", typeof(bool)),
+                set.Call<Action<object>>(
+                    "consumable.select-and-fire", consumable, "SelectAndFire", typeof(void)),
+                set.Call<Action<object>>(
+                    "consumable-player.consumable-cancel-usage-action", consumable, "CancelUsage", typeof(void)),
+                set.Call<Action<object, int>>(
+                    "consumable-player.consumable-discard-action", consumable, "Discard", typeof(void), typeof(int)),
+                set.Call<Action<object, bool>>(
+                    "consumable.set-randomization", consumable, "SetRandomization", typeof(void), typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "consumable.is-randomized", consumable, "IsRandomized", typeof(bool)),
+                set.Field<Func<object, bool>>(
+                    "consumable.can-be-randomized", consumable, "canBeRandomized", typeof(bool)),
+                set.Call<Func<object, int>>("consumable.get-quantity", consumable, "GetQuantity", typeof(int)),
+                set.Call<Func<object, int>>("consumable.get-queued", consumable, "GetQueued", typeof(int)),
+                set.Field<Func<object, IList>>(
+                    "consumable.consumable-usages", consumable, "consumableUsages", usageList),
+                set.Field<Func<object, object?>>(
+                    "consumable-player.consumable-next-usage-action", consumable, "nextUsage", usage),
+                set.Field<Func<object, bool>>("consumable-usage.engaged", usage, "en", typeof(bool)),
+                set.StableUuid("consumable-usage.get-guid", usage),
+                set.Call<Func<object, object?>>(
+                    "consumable-player.usage-result-info-action", usage, "GetResultInfo", resultInfo),
+                set.Call<Func<object, bool>>(
+                    "consumable-player.result-info-is-cancelled-action", resultInfo, "IsCancelled", typeof(bool)),
+                set.StaticCall<Func<bool>>(
+                    "inventory.can-use-consumable", inventory, "CanUseConsumable", typeof(bool)),
+                set.StaticCall<Func<bool>>("targeting-manager.is-targeting", manager, "IsTargeting", typeof(bool)),
+                set.StaticField<Func<object?>>(
+                    "consumable-player.inventory-instance-action", inventory, "_instance", inventory),
+                set.Field<Func<object, object?>>(
+                    "consumable-player.inventory-list-action", inventory, "allConsumables", list),
+                set.Field<Func<object, object?>>(
+                    "consumable-player.hotbar-list-action", inventory, "hotBar", list),
+                set.Field<Func<object, IList>>(
+                    "consumable-player.list-value-action", list, "value", consumableList),
+                set.Call<Action<object, int, int>>(
+                    "consumable-player.list-swap-action", list, "SwapPositions", typeof(void), typeof(int), typeof(int)),
+                set.Call<Action<object>>(
+                    "consumable-player.list-update-action", list, "UpdateObservable", typeof(void)),
+                set.Call<Action<object, int, object>>(
+                    "consumable-player.list-set-at-action", list, "SetAt", typeof(void), typeof(int), consumable));
+        }, out bindings, out reason);
 }

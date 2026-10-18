@@ -168,7 +168,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     [Fact]
     public void EveryMissingLifecycleBindingFailsClosed()
     {
-        Assert.Equal(12, SpellCompositionNativeBindings.ContractIds.Length);
+        Assert.Equal(15, SpellCompositionNativeBindings.ContractIds.Length);
         Assert.DoesNotContain(
             SpellCompositionNativeBindings.ContractIds,
             id => id.Contains("augment", StringComparison.OrdinalIgnoreCase));

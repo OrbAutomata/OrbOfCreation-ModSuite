@@ -54,7 +54,7 @@ internal sealed class WorldTreasurePoolBinder : WorldPlainBinder<WorldTreasurePo
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _treasuresFound = bind.Field<int>("treasuresFound");
         _partialReward = bind.Field<BigDouble>("partialTreasureReward");
         _forceLevel = bind.Field<bool>("forceLevel");

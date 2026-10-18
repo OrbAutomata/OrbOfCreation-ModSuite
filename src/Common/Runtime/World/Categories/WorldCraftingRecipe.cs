@@ -260,7 +260,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
 
         var bind = new WorldMemberBinding(_nativeType, "CraftingRecipeSO");
         _all = NativeAccessorBinder.StaticListAccessor(_nativeType, "All");
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _visible = bind.Call<bool>("IsVisible");
         _startingQuantity = bind.Call<BigDouble>("GetStartingQuantity");
         _canBuyAt = bind.Call<BigDouble, bool>("CanBuyAt");
@@ -271,7 +271,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
         _types = bind.CollectionField("craftingTypes");
         _recipeTypeType = bind.CollectionElementType("craftingTypes");
         _typeId = bind.Elements(_recipeTypeType, "CraftingRecipeSO.craftingTypes[]")
-            .Call<Guid>("GetGuid");
+            .StableUuid();
 
         _inputs = bind.Through("recipeCost").CollectionField("costs");
         _outputs = bind.Through("generatedResources").CollectionField("costs");

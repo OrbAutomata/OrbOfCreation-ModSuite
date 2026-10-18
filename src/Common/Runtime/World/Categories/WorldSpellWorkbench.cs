@@ -216,7 +216,7 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         _spellWeights = NativeAccessorBinder.Reference(
             managerType, "spellWeightVariables", resourceListType);
         _spellWeightValues = NativeAccessorBinder.CollectionField(resourceListType, "value");
-        _resourceGuid = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
+        _resourceGuid = NativeAccessorBinder.StableUuid(resourceType);
         _unavailable = managerType is null || spellListType is null ||
             _manager is null || _active is null || _used is null ||
             _maximum is null || _hasEmpty is null ||

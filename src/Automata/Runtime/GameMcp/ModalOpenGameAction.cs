@@ -1,7 +1,6 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using UnityEngine;
 
@@ -72,9 +71,6 @@ internal sealed class ModalOpenGameAction : IDisposable
         "return-to-menu.activator-open-action",
         "modal-open.activator-title-action",
     };
-
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Func<string, Type?> _resolveType;
     private readonly Func<string, bool> _includeContract;
@@ -243,54 +239,19 @@ internal sealed class ModalOpenGameAction : IDisposable
 
     private void Bind()
     {
-        try
+        NativeBindingSet.TryBind<Bindings>("panel open", ContractIds, _resolveType, _includeContract, set =>
         {
-            Require(0);
-            var activator = _resolveType("UIModalActivator") ??
-                throw new InvalidOperationException("UIModalActivator was unavailable");
-            var prepared = Field(1, activator, "modalCreated", typeof(bool));
-            var open = Method(2, activator, "OpenModal");
-            var title = Field(3, activator, "modalTitle", typeof(string));
-            _bindings = new Bindings(
+            var activator = set.Type("return-to-menu.modal-activator.type-action", "UIModalActivator");
+            var title = set.Field<Func<object, string?>>(
+                "modal-open.activator-title-action", activator, "modalTitle", typeof(string));
+            return new Bindings(
                 activator,
-                instance => prepared.GetValue(instance) as bool? == true,
-                instance => title.GetValue(instance) as string ?? string.Empty,
-                instance => open.Invoke(instance, null));
-            _bindingFailure = string.Empty;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or AmbiguousMatchException)
-        {
-            _bindings = null;
-            _bindingFailure = "Panel open contracts are unavailable: " +
-                exception.GetBaseException().Message;
-        }
-    }
-
-    private void Require(int index)
-    {
-        if (!_includeContract(ContractIds[index]))
-            throw new InvalidOperationException(ContractIds[index] + " was unavailable");
-    }
-
-    private FieldInfo Field(int index, Type owner, string name, Type type)
-    {
-        Require(index);
-        var field = owner.GetField(name, Instance);
-        if (field is null || field.FieldType != type)
-            throw new InvalidOperationException(
-                owner.Name + "." + name + " did not match the audited signature");
-        return field;
-    }
-
-    private MethodInfo Method(int index, Type owner, string name)
-    {
-        Require(index);
-        var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
-        if (method is null || method.IsStatic || method.ReturnType != typeof(void))
-            throw new InvalidOperationException(
-                owner.Name + "." + name + " did not match the audited signature");
-        return method;
+                set.Field<Func<object, bool>>(
+                    "return-to-menu.activator-modal-created-action", activator, "modalCreated", typeof(bool)),
+                instance => title(instance) ?? string.Empty,
+                set.Call<Action<object>>(
+                    "return-to-menu.activator-open-action", activator, "OpenModal", typeof(void)));
+        }, out _bindings, out _bindingFailure);
     }
 
     private sealed class Bindings

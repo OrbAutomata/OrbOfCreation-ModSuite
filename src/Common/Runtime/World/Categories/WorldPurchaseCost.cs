@@ -1110,7 +1110,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(structureType, "StructureSO");
-        _structureId = bind.Call<Guid>("GetGuid");
+        _structureId = bind.StableUuid();
         _baseCost = NativeAccessorBinder.Reference(structureType, "baseCost");
 
         var costListType = structureType.GetField("baseCost", Instance)?.FieldType;

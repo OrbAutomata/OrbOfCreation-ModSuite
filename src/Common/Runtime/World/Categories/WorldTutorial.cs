@@ -32,7 +32,7 @@ internal sealed class WorldTutorialBinder : WorldPlainBinder<WorldTutorial>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _isCompleted = bind.Field<bool>("isCompleted");
         return bind.Failure;
     }

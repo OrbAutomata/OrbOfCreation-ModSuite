@@ -57,7 +57,7 @@ internal sealed class WorldAchievementBinder : WorldPlainBinder<WorldAchievement
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Field<int>("level");
         _seen = bind.Field<bool>("seen");
         _logProgress = bind.Field<bool>("logProgress");

@@ -1,7 +1,5 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common;
 using TMPro;
 using UnityEngine;
@@ -45,8 +43,6 @@ internal sealed class ModalDismissGameAction : IDisposable
         "modal-dismiss.modal-title-action",
     };
 
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<string, Type?> _resolveType;
     private readonly Func<string, bool> _includeContract;
@@ -209,107 +205,27 @@ internal sealed class ModalDismissGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
-    private void BindLifecycle()
-    {
-        try
+    private void BindLifecycle() =>
+        NativeBindingSet.TryBind<Bindings>("modal close", ContractIds, _resolveType, _includeContract, set =>
         {
-            Type T(int index, string name)
-            {
-                Require(index);
-                return _resolveType(name) ?? throw new InvalidOperationException(name + " was unavailable");
-            }
-
-            Require(0);
-            Require(1);
-            var resources = typeof(Resources);
-            var unityObject = typeof(UnityEngine.Object);
-            var modal = T(2, "UIModal");
-            var findAll = Method(3, resources, "FindObjectsOfTypeAll", unityObject.MakeArrayType(),
-                new[] { typeof(Type) }, isStatic: true);
-            var isOpen = Method(4, modal, "IsOpen", typeof(bool), Type.EmptyTypes, isStatic: false);
-            var isClosing = Field(5, modal, "isClosing", typeof(bool));
-            var graceTime = Field(6, modal, "graceTime", typeof(float));
-            var close = Method(7, modal, "CloseModal", typeof(void), Type.EmptyTypes, isStatic: false);
-            var title = Field(8, modal, "modalTitle", typeof(TextMeshProUGUI));
-            _bindings = new Bindings(modal, FindAll(findAll), BoolMethod(isOpen),
-                BoolField(isClosing), FloatField(graceTime), Action(close), Title(title));
-            _bindingFailure = string.Empty;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
-        {
-            _bindings = null;
-            _bindingFailure = "Modal close contracts are unavailable: " +
-                exception.GetBaseException().Message;
-        }
-    }
-
-    private void Require(int index)
-    {
-        if (!_includeContract(ContractIds[index]))
-            throw new InvalidOperationException(ContractIds[index] + " was unavailable");
-    }
-
-    private MethodInfo Method(
-        int index,
-        Type owner,
-        string name,
-        Type result,
-        Type[] parameters,
-        bool isStatic)
-    {
-        Require(index);
-        var method = owner.GetMethod(name, isStatic ? Static : Instance, null, parameters, null);
-        if (method is null || method.IsStatic != isStatic || method.ReturnType != result)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match the audited signature");
-        return method;
-    }
-
-    private FieldInfo Field(int index, Type owner, string name, Type type)
-    {
-        Require(index);
-        var field = owner.GetField(name, Instance);
-        if (field is null || field.IsStatic || field.FieldType != type)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match the audited field");
-        return field;
-    }
-
-    private static Func<Type, Array> FindAll(MethodInfo method)
-    {
-        var type = Expression.Parameter(typeof(Type), "type");
-        return Expression.Lambda<Func<Type, Array>>(
-            Expression.Convert(Expression.Call(method, type), typeof(Array)), type).Compile();
-    }
-
-    private static Func<object, bool> BoolMethod(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, bool>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method), target).Compile();
-    }
-
-    private static Func<object, bool> BoolField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, bool>>(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field), target).Compile();
-    }
-
-    private static Func<object, float> FloatField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, float>>(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field), target).Compile();
-    }
-
-    private static Action<object> Action(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method), target).Compile();
-    }
-
-    private static Func<object, string> Title(FieldInfo field) =>
-        modal => field.GetValue(modal) is TextMeshProUGUI label ? label.text ?? string.Empty : string.Empty;
+            var resources = set.Type("modal-dismiss.resources.type-action", typeof(Resources));
+            var unityObject = set.Type("modal-dismiss.unity-object.type-action", typeof(UnityEngine.Object));
+            var modal = set.Type("modal-dismiss.modal.type-action", "UIModal");
+            var title = set.Field<Func<object, TextMeshProUGUI?>>(
+                "modal-dismiss.modal-title-action", modal, "modalTitle", typeof(TextMeshProUGUI));
+            return new Bindings(
+                modal,
+                set.StaticCall<Func<Type, Array>>(
+                    "modal-dismiss.find-all-action",
+                    resources, "FindObjectsOfTypeAll", unityObject.MakeArrayType(), typeof(Type)),
+                set.Call<Func<object, bool>>("modal-dismiss.modal-open-action", modal, "IsOpen", typeof(bool)),
+                set.Field<Func<object, bool>>(
+                    "modal-dismiss.modal-closing-action", modal, "isClosing", typeof(bool)),
+                set.Field<Func<object, float>>(
+                    "modal-dismiss.modal-grace-action", modal, "graceTime", typeof(float)),
+                set.Call<Action<object>>("modal-dismiss.modal-close-action", modal, "CloseModal", typeof(void)),
+                instance => title(instance) is { } label ? label.text ?? string.Empty : string.Empty);
+        }, out _bindings, out _bindingFailure);
 
     private static ModalDismissSubmission Refused(string code, string reason) => new(false, code, reason);
 

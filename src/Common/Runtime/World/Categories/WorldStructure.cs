@@ -298,7 +298,7 @@ internal sealed class WorldStructureBinder : WorldRowBinder<RawStructureSample, 
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _structureTypeId = bind.ReferenceGuid("structureType");
 
         // GetPurchaseLevel forwards to GetBaseLevel, which returns the persisted quantity — the same

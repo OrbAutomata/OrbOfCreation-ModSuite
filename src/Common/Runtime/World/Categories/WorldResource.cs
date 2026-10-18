@@ -700,7 +700,7 @@ internal sealed class WorldResourceMembers
 
     internal WorldResourceMembers(WorldMemberBinding bind)
     {
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _quantity = bind.Call<BigDouble>("GetQuantity");
         _capacity = bind.ModifierRecord("maxQuantity");
         _visible = bind.Call<bool>("IsVisible");

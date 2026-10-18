@@ -41,7 +41,7 @@ internal sealed class WorldCharacterBinder : WorldPlainBinder<WorldCharacter>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _discovered = bind.Field<bool>("discovered");
         _numberSlain = bind.Field<double>("numberSlain");
         _floats = bind.Field<bool>("floats");

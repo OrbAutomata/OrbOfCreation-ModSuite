@@ -168,7 +168,7 @@ internal sealed class WorldPlotNodeActionBinder : WorldPlainBinder<WorldPlotNode
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _hasBeenUsed = bind.Field<bool>("hasBeenUsed");
         _isGrowingAction = bind.Field<bool>("isGrowingAction");
         _showExitTooltip = bind.Field<bool>("showExitTooltip");

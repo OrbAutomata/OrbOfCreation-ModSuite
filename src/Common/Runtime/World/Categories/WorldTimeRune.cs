@@ -102,7 +102,7 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _discovered = bind.Field<bool>("discovered");
         _level = bind.Field<int>("level");
         _discRarityLevel = bind.Field<int>("discRarityLevel");

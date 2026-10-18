@@ -101,7 +101,7 @@ internal sealed class WorldEquipmentBinder : WorldPlainBinder<WorldEquipment>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _isCreated = bind.Field<bool>("isCreated");
         _discRarityLevel = bind.Field<int>("discRarityLevel");
         _masteryXp = bind.Field<BigDouble>("masteryXp");

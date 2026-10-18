@@ -188,7 +188,7 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _visible = bind.Call<bool>("IsVisible");
         _actionMode = bind.EnumField("actionMode");
         _actionTime = bind.Field<BigDouble>("actionTime");
@@ -230,7 +230,7 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         _costResource = tuple.Reference("resource", resourceType);
         _costValue = tuple.Call<BigDouble>("GetValue");
         var resource = new WorldMemberBinding(resourceType!, "ResourceSO");
-        _resourceGuid = resource.Call<Guid>("GetGuid");
+        _resourceGuid = resource.StableUuid();
         _resourceQuantity = resource.Call<BigDouble>("GetQuantity");
         _overrideRerolls = bind.ReferenceGuid("overrideDiscoveryRerolls");
         _overrideChoices = bind.ReferenceGuid("overrideDiscoveryChoices");

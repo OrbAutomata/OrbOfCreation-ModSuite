@@ -294,7 +294,7 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _coreTypeId = bind.CallReferenceGuid("GetCoreType");
         _discovered = bind.Field<bool>("discovered");
 

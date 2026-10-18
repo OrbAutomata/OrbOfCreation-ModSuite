@@ -108,7 +108,7 @@ internal sealed class WorldEquipmentDecisionBinding
         _typeSlots = NativeAccessorBinder.CallWithObjectArgument<int>(
             _listType, "GetTypesEquipped", type);
         _equipmentType = NativeAccessorBinder.Reference(equipment, "equipmentType", type);
-        _typeId = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
+        _typeId = NativeAccessorBinder.StableUuid(type);
         _typeMaximum = NativeAccessorBinder.Call<int>(type, "GetMaxTypeSlots");
         _maximumStacks = NativeAccessorBinder.Call<int>(equipment, "GetMaxLevel");
         _usageCost = NativeAccessorBinder.CallObject(equipment, "GetUsageCost", cost);
@@ -117,7 +117,7 @@ internal sealed class WorldEquipmentDecisionBinding
         _costEntries = NativeAccessorBinder.CallList(cost, "GetEntries", entry);
         _costResource = NativeAccessorBinder.Reference(entry, "resource", resource);
         _costValue = NativeAccessorBinder.Call<BigDouble>(entry, "GetValue");
-        _resourceId = NativeAccessorBinder.Call<Guid>(resource, "GetGuid");
+        _resourceId = NativeAccessorBinder.StableUuid(resource);
 
         Failure = _managerType is null || _listType is null || type is null || cost is null ||
             entry is null || resource is null ||

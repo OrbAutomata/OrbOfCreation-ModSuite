@@ -63,7 +63,7 @@ internal sealed class WorldModifierVariableBinder : WorldPlainBinder<WorldModifi
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
 
         // value is a ValueModifier struct held inline, so these are nested field reads rather than a
         // second entity. GetValue() would return the same field, but reading it directly keeps the

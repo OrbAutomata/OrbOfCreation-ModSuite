@@ -106,7 +106,7 @@ internal abstract class WorldNumberVariableBinder : WorldPlainBinder<WorldNumber
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _value = bind.ModifierRecord("value");
         _isPercent = bind.Field<bool>("isPercentVariable");
         _isTime = bind.Field<bool>("isTimeVariable");
@@ -155,7 +155,7 @@ internal sealed class WorldBoolVariableBinder : WorldPlainBinder<WorldBoolVariab
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
 
         // A plain field rather than a modifier record: BoolVariable does not derive from
         // NumberVariable and has nothing to calculate.

@@ -76,7 +76,7 @@ internal sealed class WorldAlchemyTypeBinder : WorldPlainBinder<WorldAlchemyType
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _selectedLevelId = bind.ReferenceGuid("selectedLevel");
         _maxUsageByMastery = bind.Field<bool>("maxUsageByMastery");
         _level = bind.ModifierRecord("level");

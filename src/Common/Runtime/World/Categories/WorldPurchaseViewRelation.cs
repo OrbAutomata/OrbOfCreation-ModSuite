@@ -473,8 +473,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                         " answered to a different identity";
                     return;
                 }
-                var authored = List(
-                    _native.UpgradeListMembers.GetValue(list), "UpgradeListVariable.value");
+                var authored = List(_native.UpgradeListMembers(list), "UpgradeListVariable.value");
                 var seen = new HashSet<Guid>();
                 foreach (var value in authored)
                 {
@@ -500,14 +499,14 @@ internal sealed class NativePurchaseViewAdmissionResolver
 
     private void ReadForwardRegistry(
         WorldPurchaseCandidateKind kind,
-        FieldInfo registryField,
+        Func<IList?> registryField,
         Type expectedType,
         HashSet<Guid> identities,
         Dictionary<object, Guid> identityCache,
         List<ForwardCandidate> candidates,
         ref int skipped)
     {
-        var registry = List(registryField.GetValue(null), expectedType.Name + ".All");
+        var registry = List(registryField(), expectedType.Name + ".All");
         foreach (var value in registry)
         {
             if (value is null || value.GetType() != expectedType)
@@ -545,7 +544,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             try
             {
                 var category = Exact(
-                    _native.StructureCategory.GetValue(candidate.Native),
+                    _native.StructureCategory(candidate.Native),
                     _native.StructureCategoryType,
                     "StructureSO.structureType");
                 candidate.CategoryId = CachedIdentity(
@@ -570,7 +569,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             try
             {
                 var authored = List(
-                    _native.StructureCategoryMembers.GetValue(pair.Key),
+                    _native.StructureCategoryMembers(pair.Key),
                     "StructureTypeSO.structures");
                 var counts = new Dictionary<object, int>(ReferenceComparer.Instance);
                 foreach (var value in authored)
@@ -607,7 +606,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             byNative[candidates[index].Native] = candidates[index];
         var listMembers = new Dictionary<object, List<ForwardCandidate>>(ReferenceComparer.Instance);
         var seenViews = new HashSet<Guid>();
-        var views = List(_native.ViewAll.GetValue(null), "ViewSO.All");
+        var views = List(_native.ViewAll(), "ViewSO.All");
         foreach (var value in views)
         {
             var view = Exact(value, _native.ViewType, "ViewSO");
@@ -615,25 +614,26 @@ internal sealed class NativePurchaseViewAdmissionResolver
             if (viewId == Guid.Empty || !seenViews.Add(viewId))
                 throw new RelationFailure(WorldPurchaseViewRelationStatus.Contradictory);
             ReadForwardLists(
-                view, viewId, _native.RelevantLists, byNative, listMembers, identityCache,
-                memberships, readUpgradeLists);
+                view, viewId, _native.RelevantLists, "ViewSO.relevantLists", byNative, listMembers,
+                identityCache, memberships, readUpgradeLists);
             ReadForwardLists(
-                view, viewId, _native.AvailableLists, byNative, listMembers, identityCache,
-                memberships, readUpgradeLists);
+                view, viewId, _native.AvailableLists, "ViewSO.availableLists", byNative, listMembers,
+                identityCache, memberships, readUpgradeLists);
         }
     }
 
     private void ReadForwardLists(
         object view,
         Guid viewId,
-        FieldInfo source,
+        Func<object, IList?> source,
+        string sourceName,
         Dictionary<object, ForwardCandidate> candidates,
         Dictionary<object, List<ForwardCandidate>> listMembers,
         Dictionary<object, Guid> identityCache,
         List<WorldUpgradeListMembership> memberships,
         HashSet<Guid> readUpgradeLists)
     {
-        var lists = List(source.GetValue(view), "ViewSO." + source.Name);
+        var lists = List(source(view), sourceName);
         foreach (var value in lists)
         {
             if (value is null) throw new RelationFailure(WorldPurchaseViewRelationStatus.Contradictory);
@@ -649,8 +649,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             if (!listMembers.TryGetValue(value, out var members))
             {
                 members = new List<ForwardCandidate>();
-                var authored = List(
-                    CandidateListMembers(kind).GetValue(value), runtimeType.Name + ".value");
+                var authored = List(CandidateListMembers(kind)(value), runtimeType.Name + ".value");
                 var seen = new HashSet<object>(ReferenceComparer.Instance);
                 foreach (var memberValue in authored)
                 {
@@ -691,13 +690,12 @@ internal sealed class NativePurchaseViewAdmissionResolver
     }
 
     private static Guid CachedIdentity(
-        MethodInfo method,
+        Func<object, Guid> identity,
         object target,
         Dictionary<object, Guid> cache)
     {
         if (cache.TryGetValue(target, out var id)) return id;
-        if (method.Invoke(target, Array.Empty<object>()) is not Guid value)
-            throw new RelationFailure(WorldPurchaseViewRelationStatus.Unreadable);
+        var value = identity(target);
         cache.Add(target, value);
         return value;
     }
@@ -785,9 +783,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 var available = "unreadable";
                 try
                 {
-                    if (route.View is not null && route.View.GetType() == _native.ViewType &&
-                        _native.ViewAvailable.Invoke(route.View, Array.Empty<object>()) is bool value)
-                        available = value ? "true" : "false";
+                    if (route.View is not null && route.View.GetType() == _native.ViewType)
+                        available = _native.ViewAvailable(route.View) ? "true" : "false";
                 }
                 catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
@@ -916,12 +913,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                         continue;
                     }
                     reads.AddMethodCall();
-                    if (_native.ViewAvailable.Invoke(view, Array.Empty<object>()) is not bool value)
-                    {
-                        routeReadable = false;
-                        continue;
-                    }
-                    if (!value) routeAvailable = false;
+                    if (!_native.ViewAvailable(view)) routeAvailable = false;
                 }
 
                 if (routeReadable && routeAvailable)
@@ -939,66 +931,6 @@ internal sealed class NativePurchaseViewAdmissionResolver
         }
     }
 
-    private int ReadRegistry(
-        WorldPurchaseCandidateKind kind,
-        FieldInfo registryField,
-        Type expectedType,
-        HashSet<Guid> identities,
-        Dictionary<CandidateKey, NativePurchaseViewResolution> snapshot,
-        WorldRelationBuffer<WorldPurchaseViewRelation> output,
-        WorldRelationBuffer<WorldPurchaseViewRoute> routeOutput,
-        ref int unresolved,
-        ref int skipped)
-    {
-        var registry = List(registryField.GetValue(null), expectedType.Name + ".All");
-        var sampled = 0;
-        foreach (var value in registry)
-        {
-            if (value is null || value.GetType() != expectedType)
-            {
-                skipped++;
-                continue;
-            }
-
-            var candidate = value;
-            Guid id;
-            try
-            {
-                var reads = default(NativePurchaseViewAdmissionReadCounts);
-                id = Identity(CandidateIdentity(kind), candidate, ref reads);
-            }
-            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
-            {
-                skipped++;
-                continue;
-            }
-            if (id == Guid.Empty || !identities.Add(id))
-            {
-                skipped++;
-                continue;
-            }
-            var resolution = Resolve(kind, id, candidate);
-            if (resolution.CandidateName.Length == 0)
-            {
-                var relation = resolution.Relation;
-                resolution = new NativePurchaseViewResolution(
-                    in relation,
-                    resolution.Routes,
-                    DiagnosticName(id));
-            }
-            output.Append(resolution.Relation);
-            for (var routeIndex = 0; routeIndex < resolution.Routes.Length; routeIndex++)
-            {
-                var route = resolution.Routes[routeIndex];
-                routeOutput.Append(new WorldPurchaseViewRoute(id, route.ListId, route.ViewId));
-            }
-            snapshot.Add(new CandidateKey(kind, id), resolution);
-            if (resolution.Relation.Status != WorldPurchaseViewRelationStatus.Resolved) unresolved++;
-            sampled++;
-        }
-        return sampled;
-    }
-
     private NativePurchaseViewResolution ResolveViewLists(
         WorldPurchaseCandidateKind kind,
         Guid candidateId,
@@ -1007,7 +939,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
         var routes = new List<NativePurchaseViewRoute>();
-        var views = List(ReadField(_native.ViewAll, null, ref reads), "ViewSO.All");
+        reads.AddFieldRead();
+        var views = List(_native.ViewAll(), "ViewSO.All");
         var seenViews = new HashSet<Guid>();
         foreach (var value in views)
         {
@@ -1023,6 +956,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 view,
                 viewId,
                 _native.RelevantLists,
+                "ViewSO.relevantLists",
                 routes,
                 ref reads);
             MatchLists(
@@ -1032,6 +966,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 view,
                 viewId,
                 _native.AvailableLists,
+                "ViewSO.availableLists",
                 routes,
                 ref reads);
         }
@@ -1061,11 +996,12 @@ internal sealed class NativePurchaseViewAdmissionResolver
         object candidate,
         object view,
         Guid viewId,
-        FieldInfo source,
+        Func<object, IList?> source,
+        string sourceName,
         List<NativePurchaseViewRoute> routes,
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
-        var lists = List(ReadField(source, view, ref reads), "ViewSO." + source.Name);
+        var lists = List(ReadField(source, view, ref reads), sourceName);
         foreach (var value in lists)
         {
             reads.AddListEntry();
@@ -1124,7 +1060,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
     private static int CountExactMembership(
         IList members,
         Type expectedType,
-        MethodInfo identity,
+        Func<object, Guid> identity,
         Guid candidateId,
         object candidate,
         ref NativePurchaseViewAdmissionReadCounts reads)
@@ -1191,33 +1127,32 @@ internal sealed class NativePurchaseViewAdmissionResolver
             ? _native.StructureListType
             : _native.UpgradeListType;
 
-    private MethodInfo CandidateIdentity(WorldPurchaseCandidateKind kind) =>
+    private Func<object, Guid> CandidateIdentity(WorldPurchaseCandidateKind kind) =>
         kind == WorldPurchaseCandidateKind.Structure
             ? _native.StructureIdentity
             : _native.UpgradeIdentity;
 
-    private FieldInfo CandidateListMembers(WorldPurchaseCandidateKind kind) =>
+    private Func<object, IList?> CandidateListMembers(WorldPurchaseCandidateKind kind) =>
         kind == WorldPurchaseCandidateKind.Structure
             ? _native.StructureListMembers
             : _native.UpgradeListMembers;
 
     private static Guid Identity(
-        MethodInfo method,
+        Func<object, Guid> identity,
         object target,
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
         reads.AddMethodCall();
-        if (method.Invoke(target, Array.Empty<object>()) is Guid value) return value;
-        throw new RelationFailure(WorldPurchaseViewRelationStatus.Unreadable);
+        return identity(target);
     }
 
-    private static object? ReadField(
-        FieldInfo field,
-        object? target,
+    private static T ReadField<T>(
+        Func<object, T> field,
+        object target,
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
         reads.AddFieldRead();
-        return field.GetValue(target);
+        return field(target);
     }
 
     private static object Exact(object? value, Type expected, string contract) =>
@@ -1240,10 +1175,27 @@ internal sealed class NativePurchaseViewAdmissionResolver
     /// <summary>One complete lifecycle-bound metadata set; partial binding never reaches a read.</summary>
     private sealed class BindingSet
     {
-        private const BindingFlags Instance =
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private const BindingFlags Static =
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        internal static readonly string[] ContractIds =
+        {
+            "resource-bar.identity.type-capture",
+            "auto-buy.owning-view.abstract-list-type-capture",
+            "spell-workbench.view-type-action",
+            "structure-lifecycle.structure.type-action",
+            "auto-buy.owning-view.upgrade-type-capture",
+            "structure-type-so.upgradeable-base",
+            "auto-buy.owning-view.structure-list-type-capture",
+            "upgrade-screen.list-type",
+            "view.all",
+            "structure.all",
+            "upgrade.all",
+            "auto-buy.owning-view.relevant-lists-capture",
+            "auto-buy.owning-view.available-lists-capture",
+            "structure.structure-type",
+            "auto-buy.owning-view.structure-category-members-capture",
+            "id-scriptable-object.get-guid",
+            "auto-buy.owning-view.view-availability-action",
+            "auto-buy.owning-view.list-membership-capture",
+        };
 
         private BindingSet(
             Type identityType,
@@ -1253,21 +1205,21 @@ internal sealed class NativePurchaseViewAdmissionResolver
             Type structureCategoryType,
             Type structureListType,
             Type upgradeListType,
-            FieldInfo viewAll,
-            FieldInfo structureAll,
-            FieldInfo upgradeAll,
-            FieldInfo relevantLists,
-            FieldInfo availableLists,
-            FieldInfo structureCategory,
-            FieldInfo structureCategoryMembers,
-            MethodInfo viewIdentity,
-            MethodInfo structureIdentity,
-            MethodInfo upgradeIdentity,
-            MethodInfo structureCategoryIdentity,
-            MethodInfo listIdentity,
-            MethodInfo viewAvailable,
-            FieldInfo structureListMembers,
-            FieldInfo upgradeListMembers)
+            Func<IList?> viewAll,
+            Func<IList?> structureAll,
+            Func<IList?> upgradeAll,
+            Func<object, IList?> relevantLists,
+            Func<object, IList?> availableLists,
+            Func<object, object?> structureCategory,
+            Func<object, IList?> structureCategoryMembers,
+            Func<object, Guid> viewIdentity,
+            Func<object, Guid> structureIdentity,
+            Func<object, Guid> upgradeIdentity,
+            Func<object, Guid> structureCategoryIdentity,
+            Func<object, Guid> listIdentity,
+            Func<object, bool> viewAvailable,
+            Func<object, IList?> structureListMembers,
+            Func<object, IList?> upgradeListMembers)
         {
             IdentityType = identityType;
             ViewType = viewType;
@@ -1300,41 +1252,42 @@ internal sealed class NativePurchaseViewAdmissionResolver
         internal Type StructureCategoryType { get; }
         internal Type StructureListType { get; }
         internal Type UpgradeListType { get; }
-        internal FieldInfo ViewAll { get; }
-        internal FieldInfo StructureAll { get; }
-        internal FieldInfo UpgradeAll { get; }
-        internal FieldInfo RelevantLists { get; }
-        internal FieldInfo AvailableLists { get; }
-        internal FieldInfo StructureCategory { get; }
-        internal FieldInfo StructureCategoryMembers { get; }
-        internal MethodInfo ViewIdentity { get; }
-        internal MethodInfo StructureIdentity { get; }
-        internal MethodInfo UpgradeIdentity { get; }
-        internal MethodInfo StructureCategoryIdentity { get; }
-        internal MethodInfo ListIdentity { get; }
-        internal MethodInfo ViewAvailable { get; }
-        internal FieldInfo StructureListMembers { get; }
-        internal FieldInfo UpgradeListMembers { get; }
+        internal Func<IList?> ViewAll { get; }
+        internal Func<IList?> StructureAll { get; }
+        internal Func<IList?> UpgradeAll { get; }
+        internal Func<object, IList?> RelevantLists { get; }
+        internal Func<object, IList?> AvailableLists { get; }
+        internal Func<object, object?> StructureCategory { get; }
+        internal Func<object, IList?> StructureCategoryMembers { get; }
+        internal Func<object, Guid> ViewIdentity { get; }
+        internal Func<object, Guid> StructureIdentity { get; }
+        internal Func<object, Guid> UpgradeIdentity { get; }
+        internal Func<object, Guid> StructureCategoryIdentity { get; }
+        internal Func<object, Guid> ListIdentity { get; }
+        internal Func<object, bool> ViewAvailable { get; }
+        internal Func<object, IList?> StructureListMembers { get; }
+        internal Func<object, IList?> UpgradeListMembers { get; }
 
         internal static bool TryCreate(
             Func<string, Type?> resolve,
             out BindingSet? bindings,
-            out string reason)
-        {
-            bindings = null;
-            try
+            out string reason) =>
+            NativeBindingSet.TryBind("Auto Buy owning-view", ContractIds, resolve, null, set =>
             {
-                var id = Type(resolve, "IdScriptableObject");
-                var abstractList = Type(resolve, "AbstractListVariable");
-                var view = Type(resolve, "ViewSO");
-                var structure = Type(resolve, "StructureSO");
-                var upgrade = Type(resolve, "UpgradeSO");
-                var structureCategory = Type(resolve, "StructureTypeSO");
-                var structureList = Type(resolve, "StructureListVariable");
-                var upgradeList = Type(resolve, "UpgradeListVariable");
-                var listCollection = typeof(List<>).MakeGenericType(abstractList);
+                var id = set.Type("resource-bar.identity.type-capture", "IdScriptableObject");
+                var abstractList = set.Type("auto-buy.owning-view.abstract-list-type-capture", "AbstractListVariable");
+                var view = set.Type("spell-workbench.view-type-action", "ViewSO");
+                var structure = set.Type("structure-lifecycle.structure.type-action", "StructureSO");
+                var upgrade = set.Type("auto-buy.owning-view.upgrade-type-capture", "UpgradeSO");
+                var structureCategory = set.Type("structure-type-so.upgradeable-base", "StructureTypeSO");
+                var structureList = set.Type(
+                    "auto-buy.owning-view.structure-list-type-capture", "StructureListVariable");
+                var upgradeList = set.Type("upgrade-screen.list-type", "UpgradeListVariable");
+                var listCollection = ListOf(abstractList);
+                var structureListBase = ListBase(structureList, abstractList);
+                var upgradeListBase = ListBase(upgradeList, abstractList);
 
-                bindings = new BindingSet(
+                return new BindingSet(
                     id,
                     view,
                     structure,
@@ -1342,100 +1295,57 @@ internal sealed class NativePurchaseViewAdmissionResolver
                     structureCategory,
                     structureList,
                     upgradeList,
-                    CollectionField(view, "All", view, Static),
-                    CollectionField(structure, "All", structure, Static),
-                    CollectionField(upgrade, "All", upgrade, Static),
-                    Field(view, "relevantLists", Instance, listCollection),
-                    Field(view, "availableLists", Instance, listCollection),
-                    Field(structure, "structureType", Instance, structureCategory),
-                    CollectionField(structureCategory, "structures", structure),
-                    MethodFromHierarchy(view, id, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(structure, id, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(upgrade, id, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(structureCategory, id, "GetGuid", typeof(Guid)),
-                    MethodFromHierarchy(structureList, id, "GetGuid", typeof(Guid)),
-                    Method(view, "IsAvailable", typeof(bool)),
-                    FieldFromHierarchy(
-                        structureList,
-                        abstractList,
-                        "value",
-                        typeof(List<>).MakeGenericType(structure)),
-                    FieldFromHierarchy(
-                        upgradeList,
-                        abstractList,
-                        "value",
-                        typeof(List<>).MakeGenericType(upgrade)));
-                reason = string.Empty;
-                return true;
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or AmbiguousMatchException)
+                    set.StaticField<Func<IList?>>("view.all", view, "All", ListOf(view)),
+                    set.StaticField<Func<IList?>>("structure.all", structure, "All", ListOf(structure)),
+                    set.StaticField<Func<IList?>>("upgrade.all", upgrade, "All", ListOf(upgrade)),
+                    set.Field<Func<object, IList?>>(
+                        "auto-buy.owning-view.relevant-lists-capture", view, "relevantLists", listCollection),
+                    set.Field<Func<object, IList?>>(
+                        "auto-buy.owning-view.available-lists-capture", view, "availableLists", listCollection),
+                    set.Field<Func<object, object?>>(
+                        "structure.structure-type", structure, "structureType", structureCategory),
+                    set.Field<Func<object, IList?>>(
+                        "auto-buy.owning-view.structure-category-members-capture",
+                        structureCategory,
+                        "structures",
+                        ListOf(structure)),
+                    SharedIdentity(set, view, id),
+                    SharedIdentity(set, structure, id),
+                    SharedIdentity(set, upgrade, id),
+                    SharedIdentity(set, structureCategory, id),
+                    SharedIdentity(set, structureList, id),
+                    set.Call<Func<object, bool>>(
+                        "auto-buy.owning-view.view-availability-action", view, "IsAvailable", typeof(bool)),
+                    set.Field<Func<object, IList?>>(
+                        "auto-buy.owning-view.list-membership-capture", structureListBase, "value", ListOf(structure)),
+                    set.Field<Func<object, IList?>>(
+                        "auto-buy.owning-view.list-membership-capture", upgradeListBase, "value", ListOf(upgrade)));
+            }, out bindings, out reason);
+
+        private static Type ListOf(Type element) => typeof(List<>).MakeGenericType(element);
+
+        private static Type ListBase(Type list, Type abstractList)
+        {
+            for (var current = list; current is not null; current = current.BaseType)
             {
-                reason = "The exact Auto Buy owning-view binding set is unavailable: " + ex.Message;
-                return false;
+                if (current.IsGenericType && current.GetGenericTypeDefinition().BaseType == abstractList)
+                    return current;
             }
+            throw new NativeBindingException(
+                "auto-buy.owning-view.list-membership-capture: " + list.Name +
+                " does not inherit a generic " + abstractList.Name + ".");
         }
 
-        private static Type Type(Func<string, Type?> resolve, string name) =>
-            resolve(name) ?? throw new InvalidOperationException(name + " was unavailable.");
-
-        private static FieldInfo CollectionField(
-            Type owner,
-            string name,
-            Type element,
-            BindingFlags flags = Instance) =>
-            Field(owner, name, flags, typeof(List<>).MakeGenericType(element));
-
-        private static FieldInfo Field(Type owner, string name, BindingFlags flags, Type fieldType)
+        private static Func<object, Guid> SharedIdentity(NativeBindingSet set, Type owner, Type identity)
         {
-            var field = owner.GetField(name, flags | BindingFlags.DeclaredOnly);
-            return field is not null && field.FieldType == fieldType
-                ? field
-                : throw new InvalidOperationException(
-                    $"{owner.Name}.{name} : {fieldType.Name} was unavailable.");
-        }
-
-        private static FieldInfo FieldFromHierarchy(
-            Type owner,
-            Type abstractList,
-            string name,
-            Type fieldType)
-        {
-            var field = owner.GetField(name, Instance);
-            var declaring = field?.DeclaringType;
-            return field is not null && field.FieldType == fieldType && declaring is not null &&
-                   declaring.IsGenericType &&
-                   declaring.GetGenericTypeDefinition().BaseType == abstractList
-                ? field
-                : throw new InvalidOperationException(
-                    $"{owner.Name}.{name} inherited from AbstractListVariable`1 was unavailable.");
-        }
-
-        private static MethodInfo Method(Type owner, string name, Type returnType)
-        {
-            var method = owner.GetMethod(
-                name,
-                Instance | BindingFlags.DeclaredOnly,
-                null,
-                System.Type.EmptyTypes,
-                null);
-            return method is not null && method.ReturnType == returnType
-                ? method
-                : throw new InvalidOperationException(
-                    $"{owner.Name}.{name}() : {returnType.Name} was unavailable.");
-        }
-
-        private static MethodInfo MethodFromHierarchy(
-            Type owner,
-            Type declaringType,
-            string name,
-            Type returnType)
-        {
-            var method = owner.GetMethod(name, Instance, null, System.Type.EmptyTypes, null);
-            return method is not null && method.DeclaringType == declaringType &&
-                   method.ReturnType == returnType
-                ? method
-                : throw new InvalidOperationException(
-                    $"{owner.Name}.{name}() inherited from {declaringType.Name} was unavailable.");
+            var uuid = set.StableUuid("id-scriptable-object.get-guid", owner);
+            var declared = owner.GetMethod(
+                "GetGuid", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+            return declared?.DeclaringType == identity
+                ? uuid
+                : throw new NativeBindingException(
+                    "id-scriptable-object.get-guid: " + owner.Name + ".GetGuid() is not inherited from " +
+                    identity.Name + ".");
         }
     }
 }

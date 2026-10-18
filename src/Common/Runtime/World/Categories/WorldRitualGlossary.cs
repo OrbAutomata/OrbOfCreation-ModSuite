@@ -83,7 +83,7 @@ internal sealed class WorldStatusEffectBinder : WorldPlainBinder<WorldStatusEffe
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _isBuff = bind.Field<bool>("isBuff");
         _maxDuration = bind.Field<double>("maxDuration");
         _stacksSeparately = bind.Field<bool>("stacksSeparately");
@@ -160,7 +160,7 @@ internal sealed class WorldCharacterAttributeBinder : WorldPlainBinder<WorldChar
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _damageTypeId = bind.ReferenceGuid("damageType");
         _description = bind.Field<string>("description");
         return bind.Failure;
@@ -222,7 +222,7 @@ internal sealed class WorldDamageTypeBinder : WorldPlainBinder<WorldDamageType>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _damageReductionRate = bind.Field<double>("damageReductionRate");
         _ignoreEntrenched = bind.Field<bool>("ignoreEntrenched");
         _description = bind.Field<string>("description");
@@ -285,7 +285,7 @@ internal sealed class WorldCharacterModifierBinder : WorldPlainBinder<WorldChara
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _weightChance = bind.Field<float>("weightChance");
         _description = bind.Field<string>("description");
         return bind.Failure;
@@ -358,7 +358,7 @@ internal sealed class WorldCharacterActionBinder : WorldPlainBinder<WorldCharact
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _prepTime = bind.Field<double>("prepTime");
         _actionTime = bind.Field<double>("actionTime");
         _speedMod = bind.Field<double>("speedMod");
@@ -414,7 +414,7 @@ internal sealed class WorldCharacterTypeBinder : WorldPlainBinder<WorldCharacter
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }

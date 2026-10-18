@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -552,10 +551,55 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
 
     private sealed class BindingSet
     {
-        private const BindingFlags Instance =
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private const BindingFlags Static =
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        internal static readonly string[] ContractIds =
+        {
+            "resource-bar.identity.type-capture",
+            "crafting-instance.recipe.type-action",
+            "scribe-relations.recipe-list.type",
+            "crafting-instance.recipe-type.type-action",
+            "crafting-instance.queue.type-action",
+            "auto-scribe.crafting-instance.type",
+            "consumable.type",
+            "structure-lifecycle.structure.type-action",
+            "scribe-relations.enchant-table.type",
+            "scribe-relations.enchantment-instance.type",
+            "enchantment-so.tooltipable-base",
+            "auto-items.scaling-info.type",
+            "auto-items.instant-effect-block.type",
+            "scribe-relations.instant-effect-script.type",
+            "auto-scribe.consumable-gain.type",
+            "scribe-relations.request-target.type",
+            "scribe-relations.target-select-options.type",
+            "scribe-relations.base-target-selection.type",
+            "auto-items.target-structure.type",
+            "scribe-relations.targetable.type",
+            "auto-scribe.enchant-script.type",
+            "auto-scribe.list.value-capture",
+            "auto-scribe.recipe.crafting-types",
+            "auto-scribe.recipe.complete-effects",
+            "auto-scribe.recipe.levelled",
+            "auto-harvest.effect-scripts",
+            "auto-scribe.consumable-gain.output",
+            "auto-scribe.list.auto-flag",
+            "structure.all",
+            "auto-scribe.structure.enchant-table",
+            "auto-scribe.enchant-table.entries",
+            "crafting-recipe-type.max-starting-level",
+            "auto-scribe.consumable.on-use-effects",
+            "scribe-relations.request-target.options",
+            "auto-scribe.enchant-script.enchantment",
+            "id-scriptable-object.get-guid",
+            "crafting-recipe.visible",
+            "auto-scribe.list.get-max",
+            "auto-scribe.ref-instance.guid-reference",
+            "auto-scribe.instance.quantity",
+            "auto-scribe.instance.auto",
+            "auto-scribe.instance.expired",
+            "auto-scribe.enchantment-instance.level",
+            "scribe-relations.scaling-info.basic",
+            "scribe-relations.target-options.get-targeting",
+            "scribe-relations.target-structure.get-random-list",
+        };
 
         private BindingSet(
             Type recipeType,
@@ -715,35 +759,33 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         internal static bool TryCreate(
             Func<string, Type?> resolve,
             out BindingSet? bindings,
-            out string reason)
-        {
-            bindings = null;
-            try
+            out string reason) =>
+            NativeBindingSet.TryBind("Scribe relationship", ContractIds, resolve, null, set =>
             {
-                var id = Type(resolve, "IdScriptableObject");
-                var recipe = Type(resolve, "CraftingRecipeSO");
-                var recipeList = Type(resolve, "CraftingRecipeListVariable");
-                var recipeType = Type(resolve, "CraftingRecipeTypeSO");
-                var instanceList = Type(resolve, "CraftingInstanceListVariable");
-                var instance = Type(resolve, "CraftingInstance");
-                var consumable = Type(resolve, "ConsumableSO");
-                var structure = Type(resolve, "StructureSO");
-                var enchantTable = Type(resolve, "EnchantmentSO+EnchantTable");
-                var enchantInstance = Type(resolve, "EnchantmentInstance");
-                var enchantment = Type(resolve, "EnchantmentSO");
-                var scaling = Type(resolve, "ScalingInfo");
-                var bigDouble = Type(resolve, "BigDouble");
-                var block = Type(resolve, "InstantEffectBlock");
-                var script = Type(resolve, "IInstantEffectScript");
-                var gain = Type(resolve, "ConsumableSO+ConsumableGainEffect");
-                var request = Type(resolve, "RequestTargetEffectScript");
-                var options = Type(resolve, "Targeting.TargetSelectOptions");
-                var selection = Type(resolve, "Targeting.BaseTargetSelection");
-                var target = Type(resolve, "Targeting.TargetStructure");
-                var targetable = Type(resolve, "Targeting.ITargetable");
-                var enchantScript = Type(resolve, "EnchantmentSO+EnchantItemScript");
+                var id = set.Type("resource-bar.identity.type-capture", "IdScriptableObject");
+                var recipe = set.Type("crafting-instance.recipe.type-action", "CraftingRecipeSO");
+                var recipeList = set.Type("scribe-relations.recipe-list.type", "CraftingRecipeListVariable");
+                var recipeType = set.Type("crafting-instance.recipe-type.type-action", "CraftingRecipeTypeSO");
+                var instanceList = set.Type("crafting-instance.queue.type-action", "CraftingInstanceListVariable");
+                var instance = set.Type("auto-scribe.crafting-instance.type", "CraftingInstance");
+                var consumable = set.Type("consumable.type", "ConsumableSO");
+                var structure = set.Type("structure-lifecycle.structure.type-action", "StructureSO");
+                var enchantTable = set.Type("scribe-relations.enchant-table.type", "EnchantmentSO+EnchantTable");
+                var enchantInstance = set.Type("scribe-relations.enchantment-instance.type", "EnchantmentInstance");
+                var enchantment = set.Type("enchantment-so.tooltipable-base", "EnchantmentSO");
+                var scaling = set.Type("auto-items.scaling-info.type", "ScalingInfo");
+                var block = set.Type("auto-items.instant-effect-block.type", "InstantEffectBlock");
+                var script = set.Type("scribe-relations.instant-effect-script.type", "IInstantEffectScript");
+                var gain = set.Type("auto-scribe.consumable-gain.type", "ConsumableSO+ConsumableGainEffect");
+                var request = set.Type("scribe-relations.request-target.type", "RequestTargetEffectScript");
+                var options = set.Type("scribe-relations.target-select-options.type", "Targeting.TargetSelectOptions");
+                var selection = set.Type(
+                    "scribe-relations.base-target-selection.type", "Targeting.BaseTargetSelection");
+                var target = set.Type("auto-items.target-structure.type", "Targeting.TargetStructure");
+                var targetable = set.Type("scribe-relations.targetable.type", "Targeting.ITargetable");
+                var enchantScript = set.Type("auto-scribe.enchant-script.type", "EnchantmentSO+EnchantItemScript");
 
-                bindings = new BindingSet(
+                return new BindingSet(
                     recipe,
                     recipeList,
                     recipeType,
@@ -764,243 +806,64 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
                     enchantScript,
                     new RuntimeIdentityRegistryBinding(
                         () => id, requireStableIdentityContract: false),
-                    ListValue(recipeList, recipe),
-                    ListValue(instanceList, instance),
-                    FieldSequence(recipe, "craftingTypes", recipeType),
-                    FieldSequence(recipe, "completeEffects", block),
-                    FieldValue<bool>(recipe, "useQuantityAsLevel"),
-                    FieldSequence(block, "effectScripts", script),
-                    FieldObject(gain, "consumable", consumable),
-                    FieldValue<bool>(instanceList, "isAutoList"),
-                    StaticFieldSequence(structure, "All", structure),
-                    FieldObject(structure, "enchantTable", enchantTable),
-                    FieldSequence(enchantTable, "enchantments", enchantInstance),
-                    FieldValue<int>(recipeType, "maxStartingLevel"),
-                    FieldSequence(consumable, "onUseEffects", block),
-                    FieldObject(request, "targetOptions", options),
-                    FieldObject(enchantScript, "enchantment", enchantment),
-                    InheritedCall<Guid>(recipe, "GetGuid"),
-                    InheritedCall<Guid>(recipeType, "GetGuid"),
-                    InheritedCall<Guid>(consumable, "GetGuid"),
-                    InheritedCall<Guid>(structure, "GetGuid"),
-                    DeclaredCall<bool>(recipe, "IsVisible"),
-                    InheritedCall<int>(instanceList, "GetMax"),
-                    InheritedCall<Guid>(instance, "GetGuidReference"),
-                    DeclaredCall<BigDouble>(instance, "GetQuantity", bigDouble),
-                    DeclaredCall<bool>(instance, "IsAuto"),
-                    DeclaredCall<bool>(instance, "IsExpired"),
-                    InheritedCall<Guid>(enchantInstance, "GetGuidReference"),
-                    InheritedCall<Guid>(enchantment, "GetGuid"),
-                    DeclaredCall<int>(enchantInstance, "GetLevel"),
-                    StaticCall<BigDouble>(scaling, "Basic", scaling, bigDouble),
-                    DeclaredCallObject(options, "GetTargeting", selection),
-                    DeclaredCallSequence(
+                    set.Field<Func<object, IList?>>(
+                        "auto-scribe.list.value-capture", recipeList, "value", ListOf(recipe)),
+                    set.Field<Func<object, IList?>>(
+                        "auto-scribe.list.value-capture", instanceList, "value", ListOf(instance)),
+                    set.Field<Func<object, IEnumerable?>>(
+                        "auto-scribe.recipe.crafting-types", recipe, "craftingTypes", ListOf(recipeType)),
+                    set.Field<Func<object, IEnumerable?>>(
+                        "auto-scribe.recipe.complete-effects", recipe, "completeEffects", ListOf(block)),
+                    set.Field<Func<object, bool>>(
+                        "auto-scribe.recipe.levelled", recipe, "useQuantityAsLevel", typeof(bool)),
+                    set.Field<Func<object, IEnumerable?>>(
+                        "auto-harvest.effect-scripts", block, "effectScripts", ListOf(script)),
+                    set.Field<Func<object, object?>>(
+                        "auto-scribe.consumable-gain.output", gain, "consumable", consumable),
+                    set.Field<Func<object, bool>>(
+                        "auto-scribe.list.auto-flag", instanceList, "isAutoList", typeof(bool)),
+                    set.StaticField<Func<IEnumerable?>>("structure.all", structure, "All", ListOf(structure)),
+                    set.Field<Func<object, object?>>(
+                        "auto-scribe.structure.enchant-table", structure, "enchantTable", enchantTable),
+                    set.Field<Func<object, IEnumerable?>>(
+                        "auto-scribe.enchant-table.entries", enchantTable, "enchantments", ListOf(enchantInstance)),
+                    set.Field<Func<object, int>>(
+                        "crafting-recipe-type.max-starting-level", recipeType, "maxStartingLevel", typeof(int)),
+                    set.Field<Func<object, IEnumerable?>>(
+                        "auto-scribe.consumable.on-use-effects", consumable, "onUseEffects", ListOf(block)),
+                    set.Field<Func<object, object?>>(
+                        "scribe-relations.request-target.options", request, "targetOptions", options),
+                    set.Field<Func<object, object?>>(
+                        "auto-scribe.enchant-script.enchantment", enchantScript, "enchantment", enchantment),
+                    set.StableUuid("id-scriptable-object.get-guid", recipe),
+                    set.StableUuid("id-scriptable-object.get-guid", recipeType),
+                    set.StableUuid("id-scriptable-object.get-guid", consumable),
+                    set.StableUuid("id-scriptable-object.get-guid", structure),
+                    set.Call<Func<object, bool>>("crafting-recipe.visible", recipe, "IsVisible", typeof(bool)),
+                    set.Call<Func<object, int>>("auto-scribe.list.get-max", instanceList, "GetMax", typeof(int)),
+                    set.Call<Func<object, Guid>>(
+                        "auto-scribe.ref-instance.guid-reference", instance, "GetGuidReference", typeof(Guid)),
+                    set.Call<Func<object, BigDouble>>(
+                        "auto-scribe.instance.quantity", instance, "GetQuantity", typeof(BigDouble)),
+                    set.Call<Func<object, bool>>("auto-scribe.instance.auto", instance, "IsAuto", typeof(bool)),
+                    set.Call<Func<object, bool>>("auto-scribe.instance.expired", instance, "IsExpired", typeof(bool)),
+                    set.Call<Func<object, Guid>>(
+                        "auto-scribe.ref-instance.guid-reference", enchantInstance, "GetGuidReference", typeof(Guid)),
+                    set.StableUuid("id-scriptable-object.get-guid", enchantment),
+                    set.Call<Func<object, int>>(
+                        "auto-scribe.enchantment-instance.level", enchantInstance, "GetLevel", typeof(int)),
+                    set.StaticCall<Func<BigDouble, object?>>(
+                        "scribe-relations.scaling-info.basic", scaling, "Basic", scaling, typeof(BigDouble)),
+                    set.Call<Func<object, object?>>(
+                        "scribe-relations.target-options.get-targeting", options, "GetTargeting", selection),
+                    set.Call<Func<object, object, IEnumerable?>>(
+                        "scribe-relations.target-structure.get-random-list",
                         target,
                         "GetRandomList",
-                        typeof(List<>).MakeGenericType(targetable),
+                        ListOf(targetable),
                         scaling));
-                reason = string.Empty;
-                return true;
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or AmbiguousMatchException)
-            {
-                reason = "The exact Scribe relationship binding set is unavailable: " + ex.Message;
-                return false;
-            }
-        }
+            }, out bindings, out reason);
 
-        private static Type Type(Func<string, Type?> resolve, string name) =>
-            resolve(name) ?? throw new InvalidOperationException(name + " was unavailable.");
-
-        // Discovery and compilation are paired rather than merged: the audits below are stricter
-        // than a name and a type — an exact element type, a private field on a generic base, a
-        // method resolved up the hierarchy — and each accessor is compiled from the member that
-        // audit accepted. A member that resolves but cannot be compiled is as unavailable as one
-        // that never resolved, and says so in the same sentence.
-        private static Func<object, IList?> ListValue(Type listType, Type elementType) =>
-            Compiled(
-                NativeAccessorBinder.ReadList(GenericListValue(listType, elementType)),
-                listType,
-                "value");
-
-        private static Func<object, TValue> FieldValue<TValue>(Type type, string name) =>
-            Compiled(
-                NativeAccessorBinder.Read<TValue>(Field(type, name, Instance, typeof(TValue))),
-                type,
-                name);
-
-        private static Func<object, object?> FieldObject(Type type, string name, Type expected) =>
-            Compiled(
-                NativeAccessorBinder.ReadValue(Field(type, name, Instance, expected)),
-                type,
-                name);
-
-        private static Func<object, IEnumerable?> FieldSequence(
-            Type type,
-            string name,
-            Type element) =>
-            Compiled(
-                NativeAccessorBinder.ReadSequence(CollectionField(type, name, element)),
-                type,
-                name);
-
-        private static Func<IEnumerable?> StaticFieldSequence(
-            Type type,
-            string name,
-            Type element) =>
-            Compiled(
-                NativeAccessorBinder.ReadStaticSequence(
-                    CollectionField(type, name, element, Static)),
-                type,
-                name);
-
-        private static Func<object, TValue> InheritedCall<TValue>(Type type, string name) =>
-            Compiled(
-                NativeAccessorBinder.Call<TValue>(
-                    MethodFromHierarchy(type, name, typeof(TValue))),
-                type,
-                name);
-
-        private static Func<object, TValue> DeclaredCall<TValue>(Type type, string name) =>
-            DeclaredCall<TValue>(type, name, typeof(TValue));
-
-        private static Func<object, TValue> DeclaredCall<TValue>(
-            Type type,
-            string name,
-            Type returnType) =>
-            Compiled(
-                NativeAccessorBinder.Call<TValue>(Method(type, name, returnType, Instance)),
-                type,
-                name);
-
-        private static Func<object, object?> DeclaredCallObject(
-            Type type,
-            string name,
-            Type returnType) =>
-            Compiled(
-                NativeAccessorBinder.CallValue(Method(type, name, returnType, Instance)),
-                type,
-                name);
-
-        private static Func<object, object, IEnumerable?> DeclaredCallSequence(
-            Type type,
-            string name,
-            Type returnType,
-            Type argument) =>
-            Compiled(
-                NativeAccessorBinder.CallSequence(
-                    Method(type, name, returnType, Instance, argument)),
-                type,
-                name);
-
-        private static Func<TArgument, object?> StaticCall<TArgument>(
-            Type type,
-            string name,
-            Type returnType,
-            Type argument) =>
-            Compiled(
-                NativeAccessorBinder.CallStatic<TArgument>(
-                    Method(type, name, returnType, Static, argument)),
-                type,
-                name);
-
-        private static T Compiled<T>(T? accessor, Type type, string name)
-            where T : Delegate =>
-            accessor ?? throw new InvalidOperationException(
-                $"{type.Name}.{name} could not be compiled into an accessor.");
-
-        private static FieldInfo GenericListValue(Type listType, Type elementType)
-        {
-            for (var current = listType; current is not null; current = current.BaseType)
-            {
-                var field = current.GetField("value", Instance | BindingFlags.DeclaredOnly);
-                if (field is not null &&
-                    field.FieldType == typeof(List<>).MakeGenericType(elementType))
-                    return field;
-            }
-            throw new InvalidOperationException(
-                $"{listType.Name}.value : List<{elementType.Name}> was unavailable.");
-        }
-
-        private static FieldInfo CollectionField(
-            Type type,
-            string name,
-            Type element,
-            BindingFlags flags = Instance)
-        {
-            var field = type.GetField(name, flags);
-            if (field is null || CollectionElement(field.FieldType) != element ||
-                field.IsStatic != flags.HasFlag(BindingFlags.Static))
-                throw new InvalidOperationException(
-                    $"{type.Name}.{name} collection of {element.Name} was unavailable.");
-            return field;
-        }
-
-        private static FieldInfo Field(
-            Type type,
-            string name,
-            BindingFlags flags,
-            Type expected,
-            bool allowDictionary = false)
-        {
-            var field = type.GetField(name, flags);
-            var typeMatches = allowDictionary
-                ? field?.FieldType.IsGenericType == true &&
-                  field.FieldType.GetGenericTypeDefinition() == typeof(Dictionary<,>) &&
-                  field.FieldType.GetGenericArguments()[0] == typeof(Guid)
-                : field?.FieldType == expected;
-            if (field is null || !typeMatches ||
-                field.IsStatic != flags.HasFlag(BindingFlags.Static))
-                throw new InvalidOperationException(
-                    $"{type.Name}.{name} : {expected.Name} was unavailable.");
-            return field;
-        }
-
-        private static MethodInfo MethodFromHierarchy(
-            Type type,
-            string name,
-            Type returnType,
-            params Type[] parameters)
-        {
-            for (var current = type; current is not null; current = current.BaseType)
-            {
-                var method = current.GetMethod(
-                    name,
-                    Instance | BindingFlags.DeclaredOnly,
-                    null,
-                    parameters,
-                    null);
-                if (method?.ReturnType == returnType && !method.IsStatic) return method;
-            }
-            throw new InvalidOperationException(
-                $"{type.Name}.{name}({string.Join(",", Array.ConvertAll(parameters, p => p.Name))}) " +
-                $": {returnType.Name} was unavailable.");
-        }
-
-        private static MethodInfo Method(
-            Type type,
-            string name,
-            Type returnType,
-            BindingFlags flags,
-            params Type[] parameters)
-        {
-            var method = type.GetMethod(name, flags, null, parameters, null);
-            if (method is null || method.ReturnType != returnType ||
-                method.IsStatic != flags.HasFlag(BindingFlags.Static))
-                throw new InvalidOperationException(
-                    $"{type.Name}.{name} : {returnType.Name} was unavailable.");
-            return method;
-        }
-
-        private static Type? CollectionElement(Type type)
-        {
-            if (type.IsGenericType && type.GetGenericArguments().Length == 1)
-                return type.GetGenericArguments()[0];
-            foreach (var candidate in type.GetInterfaces())
-                if (candidate.IsGenericType &&
-                    candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                    return candidate.GetGenericArguments()[0];
-            return null;
-        }
+        private static Type ListOf(Type element) => typeof(List<>).MakeGenericType(element);
     }
 }

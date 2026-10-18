@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -12,8 +10,6 @@ namespace OrbAutomata;
 /// </summary>
 internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
 {
-    private static readonly object[] EnableRandomizationArguments = { true };
-
     private readonly TypedRegistryResolver _registryResolver;
     private readonly Func<bool> _tryCaptureMutationPermit;
     private readonly Func<string> _readMutationPermitFailure;
@@ -69,7 +65,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
             return NativeActionOutcome.FaultBeforeCall(
                 AutoItemsActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Inventory", _bindingFailure));
-        if (InvokeBool(native.IsTargeting, null))
+        if (native.IsTargeting())
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.TargetingInProgress,
                 "TargetingManager.IsTargeting() reported an active native targeting interaction.");
@@ -82,12 +78,12 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         var item = resolution.Value!;
         if (!HasExpectedFamily(item, action.Family, native, out var reason))
             return NativeActionOutcome.Reject(AutoItemsActionResultCodes.FamilyChanged, reason);
-        if (!InvokeBool(native.IsVisible, item))
+        if (!native.IsVisible(item))
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.NotVisible,
                 $"The game is not showing {EntityIdentityFormatter.PlayerName(action.ItemId)} yet.");
         if (action.Family == AutoItemsConsumableFamily.Scroll &&
-            native.CanBeRandomized.GetValue(item) is not true)
+            !native.CanBeRandomized(item))
         {
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.RandomizationUnavailable,
@@ -129,11 +125,11 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     AutoItemsActionResultCodes.TemporaryEffectPresent,
                     reason);
         }
-        if (!InvokeBool(native.CanUseConsumable, null))
+        if (!native.CanUseConsumable())
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.NativeBusy,
                 "Inventory.CanUseConsumable() refused because native consumable preparation is busy.");
-        if (!InvokeBool(native.CanFire, item))
+        if (!native.CanFire(item))
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.CanFireRefused,
                 $"The game refuses to use {EntityIdentityFormatter.PlayerName(action.ItemId)} right now.");
@@ -155,7 +151,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 "Auto Items consumable use",
                 EntityIdentityFormatter.PlayerName(itemId),
                 "the exact item enters the native preparation queue",
-                () => Invoke<int>(native.GetQueued, item),
+                () => native.GetQueued(item),
                 () => Mutate(item, family, native),
                 (before, after) => after == before + 1);
         }
@@ -305,16 +301,12 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         AutoItemsNativeBindings native,
         out string reason)
     {
-        if (native.HasDuration.GetValue(item) is not true)
+        if (!native.HasDuration(item))
         {
             reason = $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} no longer has ConsumableSO.hasDuration=true.";
             return false;
         }
-        if (native.DurationBase.GetValue(item) is not double durationBase)
-        {
-            reason = $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} did not expose ConsumableSO.durationBase as Double.";
-            return false;
-        }
+        var durationBase = native.DurationBase(item);
         if (durationBase <= 0d || double.IsNaN(durationBase) || double.IsInfinity(durationBase))
         {
             reason =
@@ -333,7 +325,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         out string reason)
     {
         if (!TryHasToxicityOnlyCosts(
-                native.ConsumeCost.GetValue(item),
+                native.ConsumeCost(item),
                 "ConsumableSO.consumeCost",
                 itemId,
                 native,
@@ -343,7 +335,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
             return false;
         }
         return TryHasToxicityOnlyCosts(
-            native.UsageCost.GetValue(item),
+            native.UsageCost(item),
             "ConsumableSO.usageCost",
             itemId,
             native,
@@ -364,7 +356,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
             reason = $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} has null {category}.";
             return false;
         }
-        if (native.Costs.GetValue(costList) is not IEnumerable costs)
+        if (native.Costs(costList) is not { } costs)
         {
             reason = $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} has unreadable {category}.costs.";
             return false;
@@ -381,7 +373,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     "ResourceTuple type.";
                 return false;
             }
-            var resource = native.CostResource.GetValue(entry);
+            var resource = native.CostResource(entry);
             if (resource is null || resource.GetType() != native.ResourceType)
             {
                 reason =
@@ -389,7 +381,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     "the exact ResourceSO type.";
                 return false;
             }
-            var resourceId = Invoke<Guid>(native.ResourceGuid, resource);
+            var resourceId = native.ResourceGuid(resource);
             if (resourceId != KnownEntities.PotionToxicity.Uuid)
             {
                 reason =
@@ -397,8 +389,8 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     $"{EntityIdentityFormatter.PlayerName(resourceId)}; only Potion Toxicity is permitted.";
                 return false;
             }
-            if (native.CostAmount.GetValue(entry) is not BigDouble amount ||
-                BigDouble.IsNaN(amount) ||
+            var amount = native.CostAmount(entry);
+            if (BigDouble.IsNaN(amount) ||
                 BigDouble.IsInfinity(amount) ||
                 amount.CompareTo(BigDouble.Zero) < 0)
             {
@@ -425,7 +417,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         out string reason)
     {
         present = false;
-        if (native.AllConsumables.GetValue(null) is not IEnumerable all)
+        if (native.AllConsumables() is not { } all)
         {
             reason = "ConsumableSO.All was unavailable while checking temporary usage exclusion.";
             return false;
@@ -456,7 +448,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 return false;
             }
             if (!AutoItemsConsumableFamilies.IsTemporary(family)) continue;
-            if (native.Usages.GetValue(candidate) is not ICollection usages)
+            if (native.Usages(candidate) is not { } usages)
             {
                 reason =
                     $"Temporary-family consumable family={family}, " +
@@ -483,7 +475,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
         out string reason)
     {
         families = new AutoItemsConsumableFamilySet();
-        if (native.Families.GetValue(item) is not IList entries)
+        if (native.Families(item) is not { } entries)
         {
             reason = "ConsumableSO.consumableTypes was unavailable on the live item.";
             return false;
@@ -498,7 +490,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     "ConsumableSO.consumableTypes contained a non-ConsumableTypeSO value.";
                 return false;
             }
-            var familyId = Invoke<Guid>(native.FamilyGuid, entry);
+            var familyId = native.FamilyGuid(entry);
             if (familyId == Guid.Empty)
             {
                 reason =
@@ -507,7 +499,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
             }
             for (var previous = 0; previous < index; previous++)
             {
-                if (Invoke<Guid>(native.FamilyGuid, entries[previous]!) != familyId) continue;
+                if (native.FamilyGuid(entries[previous]!) != familyId) continue;
                 reason =
                     "ConsumableSO.consumableTypes contained an empty or duplicate stable family UUID.";
                 return false;
@@ -530,21 +522,11 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
     {
         if (family == AutoItemsConsumableFamily.Scroll)
         {
-            native.SetRandomization.Invoke(item, EnableRandomizationArguments);
-            if (!InvokeBool(native.IsRandomized, item))
+            native.SetRandomization(item, true);
+            if (!native.IsRandomized(item))
                 throw new InvalidOperationException(
                     "ConsumableSO.SetRandomization(true) was not confirmed by IsRandomized().");
         }
-        native.SelectAndFire.Invoke(item, Array.Empty<object>());
+        native.SelectAndFire(item);
     }
-
-    private static bool InvokeBool(MethodInfo method, object? target) =>
-        Invoke<bool>(method, target);
-
-    private static T Invoke<T>(MethodInfo method, object? target) =>
-        method.Invoke(target, Array.Empty<object>()) is T value
-            ? value
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.Name}.{method.Name} did not return {typeof(T).Name}.");
-
 }

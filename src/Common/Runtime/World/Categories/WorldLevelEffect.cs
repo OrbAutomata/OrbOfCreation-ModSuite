@@ -256,7 +256,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         }
 
         var glyph = new WorldMemberBinding(_glyphType, "GlyphSO");
-        _glyphId = glyph.Call<Guid>("GetGuid");
+        _glyphId = glyph.StableUuid();
         for (var index = 0; index < slots.Length; index++)
         {
             var field = slots[index].Field;
@@ -283,13 +283,13 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         var variables = doubleVariable is null
             ? null
             : new WorldMemberBinding(doubleVariable, "DoubleVariable");
-        _playerVariableId = variables?.Call<Guid>("GetGuid");
+        _playerVariableId = variables?.StableUuid();
         if (_playerVariableId is null) missing.Add("DoubleVariable.GetGuid()");
 
         _scripts = new WorldLevelEffectScripts(resolveType, missing);
 
         var upgrade = new WorldMemberBinding(_upgradeType, "UpgradeSO");
-        _upgradeId = upgrade.Call<Guid>("GetGuid");
+        _upgradeId = upgrade.StableUuid();
         var permanent = upgrade.Through("permanentEffects");
         _numberVariableEffects = permanent.CollectionField("numberVariableEffects");
         _upgradeableObjectEffects = permanent.CollectionField("upgradeableObjectEffects");
@@ -313,7 +313,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         else
         {
             var structure = new WorldMemberBinding(_structureType, "StructureSO");
-            _structureId = structure.Call<Guid>("GetGuid");
+            _structureId = structure.StableUuid();
             _structureProperties = structure.CollectionField("structureProperties");
             var property = structure.Elements(
                 structure.CollectionElementType("structureProperties"),
@@ -377,7 +377,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(type, typeName);
-        var ownerId = bind.Call<Guid>("GetGuid");
+        var ownerId = bind.StableUuid();
         var blocks = bind.CollectionField(field);
         var block = bind.Elements(bind.CollectionElementType(field), typeName + "." + field);
         var scripts = block.CollectionField("effectScripts");

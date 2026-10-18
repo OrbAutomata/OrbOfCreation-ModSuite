@@ -657,7 +657,7 @@ internal sealed class AutomataWorldCollectionCheck
     {
         var type = _resolveType("StructureSO");
         var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
-        var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
+        var getGuid = NativeAccessorBinder.StableUuid(type);
         var reference = type?.GetField("costPerQuantity", Instance);
         var getModifier = reference?.FieldType.GetMethod("GetModifier", Instance, null, Type.EmptyTypes, null);
         if (registry is null || getGuid is null || reference is null || getModifier is null)
@@ -939,7 +939,7 @@ internal sealed class AutomataWorldCollectionCheck
             if (type is null) continue;
 
             var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
-            var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
+            var getGuid = NativeAccessorBinder.StableUuid(type);
             if (registry is null || getGuid is null)
             {
                 NoteMissingOracle($"{typeName}.All");
@@ -2030,7 +2030,7 @@ internal sealed class AutomataWorldCollectionCheck
         if (type is null || table.Count == 0) return;
 
         var registry = NativeAccessorBinder.StaticListAccessor(type, "All")?.Invoke();
-        var getGuid = NativeAccessorBinder.Call<Guid>(type, "GetGuid");
+        var getGuid = NativeAccessorBinder.StableUuid(type);
         if (registry is null || getGuid is null)
         {
             NoteMissingOracle($"{typeName}.All");

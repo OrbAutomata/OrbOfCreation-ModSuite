@@ -120,7 +120,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
         }
 
         _upgrades = NativeAccessorBinder.StaticListAccessor(upgradeType, "All");
-        _upgradeId = NativeAccessorBinder.Call<Guid>(upgradeType, "GetGuid");
+        _upgradeId = NativeAccessorBinder.StableUuid(upgradeType);
         _resourceCost = NativeAccessorBinder.Reference(upgradeType, "resourceCost");
         var costListType = upgradeType.GetField("resourceCost", Instance)?.FieldType;
         var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");

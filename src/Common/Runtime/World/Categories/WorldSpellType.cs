@@ -203,7 +203,7 @@ internal sealed class WorldSpellTypeBinder : WorldPlainBinder<WorldSpellType>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _typeLevel = bind.Field<int>("typeLevel");
         _typeXp = bind.Field<BigDouble>("typeXp");
         _typeXpRequiredBase = bind.Field<double>("typeXpRequiredBase");

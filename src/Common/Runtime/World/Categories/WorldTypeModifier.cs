@@ -399,7 +399,7 @@ internal sealed class WorldTypeModifierBindings
         }
 
         var bind = new WorldMemberBinding(type, typeName);
-        var typeId = bind.Call<Guid>("GetGuid");
+        var typeId = bind.StableUuid();
         var registry = NativeAccessorBinder.StaticListAccessor(type, "All");
 
         Func<object, IList?>? subTypes = null;
@@ -409,7 +409,7 @@ internal sealed class WorldTypeModifierBindings
             subTypes = bind.CollectionField(subTypeField);
             subTypeId = bind
                 .Elements(bind.CollectionElementType(subTypeField), typeName + "." + subTypeField + "[]")
-                .Call<Guid>("GetGuid");
+                .StableUuid();
         }
 
         var failure = bind.Failure;

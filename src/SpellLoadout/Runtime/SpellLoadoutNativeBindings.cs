@@ -1,8 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -14,6 +13,13 @@ internal sealed class SpellLoadoutNativeBindings
 {
     internal static readonly string[] ContractIds =
     {
+        "spell-workbench.manager-type-action",
+        "loadout.spell.type-action",
+        "spell-workbench.guid-container-type-action",
+        "spell-loadout.big-double.type-action",
+        "loadout.spell-recipe.type-action",
+        "loadout.identity.type-action",
+        "spell-workbench.view-type-action",
         "spell-manager.instance",
         "spell-manager.active-spells",
         "spell-workbench.spell-list-type-action",
@@ -120,227 +126,56 @@ internal sealed class SpellLoadoutNativeBindings
         Func<string, Type?> resolveType,
         Func<string, bool> includeContract,
         out SpellLoadoutNativeBindings? bindings,
-        out string reason)
-    {
-        bindings = null;
-        try
+        out string reason) =>
+        NativeBindingSet.TryBind("spell loadout", ContractIds, resolveType, includeContract, set =>
         {
-            for (var index = 0; index < ContractIds.Length; index++)
-                Require(ContractIds[index], includeContract);
-
-            Type T(string name) => resolveType(name) ??
-                throw new InvalidOperationException(name + " was unavailable.");
-
-            var managerType = T("SpellManager");
-            var spellListType = T("SpellListVariable");
-            var spellType = T("Spell");
-            var guidType = T("GuidContainer");
-            var listType = typeof(List<>).MakeGenericType(spellType);
-
-            var managerInstance = Field(managerType, "instance", managerType, isStatic: true);
-            var active = Field(managerType, "activeSpells", spellListType, isStatic: false);
-            var values = HierarchyField(spellListType, "value", listType);
-            var spellGuid = Field(spellType, "guidContainer", guidType, isStatic: false);
-            var guidValue = Method(guidType, "get_guid", typeof(Guid));
-            var isEmpty = Method(spellType, "IsEmpty", typeof(bool));
-            var atMaxCharges = Method(spellType, "IsAtMaxCharges", typeof(bool));
-            var isCasting = Method(spellType, "IsCasting", typeof(bool));
-            var readyingCast = Method(spellType, "IsReadyingCast", typeof(bool));
-            var currentCharges = Method(spellType, "GetCurrSpellCharges", typeof(int));
-            var maximumCharges = Method(spellType, "GetMaxSpellCharges", typeof(int));
-            var cooldownRemaining = Method(
-                spellType, "GetCooldownTimeRemaining", T("BigDouble"));
-            var recipeType = T("SpellRecipeSO");
-            var spellRecipe = Method(spellType, "get_reference", recipeType);
-            // RecipeSO carries the audited IdScriptableObject identity method, the same one the
-            // workbench binds to name a recipe.
-            var recipeIdentity = Method(T("IdScriptableObject"), "GetGuid", typeof(Guid));
-            var remove = Method(managerType, "RemoveSpell", typeof(void), spellType);
-            var swap = HierarchyMethod(
-                spellListType,
-                "SwapPositions",
-                typeof(void),
-                typeof(int),
-                typeof(int));
-            var update = HierarchyMethod(spellListType, "UpdateObservable", typeof(void));
-            var viewType = T("ViewSO");
-            var viewAvailable = Method(viewType, "IsAvailable", typeof(bool));
-
-            bindings = new SpellLoadoutNativeBindings(
-                spellType,
-                StaticObject(managerInstance),
-                ObjectField(active),
-                ListField(values),
-                NullableObjectField(spellGuid),
-                InstanceFunc<Guid>(guidValue),
-                InstanceFunc<bool>(isEmpty),
-                InstanceFunc<bool>(atMaxCharges),
-                InstanceFunc<bool>(isCasting),
-                InstanceFunc<bool>(readyingCast),
-                InstanceFunc<int>(currentCharges),
-                InstanceFunc<int>(maximumCharges),
-                InstanceFunc<BigDouble>(cooldownRemaining),
-                InstanceNullableObjectFunc(spellRecipe),
-                InstanceFunc<Guid>(recipeIdentity),
-                InstanceObjectAction(remove),
-                InstanceValueValueAction<int, int>(swap),
-                InstanceAction(update),
-                viewType,
-                InstanceFunc<bool>(viewAvailable));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or ArgumentException or AmbiguousMatchException)
-        {
-            reason = "The complete spell loadout binding set is unavailable: " + ex.Message;
-            return false;
-        }
-    }
-
-    private static void Require(string id, Func<string, bool> include)
-    {
-        if (!include(id))
-            throw new InvalidOperationException("Required contract " + id + " was withheld.");
-    }
-
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-    private static FieldInfo Field(Type type, string name, Type valueType, bool isStatic)
-    {
-        var field = type.GetField(name, isStatic ? Static : Instance);
-        if (field is null || field.FieldType != valueType || field.IsStatic != isStatic)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return field;
-    }
-
-    private static FieldInfo HierarchyField(Type type, string name, Type valueType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var field = current.GetField(name, Instance | BindingFlags.DeclaredOnly);
-            if (field is not null && field.FieldType == valueType) return field;
-        }
-        throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-    }
-
-    private static MethodInfo Method(
-        Type type,
-        string name,
-        Type result,
-        params Type[] parameters)
-    {
-        var method = type.GetMethod(name, Instance, null, parameters, null);
-        if (method is null || method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return method;
-    }
-
-    private static MethodInfo HierarchyMethod(
-        Type type,
-        string name,
-        Type result,
-        params Type[] parameters)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                Instance | BindingFlags.DeclaredOnly,
-                null,
-                parameters,
-                null);
-            if (method is not null && !method.IsStatic && method.ReturnType == result)
-                return method;
-        }
-        throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-    }
-
-    private static Func<object?> StaticObject(FieldInfo field) =>
-        Expression.Lambda<Func<object?>>(
-            Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-
-    private static Func<object, object> ObjectField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-            typeof(object));
-        return Expression.Lambda<Func<object, object>>(body, target).Compile();
-    }
-
-    private static Func<object, object?> NullableObjectField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-            typeof(object));
-        return Expression.Lambda<Func<object, object?>>(body, target).Compile();
-    }
-
-    private static Func<object, IList> ListField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(
-            Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-            typeof(IList));
-        return Expression.Lambda<Func<object, IList>>(body, target).Compile();
-    }
-
-    private static Func<object, object?> InstanceNullableObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-            typeof(object));
-        return Expression.Lambda<Func<object, object?>>(body, target).Compile();
-    }
-
-    private static Func<object, T> InstanceFunc<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Call(Expression.Convert(target, method.DeclaringType!), method);
-        return Expression.Lambda<Func<object, T>>(body, target).Compile();
-    }
-
-    private static Action<object> InstanceAction(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-            target).Compile();
-    }
-
-    private static Action<object, object> InstanceObjectAction(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(object), "value");
-        return Expression.Lambda<Action<object, object>>(
-            Expression.Call(
-                Expression.Convert(target, method.DeclaringType!),
-                method,
-                Expression.Convert(value, method.GetParameters()[0].ParameterType)),
-            target,
-            value).Compile();
-    }
-
-    private static Action<object, TFirst, TSecond> InstanceValueValueAction<TFirst, TSecond>(
-        MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var first = Expression.Parameter(typeof(TFirst), "first");
-        var second = Expression.Parameter(typeof(TSecond), "second");
-        return Expression.Lambda<Action<object, TFirst, TSecond>>(
-            Expression.Call(
-                Expression.Convert(target, method.DeclaringType!),
-                method,
-                first,
-                second),
-            target,
-            first,
-            second).Compile();
-    }
+            var manager = set.Type("spell-workbench.manager-type-action", "SpellManager");
+            var spellList = set.Type("spell-workbench.spell-list-type-action", "SpellListVariable");
+            var spell = set.Type("loadout.spell.type-action", "Spell");
+            var guid = set.Type("spell-workbench.guid-container-type-action", "GuidContainer");
+            var bigDouble = set.Type("spell-loadout.big-double.type-action", "BigDouble");
+            var recipe = set.Type("loadout.spell-recipe.type-action", "SpellRecipeSO");
+            var identity = set.Type("loadout.identity.type-action", "IdScriptableObject");
+            var view = set.Type("spell-workbench.view-type-action", "ViewSO");
+            return new SpellLoadoutNativeBindings(
+                spell,
+                set.StaticField<Func<object?>>("spell-manager.instance", manager, "instance", manager),
+                set.Field<Func<object, object>>(
+                    "spell-manager.active-spells", manager, "activeSpells", spellList),
+                set.Field<Func<object, IList>>(
+                    "spell-workbench.list-value-action",
+                    spellList, "value", typeof(List<>).MakeGenericType(spell)),
+                set.Field<Func<object, object?>>(
+                    "spell-workbench.spell-guid-container-action", spell, "guidContainer", guid),
+                set.Call<Func<object, Guid>>(
+                    "discovery-tree-offer.guid-container-value", guid, "get_guid", typeof(Guid)),
+                set.Call<Func<object, bool>>(
+                    "spell-loadout.spell-is-empty-action", spell, "IsEmpty", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "spell-loadout.spell-at-max-charges-action", spell, "IsAtMaxCharges", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "spell-loadout.spell-is-casting-action", spell, "IsCasting", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "spell-loadout.spell-readying-cast-action", spell, "IsReadyingCast", typeof(bool)),
+                set.Call<Func<object, int>>(
+                    "spell-loadout.spell-current-charges-action", spell, "GetCurrSpellCharges", typeof(int)),
+                set.Call<Func<object, int>>(
+                    "spell-loadout.spell-max-charges-action", spell, "GetMaxSpellCharges", typeof(int)),
+                set.Call<Func<object, BigDouble>>(
+                    "spell-loadout.spell-cooldown-remaining-action",
+                    spell, "GetCooldownTimeRemaining", bigDouble),
+                set.Call<Func<object, object?>>(
+                    "spell-loadout.spell-reference-action", spell, "get_reference", recipe),
+                set.StableUuid("spell-loadout.recipe-identity-action", identity),
+                set.Call<Action<object, object>>(
+                    "spell-loadout.manager-remove-spell-action", manager, "RemoveSpell", typeof(void), spell),
+                set.Call<Action<object, int, int>>(
+                    "spell-loadout.list-swap-positions-action",
+                    spellList, "SwapPositions", typeof(void), typeof(int), typeof(int)),
+                set.Call<Action<object>>(
+                    "spell-loadout.list-update-observable-action", spellList, "UpdateObservable", typeof(void)),
+                view,
+                set.Call<Func<object, bool>>(
+                    "spell-loadout.owning-view-availability-action", view, "IsAvailable", typeof(bool)));
+        }, out bindings, out reason);
 }

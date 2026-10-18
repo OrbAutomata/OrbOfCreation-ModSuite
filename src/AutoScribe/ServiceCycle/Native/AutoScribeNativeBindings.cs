@@ -1,6 +1,6 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -11,10 +11,58 @@ namespace OrbAutomata;
 /// </summary>
 internal sealed class AutoScribeNativeBindings
 {
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+    internal static readonly string[] ContractIds =
+    {
+        "crafting-instance.recipe.type-action",
+        "crafting-instance.recipe-type.type-action",
+        "crafting-instance.recipe-list.type-action",
+        "auto-scribe.crafting-instance.type",
+        "crafting-instance.queue.type-action",
+        "consumable.type",
+        "enchantment-so.tooltipable-base",
+        "generic-level.cost.type-action",
+        "spell-loadout.big-double.type-action",
+        "auto-items.instant-effect-block.type",
+        "auto-items.instant-effect-script.type",
+        "auto-scribe.consumable-gain.type",
+        "auto-items.request-target-effect-script.type",
+        "auto-items.target-select-options.type",
+        "auto-items.base-target-selection.type",
+        "auto-items.target-structure.type",
+        "auto-items.targetable.type",
+        "auto-scribe.enchant-script.type",
+        "auto-items.scaling-info.type",
+        "auto-scribe.instance.construct",
+        "abstract-list.value",
+        "auto-scribe.recipe.crafting-types",
+        "auto-scribe.recipe.complete-effects",
+        "crafting-player.recipe-levelled-action",
+        "crafting-recipe-type.is-level-type",
+        "crafting-recipe-type.max-starting-level",
+        "auto-harvest.effect-scripts",
+        "auto-scribe.consumable-gain.output",
+        "auto-items.consumable.on-use-effects",
+        "target-request.options",
+        "auto-scribe.enchant-script.enchantment",
+        "id-scriptable-object.get-guid-action",
+        "auto-scribe.recipe.visible",
+        "auto-scribe.recipe.can-buy-at",
+        "auto-scribe.recipe.get-total-cost",
+        "auto-scribe.recipe.get-main-type",
+        "auto-scribe.recipe.purchase-quantity",
+        "resource-cost-list.has-enough",
+        "auto-scribe.list.has-empty-spot",
+        "auto-scribe.list.add",
+        "crafting-player.instance-recipe-action",
+        "crafting-player.instance-quantity-action",
+        "crafting-player.instance-expired-action",
+        "auto-scribe.instance.initiate",
+        "auto-scribe.instance.check-instant",
+        "auto-scribe.instance.instant",
+        "auto-scribe.scaling-info.basic",
+        "auto-items.target-options.get-targeting",
+        "auto-items.target-structure.get-random-list",
+    };
 
     private AutoScribeNativeBindings(
         Type recipeType,
@@ -36,39 +84,39 @@ internal sealed class AutoScribeNativeBindings
         Type targetableType,
         Type enchantScriptType,
         Type scalingType,
-        ConstructorInfo constructInstance,
-        FieldInfo recipeListValue,
-        FieldInfo instanceListValue,
-        FieldInfo craftingTypes,
-        FieldInfo completeEffects,
-        FieldInfo useQuantityAsLevel,
-        FieldInfo isLevelType,
-        FieldInfo maxStartingLevel,
-        FieldInfo effectScripts,
-        FieldInfo gainConsumable,
-        FieldInfo onUseEffects,
-        FieldInfo targetOptions,
-        FieldInfo enchantScriptEnchantment,
-        MethodInfo identity,
-        MethodInfo consumableIdentity,
-        MethodInfo enchantmentIdentity,
-        MethodInfo recipeVisible,
-        MethodInfo recipeCanBuyAt,
-        MethodInfo recipeTotalCost,
-        MethodInfo recipeMainType,
-        MethodInfo recipePurchase,
-        MethodInfo costHasEnough,
-        MethodInfo queueHasRoom,
-        MethodInfo queueAdd,
-        MethodInfo instanceRecipe,
-        MethodInfo instanceQuantity,
-        MethodInfo instanceExpired,
-        MethodInfo instanceInitiate,
-        MethodInfo instanceInstantCheck,
-        MethodInfo instanceInstant,
-        MethodInfo scalingBasic,
-        MethodInfo getTargeting,
-        MethodInfo getRandomList)
+        Func<object, BigDouble, object> constructInstance,
+        Func<object, IList?> recipeListValue,
+        Func<object, IList?> instanceListValue,
+        Func<object, IEnumerable?> craftingTypes,
+        Func<object, IEnumerable?> completeEffects,
+        Func<object, bool> useQuantityAsLevel,
+        Func<object, bool> isLevelType,
+        Func<object, int> maxStartingLevel,
+        Func<object, IEnumerable?> effectScripts,
+        Func<object, object?> gainConsumable,
+        Func<object, IEnumerable?> onUseEffects,
+        Func<object, object?> targetOptions,
+        Func<object, object?> enchantScriptEnchantment,
+        Func<object, Guid> identity,
+        Func<object, Guid> consumableIdentity,
+        Func<object, Guid> enchantmentIdentity,
+        Func<object, bool> recipeVisible,
+        Func<object, BigDouble, bool> recipeCanBuyAt,
+        Func<object, BigDouble, BigDouble, object?> recipeTotalCost,
+        Func<object, object?> recipeMainType,
+        Action<object, BigDouble, BigDouble> recipePurchase,
+        Func<object, bool> costHasEnough,
+        Func<object, bool> queueHasRoom,
+        Action<object, object> queueAdd,
+        Func<object, Guid> instanceRecipe,
+        Func<object, BigDouble> instanceQuantity,
+        Func<object, bool> instanceExpired,
+        Action<object> instanceInitiate,
+        Func<object, bool> instanceInstantCheck,
+        Action<object> instanceInstant,
+        Func<BigDouble, object?> scalingBasic,
+        Func<object, object?> getTargeting,
+        Func<object, object, ICollection?> getRandomList)
     {
         RecipeType = recipeType;
         RecipeTypeType = recipeTypeType;
@@ -143,66 +191,64 @@ internal sealed class AutoScribeNativeBindings
     internal Type TargetableType { get; }
     internal Type EnchantScriptType { get; }
     internal Type ScalingType { get; }
-    internal ConstructorInfo ConstructInstance { get; }
-    internal FieldInfo RecipeListValue { get; }
-    internal FieldInfo InstanceListValue { get; }
-    internal FieldInfo CraftingTypes { get; }
-    internal FieldInfo CompleteEffects { get; }
-    internal FieldInfo UseQuantityAsLevel { get; }
-    internal FieldInfo IsLevelType { get; }
-    internal FieldInfo MaxStartingLevel { get; }
-    internal FieldInfo EffectScripts { get; }
-    internal FieldInfo GainConsumable { get; }
-    internal FieldInfo OnUseEffects { get; }
-    internal FieldInfo TargetOptions { get; }
-    internal FieldInfo EnchantScriptEnchantment { get; }
-    internal MethodInfo Identity { get; }
-    internal MethodInfo ConsumableIdentity { get; }
-    internal MethodInfo EnchantmentIdentity { get; }
-    internal MethodInfo RecipeVisible { get; }
-    internal MethodInfo RecipeCanBuyAt { get; }
-    internal MethodInfo RecipeTotalCost { get; }
-    internal MethodInfo RecipeMainType { get; }
-    internal MethodInfo RecipePurchase { get; }
-    internal MethodInfo CostHasEnough { get; }
-    internal MethodInfo QueueHasRoom { get; }
-    internal MethodInfo QueueAdd { get; }
-    internal MethodInfo InstanceRecipe { get; }
-    internal MethodInfo InstanceQuantity { get; }
-    internal MethodInfo InstanceExpired { get; }
-    internal MethodInfo InstanceInitiate { get; }
-    internal MethodInfo InstanceInstantCheck { get; }
-    internal MethodInfo InstanceInstant { get; }
-    internal MethodInfo ScalingBasic { get; }
-    internal MethodInfo GetTargeting { get; }
-    internal MethodInfo GetRandomList { get; }
+    internal Func<object, BigDouble, object> ConstructInstance { get; }
+    internal Func<object, IList?> RecipeListValue { get; }
+    internal Func<object, IList?> InstanceListValue { get; }
+    internal Func<object, IEnumerable?> CraftingTypes { get; }
+    internal Func<object, IEnumerable?> CompleteEffects { get; }
+    internal Func<object, bool> UseQuantityAsLevel { get; }
+    internal Func<object, bool> IsLevelType { get; }
+    internal Func<object, int> MaxStartingLevel { get; }
+    internal Func<object, IEnumerable?> EffectScripts { get; }
+    internal Func<object, object?> GainConsumable { get; }
+    internal Func<object, IEnumerable?> OnUseEffects { get; }
+    internal Func<object, object?> TargetOptions { get; }
+    internal Func<object, object?> EnchantScriptEnchantment { get; }
+    internal Func<object, Guid> Identity { get; }
+    internal Func<object, Guid> ConsumableIdentity { get; }
+    internal Func<object, Guid> EnchantmentIdentity { get; }
+    internal Func<object, bool> RecipeVisible { get; }
+    internal Func<object, BigDouble, bool> RecipeCanBuyAt { get; }
+    internal Func<object, BigDouble, BigDouble, object?> RecipeTotalCost { get; }
+    internal Func<object, object?> RecipeMainType { get; }
+    internal Action<object, BigDouble, BigDouble> RecipePurchase { get; }
+    internal Func<object, bool> CostHasEnough { get; }
+    internal Func<object, bool> QueueHasRoom { get; }
+    internal Action<object, object> QueueAdd { get; }
+    internal Func<object, Guid> InstanceRecipe { get; }
+    internal Func<object, BigDouble> InstanceQuantity { get; }
+    internal Func<object, bool> InstanceExpired { get; }
+    internal Action<object> InstanceInitiate { get; }
+    internal Func<object, bool> InstanceInstantCheck { get; }
+    internal Action<object> InstanceInstant { get; }
+    internal Func<BigDouble, object?> ScalingBasic { get; }
+    internal Func<object, object?> GetTargeting { get; }
+    internal Func<object, object, ICollection?> GetRandomList { get; }
 
-    internal static bool TryCreate(out AutoScribeNativeBindings? bindings, out string reason)
-    {
-        bindings = null;
-        try
+    internal static bool TryCreate(out AutoScribeNativeBindings? bindings, out string reason) =>
+        NativeBindingSet.TryBind("Auto Scribe native", ContractIds, null, null, set =>
         {
-            var recipe = Type("CraftingRecipeSO");
-            var recipeType = Type("CraftingRecipeTypeSO");
-            var recipeList = Type("CraftingRecipeListVariable");
-            var instance = Type("CraftingInstance");
-            var instanceList = Type("CraftingInstanceListVariable");
-            var consumable = Type("ConsumableSO");
-            var enchantment = Type("EnchantmentSO");
-            var cost = Type("ResourceCostList");
-            var big = Type("BigDouble");
-            var block = Type("InstantEffectBlock");
-            var script = Type("IInstantEffectScript");
-            var gain = Type("ConsumableSO+ConsumableGainEffect");
-            var request = Type("RequestTargetEffectScript");
-            var options = Type("Targeting.TargetSelectOptions");
-            var selection = Type("Targeting.BaseTargetSelection");
-            var target = Type("Targeting.TargetStructure");
-            var targetable = Type("Targeting.ITargetable");
-            var enchantScript = Type("EnchantmentSO+EnchantItemScript");
-            var scaling = Type("ScalingInfo");
+            var recipe = set.Type("crafting-instance.recipe.type-action", "CraftingRecipeSO");
+            var recipeType = set.Type("crafting-instance.recipe-type.type-action", "CraftingRecipeTypeSO");
+            var recipeList = set.Type("crafting-instance.recipe-list.type-action", "CraftingRecipeListVariable");
+            var instance = set.Type("auto-scribe.crafting-instance.type", "CraftingInstance");
+            var instanceList = set.Type("crafting-instance.queue.type-action", "CraftingInstanceListVariable");
+            var consumable = set.Type("consumable.type", "ConsumableSO");
+            var enchantment = set.Type("enchantment-so.tooltipable-base", "EnchantmentSO");
+            var cost = set.Type("generic-level.cost.type-action", "ResourceCostList");
+            var big = set.Type("spell-loadout.big-double.type-action", "BigDouble");
+            var block = set.Type("auto-items.instant-effect-block.type", "InstantEffectBlock");
+            var script = set.Type("auto-items.instant-effect-script.type", "IInstantEffectScript");
+            var gain = set.Type("auto-scribe.consumable-gain.type", "ConsumableSO+ConsumableGainEffect");
+            var request = set.Type("auto-items.request-target-effect-script.type", "RequestTargetEffectScript");
+            var options = set.Type("auto-items.target-select-options.type", "Targeting.TargetSelectOptions");
+            var selection = set.Type("auto-items.base-target-selection.type", "Targeting.BaseTargetSelection");
+            var target = set.Type("auto-items.target-structure.type", "Targeting.TargetStructure");
+            var targetable = set.Type("auto-items.targetable.type", "Targeting.ITargetable");
+            var enchantScript = set.Type("auto-scribe.enchant-script.type", "EnchantmentSO+EnchantItemScript");
+            var scaling = set.Type("auto-items.scaling-info.type", "ScalingInfo");
 
-            bindings = new AutoScribeNativeBindings(
+            return new AutoScribeNativeBindings(
                 recipe,
                 recipeType,
                 recipeList,
@@ -222,152 +268,59 @@ internal sealed class AutoScribeNativeBindings
                 targetable,
                 enchantScript,
                 scaling,
-                Constructor(instance, recipe, big),
-                GenericListValue(recipeList, recipe),
-                GenericListValue(instanceList, instance),
-                CollectionField(recipe, "craftingTypes", recipeType),
-                CollectionField(recipe, "completeEffects", block),
-                Field(recipe, "useQuantityAsLevel", typeof(bool)),
-                Field(recipeType, "isLevelType", typeof(bool)),
-                Field(recipeType, "maxStartingLevel", typeof(int)),
-                CollectionField(block, "effectScripts", script),
-                Field(gain, "consumable", consumable),
-                CollectionField(consumable, "onUseEffects", block),
-                Field(request, "targetOptions", options),
-                Field(enchantScript, "enchantment", enchantment),
-                MethodFromHierarchy(recipe, "GetGuid", typeof(Guid)),
-                MethodFromHierarchy(consumable, "GetGuid", typeof(Guid)),
-                MethodFromHierarchy(enchantment, "GetGuid", typeof(Guid)),
-                Method(recipe, "IsVisible", typeof(bool)),
-                Method(recipe, "CanBuyAt", typeof(bool), big),
-                Method(recipe, "GetTotalCost", cost, big, big),
-                Method(recipe, "GetMainType", recipeType),
-                Method(recipe, "PurchaseQuantity", typeof(void), big, big),
-                Method(cost, "HasEnough", typeof(bool)),
-                MethodFromHierarchy(instanceList, "HasEmptySpot", typeof(bool)),
-                MethodFromHierarchy(instanceList, "Add", typeof(void), instance),
-                MethodFromHierarchy(instance, "GetGuidReference", typeof(Guid)),
-                Method(instance, "GetQuantity", big),
-                Method(instance, "IsExpired", typeof(bool)),
-                Method(instance, "Initiate", typeof(void)),
-                Method(instance, "CheckInstantCraft", typeof(bool)),
-                Method(instance, "InstantCraft", typeof(void)),
-                StaticMethod(scaling, "Basic", scaling, big),
-                Method(options, "GetTargeting", selection),
-                Method(
-                    target,
-                    "GetRandomList",
-                    typeof(List<>).MakeGenericType(targetable),
-                    scaling));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or AmbiguousMatchException)
-        {
-            reason = "The complete Auto Scribe native binding set is unavailable: " + ex.Message;
-            return false;
-        }
-    }
-
-    private static Type Type(string name) =>
-        ReflectionUtil.FindLoadedType(name) ??
-        throw new InvalidOperationException(name + " was unavailable.");
-
-    private static ConstructorInfo Constructor(Type type, params Type[] parameters) =>
-        type.GetConstructor(Instance, null, parameters, null) ??
-        throw new InvalidOperationException(
-            $"{type.Name}({string.Join(",", Array.ConvertAll(parameters, p => p.Name))}) " +
-            "constructor was unavailable.");
-
-    private static FieldInfo GenericListValue(Type listType, Type element)
-    {
-        for (var current = listType; current is not null; current = current.BaseType)
-        {
-            var field = current.GetField(
-                "value",
-                Instance | BindingFlags.DeclaredOnly);
-            if (field?.FieldType == typeof(List<>).MakeGenericType(element)) return field;
-        }
-        throw new InvalidOperationException(
-            $"{listType.Name}.value : List<{element.Name}> was unavailable.");
-    }
-
-    private static FieldInfo CollectionField(Type type, string name, Type element)
-    {
-        var field = type.GetField(name, Instance);
-        if (field is null || CollectionElement(field.FieldType) != element || field.IsStatic)
-            throw new InvalidOperationException(
-                $"{type.Name}.{name} collection of {element.Name} was unavailable.");
-        return field;
-    }
-
-    private static FieldInfo Field(Type type, string name, Type fieldType)
-    {
-        var field = type.GetField(name, Instance);
-        if (field is null || field.FieldType != fieldType || field.IsStatic)
-            throw new InvalidOperationException(
-                $"{type.Name}.{name} : {fieldType.Name} was unavailable.");
-        return field;
-    }
-
-    private static MethodInfo StaticMethod(
-        Type type,
-        string name,
-        Type returnType,
-        params Type[] parameters) =>
-        ExactMethod(type, name, returnType, Static, parameters);
-
-    private static MethodInfo Method(
-        Type type,
-        string name,
-        Type returnType,
-        params Type[] parameters) =>
-        ExactMethod(type, name, returnType, Instance, parameters);
-
-    private static MethodInfo ExactMethod(
-        Type type,
-        string name,
-        Type returnType,
-        BindingFlags flags,
-        params Type[] parameters)
-    {
-        var method = type.GetMethod(name, flags, null, parameters, null);
-        if (method is null || method.ReturnType != returnType ||
-            method.IsStatic != flags.HasFlag(BindingFlags.Static))
-            throw new InvalidOperationException(
-                $"{type.Name}.{name}({string.Join(",", Array.ConvertAll(parameters, p => p.Name))}) " +
-                $": {returnType.Name} was unavailable.");
-        return method;
-    }
-
-    private static MethodInfo MethodFromHierarchy(
-        Type type,
-        string name,
-        Type returnType,
-        params Type[] parameters)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                Instance | BindingFlags.DeclaredOnly,
-                null,
-                parameters,
-                null);
-            if (method?.ReturnType == returnType && !method.IsStatic) return method;
-        }
-        throw new InvalidOperationException(
-            $"{type.Name}.{name} : {returnType.Name} was unavailable.");
-    }
-
-    private static Type? CollectionElement(Type type)
-    {
-        if (type.IsGenericType && type.GetGenericArguments().Length == 1)
-            return type.GetGenericArguments()[0];
-        foreach (var candidate in type.GetInterfaces())
-            if (candidate.IsGenericType &&
-                candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                return candidate.GetGenericArguments()[0];
-        return null;
-    }
+                set.New<Func<object, BigDouble, object>>("auto-scribe.instance.construct", instance, recipe, big),
+                set.Field<Func<object, IList?>>(
+                    "abstract-list.value", recipeList, "value", typeof(List<>).MakeGenericType(recipe)),
+                set.Field<Func<object, IList?>>(
+                    "abstract-list.value", instanceList, "value", typeof(List<>).MakeGenericType(instance)),
+                set.Field<Func<object, IEnumerable?>>("auto-scribe.recipe.crafting-types",
+                    recipe, "craftingTypes", typeof(List<>).MakeGenericType(recipeType)),
+                set.Field<Func<object, IEnumerable?>>("auto-scribe.recipe.complete-effects",
+                    recipe, "completeEffects", typeof(List<>).MakeGenericType(block)),
+                set.Field<Func<object, bool>>(
+                    "crafting-player.recipe-levelled-action", recipe, "useQuantityAsLevel", typeof(bool)),
+                set.Field<Func<object, bool>>(
+                    "crafting-recipe-type.is-level-type", recipeType, "isLevelType", typeof(bool)),
+                set.Field<Func<object, int>>(
+                    "crafting-recipe-type.max-starting-level", recipeType, "maxStartingLevel", typeof(int)),
+                set.Field<Func<object, IEnumerable?>>("auto-harvest.effect-scripts",
+                    block, "effectScripts", typeof(List<>).MakeGenericType(script)),
+                set.Field<Func<object, object?>>("auto-scribe.consumable-gain.output", gain, "consumable", consumable),
+                set.Field<Func<object, IEnumerable?>>("auto-items.consumable.on-use-effects",
+                    consumable, "onUseEffects", typeof(List<>).MakeGenericType(block)),
+                set.Field<Func<object, object?>>("target-request.options", request, "targetOptions", options),
+                set.Field<Func<object, object?>>(
+                    "auto-scribe.enchant-script.enchantment", enchantScript, "enchantment", enchantment),
+                set.StableUuid("id-scriptable-object.get-guid-action", recipe),
+                set.StableUuid("id-scriptable-object.get-guid-action", consumable),
+                set.StableUuid("id-scriptable-object.get-guid-action", enchantment),
+                set.Call<Func<object, bool>>("auto-scribe.recipe.visible", recipe, "IsVisible", typeof(bool)),
+                set.Call<Func<object, BigDouble, bool>>(
+                    "auto-scribe.recipe.can-buy-at", recipe, "CanBuyAt", typeof(bool), big),
+                set.Call<Func<object, BigDouble, BigDouble, object?>>(
+                    "auto-scribe.recipe.get-total-cost", recipe, "GetTotalCost", cost, big, big),
+                set.Call<Func<object, object?>>("auto-scribe.recipe.get-main-type", recipe, "GetMainType", recipeType),
+                set.Call<Action<object, BigDouble, BigDouble>>(
+                    "auto-scribe.recipe.purchase-quantity", recipe, "PurchaseQuantity", typeof(void), big, big),
+                set.Call<Func<object, bool>>("resource-cost-list.has-enough", cost, "HasEnough", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "auto-scribe.list.has-empty-spot", instanceList, "HasEmptySpot", typeof(bool)),
+                set.Call<Action<object, object>>("auto-scribe.list.add", instanceList, "Add", typeof(void), instance),
+                set.Call<Func<object, Guid>>(
+                    "crafting-player.instance-recipe-action", instance, "GetGuidReference", typeof(Guid)),
+                set.Call<Func<object, BigDouble>>(
+                    "crafting-player.instance-quantity-action", instance, "GetQuantity", big),
+                set.Call<Func<object, bool>>(
+                    "crafting-player.instance-expired-action", instance, "IsExpired", typeof(bool)),
+                set.Call<Action<object>>("auto-scribe.instance.initiate", instance, "Initiate", typeof(void)),
+                set.Call<Func<object, bool>>(
+                    "auto-scribe.instance.check-instant", instance, "CheckInstantCraft", typeof(bool)),
+                set.Call<Action<object>>("auto-scribe.instance.instant", instance, "InstantCraft", typeof(void)),
+                set.StaticCall<Func<BigDouble, object?>>(
+                    "auto-scribe.scaling-info.basic", scaling, "Basic", scaling, big),
+                set.Call<Func<object, object?>>(
+                    "auto-items.target-options.get-targeting", options, "GetTargeting", selection),
+                set.Call<Func<object, object, ICollection?>>("auto-items.target-structure.get-random-list",
+                    target, "GetRandomList", typeof(List<>).MakeGenericType(targetable), scaling));
+        }, out bindings, out reason);
 }

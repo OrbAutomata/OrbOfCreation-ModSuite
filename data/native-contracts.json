@@ -124,7 +124,8 @@
         "Common Alchemy classifier",
         "Automata Auto Cast",
         "Automata Auto Concept",
-        "Automata spell leveling"
+        "Automata spell leveling",
+        "Automata crafting-instance GameAction"
       ],
       "usages": [
         "reflection"
@@ -3739,7 +3740,8 @@
       "owners": [
         "Automata world collection",
         "Automata world-collection verification",
-        "Auto Items temporary-item picker"
+        "Auto Items temporary-item picker",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -3778,7 +3780,8 @@
       "valueType": "System.Boolean",
       "owners": [
         "Automata world collection",
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -3854,7 +3857,8 @@
       "static": false,
       "valueType": "System.Double",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -3911,7 +3915,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -5915,7 +5920,9 @@
       "kind": "type",
       "baseType": "TooltipableObject",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
       ],
       "usages": [
         "reflection"
@@ -6620,7 +6627,8 @@
       "kind": "type",
       "baseType": "UpgradeableObject",
       "owners": [
-        "Suite quick-control icons"
+        "Suite quick-control icons",
+        "Automata Auto Buy owning-view world publication"
       ],
       "usages": [
         "reflection"
@@ -8087,7 +8095,10 @@
       "owners": [
         "Automata Auto Buy refusal diagnostics",
         "Automata Auto Buy destination-capacity admission",
-        "Automata spell workbench GameAction"
+        "Automata spell workbench GameAction",
+        "Automata Discovery Tree offer GameAction",
+        "Automata crafting-instance GameAction",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -10745,7 +10756,9 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Common resource bar world collection"
+        "Common resource bar world collection",
+        "Automata Auto Scribe world publication",
+        "Automata Auto Buy owning-view world publication"
       ],
       "usages": [
         "reflection"
@@ -11581,7 +11594,8 @@
       "owners": [
         "Automata world-collection verification",
         "Automata resource-cost decoding",
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -11626,7 +11640,8 @@
         "Automata world-collection verification",
         "Automata owned spell-level affordability verification",
         "Automata spell leveling",
-        "Automata Auto Buy refusal diagnostics"
+        "Automata Auto Buy refusal diagnostics",
+        "Automata Discovery Tree offer GameAction"
       ],
       "usages": [
         "reflection"
@@ -11646,7 +11661,8 @@
       "parameters": [],
       "owners": [
         "Automata spell leveling",
-        "Automata owned spell-level cost verification"
+        "Automata owned spell-level cost verification",
+        "Automata Discovery Tree offer GameAction"
       ],
       "usages": [
         "reflection"
@@ -11766,7 +11782,8 @@
       "valueType": "ResourceSO",
       "owners": [
         "Automata resource-cost decoding",
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -11807,7 +11824,8 @@
       "static": false,
       "valueType": "BigDouble",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -17884,7 +17902,8 @@
       "parameters": [],
       "owners": [
         "Automata Auto Cast targeting",
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -19916,7 +19935,8 @@
       "valueType": "System.Collections.Generic.List`1<ConsumableTypeSO>",
       "owners": [
         "Automata world collection",
-        "Auto Items temporary-item picker"
+        "Auto Items temporary-item picker",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -19935,7 +19955,9 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<ConsumableUsage>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -19955,7 +19977,8 @@
       "valueType": "ResourceCostList",
       "owners": [
         "Automata world collection",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -19975,7 +19998,8 @@
       "valueType": "ResourceCostList",
       "owners": [
         "Automata world collection",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -20013,7 +20037,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20033,7 +20058,8 @@
       "returnType": "System.Guid",
       "parameters": [],
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20088,7 +20114,8 @@
       "baseType": "UpgradeableObject",
       "owners": [
         "Automata world collection",
-        "Auto Items temporary-item picker"
+        "Auto Items temporary-item picker",
+        "Automata Auto Items action boundary"
       ],
       "usages": [
         "reflection"
@@ -20226,7 +20253,8 @@
       "parameters": [],
       "owners": [
         "Automata Auto Items action boundary",
-        "Automata world-collection verification"
+        "Automata world-collection verification",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20245,7 +20273,8 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20264,7 +20293,8 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20283,7 +20313,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20302,7 +20333,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20553,7 +20585,8 @@
       "returnType": "System.Void",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20574,7 +20607,8 @@
         "System.Boolean"
       ],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20593,7 +20627,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
       ],
       "usages": [
         "reflection"
@@ -20607,7 +20642,69 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-items.consumable-count.type",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableCount",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
         "Automata Auto Items action boundary"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-items.instant-effect-block.type",
+      "assembly": "assembly-csharp",
+      "type": "InstantEffectBlock",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-items.request-target-effect-script.type",
+      "assembly": "assembly-csharp",
+      "type": "RequestTargetEffectScript",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-items.target-select-options.type",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.TargetSelectOptions",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary"
       ],
       "usages": [
         "reflection"
@@ -20621,7 +20718,8 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary"
       ],
       "usages": [
         "reflection"
@@ -20635,7 +20733,9 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata targeting GameAction",
+        "Automata Auto Scribe action boundary"
       ],
       "usages": [
         "reflection"
@@ -20649,7 +20749,8 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary"
       ],
       "usages": [
         "reflection"
@@ -20663,7 +20764,9 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
       ],
       "usages": [
         "reflection"
@@ -20730,6 +20833,187 @@
       ],
       "place": "capture",
       "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": true, "sideEffects": ["latches Prerequisites.Container.available through StructureSO.IsVisible() for every structure it filters"], "justification": "Filters the whole structure registry against one enchantment role, eight roles per pass, and every candidate's visibility test latches. Leaves when the visible-structure set, the authored condition and the enchantment matcher are published and the ordering is derived off-thread.", "evidence": "GetRandomList(scaling) -> GetStructures(scaling).Cast<ITargetable>().ToList(); GetStructures -> (containingStructures ?? StructureSO.All).FindAll(s => MatchesConditions(s, scaling)); MatchesConditions -> s.IsVisible() && condition.IsValid(s) && enchantmentMatcher.CanUpgrade(s, scaling)"}
+    },
+    {
+      "id": "scribe-relations.recipe-list.type",
+      "assembly": "assembly-csharp",
+      "type": "CraftingRecipeListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.enchant-table.type",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentSO+EnchantTable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.enchantment-instance.type",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentInstance",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.instant-effect-script.type",
+      "assembly": "assembly-csharp",
+      "type": "IInstantEffectScript",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.request-target.type",
+      "assembly": "assembly-csharp",
+      "type": "RequestTargetEffectScript",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.target-select-options.type",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.TargetSelectOptions",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.base-target-selection.type",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.BaseTargetSelection",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.targetable.type",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.ITargetable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "scribe-relations.request-target.options",
+      "assembly": "assembly-csharp",
+      "type": "RequestTargetEffectScript",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "targetOptions",
+      "visibility": "public",
+      "static": false,
+      "valueType": "Targeting.TargetSelectOptions",
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Targeting.TargetSelectOptions"}
+    },
+    {
+      "id": "scribe-relations.scaling-info.basic",
+      "assembly": "assembly-csharp",
+      "type": "ScalingInfo",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Basic",
+      "visibility": "public",
+      "static": true,
+      "returnType": "ScalingInfo",
+      "parameters": [
+        "BigDouble"
+      ],
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning ScalingInfo; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "scribe-relations.target-options.get-targeting",
+      "assembly": "assembly-csharp",
+      "type": "Targeting.TargetSelectOptions",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetTargeting",
+      "visibility": "public",
+      "static": false,
+      "returnType": "Targeting.BaseTargetSelection",
+      "parameters": [],
+      "owners": [
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning Targeting.BaseTargetSelection; classified from its signature, no IL body audit"}
     },
     {
       "id": "auto-items.consumable.strongest",
@@ -20854,7 +21138,63 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata crafting-instance GameAction",
+        "Automata one-shot crafting action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-scribe.consumable-gain.type",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableSO+ConsumableGainEffect",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-scribe.enchant-script.type",
+      "assembly": "assembly-csharp",
+      "type": "EnchantmentSO+EnchantItemScript",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-scribe.instance.construct",
+      "assembly": "assembly-csharp",
+      "type": "CraftingInstance",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": ".ctor",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "CraftingRecipeSO",
+        "BigDouble"
+      ],
+      "owners": [
+        "Automata Auto Scribe action boundary",
+        "Automata one-shot crafting action boundary"
       ],
       "usages": [
         "reflection"
@@ -21109,7 +21449,8 @@
       "parameters": [],
       "owners": [
         "Automata Auto Scribe action boundary",
-        "Automata Auto Buy destination-capacity admission"
+        "Automata Auto Buy destination-capacity admission",
+        "Automata crafting-instance GameAction"
       ],
       "usages": [
         "reflection"
@@ -21206,7 +21547,8 @@
       "returnType": "CraftingRecipeTypeSO",
       "parameters": [],
       "owners": [
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata crafting-instance GameAction"
       ],
       "usages": [
         "reflection"
@@ -21288,7 +21630,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata crafting-instance GameAction"
       ],
       "usages": [
         "reflection"
@@ -21362,6 +21705,36 @@
       "typeVisibility": "public",
       "kind": "type",
       "baseType": "TooltipableObject",
+      "owners": [
+        "Automata Auto Buy owning-view world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "auto-buy.owning-view.upgrade-type-capture",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Buy owning-view world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "auto-buy.owning-view.structure-list-type-capture",
+      "assembly": "assembly-csharp",
+      "type": "StructureListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
       "owners": [
         "Automata Auto Buy owning-view world publication"
       ],
@@ -22463,6 +22836,20 @@
       "place": "action"
     },
     {
+      "id": "discovery-tree-offer.tree.type",
+      "assembly": "assembly-csharp",
+      "type": "DiscoveryTreeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Discovery Tree offer GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "discovery-tree-offer.discoverable.type",
       "assembly": "assembly-csharp",
       "type": "IDiscoverable",
@@ -23054,7 +23441,56 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata spell workbench GameAction"
+        "Automata spell workbench GameAction",
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.manager-type-action",
+      "assembly": "assembly-csharp",
+      "type": "SpellManager",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata spell workbench GameAction",
+        "Automata spell loadout GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.guid-container-type-action",
+      "assembly": "assembly-csharp",
+      "type": "GuidContainer",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata spell workbench GameAction",
+        "Automata spell loadout GameAction",
+        "Automata Discovery Tree offer GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "spell-workbench.view-type-action",
+      "assembly": "assembly-csharp",
+      "type": "ViewSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata spell workbench GameAction",
+        "Automata spell composition GameAction",
+        "Automata spell loadout GameAction",
+        "Automata Auto Buy owning-view world publication"
       ],
       "usages": [
         "reflection"
@@ -24056,6 +24492,20 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
     },
     {
+      "id": "spell-composition.player.type-action",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata spell composition GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "spell-composition.player-instance-action",
       "assembly": "assembly-csharp",
       "type": "Player",
@@ -24268,7 +24718,8 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata spell composition GameAction"
+        "Automata spell composition GameAction",
+        "Automata spell workbench GameAction"
       ],
       "usages": [
         "reflection"
@@ -24530,6 +24981,22 @@
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "spell-loadout.big-double.type-action",
+      "assembly": "assembly-csharp-firstpass",
+      "type": "BigDouble",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata spell loadout GameAction",
+        "Automata Auto Scribe action boundary",
+        "Automata one-shot crafting action boundary"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
     },
     {
       "id": "spell-loadout.spell-is-empty-action",
@@ -24895,6 +25362,65 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.String; classified from its signature, no IL body audit"}
     },
     {
+      "id": "targeting.manager.type-action",
+      "assembly": "assembly-csharp",
+      "type": "TargetingManager",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata targeting GameAction",
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "targeting.target-link.type-action",
+      "assembly": "assembly-csharp",
+      "type": "TargetingManager+TargetLink",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata targeting GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "targeting.tooltipable.type-action",
+      "assembly": "assembly-csharp",
+      "type": "ITooltipable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata targeting GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "targeting.effect-result-info.type-action",
+      "assembly": "assembly-csharp",
+      "type": "EffectResultInfo",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata targeting GameAction",
+        "Automata consumable GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "targeting.target-link-get-all-targets-action",
       "assembly": "assembly-csharp",
       "type": "TargetingManager+TargetLink",
@@ -24995,6 +25521,68 @@
       "parameters": [],
       "owners": ["Automata targeting GameAction"],
       "usages": ["reflection"],
+      "place": "action"
+    },
+    {
+      "id": "consumable.type",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction",
+        "Auto Items temporary-item picker",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Scribe world publication"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "consumable-usage.type",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableUsage",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "inventory.type",
+      "assembly": "assembly-csharp",
+      "type": "Inventory",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Items action boundary",
+        "Automata consumable GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "consumable-player.ref-list.type-action",
+      "assembly": "assembly-csharp",
+      "type": "ConsumableRefListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata consumable GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
       "place": "action"
     },
     {
@@ -25577,7 +26165,7 @@
       "static": true,
       "returnType": "UnityEngine.Object[]",
       "parameters": ["System.Type"],
-      "owners": ["Automata one-shot crafting action boundary"],
+      "owners": ["Automata one-shot crafting action boundary", "Automata crafting-instance GameAction"],
       "usages": ["reflection"],
       "place": "action"
     },
@@ -25591,7 +26179,7 @@
       "visibility": "public",
       "static": false,
       "valueType": "CraftingRecipeListVariable",
-      "owners": ["Automata one-shot crafting action boundary"],
+      "owners": ["Automata one-shot crafting action boundary", "Automata crafting-instance GameAction"],
       "usages": ["reflection"],
       "place": "action"
     },
@@ -25605,7 +26193,7 @@
       "visibility": "public",
       "static": false,
       "valueType": "CraftingInstanceListVariable",
-      "owners": ["Automata one-shot crafting action boundary"],
+      "owners": ["Automata one-shot crafting action boundary", "Automata crafting-instance GameAction"],
       "usages": ["reflection"],
       "place": "action"
     },
@@ -25633,7 +26221,7 @@
       "visibility": "public",
       "static": false,
       "valueType": "CraftingRecipeTypeSO",
-      "owners": ["Automata one-shot crafting action boundary"],
+      "owners": ["Automata one-shot crafting action boundary", "Automata crafting-instance GameAction"],
       "usages": ["reflection"],
       "place": "action"
     },
@@ -25710,6 +26298,34 @@
       "parameters": ["System.String"],
       "owners": ["Automata one-shot crafting action boundary"],
       "usages": ["reflection"],
+      "place": "action"
+    },
+    {
+      "id": "crafting-player.effect-channel.type-action",
+      "assembly": "assembly-csharp",
+      "type": "PassiveObservable+Channel",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata one-shot crafting action boundary"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "crafting-player.passive-observable.type-action",
+      "assembly": "assembly-csharp",
+      "type": "IPassiveObservable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata one-shot crafting action boundary"
+      ],
+      "usages": [
+        "reflection"
+      ],
       "place": "action"
     },
     {
@@ -25826,7 +26442,7 @@
       "static": false,
       "returnType": "System.Guid",
       "parameters": [],
-      "owners": ["Automata one-shot crafting action boundary"],
+      "owners": ["Automata one-shot crafting action boundary", "Automata crafting-instance GameAction"],
       "usages": ["reflection"],
       "place": "action"
     },
@@ -26261,12 +26877,17 @@
     {
       "id": "challenge.int-variable.type-action", "assembly": "assembly-csharp",
       "type": "IntVariable", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata challenge GameAction", "Common challenge world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata challenge GameAction", "Common challenge world collection", "Automata spell composition GameAction", "Automata one-shot crafting action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "challenge.bool-variable.type-action", "assembly": "assembly-csharp",
       "type": "BoolVariable", "typeVisibility": "public", "kind": "type",
       "owners": ["Automata challenge GameAction", "Common challenge world collection"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "challenge.challenge-state.type-action", "assembly": "assembly-csharp",
+      "type": "ChallengeSO+ChallengeState", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata challenge GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "challenge.manager-instance-action", "assembly": "assembly-csharp",
@@ -28033,7 +28654,7 @@
     {
       "id": "generic-level.glyph.type-action", "assembly": "assembly-csharp",
       "type": "GlyphSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28061,19 +28682,19 @@
     {
       "id": "generic-level.cost.type-action", "assembly": "assembly-csharp",
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Discovery Tree offer GameAction", "Automata Auto Items action boundary", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple.type-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource.type-action", "assembly": "assembly-csharp",
       "type": "ResourceSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28397,6 +29018,31 @@
       "owners": ["Automata crafting-instance GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
+      "id": "crafting-instance.page.type-action", "assembly": "assembly-csharp",
+      "type": "UICraftingPage", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata crafting-instance GameAction", "Automata one-shot crafting action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "crafting-instance.recipe.type-action", "assembly": "assembly-csharp",
+      "type": "CraftingRecipeSO", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata crafting-instance GameAction", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Scribe world publication"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "crafting-instance.recipe-type.type-action", "assembly": "assembly-csharp",
+      "type": "CraftingRecipeTypeSO", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata crafting-instance GameAction", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Scribe world publication"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "crafting-instance.recipe-list.type-action", "assembly": "assembly-csharp",
+      "type": "CraftingRecipeListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata crafting-instance GameAction", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "crafting-instance.queue.type-action", "assembly": "assembly-csharp",
+      "type": "CraftingInstanceListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Automata crafting-instance GameAction", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Scribe world publication"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "crafting-decision.page-automation-capture", "assembly": "assembly-csharp",
       "type": "UICraftingPage", "typeVisibility": "public", "kind": "field", "member": "craftingAutomationInstances",
       "visibility": "public", "static": false, "valueType": "CraftingInstanceListVariable",
@@ -28442,7 +29088,7 @@
     },
     {
       "id": "loadout.spell.type-action", "assembly": "assembly-csharp", "type": "Spell",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-list.type-action", "assembly": "assembly-csharp", "type": "SpellListVariable",
@@ -28450,7 +29096,7 @@
     },
     {
       "id": "loadout.spell-recipe.type-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment.type-action", "assembly": "assembly-csharp", "type": "EquipmentSO",
@@ -28494,7 +29140,7 @@
     },
     {
       "id": "loadout.identity.type-action", "assembly": "assembly-csharp", "type": "IdScriptableObject",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.stacked-record.type-action", "assembly": "assembly-csharp", "type": "Stacked.StackedIdRecord`1",
@@ -28942,7 +29588,7 @@
     },
     {
       "id": "structure-lifecycle.structure.type-action", "assembly": "assembly-csharp", "type": "StructureSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata structure lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata structure lifecycle GameAction", "Automata targeting GameAction", "Automata Auto Scribe world publication", "Automata Auto Buy owning-view world publication"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "structure-lifecycle.available-action", "assembly": "assembly-csharp", "type": "StructureSO", "typeVisibility": "public", "kind": "method", "member": "IsAvailable",

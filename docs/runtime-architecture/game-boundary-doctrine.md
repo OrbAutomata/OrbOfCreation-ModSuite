@@ -220,7 +220,9 @@ consumer — feature services, the Game MCP, tests — uses that one definition.
 declares:
 
 - its **complete binding set**, resolved and validated at lifecycle scope before any use, so
-  a resolution failure is impossible mid-transaction;
+  a resolution failure is impossible mid-transaction. `NativeBindingSet` is the one strict
+  binder: each member is looked up by its declared contract id with exact types, and any
+  miss makes the whole set unavailable with one reason;
 - its **preflights**, each with its freshness class;
 - the **mutation** itself;
 - its **postcondition** — the single simplest observable check that the requested transition

@@ -1,6 +1,5 @@
 using System;
 using OrbModding.Common;
-using System.Collections;
 
 namespace OrbAutomata;
 
@@ -26,11 +25,7 @@ internal static class AutoItemsScrollTargetPreflight
 
         try
         {
-            if (native.StrongestLevel.Invoke(consumable, Array.Empty<object>()) is not int liveLevel)
-            {
-                reason = "ConsumableSO.GetStrongestLevel() returned no live Scroll level.";
-                return false;
-            }
+            var liveLevel = native.StrongestLevel(consumable);
             if (liveLevel != plannedLevel)
             {
                 reason =
@@ -38,21 +33,20 @@ internal static class AutoItemsScrollTargetPreflight
                     $"to {liveLevel}.";
                 return false;
             }
-            var count = native.Strongest.Invoke(consumable, Array.Empty<object>());
+            var count = native.Strongest(consumable);
             if (count is null || count.GetType() != native.CountType)
             {
                 reason = "ConsumableSO.GetStrongest() returned no exact ConsumableCount.";
                 return false;
             }
-            var scaling = native.CountScaling.Invoke(consumable, new[] { count });
+            var scaling = native.CountScaling(consumable, count);
             if (scaling is null || scaling.GetType() != native.ScalingType)
             {
                 reason =
                     "ConsumableSO.GetCountScalingInfo(ConsumableCount) returned no exact ScalingInfo.";
                 return false;
             }
-            var candidates = native.GetRandomList.Invoke(targeting, new[] { scaling });
-            if (candidates is not ICollection collection)
+            if (native.GetRandomList(targeting!, scaling) is not { } collection)
             {
                 reason =
                     "Targeting.TargetStructure.GetRandomList(ScalingInfo) returned no target list.";
@@ -86,7 +80,7 @@ internal static class AutoItemsScrollTargetPreflight
     {
         targeting = null;
         if (consumable.GetType() != native.ConsumableType ||
-            native.OnUseEffects.GetValue(consumable) is not IEnumerable blocks)
+            native.OnUseEffects(consumable) is not { } blocks)
         {
             reason = "ConsumableSO.onUseEffects was unavailable for the exact live Scroll.";
             return false;
@@ -97,7 +91,7 @@ internal static class AutoItemsScrollTargetPreflight
         foreach (var block in blocks)
         {
             if (block is null || block.GetType() != native.InstantBlockType ||
-                native.EffectScripts.GetValue(block) is not IEnumerable scripts)
+                native.EffectScripts(block) is not { } scripts)
             {
                 reason =
                     "The live Scroll on-use graph was not a list of exact InstantEffectBlock values.";
@@ -113,7 +107,7 @@ internal static class AutoItemsScrollTargetPreflight
                 }
                 if (script.GetType() != native.RequestType) continue;
                 requests++;
-                options = native.TargetOptions.GetValue(script);
+                options = native.TargetOptions(script);
             }
         }
         if (requests != 1)
@@ -131,7 +125,7 @@ internal static class AutoItemsScrollTargetPreflight
             return false;
         }
 
-        targeting = native.GetTargeting.Invoke(options, Array.Empty<object>());
+        targeting = native.GetTargeting(options);
         if (targeting is null || targeting.GetType() != native.TargetStructureType)
         {
             reason =

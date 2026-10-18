@@ -259,12 +259,12 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(type, typeName);
-        var ownerId = bind.Call<Guid>("GetGuid");
+        var ownerId = bind.StableUuid();
         var primaryTypeId = primaryField is null ? null : bind.ReferenceGuid(primaryField);
         var typeList = bind.CollectionField(listField);
         var keywordId = bind
             .Elements(bind.CollectionElementType(listField), typeName + "." + listField + "[]")
-            .Call<Guid>("GetGuid");
+            .StableUuid();
         var registry = NativeAccessorBinder.StaticListAccessor(type, "All");
 
         var failure = bind.Failure;

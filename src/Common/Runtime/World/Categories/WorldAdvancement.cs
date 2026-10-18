@@ -52,7 +52,7 @@ internal sealed class WorldAdvancementBinder : WorldPlainBinder<WorldAdvancement
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _levels = bind.Field<BigDouble>("levels");
         _xp = bind.Field<BigDouble>("xp");
         _isPersistent = bind.Field<bool>("isPersistent");

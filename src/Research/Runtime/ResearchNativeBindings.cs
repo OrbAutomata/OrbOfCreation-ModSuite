@@ -1,15 +1,10 @@
 using System;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
 
 internal sealed class ResearchNativeBindings
 {
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     internal static readonly string[] ContractIds =
     {
         "research-action.research.type-action", "research-action.cost.type-action",
@@ -98,141 +93,56 @@ internal sealed class ResearchNativeBindings
     internal Func<object, bool> IsVisible { get; }
 
     internal static bool TryCreate(out ResearchNativeBindings? bindings, out string reason,
-        Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null)
-    {
-        bindings = null;
-        resolveType ??= ReflectionUtil.FindLoadedType;
-        includeContract ??= static _ => true;
-        try
+        Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null) =>
+        NativeBindingSet.TryBind("research action", ContractIds, resolveType, includeContract, set =>
         {
-            Type T(int index, string name)
-            {
-                Require(ContractIds[index], includeContract);
-                return resolveType(name) ?? throw new InvalidOperationException(name + " was unavailable");
-            }
-            var research = T(0, "ResearchSO");
-            var cost = T(1, "ResourceCostList");
-            var settings = T(2, "SettingsManager");
-            bindings = new ResearchNativeBindings(research,
-                Func<int>(Field(3, research, "level", typeof(int), includeContract)),
-                Func<int>(Field(4, research, "selfBonusLevels", typeof(int), includeContract)),
-                Func<bool>(Field(5, research, "isActive", typeof(bool), includeContract)),
-                Func<bool>(Field(6, research, "isDeveloping", typeof(bool), includeContract)),
-                Func<int>(Field(7, research, "maxLevel", typeof(int), includeContract)),
-                Func<bool>(Method(8, research, "CanDevelop", typeof(bool), includeContract)),
-                Func<bool>(Method(9, research, "CanApplyBonusLevels", typeof(bool), includeContract)),
-                Func<int>(Method(10, research, "GetQueuedLevels", typeof(int), includeContract)),
-                Func<int>(Method(11, research, "GetFreeBonusLevelsLeft", typeof(int), includeContract)),
-                ObjectFunc(Method(12, research, "GetDevelopmentCost", cost, includeContract)),
-                Func<bool>(Method(13, cost, "HasEnough", typeof(bool), includeContract)),
-                StaticFunc<bool>(StaticMethod(14, settings, "IsResearchQueueMode", typeof(bool), includeContract)),
-                Action1(Method(15, research, "PurchaseLevel", typeof(void), includeContract)),
-                Action1(Method(16, research, "PauseResearch", typeof(void), includeContract)),
-                Action1(Method(17, research, "ResumeResearch", typeof(void), includeContract)),
-                Action1(Method(18, research, "CancelDevelopment", typeof(void), includeContract)),
-                Action1(Method(19, research, "SubmitBonusLevel", typeof(void), includeContract)),
-                Func<bool>(Method(20, research, "HasMaxLevel", typeof(bool), includeContract)),
-                IntObjectFunc(Method(21, research, "GetDevelopmentCostAtLevel", cost,
-                    includeContract, typeof(int))),
-                IntFunc<bool>(Method(22, research, "IsWithinDevelopRangeAt", typeof(bool),
-                    includeContract, typeof(int))),
-                ObjectObjectFunc(Method(23, cost, "Add", cost, includeContract, cost)),
-                Func<bool>(Method(24, research, "IsComplete", typeof(bool), includeContract)),
-                Func<bool>(Method(25, research, "MeetsLevelRequirements", typeof(bool), includeContract)),
-                Func<bool>(Method(26, research, "StillHasLeeway", typeof(bool), includeContract)),
-                Func<bool>(Method(27, research, "IsBelowArtificialMaxLevel", typeof(bool), includeContract)),
-                Func<bool>(Method(28, research, "IsBelowMaxInvestmentLevel", typeof(bool), includeContract)),
-                Func<bool>(Method(29, research, "IsVisible", typeof(bool), includeContract)));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or AmbiguousMatchException or ArgumentException)
-        {
-            reason = "The complete research action binding set is unavailable: " + exception.Message;
-            return false;
-        }
-    }
-
-    private static void Require(string id, Func<string, bool> include)
-    { if (!include(id)) throw new InvalidOperationException("Required contract " + id + " was withheld"); }
-
-    private static FieldInfo Field(int index, Type owner, string name, Type type, Func<string, bool> include)
-    {
-        Require(ContractIds[index], include);
-        var field = owner.GetField(name, Instance);
-        if (field is null || field.IsStatic || field.FieldType != type)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match the audited field");
-        return field;
-    }
-
-    private static MethodInfo Method(int index, Type owner, string name, Type result,
-        Func<string, bool> include, params Type[] parameters)
-    {
-        Require(ContractIds[index], include);
-        var method = owner.GetMethod(name, Instance, null, parameters, null);
-        if (method is null || method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match the audited signature");
-        return method;
-    }
-
-    private static MethodInfo StaticMethod(int index, Type owner, string name, Type result,
-        Func<string, bool> include)
-    {
-        Require(ContractIds[index], include);
-        var method = owner.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || !method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match the audited static signature");
-        return method;
-    }
-
-    private static Func<object, T> Func<T>(MemberInfo member)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        Expression value = member is FieldInfo field
-            ? Expression.Field(Expression.Convert(target, field.DeclaringType!), field)
-            : Expression.Call(Expression.Convert(target, member.DeclaringType!), (MethodInfo)member);
-        return Expression.Lambda<Func<object, T>>(Expression.Convert(value, typeof(T)), target).Compile();
-    }
-
-    private static Func<T> StaticFunc<T>(MethodInfo method) =>
-        Expression.Lambda<Func<T>>(Expression.Call(method)).Compile();
-
-    private static Func<object, object?> ObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, object?>>(Expression.Convert(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method), typeof(object)), target).Compile();
-    }
-
-    private static Action<object> Action1(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method), target).Compile();
-    }
-
-    private static Func<object, int, T> IntFunc<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(int), "value");
-        return Expression.Lambda<Func<object, int, T>>(Expression.Convert(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method, value), typeof(T)), target, value).Compile();
-    }
-
-    private static Func<object, int, object?> IntObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(int), "value");
-        return Expression.Lambda<Func<object, int, object?>>(Expression.Convert(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method, value), typeof(object)), target, value).Compile();
-    }
-
-    private static Func<object, object, object?> ObjectObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Parameter(typeof(object), "value");
-        return Expression.Lambda<Func<object, object, object?>>(Expression.Convert(Expression.Call(
-            Expression.Convert(target, method.DeclaringType!), method,
-            Expression.Convert(value, method.GetParameters()[0].ParameterType)), typeof(object)), target, value).Compile();
-    }
+            var research = set.Type("research-action.research.type-action", "ResearchSO");
+            var cost = set.Type("research-action.cost.type-action", "ResourceCostList");
+            var settings = set.Type("research-action.settings.type-action", "SettingsManager");
+            return new ResearchNativeBindings(research,
+                set.Field<Func<object, int>>("research-action.level-action", research, "level", typeof(int)),
+                set.Field<Func<object, int>>(
+                    "research-action.self-bonus-action", research, "selfBonusLevels", typeof(int)),
+                set.Field<Func<object, bool>>("research-action.active-action", research, "isActive", typeof(bool)),
+                set.Field<Func<object, bool>>(
+                    "research-action.developing-action", research, "isDeveloping", typeof(bool)),
+                set.Field<Func<object, int>>("research-action.max-level-action", research, "maxLevel", typeof(int)),
+                set.Call<Func<object, bool>>(
+                    "research-action.can-develop-action", research, "CanDevelop", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "research-action.can-bonus-action", research, "CanApplyBonusLevels", typeof(bool)),
+                set.Call<Func<object, int>>(
+                    "research-action.queued-levels-action", research, "GetQueuedLevels", typeof(int)),
+                set.Call<Func<object, int>>(
+                    "research-action.free-bonus-action", research, "GetFreeBonusLevelsLeft", typeof(int)),
+                set.Call<Func<object, object?>>(
+                    "research-action.development-cost-action", research, "GetDevelopmentCost", cost),
+                set.Call<Func<object, bool>>("research-action.cost-enough-action", cost, "HasEnough", typeof(bool)),
+                set.StaticCall<Func<bool>>(
+                    "research-action.queue-mode-action", settings, "IsResearchQueueMode", typeof(bool)),
+                set.Call<Action<object>>("research-action.purchase-action", research, "PurchaseLevel", typeof(void)),
+                set.Call<Action<object>>("research-action.pause-action", research, "PauseResearch", typeof(void)),
+                set.Call<Action<object>>("research-action.resume-action", research, "ResumeResearch", typeof(void)),
+                set.Call<Action<object>>("research-action.cancel-action", research, "CancelDevelopment", typeof(void)),
+                set.Call<Action<object>>(
+                    "research-action.submit-bonus-action", research, "SubmitBonusLevel", typeof(void)),
+                set.Call<Func<object, bool>>(
+                    "research-action.has-max-level-action", research, "HasMaxLevel", typeof(bool)),
+                set.Call<Func<object, int, object?>>("research-action.development-cost-at-level-action",
+                    research, "GetDevelopmentCostAtLevel", cost, typeof(int)),
+                set.Call<Func<object, int, bool>>("research-action.within-range-at-action",
+                    research, "IsWithinDevelopRangeAt", typeof(bool), typeof(int)),
+                set.Call<Func<object, object, object?>>("research-action.cost-add-action", cost, "Add", cost, cost),
+                set.Call<Func<object, bool>>(
+                    "research-action.is-complete-action", research, "IsComplete", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "research-action.meets-requirements-action", research, "MeetsLevelRequirements", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "research-action.still-has-leeway-action", research, "StillHasLeeway", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "research-action.below-artificial-max-action", research, "IsBelowArtificialMaxLevel", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "research-action.below-investment-max-action", research, "IsBelowMaxInvestmentLevel", typeof(bool)),
+                set.Call<Func<object, bool>>("research-action.is-visible-action", research, "IsVisible", typeof(bool)));
+        }, out bindings, out reason);
 }

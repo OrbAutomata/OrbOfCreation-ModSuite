@@ -177,14 +177,14 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
                 return list is null ? null : recipeBookEntries(list);
             };
         _relations[3] = NativeAccessorBinder.CollectionField(spellType, "notSpellTypes")!;
-        _relationIdentities[0] = NativeAccessorBinder.Call<Guid>(
-            NativeAccessorBinder.CollectionElementType(spellType, "spellTypes"), "GetGuid");
-        _relationIdentities[1] = NativeAccessorBinder.Call<Guid>(
-            NativeAccessorBinder.CollectionElementType(spellType, "coreRecipe"), "GetGuid");
-        _relationIdentities[2] = NativeAccessorBinder.Call<Guid>(
-            NativeAccessorBinder.CollectionElementType(recipeBooksType, "recipeBooks"), "GetGuid");
-        _relationIdentities[3] = NativeAccessorBinder.Call<Guid>(
-            NativeAccessorBinder.CollectionElementType(spellType, "notSpellTypes"), "GetGuid");
+        _relationIdentities[0] = NativeAccessorBinder.StableUuid(
+            NativeAccessorBinder.CollectionElementType(spellType, "spellTypes"));
+        _relationIdentities[1] = NativeAccessorBinder.StableUuid(
+            NativeAccessorBinder.CollectionElementType(spellType, "coreRecipe"));
+        _relationIdentities[2] = NativeAccessorBinder.StableUuid(
+            NativeAccessorBinder.CollectionElementType(recipeBooksType, "recipeBooks"));
+        _relationIdentities[3] = NativeAccessorBinder.StableUuid(
+            NativeAccessorBinder.CollectionElementType(spellType, "notSpellTypes"));
 
         _unavailable = IsBound()
             ? string.Empty

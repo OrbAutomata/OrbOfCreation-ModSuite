@@ -229,7 +229,7 @@ internal sealed class WorldConsumableBinder : WorldRowBinder<RawConsumableSample
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _visible = bind.Field<bool>("visible");
         _randomized = bind.Field<bool>("randomized");
         _quantity = bind.Field<int>("quantity");

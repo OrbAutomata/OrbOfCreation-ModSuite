@@ -211,7 +211,7 @@ internal sealed class NativeModifierAdjustmentAccess
         if (field is null || field.FieldType.IsValueType) return null;
 
         var sourceType = field.FieldType;
-        var getGuid = sourceType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(sourceType);
         Type? guidContract = null;
         if (getGuid is null || getGuid.ReturnType != typeof(Guid))
         {

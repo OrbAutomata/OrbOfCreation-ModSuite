@@ -70,7 +70,7 @@ internal sealed class WorldViewBinder : WorldPlainBinder<WorldView>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _active = bind.Field<bool>("active");
         _alwaysActive = bind.Field<bool>("alwaysActive");
         _available = bind.Call<bool>("IsAvailable");

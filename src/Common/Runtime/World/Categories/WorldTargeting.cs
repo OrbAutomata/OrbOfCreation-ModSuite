@@ -140,7 +140,7 @@ internal sealed class WorldTargetingReader : IWorldCategoryReader
             _linkType, "GetTargetSelection", selectionType);
         _resultInfo = NativeAccessorBinder.Reference(_linkType, "resultInfo", resultInfoType);
         _getName = NativeAccessorBinder.Call<string>(tooltipableType, "GetName");
-        _getGuid = NativeAccessorBinder.Call<Guid>(_structureType, "GetGuid");
+        _getGuid = NativeAccessorBinder.StableUuid(_structureType);
         _unavailable = managerType is null || _linkType is null || tooltipableType is null ||
             selectionType is null || resultInfoType is null || _structureType is null ||
             _isTargeting is null || _getLink is null || _getAllTargets is null ||

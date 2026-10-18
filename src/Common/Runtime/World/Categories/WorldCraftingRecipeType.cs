@@ -88,7 +88,7 @@ internal sealed class WorldCraftingRecipeTypeBinder : WorldPlainBinder<WorldCraf
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _startingLevel = bind.Field<int>("startingLevel");
         _maxStartingLevel = bind.Field<int>("maxStartingLevel");
         _craftVerb = bind.Field<string>("craftVerb");
