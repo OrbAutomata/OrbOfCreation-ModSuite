@@ -49,7 +49,6 @@ internal sealed class ModConfigUiShell : IDisposable
     public static bool TryCreate(
         ManualLogSource log,
         ConfigCatalogSnapshot catalog,
-        GameplayInvalidationBus invalidationBus,
         ModConfigRuntimeSources runtimeSources,
         ModConfigFeatureCommands featureCommands,
         ModConfigNavigationBookmark navigationBookmark,
@@ -60,7 +59,6 @@ internal sealed class ModConfigUiShell : IDisposable
     {
         if (log is null) throw new ArgumentNullException(nameof(log));
         if (catalog is null) throw new ArgumentNullException(nameof(catalog));
-        if (invalidationBus is null) throw new ArgumentNullException(nameof(invalidationBus));
         if (runtimeSources is null) throw new ArgumentNullException(nameof(runtimeSources));
         if (featureCommands is null) throw new ArgumentNullException(nameof(featureCommands));
         if (maintenanceRequested is null) throw new ArgumentNullException(nameof(maintenanceRequested));
@@ -88,7 +86,6 @@ internal sealed class ModConfigUiShell : IDisposable
                 navigation.LabelTemplate,
                 catalog,
                 log,
-                invalidationBus,
                 runtimeSources,
                 featureCommands,
                 nativeRail);

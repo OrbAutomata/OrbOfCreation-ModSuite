@@ -636,10 +636,9 @@ public sealed class ModConfigTests
         Assert.True(session.IsModDirty(firstMod));
         Assert.True(session.IsModValid(firstMod));
         Assert.False(session.IsModValid(secondMod));
-        Assert.True(session.Apply(firstMod, out var error, out var applied), error);
+        Assert.True(session.Apply(firstMod, out var error), error);
         Assert.False(first.Value);
         Assert.True(second.Value);
-        Assert.Single(applied);
         Assert.False(session.IsModDirty(firstMod));
         Assert.True(session.IsModDirty(secondMod));
 

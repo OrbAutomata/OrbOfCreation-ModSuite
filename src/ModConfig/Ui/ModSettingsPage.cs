@@ -27,7 +27,6 @@ internal sealed class ModSettingsPage : IDisposable
     private readonly TextMeshProUGUI _statusText;
     private readonly Button _applyButton;
     private readonly Button _revertButton;
-    private readonly ModSettingsApplyCoordinator _applyCoordinator;
     private readonly Dictionary<int, ModSettingsNavigationState> _navigation = new();
     private readonly ModSettingListView _settingList;
     private readonly ModConfigFeatureCommands _featureCommands;
@@ -45,7 +44,6 @@ internal sealed class ModSettingsPage : IDisposable
         TextMeshProUGUI statusText,
         Button applyButton,
         Button revertButton,
-        GameplayInvalidationBus invalidationBus,
         ModConfigFeatureCommands featureCommands)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
@@ -58,9 +56,6 @@ internal sealed class ModSettingsPage : IDisposable
         _applyButton = applyButton ?? throw new ArgumentNullException(nameof(applyButton));
         _revertButton = revertButton ?? throw new ArgumentNullException(nameof(revertButton));
         _featureCommands = featureCommands ?? throw new ArgumentNullException(nameof(featureCommands));
-        _applyCoordinator = new ModSettingsApplyCoordinator(
-            invalidationBus ?? throw new ArgumentNullException(nameof(invalidationBus)),
-            () => Time.frameCount);
         _settingList = new ModSettingListView(
             _session,
             _content,
@@ -236,7 +231,7 @@ internal sealed class ModSettingsPage : IDisposable
         }
 
         var selectedMod = _catalog.Mods[_selectedModIndex];
-        if (_applyCoordinator.TryApply(_session, selectedMod, out var error, out _))
+        if (_session.Apply(selectedMod, out var error))
         {
             RebuildSettings();
             _statusText.text = ConfigurationSavedMessage;

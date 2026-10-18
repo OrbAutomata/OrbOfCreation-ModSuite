@@ -195,26 +195,16 @@ internal sealed class ConfigEditSession
         return changed;
     }
 
-    public bool Apply(out string error) => Apply(out error, out _);
+    public bool Apply(out string error) => ApplyValues(_values.Values.ToArray(), out error);
 
-    public bool Apply(
-        out string error,
-        out IReadOnlyList<ConfigSettingDescriptor> appliedSettings)
-        => ApplyValues(_values.Values.ToArray(), out error, out appliedSettings);
-
-    public bool Apply(
-        ModConfigDescriptor mod,
-        out string error,
-        out IReadOnlyList<ConfigSettingDescriptor> appliedSettings) =>
-        ApplyValues(ValuesFor(mod).ToArray(), out error, out appliedSettings);
+    public bool Apply(ModConfigDescriptor mod, out string error) =>
+        ApplyValues(ValuesFor(mod).ToArray(), out error);
 
     private static bool ApplyValues(
         IReadOnlyList<ConfigEditValue> candidates,
-        out string error,
-        out IReadOnlyList<ConfigSettingDescriptor> appliedSettings)
+        out string error)
     {
         error = string.Empty;
-        appliedSettings = Array.Empty<ConfigSettingDescriptor>();
         for (var index = 0; index < candidates.Count; index++)
         {
             if (candidates[index].IsDirty)
@@ -259,12 +249,6 @@ internal sealed class ConfigEditSession
                 value.AcceptAppliedValue();
             }
 
-            var committed = new ConfigSettingDescriptor[dirty.Length];
-            for (var index = 0; index < dirty.Length; index++)
-            {
-                committed[index] = dirty[index].Setting;
-            }
-            appliedSettings = committed;
             return true;
         }
         catch (Exception ex)
