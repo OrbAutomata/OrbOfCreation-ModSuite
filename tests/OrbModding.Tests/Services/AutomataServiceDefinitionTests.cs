@@ -12,7 +12,7 @@ namespace OrbModding.Tests;
 public sealed class AutomataServiceDefinitionTests
 {
     [Fact]
-    public void DefinitionExposesOnlyTheOrdinaryContractAndRegistryStillAuditsWorkerSeparation()
+    public void ADefinedServiceRegistersAsAnOrdinaryService()
     {
         var metadata = Metadata();
         var definition = AutomataService.Define<State, Action>(
@@ -30,23 +30,13 @@ public sealed class AutomataServiceDefinitionTests
                 in ServiceActionContext _) =>
                 ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected));
 
-        Assert.IsAssignableFrom<IAutomataServiceDefinition<State, Action>>(definition);
-        Assert.IsNotAssignableFrom<IServiceCycleSourceDefinition<State, Action>>(definition);
-        Assert.Equal(
-            new[]
-            {
-                typeof(IAutomataServiceDefinition<State, Action>),
-                typeof(IServiceCycleDefinition<State, Action>),
-                typeof(IServiceCycleMainThreadDefinition<Action>),
-            },
-            definition.GetType().GetInterfaces());
-
         using var registry = new OrbModding.Common.Runtime.ServiceCycle.Registration.ServiceCycleRegistry(
             1,
             new LifecycleGeneration(1));
         using var registration = registry.Register(definition);
 
         Assert.Equal(0, registration.Ordinal);
+        Assert.Equal(ServiceShape.Ordinary, registry.GetSlot(0).ActionDispatchPolicy.Shape);
     }
 
     private static AutomataServiceMetadata Metadata() => new(

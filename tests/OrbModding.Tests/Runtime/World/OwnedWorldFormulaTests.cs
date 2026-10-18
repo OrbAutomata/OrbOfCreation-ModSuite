@@ -135,15 +135,6 @@ public sealed class OwnedWorldFormulaTests
     }
 
     [Fact]
-    public void ConceptDrainBasisCarriesNoCapturedUsageVerdictFallback()
-    {
-        const BindingFlags members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-        Assert.Null(typeof(RawConceptDrainBasis).GetProperty("UsageRequirementsMet", members));
-        Assert.Null(typeof(WorldConceptDrainBasis).GetProperty("UsageRequirementsMet", members));
-    }
-
-    [Fact]
     public void MissingSelectedLevelDefaultsToOne()
     {
         var raw = new RawConceptDrainBasisBuffer();

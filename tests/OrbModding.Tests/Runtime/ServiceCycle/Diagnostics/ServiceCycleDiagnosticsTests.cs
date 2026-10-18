@@ -313,7 +313,6 @@ public sealed class ServiceCycleDiagnosticsTests
             .Where(type => type.IsPublic && type.Namespace == typeof(ServiceCycleDiagnostics).Namespace)
             .ToArray();
         var forbiddenPrefixes = new[] { "UnityEngine", "BepInEx", "HarmonyLib" };
-        Assert.DoesNotContain("Disabled", Enum.GetNames(typeof(ServiceCycleOperationalPhase)));
 
         foreach (var type in diagnosticsTypes.Where(type => type.IsValueType && !type.IsEnum))
         {

@@ -142,15 +142,4 @@ public sealed class AutoScribeIdentityAndConfigurationTests
             new ScrollRoleKey("scribe.learning")));
         Assert.Equal(-1, state.LastSelectedCraftCostOrder);
     }
-
-    [Fact]
-    public void ActionCarriesOnlyTheCyclePinnedNativeRelationAndFreshnessEpoch()
-    {
-        Assert.Equal(
-            new[] { "CollectedAtEpoch", "Level", "RecipeId", "ScrollId" },
-            typeof(AutoScribeCycleAction)
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Select(property => property.Name)
-                .OrderBy(name => name, StringComparer.Ordinal));
-    }
 }

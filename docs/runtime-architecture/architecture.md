@@ -166,8 +166,6 @@ catalog lists it in rail order, `game_navigate` reaches it through the same cata
 path, and its own pages are reported as that screen's subtab strip. Selecting Mods while it is
 already active is an idempotent reselect, so no Mods-only case exists anywhere in the MCP surface.
 
-## Superseded paths stay gone
+## One production path
 
 There is one production path, no runtime selector, and no fallback implementation.
-`ArchitectureBoundaryTests` — not this document — holds the list of namespaces and type names that may
-not come back.
