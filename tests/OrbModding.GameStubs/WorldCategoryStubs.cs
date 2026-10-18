@@ -224,6 +224,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public bool InstantCraftEnabled;
     public ConsumableSO? InstantOutput;
     public bool ThrowAfterPurchase;
+    public Exception? AfterPurchaseFault;
     public bool ThrowDuringConstruction;
     public bool ThrowAfterInitiation;
     public bool ThrowAfterInstantAdmission;
@@ -293,6 +294,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
                 purchasedQuantity.ToInt() + previousQuantity.ToInt());
         if (ThrowAfterPurchase)
             throw new InvalidOperationException("injected failure after purchase");
+        if (AfterPurchaseFault is { } fault) throw fault;
     }
 
     public PassiveObservable.Channel GetEffectChannel() => effectChannel;

@@ -254,6 +254,17 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 nativeCalls,
                 GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
+        catch (Exception ex)
+        {
+            Quarantine(
+                in action,
+                AutoScribeActionResultCodes.PostPaymentFault,
+                stage,
+                NativeMutationOutcome.ExecutionThrew,
+                nativeCalls,
+                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
+            throw;
+        }
     }
 
     private AutoScribeSubmission Quarantine(
