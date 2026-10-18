@@ -7,8 +7,9 @@ namespace OrbAutomata;
 
 /// <summary>
 /// Complete binding set for Spell Leveling: the SpellManager's available recipes and its level-all
-/// batch, each recipe's gates, cost and single-level purchase, the level-all upgrade's committed
-/// level, and the cost entries the paid price is read from.
+/// batch, each recipe's gates, cost and single-level purchase, and the level-all upgrade's committed
+/// level. A profile build also binds the cost entries the paid price is read from, because only the
+/// strategist's mastery press reports that price.
 /// </summary>
 internal sealed class SpellLevelNativeBindings
 {
@@ -20,8 +21,6 @@ internal sealed class SpellLevelNativeBindings
         "spell-level.recipe-list.type-action",
         "spell-level.prerequisites.type-action",
         "generic-level.cost.type-action",
-        "generic-level.tuple.type-action",
-        "generic-level.resource.type-action",
         "spell-manager.instance",
         "spell-manager.available-recipes",
         "spell-manager.try-level-all",
@@ -36,11 +35,15 @@ internal sealed class SpellLevelNativeBindings
         "upgrade.get-purchase-level-action",
         "resource-cost-list.has-enough",
         "resource-cost-list.perform-cost",
+        "id-scriptable-object.get-guid-action",
+#if SERVICE_CYCLE_PROFILE
+        "generic-level.tuple.type-action",
+        "generic-level.resource.type-action",
         "generic-level.cost-entries-action",
         "generic-level.tuple-resource-action",
         "generic-level.tuple-value-action",
         "generic-level.resource-guid-action",
-        "id-scriptable-object.get-guid-action",
+#endif
     };
 
     private SpellLevelNativeBindings(
@@ -60,11 +63,14 @@ internal sealed class SpellLevelNativeBindings
         Func<object, int> purchasedLevel,
         Func<object, bool> hasEnough,
         Action<object> performCost,
-        Func<object, IList?> costEntries,
-        Func<object, object?> entryResource,
-        Func<object, BigDouble> entryValue,
-        Func<object, Guid> resourceId,
-        Func<object, Guid> recipeId)
+        Func<object, Guid> recipeId
+#if SERVICE_CYCLE_PROFILE
+        , Func<object, IList?> costEntries
+        , Func<object, object?> entryResource
+        , Func<object, BigDouble> entryValue
+        , Func<object, Guid> resourceId
+#endif
+        )
     {
         RecipeType = recipeType;
         UpgradeType = upgradeType;
@@ -82,11 +88,13 @@ internal sealed class SpellLevelNativeBindings
         PurchasedLevel = purchasedLevel;
         HasEnough = hasEnough;
         PerformCost = performCost;
+        RecipeId = recipeId;
+#if SERVICE_CYCLE_PROFILE
         CostEntries = costEntries;
         EntryResource = entryResource;
         EntryValue = entryValue;
         ResourceId = resourceId;
-        RecipeId = recipeId;
+#endif
     }
 
     internal Type RecipeType { get; }
@@ -105,11 +113,13 @@ internal sealed class SpellLevelNativeBindings
     internal Func<object, int> PurchasedLevel { get; }
     internal Func<object, bool> HasEnough { get; }
     internal Action<object> PerformCost { get; }
+    internal Func<object, Guid> RecipeId { get; }
+#if SERVICE_CYCLE_PROFILE
     internal Func<object, IList?> CostEntries { get; }
     internal Func<object, object?> EntryResource { get; }
     internal Func<object, BigDouble> EntryValue { get; }
     internal Func<object, Guid> ResourceId { get; }
-    internal Func<object, Guid> RecipeId { get; }
+#endif
 
     internal static bool TryCreate(out SpellLevelNativeBindings? bindings, out string reason,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null) =>
@@ -121,8 +131,10 @@ internal sealed class SpellLevelNativeBindings
             var recipeList = set.Type("spell-level.recipe-list.type-action", "SpellRecipeListVariable");
             var prerequisites = set.Type("spell-level.prerequisites.type-action", "Prerequisites+Container");
             var cost = set.Type("generic-level.cost.type-action", "ResourceCostList");
+#if SERVICE_CYCLE_PROFILE
             var tuple = set.Type("generic-level.tuple.type-action", "ResourceTuple");
             var resource = set.Type("generic-level.resource.type-action", "ResourceSO");
+#endif
 
             return new SpellLevelNativeBindings(
                 recipe,
@@ -144,11 +156,14 @@ internal sealed class SpellLevelNativeBindings
                     "upgrade.get-purchase-level-action", upgrade, "GetPurchaseLevel", typeof(int)),
                 set.Call<Func<object, bool>>("resource-cost-list.has-enough", cost, "HasEnough", typeof(bool)),
                 set.Call<Action<object>>("resource-cost-list.perform-cost", cost, "PerformCost", typeof(void)),
-                set.Call<Func<object, IList?>>("generic-level.cost-entries-action", cost, "GetEntries", ListOf(tuple)),
-                set.Field<Func<object, object?>>("generic-level.tuple-resource-action", tuple, "resource", resource),
-                set.Call<Func<object, BigDouble>>("generic-level.tuple-value-action", tuple, "GetValue", typeof(BigDouble)),
-                set.StableUuid("generic-level.resource-guid-action", resource),
-                set.StableUuid("id-scriptable-object.get-guid-action", recipe));
+                set.StableUuid("id-scriptable-object.get-guid-action", recipe)
+#if SERVICE_CYCLE_PROFILE
+                , set.Call<Func<object, IList?>>("generic-level.cost-entries-action", cost, "GetEntries", ListOf(tuple))
+                , set.Field<Func<object, object?>>("generic-level.tuple-resource-action", tuple, "resource", resource)
+                , set.Call<Func<object, BigDouble>>("generic-level.tuple-value-action", tuple, "GetValue", typeof(BigDouble))
+                , set.StableUuid("generic-level.resource-guid-action", resource)
+#endif
+                );
         }, out bindings, out reason);
 
     private static Type ListOf(Type element) => typeof(List<>).MakeGenericType(element);

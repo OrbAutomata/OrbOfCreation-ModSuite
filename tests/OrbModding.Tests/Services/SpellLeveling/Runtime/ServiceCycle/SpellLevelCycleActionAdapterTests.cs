@@ -426,6 +426,31 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The price a level was charged is only told to a strategist, so a shipped build levels a spell
+    /// without binding the cost-entry members that price is read from.
+    /// </summary>
+    [Fact]
+    public void A_shipped_build_levels_a_spell_without_the_charged_price_members()
+    {
+        var chargeOnly = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "generic-level.tuple.type-action",
+            "generic-level.resource.type-action",
+            "generic-level.cost-entries-action",
+            "generic-level.tuple-resource-action",
+            "generic-level.tuple-value-action",
+            "generic-level.resource-guid-action",
+        };
+        var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
+        var levels = new SpellLevelNativeAdapter(null, null, id => !chargeOnly.Contains(id));
+
+        var result = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(4, spell.masteryLevel);
+    }
+
     [Fact]
     public void AnUnexpectedGameThrowWhilePreflightingALevelEscapesWithoutSpending()
     {
