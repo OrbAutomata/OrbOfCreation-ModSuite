@@ -19,7 +19,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             return CraftingPlayerSubmission.Reject(
                 in action,
                 CraftingPlayerPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Scribe"));
+                GameActionAnswer.NotAttached("Scholar > Scribe", _playerBindingFailure));
 
         long liveLifecycle;
         try

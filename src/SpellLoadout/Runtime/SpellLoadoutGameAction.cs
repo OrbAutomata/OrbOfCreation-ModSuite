@@ -58,7 +58,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Spellbook > Loadout"));
+                GameActionAnswer.NotAttached("Magic > Spellbook > Loadout", _bindingFailure));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }

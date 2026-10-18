@@ -50,7 +50,7 @@ internal sealed class GenericLevelGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return Reject(GenericLevelPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("the screen this is levelled on"));
+                GameActionAnswer.NotAttached("the screen this is levelled on", _bindingFailure));
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }

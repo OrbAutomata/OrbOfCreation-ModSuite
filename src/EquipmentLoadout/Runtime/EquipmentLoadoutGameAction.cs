@@ -107,7 +107,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Workshop > Artifacts"));
+                GameActionAnswer.NotAttached("Workshop > Artifacts", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

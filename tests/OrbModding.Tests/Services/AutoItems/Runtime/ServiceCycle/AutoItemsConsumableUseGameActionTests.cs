@@ -528,22 +528,35 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
             item.GetGuid(),
             lifecycleEpoch: 1);
 
-        foreach (var missing in ConsumablePlayerNativeBindings.ContractIds)
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        try
         {
-            using var gameAction = GameAction(
-                includePlayerContract: id => id != missing);
-            var result = gameAction.Submit(in action);
+            foreach (var missing in ConsumablePlayerNativeBindings.ContractIds)
+            {
+                logged.Clear();
+                using var gameAction = GameAction(
+                    includePlayerContract: id => id != missing);
+                var result = gameAction.Submit(in action);
 
-            Assert.False(gameAction.PlayerBindingsAvailable);
-            Assert.Equal(ConsumablePlayerPreflight.ContractUnavailable, result.Preflight);
+                Assert.False(gameAction.PlayerBindingsAvailable);
+                Assert.Equal(ConsumablePlayerPreflight.ContractUnavailable, result.Preflight);
 
-            // The answer used to name the binding that was absent, which no caller can look up or
-            // act on. Which one it was does not change what a player does next: the whole family is
-            // shut for the rest of the run either way, and the sentence says exactly that.
-            Assert.Equal(
-                "The suite could not attach to Inventory in this run, so it will refuse every " +
-                "press there until the run restarts.",
-                result.Reason);
+                // Which binding was absent does not change what a player does next, so the answer
+                // only says the family is shut for the run. The maintainer who fixes it needs the
+                // binding, so that goes to the suite log under the reference the answer ends with.
+                Assert.StartsWith(
+                    "The suite could not attach to Inventory in this run, so it will refuse every " +
+                    "press there until the run restarts. Reference MCP-",
+                    result.Reason,
+                    StringComparison.Ordinal);
+                var line = Assert.Single(logged);
+                Assert.Contains(missing, line, StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
         }
         Assert.Equal(1, item.GetQuantity());
     }

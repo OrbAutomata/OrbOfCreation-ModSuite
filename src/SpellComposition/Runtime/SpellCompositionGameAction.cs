@@ -58,7 +58,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached(Screen(action.Dial)));
+                GameActionAnswer.NotAttached(Screen(action.Dial), _bindingFailure));
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }

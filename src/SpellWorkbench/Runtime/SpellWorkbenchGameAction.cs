@@ -50,7 +50,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } native)
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Spellbook"));
+                GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure));
         try
         {
             var manager = native.ReadManager();
@@ -1192,7 +1192,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (_bindings is not { } available)
         {
             preflight = SpellWorkbenchPreflight.ContractUnavailable;
-            reason = GameActionAnswer.NotAttached("Magic > Spellbook");
+            reason = GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure);
             return false;
         }
         native = available;

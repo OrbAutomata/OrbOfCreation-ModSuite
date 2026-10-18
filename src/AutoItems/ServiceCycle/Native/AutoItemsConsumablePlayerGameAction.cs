@@ -15,7 +15,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
         if (_playerBindings is not { } native)
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Inventory"));
+                GameActionAnswer.NotAttached("Inventory", _playerBindingFailure));
 
         long liveLifecycle;
         try { liveLifecycle = _readLifecycleEpoch(); }

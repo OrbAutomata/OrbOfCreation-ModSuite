@@ -41,7 +41,7 @@ internal sealed class ResearchGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Research"));
+                GameActionAnswer.NotAttached("Scholar > Research", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (IsExpected(exception))

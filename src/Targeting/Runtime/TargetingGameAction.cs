@@ -38,7 +38,7 @@ internal sealed class TargetingGameAction : IDisposable
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable,
-                GameActionAnswer.NotAttached("Magic > Casting"));
+                GameActionAnswer.NotAttached("Magic > Casting", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception ex) when (Expected(ex))
