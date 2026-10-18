@@ -146,7 +146,6 @@ public readonly struct GameplayInvalidationBusSnapshot
         long staleDiscarded,
         long overflowPromotions,
         long overflowDiscarded,
-        long dispatchFailures,
         long offThreadRejections)
     {
         LifecycleGeneration = lifecycleGeneration;
@@ -161,7 +160,6 @@ public readonly struct GameplayInvalidationBusSnapshot
         StaleDiscarded = staleDiscarded;
         OverflowPromotions = overflowPromotions;
         OverflowDiscarded = overflowDiscarded;
-        DispatchFailures = dispatchFailures;
         OffThreadRejections = offThreadRejections;
     }
 
@@ -177,7 +175,6 @@ public readonly struct GameplayInvalidationBusSnapshot
     public long StaleDiscarded { get; }
     public long OverflowPromotions { get; }
     public long OverflowDiscarded { get; }
-    public long DispatchFailures { get; }
     public long OffThreadRejections { get; }
 }
 
@@ -201,26 +198,6 @@ public readonly struct GameplayInvalidationPumpResult
     public bool BudgetExhausted { get; }
 }
 
-public readonly struct GameplayInvalidationDispatchFailure
-{
-    internal GameplayInvalidationDispatchFailure(
-        long lifecycleGeneration,
-        GameplayInvalidationKind kinds,
-        string subscriber,
-        string exceptionType)
-    {
-        LifecycleGeneration = lifecycleGeneration;
-        Kinds = kinds;
-        Subscriber = subscriber;
-        ExceptionType = exceptionType;
-    }
-
-    public long LifecycleGeneration { get; }
-    public GameplayInvalidationKind Kinds { get; }
-    public string Subscriber { get; }
-    public string ExceptionType { get; }
-}
-
 /// <summary>
 /// Bounded main-thread invalidation delivery. Publishers report stable change evidence;
 /// subscribers only mark owned work dirty and perform gameplay reads later under their own budget.
@@ -228,7 +205,6 @@ public readonly struct GameplayInvalidationDispatchFailure
 public sealed class GameplayInvalidationBus : IDisposable
 {
     private const int DefaultCapacity = 128;
-    private const int FailureCapacity = 32;
     public const int DefaultMaxOperationsPerFrame = 64;
     private readonly GameLifecycleMonitor _lifecycle;
     private readonly Func<int> _readThreadId;
@@ -238,7 +214,6 @@ public sealed class GameplayInvalidationBus : IDisposable
     private readonly List<InvalidationKey> _supersededScratch;
     private readonly HashSet<InvalidationKey> _supersededSet;
     private readonly List<Subscription> _subscriptions = new();
-    private readonly Queue<GameplayInvalidationDispatchFailure> _failures = new(FailureCapacity);
     private int? _ownerThreadId;
     private long _nextSequence;
     private bool _disposed;
@@ -260,7 +235,7 @@ public sealed class GameplayInvalidationBus : IDisposable
     private long _staleDiscarded;
     private long _overflowPromotions;
     private long _overflowDiscarded;
-    private long _dispatchFailures;
+    private Action<string>? _failureLog;
     private long _offThreadRejections;
 
     public GameplayInvalidationBus(
@@ -281,14 +256,11 @@ public sealed class GameplayInvalidationBus : IDisposable
 
     public static GameplayInvalidationBus Shared { get; } = new(GameLifecycleMonitor.Shared);
 
-    public IReadOnlyList<GameplayInvalidationDispatchFailure> DispatchFailures
-    {
-        get
-        {
-            EnsureOwnerThread();
-            return _failures.ToArray();
-        }
-    }
+    /// <summary>
+    /// Names where a throwing subscriber is reported. A host that never sets it, a test or a tool,
+    /// still isolates the throw and reports it nowhere.
+    /// </summary>
+    public void ConfigureFailureLog(Action<string>? log) => _failureLog = log;
 
     public IDisposable Subscribe(
         GameplayInvalidationFilter filter,
@@ -423,13 +395,9 @@ public sealed class GameplayInvalidationBus : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    _dispatchFailures++;
-                    if (_failures.Count == FailureCapacity) _failures.Dequeue();
-                    _failures.Enqueue(new GameplayInvalidationDispatchFailure(
-                        _currentDispatch.LifecycleGeneration,
-                        _currentDispatch.Kinds,
-                        subscription.Name,
-                        ex.GetType().FullName ?? ex.GetType().Name));
+                    _failureLog?.Invoke(
+                        $"Gameplay invalidation subscriber {subscription.Name} threw handling " +
+                        $"{_currentDispatch.Kinds}: {ExceptionDetail.Describe(ex)}");
                 }
             }
         }
@@ -466,7 +434,6 @@ public sealed class GameplayInvalidationBus : IDisposable
             _staleDiscarded,
             _overflowPromotions,
             _overflowDiscarded,
-            _dispatchFailures,
             Interlocked.Read(ref _offThreadRejections));
     }
 

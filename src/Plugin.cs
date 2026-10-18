@@ -194,6 +194,8 @@ public sealed class Plugin : BaseUnityPlugin
             message => Logger.LogWarning(message),
             message => Logger.LogError(message));
         GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
+        GameLifecycleMonitor.Shared.ConfigureFailureLog(message => Logger.LogError(message));
+        GameplayInvalidationBus.Shared.ConfigureFailureLog(message => Logger.LogError(message));
         EntityIdentityCatalog.Shared.Reset(GameLifecycleMonitor.Shared.Current.Generation);
 
         RunAutomaticSaveBackup();

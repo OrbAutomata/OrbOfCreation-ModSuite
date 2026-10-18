@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using OrbModding.Common;
 using Xunit;
 
@@ -115,9 +116,11 @@ public sealed class GameLifecycleMonitorTests
     }
 
     [Fact]
-    public void IsolatesFailingSubscribersAndBoundsDispatchDiagnostics()
+    public void AFailingSubscriberIsIsolatedAndLogsWhatThrew()
     {
         var monitor = new GameLifecycleMonitor(() => 1);
+        var log = new List<string>();
+        monitor.ConfigureFailureLog(log.Add);
         var successfulCalls = 0;
         monitor.Transitioned += _ => throw new InvalidOperationException("simulated subscriber failure");
         monitor.Transitioned += _ => successfulCalls++;
@@ -132,8 +135,9 @@ public sealed class GameLifecycleMonitorTests
         }
 
         Assert.Equal(40, successfulCalls);
-        Assert.Equal(32, monitor.DispatchFailures.Count);
-        Assert.Contains("InvalidOperationException", monitor.DispatchFailures[31].ExceptionType);
+        Assert.Equal(40, log.Count);
+        Assert.Contains("threw on ResetCompleted", log[^1], StringComparison.Ordinal);
+        Assert.Contains("InvalidOperationException: simulated subscriber failure", log[^1], StringComparison.Ordinal);
     }
 
     [Fact]

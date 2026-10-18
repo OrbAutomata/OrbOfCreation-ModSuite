@@ -158,26 +158,11 @@ public readonly struct GameLifecycleLease
     public long Generation { get; }
 }
 
-public readonly struct GameLifecycleDispatchFailure
-{
-    public GameLifecycleDispatchFailure(long generation, string subscriber, string exceptionType)
-    {
-        Generation = generation;
-        Subscriber = subscriber;
-        ExceptionType = exceptionType;
-    }
-
-    public long Generation { get; }
-    public string Subscriber { get; }
-    public string ExceptionType { get; }
-}
-
 public sealed class GameLifecycleMonitor
 {
     private const int DiagnosticCapacity = 32;
     private readonly Func<int> _readThreadId;
     private readonly Queue<GameLifecycleDiagnostic> _diagnostics = new(DiagnosticCapacity);
-    private readonly Queue<GameLifecycleDispatchFailure> _dispatchFailures = new(DiagnosticCapacity);
     private readonly List<GameLifecycleObservation> _observationsThisFrame = new(8);
     private GameLifecycleSnapshot _current = new(
         GameLifecycleState.NoGame,
@@ -186,6 +171,7 @@ public sealed class GameLifecycleMonitor
         null,
         -1);
     private int? _mainThreadId;
+    private Action<string>? _failureLog;
     private long _observationFrame = -1;
     private GameLifecycleState _stateBeforeReset = GameLifecycleState.NoGame;
 
@@ -202,7 +188,11 @@ public sealed class GameLifecycleMonitor
 
     public IReadOnlyList<GameLifecycleDiagnostic> Diagnostics => _diagnostics.ToArray();
 
-    public IReadOnlyList<GameLifecycleDispatchFailure> DispatchFailures => _dispatchFailures.ToArray();
+    /// <summary>
+    /// Names where a throwing transition subscriber is reported. A host that never sets it, a test
+    /// or a tool, still isolates the throw and reports it nowhere.
+    /// </summary>
+    public void ConfigureFailureLog(Action<string>? log) => _failureLog = log;
 
     public GameLifecycleLease CaptureLease() => new(_current.Generation);
 
@@ -282,11 +272,9 @@ public sealed class GameLifecycleMonitor
             }
             catch (Exception ex)
             {
-                if (_dispatchFailures.Count == DiagnosticCapacity) _dispatchFailures.Dequeue();
-                _dispatchFailures.Enqueue(new GameLifecycleDispatchFailure(
-                    transition.Current.Generation,
-                    handler.Method.DeclaringType?.FullName ?? handler.Method.Name,
-                    ex.GetType().FullName ?? ex.GetType().Name));
+                _failureLog?.Invoke(
+                    $"Lifecycle subscriber {handler.Method.DeclaringType?.FullName ?? handler.Method.Name} " +
+                    $"threw on {transition.Current.LastTransition}: {ExceptionDetail.Describe(ex)}");
             }
         }
     }
