@@ -7,7 +7,7 @@ internal static partial class ServiceCycleSemanticPayloadValidation
     internal static void EnsureValid(ServiceCycleSemanticEventKind kind, in ServiceCycleSemanticPayload payload)
     {
         if (kind is < ServiceCycleSemanticEventKind.ConfigurationPublished or
-            > ServiceCycleSemanticEventKind.WorldCategoryCollected)
+            > ServiceCycleSemanticEventKind.PumpHeapSampled)
             throw new ArgumentOutOfRangeException(nameof(kind));
 
         var expected = ExpectedFields(kind);
@@ -104,6 +104,15 @@ internal static partial class ServiceCycleSemanticPayloadValidation
                 // pass is an emitter that lost track of which collection it is describing.
                 Require(
                     payload.WorldCategory > 0 && payload.WorldCategory <= payload.WorldPassCategories,
+                    nameof(payload));
+                break;
+            case ServiceCycleSemanticEventKind.PumpHeapSampled:
+                // The count only rises, and a heap that reads zero was never read.
+                Require(
+                    payload.CollectionsAtPumpEnd >= payload.CollectionsAtPumpStart &&
+                    payload.HeapAtPumpStart > 0 && payload.HeapAtPumpEnd > 0 &&
+                    payload.TotalDurationTicks == 0 &&
+                    (payload.CapturesMeasured > 0 || payload.CaptureHeapGrowth == 0),
                     nameof(payload));
                 break;
         }

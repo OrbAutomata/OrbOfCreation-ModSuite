@@ -53,6 +53,12 @@ public enum ServiceCycleSemanticEventKind
     /// cost is a distribution over sixty-odd readers rather than a single number.
     /// </summary>
     WorldCategoryCollected = 41,
+
+    /// <summary>
+    /// What the managed heap did across one pump. Profiling builds only: it is how a capture says
+    /// whether a collection pause was the suite's or the game's.
+    /// </summary>
+    PumpHeapSampled = 42,
 }
 
 [System.Flags]

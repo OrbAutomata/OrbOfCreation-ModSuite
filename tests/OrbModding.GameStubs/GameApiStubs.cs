@@ -4786,6 +4786,46 @@ namespace UnityEngine
     }
 }
 
+namespace UnityEngine.Profiling
+{
+    public static class Profiler
+    {
+        public static long MonoUsedSize { get; set; }
+
+        public static long GetMonoUsedSizeLong() => MonoUsedSize;
+    }
+}
+
+namespace Unity.Profiling
+{
+    public readonly struct ProfilerCategory
+    {
+        public static ProfilerCategory Memory => default;
+    }
+
+    public enum ProfilerRecorderOptions
+    {
+        Default = 0,
+    }
+
+    public struct ProfilerRecorder : System.IDisposable
+    {
+        public static ProfilerRecorder StartNew(
+            ProfilerCategory category,
+            string statName,
+            int capacity = 1,
+            ProfilerRecorderOptions options = ProfilerRecorderOptions.Default) => default;
+
+        public bool Valid => false;
+
+        public long LastValue => 0;
+
+        public void Dispose()
+        {
+        }
+    }
+}
+
 namespace UnityEngine.Events
 {
     public delegate void UnityAction();

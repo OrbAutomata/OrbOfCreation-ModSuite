@@ -167,6 +167,15 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
         catch { Fault(); }
     }
 
+#if SERVICE_CYCLE_PROFILE
+    internal void PumpHeapSampled(in SuiteFramePumpHeapSample sample, MonotonicTimestamp observedAt)
+    {
+        if (_faulted) return;
+        try { _recorder.PumpHeapSampled(in sample, observedAt); }
+        catch { Fault(); }
+    }
+#endif
+
     internal void StartAttemptObserved(int ordinal, in ServiceCycleStartAttempt attempt)
     {
         if (_faulted) return;

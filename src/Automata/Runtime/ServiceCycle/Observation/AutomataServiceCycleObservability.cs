@@ -22,6 +22,7 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
 #if SERVICE_CYCLE_PROFILE
     private readonly AutomataServiceCycleProfileController? _profile;
     private readonly ServiceCycleProfileProbe _profileProbe;
+    private AutomataHeapCounters? _heapCounters;
 #endif
     private AutomataFullTraceController? _fullTrace;
     private SuiteFramePump? _pump;
@@ -94,6 +95,9 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
                     roster,
                     in fullTraceOptions,
                     _log);
+#if SERVICE_CYCLE_PROFILE
+                AttachHeapCounters(pump);
+#endif
             }
 
             AutomataDecisionJournalController? decisionJournal = null;
@@ -128,6 +132,27 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
         }
     }
 
+#if SERVICE_CYCLE_PROFILE
+    /// <summary>
+    /// Has the full trace sample the heap every pump, and says once what the capture will hold: a
+    /// reader of a capture with no heap samples finds the reason here.
+    /// </summary>
+    private void AttachHeapCounters(SuiteFramePump pump)
+    {
+        var counters = AutomataHeapCounters.Create();
+        if (!pump.TryAttachHeapCounters(counters, out var unavailable))
+        {
+            counters.Dispose();
+            _log.LogAutomataError("Profiling full trace records no heap samples: " + unavailable + ".");
+            return;
+        }
+        _heapCounters = counters;
+        _log.LogAutomataInfo(
+            "Profiling full trace samples the heap every pump; Unity's per-frame allocation counter is " +
+            (counters.HasFrameAllocated ? "available." : "unavailable in this player."));
+    }
+
+#endif
     /// <summary>
     /// The journal's own cap governs the journal directory only. Run folders are the other half of
     /// the suite's disk use, and nothing else deletes them, so a launch prunes the oldest before it
@@ -214,6 +239,9 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
         _profile?.Dispose();
 #endif
         _fullTrace?.Dispose();
+#if SERVICE_CYCLE_PROFILE
+        _heapCounters?.Dispose();
+#endif
     }
 
     private static string Join(string left, string right) =>

@@ -72,6 +72,11 @@ public sealed partial class ServiceCycleSemanticRecorder
     public void PumpCompleted(in SuiteFramePumpReport report, MonotonicTimestamp observedAt) =>
         _context.PumpCompleted(in report, observedAt);
 
+#if SERVICE_CYCLE_PROFILE
+    internal void PumpHeapSampled(in SuiteFramePumpHeapSample sample, MonotonicTimestamp observedAt) =>
+        _context.PumpHeapSampled(in sample, observedAt);
+#endif
+
     internal void ClearRetainedEmergencyForService(int ordinal)
     {
         if (!Enabled) return;

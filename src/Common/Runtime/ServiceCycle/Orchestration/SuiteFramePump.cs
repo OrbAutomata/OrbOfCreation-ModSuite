@@ -156,6 +156,18 @@ public sealed class SuiteFramePump : IDisposable
     public SuiteFramePumpReport PumpFrame(long frameIdentity) =>
         _executor.Pump(frameIdentity);
 
+#if SERVICE_CYCLE_PROFILE
+    /// <summary>
+    /// Has every traced pump sample the managed heap from now on, or says why the host's readings
+    /// cannot be trusted to.
+    /// </summary>
+    internal bool TryAttachHeapCounters(ISuiteFramePumpHeapCounters counters, out string unavailable)
+    {
+        EnsureIdle("Heap counters cannot attach while a frame is being pumped.");
+        return _state.HeapSampler.TryAttach(counters, out unavailable);
+    }
+#endif
+
     internal int AttributionFailureCount => _state.AttributionFailures.Count;
 
     internal ServiceActionAttributionFailure AttributionFailureAt(int index)

@@ -72,6 +72,7 @@ internal sealed class SuiteFramePumpState
     internal SuiteFramePumpEvidenceEmitter EvidenceEmitter { get; }
 #if SERVICE_CYCLE_PROFILE
     internal SuiteFramePumpEvidenceProfiler EvidenceProfiler { get; }
+    internal SuiteFramePumpHeapSampler HeapSampler { get; } = new();
 #endif
     internal int NextStartOrdinal { get; set; }
     internal bool IsPumping { get; private set; }
