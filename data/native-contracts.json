@@ -29072,107 +29072,107 @@
     },
     {
       "id": "loadout.manager.type-action", "assembly": "assembly-csharp", "type": "LoadoutManager",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-list.type-action", "assembly": "assembly-csharp", "type": "PlayerLoadoutListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player.type-action", "assembly": "assembly-csharp", "type": "PlayerLoadout",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.label.type-action", "assembly": "assembly-csharp", "type": "PlayerLoadout+LoadoutLabel",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell.type-action", "assembly": "assembly-csharp", "type": "Spell",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-list.type-action", "assembly": "assembly-csharp", "type": "SpellListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-recipe.type-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment.type-action", "assembly": "assembly-csharp", "type": "EquipmentSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-recipe.type-action", "assembly": "assembly-csharp", "type": "AlchemyRecipeSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-snapshot-list.type-action", "assembly": "assembly-csharp", "type": "AlchemySnapshotListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-snapshot-list.type-action", "assembly": "assembly-csharp", "type": "EquipmentSnapshotListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-snapshot.type-action", "assembly": "assembly-csharp", "type": "AlchemySnapshot",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-snapshot.type-action", "assembly": "assembly-csharp", "type": "EquipmentSnapshot",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-list.type-action", "assembly": "assembly-csharp", "type": "AlchemyInstanceListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-list.type-action", "assembly": "assembly-csharp", "type": "EquipmentListVariable",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.cost.type-action", "assembly": "assembly-csharp", "type": "ResourceCostList",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.global-variables.type-action", "assembly": "assembly-csharp", "type": "GlobalVariables",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.identity.type-action", "assembly": "assembly-csharp", "type": "IdScriptableObject",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.stacked-record.type-action", "assembly": "assembly-csharp", "type": "Stacked.StackedIdRecord`1",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-instance-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "instance",
-      "visibility": "public", "static": true, "valueType": "LoadoutManager", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": true, "valueType": "LoadoutManager", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-player-list-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "playerLoadouts",
-      "visibility": "public", "static": false, "valueType": "PlayerLoadoutListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "PlayerLoadoutListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-alchemy-snapshots-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "alchemyLoadouts",
-      "visibility": "public", "static": false, "valueType": "AlchemySnapshotListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "AlchemySnapshotListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-equipment-snapshots-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "equipmentLoadouts",
-      "visibility": "public", "static": false, "valueType": "EquipmentSnapshotListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "EquipmentSnapshotListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-active-alchemy-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "activeAlchemy",
-      "visibility": "public", "static": false, "valueType": "AlchemyInstanceListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "AlchemyInstanceListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-active-equipment-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "activeEquipment",
-      "visibility": "public", "static": false, "valueType": "EquipmentListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "EquipmentListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-active-spells-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "activeSpells",
-      "visibility": "public", "static": false, "valueType": "SpellListVariable", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "SpellListVariable", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.manager-can-swap-action", "assembly": "assembly-csharp", "type": "LoadoutManager", "typeVisibility": "public", "kind": "method", "member": "CanSwapLoadouts",
@@ -29188,43 +29188,31 @@
     },
     {
       "id": "loadout.list-values-action", "assembly": "assembly-csharp", "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "field", "member": "value",
-      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<!0>", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<!0>", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-guid-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
-      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-name-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetName",
-      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-selected-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "IsSelected",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-equipment-enabled-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "HasEquipment",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-alchemy-enabled-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "HasAlchemy",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.player-spells-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetSpells",
-      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<Spell>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.player-equipment-record-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "field", "member": "equipment",
-      "visibility": "public", "static": false, "valueType": "Stacked.StackedIdRecord`1<EquipmentSO>", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.player-alchemy-record-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "field", "member": "alchemy",
-      "visibility": "public", "static": false, "valueType": "Stacked.StackedIdRecord`1<AlchemyRecipeSO>", "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-label-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetLabel",
-      "visibility": "public", "static": false, "returnType": "PlayerLoadout+LoadoutLabel", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "PlayerLoadout+LoadoutLabel", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.player-set-equipment-action", "assembly": "assembly-csharp", "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "SetSaveEquipment",
@@ -29236,15 +29224,15 @@
     },
     {
       "id": "loadout.label-name-action", "assembly": "assembly-csharp", "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "GetName",
-      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.label-icon-action", "assembly": "assembly-csharp", "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "GetIconIndex",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.label-color-action", "assembly": "assembly-csharp", "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "GetColorIndex",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.label-set-name-action", "assembly": "assembly-csharp", "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "SetName",
@@ -29260,51 +29248,39 @@
     },
     {
       "id": "loadout.global-custom-icons-action", "assembly": "assembly-csharp", "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetCustomSprites",
-      "visibility": "public", "static": true, "returnType": "System.Collections.Generic.List`1<UnityEngine.Sprite>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": true, "returnType": "System.Collections.Generic.List`1<UnityEngine.Sprite>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.global-custom-colors-action", "assembly": "assembly-csharp", "type": "GlobalVariables", "typeVisibility": "public", "kind": "method", "member": "GetCustomColors",
-      "visibility": "public", "static": true, "returnType": "System.Collections.Generic.List`1<UnityEngine.Color>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": true, "returnType": "System.Collections.Generic.List`1<UnityEngine.Color>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.identity-guid-action", "assembly": "assembly-csharp", "type": "IdScriptableObject", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
-      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.spell-guid-action", "assembly": "assembly-csharp", "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "GetId",
-      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.spell-reference-action", "assembly": "assembly-csharp", "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "get_reference",
-      "visibility": "public", "static": false, "returnType": "SpellRecipeSO", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
-    },
-    {
-      "id": "loadout.spell-empty-action", "assembly": "assembly-csharp", "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-casting-action", "assembly": "assembly-csharp", "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsCasting",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-readying-cast-action", "assembly": "assembly-csharp", "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsReadyingCast",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-list-maximum-action", "assembly": "assembly-csharp", "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "GetMax",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-list-maximum-action", "assembly": "assembly-csharp", "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "GetMax",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-snapshot-empty-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-snapshot-empty-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-snapshot-clear-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "Clear",
@@ -29316,11 +29292,11 @@
     },
     {
       "id": "loadout.alchemy-snapshot-record-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "GetRecord",
-      "visibility": "public", "static": false, "returnType": "Stacked.StackedIdRecord`1<!0>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "Stacked.StackedIdRecord`1<!0>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-snapshot-record-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "GetRecord",
-      "visibility": "public", "static": false, "returnType": "Stacked.StackedIdRecord`1<!0>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "Stacked.StackedIdRecord`1<!0>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.alchemy-snapshot-save-action", "assembly": "assembly-csharp", "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "SaveSnapshot",
@@ -29348,11 +29324,11 @@
     },
     {
       "id": "loadout.alchemy-record-entries-action", "assembly": "assembly-csharp", "type": "Stacked.AbstractStackedRecord`2", "typeVisibility": "public", "kind": "method", "member": "GetEntries",
-      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment-record-entries-action", "assembly": "assembly-csharp", "type": "Stacked.AbstractStackedRecord`2", "typeVisibility": "public", "kind": "method", "member": "GetEntries",
-      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>", "parameters": [], "owners": ["Automata player loadout GameAction", "Common loadout world collection"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.cost-construct-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": ".ctor",
@@ -29373,6 +29349,278 @@
     {
       "id": "loadout.cost-enough-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "HasEnough",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "world-loadout.manager.type-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.player-list.type-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadoutListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.player.type-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.label.type-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.spell.type-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.spell-list.type-capture", "assembly": "assembly-csharp",
+      "type": "SpellListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.spell-recipe.type-capture", "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.equipment.type-capture", "assembly": "assembly-csharp",
+      "type": "EquipmentSO", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.alchemy-recipe.type-capture", "assembly": "assembly-csharp",
+      "type": "AlchemyRecipeSO", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.alchemy-snapshot-list.type-capture", "assembly": "assembly-csharp",
+      "type": "AlchemySnapshotListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.equipment-snapshot-list.type-capture", "assembly": "assembly-csharp",
+      "type": "EquipmentSnapshotListVariable", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.alchemy-snapshot.type-capture", "assembly": "assembly-csharp",
+      "type": "AlchemySnapshot", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.equipment-snapshot.type-capture", "assembly": "assembly-csharp",
+      "type": "EquipmentSnapshot", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.identity.type-capture", "assembly": "assembly-csharp",
+      "type": "IdScriptableObject", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.stacked-record.type-capture", "assembly": "assembly-csharp",
+      "type": "Stacked.StackedIdRecord`1", "typeVisibility": "public", "kind": "type",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "world-loadout.manager-instance-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "instance",
+      "visibility": "public", "static": true, "valueType": "LoadoutManager",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field LoadoutManager"}
+    },
+    {
+      "id": "world-loadout.manager-player-list-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "playerLoadouts",
+      "visibility": "public", "static": false, "valueType": "PlayerLoadoutListVariable",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field PlayerLoadoutListVariable"}
+    },
+    {
+      "id": "world-loadout.manager-alchemy-snapshots-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "alchemyLoadouts",
+      "visibility": "public", "static": false, "valueType": "AlchemySnapshotListVariable",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field AlchemySnapshotListVariable"}
+    },
+    {
+      "id": "world-loadout.manager-equipment-snapshots-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "equipmentLoadouts",
+      "visibility": "public", "static": false, "valueType": "EquipmentSnapshotListVariable",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field EquipmentSnapshotListVariable"}
+    },
+    {
+      "id": "world-loadout.manager-active-spells-capture", "assembly": "assembly-csharp",
+      "type": "LoadoutManager", "typeVisibility": "public", "kind": "field", "member": "activeSpells",
+      "visibility": "public", "static": false, "valueType": "SpellListVariable",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field SpellListVariable"}
+    },
+    {
+      "id": "world-loadout.list-values-capture", "assembly": "assembly-csharp",
+      "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "field", "member": "value",
+      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<!0>",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<!0>"}
+    },
+    {
+      "id": "world-loadout.player-guid-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
+      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Guid; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-name-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetName",
+      "visibility": "public", "static": false, "returnType": "System.String", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.String; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-selected-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "IsSelected",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-equipment-enabled-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "HasEquipment",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-alchemy-enabled-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "HasAlchemy",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-spells-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetSpells",
+      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<Spell>", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game walks a collection and hands back its members.", "evidence": "kind:method returning System.Collections.Generic.List`1<Spell>; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.player-equipment-record-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "field", "member": "equipment",
+      "visibility": "public", "static": false, "valueType": "Stacked.StackedIdRecord`1<EquipmentSO>",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Stacked.StackedIdRecord`1<EquipmentSO>"}
+    },
+    {
+      "id": "world-loadout.player-alchemy-record-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "field", "member": "alchemy",
+      "visibility": "public", "static": false, "valueType": "Stacked.StackedIdRecord`1<AlchemyRecipeSO>",
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Stacked.StackedIdRecord`1<AlchemyRecipeSO>"}
+    },
+    {
+      "id": "world-loadout.player-label-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout", "typeVisibility": "public", "kind": "method", "member": "GetLabel",
+      "visibility": "public", "static": false, "returnType": "PlayerLoadout+LoadoutLabel", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning PlayerLoadout+LoadoutLabel; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.label-icon-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "GetIconIndex",
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.label-color-capture", "assembly": "assembly-csharp",
+      "type": "PlayerLoadout+LoadoutLabel", "typeVisibility": "public", "kind": "method", "member": "GetColorIndex",
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.identity-guid-capture", "assembly": "assembly-csharp",
+      "type": "IdScriptableObject", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
+      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Guid; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.spell-guid-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "GetId",
+      "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Guid; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.spell-reference-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "get_reference",
+      "visibility": "public", "static": false, "returnType": "SpellRecipeSO", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning SpellRecipeSO; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.spell-empty-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.spell-casting-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsCasting",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.spell-readying-cast-capture", "assembly": "assembly-csharp",
+      "type": "Spell", "typeVisibility": "public", "kind": "method", "member": "IsReadyingCast",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.snapshot-empty-capture", "assembly": "assembly-csharp",
+      "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "IsEmpty",
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.snapshot-record-capture", "assembly": "assembly-csharp",
+      "type": "SnapshotLoadout`1", "typeVisibility": "public", "kind": "method", "member": "GetRecord",
+      "visibility": "public", "static": false, "returnType": "Stacked.StackedIdRecord`1<!0>", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning Stacked.StackedIdRecord`1<!0>; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "world-loadout.record-entries-capture", "assembly": "assembly-csharp",
+      "type": "Stacked.AbstractStackedRecord`2", "typeVisibility": "public", "kind": "method", "member": "GetEntries",
+      "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>", "parameters": [],
+      "owners": ["Common loadout world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "enumerating", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game walks a collection and hands back its members.", "evidence": "kind:method returning System.Collections.Generic.List`1<System.ValueTuple`2<!0,System.Int32>>; classified from its signature, no IL body audit"}
     },
     {
       "id": "harvest-lifecycle.element.type-action", "assembly": "assembly-csharp", "type": "HarvestElementSO", "typeVisibility": "public", "kind": "type",

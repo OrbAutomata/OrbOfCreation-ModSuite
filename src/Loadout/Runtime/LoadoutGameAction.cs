@@ -1,9 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.World;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -338,7 +336,7 @@ internal sealed class LoadoutGameAction : IDisposable
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index]!;
-            if (!LoadoutNativeBindings.TryReadEntry(entry, native.EquipmentType,
+            if (!LoadoutNativeShapes.TryReadEntry(entry, native.EquipmentType,
                     out var item, out var quantity) || item is null ||
                 !_equipment.TryValidateStoredEntry(item, quantity,
                     out var type, out var typeMaximum, out var cost, out reason) ||
@@ -373,7 +371,7 @@ internal sealed class LoadoutGameAction : IDisposable
         for (var index = 0; index < (entries?.Count ?? 0); index++)
         {
             var entry = entries![index]!;
-            if (!LoadoutNativeBindings.TryReadEntry(entry, native.EquipmentType,
+            if (!LoadoutNativeShapes.TryReadEntry(entry, native.EquipmentType,
                     out var item, out var quantity) || item is null ||
                 !_equipment.TryValidateStoredEntry(item, quantity,
                     out _, out _, out var cost, out reason) || cost is null) return false;
@@ -418,7 +416,7 @@ internal sealed class LoadoutGameAction : IDisposable
         for (var index = 0; index < (entries?.Count ?? 0); index++)
         {
             var entry = entries![index]!;
-            if (!LoadoutNativeBindings.TryReadEntry(entry, native.AlchemyRecipeType,
+            if (!LoadoutNativeShapes.TryReadEntry(entry, native.AlchemyRecipeType,
                     out var item, out var quantity) || item is null ||
                 !_alchemy.TryValidateStoredEntry(item, quantity,
                     out var free, out var cost, out reason) || cost is null) return false;
@@ -535,12 +533,12 @@ internal sealed class LoadoutGameAction : IDisposable
         for (var index = 0; index < first.Count; index++)
         {
             var expectedType = alchemy ? native.AlchemyRecipeType : native.EquipmentType;
-            if (!LoadoutNativeBindings.TryReadEntry(first[index]!, expectedType,
+            if (!LoadoutNativeShapes.TryReadEntry(first[index]!, expectedType,
                     out var item, out var count)) return false;
             var found = false;
             for (var candidate = 0; candidate < second.Count; candidate++)
             {
-                if (!LoadoutNativeBindings.TryReadEntry(second[candidate]!, expectedType,
+                if (!LoadoutNativeShapes.TryReadEntry(second[candidate]!, expectedType,
                         out var other, out var otherCount)) return false;
                 if (!ReferenceEquals(item, other) || count != otherCount) continue;
                 found = true;

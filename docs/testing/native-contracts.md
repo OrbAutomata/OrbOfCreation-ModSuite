@@ -95,12 +95,7 @@ choosing its own place. Four tests then hold the boundary to this:
    that names each one — and each of those must claim `derivable`;
 4. the manifest's epoch-scoped reader list is the collector's own marking.
 
-The second walk under-reports and says so: it sees the reflection APIs and the
-world binder's helpers, not a feature binding's private `Method(...)` wrapper.
-Splitting `LoadoutNativeBindings` into its reading and mutating halves is what
-lets it see that file.
-
-It also reconciles by **member name**, so a member already carrying one capture
+The second walk reconciles by **member name**, so a member already carrying one capture
 row satisfies it from every other site selecting that member. That is how
 `ResourceCostList.HasEnough()` came to be recorded three times while nine readers
 called it. Closing a gap of that kind takes a walk of call sites rather than of
