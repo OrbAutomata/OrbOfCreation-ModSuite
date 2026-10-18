@@ -43,11 +43,11 @@ internal static class StrategistFactsProjection
         {
             if (!slots[index].Occupied) continue;
             if (!WorldSpellGraphLookup.TryFindAuthoring(
-                    world.SpellRecipeAuthoring, slots[index].SpellRecipeId, out var authoring) ||
-                authoring.RechargeProcessorType != 0)
-            {
-                continue;
-            }
+                    world.SpellRecipeAuthoring, slots[index].SpellRecipeId, out var authoring))
+                throw new InvalidOperationException(
+                    $"{EntityIdentityFormatter.Format(slots[index].SpellRecipeId)} is equipped, but the " +
+                    "world publishes no authoring that says whether its recharge is timed.");
+            if (authoring.RechargeProcessorType != 0) continue;
             required = Math.Max(required, slots[index].Recharge.ToDouble());
         }
 

@@ -29,7 +29,30 @@ public sealed class StrategistFactsProjectionTests
         Assert.DoesNotContain(withheld.Nodes.AsSpan().ToArray(), node => node.Id == UpgradeId);
     }
 
-    private static GameWorldState World(params WorldUpgradeListMembership[] memberships)
+    /// <summary>
+    /// The window spans an equipped spell's timed recharge, and only the spell's authoring says
+    /// whether its recharge is timed. A spell the world publishes no authoring for is a broken
+    /// publication, not an untimed spell, so the strategist refuses to judge rather than plan
+    /// around a window shorter than the spell it never measured.
+    /// </summary>
+    [Fact]
+    public void AnEquippedSpellWithoutAuthoringStopsTheCycle()
+    {
+        var world = World(spell: Guid.Parse("5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f"));
+
+        var refusal = Assert.Throws<InvalidOperationException>(() =>
+            StrategistService.TryDerive(world, 1, new StrategistIncomeWindow(), out _));
+
+        Assert.Contains("5c4d3e2f", refusal.Message, StringComparison.Ordinal);
+    }
+
+    private static GameWorldState World(params WorldUpgradeListMembership[] memberships) =>
+        World(memberships, Guid.Empty);
+
+    private static GameWorldState World(Guid spell) =>
+        World(Array.Empty<WorldUpgradeListMembership>(), spell);
+
+    private static GameWorldState World(WorldUpgradeListMembership[] memberships, Guid spell)
     {
         var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
         foreach (var membership in memberships) buffer.Append(membership);
@@ -50,6 +73,13 @@ public sealed class StrategistFactsProjectionTests
             {
                 new WorldNumberVariable(KnownEntities.TimePlayed.Uuid, new BigDouble(600), true),
             }),
+            SpellSlots = spell == Guid.Empty
+                ? PublicationTable<WorldSpellSlot>.Empty
+                : PublicationTable<WorldSpellSlot>.Create(new[]
+                {
+                    new WorldSpellSlot(0, spell, true, false, false, false, false, false, false, true,
+                        true, true, 1, 1, new BigDouble(90)),
+                }),
         };
     }
 }
