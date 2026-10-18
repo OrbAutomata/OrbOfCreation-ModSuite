@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
 using Xunit;
@@ -32,6 +33,32 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
         Assert.True(NativeMultiBuyScope.TryEnterOne(out var scope, out reason), reason);
         scope.Dispose();
         Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+    }
+
+    [Fact]
+    public void ARefusedEntryIsLoggedOnceWhileItKeepsRepeating()
+    {
+        var logged = new List<string>();
+        NativeMultiBuyScope.ConfigureFailureLog(logged.Add);
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 1;
+
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out var reason));
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(reason, Assert.Single(logged));
+    }
+
+    [Fact]
+    public void AGameThrownTargetInvocationExceptionIsNotAnExpectedFailureAndEscapes()
+    {
+        GlobalVariables.MultiBuy.SetFailure = message =>
+            new TargetInvocationException(new InvalidOperationException(message));
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 1;
+
+        Assert.Throws<TargetInvocationException>(() => NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        Assert.False(NativeMultiBuyScope.IsMutationQuarantined);
     }
 
     [Fact]
@@ -143,6 +170,7 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
 
     public void Dispose()
     {
+        NativeMultiBuyScope.ConfigureFailureLog(null);
         GlobalVariables.MultiBuy = new IntVariable();
         NativeMultiBuyScope.ResetQuarantineForTests();
     }

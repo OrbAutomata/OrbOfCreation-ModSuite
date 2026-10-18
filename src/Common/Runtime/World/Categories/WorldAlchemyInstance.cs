@@ -581,11 +581,6 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
         }
-        // Every native fault degrades this one category rather than the pass. The allowlist this
-        // replaces led with TargetInvocationException, which is the wrapper MethodInfo.Invoke put
-        // around every fault the game raised; a compiled accessor hands the fault back unwrapped, so
-        // naming exception types here would let a native NullReferenceException past a collector that
-        // does not wrap reader calls. Same fail-closed answer, same granularity, still loud.
         catch (Exception ex)
         {
             ResetRows(frame);
