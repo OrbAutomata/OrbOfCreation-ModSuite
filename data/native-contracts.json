@@ -17412,7 +17412,6 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Buy queue",
         "Automata world collection"
       ],
       "usages": [
@@ -17454,7 +17453,6 @@
       "owners": [
         "Automata Auto Buy admission",
         "Automata world collection",
-        "Automata Auto Buy refusal diagnostics",
         "Automata Auto Buy owning-view world publication"
       ],
       "usages": [
@@ -18970,8 +18968,7 @@
       "parameters": [],
       "owners": [
         "Automata Auto Buy admission",
-        "Automata world collection",
-        "Automata Auto Buy refusal diagnostics"
+        "Automata world collection"
       ],
       "usages": [
         "reflection"
@@ -21869,7 +21866,74 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Buy structure action admission"
+        "Automata Auto Buy structure action admission",
+        "Automata Auto Buy refusal diagnostics"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-buy.upgrade.type-action",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Buy mutation"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-buy.structure-queued-quantity-action",
+      "assembly": "assembly-csharp",
+      "type": "StructureSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetQueuedQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata Auto Buy queue"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-buy.upgrade-availability-action",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "IsAvailable",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata Auto Buy refusal diagnostics"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "auto-buy.action-manager.type-action",
+      "assembly": "assembly-csharp",
+      "type": "ActionManager",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Buy queue"
       ],
       "usages": [
         "reflection"
@@ -23490,7 +23554,8 @@
         "Automata spell workbench GameAction",
         "Automata spell composition GameAction",
         "Automata spell loadout GameAction",
-        "Automata Auto Buy owning-view world publication"
+        "Automata Auto Buy owning-view world publication",
+        "Automata Auto Buy destination-capacity admission"
       ],
       "usages": [
         "reflection"
@@ -26877,7 +26942,7 @@
     {
       "id": "challenge.int-variable.type-action", "assembly": "assembly-csharp",
       "type": "IntVariable", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata challenge GameAction", "Common challenge world collection", "Automata spell composition GameAction", "Automata one-shot crafting action boundary"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata challenge GameAction", "Common challenge world collection", "Automata spell composition GameAction", "Automata one-shot crafting action boundary", "Automata Auto Buy destination-capacity admission"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "challenge.bool-variable.type-action", "assembly": "assembly-csharp",
@@ -28682,19 +28747,19 @@
     {
       "id": "generic-level.cost.type-action", "assembly": "assembly-csharp",
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Discovery Tree offer GameAction", "Automata Auto Items action boundary", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Discovery Tree offer GameAction", "Automata Auto Items action boundary", "Automata Auto Scribe action boundary", "Automata one-shot crafting action boundary", "Automata Auto Buy refusal diagnostics"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple.type-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource.type-action", "assembly": "assembly-csharp",
       "type": "ResourceSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -29836,7 +29901,7 @@
     },
     {
       "id": "structure-lifecycle.structure.type-action", "assembly": "assembly-csharp", "type": "StructureSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata structure lifecycle GameAction", "Automata targeting GameAction", "Automata Auto Scribe world publication", "Automata Auto Buy owning-view world publication"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata structure lifecycle GameAction", "Automata targeting GameAction", "Automata Auto Scribe world publication", "Automata Auto Buy owning-view world publication", "Automata Auto Buy mutation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "structure-lifecycle.available-action", "assembly": "assembly-csharp", "type": "StructureSO", "typeVisibility": "public", "kind": "method", "member": "IsAvailable",

@@ -4543,11 +4543,10 @@ public sealed class Plugin : BaseUnityPlugin
                 break;
             case "action_queue_room":
                 var queue = new AutoBuyNativeQueueRoomAdapter();
-                if (!queue.TryReadRemainingRoom(out var remaining))
+                if (!queue.TryReadRemainingRoom(out var remaining, out var queueFailure))
                     return GadgetRejected(
                         "native_probe_unavailable",
-                        "This build does not expose the action queue's free room, so it cannot " +
-                        "be read.");
+                        "The action queue's free room could not be read: " + queueFailure);
                 // The game's own upgrade button queues past the maximum, so the reading goes
                 // negative. Nought free slots is the answer either way; the overshoot rides beside
                 // it as the fact it is, and is absent when there is none.

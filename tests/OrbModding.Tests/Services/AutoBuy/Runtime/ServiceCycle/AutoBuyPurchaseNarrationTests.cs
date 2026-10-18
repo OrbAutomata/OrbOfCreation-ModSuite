@@ -13,10 +13,11 @@ public sealed class AutoBuyPurchaseNarrationTests
     public void QueueRoomUnavailable_IsActionable()
     {
         var warning = AutoBuyPurchaseNarration.QueueRoomUnavailable(
-            AutoBuyCandidateKind.Structure, CandidateId);
+            AutoBuyCandidateKind.Structure, CandidateId, "ActionManager is not loaded.");
 
         Assert.Equal(
-            $"Auto Buy failed to purchase Structure {CandidateId:D}: queue room unavailable.",
+            $"Auto Buy failed to purchase Structure {CandidateId:D}: queue room unavailable: " +
+            "ActionManager is not loaded.",
             warning);
     }
 

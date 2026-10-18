@@ -164,19 +164,28 @@ public sealed class ActionManager
 
     public static int RemainingRoom { get; set; }
 
-    public static int GetRemainingRoom() => RemainingRoom;
+    public static int GetRemainingRoom()
+    {
+        _ = instance.actionableItems;
+        return RemainingRoom;
+    }
 
     /// <summary>
     /// The queue admission term used by both purchase kinds. Fixtures keep the answer on the
     /// candidate so two candidates can disagree in one test, while the call still has the native
-    /// <c>ActionManager.CanLoadAction(IActionable)</c> shape.
+    /// <c>ActionManager.CanLoadAction(IActionable)</c> shape. Like the game, both reads go through
+    /// <c>instance</c>, so they throw while no manager is loaded.
     /// </summary>
-    public static bool CanLoadAction(IActionable actionable) => actionable switch
+    public static bool CanLoadAction(IActionable actionable)
     {
-        StructureSO structure => structure.purchasable,
-        UpgradeSO upgrade => upgrade.purchasable,
-        _ => false,
-    };
+        _ = instance.actionableItems;
+        return actionable switch
+        {
+            StructureSO structure => structure.purchasable,
+            UpgradeSO upgrade => upgrade.purchasable,
+            _ => false,
+        };
+    }
 }
 
 public static class AutoBuyManager

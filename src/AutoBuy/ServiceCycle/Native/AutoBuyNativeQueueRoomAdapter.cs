@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -17,50 +16,49 @@ namespace OrbAutomata;
 /// consulting the queue, so a player pressing a multi-buy against a nearly full queue drives the
 /// room below zero; that is a full queue with entries stacked past its maximum, not a contract that
 /// failed to answer. The port hands the raw reading over and callers clamp it to "no free slots",
-/// keeping <c>false</c> for the one case it means: no reading could be taken at all.
+/// keeping <c>false</c> for the one case it means: no reading could be taken at all, and then
+/// <c>reason</c> says why.
 /// </remarks>
 internal interface IAutoBuyQueueRoomPort
 {
-    bool TryReadRemainingRoom(out int remainingRoom);
+    bool TryReadRemainingRoom(out int remainingRoom, out string reason);
 }
 
 internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
 {
-    private MethodInfo? _getRemainingRoom;
+    internal static readonly string[] ContractIds =
+    {
+        "auto-buy.action-manager.type-action",
+        "action-manager.get-remaining-room",
+    };
 
-    public bool TryReadRemainingRoom(out int remainingRoom)
+    private readonly Func<int>? _getRemainingRoom;
+    private readonly string _bindingFailure;
+
+    public AutoBuyNativeQueueRoomAdapter(Func<string, bool>? includeContract = null) =>
+        NativeBindingSet.TryBind("auto-buy queue room", ContractIds, null, includeContract, set =>
+        {
+            var actionManager = set.Type("auto-buy.action-manager.type-action", "ActionManager");
+            return set.StaticCall<Func<int>>(
+                "action-manager.get-remaining-room", actionManager, "GetRemainingRoom", typeof(int));
+        }, out _getRemainingRoom, out _bindingFailure);
+
+    public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
     {
         remainingRoom = 0;
-        if (!TryResolveContract())
+        reason = _bindingFailure;
+        if (_getRemainingRoom is null)
             return false;
 
         try
         {
-            if (_getRemainingRoom!.Invoke(null, Array.Empty<object>()) is int room)
-            {
-                remainingRoom = room;
-                return true;
-            }
+            remainingRoom = _getRemainingRoom();
+            return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-        }
-
-        return false;
-    }
-
-    private bool TryResolveContract()
-    {
-        if (_getRemainingRoom is not null)
-            return true;
-
-        var actionManagerType = ReflectionUtil.FindLoadedType("ActionManager");
-        var getRemainingRoom = actionManagerType?.GetMethod(
-            "GetRemainingRoom", BindingFlags.Static | BindingFlags.Public, null, Type.EmptyTypes, null);
-        if (getRemainingRoom is null || getRemainingRoom.ReturnType != typeof(int))
+            reason = ex.Message;
             return false;
-
-        _getRemainingRoom = getRemainingRoom;
-        return true;
+        }
     }
 }

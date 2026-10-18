@@ -11,8 +11,8 @@ internal static class AutoBuyPurchaseNarration
     /// The live queue room could not be read, so the reserve cannot be honoured and no purchase is
     /// submitted. A missing native surface is an actionable anomaly.
     /// </summary>
-    public static string QueueRoomUnavailable(AutoBuyCandidateKind kind, Guid uuid) =>
-        $"Auto Buy failed to purchase {kind} {EntityIdentityFormatter.Format(uuid)}: queue room unavailable.";
+    public static string QueueRoomUnavailable(AutoBuyCandidateKind kind, Guid uuid, string reason) =>
+        $"Auto Buy failed to purchase {kind} {EntityIdentityFormatter.Format(uuid)}: queue room unavailable: {reason}";
 
     /// <summary>
     /// The purchase-screen topology was published, for which run, and how much it admits.
