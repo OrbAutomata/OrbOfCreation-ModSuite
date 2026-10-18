@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using OrbAutomata;
+using OrbModding.Common;
 using Xunit;
 
 namespace OrbModding.Tests;
@@ -65,7 +68,7 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
     }
 
     [Fact]
-    public void CachedContractStillFetchesTheLiveVariableForEveryLevel()
+    public void EveryEntryWritesAndRestoresTheVariableTheGameHandsOutNow()
     {
         var first = GlobalVariables.MultiBuy;
         Assert.True(NativeMultiBuyScope.TryEnterOne(out var firstScope, out var reason), reason);
@@ -79,8 +82,63 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
         secondScope.Dispose();
 
         Assert.Equal(9, second.Value);
-        Assert.Equal(1, NativeMultiBuyScope.GlobalContractResolutionCount);
-        Assert.Equal(1, NativeMultiBuyScope.VariableContractResolutionCount);
+        Assert.Equal(7, first.Value);
+    }
+
+    [Fact]
+    public void AnUnexpectedSetterThrowAfterTheWriteEscapesWithThePlayersValueRestored()
+    {
+        GlobalVariables.MultiBuy.SetFailure = message => new NullReferenceException(message);
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 1;
+
+        Assert.Throws<NullReferenceException>(() => NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        Assert.False(NativeMultiBuyScope.IsMutationQuarantined);
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowVerifyingTheWriteEscapesWithThePlayersValueRestored()
+    {
+        GlobalVariables.MultiBuy.ReadFailure = new NullReferenceException("injected read failure");
+        GlobalVariables.MultiBuy.ReadFailureWhileValueIs = 1;
+
+        Assert.Throws<NullReferenceException>(() => NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        Assert.False(NativeMultiBuyScope.IsMutationQuarantined);
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowRestoringThePlayersValueEscapesAndQuarantines()
+    {
+        Assert.True(NativeMultiBuyScope.TryEnterOne(out var scope, out var reason), reason);
+        GlobalVariables.MultiBuy.SetFailure = message => new NullReferenceException(message);
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 7;
+
+        Assert.Throws<NullReferenceException>(scope.Dispose);
+
+        Assert.Equal(1, GlobalVariables.MultiBuy.Value);
+        Assert.True(NativeMultiBuyScope.IsMutationQuarantined);
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out reason));
+        Assert.Contains("quarantined", reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static IEnumerable<object[]> ContractIds() =>
+        NativeMultiBuyBindings.ContractIds.Select(id => new object[] { id });
+
+    [Theory]
+    [MemberData(nameof(ContractIds))]
+    public void EveryMissingMemberDisablesTheCompleteSet(string missing)
+    {
+        NativeMultiBuyScope.ResetQuarantineForTests(includeContract: id => id != missing);
+
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out var reason));
+
+        Assert.Contains("multi-buy binding set is unavailable", reason, StringComparison.Ordinal);
+        Assert.Contains(missing, reason, StringComparison.Ordinal);
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        Assert.Equal(0, GlobalVariables.MultiBuy.SetCalls);
     }
 
     public void Dispose()

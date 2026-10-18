@@ -15,8 +15,8 @@ internal sealed partial class AutoHarvestBindingResolver :
 {
     private readonly TypedRegistryResolver _registryResolver;
     private readonly IAutoHarvestContractCircuit _contractCircuit;
-    private AutoHarvestReflectionTypes? _types;
-    private AutoHarvestReflectionContract? _contract;
+    private readonly AutoHarvestNativeBindings? _bindings;
+    private readonly string _bindReason;
     private AutoHarvestSharedBinding? _shared;
     private AutoHarvestPairBinding? _fruit;
     private AutoHarvestPairBinding? _treasure;
@@ -31,13 +31,16 @@ internal sealed partial class AutoHarvestBindingResolver :
 #if SERVICE_CYCLE_PROFILE
         , AutomataProfileOperations profileOperations
 #endif
-        )
+        , Func<string, Type?>? resolveType = null,
+        Func<string, bool>? includeContract = null)
     {
         _registryResolver = registryResolver ?? throw new ArgumentNullException(nameof(registryResolver));
         _contractCircuit = contractCircuit ?? throw new ArgumentNullException(nameof(contractCircuit));
 #if SERVICE_CYCLE_PROFILE
         _profileOperations = profileOperations ?? throw new ArgumentNullException(nameof(profileOperations));
 #endif
+        if (!AutoHarvestNativeBindings.TryCreate(out _bindings, out _bindReason, resolveType, includeContract))
+            _contractCircuit.Block(AutoHarvestPair.FruitTree, AutoHarvestRuntimeFailureScope.Feature);
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -61,6 +64,14 @@ internal sealed partial class AutoHarvestBindingResolver :
 
     public AutoHarvestResolvedPairSet ResolvePairSet()
     {
+        if (_bindings is null)
+        {
+            return FailedPairSet(AutoHarvestNativeFailure.Create(
+                AutoHarvestRuntimeFailureKind.Contract,
+                AutoHarvestRuntimeFailureScope.Feature,
+                _bindReason));
+        }
+
         var fruitBlocked = _contractCircuit.FailureFor(AutoHarvestPair.FruitTree);
         var treasureBlocked = _contractCircuit.FailureFor(AutoHarvestPair.TreasureTree);
         if (IsFeatureFailure(fruitBlocked)) return FailedPairSet(fruitBlocked);
@@ -98,7 +109,7 @@ internal sealed partial class AutoHarvestBindingResolver :
         }
 
         return AutoHarvestResolvedPairSet.Create(
-            _contract!,
+            _bindings,
             _shared!,
             fruitSucceeded ? _fruit : null,
             fruitFailure,

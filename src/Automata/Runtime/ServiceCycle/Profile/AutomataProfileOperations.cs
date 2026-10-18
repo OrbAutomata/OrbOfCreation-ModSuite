@@ -7,11 +7,8 @@ namespace OrbAutomata.Runtime.ServiceCycle.Profile;
 internal sealed class AutomataProfileOperations
 {
     private readonly ServiceCycleProfileProbe _probe;
-    private uint _reflectedFieldReads;
-    private uint _reflectedMethodCalls;
     private uint _stableIdReads;
     private uint _listEntries;
-    private uint _invocationArgumentArrays;
     private bool _active;
     private bool _failed;
 
@@ -66,12 +63,8 @@ internal sealed class AutomataProfileOperations
         return new AutomataProfileStageScope(this, in measurement);
     }
 
-    internal void AddReflectedFieldRead() => Add(ref _reflectedFieldReads);
-    internal void AddReflectedMethodCall() => Add(ref _reflectedMethodCalls);
-    internal void AddReflectedMethodCalls(uint count) => Add(ref _reflectedMethodCalls, count);
     internal void AddStableIdRead() => Add(ref _stableIdReads);
     internal void AddListEntry() => Add(ref _listEntries);
-    internal void AddInvocationArgumentArray() => Add(ref _invocationArgumentArrays);
 
     internal void Complete(ref ServiceCycleProfileStageScope measurement)
     {
@@ -86,11 +79,8 @@ internal sealed class AutomataProfileOperations
             measurement.Abandon();
             return;
         }
-        measurement.AddReflectedFieldReads(_reflectedFieldReads);
-        measurement.AddReflectedMethodCalls(_reflectedMethodCalls);
         measurement.AddStableIdReads(_stableIdReads);
         measurement.AddListEntries(_listEntries);
-        measurement.AddInvocationArgumentArrays(_invocationArgumentArrays);
         measurement.Complete();
     }
 
@@ -102,24 +92,21 @@ internal sealed class AutomataProfileOperations
 
     private void Reset()
     {
-        _reflectedFieldReads = 0;
-        _reflectedMethodCalls = 0;
         _stableIdReads = 0;
         _listEntries = 0;
-        _invocationArgumentArrays = 0;
         _failed = false;
     }
 
-    private void Add(ref uint value, uint count = 1)
+    private void Add(ref uint value)
     {
         if (!_active || _failed) return;
-        if (uint.MaxValue - value < count)
+        if (value == uint.MaxValue)
         {
             _failed = true;
             _probe.Fail(ServiceCycleProfileProbeFault.OperationCounterExhausted);
             return;
         }
-        value += count;
+        value++;
     }
 }
 

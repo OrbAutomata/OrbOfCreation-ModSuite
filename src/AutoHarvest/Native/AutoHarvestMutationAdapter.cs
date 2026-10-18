@@ -118,20 +118,11 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             {
 #if SERVICE_CYCLE_PROFILE
                 Measure(
-                    () =>
-                    {
-                        _profileOperations.AddReflectedMethodCall();
-                        _profileOperations.AddInvocationArgumentArray();
-                        current.Contract.ActiveAddInstance.Invoke(
-                            current.Shared.ActiveActions,
-                            new[] { prototype!, (object)1 });
-                    },
+                    () => current.Bindings.ActiveAddInstance(current.Shared.ActiveActions, prototype!, 1),
                     ServiceCycleProfileSpan.AutoHarvestActionNativeSubmission,
                     actionContext);
 #else
-                current.Contract.ActiveAddInstance.Invoke(
-                    current.Shared.ActiveActions,
-                    new[] { prototype!, (object)1 });
+                current.Bindings.ActiveAddInstance(current.Shared.ActiveActions, prototype!, 1);
 #endif
             }
             );
@@ -201,14 +192,12 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         bool result;
         try
         {
-            var contract = resolved.Contract;
-            var action = resolved.Target.Action;
-            if (action.GetType() != contract.Types.Action)
-                throw new InvalidOperationException("resolved harvest action has the wrong native type");
-            var prerequisites = contract.ActionPrerequisites(action) ??
-                throw new InvalidOperationException("resolved harvest action has no prerequisite container");
+            var bindings = resolved.Bindings;
+            var prerequisites = bindings.ActionPrerequisites(resolved.Target.Action);
+            if (prerequisites is null)
+                return AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable;
 
-            result = contract.PrerequisitesCheck(prerequisites);
+            result = bindings.PrerequisitesCheck(prerequisites);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {

@@ -97,7 +97,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
             var pairs = _bindings.ResolvePairSet();
             var resolution = pairs.For(action.Pair);
             if (!resolution.Succeeded)
-                return ServiceActionResult.Faulted(ContractFailureCode(action.Pair));
+                return ServiceActionResult.Faulted(ContractFailureCode(action.Pair), resolution.Failure.Reason);
             resolved = resolution.Pair;
             if (!AutoHarvestNativeLifecycle.Matches(
                     resolved.LifecycleGeneration,

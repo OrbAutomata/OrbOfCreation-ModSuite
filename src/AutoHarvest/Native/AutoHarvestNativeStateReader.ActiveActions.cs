@@ -1,5 +1,5 @@
 using System;
-using static OrbAutomata.AutoHarvestReflectionAccess;
+using System.Collections;
 
 namespace OrbAutomata;
 
@@ -11,19 +11,17 @@ internal sealed partial class AutoHarvestNativeStateReader
 
     public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved)
     {
-        var contract = resolved.Contract;
-        var values = RequireList(
-            GetValue(contract.ActiveValues, resolved.Shared.ActiveActions),
-            "active plot actions");
+        var bindings = resolved.Bindings;
+        var values = ReadActiveValues(bindings, resolved.Shared.ActiveActions);
         var matches = 0;
         var engaged = false;
         foreach (var instance in values)
         {
-            if (instance is null || instance.GetType() != contract.Types.Instance)
+            if (instance is null || instance.GetType() != bindings.InstanceType)
                 return false;
-            if (InvokeBool(contract.InstanceIsEmpty, instance)) continue;
-            var plot = Invoke(contract.InstanceGetElement, instance, Array.Empty<object>());
-            var action = Invoke(contract.InstanceGetAction, instance, Array.Empty<object>());
+            if (bindings.InstanceIsEmpty(instance)) continue;
+            var plot = bindings.InstancePlot(instance);
+            var action = bindings.InstanceAction(instance);
             var observed = ClassifyPair(resolved, plot, action);
             if (observed == AutoHarvestObservedPair.Contradictory) return false;
             if (observed == AutoHarvestObservedPair.Unrelated ||
@@ -31,7 +29,7 @@ internal sealed partial class AutoHarvestNativeStateReader
                     ? AutoHarvestObservedPair.FruitTree
                     : AutoHarvestObservedPair.TreasureTree)) continue;
             matches++;
-            engaged |= InvokeBool(contract.InstanceIsEngaged, instance);
+            engaged |= bindings.InstanceIsEngaged(instance);
         }
         return matches == 1 && engaged;
     }
@@ -39,12 +37,10 @@ internal sealed partial class AutoHarvestNativeStateReader
     public AutoHarvestActiveActionSnapshot CaptureActiveActions(
         in ResolvedAutoHarvestPair resolved)
     {
-        var contract = resolved.Contract;
-        var values = RequireList(
-            GetValue(contract.ActiveValues, resolved.Shared.ActiveActions),
-            "active plot actions");
-        var usedEntryCount = InvokeInt(contract.ActiveGetUsedSpots, resolved.Shared.ActiveActions);
-        var nativeHasEmptyEntry = InvokeBool(contract.ActiveHasEmptySpot, resolved.Shared.ActiveActions);
+        var bindings = resolved.Bindings;
+        var values = ReadActiveValues(bindings, resolved.Shared.ActiveActions);
+        var usedEntryCount = bindings.ActiveUsedSpots(resolved.Shared.ActiveActions);
+        var nativeHasEmptyEntry = bindings.ActiveHasEmptySpot(resolved.Shared.ActiveActions);
         var empty = 0;
         var supported = 0;
         var fruitMatches = 0;
@@ -58,15 +54,15 @@ internal sealed partial class AutoHarvestNativeStateReader
 #if SERVICE_CYCLE_PROFILE
             _profileOperations.AddListEntry();
 #endif
-            if (instance is null || instance.GetType() != contract.Types.Instance)
+            if (instance is null || instance.GetType() != bindings.InstanceType)
                 return AutoHarvestActiveActionSnapshot.Invalid;
-            if (InvokeBool(contract.InstanceIsEmpty, instance))
+            if (bindings.InstanceIsEmpty(instance))
             {
                 empty++;
                 continue;
             }
-            var plot = Invoke(contract.InstanceGetElement, instance, Array.Empty<object>());
-            var action = Invoke(contract.InstanceGetAction, instance, Array.Empty<object>());
+            var plot = bindings.InstancePlot(instance);
+            var action = bindings.InstanceAction(instance);
             var observed = ClassifyPair(resolved, plot, action);
             if (observed == AutoHarvestObservedPair.Contradictory)
                 return AutoHarvestActiveActionSnapshot.Invalid;
@@ -75,14 +71,14 @@ internal sealed partial class AutoHarvestNativeStateReader
             if (observed == AutoHarvestObservedPair.FruitTree)
             {
                 fruitMatches++;
-                fruitQuantity += InvokeInt(contract.InstanceGetActualQuantity, instance);
-                fruitEngaged |= InvokeBool(contract.InstanceIsEngaged, instance);
+                fruitQuantity += bindings.InstanceQuantity(instance);
+                fruitEngaged |= bindings.InstanceIsEngaged(instance);
             }
             else
             {
                 treasureMatches++;
-                treasureQuantity += InvokeInt(contract.InstanceGetActualQuantity, instance);
-                treasureEngaged |= InvokeBool(contract.InstanceIsEngaged, instance);
+                treasureQuantity += bindings.InstanceQuantity(instance);
+                treasureEngaged |= bindings.InstanceIsEngaged(instance);
             }
         }
         if (usedEntryCount < 0 || usedEntryCount != values.Count - empty)
@@ -101,4 +97,8 @@ internal sealed partial class AutoHarvestNativeStateReader
             fruit,
             treasure);
     }
+
+    private static IList ReadActiveValues(AutoHarvestNativeBindings bindings, object activeActions) =>
+        bindings.ActiveValues(activeActions) ??
+        throw new InvalidOperationException("active plot actions are unavailable");
 }
