@@ -614,9 +614,9 @@ internal static class AutoBuyCycleEvaluator
             _ => 0.01,
         };
 
-    // Parse AbsoluteReserve the way legacy did (invariant double, per BigAmount.TryParse →
-    // TryFromDouble) and widen to BigDouble by value; but treat empty/malformed/non-finite as the
-    // config default of no reserve (0) rather than rejecting every candidate.
+    // Parse AbsoluteReserve as an invariant double and widen to BigDouble by value; treat
+    // empty/malformed/non-finite as the config default of no reserve (0) rather than rejecting
+    // every candidate.
     private static BigDouble ResolveAbsoluteReserve(string value)
     {
         if (!string.IsNullOrWhiteSpace(value) &&
