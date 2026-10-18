@@ -1,24 +1,25 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 /// <summary>Unity-main-thread boundary for the native Back to Main Menu control.</summary>
-internal sealed class ReturnToMenuGameAction : IDisposable
+internal sealed class ReturnToMenuGameAction : NativeGameAction<ReturnToMenuNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
+    private const string Screen = "the game's own screen";
+    private const string Control = "Back to Main Menu";
+
+    private static readonly GameActionCodes Codes = new(
+        ReturnToMenuActionResultCodes.WrongThread,
+        ReturnToMenuActionResultCodes.ContractUnavailable,
+        ReturnToMenuActionResultCodes.MutationPermitUnavailable,
+        ReturnToMenuActionResultCodes.PostCommitFault,
+        ReturnToMenuActionResultCodes.VerificationFailed);
+
     private readonly Func<string> _readScene;
     private readonly Func<Type, object[]> _findLoadedObjects;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
-    private readonly int _mainThreadId;
-    private ReturnToMenuNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal ReturnToMenuGameAction(
         Func<long> readLifecycleEpoch,
@@ -28,168 +29,97 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         Func<Type, object[]> findLoadedObjects,
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null)
+        : base("Return to menu", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out ReturnToMenuNativeBindings? bindings, out string reason) =>
+                ReturnToMenuNativeBindings.TryCreate(
+                    out bindings, out reason, resolveType, includeContract))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
         _readScene = readScene ?? throw new ArgumentNullException(nameof(readScene));
         _findLoadedObjects = findLoadedObjects ?? throw new ArgumentNullException(nameof(findLoadedObjects));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
     }
 
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
+    internal ReturnToMenuSubmission Submit(in ReturnToMenuAction action) =>
+        Admit(action.LifecycleEpoch, static outcome => new ReturnToMenuSubmission(outcome), Press);
 
-    internal ReturnToMenuSubmission Submit(in ReturnToMenuAction action)
+    private ReturnToMenuSubmission Press(ReturnToMenuNativeBindings native)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(ReturnToMenuActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
+        var scene = _readScene();
+        if (!string.Equals(scene, "Main", StringComparison.Ordinal))
+            return Reject(ReturnToMenuActionResultCodes.WrongScene,
+                "Back to Main Menu is available while playing; the current scene is " +
+                scene + ".");
+        var flash = native.ScreenFlash();
+        if (flash is null)
             return Reject(ReturnToMenuActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("the game's own screen", _bindingFailure));
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+                "The game's scene-transition screen is unavailable.");
+        if (native.FlashActive(flash))
+            return Reject(ReturnToMenuActionResultCodes.TransitionInProgress,
+                "The game is already changing screens.");
+        var buttons = _findLoadedObjects(native.ButtonType) ?? Array.Empty<object>();
+        var loaded = new List<object>(buttons.Length);
+        for (var index = 0; index < buttons.Length; index++)
         {
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("the game's own screen", exception));
+            var candidate = buttons[index];
+            if (candidate is not null && native.ButtonType.IsInstanceOfType(candidate))
+                loaded.Add(candidate);
         }
-        if (action.LifecycleEpoch != epoch)
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        try
+        var live = LiveControls(native, loaded);
+        if (live.Count > 1) return Ambiguous(native, live);
+        if (live.Count == 1)
         {
-            var scene = _readScene();
-            if (!string.Equals(scene, "Main", StringComparison.Ordinal))
-                return Reject(ReturnToMenuActionResultCodes.WrongScene,
-                    "Back to Main Menu is available while playing; the current scene is " +
-                    scene + ".");
-            var flash = native.ScreenFlash();
-            if (flash is null)
-                return Reject(ReturnToMenuActionResultCodes.ContractUnavailable,
-                    "The game's scene-transition screen is unavailable.");
-            if (native.FlashActive(flash))
-                return Reject(ReturnToMenuActionResultCodes.TransitionInProgress,
-                    "The game is already changing screens.");
-            var buttons = _findLoadedObjects(native.ButtonType) ?? Array.Empty<object>();
-            var loaded = new List<object>(buttons.Length);
-            for (var index = 0; index < buttons.Length; index++)
+            if (!TryPermit(out var refusal)) return new ReturnToMenuSubmission(refusal);
+            var button = live[0];
+            return Run(native, flash, () =>
             {
-                var candidate = buttons[index];
-                if (candidate is not null && native.ButtonType.IsInstanceOfType(candidate))
-                    loaded.Add(candidate);
-            }
-            var live = LiveControls(native, loaded);
-            if (live.Count > 1) return Ambiguous(native, live);
-            if (live.Count == 0)
-            {
-                // The player does not reach this control from the board: they open the panel that
-                // holds it and then press it. Refusing because the panel is shut would refuse the
-                // ordinary case, so the action performs the same two steps.
-                if (!TryFindClosedPanel(native, loaded, out var panel, out var panelReason))
-                    return Reject(ReturnToMenuActionResultCodes.ControlUnavailable, panelReason);
-                if (!_tryCaptureMutationPermit())
-                    return Reject(ReturnToMenuActionResultCodes.MutationPermitUnavailable,
-                        _readOwnershipFailure());
-                return OpenThenExecute(native, panel!, loaded, flash);
-            }
-            if (!_tryCaptureMutationPermit())
-                return Reject(ReturnToMenuActionResultCodes.MutationPermitUnavailable,
-                    _readOwnershipFailure());
-            return Execute(native, live[0], flash, string.Empty);
+                native.BackToMenu(button);
+                return null;
+            });
         }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return Reject(ReturnToMenuActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("the game's own screen", exception));
-        }
-    }
-
-    internal void InvalidateLifecycle()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
+        // The player does not reach this control from the board: they open the panel that
+        // holds it and then press it. Refusing because the panel is shut would refuse the
+        // ordinary case, so the action performs the same two steps.
+        if (!TryFindClosedPanel(native, loaded, out var panel, out var panelReason))
+            return Reject(ReturnToMenuActionResultCodes.ControlUnavailable, panelReason);
+        if (!TryPermit(out var panelRefusal)) return new ReturnToMenuSubmission(panelRefusal);
+        return Run(native, flash, () => OpenThenPress(native, panel!, loaded));
     }
 
     /// <summary>
     /// Opening the panel is the first change this verb makes to the game, so every outcome after it
-    /// is an attempt, never a refusal a caller could retry as if nothing had happened.
+    /// is an attempt, never a refusal a caller could retry as if nothing had happened. Nothing
+    /// closes the panel again, so a stop here is an attempted fault.
     /// </summary>
-    private static ReturnToMenuSubmission OpenThenExecute(
+    private static NativeStop? OpenThenPress(
         ReturnToMenuNativeBindings native,
         object panel,
-        List<object> loaded,
-        object flash)
+        List<object> loaded)
     {
-        object control;
-        string openedName;
-        try
-        {
-            native.OpenPanel(panel);
-            if (native.PanelModal(panel) is not { } opened || !native.PanelOpen(opened))
-                return Opened(
-                    "The game's panel did not open, so its Back to Main Menu control is still " +
-                    "out of reach.");
-            var live = LiveControls(native, loaded);
-            if (live.Count > 1)
-                return Opened(AmbiguousReason(native, live) + " The panel it opened is still open.");
-            if (live.Count == 0)
-                return Opened(
-                    "The game's panel is now open and was not closed again, and it shows no " +
-                    "interactable Back to Main Menu control.");
-            control = live[0];
-            openedName = native.ControlName(panel);
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return Fault(ReturnToMenuActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("the game's own screen", exception));
-        }
-        return Execute(native, control, flash, openedName);
+        native.OpenPanel(panel);
+        if (native.PanelModal(panel) is not { } opened || !native.PanelOpen(opened))
+            return Opened(
+                "The game's panel did not open, so its Back to Main Menu control is still " +
+                "out of reach.");
+        var live = LiveControls(native, loaded);
+        if (live.Count > 1)
+            return Opened(AmbiguousReason(native, live) + " The panel it opened is still open.");
+        if (live.Count == 0)
+            return Opened(
+                "The game's panel is now open and was not closed again, and it shows no " +
+                "interactable Back to Main Menu control.");
+        native.BackToMenu(live[0]);
+        return null;
     }
 
-    private static ReturnToMenuSubmission Opened(string reason) =>
-        Fault(ReturnToMenuActionResultCodes.ControlUnavailable,
-            NativeMutationOutcome.PostconditionFailed, reason);
+    private static NativeStop Opened(string reason) =>
+        NativeStop.Fault(ReturnToMenuActionResultCodes.ControlUnavailable, reason);
 
-    private static ReturnToMenuSubmission Execute(
+    private ReturnToMenuSubmission Run(
         ReturnToMenuNativeBindings native,
-        object button,
         object flash,
-        string openedPanel)
-    {
-        var pressed = native.ControlName(button);
-        try
-        {
-            native.BackToMenu(button);
-            return native.FlashActive(flash)
-                ? Verified(pressed, openedPanel)
-                : Fault(ReturnToMenuActionResultCodes.VerificationFailed,
-                    NativeMutationOutcome.PostconditionFailed,
-                    "The game did not start its screen transition.");
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            if (NativeMutationVerifier.TryReadAfterCall(() => native.FlashActive(flash),
-                    out var transitioning) && transitioning) return Verified(pressed, openedPanel);
-            return Fault(ReturnToMenuActionResultCodes.PostCommitFault,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("the game's own screen", exception));
-        }
-    }
+        Func<NativeStop?> call) =>
+        new(Execute(Control, "The game is back at its main menu.", false,
+            () => native.FlashActive(flash), call, static (_, transitioning) => transitioning));
 
     private static List<object> LiveControls(
         ReturnToMenuNativeBindings native,
@@ -255,30 +185,4 @@ internal sealed class ReturnToMenuGameAction : IDisposable
     private static ReturnToMenuSubmission Reject(
         ServiceActionResultCode code,
         string reason) => new(NativeActionOutcome.Reject(code, reason));
-
-    private static ReturnToMenuSubmission Verified(string pressedControl, string openedPanel) =>
-        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
-                "The game is back at its main menu."),
-            pressedControl,
-            openedPanel);
-
-    private static ReturnToMenuSubmission Fault(
-        ServiceActionResultCode code,
-        NativeMutationOutcome outcome,
-        string reason) =>
-        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0), reason));
-
-    private void BindLifecycle()
-    {
-        if (ReturnToMenuNativeBindings.TryCreate(
-                out var bindings, out var reason, _resolveType, _includeContract))
-        {
-            _bindings = bindings;
-            _bindingFailure = string.Empty;
-            return;
-        }
-        _bindings = null;
-        _bindingFailure = reason;
-    }
-
 }

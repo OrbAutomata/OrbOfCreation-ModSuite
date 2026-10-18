@@ -77,9 +77,7 @@ open. More than one live control, or more than one closed panel offering one, en
 found. No save data,
 file, timer, scene coroutine, or secondary receipt is inspected.
 
-Success is returned before scene teardown as `status: committed, scene: Start`, with the two
-controls the action operated named as the game names them: `pressedControl`, and `openedPanel`
-which is empty when the control was already on screen. The later scene
+Success is returned before scene teardown as `status: committed, scene: Start`. The later scene
 transition advances the shared lifecycle generation; that boundary clears the identity catalog,
 world references, action bindings, leases, and every other lifecycle-retained object through the
 ordinary scene-transition observer. The MCP does not wait for a post-transition world because the

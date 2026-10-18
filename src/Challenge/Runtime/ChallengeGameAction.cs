@@ -1,206 +1,134 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 /// <summary>Lifecycle-scoped Unity-main-thread boundary for every player challenge decision.</summary>
-internal sealed class ChallengeGameAction : IDisposable
+internal sealed class ChallengeGameAction : NativeGameAction<ChallengeNativeBindings>
 {
+    private const string Screen = "Time > Challenges";
+
     private const string RestrictedReason =
         "The challenge conflicts with the selected challenge types.";
 
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private static readonly GameActionCodes Codes = new(
+        ChallengeActionResultCodes.WrongThread,
+        ChallengeActionResultCodes.ContractUnavailable,
+        ChallengeActionResultCodes.MutationPermitUnavailable,
+        ChallengeActionResultCodes.PostCommitFault,
+        ChallengeActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private ChallengeNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal ChallengeGameAction(Func<long> readLifecycleEpoch,
         Func<bool> tryCaptureMutationPermit, Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Challenge action", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out ChallengeNativeBindings? bindings, out string reason) =>
+                ChallengeNativeBindings.TryCreate(
+                    out bindings, out reason, resolveType, includeContract))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(_readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal ChallengeSubmission Submit(in ChallengeAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return ChallengeSubmission.Reject(ChallengeActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
-            return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Time > Challenges", _bindingFailure));
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return ChallengeSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Time > Challenges", exception));
-        }
-        if (action.LifecycleEpoch != epoch)
-            return ChallengeSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        try
-        {
-            object? target = null;
-            if (action.HasTarget)
-            {
-                var resolution = _registry.Resolve(action.TargetId, native.ChallengeType);
-                if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                    return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
-                        resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
-                target = resolution.Value!;
-            }
-
-            object? replaced = null;
-            if (action.ReplacedId != Guid.Empty)
-            {
-                var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
-                if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                    return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
-                        resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
-                replaced = resolution.Value!;
-            }
-
-            if (!TryContext(native, out var context, out var contextFailure))
-                return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable, contextFailure);
-            var before = CaptureAdmission(native, in context, target);
-            var preflight = Preflight(
-                action.Kind, native, in context, target, replaced, in before, out var reason);
-            if (preflight != CommonActionResultCodes.Committed)
-                return preflight == ChallengeActionResultCodes.NoRerolls
-                    ? ChallengeSubmission.RerollsExhausted(reason, before.RerollsLeft)
-                    : ChallengeSubmission.Reject(preflight, reason);
-            if (!_tryCaptureMutationPermit())
-                return ChallengeSubmission.Reject(ChallengeActionResultCodes.MutationPermitUnavailable,
-                    _readOwnershipFailure());
-            return Execute(in action, native, in context, target, replaced, in before);
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Time > Challenges", exception));
-        }
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new ChallengeSubmission(outcome),
+            native => Press(in request, native));
     }
 
-    internal void InvalidateLifecycle()
+    private ChallengeSubmission Press(in ChallengeAction action, ChallengeNativeBindings native)
     {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
+        object? target = null;
+        if (action.HasTarget)
+        {
+            var resolution = _registry.Resolve(action.TargetId, native.ChallengeType);
+            if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
+                return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
+                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
+            target = resolution.Value!;
+        }
+
+        object? replaced = null;
+        if (action.ReplacedId != Guid.Empty)
+        {
+            var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
+            if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
+                return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
+                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
+            replaced = resolution.Value!;
+        }
+
+        if (!TryContext(native, out var context, out var contextFailure))
+            return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable, contextFailure);
+        var before = CaptureAdmission(native, in context, target);
+        var preflight = Preflight(
+            action.Kind, native, in context, target, replaced, in before, out var reason);
+        if (preflight != CommonActionResultCodes.Committed)
+            return preflight == ChallengeActionResultCodes.NoRerolls
+                ? ChallengeSubmission.RerollsExhausted(reason, before.RerollsLeft)
+                : ChallengeSubmission.Reject(preflight, reason);
+        if (!TryPermit(out var refusal)) return new ChallengeSubmission(refusal);
+
+        var kind = action.Kind;
+        var outcome = Execute(
+            action.HasTarget ? EntityIdentityFormatter.PlayerName(action.TargetId) : kind.ToString(),
+            "The requested challenge transition is visible.", false,
+            () => OutcomeLanded(kind, native, in context, target, replaced, in before),
+            () => Call(kind, native, in context, target, replaced, in before),
+            static (_, landed) => landed);
+        if (outcome.Verified || kind != ChallengeActionKind.Reroll) return new ChallengeSubmission(outcome);
+        var after = NativeMutationVerifier.TryReadAfterCall(() => native.AsInt(context.RerollsLeft), out var left)
+            ? left
+            : -1;
+        return new ChallengeSubmission(outcome, before.RerollsLeft, after);
     }
 
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-    }
-
-    private ChallengeSubmission Execute(in ChallengeAction action, ChallengeNativeBindings native,
+    private static NativeStop? Call(ChallengeActionKind kind, ChallengeNativeBindings native,
         in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before)
     {
-        var stage = "NativeCallback";
-        try
+        switch (kind)
         {
-            switch (action.Kind)
-            {
-                case ChallengeActionKind.Select:
-                    // The screen's own two presses, in the order a player makes them: free the row
-                    // this one takes over, then pick this one.
-                    if (replaced is not null)
+            case ChallengeActionKind.Select:
+                // The screen's own two presses, in the order a player makes them: free the row
+                // this one takes over, then pick this one.
+                if (replaced is not null)
+                {
+                    native.Toggle(context.Preferred, replaced);
+                    // The type conflict is the game's question about the list as it stands, and
+                    // the row just given up is no longer in it. Asked one press earlier it
+                    // answers for a list nobody is selecting into, and refuses the swap the
+                    // screen performs — so it is asked here, and a no puts the row back.
+                    if (!before.Selected && native.Restricted(context.Preferred, target!))
                     {
                         native.Toggle(context.Preferred, replaced);
-                        // The type conflict is the game's question about the list as it stands, and
-                        // the row just given up is no longer in it. Asked one press earlier it
-                        // answers for a list nobody is selecting into, and refuses the swap the
-                        // screen performs — so it is asked here, and a no puts the row back.
-                        if (!before.Selected && native.Restricted(context.Preferred, target!))
-                        {
-                            stage = "Verification";
-                            native.Toggle(context.Preferred, replaced);
-                            return native.Contains(context.Preferred, replaced)
-                                ? ChallengeSubmission.Reject(
-                                    ChallengeActionResultCodes.SelectionRestricted, RestrictedReason)
-                                : Fault(in action, ChallengeActionResultCodes.PostCommitFault, stage,
-                                    NativeMutationOutcome.PostconditionFailed,
-                                    "The row given up to make room was not restored after the " +
-                                    "type conflict refused the swap.",
-                                    SettledBudget(action.Kind, native, in context, in before));
-                        }
+                        var preferred = context.Preferred;
+                        return NativeStop.Refused(ChallengeActionResultCodes.SelectionRestricted,
+                            RestrictedReason, () => native.Contains(preferred, replaced));
                     }
-                    native.Toggle(context.Preferred, target!);
-                    break;
-                case ChallengeActionKind.Queue:
-                    native.ToggleQueue(target!);
-                    break;
-                case ChallengeActionKind.Abandon:
-                    native.Abandon(target!);
-                    break;
-                case ChallengeActionKind.Reroll:
-                    stage = "DecisionCommit";
-                    if (before.ChallengesFetched)
-                        native.SetInt(context.RerollsLeft, checked(before.RerollsLeft - 1));
-                    else
-                        native.SetBool(context.Fetched, true);
-                    stage = "NativeCallback";
-                    native.Reroll(context.ChallengeManager);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(action.Kind));
-            }
-            stage = "Verification";
-            return OutcomeLanded(action.Kind, native, in context, target, replaced, in before)
-                ? Verified()
-                : Fault(in action, ChallengeActionResultCodes.VerificationFailed, stage,
-                    NativeMutationOutcome.PostconditionFailed,
-                    GameActionAnswer.ChangeNotSeen("Time > Challenges"),
-                    SettledBudget(action.Kind, native, in context, in before));
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            if (OutcomeLandedBestEffort(action.Kind, native, in context, target, replaced, in before))
-                return Verified();
-            return Fault(in action, ChallengeActionResultCodes.PostCommitFault, stage,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Time > Challenges", exception),
-                SettledBudget(action.Kind, native, in context, in before));
-        }
-    }
-
-    /// <summary>
-    /// The reroll budget on both sides of a press that was attempted. The game's own button spends
-    /// before it asks for offers, so a press that then failed still has to say where the scarce
-    /// budget landed: a caller must never infer that from an absent key. Both numbers are the
-    /// sentinel's own readings, so nothing is collected here that verification did not already read.
-    /// </summary>
-    private static ChallengeBudget SettledBudget(ChallengeActionKind kind,
-        ChallengeNativeBindings native, in NativeContext context, in ChallengeAdmissionState before)
-    {
-        if (kind != ChallengeActionKind.Reroll) return ChallengeBudget.NotTheAxis;
-        try { return new ChallengeBudget(before.RerollsLeft, native.AsInt(context.RerollsLeft)); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return new ChallengeBudget(before.RerollsLeft, -1);
+                }
+                native.Toggle(context.Preferred, target!);
+                return null;
+            case ChallengeActionKind.Queue:
+                native.ToggleQueue(target!);
+                return null;
+            case ChallengeActionKind.Abandon:
+                native.Abandon(target!);
+                return null;
+            case ChallengeActionKind.Reroll:
+                if (before.ChallengesFetched)
+                    native.SetInt(context.RerollsLeft, checked(before.RerollsLeft - 1));
+                else
+                    native.SetBool(context.Fetched, true);
+                native.Reroll(context.ChallengeManager);
+                return null;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
         }
     }
 
@@ -304,28 +232,6 @@ internal sealed class ChallengeGameAction : IDisposable
         _ => false,
     };
 
-    private static bool OutcomeLandedBestEffort(ChallengeActionKind kind,
-        ChallengeNativeBindings native, in NativeContext context, object? target, object? replaced,
-        in ChallengeAdmissionState before)
-    {
-        try { return OutcomeLanded(kind, native, in context, target, replaced, in before); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception)) { return false; }
-    }
-
-    private static ChallengeSubmission Verified() =>
-        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
-            "The requested challenge transition is visible."));
-
-    private static ChallengeSubmission Fault(in ChallengeAction action,
-        ServiceActionResultCode code, string stage, NativeMutationOutcome outcome,
-        string reason, ChallengeBudget budget)
-    {
-        var target = action.HasTarget ? EntityIdentityFormatter.PlayerName(action.TargetId) : action.Kind.ToString();
-        var exactReason = "Challenge action " + stage + " failed on " + target + ": " + reason;
-        return new ChallengeSubmission(NativeActionOutcome.Fault(code, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason), budget.Before, budget.After);
-    }
-
     private static bool TryContext(ChallengeNativeBindings native, out NativeContext context, out string reason)
     {
         var challengeManager = native.ChallengeManager();
@@ -351,14 +257,6 @@ internal sealed class ChallengeGameAction : IDisposable
             left, complete, fetched);
         reason = string.Empty;
         return true;
-    }
-
-    private void BindLifecycle()
-    {
-        if (ChallengeNativeBindings.TryCreate(out var bindings, out var reason, _resolveType, _includeContract))
-        { _bindings = bindings; _bindingFailure = string.Empty; return; }
-        _bindings = null;
-        _bindingFailure = reason;
     }
 
     private readonly struct NativeContext

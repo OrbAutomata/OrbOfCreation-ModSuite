@@ -1826,7 +1826,10 @@ refused with `level_out_of_range` carrying `minimumAmount` and `maximumAmount` �
 numbers its sentence names. `set_level` and `activate` both act on the selected Ritual, and the
 game's selection variable holds whichever ritual its toggle was last pressed with — so both verbs
 press that toggle themselves when the named ritual is not the held one, whatever was selected
-before, and verify the selection landed. A caller is never refused for a step it could not see.
+before, and verify the selection landed before setting the level or paying. A caller is never
+refused for a step it could not see. The press overwrites the previous selection and the game keeps
+no undo for it, so a press that does not select the named ritual is a `verification_failed` fault
+with the attempt counted, and nothing is paid after it.
 The old runestone-selection manager methods are empty/null-returning in
 v1.0.5 and are deliberately absent. Activation revalidates the selected Ritual and the screen's
 native price before payment; success is the settled battle transition. `cancel_duration` ends an
@@ -3896,7 +3899,9 @@ is held, which to give up is the caller's choice, and the refusal says that rath
 full list the caller cannot act on. The type conflict is a question about the selection as it
 stands, so on a swap it is asked between the two presses, exactly where the screen asks it: a row
 whose one-instance type the given-up row was holding is selectable, and a conflict the give-up does
-not clear refuses with the given-up row pressed back, so a refused swap costs the caller nothing.
+not clear presses the given-up row back and refuses `selection_restricted`, counting the give-up as
+one attempt and saying the row is held again. When the game does not show it held again, the answer
+is a `verification_failed` fault instead, because the caller is a selection poorer.
 
 `reroll` presses the game's one new-challenges button. The Time screen and the Reset modal are two
 labels on the same control — one budget, one asset, one list — so there is one reroll mode rather

@@ -81,6 +81,20 @@ internal static class GameActionAnswer
         "before retrying — it may or may not have landed.";
 
     /// <summary>
+    /// The suite pressed the game and then pressed it back, and the game reads as it was. Said after
+    /// the refusal so a caller knows a press happened and left nothing behind.
+    /// </summary>
+    internal static string Undone() =>
+        "The suite pressed it back, and the game shows it as it was.";
+
+    /// <summary>
+    /// The suite pressed the game, pressed it back, and the game does not read as it was.
+    /// </summary>
+    internal static string NotUndone(string screen) =>
+        "The suite pressed it back, but the game does not show it as it was. Open " + screen +
+        " and check before retrying.";
+
+    /// <summary>
     /// The game's own code threw while running the press. The exception text used to ride on the
     /// wire; it named a .NET type and a field, which is not a fact about the game a caller can act
     /// on, and it sat where the answer to "did this land" belonged. Hand the exception in and it

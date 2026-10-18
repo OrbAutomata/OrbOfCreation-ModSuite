@@ -186,6 +186,21 @@ public sealed class GenericLevelGameActionTests
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Target("GlyphSO");
+        Register(target);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, target, "GlyphSO", GenericLevelActionKind.Purchase);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(GenericLevelActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, TotalLevel(target));
+    }
+
+    [Fact]
     public void Unity_thread_is_refused_before_identity_or_native_state()
     {
         var target = Target("GlyphSO");
@@ -209,12 +224,14 @@ public sealed class GenericLevelGameActionTests
         }
     }
 
-    private GenericLevelGameAction Boundary(Func<string, bool>? includeContract = null)
+    private GenericLevelGameAction Boundary(
+        Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null)
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
-        return new GenericLevelGameAction(() => Epoch, static () => true,
+        return new GenericLevelGameAction(epoch ?? (() => Epoch), static () => true,
             static () => "GenericLevel ownership was revoked.",
             includeContract: includeContract, registry: resolver);
     }

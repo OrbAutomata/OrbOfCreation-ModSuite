@@ -27,8 +27,6 @@ public sealed class ReturnToMenuGameActionTests
         Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, _button.manualSave.RaiseCalls);
         Assert.True(UIScreenFlash.instance.ActiveForTests);
-        Assert.Equal("Back to Menu", result.PressedControl);
-        Assert.Equal(string.Empty, result.OpenedPanel);
     }
 
     [Fact]
@@ -89,10 +87,6 @@ public sealed class ReturnToMenuGameActionTests
         Assert.True(panel.IsOpen());
         Assert.Equal(1, control.manualSave.RaiseCalls);
         Assert.True(UIScreenFlash.instance.ActiveForTests);
-
-        // Both steps are the caller's to audit: the panel this opened and the control it pressed.
-        Assert.Equal("Settings", result.OpenedPanel);
-        Assert.Equal("Back to Main Menu", result.PressedControl);
     }
 
     /// <summary>
@@ -203,6 +197,19 @@ public sealed class ReturnToMenuGameActionTests
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(ReturnToMenuActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, _button.manualSave.RaiseCalls);
+    }
+
+    [Fact]
     public void OffThreadSubmissionRefusesBeforeTheUiCallback()
     {
         using var boundary = Boundary();
@@ -243,9 +250,10 @@ public sealed class ReturnToMenuGameActionTests
         string scene = "Main",
         object[]? buttons = null,
         bool permit = true,
-        Func<string, bool>? includeContract = null) =>
+        Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null) =>
         new(
-            () => Epoch,
+            epoch ?? (() => Epoch),
             () => permit,
             static () => "RunTransition ownership was revoked.",
             () => scene,

@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -7,17 +6,18 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 namespace OrbAutomata;
 
 /// <summary>Lifecycle-scoped Unity-main-thread boundary for the visible Ritual controls.</summary>
-internal sealed class RitualLifecycleGameAction : IDisposable
+internal sealed class RitualLifecycleGameAction : NativeGameAction<RitualLifecycleNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private const string Screen = "Rituals";
+
+    private static readonly GameActionCodes Codes = new(
+        RitualLifecycleActionResultCodes.WrongThread,
+        RitualLifecycleActionResultCodes.ContractUnavailable,
+        RitualLifecycleActionResultCodes.MutationPermitUnavailable,
+        RitualLifecycleActionResultCodes.PostCommitFault,
+        RitualLifecycleActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private RitualLifecycleNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal RitualLifecycleGameAction(
         Func<long> readLifecycleEpoch,
@@ -26,158 +26,156 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Ritual", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out RitualLifecycleNativeBindings? bindings, out string reason) =>
+                RitualLifecycleNativeBindings.TryCreate(
+                    out bindings, out reason, resolveType, includeContract))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ??
-            throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ??
-            throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ??
-            throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType;
-        _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(
-            _readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal RitualLifecycleSubmission Submit(in RitualLifecycleAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(RitualLifecycleActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new RitualLifecycleSubmission(outcome),
+            native => Press(in request, native));
+    }
+
+    private RitualLifecycleSubmission Press(in RitualLifecycleAction action, RitualLifecycleNativeBindings native)
+    {
+        var resolution = _registry.Resolve(action.RitualId, native.RitualType);
+        if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
+            return Reject(RitualLifecycleActionResultCodes.IdentityUnavailable,
+                resolution.IsResolved ? GameActionAnswer.Replaced("ritual") : resolution.Reason);
+        var ritual = resolution.Value!;
+        if (!native.IsDiscovered(ritual))
+            return Reject(RitualLifecycleActionResultCodes.NotDiscovered,
+                EntityIdentityFormatter.PlayerName(action.RitualId) + " has not been discovered.");
+
+        var manager = native.Manager();
+        var battle = native.BattleManager();
+        if (manager is null || manager.GetType() != native.ManagerType ||
+            battle is null || battle.GetType() != native.BattleManagerType)
             return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Rituals", _bindingFailure));
-
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+                "The Ritual or battle manager is not available in this scene.");
+        var selected = native.SelectedVariable(manager);
+        if (selected is null)
+            return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
+                "The Ritual selection is not available in this scene.");
+        var inCombat = native.IsInCombat(battle);
+        if (action.Kind == RitualLifecycleActionKind.EndBattle)
         {
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Rituals", exception));
-        }
-        if (action.LifecycleEpoch != epoch)
-            return Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-
-        try
-        {
-            var resolution = _registry.Resolve(action.RitualId, native.RitualType);
-            if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return Reject(RitualLifecycleActionResultCodes.IdentityUnavailable,
-                    resolution.IsResolved
-                        ? GameActionAnswer.Replaced("ritual")
-                        : resolution.Reason);
-            var ritual = resolution.Value!;
-            if (!native.IsDiscovered(ritual))
-                return Reject(RitualLifecycleActionResultCodes.NotDiscovered,
+            if (!inCombat)
+                return Reject(RitualLifecycleActionResultCodes.NoBattleActive,
+                    "There is no active ritual battle to end.");
+            var activeRitual = native.ActiveRitual(battle);
+            if (activeRitual is null || !native.IsSelected(activeRitual, ritual))
+                return Reject(RitualLifecycleActionResultCodes.WrongActiveRitual,
                     EntityIdentityFormatter.PlayerName(action.RitualId) +
-                    " has not been discovered.");
-
-            var manager = native.Manager();
-            var battle = native.BattleManager();
-            if (manager is null || manager.GetType() != native.ManagerType ||
-                battle is null || battle.GetType() != native.BattleManagerType)
-                return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                    "The Ritual or battle manager is not available in this scene.");
-            var selected = native.SelectedVariable(manager);
-            if (selected is null)
-                return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                    "The Ritual selection is not available in this scene.");
-            var inCombat = native.IsInCombat(battle);
-            if (action.Kind == RitualLifecycleActionKind.EndBattle)
-            {
-                if (!inCombat)
-                    return Reject(RitualLifecycleActionResultCodes.NoBattleActive,
-                        "There is no active ritual battle to end.");
-                var activeRitual = native.ActiveRitual(battle);
-                if (activeRitual is null || !native.IsSelected(activeRitual, ritual))
-                    return Reject(RitualLifecycleActionResultCodes.WrongActiveRitual,
-                        EntityIdentityFormatter.PlayerName(action.RitualId) +
-                        " is not the ritual currently in battle.");
-            }
-            else if (inCombat)
-            {
-                return Reject(RitualLifecycleActionResultCodes.BattleAlreadyActive,
-                    "Ritual controls are unavailable while a ritual battle is active.");
-            }
-            if (action.Kind is not RitualLifecycleActionKind.Select and
-                not RitualLifecycleActionKind.Deselect and
-                not RitualLifecycleActionKind.SetLevel and
-                not RitualLifecycleActionKind.Activate and
-                not RitualLifecycleActionKind.CancelDuration and
-                not RitualLifecycleActionKind.EndBattle)
-                return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                    "That ritual control is not available.");
-
-            var isSelected = native.IsSelected(selected, ritual);
-            switch (action.Kind)
-            {
-                case RitualLifecycleActionKind.Select when isSelected:
-                    return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
-                        "This ritual is already selected.");
-                case RitualLifecycleActionKind.Deselect when !isSelected:
-                    return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
-                        "This ritual is not selected.");
-                case RitualLifecycleActionKind.SetLevel:
-                    if (native.ForceLevel(ritual))
-                        return Reject(RitualLifecycleActionResultCodes.LevelLocked,
-                            LevelLockedReason(native.ForceLevelValue(ritual)));
-                    var minimum = WorldRitualDecision.NativeMinimumStartingLevel;
-                    var maximum = Math.Max(native.MaximumSelectedLevel(ritual), minimum);
-                    if (action.Level < minimum || action.Level > maximum)
-                        return RitualLifecycleSubmission.RejectLevelOutOfRange(
-                            "The ritual starting level must be between " + minimum + " and " +
-                            maximum + ".",
-                            minimum,
-                            maximum);
-                    if (native.SelectedLevel(ritual) == action.Level)
-                        return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
-                            "The ritual starting level is already " + action.Level + ".");
-                    break;
-                case RitualLifecycleActionKind.Activate:
-                    var cost = native.ActivationCost(ritual);
-                    if (cost is null)
-                        return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                            "The ritual activation price is unavailable.");
-                    if (!native.HasEnough(cost))
-                        return Unaffordable(native, cost);
-                    break;
-                case RitualLifecycleActionKind.CancelDuration:
-                    if (!native.IsDurationRitual(ritual) || !native.IsDurationActive(ritual))
-                        return Reject(RitualLifecycleActionResultCodes.NoDurationEffect,
-                            "This ritual has no active duration reward to cancel.");
-                    break;
-            }
-
-            if (!_tryCaptureMutationPermit())
-                return Reject(RitualLifecycleActionResultCodes.MutationPermitUnavailable,
-                    _readOwnershipFailure());
-            return Execute(in action, native, manager, battle, selected, ritual);
+                    " is not the ritual currently in battle.");
         }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+        else if (inCombat)
         {
-            return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Rituals", exception));
+            return Reject(RitualLifecycleActionResultCodes.BattleAlreadyActive,
+                "Ritual controls are unavailable while a ritual battle is active.");
         }
+        if (action.Kind is not RitualLifecycleActionKind.Select and
+            not RitualLifecycleActionKind.Deselect and
+            not RitualLifecycleActionKind.SetLevel and
+            not RitualLifecycleActionKind.Activate and
+            not RitualLifecycleActionKind.CancelDuration and
+            not RitualLifecycleActionKind.EndBattle)
+            return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
+                "That ritual control is not available.");
+
+        object? cost = null;
+        var isSelected = native.IsSelected(selected, ritual);
+        switch (action.Kind)
+        {
+            case RitualLifecycleActionKind.Select when isSelected:
+                return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
+                    "This ritual is already selected.");
+            case RitualLifecycleActionKind.Deselect when !isSelected:
+                return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
+                    "This ritual is not selected.");
+            case RitualLifecycleActionKind.SetLevel:
+                if (native.ForceLevel(ritual))
+                    return Reject(RitualLifecycleActionResultCodes.LevelLocked,
+                        LevelLockedReason(native.ForceLevelValue(ritual)));
+                var minimum = WorldRitualDecision.NativeMinimumStartingLevel;
+                var maximum = Math.Max(native.MaximumSelectedLevel(ritual), minimum);
+                if (action.Level < minimum || action.Level > maximum)
+                    return RitualLifecycleSubmission.RejectLevelOutOfRange(
+                        "The ritual starting level must be between " + minimum + " and " +
+                        maximum + ".",
+                        minimum,
+                        maximum);
+                if (native.SelectedLevel(ritual) == action.Level)
+                    return Reject(RitualLifecycleActionResultCodes.AlreadyInRequestedState,
+                        "The ritual starting level is already " + action.Level + ".");
+                break;
+            case RitualLifecycleActionKind.Activate:
+                cost = native.ActivationCost(ritual);
+                if (cost is null)
+                    return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
+                        "The ritual activation price is unavailable.");
+                if (!native.HasEnough(cost))
+                    return new(NativeCostShortfall.Refuse(native, cost, "ritual activation",
+                        RitualLifecycleActionResultCodes.Unaffordable,
+                        RitualLifecycleActionResultCodes.ContractUnavailable));
+                break;
+            case RitualLifecycleActionKind.CancelDuration:
+                if (!native.IsDurationRitual(ritual) || !native.IsDurationActive(ritual))
+                    return Reject(RitualLifecycleActionResultCodes.NoDurationEffect,
+                        "This ritual has no active duration reward to cancel.");
+                break;
+        }
+        if (!TryPermit(out var refusal)) return new(refusal);
+
+        var kind = action.Kind;
+        var level = action.Level;
+        return new(Execute(EntityIdentityFormatter.PlayerName(action.RitualId),
+            "The requested Ritual transition is visible.", false,
+            () => OutcomeObserved(kind, level, native, battle, selected, ritual),
+            () => Call(kind, level, native, manager, battle, selected, ritual, cost),
+            static (_, landed) => landed));
     }
 
-    internal void InvalidateLifecycle()
+    private static NativeStop? Call(
+        RitualLifecycleActionKind kind,
+        int level,
+        RitualLifecycleNativeBindings native,
+        object manager,
+        object battle,
+        object selected,
+        object ritual,
+        object? cost)
     {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
+        switch (kind)
+        {
+            case RitualLifecycleActionKind.Select:
+            case RitualLifecycleActionKind.Deselect:
+                native.ToggleSelected(selected, ritual);
+                return null;
+            case RitualLifecycleActionKind.SetLevel:
+                if (SelectFirst(native, selected, ritual) is { } levelStop) return levelStop;
+                native.ChangeStartingLevel(ritual, level);
+                return null;
+            case RitualLifecycleActionKind.Activate:
+                if (SelectFirst(native, selected, ritual) is { } activateStop) return activateStop;
+                native.PerformCost(cost!);
+                native.ActivateSelected(manager);
+                return null;
+            case RitualLifecycleActionKind.CancelDuration:
+                native.Cancel(ritual);
+                return null;
+            case RitualLifecycleActionKind.EndBattle:
+                native.EndRitual(battle);
+                return null;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind));
+        }
     }
 
     /// <summary>
@@ -187,136 +185,40 @@ internal sealed class RitualLifecycleGameAction : IDisposable
     /// Both the starting level and the activation act on the selected ritual, and the game's
     /// selection variable holds whichever ritual its toggle was last pressed with — one press, no
     /// matter what was selected before. A caller that asked for a level or an activation was being
-    /// refused for a step it could not see and could not have known the order of.
+    /// refused for a step it could not see and could not have known the order of. The press
+    /// overwrites the previous selection and the game keeps no undo for it, so a press that did not
+    /// select this ritual stops as an attempted fault rather than a refusal.
     /// </remarks>
-    private static bool TrySelectFirst(
+    private static NativeStop? SelectFirst(
         RitualLifecycleNativeBindings native,
-        object selected,
-        object ritual,
-        out RitualLifecycleSubmission failure)
-    {
-        failure = default;
-        if (native.IsSelected(selected, ritual)) return true;
-        native.ToggleSelected(selected, ritual);
-        if (native.IsSelected(selected, ritual)) return true;
-        failure = Reject(RitualLifecycleActionResultCodes.VerificationFailed,
-            "The ritual did not become the selected one when its selection was pressed.");
-        return false;
-    }
-
-    private static RitualLifecycleSubmission Execute(
-        in RitualLifecycleAction action,
-        RitualLifecycleNativeBindings native,
-        object manager,
-        object battle,
         object selected,
         object ritual)
     {
-        var stage = "NativeCallback";
-        try
-        {
-            if (action.Kind is RitualLifecycleActionKind.Select or
-                RitualLifecycleActionKind.Deselect)
-            {
-                native.ToggleSelected(selected, ritual);
-            }
-            else if (action.Kind == RitualLifecycleActionKind.SetLevel)
-            {
-                if (!TrySelectFirst(native, selected, ritual, out var levelFailure))
-                    return levelFailure;
-                native.ChangeStartingLevel(ritual, action.Level);
-            }
-            else if (action.Kind == RitualLifecycleActionKind.Activate)
-            {
-                var cost = native.ActivationCost(ritual) ??
-                    throw new InvalidOperationException(
-                        "The game did not publish this ritual's activation price, so it " +
-                        "could not be paid. Open Rituals and read again.");
-                if (!TrySelectFirst(native, selected, ritual, out var activateFailure))
-                    return activateFailure;
-                if (!native.HasEnough(cost)) return Unaffordable(native, cost);
-                stage = "Payment";
-                native.PerformCost(cost);
-                stage = "NativeCallback";
-                native.ActivateSelected(manager);
-            }
-            else if (action.Kind == RitualLifecycleActionKind.CancelDuration)
-            {
-                native.Cancel(ritual);
-            }
-            else if (action.Kind == RitualLifecycleActionKind.EndBattle)
-            {
-                if (!native.IsInCombat(battle))
-                    return Reject(RitualLifecycleActionResultCodes.NoBattleActive,
-                        "The ritual battle ended before this control ran.");
-                var activeRitual = native.ActiveRitual(battle);
-                if (activeRitual is null || !native.IsSelected(activeRitual, ritual))
-                    return Reject(RitualLifecycleActionResultCodes.WrongActiveRitual,
-                        EntityIdentityFormatter.PlayerName(action.RitualId) +
-                        " is no longer the ritual in battle.");
-                native.EndRitual(battle);
-            }
-            else
-            {
-                throw new InvalidOperationException("Unsupported ritual control.");
-            }
-
-            stage = "Verification";
-            return OutcomeObserved(in action, native, battle, selected, ritual)
-                ? Verified()
-                : Fault(in action, RitualLifecycleActionResultCodes.VerificationFailed, stage,
-                    NativeMutationOutcome.PostconditionFailed,
-                    GameActionAnswer.ChangeNotSeen("Rituals"));
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            if (OutcomeObserved(in action, native, battle, selected, ritual)) return Verified();
-            return Fault(in action, RitualLifecycleActionResultCodes.PostCommitFault, stage,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Rituals", exception));
-        }
+        if (native.IsSelected(selected, ritual)) return null;
+        native.ToggleSelected(selected, ritual);
+        return native.IsSelected(selected, ritual)
+            ? null
+            : NativeStop.Fault(RitualLifecycleActionResultCodes.VerificationFailed,
+                "The ritual did not become the selected one when its selection was pressed.");
     }
 
     private static bool OutcomeObserved(
-        in RitualLifecycleAction action,
+        RitualLifecycleActionKind kind,
+        int level,
         RitualLifecycleNativeBindings native,
         object battle,
         object selected,
         object ritual) =>
-        action.Kind switch
+        kind switch
         {
             RitualLifecycleActionKind.Select => native.IsSelected(selected, ritual),
             RitualLifecycleActionKind.Deselect => !native.IsSelected(selected, ritual),
-            RitualLifecycleActionKind.SetLevel => native.SelectedLevel(ritual) == action.Level,
+            RitualLifecycleActionKind.SetLevel => native.SelectedLevel(ritual) == level,
             RitualLifecycleActionKind.Activate => native.InBattle(ritual),
             RitualLifecycleActionKind.CancelDuration => !native.IsDurationActive(ritual),
             RitualLifecycleActionKind.EndBattle => !native.IsInCombat(battle),
             _ => false,
         };
-
-    private static RitualLifecycleSubmission Unaffordable(
-        RitualLifecycleNativeBindings native,
-        object cost)
-    {
-        var rows = native.CostEntries(cost);
-        if (rows is null)
-            return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-                "The ritual activation price has no readable resource rows.");
-        for (var index = 0; index < rows.Count; index++)
-        {
-            var row = rows[index];
-            if (row is null) continue;
-            var resource = native.CostResource(row);
-            if (resource is null) continue;
-            var amount = native.CostValue(row);
-            if (!native.HasResourceAmount(resource, amount))
-                return Reject(RitualLifecycleActionResultCodes.Unaffordable,
-                    EntityIdentityFormatter.PlayerName(native.ResourceGuid(resource)) +
-                    " is short for this ritual activation.");
-        }
-        return Reject(RitualLifecycleActionResultCodes.ContractUnavailable,
-            "The game refused this ritual price without identifying a short resource.");
-    }
 
     /// <summary>
     /// The one sentence for a ritual that forces its level, naming the level its run is fought at:
@@ -329,36 +231,4 @@ internal sealed class RitualLifecycleGameAction : IDisposable
     private static RitualLifecycleSubmission Reject(
         ServiceActionResultCode code,
         string reason) => new(NativeActionOutcome.Reject(code, reason));
-
-    private static RitualLifecycleSubmission Verified() =>
-        new(NativeActionOutcome.Commit(
-            new NativeMutationCallOutcome(1, 1, 1),
-            "The requested Ritual transition is visible."));
-
-    private static RitualLifecycleSubmission Fault(
-        in RitualLifecycleAction action,
-        ServiceActionResultCode code,
-        string stage,
-        NativeMutationOutcome outcome,
-        string reason) =>
-        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
-            "Ritual " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.RitualId) + ": " + reason));
-
-    private void BindLifecycle()
-    {
-        if (RitualLifecycleNativeBindings.TryCreate(
-                out var bindings,
-                out var reason,
-                _resolveType,
-                _includeContract))
-        {
-            _bindings = bindings;
-            _bindingFailure = string.Empty;
-            return;
-        }
-        _bindings = null;
-        _bindingFailure = reason;
-    }
-
 }

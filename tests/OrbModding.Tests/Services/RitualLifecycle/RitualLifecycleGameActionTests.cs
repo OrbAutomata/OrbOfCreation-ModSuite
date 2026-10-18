@@ -105,6 +105,42 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         Assert.True(RitualManager.instance.selectedRitual.IsItem(wanted));
     }
 
+    /// <summary>
+    /// The selection press overwrites whatever was selected and the game keeps no undo for it, so
+    /// a press that did not select the ritual is an attempt the caller must check, never a refusal
+    /// with nothing sent, and nothing is paid after it.
+    /// </summary>
+    [Fact]
+    public void A_selection_press_that_does_not_select_is_an_attempted_fault_before_any_payment()
+    {
+        var held = Ritual();
+        var wanted = Ritual();
+        var resource = new ResourceSO { quantity = new BigDouble(10) };
+        resource.SetGuid(Guid.NewGuid());
+        wanted.activationCost.costs.Add(new ResourceTuple(resource, new BigDouble(3)));
+        wanted.NativeMaximumSelectedLevel = 7;
+        Register(held);
+        Register(wanted);
+        RitualManager.instance!.selectedRitual.ToggleValue(held);
+        RitualManager.instance.selectedRitual.SuppressToggle = true;
+        using var boundary = Boundary();
+
+        var leveled = Submit(boundary, wanted, RitualLifecycleActionKind.SetLevel, level: 5);
+        var activated = Submit(boundary, wanted, RitualLifecycleActionKind.Activate);
+
+        foreach (var result in new[] { leveled, activated })
+        {
+            Assert.True(result.Outcome.IsFault);
+            Assert.Equal(RitualLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
+            Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+            Assert.Contains("did not become the selected one", result.Outcome.Reason,
+                StringComparison.Ordinal);
+        }
+        Assert.Equal(0, wanted.activationCost.PerformCalls);
+        Assert.Equal(new BigDouble(10), resource.quantity);
+        Assert.NotEqual(5, wanted.selectedLevel);
+    }
+
     [Fact]
     public void Activate_revalidates_and_pays_the_screen_cost_before_the_manager_callback()
     {
@@ -194,6 +230,21 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var ritual = Ritual();
+        Register(ritual);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, ritual, RitualLifecycleActionKind.Select);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(RitualLifecycleActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.False(RitualManager.instance!.selectedRitual.IsItem(ritual));
+    }
+
+    [Fact]
     public void Unity_thread_is_refused_before_identity_or_native_state()
     {
         var ritual = Ritual();
@@ -217,12 +268,14 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         }
     }
 
-    private RitualLifecycleGameAction Boundary(Func<string, bool>? includeContract = null)
+    private RitualLifecycleGameAction Boundary(
+        Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null)
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
-        return new RitualLifecycleGameAction(() => Epoch, static () => true,
+        return new RitualLifecycleGameAction(epoch ?? (() => Epoch), static () => true,
             static () => "RitualLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);
     }
