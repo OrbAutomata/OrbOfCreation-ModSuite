@@ -20,7 +20,6 @@ internal sealed class AutomataRuntimeFrameFacts
         StrategistBulletin? strategistBulletin,
         ConfigurationPublication configuration,
         bool emergencyStopEngaged,
-        long acceptedFrameCount,
         long currentLifecycle,
         AutomataServiceFrameFacts[] services,
         UnavailableGameAction[] unavailableGameActions)
@@ -29,7 +28,6 @@ internal sealed class AutomataRuntimeFrameFacts
         StrategistBulletin = strategistBulletin;
         Configuration = configuration;
         EmergencyStopEngaged = emergencyStopEngaged;
-        AcceptedFrameCount = acceptedFrameCount;
         CurrentLifecycle = currentLifecycle;
         Services = services;
         UnavailableGameActions = unavailableGameActions;
@@ -39,7 +37,6 @@ internal sealed class AutomataRuntimeFrameFacts
     internal StrategistBulletin? StrategistBulletin { get; }
     internal ConfigurationPublication Configuration { get; }
     internal bool EmergencyStopEngaged { get; }
-    internal long AcceptedFrameCount { get; }
     internal long CurrentLifecycle { get; }
     internal AutomataServiceFrameFacts[] Services { get; }
     internal UnavailableGameAction[] UnavailableGameActions { get; }
@@ -57,13 +54,11 @@ internal sealed class AutomataRuntimeFrameFacts
         var services = includeServices
             ? CaptureServices(registry)
             : Array.Empty<AutomataServiceFrameFacts>();
-        var diagnostics = pump.DiagnosticsSnapshot;
         return new AutomataRuntimeFrameFacts(
             registry.World.ReadLatest(),
             registry.Strategy.ReadStrategistBulletin(),
             configuration.ReadLatest(),
             host.EmergencyStopEngaged,
-            diagnostics.AcceptedFrameCount,
             checked((long)host.CurrentLifecycle.Value),
             services,
             unavailableGameActions);

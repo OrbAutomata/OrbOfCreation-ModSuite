@@ -64,7 +64,6 @@ internal sealed class SuiteFramePumpState
     internal IMonotonicClock Clock { get; }
     internal bool[] Transitioned { get; }
     internal SuiteEmergencyStopState Emergency { get; } = new();
-    internal SuiteFramePumpObservability Observability { get; } = new();
     internal SuiteFramePumpTraceSession Traces { get; }
     internal SuiteFramePumpJournalSession Journal { get; }
     internal SuiteFramePumpEvidenceScanner EvidenceScanner { get; }
@@ -78,6 +77,8 @@ internal sealed class SuiteFramePumpState
     internal bool IsPumping { get; private set; }
     internal bool IsInsideServiceCallback { get; private set; }
     internal bool IsDisposed { get; private set; }
+    internal bool HasAcceptedFrame { get; private set; }
+    internal long LastAcceptedFrameIdentity { get; private set; }
 
     internal void AssertOwnerThread()
     {
@@ -99,6 +100,12 @@ internal sealed class SuiteFramePumpState
     }
 
     internal void BeginPump() => IsPumping = true;
+
+    internal void RecordAcceptedFrame(long frameIdentity)
+    {
+        HasAcceptedFrame = true;
+        LastAcceptedFrameIdentity = frameIdentity;
+    }
 
     internal void PrepareFrame()
     {

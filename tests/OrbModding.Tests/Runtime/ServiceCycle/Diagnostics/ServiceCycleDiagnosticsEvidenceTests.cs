@@ -191,12 +191,11 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         Assert.Equal(1, receipt.EmergencyStop.Episode.Value);
         Assert.Equal(1, receipt.EmergencyStop.Transition.Value);
         Assert.Equal(EmergencyStopReason.SafetyInterlock, receipt.EmergencyStop.Reason);
-        var pumpSnapshot = ServiceCycleDiagnostics.ReadPump(pump);
-        Assert.False(pumpSnapshot.EmergencyStopEngaged);
-        Assert.Equal(2, pumpSnapshot.LatestEmergency.Episode.Value);
-        Assert.Equal(3, pumpSnapshot.LatestEmergency.Transition.Value);
-        Assert.Equal(EmergencyStopReason.SuiteShutdown, pumpSnapshot.LatestEmergency.Reason);
-        Assert.Equal(4, pumpSnapshot.EmergencyTransition.Value);
+        Assert.False(pump.IsEmergencyStopEngaged);
+        Assert.Equal(2, pump.LatestEmergency.Episode.Value);
+        Assert.Equal(3, pump.LatestEmergency.Transition.Value);
+        Assert.Equal(EmergencyStopReason.SuiteShutdown, pump.LatestEmergency.Reason);
+        Assert.Equal(4, pump.EmergencyTransition.Value);
     }
 
     [Fact]

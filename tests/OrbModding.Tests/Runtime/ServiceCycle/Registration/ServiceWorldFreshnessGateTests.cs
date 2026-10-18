@@ -399,12 +399,10 @@ public sealed class ServiceWorldFreshnessGateTests
         var firstHeld = PumpUntilHeld(pump, actionFrame + 1);
         for (var i = 1; i <= 5; i++)
             Assert.Equal(1, pump.PumpFrame(firstHeld + i).WorldGateDeferrals);
-        Assert.Equal(6, ServiceCycleDiagnostics.ReadPump(pump).WorldGateDeferrals);
         Assert.Equal(1, service.ActionExecutionCount);
 
         TestWorldCollector.CollectedAt(registry, firstHeld + 5);
         Assert.Equal(0, pump.PumpFrame(firstHeld + 6).WorldGateDeferrals);
-        Assert.Equal(6, ServiceCycleDiagnostics.ReadPump(pump).WorldGateDeferrals);
     }
 
     /// <summary>

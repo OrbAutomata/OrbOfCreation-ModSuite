@@ -171,10 +171,7 @@ public sealed class ServiceCycleDiagnosticsTests
 
         var observed = 0;
         var allocated = AllocationProbe.MeasureRepeated(1_000, () =>
-        {
-            observed += ServiceCycleDiagnostics.CopyServices(pump, buffer).WrittenCount;
-            observed += (int)ServiceCycleDiagnostics.ReadPump(pump).AcceptedFrameCount;
-        });
+            observed += ServiceCycleDiagnostics.CopyServices(pump, buffer).WrittenCount);
 
         Assert.Equal(2_000, observed);
         Assert.Equal(0, allocated);
@@ -266,7 +263,7 @@ public sealed class ServiceCycleDiagnosticsTests
     }
 
     [Fact]
-    public void PumpSnapshotRetainsCumulativeReportsAndEmergencyEpisodeReason()
+    public void ADuplicateFrameIsRejectedAndTheEmergencyEpisodeKeepsItsReason()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
@@ -280,30 +277,21 @@ public sealed class ServiceCycleDiagnosticsTests
         var accepted = pump.PumpFrame(1);
         var rejected = pump.PumpFrame(1);
         pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
-        var engaged = ServiceCycleDiagnostics.ReadPump(pump);
 
         Assert.True(accepted.Accepted);
         Assert.False(rejected.Accepted);
-        Assert.Equal(1, engaged.AcceptedFrameCount);
-        Assert.Equal(1, engaged.RejectedFrameCount);
-        Assert.True(engaged.HasLastReport);
-        Assert.False(engaged.LastReport.Accepted);
-        Assert.Equal(accepted.ResponsesAcquired, engaged.ResponsesAcquired);
-        Assert.Equal(accepted.ActionsAttempted, engaged.ActionsAttempted);
-        Assert.Equal(accepted.CapturesAttempted, engaged.CapturesAttempted);
-        Assert.Equal(accepted.TotalDuration, engaged.TotalDuration);
-        Assert.True(engaged.EmergencyStopEngaged);
-        Assert.Equal(1, engaged.ActiveEmergency.Episode.Value);
-        Assert.Equal(1, engaged.LatestEmergency.Episode.Value);
-        Assert.Equal(EmergencyStopReason.SafetyInterlock, engaged.LatestEmergency.Reason);
+        Assert.Equal(1, pump.LastAcceptedFrameIdentity);
+        Assert.True(pump.IsEmergencyStopEngaged);
+        Assert.Equal(1, pump.ActiveEmergency.Episode.Value);
+        Assert.Equal(1, pump.LatestEmergency.Episode.Value);
+        Assert.Equal(EmergencyStopReason.SafetyInterlock, pump.LatestEmergency.Reason);
 
         pump.SetEmergencyStop(false);
-        var disengaged = ServiceCycleDiagnostics.ReadPump(pump);
-        Assert.False(disengaged.EmergencyStopEngaged);
-        Assert.False(disengaged.ActiveEmergency.IsValid);
-        Assert.Equal(1, disengaged.LatestEmergency.Episode.Value);
-        Assert.Equal(EmergencyStopReason.SafetyInterlock, disengaged.LatestEmergency.Reason);
-        Assert.Equal(2, disengaged.EmergencyTransition.Value);
+        Assert.False(pump.IsEmergencyStopEngaged);
+        Assert.False(pump.ActiveEmergency.IsValid);
+        Assert.Equal(1, pump.LatestEmergency.Episode.Value);
+        Assert.Equal(EmergencyStopReason.SafetyInterlock, pump.LatestEmergency.Reason);
+        Assert.Equal(2, pump.EmergencyTransition.Value);
     }
 
     [Fact]

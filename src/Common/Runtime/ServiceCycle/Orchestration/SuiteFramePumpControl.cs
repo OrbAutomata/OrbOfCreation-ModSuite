@@ -108,11 +108,9 @@ internal sealed class SuiteFramePumpControl
 
         if (engaged && !_state.IsInsideServiceCallback)
         {
-            var rejected = RejectAllActiveBatches(
+            RejectAllActiveBatches(
                 observedAt,
                 markFrameTransitions: _state.IsPumping);
-            if (!_state.IsPumping)
-                _state.Observability.RecordOutOfFrameEmergencyRejections(rejected);
         }
     }
 

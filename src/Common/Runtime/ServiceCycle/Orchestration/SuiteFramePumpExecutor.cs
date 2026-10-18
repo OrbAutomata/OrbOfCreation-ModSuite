@@ -28,8 +28,8 @@ internal sealed class SuiteFramePumpExecutor
         if (_state.IsPumping)
             throw new InvalidOperationException(
                 "The service-cycle frame pump cannot be entered recursively.");
-        if (_state.Observability.HasAcceptedFrame &&
-            frameIdentity <= _state.Observability.LastAcceptedFrameIdentity)
+        if (_state.HasAcceptedFrame &&
+            frameIdentity <= _state.LastAcceptedFrameIdentity)
             return RejectFrame(frameIdentity);
 
         // Before the frame opens rather than inside it: PrepareFrame latches whatever the stop is at
@@ -87,7 +87,6 @@ internal sealed class SuiteFramePumpExecutor
             default,
             default,
             default);
-        _state.Observability.RecordReport(in report);
         _state.EvidenceEmitter.RejectedPumpCompleted(in report, _state.Clock.Now);
         return report;
     }
@@ -188,7 +187,7 @@ internal sealed class SuiteFramePumpExecutor
             frameStarted,
             frameEnded,
             metrics);
-        _state.Observability.RecordReport(in report);
+        _state.RecordAcceptedFrame(frameIdentity);
         _state.EvidenceScanner.ObservePublications(
             _state.Traces.Dispatch,
             _state.Journal.Observer,
