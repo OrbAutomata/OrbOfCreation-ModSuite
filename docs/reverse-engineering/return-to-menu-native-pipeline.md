@@ -70,9 +70,11 @@ that holds one: the single `UIModalActivator` whose `modalCreated` prepared moda
 button is live, and whose modal transform the control hangs under. Containment is the whole test —
 no authored caption participates, so renaming the panel cannot move the control out of reach. It
 then takes the permit, presses that activator's `OpenModal`, requires the modal to report itself
-open, and re-resolves. A panel that does not open, or an opened panel with no single interactable
-control, refuses and says so in the same sentence that reports the panel is now open. More than one
-live control, or more than one closed panel offering one, enumerates what it found. No save data,
+open, and re-resolves. From `OpenModal` on, every outcome short of success is a fault with the
+attempt recorded, never a refusal: a panel that does not open, an opened panel with no single
+interactable control, and a throw from the open itself. The sentence says whether the panel is now
+open. More than one live control, or more than one closed panel offering one, enumerates what it
+found. No save data,
 file, timer, scene coroutine, or secondary receipt is inspected.
 
 Success is returned before scene teardown as `status: committed, scene: Start`, with the two

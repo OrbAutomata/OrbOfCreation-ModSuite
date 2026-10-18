@@ -303,6 +303,10 @@ public sealed class CraftingInstanceListVariable : GenericListVariable<CraftingI
     public bool isAutoList;
     public bool SuppressAutomation;
     public bool SuppressAutomationRemoval;
+    public bool ThrowAfterAutomation;
+
+    /// <summary>The write lands, then the game throws and its instances stop reading.</summary>
+    public bool BreakAfterMutation;
 
     public BigDouble GetQuantity(CraftingRecipeSO recipe)
     {
@@ -321,13 +325,23 @@ public sealed class CraftingInstanceListVariable : GenericListVariable<CraftingI
         if (instance is not null)
         {
             if (!SuppressAutomation) instance.AddAutomationQuantity(amount);
+            AfterWrite();
             return instance;
         }
         instance = new CraftingInstance(recipe, amount).SetAuto(true);
         instance.Initiate();
         if (!SuppressAutomation) instance.SetAutomationQuantity(amount);
         Add(instance);
+        AfterWrite();
         return instance;
+    }
+
+    private void AfterWrite()
+    {
+        if (BreakAfterMutation)
+            foreach (var instance in value) instance.ThrowOnRead = true;
+        if (ThrowAfterAutomation || BreakAfterMutation)
+            throw new InvalidOperationException("injected failure after automation write");
     }
 
     public void RemoveAutomation(CraftingInstance instance, int amount)
@@ -397,7 +411,10 @@ public sealed class CraftingInstance : AbstractRefInstance<CraftingRecipeSO>
         return this;
     }
 
-    public int GetAutomationQuantity() => AutomationQuantity;
+    public bool ThrowOnRead;
+
+    public int GetAutomationQuantity() =>
+        ThrowOnRead ? throw new InvalidOperationException("injected failure reading automation") : AutomationQuantity;
     public void AddAutomationQuantity(int amount) =>
         SetAutomationQuantity(AutomationQuantity + amount);
     public void SetAutomationQuantity(int amount)
@@ -562,8 +579,14 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
 {
     public bool SuppressMutation { get; set; }
 
+    /// <summary>The add lands, then the game throws and the list stops reading.</summary>
+    public bool BreakAfterMutation { get; set; }
+    private bool brokenReads;
+
     public HarvestActionInstance? FindInstance(HarvestActionInstance prototype) =>
-        value.Find(candidate => candidate.IsSameRef(prototype));
+        brokenReads
+            ? throw new InvalidOperationException("injected failure reading the harvest actions")
+            : value.Find(candidate => candidate.IsSameRef(prototype));
 
     public void AddInstance(HarvestActionInstance prototype, int amount)
     {
@@ -576,6 +599,9 @@ public sealed class HarvestActionInstanceListVariable : GenericListVariable<Harv
             Add(current);
         }
         current.ChangeInstance(amount);
+        if (!BreakAfterMutation) return;
+        brokenReads = true;
+        throw new InvalidOperationException("injected failure after the harvest action add");
     }
 
     public void RemoveInstance(HarvestActionInstance instance, int amount)
@@ -1320,10 +1346,13 @@ public sealed class UIModalActivator : UnityEngine.MonoBehaviour
         button.interactable = value;
     }
 
+    public bool ThrowAfterOpen { get; set; }
+
     public void OpenModal()
     {
         if (!modalCreated) return;
         createdModal.PerformOpen();
+        if (ThrowAfterOpen) throw new InvalidOperationException("injected failure after opening the panel");
     }
 }
 
@@ -2452,6 +2481,10 @@ public sealed class CraftingStructure
     private ResourceCostList resourceDrain = new ResourceCostList();
     public bool SuppressMutation { get; set; }
 
+    /// <summary>The level write lands, then the game throws and the level stops reading.</summary>
+    public bool BreakAfterMutation { get; set; }
+    private bool brokenReads;
+
     public CraftingStructure(CraftingStructureSO reference)
     {
         referenceObj = reference;
@@ -2478,7 +2511,8 @@ public sealed class CraftingStructure
     public bool IsOutputVisible(CraftingStructureSO.TypeElement element) => element.IsAvailable();
     public bool IsLoaded() => isLoaded;
     public bool IsActive() => active;
-    public int GetLevel() => selectedLevel;
+    public int GetLevel() =>
+        brokenReads ? throw new InvalidOperationException("injected failure reading the station level") : selectedLevel;
     public int GetMinSelectedLevel() => 1;
     public int GetMaxSelectedLevel() => 10;
     public ResourceCostList GetCurrentDrain() => resourceDrain;
@@ -2511,6 +2545,9 @@ public sealed class CraftingStructure
         if (SuppressMutation) return;
         selectedLevel = Math.Max(GetMinSelectedLevel(), Math.Min(level, GetMaxSelectedLevel()));
         active = false;
+        if (!BreakAfterMutation) return;
+        brokenReads = true;
+        throw new InvalidOperationException("injected failure after the level write");
     }
 
     public void SetActive(bool value)

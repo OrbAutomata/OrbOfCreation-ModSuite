@@ -915,11 +915,16 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
 {
     public bool SuppressMutation { get; set; }
 
+    /// <summary>The add lands, then the game throws and the list stops reading.</summary>
+    public bool BreakAfterMutation { get; set; }
+    private bool brokenReads;
+
     protected override bool IsFilledElement(PlotNodeActionInstance element) =>
         element is not null && !element.IsEmpty();
 
     public PlotNodeActionInstance? FindInstance(PlotNodeActionInstance prototype)
     {
+        if (brokenReads) throw new InvalidOperationException("injected failure reading the plot actions");
         foreach (var candidate in value)
         {
             if (candidate is not null &&
@@ -933,6 +938,14 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
     public bool HasInstance(PlotNodeActionInstance prototype) => FindInstance(prototype) is not null;
 
     public void AddInstance(PlotNodeActionInstance prototype, int quantity)
+    {
+        Add(prototype, quantity);
+        if (!BreakAfterMutation) return;
+        brokenReads = true;
+        throw new InvalidOperationException("injected failure after the plot action add");
+    }
+
+    private void Add(PlotNodeActionInstance prototype, int quantity)
     {
         if (SuppressMutation) return;
         var existing = FindInstance(prototype);
@@ -2858,7 +2871,9 @@ public sealed class PlayerLoadout
 
     public Guid GetGuid() => guidContainer.guid;
     public string GetName() => label.GetName();
-    public bool IsSelected() => isSelected;
+    public bool ThrowOnSelectedRead { get; set; }
+    public bool IsSelected() =>
+        ThrowOnSelectedRead ? throw new InvalidOperationException("injected failure reading the selected loadout") : isSelected;
     public bool HasEquipment() => saveEquipment;
     public bool HasAlchemy() => saveAlchemy;
     public List<Spell> GetSpells() => new List<Spell>(spells);
@@ -2926,6 +2941,9 @@ public sealed class LoadoutManager
     public SpellListVariable activeSpells = new SpellListVariable();
     public bool SuppressSetLoadout { get; set; }
     public bool ThrowAfterSetLoadout { get; set; }
+
+    /// <summary>The switch lands, then the game throws and the target stops reading.</summary>
+    public bool BreakAfterSetLoadout { get; set; }
     public int SetLoadoutCalls { get; private set; }
     public int SaveActiveCalls { get; private set; }
 
@@ -2953,7 +2971,8 @@ public sealed class LoadoutManager
             if (target.saveEquipment) activeEquipment.SetStack(target.equipment);
             if (target.saveAlchemy) activeAlchemy.FromStackedRecord(target.alchemy);
         }
-        if (ThrowAfterSetLoadout)
+        if (BreakAfterSetLoadout) target.ThrowOnSelectedRead = true;
+        if (ThrowAfterSetLoadout || BreakAfterSetLoadout)
             throw new InvalidOperationException("injected failure after loadout switch");
     }
 
@@ -3289,8 +3308,11 @@ public sealed class AlchemyInstance : AbstractRefInstance<AlchemyRecipeSO>
     public int queuedQuantity;
     public ConceptDrainState resourceDrain = new ConceptDrainState();
 
+    public bool ThrowOnRead;
+
     public BigDouble GetDrainCostMod() => new BigDouble(quantity * 100d);
-    public int GetQueuedQuantity() => queuedQuantity;
+    public int GetQueuedQuantity() =>
+        ThrowOnRead ? throw new InvalidOperationException("injected failure reading alchemy uses") : queuedQuantity;
     public int GetRemainingFreeUsageSlots() =>
         Math.Max(reference.GetFreeUsageSlots() - queuedQuantity, 0);
     public int GetRemainingMaxUsageSlots() =>
@@ -3302,6 +3324,9 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public bool SuppressAddMutation { get; set; }
     public bool SuppressRemoveMutation { get; set; }
     public bool ThrowOnCanAdd { get; set; }
+
+    /// <summary>The write lands, then the game throws and its instances stop reading.</summary>
+    public bool BreakAfterMutation { get; set; }
     public int TypelessSlots { get; set; } = 16;
     public Dictionary<AlchemyTypeSO, int> TypeSlots { get; } =
         new Dictionary<AlchemyTypeSO, int>();
@@ -3345,6 +3370,13 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
             value.Add(instance);
         }
         instance.queuedQuantity += delta;
+        if (BreakAfterMutation) Break();
+    }
+
+    private void Break()
+    {
+        foreach (var instance in value) instance.ThrowOnRead = true;
+        throw new InvalidOperationException("injected failure after alchemy write");
     }
 
     public void RemoveAlchemyInstances(AlchemyRecipeSO recipe, int delta)

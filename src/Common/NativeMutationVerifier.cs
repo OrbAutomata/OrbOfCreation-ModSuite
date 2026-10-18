@@ -218,6 +218,27 @@ public static class NativeMutationVerifier
             verified ? "postcondition verified" : "captured state did not match the expected change");
     }
 
+    /// <summary>
+    /// Reads the after-state once a native mutation call has run, for a GameAction that classifies
+    /// its own outcome. An unreadable after-state comes back unread instead of thrown, so a change
+    /// that may have landed is classified as a fault and never escapes as a refusal.
+    /// </summary>
+    public static bool TryReadAfterCall<T>(Func<T> read, Func<Exception, bool> isExpected, out T value)
+    {
+        if (read is null) throw new ArgumentNullException(nameof(read));
+        if (isExpected is null) throw new ArgumentNullException(nameof(isExpected));
+        try
+        {
+            value = read();
+            return true;
+        }
+        catch (Exception exception) when (isExpected(exception))
+        {
+            value = default!;
+            return false;
+        }
+    }
+
     private static bool Holds<TState>(Func<TState, TState, bool> verify, TState before, TState after)
     {
         try

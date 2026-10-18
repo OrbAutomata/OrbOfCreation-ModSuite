@@ -183,16 +183,19 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 : Fault(in action, CraftingInstanceLifecyclePreflight.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Workshop > Crafting"),
-                    SideEffect(in action, native, instance, before));
+                    SideEffect(in action, native, recipe, automation, instance, before));
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, recipe, queue, automation, instance, before))
+            var request = action;
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => OutcomeObserved(in request, native, recipe, queue, automation, instance, before),
+                    IsExpected, out var observed) && observed)
                 return Verified();
             return Fault(in action, CraftingInstanceLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Crafting", exception),
-                SideEffect(in action, native, instance, before));
+                SideEffect(in action, native, recipe, automation, instance, before));
         }
     }
 
@@ -203,13 +206,17 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
     private static CraftingInstanceLifecycleSideEffect SideEffect(
         in CraftingInstanceLifecycleAction action,
         CraftingInstanceLifecycleNativeBindings native,
+        object recipe,
+        object automation,
         object? instance,
         int before)
     {
-        if (action.Kind == CraftingInstanceLifecycleActionKind.CancelManual || instance is null)
-            return default;
+        if (action.Kind == CraftingInstanceLifecycleActionKind.CancelManual) return default;
         try
         {
+            if (action.Kind == CraftingInstanceLifecycleActionKind.Automate)
+                instance = native.QueueInstance(automation, recipe);
+            if (instance is null) return default;
             var after = native.AutomationQuantity(instance);
             return after == before
                 ? default
@@ -232,11 +239,13 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
     {
         if (action.Kind == CraftingInstanceLifecycleActionKind.CancelManual)
             return instance is not null && !ContainsReference(native.QueueValues(queue), instance);
-        if (instance is null) return false;
         if (action.Kind == CraftingInstanceLifecycleActionKind.Automate)
-            return ValidInstance(native, native.QueueInstance(automation, recipe),
-                action.RecipeId, expectedAuto: true) &&
-                native.AutomationQuantity(instance) > before;
+        {
+            var automated = native.QueueInstance(automation, recipe);
+            return ValidInstance(native, automated, action.RecipeId, expectedAuto: true) &&
+                native.AutomationQuantity(automated!) > before;
+        }
+        if (instance is null) return false;
         // A cancel that empties the entry makes the game drop it from the automation list, so
         // absence is the same observation as a smaller quantity.
         return !ContainsReference(native.QueueValues(automation), instance) ||

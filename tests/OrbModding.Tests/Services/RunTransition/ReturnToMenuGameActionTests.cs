@@ -1,5 +1,6 @@
 using System;
 using OrbAutomata;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -95,8 +96,12 @@ public sealed class ReturnToMenuGameActionTests
         Assert.Equal("Back to Main Menu", result.PressedControl);
     }
 
+    /// <summary>
+    /// Pressing the panel's own button is the first thing this verb does to the game, so every
+    /// outcome after it is an attempt a caller must not retry blind, never a refusal.
+    /// </summary>
     [Fact]
-    public void APanelThatDoesNotOpenRefusesAndSaysTheControlIsStillOutOfReach()
+    public void APanelThatDoesNotOpenIsAnAttemptAndSaysTheControlIsStillOutOfReach()
     {
         var panel = new UIModal { SuppressOpen = true };
         var control = new UIBackToMenuButton { name = "Back to Main Menu" };
@@ -108,6 +113,43 @@ public sealed class ReturnToMenuGameActionTests
 
         Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, result.Preflight);
         Assert.Contains("did not open", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, ReturnToMenuActionResultMapper.Map(in result).Disposition);
+        Assert.Equal(0, control.manualSave.RaiseCalls);
+    }
+
+    [Fact]
+    public void APanelLeftOpenWithoutALiveControlIsAnAttempt()
+    {
+        var panel = new UIModal();
+        var control = new UIBackToMenuButton { name = "Back to Main Menu" };
+        control.PlaceInPanelForTest(panel);
+        control.SetLiveForTest(false);
+        var activator = new UIModalActivator(panel, "Settings");
+        using var boundary = Panel(panel, control, activator);
+
+        var result = Submit(boundary);
+
+        Assert.True(panel.IsOpen());
+        Assert.Contains("now open", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, ReturnToMenuActionResultMapper.Map(in result).Disposition);
+    }
+
+    [Fact]
+    public void AnOpenThatThrowsIsAFaultNotANothingWasSentRefusal()
+    {
+        var panel = new UIModal();
+        var control = new UIBackToMenuButton { name = "Back to Main Menu" };
+        control.PlaceInPanelForTest(panel);
+        var activator = new UIModalActivator(panel, "Settings") { ThrowAfterOpen = true };
+        using var boundary = Panel(panel, control, activator);
+
+        var result = Submit(boundary);
+
+        Assert.Equal(ReturnToMenuPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.DoesNotContain("Nothing was sent", result.Reason, StringComparison.Ordinal);
         Assert.Equal(0, control.manualSave.RaiseCalls);
     }
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -59,6 +60,30 @@ public sealed class HarvestLifecycleGameActionTests
         Assert.Equal(2, addedInstances);
         Assert.True(removed.Verified, removed.Reason);
         Assert.Empty(_actions.value);
+    }
+
+    /// <summary>
+    /// The game added the action, threw, and then would not read back. The press may have landed,
+    /// so it is a fault with the attempt recorded, never a refusal a caller would retry.
+    /// </summary>
+    [Fact]
+    public void A_read_back_that_throws_after_the_write_is_a_fault_not_a_refusal()
+    {
+        var element = Element();
+        element.masteryLevel = 3;
+        var action = Action();
+        element.AddAction(action);
+        Register(element);
+        Register(action);
+        _actions.BreakAfterMutation = true;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, HarvestLifecycleActionKind.AddAction, element, action);
+
+        Assert.Equal(HarvestLifecyclePreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted,
+            HarvestLifecycleActionResultMapper.Map(in result).Disposition);
     }
 
     [Fact]

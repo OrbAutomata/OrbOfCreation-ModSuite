@@ -244,8 +244,11 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, element, elementList, actionList,
-                    prototype, before)) return Verified();
+            var request = action;
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => OutcomeObserved(in request, native, element, elementList, actionList,
+                        prototype, before),
+                    IsExpected, out var observed) && observed) return Verified();
             return Fault(in action, HarvestLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("World > Agromancy", exception));

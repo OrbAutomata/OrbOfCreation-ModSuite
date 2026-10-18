@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -175,6 +176,45 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
             Assert.False(boundary.BindingsAvailable);
             Assert.Contains(missing, boundary.BindingFailure, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>
+    /// The game wrote a new automation entry and then threw. The entry is there to read, so the
+    /// press committed and the exception only explains it.
+    /// </summary>
+    [Fact]
+    public void Automate_that_throws_after_writing_a_new_entry_is_seen_as_committed()
+    {
+        var (recipe, page) = Surface();
+        page.craftingAutomationInstances.ThrowAfterAutomation = true;
+        using var boundary = Boundary(recipe);
+
+        var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(1, page.craftingAutomationInstances.GetInstance(recipe)!.AutomationQuantity);
+    }
+
+    /// <summary>
+    /// The game wrote the repetition, threw, and then would not read back. The press may have
+    /// landed, so it is a fault with the attempt recorded, never a refusal a caller would retry.
+    /// </summary>
+    [Fact]
+    public void A_read_back_that_throws_after_the_write_is_a_fault_not_a_refusal()
+    {
+        var (recipe, page) = Surface();
+        var existing = new CraftingInstance(recipe, new BigDouble(2)).SetAuto(true);
+        existing.SetAutomationQuantity(2);
+        page.craftingAutomationInstances.value.Add(existing);
+        page.craftingAutomationInstances.BreakAfterMutation = true;
+        using var boundary = Boundary(recipe);
+
+        var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
+
+        Assert.Equal(CraftingInstanceLifecyclePreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted,
+            CraftingInstanceLifecycleActionResultMapper.Map(in result).Disposition);
     }
 
     [Fact]

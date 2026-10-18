@@ -95,22 +95,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
                 if (!_tryCaptureMutationPermit())
                     return Reject(ReturnToMenuPreflight.MutationPermitUnavailable,
                         _readOwnershipFailure());
-                native.OpenPanel(panel!);
-                if (native.PanelModal(panel!) is not { } opened || !native.PanelOpen(opened))
-                {
-                    return Reject(ReturnToMenuPreflight.ControlUnavailable,
-                        "The game's panel did not open, so its Back to Main Menu control is still " +
-                        "out of reach.");
-                }
-                live = LiveControls(native, loaded);
-                if (live.Count > 1) return Ambiguous(native, live);
-                if (live.Count == 0)
-                {
-                    return Reject(ReturnToMenuPreflight.ControlUnavailable,
-                        "The game's panel is now open and was not closed again, and it shows no " +
-                        "interactable Back to Main Menu control.");
-                }
-                return Execute(native, live[0], flash, native.ControlName(panel!));
+                return OpenThenExecute(native, panel!, loaded, flash);
             }
             if (!_tryCaptureMutationPermit())
                 return Reject(ReturnToMenuPreflight.MutationPermitUnavailable,
@@ -137,6 +122,48 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         _bindingFailure = string.Empty;
     }
 
+    /// <summary>
+    /// Opening the panel is the first change this verb makes to the game, so every outcome after it
+    /// is an attempt, never a refusal a caller could retry as if nothing had happened.
+    /// </summary>
+    private static ReturnToMenuSubmission OpenThenExecute(
+        ReturnToMenuNativeBindings native,
+        object panel,
+        List<object> loaded,
+        object flash)
+    {
+        object control;
+        string openedName;
+        try
+        {
+            native.OpenPanel(panel);
+            if (native.PanelModal(panel) is not { } opened || !native.PanelOpen(opened))
+                return Opened(
+                    "The game's panel did not open, so its Back to Main Menu control is still " +
+                    "out of reach.");
+            var live = LiveControls(native, loaded);
+            if (live.Count > 1)
+                return Opened(AmbiguousReason(native, live) + " The panel it opened is still open.");
+            if (live.Count == 0)
+                return Opened(
+                    "The game's panel is now open and was not closed again, and it shows no " +
+                    "interactable Back to Main Menu control.");
+            control = live[0];
+            openedName = native.ControlName(panel);
+        }
+        catch (Exception exception) when (IsExpected(exception))
+        {
+            return Fault(ReturnToMenuPreflight.PostCommitFault, ReturnToMenuNativeStage.NativeCallback,
+                NativeMutationOutcome.ExecutionThrew,
+                GameActionAnswer.GameErrored("the game's own screen", exception));
+        }
+        return Execute(native, control, flash, openedName);
+    }
+
+    private static ReturnToMenuSubmission Opened(string reason) =>
+        Fault(ReturnToMenuPreflight.ControlUnavailable, ReturnToMenuNativeStage.NativeCallback,
+            NativeMutationOutcome.PostconditionFailed, reason);
+
     private static ReturnToMenuSubmission Execute(
         ReturnToMenuNativeBindings native,
         object button,
@@ -157,7 +184,8 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (native.FlashActive(flash)) return Verified(pressed, openedPanel);
+            if (NativeMutationVerifier.TryReadAfterCall(() => native.FlashActive(flash), IsExpected,
+                    out var transitioning) && transitioning) return Verified(pressed, openedPanel);
             return Fault(ReturnToMenuPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("the game's own screen", exception));
@@ -177,9 +205,11 @@ internal sealed class ReturnToMenuGameAction : IDisposable
     private static ReturnToMenuSubmission Ambiguous(
         ReturnToMenuNativeBindings native,
         List<object> live) =>
-        Reject(ReturnToMenuPreflight.ControlUnavailable,
-            "The game has more than one visible, interactable Back to Main Menu control: " +
-            string.Join(", ", live.ConvertAll(value => native.ControlName(value))) + ".");
+        Reject(ReturnToMenuPreflight.ControlUnavailable, AmbiguousReason(native, live));
+
+    private static string AmbiguousReason(ReturnToMenuNativeBindings native, List<object> live) =>
+        "The game has more than one visible, interactable Back to Main Menu control: " +
+        string.Join(", ", live.ConvertAll(value => native.ControlName(value))) + ".";
 
     /// <summary>
     /// The one shut panel whose own button the player can press and whose content holds a Back to
