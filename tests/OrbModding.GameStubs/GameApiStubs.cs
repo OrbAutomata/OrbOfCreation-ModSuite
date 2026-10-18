@@ -245,7 +245,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool readyToLevel;
     public bool SuppressMasteryGain { get; set; }
     public bool SuppressLevelMutation { get; set; }
-    public bool ThrowAfterLevelMutation { get; set; }
+    public Exception? ThrowAfterLevelMutation { get; set; }
     public int MasteryGrantCalls { get; private set; }
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
     public Prerequisites.Container levelingPrerequisites = new Prerequisites.Container();
@@ -334,11 +334,13 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public ResourceCostList GetLevelCost() => levelCost;
     public void PurchaseLevel()
     {
-        if (!readyToLevel || SuppressLevelMutation) return;
-        masteryLevel++;
-        readyToLevel = false;
-        if (ThrowAfterLevelMutation)
-            throw new NullReferenceException("injected failure after the level landed");
+        if (!readyToLevel) return;
+        if (!SuppressLevelMutation)
+        {
+            masteryLevel++;
+            readyToLevel = false;
+        }
+        if (ThrowAfterLevelMutation is { } failure) throw failure;
     }
     public string GetName() => "Spell";
 
@@ -1496,7 +1498,7 @@ public class PersistentResetManager
     public int FetchCalls { get; private set; }
     public int ResetCalls { get; private set; }
     public bool SuppressReset { get; set; }
-    public bool ThrowAfterReset { get; set; }
+    public Exception? ThrowAfterReset { get; set; }
     public static Action? PersistentResetSignal { get; set; }
 
     public void FetchNewChallenges()
@@ -1528,7 +1530,7 @@ public class PersistentResetManager
             GameManager.PersistentResetGameState();
             GameManager.CleanGame();
         }
-        if (ThrowAfterReset) throw new InvalidOperationException("injected failure after persistent reset");
+        if (ThrowAfterReset is { } failure) throw failure;
     }
 }
 

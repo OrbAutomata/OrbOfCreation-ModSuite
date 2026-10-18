@@ -119,15 +119,16 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
         }
 #endif
 
+        var pair = action.Pair;
         var result = _mutation.Submit(
             resolved,
             action.Facts,
-            action.Safety
+            action.Safety,
+            () => _gates.Quarantine(pair)
 #if SERVICE_CYCLE_PROFILE
             , in context
 #endif
             );
-        if (result.Code == AutoHarvestActionResultCodes.PairFaulted) _gates.Quarantine(action.Pair);
         return _guard.Finish(in result, in action);
     }
 

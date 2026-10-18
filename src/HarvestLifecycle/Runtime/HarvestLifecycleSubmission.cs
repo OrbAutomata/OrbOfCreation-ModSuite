@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -9,6 +10,12 @@ internal readonly struct HarvestLifecycleSubmission
         Outcome = outcome;
         MaximumAmount = maximumAmount;
     }
+
+    internal static HarvestLifecycleSubmission Refused(
+        ServiceActionResultCode code,
+        string reason,
+        int maximumAmount = -1) =>
+        new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 
     internal NativeActionOutcome Outcome { get; }
 

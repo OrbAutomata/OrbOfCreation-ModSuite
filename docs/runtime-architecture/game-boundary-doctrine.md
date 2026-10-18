@@ -232,6 +232,15 @@ declares:
 - its **failure story** — what blocks, what the health surface says when the postcondition
   fails, and, for automation consumers only, what quarantines.
 
+`NativeGameAction` in Common is the shell a GameAction derives from; the action supplies only its
+binding factory, screen, admission, native call and sentinel. The shell answers in a fixed order:
+the wrong thread, then a missing binding set, then the run. An epoch the game cannot answer is a
+fault, never a replaced run. An expected throw during admission is a refusal, because nothing was
+sent. The native call goes through `NativeMutationVerifier`: a visible outcome commits, a missing
+one is a verification fault, and an expected throw or an unreadable after-state is a post-commit
+fault that names the game's error by its log reference. A GameAction not yet on the shell is
+migration debt.
+
 Mutation entry points, in strict order of preference:
 
 1. **A data-layer composite** the game already owns: `UpgradeSO.Purchase`,
@@ -286,14 +295,19 @@ quarantine an outcome the game observably performed — a sub-ULP native `BigDou
 cannot disprove a transition that happened.
 
 After a native exception, capture the simplest available after-state before classifying: if the
-requested identity and outcome are observable, the action committed and the exception rides along
-as its explanation; if the outcome is absent or the target ambiguous after a mutation began, fail
+requested identity and outcome are observable, the action committed and the exception is logged
+with a reference; if the outcome is absent or the target ambiguous after a mutation began, fail
 closed. Admission checks still prevent unaffordable or otherwise ineligible attempts — this rule
 defines what a postcondition is, not preflight authority.
 
 `NativeFailureClassifier.IsExpected` is the one list of exceptions that count as a failed native
 read or call, for every GameAction, adapter and reader. Any other exception is a suite defect and
-escapes to the boundary that reports it as a fault.
+escapes to the boundary that reports it as a fault, unless a native call ran and its change landed.
+After a native call, `NativeMutationVerifier` classifies every throw first by reading the
+after-state. A landed change followed by an unexpected throw commits, and the throw is logged with a
+reference. A change that did not land runs the caller's quarantine, and only then does an unexpected
+exception escape, so the defect stays loud and the quarantine already holds when the fault tracker
+retries the batch.
 
 ## MCP responses: worked, or why not
 

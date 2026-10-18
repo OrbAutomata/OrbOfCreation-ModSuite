@@ -1,3 +1,4 @@
+using System;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -42,7 +43,8 @@ internal interface IAutoHarvestMutationPort
     NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
-        AutoHarvestActionSafetyState safety
+        AutoHarvestActionSafetyState safety,
+        Action quarantine
 #if SERVICE_CYCLE_PROFILE
         , in ServiceActionContext context
 #endif

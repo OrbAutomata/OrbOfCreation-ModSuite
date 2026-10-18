@@ -275,6 +275,7 @@ internal static class AutoHarvestProfileTestSupport
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
             AutoHarvestActionSafetyState safety,
+            Action quarantine,
             in ServiceActionContext context) =>
             NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty);
     }

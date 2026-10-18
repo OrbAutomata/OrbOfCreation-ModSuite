@@ -320,12 +320,9 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                         native.FireSpellIndex(manager, slotIndex);
                     }
                 },
-                (before, after) => before && !after);
-            if (!evidence.IsVerified && evidence.MutationWasAttempted)
-            {
-                _blockedSpells[spellRecipeId] =
-                    "native toggle-off blocked until the next lifecycle: " + evidence.Format();
-            }
+                (before, after) => before && !after,
+                attempted => _blockedSpells[spellRecipeId] =
+                    "native toggle-off blocked until the next lifecycle: " + attempted.Format());
             return AutoCastSubmission.Attempted(evidence, nativeCalls);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -383,16 +380,11 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                 if (!FireAndResolveTargets(native, manager, slotIndex, ref nativeCalls, out failure))
                     throw new InvalidOperationException(failure);
             },
-            (before, after) => after == before + 1 && !native.IsTargeting());
+            (before, after) => after == before + 1 && !native.IsTargeting(),
+            attempted => _blockedSpells[spellRecipeId] =
+                $"native cast blocked until the next lifecycle: {attempted.Format()}");
 
-        var submission = AutoCastSubmission.Attempted(evidence, nativeCalls);
-        if (!evidence.IsVerified && evidence.MutationWasAttempted)
-        {
-            _blockedSpells[spellRecipeId] =
-                $"native cast blocked until the next lifecycle: {evidence.Format()}";
-        }
-
-        return submission;
+        return AutoCastSubmission.Attempted(evidence, nativeCalls);
     }
 
     private static bool FireAndResolveTargets(

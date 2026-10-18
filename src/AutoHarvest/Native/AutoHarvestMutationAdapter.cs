@@ -32,7 +32,8 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
     public NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
-        AutoHarvestActionSafetyState safety
+        AutoHarvestActionSafetyState safety,
+        Action quarantine
 #if SERVICE_CYCLE_PROFILE
         , in ServiceActionContext context
 #endif
@@ -124,15 +125,16 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 #else
                 current.Bindings.ActiveAddInstance(current.Shared.ActiveActions, prototype!, 1);
 #endif
-            }
-            );
+            },
+            quarantine);
     }
 
     internal static NativeActionOutcome SubmitCaptured(
         string actionUuid,
         in AutoHarvestSubmissionState before,
         Func<bool> observeAfter,
-        Action execute)
+        Action execute,
+        Action quarantine)
     {
         if (!CanSubmit(before))
         {
@@ -144,13 +146,15 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         return SubmitAdmitted(
             actionUuid,
             observeAfter,
-            execute);
+            execute,
+            quarantine);
     }
 
     private static NativeActionOutcome SubmitAdmitted(
         string actionUuid,
         Func<bool> observeAfter,
-        Action execute)
+        Action execute,
+        Action quarantine)
     {
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
             "Auto Harvest",
@@ -159,13 +163,14 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             false,
             observeAfter,
             execute,
-            static (_, after) => after);
+            static (_, after) => after,
+            _ => quarantine());
         return FromVerifier(evidence.Outcome, NativeMutationCallOutcome.FromEvidence(evidence));
     }
 
     /// <summary>
     /// An attempted-but-unverified mutation is the one outcome that must never be retried this
-    /// lifecycle, so it alone is named a pair fault, which the action boundary quarantines on.
+    /// lifecycle, so it alone is named a pair fault; the verifier has already quarantined the pair.
     /// </summary>
     internal static NativeActionOutcome FromVerifier(
         NativeMutationOutcome outcome,

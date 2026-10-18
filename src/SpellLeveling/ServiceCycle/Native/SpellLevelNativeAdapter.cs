@@ -222,8 +222,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                 native.PerformCost(cost);
                 native.PurchaseLevel(recipe);
             },
-            (before, after) => after == before + 1);
-        return Complete(evidence, charges);
+            (before, after) => after == before + 1,
+            BlockAttempted);
+        return SpellLevelSubmission.Attempted(evidence, charges);
     }
 
     private ResourceCharge[]? ReadCharges(object cost)
@@ -296,28 +297,22 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             "total mastery level positive delta",
             ReadTotalMasteryLevels,
             () => native.TryLevelAll(manager),
-            (before, after) => after > before);
-        return Complete(evidence);
+            (before, after) => after > before,
+            BlockAttempted);
+        return SpellLevelSubmission.Attempted(evidence);
     }
 
     /// <summary>
-    /// Files the evidence and, when a mutation was attempted but could not be verified, blocks the
-    /// contract until the next lifecycle.
+    /// Blocks the contract until the next lifecycle when a mutation was attempted but could not be
+    /// verified.
     /// </summary>
     /// <remarks>
     /// An attempted native call whose postcondition did not hold means the suite no longer understands
     /// this contract, and the only safe thing to do with a mutation you cannot verify is stop making
     /// it. A rejected preflight is not that — nothing was called — and does not block.
     /// </remarks>
-    private SpellLevelSubmission Complete<TState>(
-        NativeMutationEvidence<TState> evidence,
-        ResourceCharge[]? charges = null)
-    {
-        var submission = SpellLevelSubmission.Attempted(evidence, charges);
-        if (!evidence.IsVerified && evidence.MutationWasAttempted)
-            Block($"native spell-level mutation blocked until the next lifecycle: {evidence.Format()}");
-        return submission;
-    }
+    private void BlockAttempted<TState>(NativeMutationEvidence<TState> evidence) =>
+        Block($"native spell-level mutation blocked until the next lifecycle: {evidence.Format()}");
 
     private bool PrerequisitesPass(object recipe)
     {

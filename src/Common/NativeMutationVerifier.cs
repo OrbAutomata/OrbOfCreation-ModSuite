@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.ExceptionServices;
 
 namespace OrbModding.Common;
 
@@ -22,7 +23,8 @@ public readonly struct NativeMutationEvidence<TState>
         TState before,
         bool hasAfter,
         TState after,
-        string detail)
+        string detail,
+        Exception? exception)
     {
         Feature = feature;
         Identity = identity;
@@ -33,6 +35,7 @@ public readonly struct NativeMutationEvidence<TState>
         HasAfter = hasAfter;
         After = after;
         Detail = detail;
+        Exception = exception;
     }
 
     public string Feature { get; }
@@ -44,6 +47,13 @@ public readonly struct NativeMutationEvidence<TState>
     public bool HasAfter { get; }
     public TState After { get; }
     public string Detail { get; }
+
+    /// <summary>
+    /// What the game threw, so a GameAction can log it under the reference its answer names: the
+    /// native call's exception when the call threw, otherwise the failed read or postcondition's.
+    /// </summary>
+    public Exception? Exception { get; }
+
     public bool IsVerified => Outcome == NativeMutationOutcome.Verified;
     public bool MutationWasAttempted => Outcome != NativeMutationOutcome.BeforeCaptureFailed;
 
@@ -64,7 +74,8 @@ public static class NativeMutationVerifier
         string expectedChange,
         Func<TState> capture,
         Action execute,
-        Func<TState, TState, bool> verify)
+        Func<TState, TState, bool> verify,
+        Action<NativeMutationEvidence<TState>>? quarantine = null)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
         if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("A mutation identity is required.", nameof(identity));
@@ -78,7 +89,7 @@ public static class NativeMutationVerifier
         {
             before = capture();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Evidence<TState>(
                 feature,
@@ -89,7 +100,8 @@ public static class NativeMutationVerifier
                 default!,
                 false,
                 default!,
-                ExceptionDetail.Describe(ex));
+                ExceptionDetail.Describe(ex),
+                ex);
         }
 
         return ExecuteAfterCapture(
@@ -99,9 +111,21 @@ public static class NativeMutationVerifier
             before,
             capture,
             execute,
-            verify);
+            verify,
+            quarantine);
     }
 
+    /// <summary>
+    /// Makes the native call and classifies it from the after-state.
+    /// </summary>
+    /// <remarks>
+    /// Every throw after the call is classified first: the after-state is read, the outcome is
+    /// decided and, when the call was attempted and did not verify, <paramref name="quarantine"/>
+    /// runs. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
+    /// suite defect stays loud and the caller's quarantine still holds for the next submission. A
+    /// change that landed before such a throw commits instead, and the throw is logged with a
+    /// reference.
+    /// </remarks>
     public static NativeMutationEvidence<TState> ExecuteAfterCapture<TState>(
         string feature,
         string identity,
@@ -109,7 +133,8 @@ public static class NativeMutationVerifier
         TState before,
         Func<TState> captureAfter,
         Action execute,
-        Func<TState, TState, bool> verify)
+        Func<TState, TState, bool> verify,
+        Action<NativeMutationEvidence<TState>>? quarantine = null)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
         if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("A mutation identity is required.", nameof(identity));
@@ -118,104 +143,11 @@ public static class NativeMutationVerifier
         if (execute is null) throw new ArgumentNullException(nameof(execute));
         if (verify is null) throw new ArgumentNullException(nameof(verify));
 
-        try
-        {
-            execute();
-        }
-        catch (Exception executionException)
-        {
-            try
-            {
-                var afterException = captureAfter();
-                if (Holds(verify, before, afterException))
-                {
-                    return Evidence<TState>(
-                        feature,
-                        identity,
-                        expectedChange,
-                        NativeMutationOutcome.Verified,
-                        true,
-                        before,
-                        true,
-                        afterException,
-                        "postcondition verified after the game threw " +
-                        ExceptionDetail.Describe(executionException) + "." +
-                        GameActionFaultLog.Record(executionException, feature + " for " + identity));
-                }
-                return Evidence<TState>(
-                    feature,
-                    identity,
-                    expectedChange,
-                    NativeMutationOutcome.ExecutionThrew,
-                    true,
-                    before,
-                    true,
-                    afterException,
-                    ExceptionDetail.Describe(executionException));
-            }
-            catch (Exception captureException)
-            {
-                return Evidence<TState>(
-                    feature,
-                    identity,
-                    expectedChange,
-                    NativeMutationOutcome.ExecutionThrew,
-                    true,
-                    before,
-                    false,
-                    default!,
-                    $"{ExceptionDetail.Describe(executionException)}; after capture failed: {ExceptionDetail.Describe(captureException)}");
-            }
-        }
-
-        TState after;
-        try
-        {
-            after = captureAfter();
-        }
-        catch (Exception ex)
-        {
-            return Evidence<TState>(
-                feature,
-                identity,
-                expectedChange,
-                NativeMutationOutcome.AfterCaptureFailed,
-                true,
-                before,
-                false,
-                default!,
-                ExceptionDetail.Describe(ex));
-        }
-
-        bool verified;
-        try
-        {
-            verified = verify(before, after);
-        }
-        catch (Exception ex)
-        {
-            return Evidence<TState>(
-                feature,
-                identity,
-                expectedChange,
-                NativeMutationOutcome.PostconditionFailed,
-                true,
-                before,
-                true,
-                after,
-                $"postcondition evaluation failed: {ExceptionDetail.Describe(ex)}");
-        }
-
-        return Evidence<TState>(
-            feature,
-            identity,
-            expectedChange,
-            verified ? NativeMutationOutcome.Verified : NativeMutationOutcome.PostconditionFailed,
-            true,
-            before,
-            true,
-            after,
-            verified ? "postcondition verified" : "captured state did not match the expected change");
+        var evidence = Classify(
+            feature, identity, expectedChange, before, captureAfter, execute, verify, out var unexpected);
+        if (evidence.MutationWasAttempted && !evidence.IsVerified) quarantine?.Invoke(evidence);
+        if (unexpected is not null && !evidence.IsVerified) ExceptionDispatchInfo.Capture(unexpected).Throw();
+        return evidence;
     }
 
     /// <summary>
@@ -238,17 +170,141 @@ public static class NativeMutationVerifier
         }
     }
 
-    private static bool Holds<TState>(Func<TState, TState, bool> verify, TState before, TState after)
+    private static NativeMutationEvidence<TState> Classify<TState>(
+        string feature,
+        string identity,
+        string expectedChange,
+        TState before,
+        Func<TState> captureAfter,
+        Action execute,
+        Func<TState, TState, bool> verify,
+        out Exception? unexpected)
     {
+        unexpected = null;
         try
         {
-            return verify(before, after);
+            execute();
         }
-        catch (Exception)
+        catch (Exception executionException)
         {
-            return false;
+            unexpected = Unexpected(executionException);
+            TState afterException;
+            try
+            {
+                afterException = captureAfter();
+            }
+            catch (Exception captureException)
+            {
+                unexpected ??= Unexpected(captureException);
+                return Evidence<TState>(
+                    feature,
+                    identity,
+                    expectedChange,
+                    NativeMutationOutcome.ExecutionThrew,
+                    true,
+                    before,
+                    false,
+                    default!,
+                    $"{ExceptionDetail.Describe(executionException)}; after capture failed: {ExceptionDetail.Describe(captureException)}",
+                    executionException);
+            }
+
+            bool holds;
+            try
+            {
+                holds = verify(before, afterException);
+            }
+            catch (Exception verifyException)
+            {
+                unexpected ??= Unexpected(verifyException);
+                holds = false;
+            }
+            if (holds)
+            {
+                return Evidence<TState>(
+                    feature,
+                    identity,
+                    expectedChange,
+                    NativeMutationOutcome.Verified,
+                    true,
+                    before,
+                    true,
+                    afterException,
+                    "postcondition verified after the game threw " +
+                    ExceptionDetail.Describe(executionException) + "." +
+                    GameActionFaultLog.Record(executionException, feature + " for " + identity),
+                    executionException);
+            }
+            return Evidence<TState>(
+                feature,
+                identity,
+                expectedChange,
+                NativeMutationOutcome.ExecutionThrew,
+                true,
+                before,
+                true,
+                afterException,
+                ExceptionDetail.Describe(executionException),
+                executionException);
         }
+
+        TState after;
+        try
+        {
+            after = captureAfter();
+        }
+        catch (Exception ex)
+        {
+            unexpected = Unexpected(ex);
+            return Evidence<TState>(
+                feature,
+                identity,
+                expectedChange,
+                NativeMutationOutcome.AfterCaptureFailed,
+                true,
+                before,
+                false,
+                default!,
+                ExceptionDetail.Describe(ex),
+                ex);
+        }
+
+        bool verified;
+        try
+        {
+            verified = verify(before, after);
+        }
+        catch (Exception ex)
+        {
+            unexpected = Unexpected(ex);
+            return Evidence<TState>(
+                feature,
+                identity,
+                expectedChange,
+                NativeMutationOutcome.PostconditionFailed,
+                true,
+                before,
+                true,
+                after,
+                $"postcondition evaluation failed: {ExceptionDetail.Describe(ex)}",
+                ex);
+        }
+
+        return Evidence<TState>(
+            feature,
+            identity,
+            expectedChange,
+            verified ? NativeMutationOutcome.Verified : NativeMutationOutcome.PostconditionFailed,
+            true,
+            before,
+            true,
+            after,
+            verified ? "postcondition verified" : "captured state did not match the expected change",
+            null);
     }
+
+    private static Exception? Unexpected(Exception exception) =>
+        NativeFailureClassifier.IsExpected(exception) ? null : exception;
 
     private static NativeMutationEvidence<TState> Evidence<TState>(
         string feature,
@@ -259,7 +315,8 @@ public static class NativeMutationVerifier
         TState before,
         bool hasAfter,
         TState after,
-        string detail) =>
+        string detail,
+        Exception? exception) =>
         new(
             feature,
             identity,
@@ -269,5 +326,6 @@ public static class NativeMutationVerifier
             before,
             hasAfter,
             after,
-            detail);
+            detail,
+            exception);
 }
