@@ -136,6 +136,12 @@ internal static class ServiceCycleTraceFixtures
             ServiceCycleSemanticPayload.WorldCategoryFact(
                 category: 5, sampled: 2_628, passCategories: 61, lifecycle: 2, frameIdentity: Frame,
                 timestampTicks: 100, durationTicks: 10),
+        // Frame 12 is the pump fixture's, which every heap sample follows.
+        ServiceCycleSemanticEventKind.PumpHeapSampled =>
+            ServiceCycleSemanticPayload.PumpHeapFact(
+                frameIdentity: 12, timestampTicks: 100, collectionsAtStart: 40, collectionsAtEnd: 41,
+                heapAtStart: 300_000_000, heapAtEnd: 290_000_000, captureHeapGrowth: 65_536,
+                capturesMeasured: 1, capturesAcrossCollection: 1, previousFrameAllocated: 4_096),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

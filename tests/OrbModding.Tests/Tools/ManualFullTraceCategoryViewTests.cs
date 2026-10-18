@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.ServiceCycleTrace.ManualTrace;
@@ -150,10 +151,9 @@ public sealed class ManualFullTraceCategoryViewTests
 
     private static ServiceCycleSemanticEvent[] WithoutSpans()
     {
-        var events = ServiceCycleTraceFixtures.EveryEventKind();
-        return Array.FindAll(
-            events,
-            item => item.Kind != ServiceCycleSemanticEventKind.WorldCategoryCollected);
+        return ServiceCycleTraceFixtures.EveryEventKind()
+            .TakeWhile(item => item.Kind != ServiceCycleSemanticEventKind.WorldCategoryCollected)
+            .ToArray();
     }
 
     private static ServiceCycleSemanticEvent Span(
