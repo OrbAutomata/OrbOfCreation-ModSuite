@@ -2411,7 +2411,9 @@ the only budget a load is weighed against, it is settled by the game after the l
 paid at it, and the answer re-reads it instead of predicting it.
 
 Staging that does not read back is `staged_write_failed` (`ERR_UNAVAILABLE`), naming what was
-written and what came back, and it is refused before the game is asked for anything. The retired
+written and what came back. The staging write is a press, so that refusal counts one attempt and
+answers only once the player's own staging reads back as it was; a staging that cannot be put back
+is a fault. The retired
 `layout_resolves_to_other_spell` and `recipe_not_offered` belonged to a matcher this verb no longer
 runs: add names the recipe, so no layout is matched against the offered registry to find one.
 
@@ -3009,7 +3011,8 @@ words and no third, because a fact it cannot serve is unavailable however it got
 mutation has exactly four, and each of the four names its owner. `committed` is the game having
 done it. `refused` is the game's own no. `faulted` is the mutation having run with its outcome
 unreadable afterwards — the suite pressed, and its own post-check could not confirm what came of
-it. `failed` is the suite tripping before the game was ever asked. `failed` is derived from who
+it. `failed` is a stop whose reason the suite owns: nothing in the game said no, whether the suite
+tripped before asking it or a write of the suite's own did not land. `failed` is derived from who
 owns the reason, not from a fifth disposition — the service-cycle contract keeps answering the one
 question it asks, whether the mutation ran — and the owning set is closed:
 `contract_unavailable`, `feature_contract_unavailable`, `pair_contract_unavailable`, `wrong_thread`,
@@ -3260,7 +3263,7 @@ What each internal code means is below; the class is how it reaches the wire.
 | `no_pending_target` | No target selection is open. The verb exists and the submitted target was never the problem, so no entity-ownership hint refines it | `game_targeting` |
 | `requirements_unmet` / `research_leeway_exhausted` / `already_developing` | The develop gate the read side already names, on the mutation that hit it | `game_research develop` |
 | `research_locked` | `ResearchSO.IsVisible()` is false, so the Research grid draws no tile, yet the game's own `CanDevelop()` never asks: the suite refuses develop and bonus in front of it. The sentence names the unmet unlock conditions. Pause, resume and cancel stay open so a stray development can still be stopped | `game_research develop`/`bonus`, the research row's `develop` decision, `canDevelop` |
-| `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so nothing was submitted and nothing was spent. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout preview`, `game_spell_loadout add` |
+| `staged_write_failed` | The suite staged this layout into the game's own Spellcraft selection and read back something else, so no spell was loaded, and the player's own staging reads back as it was. Suite-side, and the sentence names what was written and what came back | `game_spell_loadout add` |
 | `augment_slots_exceeded` | The layout names more different augments than "Max Spell Augment Slots" holds, which is the only ceiling the load path has. It replaces `layout_resolves_to_other_spell` and `recipe_not_offered`, which belonged to a layout matcher this verb no longer runs | `game_spell_loadout preview`, `game_spell_loadout add` |
 | `screen_locked` | The screen this action's button lives on is not unlocked, so the game draws no button. Distinct from unaffordable and from full, which both describe a button that exists. `ViewSO.IsAvailable()` is the fact; the sentence names the screen by the route a player walks to it — *Rituals > Discover is not unlocked yet, so the game draws no row for this.* One table maps a view to its breadcrumb, so a row and the press it predicts cannot spell one screen two ways; a view that table does not pin keeps the unnamed sentence rather than pointing at the wrong page | `spell-recipes` loadout-add decisions, `augment-glyphs` `purchase` decisions, `spell-slots` remove decisions, `upgrades` `available` and `canPurchase`, `game_spell_loadout add`/`remove`/`move`, `game_purchase` on an aspect upgrade with no World > Aspects pedestal unlocked, `game_agromancy set_druidry_level` before Unlock Druidry Levels, `game_alchemy set_alchemy_level` before Level Alchemy |
 | `spell_recharging` / `cast_in_progress` | The two live gates `SpellManager.RemoveSpell` applies to itself. `spell_recharging` carries the charges the screen shows and the time to the next one; calling anyway is not free, since the game's refused branch switches the spell to a time-based cooldown. While Auto Cast is on, both name the Loadout screen where it stands aside | `spell-slots` remove decisions, `game_spell_loadout remove` |

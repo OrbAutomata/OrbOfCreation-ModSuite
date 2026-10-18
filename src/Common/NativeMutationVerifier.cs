@@ -24,7 +24,8 @@ public readonly struct NativeMutationEvidence<TState>
         bool hasAfter,
         TState after,
         string detail,
-        Exception? exception)
+        Exception? exception,
+        Exception? putBackException = null)
     {
         Feature = feature;
         Identity = identity;
@@ -36,6 +37,7 @@ public readonly struct NativeMutationEvidence<TState>
         After = after;
         Detail = detail;
         Exception = exception;
+        PutBackException = putBackException;
     }
 
     public string Feature { get; }
@@ -53,6 +55,12 @@ public readonly struct NativeMutationEvidence<TState>
     /// native call's exception when the call threw, otherwise the failed read or postcondition's.
     /// </summary>
     public Exception? Exception { get; }
+
+    /// <summary>
+    /// What the put-back threw after the call had already thrown. <see cref="Exception"/> stays the
+    /// cause; this one is logged beside it and never replaces it.
+    /// </summary>
+    public Exception? PutBackException { get; }
 
     public bool IsVerified => Outcome == NativeMutationOutcome.Verified;
     public bool MutationWasAttempted => Outcome != NativeMutationOutcome.BeforeCaptureFailed;
@@ -125,6 +133,11 @@ public static class NativeMutationVerifier
     /// suite defect stays loud and the caller's quarantine still holds for the next submission. A
     /// change that landed before such a throw commits instead, and the throw is logged with a
     /// reference.
+    /// <para>
+    /// <paramref name="putBackOnThrow"/> runs only when <paramref name="execute"/> threw, before the
+    /// after-state is read. The call's exception stays the cause; what the put-back throws is carried
+    /// beside it and classified the same way as an after-state read that throws.
+    /// </para>
     /// </remarks>
     public static NativeMutationEvidence<TState> ExecuteAfterCapture<TState>(
         string feature,
@@ -134,7 +147,8 @@ public static class NativeMutationVerifier
         Func<TState> captureAfter,
         Action execute,
         Func<TState, TState, bool> verify,
-        Action<NativeMutationEvidence<TState>>? quarantine = null)
+        Action<NativeMutationEvidence<TState>>? quarantine = null,
+        Action? putBackOnThrow = null)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
         if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("A mutation identity is required.", nameof(identity));
@@ -144,9 +158,15 @@ public static class NativeMutationVerifier
         if (verify is null) throw new ArgumentNullException(nameof(verify));
 
         var evidence = Classify(
-            feature, identity, expectedChange, before, captureAfter, execute, verify, out var unexpected);
+            feature, identity, expectedChange, before, captureAfter, execute, verify, putBackOnThrow,
+            out var unexpected);
         if (evidence.MutationWasAttempted && !evidence.IsVerified) quarantine?.Invoke(evidence);
-        if (unexpected is not null && !evidence.IsVerified) ExceptionDispatchInfo.Capture(unexpected).Throw();
+        if (unexpected is not null && !evidence.IsVerified)
+        {
+            if (evidence.PutBackException is { } putBackException)
+                GameActionFaultLog.Record(evidence.Exception, feature + " for " + identity, putBackException);
+            ExceptionDispatchInfo.Capture(unexpected).Throw();
+        }
         return evidence;
     }
 
@@ -178,6 +198,7 @@ public static class NativeMutationVerifier
         Func<TState> captureAfter,
         Action execute,
         Func<TState, TState, bool> verify,
+        Action? putBackOnThrow,
         out Exception? unexpected)
     {
         unexpected = null;
@@ -188,6 +209,8 @@ public static class NativeMutationVerifier
         catch (Exception executionException)
         {
             unexpected = Unexpected(executionException);
+            var putBackException = PutBack(putBackOnThrow);
+            if (putBackException is not null) unexpected ??= Unexpected(putBackException);
             TState afterException;
             try
             {
@@ -206,7 +229,8 @@ public static class NativeMutationVerifier
                     false,
                     default!,
                     $"{ExceptionDetail.Describe(executionException)}; after capture failed: {ExceptionDetail.Describe(captureException)}",
-                    executionException);
+                    executionException,
+                    putBackException);
             }
 
             bool holds;
@@ -232,8 +256,10 @@ public static class NativeMutationVerifier
                     afterException,
                     "postcondition verified after the game threw " +
                     ExceptionDetail.Describe(executionException) + "." +
-                    GameActionFaultLog.Record(executionException, feature + " for " + identity),
-                    executionException);
+                    GameActionFaultLog.Record(executionException, feature + " for " + identity,
+                        putBackException),
+                    executionException,
+                    putBackException);
             }
             return Evidence<TState>(
                 feature,
@@ -245,7 +271,8 @@ public static class NativeMutationVerifier
                 true,
                 afterException,
                 ExceptionDetail.Describe(executionException),
-                executionException);
+                executionException,
+                putBackException);
         }
 
         TState after;
@@ -303,6 +330,20 @@ public static class NativeMutationVerifier
             null);
     }
 
+    private static Exception? PutBack(Action? putBack)
+    {
+        if (putBack is null) return null;
+        try
+        {
+            putBack();
+            return null;
+        }
+        catch (Exception exception)
+        {
+            return exception;
+        }
+    }
+
     private static Exception? Unexpected(Exception exception) =>
         NativeFailureClassifier.IsExpected(exception) ? null : exception;
 
@@ -316,7 +357,8 @@ public static class NativeMutationVerifier
         bool hasAfter,
         TState after,
         string detail,
-        Exception? exception) =>
+        Exception? exception,
+        Exception? putBackException = null) =>
         new(
             feature,
             identity,
@@ -327,5 +369,6 @@ public static class NativeMutationVerifier
             hasAfter,
             after,
             detail,
-            exception);
+            exception,
+            putBackException);
 }

@@ -100,7 +100,7 @@ internal static class GameActionAnswer
     /// on, and it sat where the answer to "did this land" belonged. Hand the exception in and it
     /// goes to the suite log instead, under a reference this sentence then ends with.
     /// </summary>
-    internal static string GameErrored(string screen, Exception? exception = null) =>
+    internal static string GameErrored(string screen, Exception? exception = null, Exception? putBack = null) =>
         "The game itself errored on this press, so nothing can be proven about whether it landed. " +
-        "Check " + screen + " before retrying." + GameActionFaultLog.Record(exception, screen);
+        "Check " + screen + " before retrying." + GameActionFaultLog.Record(exception, screen, putBack);
 }

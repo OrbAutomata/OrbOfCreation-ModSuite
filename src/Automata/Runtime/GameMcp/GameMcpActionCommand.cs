@@ -306,7 +306,7 @@ internal sealed class GameMcpCommandResult
             null);
 
     /// <summary>
-    /// The suite tripped before the game was asked. It is the same word
+    /// A stop whose reason the suite owns. It is the same word
     /// <see cref="GameMcpDecisionReason.IsSuiteDefect"/> derives from a result code, spelled out
     /// for the sites that hold their own sentence and never go through a code.
     /// </summary>

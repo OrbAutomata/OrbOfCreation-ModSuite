@@ -54,6 +54,20 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: true);
+        using var action = Action(readEpoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 1, Epoch));
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(SpellCompositionActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(3, Player.Current.druidryOutputLevel.AsInt());
+    }
+
+    [Fact]
     public void AlchemyLevelTurnsDownThroughTheSameDialBoundary()
     {
         AdjusterView(KnownEntities.AlchAlchemyLevel.Uuid, unlocked: true);
@@ -131,6 +145,24 @@ public sealed class SpellCompositionGameActionTests : IDisposable
         Assert.Equal(5, Player.GetSpellOutputLevel().AsInt());
     }
 
+    /// <summary>
+    /// A dial's fault sends the caller to the screen that dial is drawn on, not to the casting
+    /// screen the other two dials share.
+    /// </summary>
+    [Fact]
+    public void ADialThatErrorsInTheGameNamesTheScreenItIsDrawnOn()
+    {
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: true);
+        Player.Current.druidryOutputLevel.ThrowBeforeWriteFor = 1;
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Druidry, 1, Epoch));
+
+        Assert.Equal(SpellCompositionActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Contains("Check World > Agromancy before retrying.", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Equal(3, Player.Current.druidryOutputLevel.AsInt());
+    }
+
     [Fact]
     public void UnexpectedExceptionFromANativeReadEscapesInsteadOfReadingAsUnavailable()
     {
@@ -205,10 +237,11 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     private static SpellCompositionGameAction Action(
         long epoch = Epoch,
         bool permit = true,
-        Func<string, bool>? include = null)
+        Func<string, bool>? include = null,
+        Func<long>? readEpoch = null)
     {
         var action = new SpellCompositionGameAction(
-            () => epoch,
+            readEpoch ?? (() => epoch),
             () => permit,
             () => "test ownership unavailable",
             name => typeof(SpellManager).Assembly.GetTypes()

@@ -89,12 +89,14 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
     /// <c>Execute</c> classifies every throw after it.
     /// </summary>
     /// <param name="answer">Wraps a prologue answer in the feature's submission.</param>
+    /// <param name="screen">This call's page, for an action whose page depends on what it presses.</param>
     protected TSubmission Admit<TSubmission>(
         long plannedEpoch,
         Func<NativeActionOutcome, TSubmission> answer,
-        Func<TBindings, TSubmission> admission)
+        Func<TBindings, TSubmission> admission,
+        string? screen = null)
     {
-        if (!TryEnter(plannedEpoch, out var native, out var refusal)) return answer(refusal);
+        if (!TryEnter(plannedEpoch, out var native, out var refusal, screen)) return answer(refusal);
         try
         {
             return admission(native);
@@ -102,7 +104,7 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return answer(NativeActionOutcome.Reject(_codes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead(_screen, exception)));
+                GameActionAnswer.CouldNotRead(screen ?? _screen, exception)));
         }
     }
 
@@ -113,7 +115,40 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
     protected bool TryEnter(
         long plannedEpoch,
         [NotNullWhen(true)] out TBindings? bindings,
-        out NativeActionOutcome refusal)
+        out NativeActionOutcome refusal,
+        string? screen = null)
+    {
+        if (!TryEnter(out bindings, out refusal, screen)) return false;
+        long epoch;
+        try
+        {
+            epoch = ReadLifecycleEpoch();
+        }
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+        {
+            bindings = null;
+            refusal = NativeActionOutcome.FaultBeforeCall(_codes.ContractUnavailable,
+                GameActionAnswer.CouldNotRead(screen ?? _screen, exception));
+            return false;
+        }
+        if (plannedEpoch != epoch)
+        {
+            bindings = null;
+            refusal = NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
+                GameActionAnswer.RunChanged());
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// The same prologue for a read of the screen as it stands, which no plan precedes: the Unity
+    /// main thread and this lifecycle's bindings.
+    /// </summary>
+    protected bool TryEnter(
+        [NotNullWhen(true)] out TBindings? bindings,
+        out NativeActionOutcome refusal,
+        string? screen = null)
     {
         bindings = null;
         if (Environment.CurrentManagedThreadId != _mainThreadId)
@@ -124,24 +159,7 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         if (_bindings is not { } native)
         {
             refusal = NativeActionOutcome.Reject(_codes.ContractUnavailable,
-                GameActionAnswer.NotAttached(_screen, _bindingFailure));
-            return false;
-        }
-        long epoch;
-        try
-        {
-            epoch = ReadLifecycleEpoch();
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            refusal = NativeActionOutcome.FaultBeforeCall(_codes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead(_screen, exception));
-            return false;
-        }
-        if (plannedEpoch != epoch)
-        {
-            refusal = NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
+                GameActionAnswer.NotAttached(screen ?? _screen, _bindingFailure));
             return false;
         }
         bindings = native;
@@ -166,46 +184,65 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
     /// </summary>
     /// <param name="target">The player's name for what was pressed, as the fault sentence names it.</param>
     /// <param name="success">What a committed answer says is now visible.</param>
+    /// <param name="screen">This call's page, for an action whose page depends on what it presses.</param>
     protected NativeActionOutcome Execute<TState>(
         string target,
         string success,
         TState before,
         Func<TState> captureAfter,
         Action call,
-        Func<TState, TState, bool> landed) =>
+        Func<TState, TState, bool> landed,
+        string? screen = null) =>
         Execute(target, success, before, captureAfter,
             () =>
             {
                 call();
                 return null;
             },
-            landed);
+            landed,
+            screen);
 
     /// <summary>
     /// The same, for a call of several presses that can stop partway: every press runs inside
     /// <paramref name="call"/>, and one sentinel answers for the whole effect. A stop answers only
     /// when the sentinel does not hold and nothing threw, and it never answers with zero attempts.
     /// </summary>
+    /// <param name="putBackOnThrow">
+    /// Undoes what <paramref name="call"/> pressed when it throws partway. A fault after that throw
+    /// keeps the call's exception as its cause and tells the caller when
+    /// <paramref name="putBackLanded"/> does not read the undo back.
+    /// </param>
+    /// <param name="putBackLanded">Whether the undo reads back; required with <paramref name="putBackOnThrow"/>.</param>
     protected NativeActionOutcome Execute<TState>(
         string target,
         string success,
         TState before,
         Func<TState> captureAfter,
         Func<NativeStop?> call,
-        Func<TState, TState, bool> landed)
+        Func<TState, TState, bool> landed,
+        string? screen = null,
+        Action? putBackOnThrow = null,
+        Func<bool>? putBackLanded = null)
     {
+        var page = screen ?? _screen;
         NativeStop? stop = null;
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
-            _feature, target, success, before, captureAfter, () => stop = call(), landed);
+            _feature, target, success, before, captureAfter, () => stop = call(), landed,
+            putBackOnThrow: putBackOnThrow);
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified) return NativeActionOutcome.Commit(calls, success);
         var stage = evidence.Outcome == NativeMutationOutcome.ExecutionThrew ? "NativeCallback" : "Verification";
         if (evidence.Exception is { } exception)
             return NativeActionOutcome.Fault(_codes.PostCommitFault, evidence.Outcome, calls,
-                FaultReason(stage, target, GameActionAnswer.GameErrored(_screen, exception)));
+                FaultReason(stage, target,
+                    GameActionAnswer.GameErrored(page, exception, evidence.PutBackException) +
+                    (putBackLanded is null ||
+                     NativeMutationVerifier.TryReadAfterCall(putBackLanded, out var back) && back
+                        ? string.Empty
+                        : " " + GameActionAnswer.NotUndone(page))));
         if (stop is not { } stopped)
             return NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
-                FaultReason(stage, target, GameActionAnswer.ChangeNotSeen(_screen)));
+                FaultReason(stage, target, GameActionAnswer.ChangeNotSeen(page)));
         if (stopped.Undone is null)
             return NativeActionOutcome.Fault(stopped.Code, evidence.Outcome, calls,
                 FaultReason(stage, target, stopped.Reason));
@@ -213,7 +250,7 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
             ? NativeActionOutcome.RefusedAfterUndo(stopped.Code, calls,
                 stopped.Reason + " " + GameActionAnswer.Undone())
             : NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
-                FaultReason(stage, target, stopped.Reason + " " + GameActionAnswer.NotUndone(_screen)));
+                FaultReason(stage, target, stopped.Reason + " " + GameActionAnswer.NotUndone(page)));
     }
 
     private string FaultReason(string stage, string target, string reason) =>

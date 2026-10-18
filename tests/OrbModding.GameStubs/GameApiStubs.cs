@@ -921,12 +921,17 @@ public class StackableListVariable<T> : GenericListVariable<T>
 
     public int? SuppressSetStackFromCall { get; set; }
 
+    /// <summary>The write, from this call on, throws before it imports anything.</summary>
+    public int? ThrowOnSetStackFromCall { get; set; }
+
     private int _setStackCalls;
 
     /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
     public virtual void SetStack(Stacked.StackedIdRecord<T> record)
     {
         _setStackCalls++;
+        if (_setStackCalls >= ThrowOnSetStackFromCall)
+            throw new InvalidOperationException("injected failure while writing the stack");
         if (SuppressSetStack || _setStackCalls >= SuppressSetStackFromCall) return;
         itemStack.ImportItems(record.ToList());
         SetValue(itemStack.GetItems());
