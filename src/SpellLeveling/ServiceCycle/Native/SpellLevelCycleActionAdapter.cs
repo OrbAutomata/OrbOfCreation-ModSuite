@@ -87,9 +87,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         {
             submission = _levels.Submit(action.Kind, action.Uuid);
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Plugin.Log?.LogAutomataWarning(
                 $"Spell Leveling failed to buy a mastery level for {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
@@ -149,7 +147,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         {
             return _ownsActionFamily();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -163,9 +161,7 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         {
             epoch = _readLifecycleEpoch();
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

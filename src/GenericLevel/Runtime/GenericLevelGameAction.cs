@@ -54,7 +54,7 @@ internal sealed class GenericLevelGameAction : IDisposable
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(GenericLevelPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
@@ -84,7 +84,7 @@ internal sealed class GenericLevelGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, targetBinding, target);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(GenericLevelPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the screen this is levelled on", exception));
@@ -195,7 +195,7 @@ internal sealed class GenericLevelGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     "The requested level did not increase.");
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (Current(in action, binding, target) > before) return Verified(in tally);
             return Fault(in action, GenericLevelPreflight.PostCommitFault, stage,
@@ -276,7 +276,4 @@ internal sealed class GenericLevelGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

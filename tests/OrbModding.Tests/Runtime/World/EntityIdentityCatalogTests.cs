@@ -201,6 +201,21 @@ public sealed class EntityIdentityCatalogTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromTheRegistryReadEscapesTheCapture()
+    {
+        var catalog = new EntityIdentityCatalog(
+            new RuntimeIdentityRegistryBinding(
+                () => throw new System.Reflection.TargetException("injected registry read failure")),
+            () => Playing(14),
+            () => 4,
+            publish: static _ => { },
+            resetFormatter: static _ => { });
+        catalog.Reset(14);
+
+        Assert.Throws<System.Reflection.TargetException>(() => catalog.Capture(14));
+    }
+
+    [Fact]
     public void ResetImmediatelyDropsThePreviousLifecycleReference()
     {
         var uuid = Guid.NewGuid();

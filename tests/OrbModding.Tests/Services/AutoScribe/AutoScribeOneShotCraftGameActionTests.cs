@@ -14,6 +14,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     private readonly Dictionary<Guid, object> _registry = new();
     private readonly AutoScribeIdentityProfile _profile = AutoScribeIdentityCatalog.Audited;
     private long _lifecycle = 1;
+    private Exception? _lifecycleFailure;
     private bool _permit = true;
 
     public AutoScribeOneShotCraftGameActionTests()
@@ -259,6 +260,17 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromTheLifecycleReadEscapesTheGameAction()
+    {
+        var fixture = Fixture();
+        using var actionBoundary = GameAction();
+        _lifecycleFailure = new NullReferenceException("injected lifecycle read failure");
+
+        Assert.Throws<NullReferenceException>(() => Submit(actionBoundary, fixture.Action));
+        Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+    }
+
+    [Fact]
     public void AutomaticCompetingSupplyIsRejectedBeforePayment()
     {
         var fixture = Fixture();
@@ -391,7 +403,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         return new AutoScribeOneShotCraftGameAction(
             resolver,
             _profile,
-            () => _lifecycle,
+            () => _lifecycleFailure is { } failure ? throw failure : _lifecycle,
             () => _permit,
             static () => string.Empty);
     }

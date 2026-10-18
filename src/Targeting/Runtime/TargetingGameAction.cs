@@ -41,7 +41,7 @@ internal sealed class TargetingGameAction : IDisposable
                 GameActionAnswer.NotAttached("Magic > Casting", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return TargetingSubmission.Reject(TargetingPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Magic > Casting", ex));
@@ -66,7 +66,7 @@ internal sealed class TargetingGameAction : IDisposable
                 _ => TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable, "Unknown targeting mode."),
             };
         }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return TargetingSubmission.Reject(TargetingPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Casting", ex));
@@ -111,7 +111,7 @@ internal sealed class TargetingGameAction : IDisposable
             return TargetingSubmission.Reject(TargetingPreflight.MutationPermitUnavailable, reason);
         object? candidate;
         try { candidate = native.GetRandom(link); }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Fault(TargetingPreflight.PostCommitFault, TargetingNativeStage.SelectRandom,
                 NativeMutationOutcome.ExecutionThrew, in action,
@@ -149,7 +149,7 @@ internal sealed class TargetingGameAction : IDisposable
                     new NativeMutationCallOutcome(priorCalls + 1, 1, 0),
                     "SubmitTarget did not assign the exact object and retire its request.");
         }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (Submitted(native, link, candidate))
                 return Verified(id, priorCalls + 1,
@@ -181,7 +181,7 @@ internal sealed class TargetingGameAction : IDisposable
                     new NativeMutationCallOutcome(1, 1, 0),
                     GameActionAnswer.ChangeNotSeen("Magic > Casting"));
         }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (native.IsCancelled(resultInfo) && OriginalRequestGone(native, link))
                 return Verified(Guid.Empty, 1,
@@ -226,6 +226,4 @@ internal sealed class TargetingGameAction : IDisposable
         var include = _includeContract ?? (_ => true);
         if (!TargetingNativeBindings.TryCreate(resolve, include, out _bindings, out _bindingFailure)) _bindings = null;
     }
-    private static bool Expected(Exception ex) => ex is not StackOverflowException and
-        not OutOfMemoryException and not AccessViolationException;
 }

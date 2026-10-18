@@ -59,7 +59,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         {
             before = _stateReader.CaptureSubmissionState(current);
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return new AutoHarvestSubmissionResult(
                 NativeMutationOutcome.BeforeCaptureFailed,
@@ -98,7 +98,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
                     admissionFailure);
             }
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return new AutoHarvestSubmissionResult(
                 AutoHarvestSubmissionFailureCode.RuntimeReadFailed);
@@ -201,7 +201,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 
             result = contract.PrerequisitesCheck(prerequisites);
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativePrerequisiteValidationUnavailable;
         }

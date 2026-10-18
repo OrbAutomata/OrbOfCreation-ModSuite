@@ -267,8 +267,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected,
                 sampled, skipped, firstFailure);
         }
-        catch (Exception exception) when (exception is ArgumentException or
-            InvalidOperationException or OverflowException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(Category,

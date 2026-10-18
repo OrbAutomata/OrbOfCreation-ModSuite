@@ -164,8 +164,7 @@ internal sealed class ModalOpenGameAction : IDisposable
             activators = live;
             return true;
         }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             reason = "The chrome panel controls could not be read." +
                 GameActionFaultLog.Record(exception, "the chrome panel controls");
@@ -213,8 +212,7 @@ internal sealed class ModalOpenGameAction : IDisposable
             native.Open(matches[0].Control);
             return new ModalOpenSubmission(true, "committed", string.Empty, matches[0].Title);
         }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return new ModalOpenSubmission(false, "contract_unavailable",
                 "The chrome panel control failed." +

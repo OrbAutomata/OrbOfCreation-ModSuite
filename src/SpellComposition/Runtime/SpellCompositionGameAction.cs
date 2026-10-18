@@ -62,7 +62,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.LifecycleReplaced,
@@ -74,7 +74,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 GameActionAnswer.RunChanged());
 
         try { return SetDial(in action, native); }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellCompositionSubmission.Reject(
                 SpellCompositionPreflight.ContractUnavailable,
@@ -138,7 +138,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     "Expected " + action.Value + ", observed " + observed + ".");
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (ReadCurrentBestEffort(native, variable, current) == action.Value)
                 return Verified(
@@ -157,7 +157,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         int fallback)
     {
         try { return native.ReadInt(variable); }
-        catch (Exception ex) when (IsExpected(ex)) { return fallback; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return fallback; }
     }
 
     private static SpellCompositionSubmission Verified(
@@ -209,10 +209,6 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 out _bindingFailure))
             _bindings = null;
     }
-
-    private static bool IsExpected(Exception ex) =>
-        ex is ArgumentException or InvalidOperationException or OverflowException or
-            TargetInvocationException or MemberAccessException;
 
     /// <summary>
     /// Druidry Lv and Alchemy Lv are drawn only once their unlock is bought: each adjuster sits in

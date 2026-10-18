@@ -134,7 +134,7 @@ public static class ReflectionUtil
         {
             return method.Invoke(instance, Array.Empty<object>());
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return null;
         }
@@ -159,7 +159,7 @@ public static class ReflectionUtil
         {
             return property.GetValue(instance);
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return null;
         }
@@ -185,7 +185,7 @@ public static class ReflectionUtil
             {
                 value = property.GetValue(instance);
             }
-            catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
             }
 

@@ -168,6 +168,17 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromTheOwnershipReadEscapesInsteadOfReadingAsNotOwned()
+    {
+        var spell = Equip(Ember);
+
+        Assert.Throws<MemberAccessException>(() => Execute(
+            Fire(0, Ember),
+            readOwnership: () => throw new MemberAccessException("injected ownership read failure")));
+        Assert.Equal(0, spell.FireCalls);
+    }
+
+    [Fact]
     public void LosingTheActionFamilyRefusesWithoutTouchingTheGame()
     {
         var spell = Equip(Ember);
@@ -557,12 +568,13 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         AutoCastOperationMode mode = AutoCastOperationMode.Active,
         bool fullCharge = false,
         AutoCastNativeAdapter? natives = null,
-        AutoCastManualPauseState? manualPause = null)
+        AutoCastManualPauseState? manualPause = null,
+        Func<bool>? readOwnership = null)
     {
         var adapter = new AutoCastCycleActionAdapter(
             natives ?? new AutoCastNativeAdapter(),
             () => nativeEpoch,
-            () => ownsActionFamily,
+            readOwnership ?? (() => ownsActionFamily),
             manualPause ?? new AutoCastManualPauseState());
         var config = new SuiteRuntimeConfiguration
         {

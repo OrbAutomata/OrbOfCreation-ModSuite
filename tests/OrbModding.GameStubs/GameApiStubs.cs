@@ -41,7 +41,9 @@ public sealed class IntVariable
 
     public int? ThrowAfterWriteFor { get; set; }
 
-    public int AsInt() => Value;
+    public Exception? ReadFailure { get; set; }
+
+    public int AsInt() => ReadFailure is { } failure ? throw failure : Value;
 
     public void SetValue(int value)
     {
@@ -241,6 +243,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool SuppressDiscovery { get; set; }
     public bool ThrowBeforeDiscovery { get; set; }
     public bool ThrowAfterDiscovery { get; set; }
+    public Exception? DiscoveredReadFailure { get; set; }
     public int DiscoverCalls { get; private set; }
     public bool NativeIsCreatable { get; set; } = true;
     public bool NativeUsageRequirementsMet { get; set; } = true;
@@ -257,7 +260,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     }
     public new Guid GetGuid() => Guid.Parse(uuid);
     public new Guid GetId() => GetGuid();
-    public bool IsDiscovered() => discovered;
+    public bool IsDiscovered() => DiscoveredReadFailure is { } failure ? throw failure : discovered;
     public bool CanDiscover() => NativeCanDiscover;
     public bool IsDiscoverVisible() => NativeDiscoverVisible;
     public bool IsDiscoverRequired() => NativeDiscoveryRequired;
@@ -1528,6 +1531,7 @@ public class Spell : ITooltipable
     public bool NativeUnique { get; set; }
     public bool NativeEmpty { get; set; }
     public bool NativeCasting { get; set; }
+    public Exception? CastingReadFailure { get; set; }
     public bool NativeReadyingCast { get; set; }
     public bool NativeChargeAvailable { get; set; } = true;
 
@@ -1581,7 +1585,7 @@ public class Spell : ITooltipable
     public bool IsToggledSpell() => ToggledSpell;
     public bool IsEmpty() => NativeEmpty;
     public bool CanCharge() => NativeCanCharge;
-    public bool IsCasting() => NativeCasting;
+    public bool IsCasting() => CastingReadFailure is { } failure ? throw failure : NativeCasting;
     public bool IsReadyingCast() => NativeReadyingCast;
 
     /// <summary>
@@ -3558,6 +3562,7 @@ public static class TargetingManager
     public static List<object> SubmittedTargets { get; } = new List<object>();
     public static bool SuppressSubmit { get; set; }
     public static bool ThrowAfterSubmit { get; set; }
+    public static bool ThrowOnIsTargeting { get; set; }
     private static TargetLink? currentLink;
 
     public static bool Targeting
@@ -3566,7 +3571,8 @@ public static class TargetingManager
         set => OpenRequests = value ? 1 : 0;
     }
 
-    public static bool IsTargeting() => OpenRequests > 0;
+    public static bool IsTargeting() =>
+        ThrowOnIsTargeting ? throw new NullReferenceException("stub targeting read") : OpenRequests > 0;
 
     public static TargetLink? GetTargetingLink() =>
         !IsTargeting() || AvailableTarget is null
@@ -3599,6 +3605,7 @@ public static class TargetingManager
         SubmittedTargets.Clear();
         SuppressSubmit = false;
         ThrowAfterSubmit = false;
+        ThrowOnIsTargeting = false;
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
     }

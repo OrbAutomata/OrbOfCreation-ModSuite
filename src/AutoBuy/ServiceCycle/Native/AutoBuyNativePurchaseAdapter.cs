@@ -1026,9 +1026,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             {
                 costList = _purchaseCost.Invoke(source, Array.Empty<object>());
             }
-            catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                       ex is InvalidOperationException || ex is TargetException ||
-                                       ex is MemberAccessException)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return AutoBuyLiveCostSnapshot.Unavailable(
                     AutoBuyLiveCostReadStatus.PurchaseCostUnavailable);
@@ -1067,9 +1065,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             {
                 entriesValue = _getEntries?.Invoke(costList, Array.Empty<object>());
             }
-            catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                       ex is InvalidOperationException || ex is TargetException ||
-                                       ex is MemberAccessException)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return AutoBuyLiveCostSnapshot.Unavailable(
                     AutoBuyLiveCostReadStatus.EntryListUnavailable);
@@ -1103,9 +1099,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     }
                     cost = value;
                 }
-                catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                           ex is InvalidOperationException || ex is TargetException ||
-                                           ex is MemberAccessException)
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                     return AutoBuyLiveCostSnapshot.Unavailable(
                         AutoBuyLiveCostReadStatus.EntryContractUnavailable);
@@ -1133,9 +1127,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     }
                     resourceId = readId;
                 }
-                catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                           ex is InvalidOperationException || ex is TargetException ||
-                                           ex is MemberAccessException)
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                     return AutoBuyLiveCostSnapshot.Unavailable(
                         AutoBuyLiveCostReadStatus.IdentityContractUnavailable);
@@ -1165,9 +1157,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
                     rows.Add(new AutoBuyLiveCostRow(resourceId, bandwidth, cost, available));
                 }
-                catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                           ex is InvalidOperationException || ex is TargetException ||
-                                           ex is MemberAccessException)
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                     return AutoBuyLiveCostSnapshot.Unavailable(
                         AutoBuyLiveCostReadStatus.ResourceContractUnavailable);
@@ -1397,9 +1387,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
                     return AutoBuyPurchasePreflight.Proceeded;
                 }
-                catch (Exception ex) when (ex is TargetInvocationException or ArgumentException or
-                                           InvalidOperationException or TargetException or
-                                           MemberAccessException)
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                     return AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable;
                 }
@@ -1546,8 +1534,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     return true;
                 }
             }
-            catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException ||
-                                       ex is InvalidOperationException || ex is TargetException)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
             }
 

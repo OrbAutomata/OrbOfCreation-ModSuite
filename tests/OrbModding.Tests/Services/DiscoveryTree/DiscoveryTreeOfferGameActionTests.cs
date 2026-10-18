@@ -632,6 +632,18 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
     }
 
     [Fact]
+    public void Unexpected_exception_from_a_native_read_escapes_instead_of_reading_as_unavailable()
+    {
+        var tree = Tree();
+        tree.throwOnVisibilityRead = true;
+        using var action = Action();
+
+        Assert.Throws<NullReferenceException>(() => action.Submit(new DiscoveryTreeOfferAction(
+            DiscoveryTreeOfferActionKind.Initiate, tree.GetGuid(), Guid.Empty, Epoch)));
+        Assert.Equal(0, tree.initiateCalls);
+    }
+
+    [Fact]
     public void Mutation_permit_is_the_last_suite_gate()
     {
         var tree = Tree();

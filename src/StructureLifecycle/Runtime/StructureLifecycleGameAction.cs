@@ -50,7 +50,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
                 GameActionAnswer.NotAttached("the screen this structure is on", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(StructureLifecyclePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
@@ -82,7 +82,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, structure, expectedDisabled);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(StructureLifecyclePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the screen this structure is on", exception));
@@ -119,7 +119,7 @@ internal sealed class StructureLifecycleGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("the screen this structure is on"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (native.Disabled(structure) == expectedDisabled) return Verified();
             return Fault(in action, StructureLifecyclePreflight.PostCommitFault, stage,
@@ -160,7 +160,4 @@ internal sealed class StructureLifecycleGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

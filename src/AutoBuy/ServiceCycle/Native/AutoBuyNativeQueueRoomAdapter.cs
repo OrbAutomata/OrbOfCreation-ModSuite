@@ -42,9 +42,7 @@ internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
                 return true;
             }
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
         }
 

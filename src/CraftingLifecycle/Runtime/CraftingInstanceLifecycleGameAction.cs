@@ -55,7 +55,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 GameActionAnswer.NotAttached("Workshop > Crafting", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(CraftingInstanceLifecyclePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
@@ -83,7 +83,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, recipe, queue, automation);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(CraftingInstanceLifecyclePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Crafting", exception));
@@ -185,12 +185,11 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                     GameActionAnswer.ChangeNotSeen("Workshop > Crafting"),
                     SideEffect(in action, native, recipe, automation, instance, before));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var request = action;
             if (NativeMutationVerifier.TryReadAfterCall(
-                    () => OutcomeObserved(in request, native, recipe, queue, automation, instance, before),
-                    IsExpected, out var observed) && observed)
+                    () => OutcomeObserved(in request, native, recipe, queue, automation, instance, before), out var observed) && observed)
                 return Verified();
             return Fault(in action, CraftingInstanceLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -222,7 +221,7 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
                 ? default
                 : CraftingInstanceLifecycleSideEffect.Automation(before, after);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return default;
         }
@@ -350,7 +349,4 @@ internal sealed class CraftingInstanceLifecycleGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

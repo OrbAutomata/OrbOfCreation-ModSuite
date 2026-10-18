@@ -1481,6 +1481,22 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.False(result.HasNativeEvidence);
     }
 
+    [Fact]
+    public void Execute_NativePurchaseThrowsAnUnexpectedException_EscapesToTheBatchBoundary()
+    {
+        var adapter = new AutoBuyCycleActionAdapter(
+            new ThrowingPurchasePort(new System.Reflection.TargetException("native purchase target mismatch")),
+            new FakeQueueRoom(64, readable: true),
+            () => PlannedEpoch,
+            () => AutoBuyCandidateKinds.All,
+            IgnoreRefusals.Instance);
+
+        Assert.Throws<System.Reflection.TargetException>(() => adapter.TryExecute(
+            new AutoBuyCycleAction(AutoBuyCandidateKind.Upgrade, Guid.NewGuid(), PlannedEpoch),
+            Config(structures: true, upgrades: true),
+            Context()));
+    }
+
     /// <summary>
     /// One upgrade action is one native call but several queue stacks — the game queues one entry per
     /// committed level and its purchase loop never consults the queue room. Checking that a single slot
@@ -1671,12 +1687,17 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
     private sealed class ThrowingPurchasePort : IAutoBuyNativePurchasePort
     {
+        private readonly Exception _failure;
+
+        public ThrowingPurchasePort(Exception? failure = null) =>
+            _failure = failure ?? new InvalidOperationException("native purchase threw");
+
         public AutoBuyPurchaseSubmission Submit(
             AutoBuyCandidateKind kind,
             Guid uuid,
             int count,
             long lifecycleEpoch) =>
-            throw new InvalidOperationException("native purchase threw");
+            throw _failure;
     }
 
     private sealed class FakeQueueRoom : IAutoBuyQueueRoomPort

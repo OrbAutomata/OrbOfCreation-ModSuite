@@ -52,7 +52,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
                 GameActionAnswer.NotAttached("the game's own screen", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(ReturnToMenuPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the game's own screen", exception));
@@ -102,7 +102,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(native, live[0], flash, string.Empty);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(ReturnToMenuPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the game's own screen", exception));
@@ -151,7 +151,7 @@ internal sealed class ReturnToMenuGameAction : IDisposable
             control = live[0];
             openedName = native.ControlName(panel);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Fault(ReturnToMenuPreflight.PostCommitFault, ReturnToMenuNativeStage.NativeCallback,
                 NativeMutationOutcome.ExecutionThrew,
@@ -182,9 +182,9 @@ internal sealed class ReturnToMenuGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     "The game did not start its screen transition.");
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            if (NativeMutationVerifier.TryReadAfterCall(() => native.FlashActive(flash), IsExpected,
+            if (NativeMutationVerifier.TryReadAfterCall(() => native.FlashActive(flash),
                     out var transitioning) && transitioning) return Verified(pressed, openedPanel);
             return Fault(ReturnToMenuPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -284,7 +284,4 @@ internal sealed class ReturnToMenuGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

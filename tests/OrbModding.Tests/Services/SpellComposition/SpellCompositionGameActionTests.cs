@@ -131,6 +131,16 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     }
 
     [Fact]
+    public void UnexpectedExceptionFromANativeReadEscapesInsteadOfReadingAsUnavailable()
+    {
+        Player.GetSpellOutputLevel().ReadFailure = new MemberAccessException("injected dial read failure");
+        using var action = Action();
+
+        Assert.Throws<MemberAccessException>(() => action.Submit(Output(4)));
+        Assert.Equal(0, Player.GetSpellOutputLevel().SetCalls);
+    }
+
+    [Fact]
     public void OutputLevelRangeAndNoOpRefuseBeforeMutation()
     {
         using var action = Action();

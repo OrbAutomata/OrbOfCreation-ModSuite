@@ -55,7 +55,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
 
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(RitualLifecyclePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Rituals", exception));
@@ -159,7 +159,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, manager, battle, selected, ritual);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(RitualLifecyclePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Rituals", exception));
@@ -267,7 +267,7 @@ internal sealed class RitualLifecycleGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Rituals"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (OutcomeObserved(in action, native, battle, selected, ritual)) return Verified();
             return Fault(in action, RitualLifecyclePreflight.PostCommitFault, stage,
@@ -362,7 +362,4 @@ internal sealed class RitualLifecycleGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

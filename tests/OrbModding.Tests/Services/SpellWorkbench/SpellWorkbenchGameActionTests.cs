@@ -725,6 +725,32 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     }
 
     [Fact]
+    public void OverflowFromANativeReadIsAnsweredAsUnreadable()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        recipe.DiscoveredReadFailure = new OverflowException("injected discovery read overflow");
+        using var action = Action();
+
+        var result = action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
+
+        Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    [Fact]
+    public void UnexpectedExceptionFromANativeReadEscapesInsteadOfReadingAsUnavailable()
+    {
+        var (recipe, _, _) = Recipe(discovered: true);
+        recipe.DiscoveredReadFailure = new NullReferenceException("injected discovery read failure");
+        using var action = Action();
+
+        Assert.Throws<NullReferenceException>(() => action.Submit(new SpellWorkbenchAction(
+            recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())));
+        Assert.Empty(SpellManager.instance!.activeSpells.value);
+    }
+
+    [Fact]
     public void StaleLifecycleAndMissingPermitRefuseWithoutChangingSelection()
     {
         var (recipe, _, _) = Recipe(discovered: true);

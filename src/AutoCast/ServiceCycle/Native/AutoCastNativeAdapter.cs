@@ -319,7 +319,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (holdFullCharge && !submission.Verified) TrySetChargeHold(spell, false, out _);
             return submission;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoCastSubmission.Rejected(
                 AutoCastPreflight.ContractUnavailable,
@@ -348,7 +348,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             var released = TrySetChargeHold(spell, false, out var releaseReason);
             return AutoCastSubmission.Released(released, released ? string.Empty : releaseReason);
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoCastSubmission.Rejected(
                 AutoCastPreflight.ContractUnavailable,
@@ -411,7 +411,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             }
             return AutoCastSubmission.Attempted(evidence, nativeCalls);
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoCastSubmission.Rejected(
                 AutoCastPreflight.ContractUnavailable,
@@ -456,7 +456,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             if (_isInCombat is null || battle is null || battle.GetType() != _battleManagerType) return null;
             return _isInCombat.Invoke(battle, Array.Empty<object>()) as bool?;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return null;
         }
@@ -602,7 +602,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = ex.GetBaseException().Message;
             return false;
@@ -643,7 +643,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             {
                 if (hasValid.Invoke(options, new[] { scaling }) is not true) return false;
             }
-            catch (Exception ex) when (ex is TargetInvocationException or ArgumentException)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return false;
             }
@@ -705,7 +705,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             {
                 propertyValue = property.GetValue(value);
             }
-            catch (Exception ex) when (IsReflectionFailure(ex))
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
             }
 
@@ -873,7 +873,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Block($"cast contract initialization failed: {ex.GetBaseException().Message}", out reason);
         }
@@ -908,7 +908,4 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return false;
     }
 
-    private static bool IsReflectionFailure(Exception ex) =>
-        ex is TargetInvocationException or ArgumentException or InvalidOperationException
-            or InvalidCastException or OverflowException or TargetException or MemberAccessException;
 }

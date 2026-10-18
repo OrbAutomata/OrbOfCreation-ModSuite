@@ -27,6 +27,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     {
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
+        TargetingManager.ThrowOnIsTargeting = false;
         ConsumableSO.All.Clear();
         Inventory.ResetLists();
         EffectResultInfo.SuppressCancel = false;
@@ -399,6 +400,21 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Assert.Equal(0, item.GetQuantity());
         Assert.Single(item.consumableUsages);
         Assert.Equal(new NativeMutationCallOutcome(1, 1, 1), result.CallOutcome);
+    }
+
+    [Fact]
+    public void PlayerUseLetsAnUnexpectedExceptionFromANativeReadEscape()
+    {
+        var item = Item(AutoItemsConsumableFamily.Thread);
+        TargetingManager.ThrowOnIsTargeting = true;
+        using var gameAction = GameAction();
+        var action = new ConsumablePlayerAction(
+            ConsumablePlayerActionKind.Use,
+            item.GetGuid(),
+            lifecycleEpoch: 1);
+
+        Assert.Throws<NullReferenceException>(() => gameAction.Submit(in action));
+        Assert.Empty(item.consumableUsages);
     }
 
     [Fact]

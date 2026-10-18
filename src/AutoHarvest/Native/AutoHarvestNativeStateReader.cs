@@ -92,7 +92,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             if (!InvokeBool(resolved.Contract.PlotIsVisible, resolved.Target.Plot))
                 return AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused;
         }
@@ -103,7 +103,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             if (prototype is null)
                 return AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused;
         }
@@ -113,7 +113,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             if (!InvokeBool(resolved.Contract.InstanceIsVisible, prototype))
                 return AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused;
         }
@@ -123,7 +123,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             if (!InvokeBool(resolved.Contract.InstanceHasEnoughForOneInstance, prototype))
                 return AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused;
         }
@@ -133,7 +133,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             if (InvokeInt(resolved.Contract.InstanceGetMaximumRemInstances, prototype) <= 0)
                 return AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused;
         }

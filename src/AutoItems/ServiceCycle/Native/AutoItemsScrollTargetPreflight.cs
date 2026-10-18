@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using System.Collections;
 
 namespace OrbAutomata;
@@ -68,7 +69,7 @@ internal static class AutoItemsScrollTargetPreflight
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (AutoItemsReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason =
                 "The scoped live Scroll target revalidation failed: " +

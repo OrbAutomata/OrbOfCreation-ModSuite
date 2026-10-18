@@ -110,7 +110,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                 GameActionAnswer.NotAttached("Workshop > Artifacts", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
@@ -187,7 +187,7 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                 return Execute(in action, native, manager, list, target,
                     before.EquippedStacks, action.Amount);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts", exception));
@@ -225,10 +225,10 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
                     "Expected equipped stacks " + ExpectedStacks(action.Kind, beforeStacks, requested) +
                     ", observed " + afterStacks + ".");
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (NativeMutationVerifier.TryReadAfterCall(
-                    () => Math.Max(native.Stacks(list, target), 0), IsExpected, out var observed) &&
+                    () => Math.Max(native.Stacks(list, target), 0), out var observed) &&
                 OutcomeMatches(action.Kind, beforeStacks, observed, requested))
                 return Verified();
             return Fault(in action, EquipmentLoadoutPreflight.PostCommitFault, stage,
@@ -277,6 +277,4 @@ internal sealed class EquipmentLoadoutGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or TargetInvocationException or OverflowException;
 }

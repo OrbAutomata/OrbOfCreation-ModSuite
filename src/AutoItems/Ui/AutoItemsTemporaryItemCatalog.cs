@@ -142,7 +142,7 @@ internal static class AutoItemsTemporaryItemCatalog
             options.Sort(Compare);
             return AutoItemsTemporaryItemCatalogSnapshot.Available(options);
         }
-        catch (Exception ex) when (AutoItemsReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                 "The discovered temporary-item catalog could not be read: " +
