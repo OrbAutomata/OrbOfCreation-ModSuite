@@ -20,7 +20,7 @@ namespace OrbModding.Tests.Services;
 /// </summary>
 public sealed class ArchitectureBoundaryTests
 {
-    private static readonly Assembly CommonAssembly = typeof(GameplayInvalidationBus).Assembly;
+    private static readonly Assembly CommonAssembly = typeof(GameLifecycleMonitor).Assembly;
     private static readonly Assembly AutomataAssembly = typeof(OrbAutomata.BepInExAutomataConfiguration).Assembly;
 
     private static readonly string[] SupersededRuntimeNamespaces =

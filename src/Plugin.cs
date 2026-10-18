@@ -168,11 +168,8 @@ public sealed class Plugin : BaseUnityPlugin
     private AutomaticSaveBackupHealth? _automaticSaveBackupHealth;
     private Action? _runUiMaintenance;
 
-    // One lifecycle generation, one lease and one invalidation bus for the whole suite: the three
-    // plugins each tracked their own copies of the same shared monitor and the same shared bus.
     private long _lifecycleGeneration;
     private GameLifecycleLease _lifecycleLease;
-    private GameplayInvalidationBus? _invalidationBus;
     private ModConfigStartStatusView? _startStatusView;
     private string _startStatusFailure = string.Empty;
     private int _startStatusFailureFrames;
@@ -195,7 +192,6 @@ public sealed class Plugin : BaseUnityPlugin
             message => Logger.LogError(message));
         GameActionFaultLog.ConfigureLog(message => Logger.LogError(message));
         GameLifecycleMonitor.Shared.ConfigureFailureLog(message => Logger.LogError(message));
-        GameplayInvalidationBus.Shared.ConfigureFailureLog(message => Logger.LogError(message));
         NativeViewAdapter.ConfigureFailureLog(message => Logger.LogWarning(message));
         SteamKeyboardBridge.ConfigureFailureLog(message => Logger.LogWarning(message));
         NativeMultiBuyScope.ConfigureFailureLog(message => Logger.LogAutomataError(message));
@@ -765,7 +761,6 @@ public sealed class Plugin : BaseUnityPlugin
     /// </summary>
     private void ComposeModConfig()
     {
-        _invalidationBus ??= GameplayInvalidationBus.Shared;
         _uiSurfaceDiagnostics = new SuiteUiSurfaceDiagnostics(
             RuntimeDiagnosticsRegistry.Shared,
             message => Log.LogAutomataInfo(message),
@@ -822,14 +817,6 @@ public sealed class Plugin : BaseUnityPlugin
                     _configurationStore!.Current,
                     _configurationStore.CurrentGeneration);
             }
-        }
-
-        // The shared bus owns one process-wide operation cap and sequence cutoff per Unity frame.
-        if (_modConfigSettings is not null)
-        {
-            _invalidationBus?.Pump(
-                Time.frameCount,
-                GameplayInvalidationBus.DefaultMaxOperationsPerFrame);
         }
 
         UpdateAutomata();
@@ -1157,7 +1144,6 @@ public sealed class Plugin : BaseUnityPlugin
         _mentorActionFamilyOwnership?.Dispose();
         _mentorActionFamilyOwnership = null;
 
-        _invalidationBus = null;
         GameLifecycleMonitor.Shared.Transitioned -= OnLifecycleTransition;
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -1410,10 +1396,8 @@ public sealed class Plugin : BaseUnityPlugin
     /// Commits a pending external or staged settings change at the start of the application frame.
     /// </summary>
     /// <remarks>
-    /// Every source counts. This used to hang off the invalidation the suite's own settings panel
-    /// raises, so a setting changed through BepInEx's configuration manager or by editing the file
-    /// updated what the panel showed and never advanced a generation: the services kept deciding
-    /// against the previous reading until something unrelated republished.
+    /// Every source counts: a setting changed through BepInEx's configuration manager or by editing
+    /// the file advances the generation exactly as an apply in the suite's own settings panel does.
     /// </remarks>
     private void PublishChangedConfiguration()
     {
@@ -4738,8 +4722,6 @@ public sealed class Plugin : BaseUnityPlugin
         }
 
         _uiRetrySeconds = UiRetryIntervalSeconds;
-        var invalidationBus = _invalidationBus ??
-                              throw new InvalidOperationException("Mod Config invalidation bus was not composed.");
         var runtimeSources = _runtimeSources ??
                              throw new InvalidOperationException("Mod Config runtime sources were not composed.");
         var featureCommands = _modConfigFeatureCommands ??
@@ -4755,7 +4737,6 @@ public sealed class Plugin : BaseUnityPlugin
         if (!ModConfigUiShell.TryCreate(
                 Logger,
                 catalog,
-                invalidationBus,
                 runtimeSources,
                 featureCommands,
                 _catalogNavigation,

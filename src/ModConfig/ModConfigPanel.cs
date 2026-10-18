@@ -63,7 +63,6 @@ internal sealed class ModConfigPanel : IDisposable
         RectTransform settingsViewport,
         RectTransform settingsContent,
         ScrollRect settingsScroll,
-        GameplayInvalidationBus invalidationBus,
         ModConfigRuntimeSources runtimeSources,
         ModConfigFeatureCommands featureCommands,
         TextMeshProUGUI pageTitle,
@@ -111,7 +110,6 @@ internal sealed class ModConfigPanel : IDisposable
                 statusText,
                 applyButton,
                 revertButton,
-                invalidationBus,
                 featureCommands);
             _runtimePage = runtimePage;
             _settingsPage = settingsPage;
@@ -164,7 +162,6 @@ internal sealed class ModConfigPanel : IDisposable
         TextMeshProUGUI labelTemplate,
         ConfigCatalogSnapshot catalog,
         ManualLogSource log,
-        GameplayInvalidationBus invalidationBus,
         ModConfigRuntimeSources runtimeSources,
         ModConfigFeatureCommands featureCommands,
         NativeFeatureRailVisualPrimitives nativeRail)
@@ -183,7 +180,6 @@ internal sealed class ModConfigPanel : IDisposable
                 labelTemplate,
                 catalog,
                 log,
-                invalidationBus,
                 runtimeSources,
                 featureCommands,
                 nativeRail);
@@ -200,7 +196,6 @@ internal sealed class ModConfigPanel : IDisposable
         TextMeshProUGUI labelTemplate,
         ConfigCatalogSnapshot catalog,
         ManualLogSource log,
-        GameplayInvalidationBus invalidationBus,
         ModConfigRuntimeSources runtimeSources,
         ModConfigFeatureCommands featureCommands,
         NativeFeatureRailVisualPrimitives nativeRail)
@@ -313,7 +308,6 @@ internal sealed class ModConfigPanel : IDisposable
             (RectTransform)viewport.transform,
             contentRect,
             scroll,
-            invalidationBus,
             runtimeSources,
             featureCommands,
             pageTitle,

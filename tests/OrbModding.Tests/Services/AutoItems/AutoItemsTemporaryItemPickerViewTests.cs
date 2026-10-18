@@ -272,9 +272,8 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
             .gameObject.GetComponent<Button>()!.onClick.Invoke();
         var allowlist = settings.Single(setting => setting.Key == "TemporaryItemAllowlist");
         Assert.Equal(itemId.ToString("D"), session.Get(allowlist).StagedSerialized);
-        Assert.True(session.Apply(mod, out var error, out var applied), error);
+        Assert.True(session.Apply(mod, out var error), error);
         Assert.Equal(itemId.ToString("D"), automata.AutoItemsTemporaryItemAllowlist.Value);
-        Assert.Contains(applied, setting => ReferenceEquals(setting, allowlist));
     }
 
     private static ConfigEditValue Edit(string initialValue)
