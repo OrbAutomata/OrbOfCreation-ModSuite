@@ -15,9 +15,7 @@ namespace OrbModding.Tests.Services.AutoBuy.Runtime.ServiceCycle;
 /// Policy tests for the stateless Auto Buy worker (<see cref="AutoBuyCycleEvaluator"/>). Frames are
 /// built directly so each admission / reserve / affordability / ranking / grouping / overcommit rule
 /// can be exercised in isolation; the capture→frame seam is covered separately by the capture-adapter
-/// tests. The reserve/affordability numeric path is additionally cross-checked against the legacy
-/// <see cref="ReservePolicy"/> (BigAmount math) as a read-only oracle, proving the BigDouble port
-/// makes the same admit/reject and ranking decisions the legacy engine did.
+/// tests.
 /// </summary>
 public sealed class AutoBuyCycleEvaluatorTests
 {
@@ -968,33 +966,27 @@ public sealed class AutoBuyCycleEvaluatorTests
         Assert.Equal(0, metrics.EligibleCandidates);
     }
 
-    // ---- Numeric parity against the legacy ReservePolicy oracle ---------------------------------
+    // ---- Reserve floor and ratio order ----------------------------------------------------------
 
     [Theory]
-    [InlineData(10.0, 1_000.0, "0", 0.0)]     // ratio 0.01, no reserve -> admit
-    [InlineData(10.0, 15.0, "8", 0.0)]        // reserve floor 18 > 15 -> reject
-    [InlineData(10.0, 15.0, "3", 0.0)]        // reserve floor 13 <= 15 -> admit
-    [InlineData(10.0, 15.0, "0", 0.6)]        // relative floor 16 > 15 -> reject
-    [InlineData(50.0, 50.0, "0", 0.0)]        // exactly affordable (ratio 1.0) -> admit
-    [InlineData(1.0, 1_000_000.0, "0", 0.0)]  // tiny ratio -> admit
-    public void ReserveDecisionMatchesLegacyReservePolicy(
+    [InlineData(10.0, 1_000.0, "0", 0.0, true)]      // ratio 0.01, no reserve
+    [InlineData(10.0, 15.0, "8", 0.0, false)]        // reserve floor 18 > 15
+    [InlineData(10.0, 15.0, "3", 0.0, true)]         // reserve floor 13 <= 15
+    [InlineData(10.0, 15.0, "0", 0.6, false)]        // relative floor 16 > 15
+    [InlineData(10.0, 110.0, "100", 2.0, true)]      // the larger floor decides: 10 + 100 <= 110
+    [InlineData(10.0, 109.0, "100", 2.0, false)]     // 10 + 100 > 109
+    [InlineData(50.0, 50.0, "0", 0.0, true)]         // exactly affordable
+    [InlineData(1.0, 1_000_000.0, "0", 0.0, true)]   // tiny ratio
+    [InlineData(0.5, 0.9, "0.3", 0.0, true)]         // under 1: 0.8 <= 0.9
+    [InlineData(0.5, 0.7, "0.3", 0.0, false)]        // under 1: 0.8 > 0.7
+    [InlineData(1.0, 0.0, "0", 0.0, false)]          // nothing held
+    public void TheReserveFloorAdmitsOnlyWhatLeavesTheReserveStanding(
         double cost,
         double quantity,
         string absoluteReserve,
-        double relativeMultiplier)
+        double relativeMultiplier,
+        bool expected)
     {
-        var oracle = new ReservePolicy(() => Config(
-            absoluteReserve: absoluteReserve,
-            relativeMultiplier: (float)relativeMultiplier));
-        var oracleDecision = oracle.Evaluate(new[]
-        {
-            new ResourceAdmissionCost(
-                StructureA.ToString(),
-                "res",
-                new BigAmount(cost, 0),
-                new BigAmount(quantity, 0)),
-        });
-
         var builder = new FrameBuilder();
         var resource = builder.Resource(quantity);
         builder.Structure(StructureA, new[] { (resource, cost) });
@@ -1007,26 +999,14 @@ public sealed class AutoBuyCycleEvaluatorTests
                 relativeMultiplier: (float)relativeMultiplier),
             out _).Count > 0;
 
-        Assert.Equal(oracleDecision.Passed, admitted);
+        Assert.Equal(expected, admitted);
     }
 
     [Fact]
-    public void RankingOrderMatchesLegacyReservePolicyRatioOrder()
+    public void TheLowerCostRatioIsBoughtFirst()
     {
-        // Two candidates on separate resources with distinct cost ratios.
         (double cost, double quantity) a = (100.0, 1_000.0); // ratio 0.1
         (double cost, double quantity) b = (10.0, 1_000.0);  // ratio 0.01
-
-        var oracle = new ReservePolicy(() => Config());
-        var ratioA = oracle.Evaluate(new[]
-        {
-            new ResourceAdmissionCost(StructureA.ToString(), "a", new BigAmount(a.cost, 0), new BigAmount(a.quantity, 0)),
-        }).MaxCostToQuantityRatio;
-        var ratioB = oracle.Evaluate(new[]
-        {
-            new ResourceAdmissionCost(StructureB.ToString(), "b", new BigAmount(b.cost, 0), new BigAmount(b.quantity, 0)),
-        }).MaxCostToQuantityRatio;
-        Assert.True(ratioB < ratioA); // sanity: B is the cheaper ratio per the oracle
 
         var builder = new FrameBuilder();
         var resA = builder.Resource(a.quantity);
@@ -1039,7 +1019,6 @@ public sealed class AutoBuyCycleEvaluatorTests
             Config(structureAffordability: AutoBuyAffordabilityMode.BuyAll),
             out _);
 
-        // The worker must emit the oracle's lower-ratio candidate first.
         Assert.Equal(StructureB, actions[0].Uuid);
     }
 

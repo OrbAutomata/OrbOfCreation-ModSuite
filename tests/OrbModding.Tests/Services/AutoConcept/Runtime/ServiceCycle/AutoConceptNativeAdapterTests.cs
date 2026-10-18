@@ -222,8 +222,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// The boundary keeps the same rate reserve the planner keeps, including for rates under one
-    /// and for a rate the add would take to exactly zero.
+    /// The boundary keeps the same rate reserve the planner keeps: for ordinary rates, rates under
+    /// one, a rate already at zero, and a rate the add would take to exactly zero.
     /// </summary>
     [Theory]
     [Trait("Category", "HeadlessIntegration")]
@@ -231,7 +231,11 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
     [InlineData(0.5, 0.5, 10f, false)]
     [InlineData(1.0, 0.25, 50f, true)]
     [InlineData(1.0, 0.75, 50f, false)]
-    public void TheBoundaryRateReserveAgreesWithThePlannerBelowOne(
+    [InlineData(0.5, 0.5, 0f, true)]
+    [InlineData(0.0, 0.5, 0f, false)]
+    [InlineData(20.0, 5.0, 50f, true)]
+    [InlineData(20.0, 15.0, 50f, false)]
+    public void TheBoundaryKeepsThePlannersRateReserve(
         double trueRate,
         double drain,
         float reservePercent,

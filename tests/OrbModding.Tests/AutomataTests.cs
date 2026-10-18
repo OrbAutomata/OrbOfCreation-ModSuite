@@ -239,25 +239,4 @@ public sealed class AutomataTests
         Assert.Equal(expected, AutoConceptResourcePolicy.TryAcceptPositiveDrain(nativeIsAtZero, out var reason));
         Assert.Equal(expectedReason, reason);
     }
-
-    [Fact]
-    public void ReservePolicy_RequiresCostPlusTheLargestReserveFloor()
-    {
-        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
-        config.AbsoluteReserve.Value = "100";
-        config.RelativeReserveMultiplier.Value = 2.0f;
-        var policy = new ReservePolicy(() => config.Current);
-
-        var accepted = policy.Evaluate(new[]
-        {
-            new ResourceAdmissionCost("mana", "Mana", new BigAmount(1.0, 1), new BigAmount(1.1, 2)),
-        });
-        var rejected = policy.Evaluate(new[]
-        {
-            new ResourceAdmissionCost("mana", "Mana", new BigAmount(1.0, 1), new BigAmount(1.09, 2)),
-        });
-
-        Assert.True(accepted.Passed);
-        Assert.False(rejected.Passed);
-    }
 }
