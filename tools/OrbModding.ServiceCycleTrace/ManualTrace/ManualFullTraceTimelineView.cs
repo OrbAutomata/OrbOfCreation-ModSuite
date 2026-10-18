@@ -16,7 +16,9 @@ internal static class ManualFullTraceTimelineView
         foreach (var segment in session.Segments())
         foreach (var item in segment.Events)
         {
-            if (item.Kind == ServiceCycleSemanticEventKind.PumpCompleted) continue;
+            if (item.Kind is ServiceCycleSemanticEventKind.PumpCompleted or
+                ServiceCycleSemanticEventKind.PumpHeapSampled)
+                continue;
             // Sixty-odd spans four times a second would be the whole timeline, and they are a
             // distribution rather than a sequence: the category view above is the form they answer in.
             if (item.Kind == ServiceCycleSemanticEventKind.WorldCategoryCollected) continue;

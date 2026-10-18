@@ -99,6 +99,67 @@ public sealed class ServiceCycleTraceCodecTests
     }
 
     /// <summary>
+    /// A heap sample rides pump-duration and count slots, so what has to survive the trip is the
+    /// reading: heap bytes decoded as durations would be numerically intact and completely misread.
+    /// </summary>
+    [Fact]
+    public void AHeapSampleReadsBackAsCountsHeapsAndCaptureGrowth()
+    {
+        var decoded = ServiceCycleTraceCodec.Decode(Encode(ServiceCycleTraceFixtures.EveryEventKind()));
+
+        var heap = FirstOfKind(decoded, ServiceCycleSemanticEventKind.PumpHeapSampled).Payload;
+        Assert.Equal(40, heap.CollectionsAtPumpStart);
+        Assert.Equal(41, heap.CollectionsAtPumpEnd);
+        Assert.Equal(300_000_000, heap.HeapAtPumpStart);
+        Assert.Equal(290_000_000, heap.HeapAtPumpEnd);
+        Assert.Equal(65_536, heap.CaptureHeapGrowth);
+        Assert.Equal(1, heap.CapturesMeasured);
+        Assert.Equal(1, heap.CapturesAcrossCollection);
+        Assert.Equal(4_096, heap.PreviousFrameAllocated);
+        Assert.Equal(12, heap.FrameIdentity);
+    }
+
+    /// <summary>
+    /// A player without Unity's per-frame counter writes no reading for it, which is not a reading of
+    /// zero.
+    /// </summary>
+    [Fact]
+    public void AHeapSampleWithoutTheFrameCounterSaysSoRatherThanZero()
+    {
+        var payload = ServiceCycleSemanticPayload.PumpHeapFact(
+            frameIdentity: 3, timestampTicks: 100, collectionsAtStart: 0, collectionsAtEnd: 0,
+            heapAtStart: 1_000, heapAtEnd: 2_000, captureHeapGrowth: 0, capturesMeasured: 0,
+            capturesAcrossCollection: 0, previousFrameAllocated: null);
+        var item = new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, 1), default,
+            ServiceCycleSemanticEventKind.PumpHeapSampled, in payload);
+
+        var decoded = ServiceCycleTraceCodec.Decode(Encode(new[] { item }));
+
+        Assert.Equal(item, decoded[0]);
+        Assert.Null(decoded[0].Payload.PreviousFrameAllocated);
+    }
+
+    /// <summary>
+    /// The collection count only rises, and a heap that reads zero was never read, so either one is
+    /// an emitter that lost track of what it sampled.
+    /// </summary>
+    [Theory]
+    [InlineData(5, 4, 1_000L)]
+    [InlineData(5, 5, 0L)]
+    public void AHeapSampleThatCannotHaveBeenReadIsRefused(int start, int end, long heapAtStart)
+    {
+        var payload = ServiceCycleSemanticPayload.PumpHeapFact(
+            frameIdentity: 3, timestampTicks: 100, collectionsAtStart: start, collectionsAtEnd: end,
+            heapAtStart: heapAtStart, heapAtEnd: 2_000, captureHeapGrowth: 0, capturesMeasured: 0,
+            capturesAcrossCollection: 0, previousFrameAllocated: null);
+
+        Assert.Throws<ArgumentException>(() => new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, 1), default,
+            ServiceCycleSemanticEventKind.PumpHeapSampled, in payload));
+    }
+
+    /// <summary>
     /// A category that cost this pass nothing is recorded at nothing. Structural categories are read
     /// once per lifecycle epoch and reused after, and re-charging them would render the cheapest
     /// categories of a pass as its dearest.

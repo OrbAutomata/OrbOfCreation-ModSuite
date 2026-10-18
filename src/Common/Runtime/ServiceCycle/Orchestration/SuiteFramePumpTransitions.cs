@@ -177,6 +177,9 @@ internal sealed class SuiteFramePumpTransitions
             var started = _state.Clock.Now;
             ServiceCycleStartAttempt start;
             bool deferredForWorld;
+#if SERVICE_CYCLE_PROFILE
+            var heap = _state.HeapSampler.BeginCapture();
+#endif
             _state.EnterServiceCallback();
             try
             {
@@ -198,6 +201,9 @@ internal sealed class SuiteFramePumpTransitions
                 frameIdentity);
             if (start.CaptureAttempted)
             {
+#if SERVICE_CYCLE_PROFILE
+                _state.HeapSampler.EndCapture(in heap);
+#endif
                 metrics.Captures++;
                 metrics.CaptureTicks = AddElapsed(
                     metrics.CaptureTicks,

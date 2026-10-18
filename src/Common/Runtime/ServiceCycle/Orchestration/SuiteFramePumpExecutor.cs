@@ -112,6 +112,9 @@ internal sealed class SuiteFramePumpExecutor
         var reconciliationEpoch =
             _state.Registry.NextLifecycleReconciliationEpoch();
         var metrics = default(SuiteFramePumpFrameMetrics);
+#if SERVICE_CYCLE_PROFILE
+        _state.HeapSampler.BeginPump(_state.Traces.Dispatch is not null);
+#endif
 
         _state.EvidenceScanner.ObservePublications(
             _state.Traces.Dispatch,
@@ -175,6 +178,9 @@ internal sealed class SuiteFramePumpExecutor
             _state.NextStartOrdinal =
                 (startOrdinal + 1) % _state.Transitioned.Length;
         var frameEnded = _state.Clock.Now;
+#if SERVICE_CYCLE_PROFILE
+        var heapSampled = _state.HeapSampler.TryEndPump(frameIdentity, out var heap);
+#endif
         var report = CreateReport(
             frameIdentity,
             startOrdinal,
@@ -192,6 +198,10 @@ internal sealed class SuiteFramePumpExecutor
             in report,
             _state.Registry.CurrentLifecycle,
             frameEnded);
+#if SERVICE_CYCLE_PROFILE
+        if (heapSampled)
+            _state.EvidenceEmitter.PumpHeapSampled(in heap, _state.Registry.CurrentLifecycle, frameEnded);
+#endif
         return report;
     }
 

@@ -122,6 +122,25 @@ internal sealed class ServiceCycleSemanticContextEmitter
         _writer.AppendSuite(ServiceCycleSemanticEventKind.PumpCompleted, in payload);
     }
 
+#if SERVICE_CYCLE_PROFILE
+    internal void PumpHeapSampled(in SuiteFramePumpHeapSample sample, MonotonicTimestamp observedAt)
+    {
+        if (!_enabled) return;
+        var payload = ServiceCycleSemanticPayload.PumpHeapFact(
+            sample.FrameIdentity,
+            observedAt.Ticks,
+            sample.CollectionsAtStart,
+            sample.CollectionsAtEnd,
+            sample.HeapAtStart,
+            sample.HeapAtEnd,
+            sample.CaptureGrowth,
+            sample.CapturesMeasured,
+            sample.CapturesAcrossCollection,
+            sample.PreviousFrameAllocated);
+        _writer.AppendSuite(ServiceCycleSemanticEventKind.PumpHeapSampled, in payload);
+    }
+#endif
+
     private void Lifecycle(
         int ordinal,
         LifecycleGeneration lifecycle,

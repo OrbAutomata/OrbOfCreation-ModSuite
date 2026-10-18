@@ -144,6 +144,24 @@ this publishes what is already measured rather than growing a second accumulator
 cost line goes to that page next; the recording roster keeps the collector's own names, because a
 record is read against the collector that wrote it.
 
+### Heap samples
+
+A collection runs when enough has been allocated by anyone, and its pause lands on whichever frame
+allocated last, so a hitch's collection says nothing about whose garbage caused it. The profiling build
+therefore appends one `PumpHeapSampled` record behind every accepted pump while a session records: the
+runtime's collection count and Mono's used heap at both ends of the pump, the heap growth summed over
+the pump's world captures with how many were measured and how many a collection crossed, and Unity's
+`GC Allocated In Frame` counter for the previous frame when the player exposes one. Consecutive
+records bound the game's part of each frame, between one pump's end and the next pump's start, so
+every collection is placed on one side of the frame or the other. Heap growth across a collection is
+unknown, never zero: a collection frees the game's garbage and the suite's alike.
+
+The counters attach only when the full trace is enabled, after a 1 MiB witness allocation shows the
+used-heap reading moves with what is allocated; otherwise the log names why and the capture holds no
+heap samples. Every Unity call involved has an installed-game contract. Mono's used heap moves in heap
+blocks and includes suite workers allocating concurrently, so the suite's share holds over many frames,
+not for one.
+
 ### Artifacts
 
 Format v1 publishes `segment-{ordinal}.oscs` files with a 96-byte header, at most 3,640 unchanged
@@ -438,8 +456,13 @@ reachable from a full-trace session.
   is the one worth attacking. The spans stay out of the event timeline they would otherwise be, since
   the aggregate is the form they answer in. A pace view gives one row per stretch at one
   [automation pace](world-collection.md#pace), read from the configuration store and started at the
-  save that changed it: collections per second, average collection cost, pumps per second, and
-  average pump cost.
+  save that changed it: collections per second, average collection cost, pumps per second, average
+  pump cost, and, from the heap samples, collections per minute with all and suite heap growth per
+  second. A garbage-collection view gives collections per minute split by the side of the frame they
+  completed in, all against suite heap growth over frames no collection touched, capture growth, frame
+  time with and without a collection, and every frame of 250 ms or more classified as a collection in
+  the suite's pump, in the game's part of the frame, both, or none. A capture without heap samples
+  says the view is unavailable.
 - **`--journal <journal-directory> [report.md]`** selects an explicit third decoder route and never
   sniffs or falls through to the OSCS parser. Persistent ordinals must be contiguous; record sequences
   must be contiguous within a run; every adjacent later run begins at sequence one; and a run identity

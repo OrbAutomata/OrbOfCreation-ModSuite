@@ -37,6 +37,7 @@ internal static class ManualFullTraceReport
         ManualFullTraceCategoryView.Write(writer, session);
         ManualFullTracePumpView.Write(writer, session);
         ManualFullTracePaceView.Write(writer, session);
+        ManualFullTraceGcView.Write(writer, session);
         ManualFullTraceTimelineView.Write(writer, session);
     }
 

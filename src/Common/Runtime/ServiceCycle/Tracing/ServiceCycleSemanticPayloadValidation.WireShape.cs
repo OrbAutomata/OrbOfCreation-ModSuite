@@ -69,9 +69,17 @@ internal static partial class ServiceCycleSemanticPayloadValidation
         ServiceCycleSemanticFields.Duration | ServiceCycleSemanticFields.ActionCount |
         ServiceCycleSemanticFields.OccurrenceCount;
 
+    // No service and no lifecycle: the heap belongs to the process, not to anything the suite runs.
+    private const ServiceCycleSemanticFields PumpHeapFields =
+        ServiceCycleSemanticFields.FrameIdentity | ServiceCycleSemanticFields.Timestamp |
+        ServiceCycleSemanticFields.Code | ServiceCycleSemanticFields.ActionCount |
+        ServiceCycleSemanticFields.PumpDurations | ServiceCycleSemanticFields.CommittedCount |
+        ServiceCycleSemanticFields.UntouchedSuffixCount;
+
     private static ServiceCycleSemanticFields ExpectedFields(ServiceCycleSemanticEventKind kind) => kind switch
     {
         ServiceCycleSemanticEventKind.WorldCategoryCollected => WorldCategoryFields,
+        ServiceCycleSemanticEventKind.PumpHeapSampled => PumpHeapFields,
         ServiceCycleSemanticEventKind.ConfigurationPublished => PublicationFields | ServiceCycleSemanticFields.Configuration,
         ServiceCycleSemanticEventKind.StrategyPublished => PublicationFields | ServiceCycleSemanticFields.Strategy,
         ServiceCycleSemanticEventKind.LifecycleRequested or ServiceCycleSemanticEventKind.LifecycleActivated or
@@ -131,6 +139,8 @@ internal static partial class ServiceCycleSemanticPayloadValidation
         // and a worse span to refuse than to record without an epoch.
         ServiceCycleSemanticEventKind.WorldCategoryCollected =>
             ServiceCycleSemanticFields.FrameIdentity | ServiceCycleSemanticFields.Lifecycle,
+        // Unity's per-frame allocation counter exists only in players that provide it.
+        ServiceCycleSemanticEventKind.PumpHeapSampled => ServiceCycleSemanticFields.Fingerprint,
         _ => ServiceCycleSemanticFields.None,
     };
 

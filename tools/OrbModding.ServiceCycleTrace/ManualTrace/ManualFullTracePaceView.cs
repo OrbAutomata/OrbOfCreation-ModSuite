@@ -24,9 +24,15 @@ internal static class ManualFullTracePaceView
         var origin = session.Document.FirstTimestampTicks;
         var stretches = new List<Stretch>();
         Stretch? current = null;
+        var heap = new PumpHeapIntervals();
         foreach (var segment in session.Segments())
         foreach (var item in segment.Events)
         {
+            if (heap.TryObserve(in item, out var frame))
+            {
+                current?.Heap.Add(in frame);
+                continue;
+            }
             var payload = item.Payload;
             if (item.Kind == ServiceCycleSemanticEventKind.ConfigurationPublished)
             {
@@ -54,8 +60,8 @@ internal static class ManualFullTracePaceView
             writer.WriteLine();
             return;
         }
-        writer.WriteLine("| From ms | Pace | Seconds | Collections | Per second | Avg collection ms | Pumps per second | Avg pump ms |");
-        writer.WriteLine("|---:|:---|---:|---:|---:|---:|---:|---:|");
+        writer.WriteLine("| From ms | Pace | Seconds | Collections | Per second | Avg collection ms | Pumps per second | Avg pump ms | GCs per minute | Heap MB/s | Suite MB/s |");
+        writer.WriteLine("|---:|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         foreach (var stretch in stretches)
         {
             var seconds = TraceMetric.ToMilliseconds(stretch.LastTicks - stretch.FromTicks) / 1000d;
@@ -63,7 +69,8 @@ internal static class ManualFullTracePaceView
                 $"| {Milliseconds(stretch.FromTicks - origin)} | {stretch.Pace} | {Fixed(seconds, "F1")} | " +
                 $"{stretch.Collections.ToString("N0", CultureInfo.InvariantCulture)} | {Rate(stretch.Collections, seconds)} | " +
                 $"{Average(stretch.CollectionTicks, stretch.Collections)} | {Rate(stretch.Pumps, seconds)} | " +
-                $"{Average(stretch.PumpTicks, stretch.Pumps)} |");
+                $"{Average(stretch.PumpTicks, stretch.Pumps)} | {Optional(stretch.Heap.CollectionsPerMinute, "F1")} | " +
+                $"{Optional(stretch.Heap.TotalMegabytesPerSecond, "F2")} | {Optional(stretch.Heap.SuiteMegabytesPerSecond, "F2")} |");
         }
         writer.WriteLine();
     }
@@ -74,6 +81,9 @@ internal static class ManualFullTracePaceView
 
     private static string Average(long ticks, long count) =>
         count > 0 ? Fixed(TraceMetric.ToMilliseconds(ticks) / count, "F3") : "—";
+
+    private static string Optional(double? value, string format) =>
+        value is { } known ? Fixed(known, format) : "—";
 
     private static string Fixed(double value, string format) => value.ToString(format, CultureInfo.InvariantCulture);
 
@@ -93,6 +103,7 @@ internal static class ManualFullTracePaceView
         internal long PumpTicks { get; private set; }
         internal long Collections { get; private set; }
         internal long CollectionTicks { get; private set; }
+        internal PumpHeapTally Heap { get; } = new();
 
         internal void Add(in ServiceCycleSemanticPayload payload)
         {

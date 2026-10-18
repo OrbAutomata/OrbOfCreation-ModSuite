@@ -100,6 +100,14 @@ internal sealed class ServiceCycleSemanticRuntimeTraceMultiplexer : IServiceCycl
         _second?.PumpCompleted(in report, observedAt);
     }
 
+#if SERVICE_CYCLE_PROFILE
+    internal void PumpHeapSampled(in SuiteFramePumpHeapSample sample, MonotonicTimestamp observedAt)
+    {
+        _first.PumpHeapSampled(in sample, observedAt);
+        _second?.PumpHeapSampled(in sample, observedAt);
+    }
+#endif
+
     internal void StartAttemptObserved(int ordinal, in ServiceCycleStartAttempt attempt)
     {
         _first.StartAttemptObserved(ordinal, in attempt);

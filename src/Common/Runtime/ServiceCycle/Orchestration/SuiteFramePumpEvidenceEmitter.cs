@@ -183,6 +183,25 @@ internal sealed class SuiteFramePumpEvidenceEmitter
         _journal.Observer?.Advance(observedAt);
     }
 
+#if SERVICE_CYCLE_PROFILE
+    internal void PumpHeapSampled(
+        in SuiteFramePumpHeapSample sample,
+        LifecycleGeneration currentLifecycle,
+        MonotonicTimestamp observedAt)
+    {
+        var trace = _traces.Dispatch;
+        if (trace is null) return;
+        var profile = _profiler.Begin(
+            ServiceCycleProfileSpan.SemanticPumpSummary,
+            serviceOrdinal: 0,
+            currentLifecycle.Value,
+            cycle: 0,
+            sample.FrameIdentity);
+        try { trace.PumpHeapSampled(in sample, observedAt); }
+        finally { profile.Complete(); }
+    }
+#endif
+
     internal void RejectedPumpCompleted(
         in SuiteFramePumpReport report,
         MonotonicTimestamp observedAt) =>

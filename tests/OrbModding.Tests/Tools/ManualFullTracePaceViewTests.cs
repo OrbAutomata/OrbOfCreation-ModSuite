@@ -38,8 +38,8 @@ public sealed class ManualFullTracePaceViewTests
 
         var report = Report(fixture);
 
-        Assert.Contains("| 0.000 | Fastest | 3.0 | 3 | 1.00 | 30.000 | 1.00 | 40.000 |", report);
-        Assert.Contains("| 4000.000 | CpuSaver | 10.0 | 1 | 0.10 | 30.000 | 0.30 | 11.000 |", report);
+        Assert.Contains("| 0.000 | Fastest | 3.0 | 3 | 1.00 | 30.000 | 1.00 | 40.000 | — | — | — |", report);
+        Assert.Contains("| 4000.000 | CpuSaver | 10.0 | 1 | 0.10 | 30.000 | 0.30 | 11.000 | — | — | — |", report);
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public sealed class ManualFullTracePaceViewTests
 
         var report = Report(fixture);
 
-        Assert.Contains("| 0.000 | unrecorded | 1.0 | 1 | 1.00 | 30.000 | 1.00 | 40.000 |", report);
+        Assert.Contains("| 0.000 | unrecorded | 1.0 | 1 | 1.00 | 30.000 | 1.00 | 40.000 | — | — | — |", report);
     }
 
     private static void Configuration(List<ServiceCycleSemanticEvent> events, ulong generation, long at)
