@@ -191,9 +191,7 @@ public sealed class AutoHarvestNativeStateReaderTests
     {
         var state = State(emptyEntries: 1, nativeHasEmptyEntry: true);
 
-        Assert.Equal(
-            AutoHarvestEvidenceState.Verified,
-            AutoHarvestWorldFacts.ProjectActionSlotAvailability(state));
+        Assert.True(AutoHarvestWorldFacts.HasActionSlot(state));
     }
 
     [Theory]
@@ -205,18 +203,7 @@ public sealed class AutoHarvestNativeStateReaderTests
     {
         var state = State(emptyEntries, nativeHasEmptyEntry);
 
-        Assert.Equal(
-            AutoHarvestEvidenceState.Rejected,
-            AutoHarvestWorldFacts.ProjectActionSlotAvailability(state));
-    }
-
-    [Fact]
-    public void InvalidNativeStateLeavesAvailabilityUnknown()
-    {
-        Assert.Equal(
-            AutoHarvestEvidenceState.Unknown,
-            AutoHarvestWorldFacts.ProjectActionSlotAvailability(
-                AutoHarvestSubmissionState.Invalid));
+        Assert.False(AutoHarvestWorldFacts.HasActionSlot(state));
     }
 
     [Fact]

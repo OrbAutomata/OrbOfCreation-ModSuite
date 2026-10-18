@@ -66,21 +66,13 @@ internal static class AutoHarvestWorldFacts
         pair.HasEnoughForOneInstance &&
         pair.MaximumRemainingInstances > 0;
 
-    /// <summary>Whether the pair is not already queued or running.</summary>
-    internal static AutoHarvestEvidenceState ProjectNoDuplicate(in AutoHarvestSubmissionState state) =>
-        state.IsValid
-            ? Evidence(state.SupportedCollectCount == 0)
-            : AutoHarvestEvidenceState.Unknown;
+    /// <summary>Whether the pair is already queued or running.</summary>
+    internal static bool IsQueuedOrRunning(in AutoHarvestSubmissionState state) =>
+        state.SupportedCollectCount != 0;
 
     /// <summary>Whether the action queue has room for one more entry.</summary>
-    internal static AutoHarvestEvidenceState ProjectActionSlotAvailability(
-        in AutoHarvestSubmissionState state)
-    {
-        if (!state.IsValid) return AutoHarvestEvidenceState.Unknown;
-        return state.NativeHasEmptyEntry && state.EmptyEntryCount >= 1
-            ? AutoHarvestEvidenceState.Verified
-            : AutoHarvestEvidenceState.Rejected;
-    }
+    internal static bool HasActionSlot(in AutoHarvestSubmissionState state) =>
+        state.NativeHasEmptyEntry && state.EmptyEntryCount >= 1;
 
     /// <summary>
     /// The facts for a pair the snapshot does not describe.

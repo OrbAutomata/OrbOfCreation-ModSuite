@@ -241,7 +241,7 @@ public sealed class AutoHarvestPolicyTests
     /// The queue is judged only at the action boundary, and only after every world fact has passed.
     /// </summary>
     /// <remarks>
-    /// Ordering matters here: an unreadable queue must not mask a pair that was never going to be
+    /// Ordering matters here: a busy or full queue must not mask a pair that was never going to be
     /// harvested anyway, or the rejection reason names the wrong thing and the diagnostics send
     /// someone looking at the action list.
     /// </remarks>
@@ -256,9 +256,6 @@ public sealed class AutoHarvestPolicyTests
         AssertRejected(
             Submit(ReadyFacts(), Queue(empty: 0)),
             AutoHarvestRejectionReason.NoActionSlot);
-        AssertRejected(
-            Submit(ReadyFacts(), AutoHarvestSubmissionState.Invalid),
-            AutoHarvestRejectionReason.DuplicateStateUnknown);
         AssertRejected(
             Submit(ReadyFacts(readiness: AutoHarvestEvidenceState.Rejected), Queue(empty: 0)),
             AutoHarvestRejectionReason.NotReady);
