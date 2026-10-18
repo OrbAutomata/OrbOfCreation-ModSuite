@@ -245,8 +245,12 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         Assert.Contains("Config generation: 3", text);
     }
 
+    /// <summary>
+    /// The whole bundle is the plan set against the game and the readings it was pinned to, and
+    /// nothing else.
+    /// </summary>
     [Fact]
-    public void TheBundleNamesEveryLiveRowEarlierOverlapAndTimingDeltas()
+    public void TheBundleIsThePlanAgainstTheGameAndThePinnedReadings()
     {
         var otherResource = Guid.Parse("abcdef02-0000-0000-0000-000000000000");
         var live = AutoBuyLiveCostSnapshot.Complete(
@@ -261,48 +265,61 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
             AutoBuyAdmissionTerm.Passed,
             AutoBuyAdmissionTerm.Refused,
             in live);
-        var earlierCosts = AutoBuyLiveCostSnapshot.Complete(
-            new[]
-            {
-                new AutoBuyLiveCostRow(ResourceId, false, new BigDouble(1.0, 1), new BigDouble(3.0, 1)),
-            });
-        var baseReport = Report(diagnosis);
-        var report = new AutoBuyRefusalReport(
-            baseReport.Kind,
-            baseReport.Uuid,
-            baseReport.RequestedLevels,
-            baseReport.Belief,
-            baseReport.Diagnosis,
-            baseReport.WorldGeneration,
-            baseReport.CollectedAtEpoch,
-            baseReport.ConfigGeneration,
-            baseReport.LifecycleGeneration,
-            baseReport.CycleId,
-            batchId: 8,
-            actionIndex: 3,
-            worldCollectedAt: new MonotonicTimestamp(100),
-            admissionAttemptedAt: new MonotonicTimestamp(TimeSpan.TicksPerMillisecond * 2 + 100),
-            latestWorldGenerationReadable: true,
-            latestWorldGeneration: 6,
-            earlierPurchases: new[]
-            {
-                new AutoBuyEarlierPurchase(
-                    AutoBuyCandidateKind.Structure,
-                    Guid.Parse("99a0da46-0000-0000-0000-000000000000"),
-                    actionIndex: 1,
-                    committedLevels: 2,
-                    in earlierCosts),
-            });
 
-        var text = AutoBuyRefusalBundle.Render(in report, WrittenAt);
+        var text = AutoBuyRefusalBundle.Render(Report(diagnosis), WrittenAt);
 
-        Assert.Contains("Classification: AffordabilityChanged", text);
-        Assert.Contains($"[1] Resource: {ResourceId:D}", text);
-        Assert.Contains($"[2] Resource: {otherResource:D}", text);
-        Assert.Contains("Action 1: Structure 99a0da46-0000-0000-0000-000000000000, committed 2 level(s)", text);
-        Assert.Contains("Collection-to-admission elapsed milliseconds: 2", text);
-        Assert.Contains("Latest world generation at admission: 6", text);
-        Assert.Contains("World generations elapsed: 2", text);
+        Assert.Equal(
+            string.Join(
+                Environment.NewLine,
+                "Auto Buy planned a purchase the game refused.",
+                "Written 2026-07-25 13:45:06Z",
+                "",
+                "Candidate: Upgrade 99a0da45-0000-0000-0000-000000000000",
+                "Levels requested: 1",
+                "Verdict: refused by GetPurchaseCost().HasEnough()",
+                "Classification: AffordabilityChanged",
+                "",
+                "Live diagnostic terms, read one at a time after the type-specific CanPurchase() refused:",
+                "  IsAvailable(): passed",
+                "  IsMaxLevel(): passed",
+                "  IsMaxQueuedLevel(): passed",
+                "  GetPurchaseCost().HasEnough(): REFUSED",
+                "",
+                "Live cost rows at refusal:",
+                "  [1] Resource: abcdef01-0000-0000-0000-000000000000",
+                "      IsBandwidth: false",
+                "      Cost: 2e1",
+                "      Available: 1.9e1 (live TrueQuantity)",
+                "  [2] Resource: abcdef02-0000-0000-0000-000000000000",
+                "      IsBandwidth: true",
+                "      Cost: 4e0",
+                "      Available: 3e0 (live room below the ceiling)",
+                "",
+                "What the plan believed, from the world it was made from:",
+                "  IsAvailable: true",
+                "  HasFiniteLevels: true",
+                "  IsMaxLevel: false",
+                "  IsMaxQueuedLevel: false",
+                "  CurrentLevel: 1",
+                "  QueuedLevels: 0",
+                "  Cost rows: 1 resource(s), 1 priced above nought",
+                "  CostRatio: 0.25",
+                "",
+                "The resource that set that ratio:",
+                "  Resource: abcdef01-0000-0000-0000-000000000000",
+                "  IsBandwidth: false",
+                "  Cost: 2e0",
+                "  Available: 8e0 (planned spendable TrueQuantity)",
+                "  Reserve floor applied: 0e0",
+                "",
+                "Readings this decision was pinned to:",
+                "  World generation: 4",
+                "  World collected at epoch: 12",
+                "  Config generation: 3",
+                "  Lifecycle generation: 2",
+                "  Cycle: 41",
+                ""),
+            text);
     }
 
     /// <summary>

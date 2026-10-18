@@ -205,7 +205,6 @@ internal static class AutoBuyCycleEvaluator
                 frame.Global.CollectedAtEpoch,
                 count,
                 preferredCount == 1 ? decision.Belief : belief,
-                frame.Global.CollectedAt,
                 candidate.OwningListId,
                 candidate.OwningViewId,
                 plannedSpend);

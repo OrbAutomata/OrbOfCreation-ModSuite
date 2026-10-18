@@ -409,74 +409,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void Execute_LaterAffordabilityRefusal_NamesEarlierSameBatchResourceOverlap()
-    {
-        var shared = new global::ResourceSO
-        {
-            uuid = Guid.NewGuid().ToString(),
-            quantity = new BigDouble(4.0, 1),
-        };
-        var first = new global::UpgradeSO
-        {
-            uuid = Guid.NewGuid().ToString(),
-            available = true,
-            purchasable = true,
-        };
-        first.purchaseCost.costs.Add(
-            new global::ResourceTuple(shared, new BigDouble(2.0, 1)));
-        var second = new global::UpgradeSO
-        {
-            uuid = Guid.NewGuid().ToString(),
-            available = true,
-            purchasable = true,
-        };
-        second.purchaseCost.costs.Add(
-            new global::ResourceTuple(shared, new BigDouble(3.0, 1)));
-        Publish(first);
-        Publish(second);
-        var refusals = new RecordingRefusals();
-        var adapter = new AutoBuyCycleActionAdapter(
-            NativeAdapter(),
-            new FakeQueueRoom(64, readable: true),
-            () => PlannedEpoch,
-            () => AutoBuyCandidateKinds.All,
-            refusals,
-            new FixedWorldGeneration(new WorldGeneration(9)));
-
-        var firstResult = adapter.TryExecute(
-            new AutoBuyCycleAction(
-                AutoBuyCandidateKind.Upgrade,
-                Guid.Parse(first.uuid),
-                PlannedEpoch,
-                count: 1,
-                Belief(Guid.Parse(shared.uuid), new BigDouble(2.0, 1), shared.GetTrueQuantity()),
-                new MonotonicTimestamp(100)),
-            Config(structures: true, upgrades: true),
-            Context(actionIndex: 0, attemptedAt: 130));
-        var secondResult = adapter.TryExecute(
-            new AutoBuyCycleAction(
-                AutoBuyCandidateKind.Upgrade,
-                Guid.Parse(second.uuid),
-                PlannedEpoch,
-                count: 1,
-                Belief(Guid.Parse(shared.uuid), new BigDouble(3.0, 1), shared.GetTrueQuantity()),
-                new MonotonicTimestamp(100)),
-            Config(structures: true, upgrades: true),
-            Context(actionIndex: 1, attemptedAt: 150));
-
-        Assert.Equal(ServiceActionDisposition.Committed, firstResult.Disposition);
-        Assert.Equal(ServiceActionDisposition.Skipped, secondResult.Disposition);
-        var report = Assert.Single(refusals.Reports);
-        var earlier = Assert.Single(report.EarlierPurchases.ToArray());
-        Assert.Equal(Guid.Parse(first.uuid), earlier.Uuid);
-        Assert.Equal(0, earlier.ActionIndex);
-        Assert.Equal(1, earlier.CommittedLevels);
-        Assert.Equal((ulong)9, report.LatestWorldGeneration);
-        Assert.Equal(new MonotonicTimestamp(100), report.WorldCollectedAt);
-        Assert.Equal(new MonotonicTimestamp(150), report.AdmissionAttemptedAt);
-    }
-
-    [Fact]
     public void Submit_StructureUnavailable_RefusesBeforeTheThinCanPurchase()
     {
         var structure = new global::StructureSO
@@ -1469,9 +1401,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Assert.Equal(2, upgrade.level);
     }
 
-    private static ServiceActionContext Context(
-        int actionIndex = 0,
-        long attemptedAt = 1) =>
+    private static ServiceActionContext Context(int actionIndex = 0) =>
         new ServiceActionContext(
             new ServiceCycleIdentity(
                 new ServiceId("AutoBuy"),
@@ -1483,7 +1413,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new BatchId(1),
             new ActionId(checked((ulong)actionIndex + 1)),
             actionIndex,
-            new MonotonicTimestamp(attemptedAt));
+            new MonotonicTimestamp(1));
 
     private static AutoBuyPlanBelief Belief(
         Guid resourceId,
@@ -1504,19 +1434,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             bindingCost: cost,
             bindingAvailable: available,
             bindingReserveFloor: default);
-
-    private sealed class FixedWorldGeneration : IServiceWorldGenerationSource
-    {
-        private readonly WorldGeneration _generation;
-
-        internal FixedWorldGeneration(WorldGeneration generation) => _generation = generation;
-
-        public bool TryGetLatestGeneration(out WorldGeneration generation)
-        {
-            generation = _generation;
-            return true;
-        }
-    }
 
     private static SuiteRuntimeConfiguration Config(bool structures, bool upgrades, int leaveQueueSlots = 0) =>
         new SuiteRuntimeConfiguration

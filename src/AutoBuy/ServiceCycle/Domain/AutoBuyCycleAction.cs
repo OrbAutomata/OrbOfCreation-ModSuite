@@ -1,5 +1,4 @@
 using System;
-using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -125,17 +124,7 @@ internal readonly struct AutoBuyCycleAction
         Guid uuid,
         long collectedAtEpoch,
         int count = 1)
-        : this(kind, uuid, collectedAtEpoch, count, default, default)
-    {
-    }
-
-    public AutoBuyCycleAction(
-        AutoBuyCandidateKind kind,
-        Guid uuid,
-        long collectedAtEpoch,
-        int count,
-        AutoBuyPlanBelief belief)
-        : this(kind, uuid, collectedAtEpoch, count, belief, default)
+        : this(kind, uuid, collectedAtEpoch, count, default)
     {
     }
 
@@ -145,7 +134,6 @@ internal readonly struct AutoBuyCycleAction
         long collectedAtEpoch,
         int count,
         AutoBuyPlanBelief belief,
-        MonotonicTimestamp worldCollectedAt,
         Guid owningListId = default,
         Guid owningViewId = default,
         PublicationTable<AutoBuyPlannedSpend>? plannedSpend = null)
@@ -161,7 +149,6 @@ internal readonly struct AutoBuyCycleAction
         CollectedAtEpoch = collectedAtEpoch;
         Count = count;
         Belief = belief;
-        WorldCollectedAt = worldCollectedAt;
         OwningListId = owningListId;
         OwningViewId = owningViewId;
         PlannedSpend = plannedSpend ?? PublicationTable<AutoBuyPlannedSpend>.Empty;
@@ -185,9 +172,6 @@ internal readonly struct AutoBuyCycleAction
     /// collected cannot be submitted.
     /// </remarks>
     public long CollectedAtEpoch { get; }
-
-    /// <summary>When the world snapshot was collected, for refusal timing diagnostics.</summary>
-    public MonotonicTimestamp WorldCollectedAt { get; }
 
     /// <summary>The deterministic authored list/view route that admitted this candidate.</summary>
     public Guid OwningListId { get; }
