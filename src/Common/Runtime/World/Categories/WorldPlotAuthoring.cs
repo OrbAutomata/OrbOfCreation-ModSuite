@@ -286,7 +286,7 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(plotType, "PlotNodeSO");
-        _plotId = bind.Call<Guid>("GetGuid");
+        _plotId = bind.StableUuid();
         _autoActionId = bind.ReferenceGuid("autoAction");
         _phaseInfos = bind.CollectionField("phaseInfos");
 

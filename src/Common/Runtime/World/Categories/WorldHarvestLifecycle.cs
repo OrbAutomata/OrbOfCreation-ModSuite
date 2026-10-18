@@ -139,7 +139,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         var scalingType = resolveType("ScalingInfo");
 
         _elements = NativeAccessorBinder.StaticListAccessor(_elementType, "All");
-        _elementId = NativeAccessorBinder.Call<Guid>(_elementType, "GetGuid");
+        _elementId = NativeAccessorBinder.StableUuid(_elementType);
         _elementVisible = NativeAccessorBinder.Call<bool>(_elementType, "IsVisible");
         _elementAvailable = NativeAccessorBinder.Call<bool>(_elementType, "IsAvailable");
         _elementMaximum = NativeAccessorBinder.Call<BigDouble>(_elementType, "MaximumNumberInstances");

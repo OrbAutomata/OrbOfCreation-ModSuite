@@ -88,7 +88,7 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
         }
 
         var glyph = new WorldMemberBinding(_glyphType, "GlyphSO");
-        _glyphIdentity = glyph.Call<Guid>("GetGuid");
+        _glyphIdentity = glyph.StableUuid();
         _associatedRecipeBook = glyph.ReferenceGuid("associatedRecipeBook");
         _registry = NativeAccessorBinder.StaticListAccessor(_glyphType, "All");
         _unavailable = _registry is null

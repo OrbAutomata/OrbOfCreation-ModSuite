@@ -665,7 +665,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             .Elements(
                 spell.CollectionElementType("augmentedSpellTypes"),
                 "Spell.augmentedSpellTypes[]")
-            .Call<Guid>("GetGuid");
+            .StableUuid();
         var glyphType = resolveType("GlyphSO");
         var glyphListType = glyphType is null ? null : typeof(List<>).MakeGenericType(glyphType);
         var getAugmentGlyphs = _spellType?.GetMethod(
@@ -674,7 +674,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             ? null
             : _spellType?.GetMethod(
                 "GetQuantityOfGlyph", Instance, null, new[] { glyphType }, null);
-        _glyphId = NativeAccessorBinder.Call<Guid>(glyphType, "GetGuid");
+        _glyphId = NativeAccessorBinder.StableUuid(glyphType);
         var settingsType = resolveType("SettingsManager");
         var canCancelSpells = settingsType?.GetMethod(
             "CanCancelSpells",

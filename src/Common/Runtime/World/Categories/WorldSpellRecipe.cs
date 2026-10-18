@@ -384,7 +384,7 @@ internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSamp
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _discovered = bind.Field<bool>("discovered");
         _discRarityLevel = bind.Field<int>("discRarityLevel");
         _masteryXp = bind.Field<BigDouble>("masteryExperience");
@@ -413,7 +413,7 @@ internal sealed class WorldSpellRecipeBinder : WorldRowBinder<RawSpellRecipeSamp
             ? glyphList.GetGenericArguments()[0]
             : null;
         _coreGlyphs = bind.CallList("GetGlyphRecipe", glyphType);
-        _glyphId = NativeAccessorBinder.Call<Guid>(glyphType, "GetGuid");
+        _glyphId = NativeAccessorBinder.StableUuid(glyphType);
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         if (_glyphId is null || _discovery.Failure.Length != 0)
         {

@@ -1,6 +1,5 @@
 using System;
-using System.Linq.Expressions;
-using System.Reflection;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -9,6 +8,9 @@ internal sealed class SpellCompositionNativeBindings
 {
     internal static readonly string[] ContractIds =
     {
+        "spell-composition.player.type-action",
+        "challenge.int-variable.type-action",
+        "spell-workbench.view-type-action",
         "spell-composition.player-instance-action",
         "spell-composition.player-output-level-action",
         "spell-composition.player-maximum-output-level-action",
@@ -72,155 +74,40 @@ internal sealed class SpellCompositionNativeBindings
         Func<string, Type?> resolveType,
         Func<string, bool> includeContract,
         out SpellCompositionNativeBindings? bindings,
-        out string reason)
-    {
-        bindings = null;
-        try
+        out string reason) =>
+        NativeBindingSet.TryBind("level-dial", ContractIds, resolveType, includeContract, set =>
         {
-            foreach (var id in ContractIds) Require(id, includeContract);
-            Type T(string name) => resolveType(name) ??
-                throw new InvalidOperationException(name + " was unavailable.");
-
-            var playerType = T("Player");
-            var intType = T("IntVariable");
-            var playerInstance = Field(playerType, "_instance", playerType, isStatic: true);
-            var output = StaticMethod(playerType, "GetSpellOutputLevel", intType);
-            var maximumOutput = Field(
-                playerType,
-                "maxSpellOutputLevel",
-                intType,
-                isStatic: false);
-            var reserve = StaticMethod(playerType, "GetReserveLevel", intType);
-            var maximumReserve = Field(
-                playerType,
-                "maxReserveLevel",
-                intType,
-                isStatic: false);
-            var druidry = Field(playerType, "druidryOutputLevel", intType, isStatic: false);
-            var maximumDruidry = Field(
-                playerType,
-                "maxDruidryOutputLevel",
-                intType,
-                isStatic: false);
-            var alchemy = Field(playerType, "alchemyOutputLevel", intType, isStatic: false);
-            var maximumAlchemy = Field(
-                playerType,
-                "maxAlchemyOutputLevel",
-                intType,
-                isStatic: false);
-            var viewType = T("ViewSO");
-            var viewAvailable = Method(viewType, "IsAvailable", typeof(bool));
-            var asInt = Method(intType, "AsInt", typeof(int));
-            var setInt = Method(intType, "SetValue", typeof(void), typeof(int));
-
-            bindings = new SpellCompositionNativeBindings(
-                StaticObject(playerInstance),
-                StaticCall(output),
-                ObjectField(maximumOutput),
-                StaticCall(reserve),
-                ObjectField(maximumReserve),
-                ObjectField(druidry),
-                ObjectField(maximumDruidry),
-                ObjectField(alchemy),
-                ObjectField(maximumAlchemy),
-                viewType,
-                InstanceFunc<bool>(viewAvailable),
-                InstanceFunc<int>(asInt),
-                InstanceValueAction<int>(setInt));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or ArgumentException or AmbiguousMatchException)
-        {
-            reason = "The complete level-dial binding set is unavailable: " + ex.Message;
-            return false;
-        }
-    }
-
-    private static void Require(string id, Func<string, bool> include)
-    {
-        if (!include(id))
-            throw new InvalidOperationException("Required contract " + id + " was withheld.");
-    }
-
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-    private static FieldInfo Field(
-        Type type,
-        string name,
-        Type valueType,
-        bool isStatic)
-    {
-        var field = type.GetField(name, isStatic ? Static : Instance);
-        if (field is null || field.FieldType != valueType || field.IsStatic != isStatic)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return field;
-    }
-
-    private static MethodInfo Method(
-        Type type,
-        string name,
-        Type result,
-        params Type[] arguments)
-    {
-        var method = type.GetMethod(name, Instance, null, arguments, null);
-        if (method is null || method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return method;
-    }
-
-    private static MethodInfo StaticMethod(
-        Type type,
-        string name,
-        Type result,
-        params Type[] arguments)
-    {
-        var method = type.GetMethod(name, Static, null, arguments, null);
-        if (method is null || !method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(type.Name + "." + name + " was unavailable.");
-        return method;
-    }
-
-    private static Func<object?> StaticObject(FieldInfo field) =>
-        Expression.Lambda<Func<object?>>(
-            Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-
-    private static Func<object?> StaticCall(MethodInfo method) =>
-        Expression.Lambda<Func<object?>>(
-            Expression.Convert(Expression.Call(method), typeof(object))).Compile();
-
-    private static Func<object, object> ObjectField(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object));
-        return Expression.Lambda<Func<object, object>>(
-            Expression.Convert(
-                Expression.Field(Expression.Convert(target, field.DeclaringType!), field),
-                typeof(object)),
-            target).Compile();
-    }
-
-    private static Func<object, T> InstanceFunc<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object));
-        return Expression.Lambda<Func<object, T>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-            target).Compile();
-    }
-
-    private static Action<object, T> InstanceValueAction<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object));
-        var value = Expression.Parameter(typeof(T));
-        return Expression.Lambda<Action<object, T>>(
-            Expression.Call(
-                Expression.Convert(target, method.DeclaringType!),
-                method,
-                value),
-            target,
-            value).Compile();
-    }
+            var player = set.Type("spell-composition.player.type-action", "Player");
+            var integer = set.Type("challenge.int-variable.type-action", "IntVariable");
+            var view = set.Type("spell-workbench.view-type-action", "ViewSO");
+            return new SpellCompositionNativeBindings(
+                set.StaticField<Func<object?>>(
+                    "spell-composition.player-instance-action", player, "_instance", player),
+                set.StaticCall<Func<object?>>(
+                    "spell-composition.player-output-level-action", player, "GetSpellOutputLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-maximum-output-level-action",
+                    player, "maxSpellOutputLevel", integer),
+                set.StaticCall<Func<object?>>(
+                    "spell-composition.player-reserve-level-action", player, "GetReserveLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-maximum-reserve-level-action",
+                    player, "maxReserveLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-druidry-level-action", player, "druidryOutputLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-maximum-druidry-level-action",
+                    player, "maxDruidryOutputLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-alchemy-level-action", player, "alchemyOutputLevel", integer),
+                set.Field<Func<object, object>>(
+                    "spell-composition.player-maximum-alchemy-level-action",
+                    player, "maxAlchemyOutputLevel", integer),
+                view,
+                set.Call<Func<object, bool>>(
+                    "spell-composition.dial-view-availability-action", view, "IsAvailable", typeof(bool)),
+                set.Call<Func<object, int>>("int-variable.as-int", integer, "AsInt", typeof(int)),
+                set.Call<Action<object, int>>(
+                    "int-variable.set-value", integer, "SetValue", typeof(void), typeof(int)));
+        }, out bindings, out reason);
 }

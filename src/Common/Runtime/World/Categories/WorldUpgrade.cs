@@ -128,7 +128,7 @@ internal sealed class WorldUpgradeBinder : WorldRowBinder<RawUpgradeSample, Worl
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Call<int>("GetPurchaseLevel");
 
         // maxLevel is read as a field because the game exposes no accessor for it, only the predicate

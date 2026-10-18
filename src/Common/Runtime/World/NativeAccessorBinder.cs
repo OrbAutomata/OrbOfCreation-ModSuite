@@ -527,6 +527,15 @@ internal static class NativeAccessorBinder
         return Expression.Lambda<Func<object, object?>>(read, source).Compile();
     }
 
+    /// <summary>The owner's own stable UUID, read through <see cref="RuntimeIdentityRegistryBinding.StableUuidMethod"/>.</summary>
+    internal static Func<object, Guid>? StableUuid(Type? owner)
+    {
+        var method = owner is null ? null : RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(owner);
+        if (method is null) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        return Compile<Guid>(Expression.Call(Expression.Convert(source, method.DeclaringType!), method), source);
+    }
+
     /// <summary>
     /// Binds a single-valued reference to another entity as that entity's identity.
     /// </summary>

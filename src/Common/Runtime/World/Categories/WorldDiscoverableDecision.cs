@@ -133,10 +133,10 @@ internal sealed class WorldDiscoverableBinding
         _value = tuple.Call<BigDouble>("GetValue");
 
         var resource = new WorldMemberBinding(resourceType!, "ResourceSO");
-        _resourceIdentity = resource.Call<Guid>("GetGuid");
+        _resourceIdentity = resource.StableUuid();
         _resourceAmount = resource.Call<BigDouble>("GetQuantity");
         var glyph = new WorldMemberBinding(glyphRecipeType!, "GlyphSO");
-        _glyphIdentity = glyph.Call<Guid>("GetGuid");
+        _glyphIdentity = glyph.StableUuid();
 
         Failure = Join(
             item.Failure,

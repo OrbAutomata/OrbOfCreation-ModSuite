@@ -122,7 +122,7 @@ internal sealed class WorldHarvestElementBinder : WorldPlainBinder<WorldHarvestE
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _masteryXp = bind.Field<BigDouble>("masteryXp");
         _masteryLevel = bind.Field<int>("masteryLevel");
         _harvestTime = bind.Field<double>("harvestTime");

@@ -262,7 +262,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
 
         var recipe = new WorldMemberBinding(recipeType, "CraftingRecipeSO");
         _allRecipes = NativeAccessorBinder.StaticListAccessor(recipeType, "All");
-        _identity = recipe.Call<Guid>("GetGuid");
+        _identity = recipe.StableUuid();
         _visible = recipe.Call<bool>("IsVisible");
         _canBuy = recipe.Call<bool>("CanBuy");
         _canBuyAt = recipe.Call<BigDouble, bool>("CanBuyAt");
@@ -285,7 +285,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         _recipeListValues = recipeList.CollectionField("value");
         var queue = new WorldMemberBinding(queueType, "CraftingInstanceListVariable");
         _queueValues = queue.CollectionField("value");
-        _queueIdentity = queue.Call<Guid>("GetGuid");
+        _queueIdentity = queue.StableUuid();
         _queueQuantity = queue.CallWithObjectArgument<BigDouble>("GetQuantity", recipeType);
         _queueHasRoom = queue.Call<bool>("HasEmptySpot");
         _queueMaximum = queue.Call<int>("GetMax");
@@ -309,7 +309,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         _costResource = tuple.Reference("resource", resourceType);
         _costValue = tuple.Call<BigDouble>("GetValue");
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
-        _resourceIdentity = resource.Call<Guid>("GetGuid");
+        _resourceIdentity = resource.StableUuid();
         _resourceAmount = resource.Call<BigDouble>("GetQuantity");
 
         _unavailable = JoinFailures(

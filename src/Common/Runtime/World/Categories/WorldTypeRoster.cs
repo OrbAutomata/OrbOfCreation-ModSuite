@@ -69,7 +69,7 @@ internal sealed class WorldStructureTypeBinder : WorldPlainBinder<WorldStructure
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _baseEffectLevel = bind.Field<int>("baseEffectLevel");
         _baseBuildTime = bind.Field<double>("baseBuildTime");
         _overrideRankDefault = bind.Field<bool>("overrideRankDefault");
@@ -120,7 +120,7 @@ internal sealed class WorldRitualTypeBinder : WorldPlainBinder<WorldRitualType>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _initiated = bind.Field<bool>("initiated");
         _activeRituals = bind.ModifierRecord("activeRituals");
         return bind.Failure;
@@ -159,7 +159,7 @@ internal sealed class WorldHarvestTypeBinder : WorldPlainBinder<WorldHarvestType
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.ModifierRecord("level");
         return bind.Failure;
     }
@@ -195,7 +195,7 @@ internal sealed class WorldPlotNodeTypeBinder : WorldPlainBinder<WorldPlotNodeTy
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _totalLevel = bind.ModifierRecord("totalLevel");
         return bind.Failure;
     }
@@ -317,7 +317,7 @@ internal sealed class WorldResearchTypeBinder : WorldPlainBinder<WorldResearchTy
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _linkedDevelopCost = bind.Field<bool>("linkedDevelopCost");
         _linkedResourceCost = bind.Field<bool>("linkedResourceCost");
         _linkedResearchTime = bind.Field<bool>("linkedResearchTime");
@@ -397,7 +397,7 @@ internal sealed class WorldConsumableFamilyBinder : WorldPlainBinder<WorldConsum
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _hidden = bind.Field<bool>("hidden");
         _sortOrder = bind.Field<int>("sortOrder");
         return bind.Failure;
@@ -429,7 +429,7 @@ internal sealed class WorldHarvestActionTypeBinder : WorldPlainBinder<WorldHarve
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         return bind.Failure;
     }
 
@@ -458,7 +458,7 @@ internal sealed class WorldPassiveAbilityTypeBinder : WorldPlainBinder<WorldPass
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         return bind.Failure;
     }
 
@@ -498,7 +498,7 @@ internal sealed class WorldTimeRuneTypeBinder : WorldPlainBinder<WorldTimeRuneTy
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _initialized = bind.Field<bool>("initialized");
         _totalLevel = bind.ModifierRecord("totalLevel");
         return bind.Failure;

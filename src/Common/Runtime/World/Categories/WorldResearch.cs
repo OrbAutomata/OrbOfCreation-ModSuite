@@ -427,7 +427,7 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Field<int>("level");
         _queuedLevels = bind.Field<int>("queuedLevels");
         _researchStage = bind.Field<int>("researchStage");
@@ -497,7 +497,7 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.Reference(tupleType, "resource", resourceType);
         _costValue = NativeAccessorBinder.Call<BigDouble>(tupleType, "GetValue");
-        _resourceId = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
+        _resourceId = NativeAccessorBinder.StableUuid(resourceType);
         _resourceAmount = NativeAccessorBinder.Call<BigDouble>(resourceType, "GetQuantity");
         _fillList = bind.Reference("resourceFillList", fillType);
         _fillEntries = NativeAccessorBinder.CollectionField(fillType, "entries");
@@ -506,7 +506,7 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         _fillCapacity = NativeAccessorBinder.Call<BigDouble>(fillEntryType, "GetCapacity");
         _fillRemaining = NativeAccessorBinder.Call<BigDouble>(fillEntryType, "GetRemaining");
         _researchTypes = NativeAccessorBinder.CollectionField(type, "researchTypes");
-        _researchTypeId = NativeAccessorBinder.Call<Guid>(researchType, "GetGuid");
+        _researchTypeId = NativeAccessorBinder.StableUuid(researchType);
         _remainingBonusLevels = NativeAccessorBinder.Call<int>(researchType, "GetRemainingFreeBonusLevels");
         _typeCurrentInvestment = NativeAccessorBinder.Call<int>(researchType, "GetCurrentInvestmentLevel");
         _typeMaximumInvestment = NativeAccessorBinder.Call<int>(researchType, "GetMaxInvestmentLevel");

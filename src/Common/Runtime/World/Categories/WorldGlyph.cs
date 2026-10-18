@@ -139,7 +139,7 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Field<int>("level");
         _freeLevels = bind.Field<int>("freeLevels");
         _discRarityLevel = bind.Field<int>("discRarityLevel");

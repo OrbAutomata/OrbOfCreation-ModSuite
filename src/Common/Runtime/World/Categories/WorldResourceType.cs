@@ -76,7 +76,7 @@ internal sealed class WorldResourceTypeBinder : WorldPlainBinder<WorldResourceTy
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Field<int>("level");
         _freeLevels = bind.Field<int>("freeLevels");
         _specialHidden = bind.Field<bool>("specialHidden");

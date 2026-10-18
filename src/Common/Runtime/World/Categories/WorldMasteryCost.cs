@@ -36,7 +36,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         var recordType = resolveType("ValueModifierRecord");
 
         _spells = NativeAccessorBinder.StaticListAccessor(_spellType, "All");
-        _spellId = NativeAccessorBinder.Call<Guid>(_spellType, "GetGuid");
+        _spellId = NativeAccessorBinder.StableUuid(_spellType);
         _baseCost = NativeAccessorBinder.Reference(_spellType, "baseLevelingCost");
         var costType = _spellType?.GetField(
             "baseLevelingCost",
@@ -48,7 +48,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
 
         _globalsInstance = NativeAccessorBinder.StaticReference(globalsType, "instance", globalsType);
         _standard = NativeAccessorBinder.Reference(globalsType, "spellLevelingStandard");
-        _standardId = NativeAccessorBinder.Call<Guid>(variableType, "GetGuid");
+        _standardId = NativeAccessorBinder.StableUuid(variableType);
         _standardValue = NativeAccessorBinder.Reference(variableType, "value");
         _programReader = new NativeModifierProgramReader(recordType, listType);
         _typeXpPerMastery = NativeAccessorBinder.Field<double>(globalsType, "spellTypeXpPerMastery");

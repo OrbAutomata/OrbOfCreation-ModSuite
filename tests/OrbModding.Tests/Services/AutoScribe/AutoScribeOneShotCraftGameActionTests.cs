@@ -137,6 +137,20 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedFailureAfterPaymentStaysLoudAndStillQuarantines()
+    {
+        var fixture = Fixture();
+        fixture.Recipe.AfterPurchaseFault = new NullReferenceException("injected failure after purchase");
+        using var actionBoundary = GameAction();
+
+        Assert.Throws<NullReferenceException>(() => Submit(actionBoundary, fixture.Action));
+        var blocked = Submit(actionBoundary, fixture.Action);
+
+        Assert.Equal(AutoScribeActionResultCodes.Quarantined, blocked.Outcome.Code);
+        Assert.Equal(1, fixture.Recipe.PurchaseCalls);
+    }
+
+    [Fact]
     public void FailureDuringConstructionWithoutWorkOutcomeNamesAndQuarantines()
     {
         var fixture = Fixture();

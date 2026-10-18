@@ -711,7 +711,7 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
 
         var link = new WorldMemberBinding(linkType, "PrerequisiteLinkSO");
         _links = NativeAccessorBinder.StaticListAccessor(linkType, "All");
-        _identity = link.Call<Guid>("GetGuid");
+        _identity = link.StableUuid();
         _tiers = NativeAccessorBinder.CollectionField(linkType, "linkTiers");
         var definitionType = linkType.GetNestedType(
             "LinkDefinition", BindingFlags.Public | BindingFlags.NonPublic);
@@ -913,24 +913,24 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         }
 
         var upgrade = new WorldMemberBinding(upgradeType, "UpgradeSO");
-        _upgradeId = upgrade.Call<Guid>("GetGuid");
+        _upgradeId = upgrade.StableUuid();
         _upgradeContainer = NativeAccessorBinder.Reference(upgradeType, "prerequisitesPerLevel");
 
         var structure = new WorldMemberBinding(structureType, "StructureSO");
-        _structureId = structure.Call<Guid>("GetGuid");
+        _structureId = structure.StableUuid();
         _structureContainer = NativeAccessorBinder.Reference(structureType, "prerequisitesPerLevel");
         _alchemyUsageContainer = NativeAccessorBinder.Reference(alchemyType, "usagePrerequisites");
 
         var research = new WorldMemberBinding(researchType, "ResearchSO");
-        _researchId = research.Call<Guid>("GetGuid");
+        _researchId = research.StableUuid();
         _researchContainer = NativeAccessorBinder.Reference(researchType, "levelPrerequisites");
 
         var recipeBook = new WorldMemberBinding(recipeBookType, "RecipeBookSO");
-        _recipeBookId = recipeBook.Call<Guid>("GetGuid");
+        _recipeBookId = recipeBook.StableUuid();
         _recipeBookContainer = NativeAccessorBinder.Reference(recipeBookType, "prerequisites");
 
         var link = new WorldMemberBinding(prerequisiteLinkType, "PrerequisiteLinkSO");
-        _prerequisiteLinkId = link.Call<Guid>("GetGuid");
+        _prerequisiteLinkId = link.StableUuid();
         _prerequisiteLinkTiers = NativeAccessorBinder.CollectionField(prerequisiteLinkType, "linkTiers");
         var linkDefinitionType = prerequisiteLinkType.GetNestedType(
             "LinkDefinition", BindingFlags.Public | BindingFlags.NonPublic);
@@ -954,7 +954,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         _researchLevelVisibilityContainer =
             NativeAccessorBinder.Reference(researchType, "levelVisibilityPrereq");
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
-        _resourceId = resource.Call<Guid>("GetGuid");
+        _resourceId = resource.StableUuid();
         _resourceVisibilityContainer =
             NativeAccessorBinder.Reference(resourceType, "visiblePrerequisites");
         _containerAdjustValue = NativeAccessorBinder.Field<BigDouble>(containerType, "adjustValue");
@@ -1752,7 +1752,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     {
         if (_memberIdentities.TryGetValue(memberType, out var cached)) return cached;
 
-        var built = NativeAccessorBinder.Call<Guid>(memberType, "GetGuid");
+        var built = NativeAccessorBinder.StableUuid(memberType);
         _memberIdentities.Add(memberType, built);
         return built;
     }

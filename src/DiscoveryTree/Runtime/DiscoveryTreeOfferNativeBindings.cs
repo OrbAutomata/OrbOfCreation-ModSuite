@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -13,39 +11,34 @@ namespace OrbAutomata;
 /// </summary>
 internal sealed class DiscoveryTreeOfferNativeBindings
 {
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     internal static readonly string[] ContractIds =
     {
-        "discovery-tree-offer-tree-type",
-        "discovery-tree-offer-guid-container-type",
-        "discovery-tree-offer-discoverable-type",
-        "discovery-tree-offer-has-guid-type",
-        "discovery-tree-offer-resource-cost-type",
-        "discovery-tree-offer-all-field",
-        "discovery-tree-offer-rerolls-field",
-        "discovery-tree-offer-current-choices-field",
-        "discovery-tree-offer-selected-field",
-        "discovery-tree-offer-tree-identity-method",
-        "discovery-tree-offer-guid-value-method",
-        "discovery-tree-offer-visible-method",
-        "discovery-tree-offer-idle-method",
-        "discovery-tree-offer-crafting-method",
-        "discovery-tree-offer-choice-method",
-        "discovery-tree-offer-remaining-method",
-        "discovery-tree-offer-immediate-required-method",
-        "discovery-tree-offer-next-cost-method",
-        "discovery-tree-offer-resolve-item-method",
-        "discovery-tree-offer-initiate-method",
-        "discovery-tree-offer-select-method",
-        "discovery-tree-offer-confirm-method",
-        "discovery-tree-offer-reroll-method",
-        "discovery-tree-offer-item-identity-method",
-        "discovery-tree-offer-cost-enough-method",
-        "discovery-tree-offer-cost-perform-method",
+        "discovery-tree-offer.tree.type",
+        "spell-workbench.guid-container-type-action",
+        "discovery-tree-offer.discoverable.type",
+        "discovery-tree-offer.has-guid.type",
+        "generic-level.cost.type-action",
+        "discovery-tree-offer.tree-all",
+        "discovery-tree-offer.tree-rerolls",
+        "discovery-tree-offer.current-choice-ids",
+        "discovery-tree-offer.tree-selected",
+        "id-scriptable-object.get-guid-action",
+        "discovery-tree-offer.guid-container-value",
+        "discovery-tree-offer.tree-is-visible",
+        "discovery-tree-offer.tree-is-idle",
+        "discovery-tree-offer.tree-is-crafting",
+        "discovery-tree-offer.tree-is-choice",
+        "discovery-tree-offer.tree-has-remaining",
+        "discovery-tree-offer.tree-has-immediate-required",
+        "discovery-tree-offer.tree-next-cost",
+        "discovery-tree-offer.tree-get-item",
+        "discovery-tree-offer.tree-initiate",
+        "discovery-tree-offer.tree-select",
+        "discovery-tree-offer.tree-confirm",
+        "discovery-tree-offer.tree-reroll",
+        "discovery-tree-offer.has-guid-get-guid",
+        "resource-cost-list.has-enough",
+        "resource-cost-list.perform-cost",
     };
 
     private DiscoveryTreeOfferNativeBindings(
@@ -129,181 +122,44 @@ internal sealed class DiscoveryTreeOfferNativeBindings
         out DiscoveryTreeOfferNativeBindings? bindings,
         out string reason,
         Func<string, Type?>? resolveType = null,
-        Func<string, bool>? includeContract = null)
-    {
-        bindings = null;
-        resolveType ??= ReflectionUtil.FindLoadedType;
-        includeContract ??= static _ => true;
-        try
+        Func<string, bool>? includeContract = null) =>
+        NativeBindingSet.TryBind("Discovery Tree offer", ContractIds, resolveType, includeContract, set =>
         {
-            Type T(string contract, string name)
-            {
-                Require(contract, includeContract);
-                return resolveType(name) ?? throw new InvalidOperationException(name + " was unavailable.");
-            }
-            FieldInfo F(string contract, Type type, string name, Type fieldType, bool isStatic = false)
-            {
-                Require(contract, includeContract);
-                var field = type.GetField(name, isStatic ? Static : Instance);
-                if (field is null || field.FieldType != fieldType || field.IsStatic != isStatic)
-                    throw new InvalidOperationException($"{type.Name}.{name} : {fieldType.Name} was unavailable.");
-                return field;
-            }
-            MethodInfo M(string contract, Type type, string name, Type result, params Type[] parameters)
-            {
-                Require(contract, includeContract);
-                var method = type.GetMethod(name, Instance, null, parameters, null);
-                if (method is null || method.IsStatic || method.ReturnType != result)
-                    throw new InvalidOperationException(
-                        $"{type.Name}.{name}({string.Join(",", Array.ConvertAll(parameters, p => p.Name))}) : {result.Name} was unavailable.");
-                return method;
-            }
-            MethodInfo MH(string contract, Type type, string name, Type result, params Type[] parameters)
-            {
-                Require(contract, includeContract);
-                for (var current = type; current is not null; current = current.BaseType)
-                {
-                    var method = current.GetMethod(name, Instance | BindingFlags.DeclaredOnly, null, parameters, null);
-                    if (method is not null && !method.IsStatic && method.ReturnType == result) return method;
-                }
-                throw new InvalidOperationException($"{type.Name}.{name} : {result.Name} was unavailable.");
-            }
+            var tree = set.Type("discovery-tree-offer.tree.type", "DiscoveryTreeSO");
+            var guidContainer = set.Type("spell-workbench.guid-container-type-action", "GuidContainer");
+            var item = set.Type("discovery-tree-offer.discoverable.type", "IDiscoverable");
+            var hasGuid = set.Type("discovery-tree-offer.has-guid.type", "IHasGuid");
+            var cost = set.Type("generic-level.cost.type-action", "ResourceCostList");
 
-            var tree = T(ContractIds[0], "DiscoveryTreeSO");
-            var guidContainer = T(ContractIds[1], "GuidContainer");
-            var item = T(ContractIds[2], "IDiscoverable");
-            var hasGuid = T(ContractIds[3], "IHasGuid");
-            var cost = T(ContractIds[4], "ResourceCostList");
-
-            var all = F(ContractIds[5], tree, "All", typeof(List<>).MakeGenericType(tree), isStatic: true);
-            var rerolls = F(ContractIds[6], tree, "rerollsLeft", typeof(int));
-            var currentChoices = F(ContractIds[7], tree, "currentChoiceIds", typeof(List<>).MakeGenericType(guidContainer));
-            var selected = F(ContractIds[8], tree, "selectedChoiceId", guidContainer);
-
-            var identity = MH(ContractIds[9], tree, "GetGuid", typeof(Guid));
-            var guidValue = M(ContractIds[10], guidContainer, "get_guid", typeof(Guid));
-            var visible = M(ContractIds[11], tree, "IsVisible", typeof(bool));
-            var idle = M(ContractIds[12], tree, "IsInIdleMode", typeof(bool));
-            var crafting = M(ContractIds[13], tree, "IsInCraftingMode", typeof(bool));
-            var choice = M(ContractIds[14], tree, "IsInChoiceMode", typeof(bool));
-            var remaining = M(ContractIds[15], tree, "HasCurrentlyRemMainPoolDiscoveries", typeof(bool));
-            var immediate = M(ContractIds[16], tree, "HasImmediateRequiredDiscover", typeof(bool));
-            var nextCost = M(ContractIds[17], tree, "GetNextItemCost", cost);
-            var resolveItem = M(ContractIds[18], tree, "GetItemFromGuid", item, typeof(Guid));
-            var initiate = M(ContractIds[19], tree, "InitiateCraftingMode", typeof(void));
-            var select = M(ContractIds[20], tree, "SelectItemId", typeof(void), typeof(Guid));
-            var confirm = M(ContractIds[21], tree, "DiscoverSelectedItem", typeof(void));
-            var reroll = M(ContractIds[22], tree, "RerollChoices", typeof(void));
-            var itemIdentity = M(ContractIds[23], hasGuid, "GetGuid", typeof(Guid));
-            var enough = M(ContractIds[24], cost, "HasEnough", typeof(bool));
-            var perform = M(ContractIds[25], cost, "PerformCost", typeof(void));
-
-            bindings = new DiscoveryTreeOfferNativeBindings(
+            return new DiscoveryTreeOfferNativeBindings(
                 tree, item, cost,
-                StaticListGetter(all),
-                InstanceFunc<Guid>(identity),
-                FieldGetter<int>(rerolls),
-                ListFieldGetter(currentChoices),
-                ObjectFieldGetter(selected),
-                InstanceFunc<Guid>(guidValue),
-                InstanceFunc<bool>(visible),
-                InstanceFunc<bool>(idle),
-                InstanceFunc<bool>(crafting),
-                InstanceFunc<bool>(choice),
-                InstanceFunc<bool>(remaining),
-                InstanceFunc<bool>(immediate),
-                InstanceObjectFunc(nextCost),
-                InstanceObjectFunc<Guid>(resolveItem),
-                InstanceAction(initiate),
-                InstanceAction<Guid>(select),
-                InstanceAction(confirm),
-                InstanceAction(reroll),
-                InstanceFunc<Guid>(itemIdentity),
-                InstanceFunc<bool>(enough),
-                InstanceAction(perform));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or AmbiguousMatchException or ArgumentException)
-        {
-            reason = "The complete Discovery Tree offer binding set is unavailable: " + ex.Message;
-            return false;
-        }
-    }
-
-    private static void Require(string id, Func<string, bool> include)
-    {
-        if (!include(id)) throw new InvalidOperationException("Required contract " + id + " was withheld.");
-    }
-
-    private static Func<IList> StaticListGetter(FieldInfo field)
-    {
-        var body = Expression.Convert(Expression.Field(null, field), typeof(IList));
-        return Expression.Lambda<Func<IList>>(body).Compile();
-    }
-
-    private static Func<object, T> FieldGetter<T>(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(T));
-        return Expression.Lambda<Func<object, T>>(body, target).Compile();
-    }
-
-    private static Func<object, int> EnumFieldGetter(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var value = Expression.Field(Expression.Convert(target, field.DeclaringType!), field);
-        return Expression.Lambda<Func<object, int>>(Expression.Convert(value, typeof(int)), target).Compile();
-    }
-
-    private static Func<object, IList> ListFieldGetter(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(IList));
-        return Expression.Lambda<Func<object, IList>>(body, target).Compile();
-    }
-
-    private static Func<object, object> ObjectFieldGetter(FieldInfo field)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var body = Expression.Convert(Expression.Field(Expression.Convert(target, field.DeclaringType!), field), typeof(object));
-        return Expression.Lambda<Func<object, object>>(body, target).Compile();
-    }
-
-    private static Func<object, T> InstanceFunc<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var call = Expression.Call(Expression.Convert(target, method.DeclaringType!), method);
-        return Expression.Lambda<Func<object, T>>(Expression.Convert(call, typeof(T)), target).Compile();
-    }
-
-    private static Func<object, object> InstanceObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var call = Expression.Call(Expression.Convert(target, method.DeclaringType!), method);
-        return Expression.Lambda<Func<object, object>>(Expression.Convert(call, typeof(object)), target).Compile();
-    }
-
-    private static Func<object, TArg, object?> InstanceObjectFunc<TArg>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var argument = Expression.Parameter(typeof(TArg), "argument");
-        var call = Expression.Call(Expression.Convert(target, method.DeclaringType!), method, argument);
-        return Expression.Lambda<Func<object, TArg, object?>>(Expression.Convert(call, typeof(object)), target, argument).Compile();
-    }
-
-    private static Action<object> InstanceAction(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method), target).Compile();
-    }
-
-    private static Action<object, TArg> InstanceAction<TArg>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var argument = Expression.Parameter(typeof(TArg), "argument");
-        return Expression.Lambda<Action<object, TArg>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method, argument), target, argument).Compile();
-    }
+                set.StaticField<Func<IList>>(
+                    "discovery-tree-offer.tree-all", tree, "All", typeof(List<>).MakeGenericType(tree)),
+                set.StableUuid("id-scriptable-object.get-guid-action", tree),
+                set.Field<Func<object, int>>("discovery-tree-offer.tree-rerolls", tree, "rerollsLeft", typeof(int)),
+                set.Field<Func<object, IList>>("discovery-tree-offer.current-choice-ids",
+                    tree, "currentChoiceIds", typeof(List<>).MakeGenericType(guidContainer)),
+                set.Field<Func<object, object>>("discovery-tree-offer.tree-selected", tree, "selectedChoiceId", guidContainer),
+                set.Call<Func<object, Guid>>(
+                    "discovery-tree-offer.guid-container-value", guidContainer, "get_guid", typeof(Guid)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-is-visible", tree, "IsVisible", typeof(bool)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-is-idle", tree, "IsInIdleMode", typeof(bool)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-is-crafting", tree, "IsInCraftingMode", typeof(bool)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-is-choice", tree, "IsInChoiceMode", typeof(bool)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-has-remaining",
+                    tree, "HasCurrentlyRemMainPoolDiscoveries", typeof(bool)),
+                set.Call<Func<object, bool>>("discovery-tree-offer.tree-has-immediate-required",
+                    tree, "HasImmediateRequiredDiscover", typeof(bool)),
+                set.Call<Func<object, object>>("discovery-tree-offer.tree-next-cost", tree, "GetNextItemCost", cost),
+                set.Call<Func<object, Guid, object?>>(
+                    "discovery-tree-offer.tree-get-item", tree, "GetItemFromGuid", item, typeof(Guid)),
+                set.Call<Action<object>>("discovery-tree-offer.tree-initiate", tree, "InitiateCraftingMode", typeof(void)),
+                set.Call<Action<object, Guid>>(
+                    "discovery-tree-offer.tree-select", tree, "SelectItemId", typeof(void), typeof(Guid)),
+                set.Call<Action<object>>("discovery-tree-offer.tree-confirm", tree, "DiscoverSelectedItem", typeof(void)),
+                set.Call<Action<object>>("discovery-tree-offer.tree-reroll", tree, "RerollChoices", typeof(void)),
+                set.StableUuid("discovery-tree-offer.has-guid-get-guid", hasGuid),
+                set.Call<Func<object, bool>>("resource-cost-list.has-enough", cost, "HasEnough", typeof(bool)),
+                set.Call<Action<object>>("resource-cost-list.perform-cost", cost, "PerformCost", typeof(void)));
+        }, out bindings, out reason);
 }

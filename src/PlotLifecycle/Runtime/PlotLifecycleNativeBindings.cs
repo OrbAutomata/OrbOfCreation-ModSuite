@@ -1,7 +1,5 @@
 using System;
 using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -11,9 +9,6 @@ internal sealed class PlotLifecycleNativeBindings
 {
     internal static readonly Guid ActiveActionsId =
         new("70871e86-100b-4ae0-ba9b-fc96e09b7e1f");
-
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     internal static readonly string[] ContractIds =
     {
@@ -104,135 +99,41 @@ internal sealed class PlotLifecycleNativeBindings
         out PlotLifecycleNativeBindings? bindings,
         out string reason,
         Func<string, Type?>? resolveType = null,
-        Func<string, bool>? includeContract = null)
-    {
-        bindings = null;
-        resolveType ??= ReflectionUtil.FindLoadedType;
-        includeContract ??= static _ => true;
-        try
+        Func<string, bool>? includeContract = null) =>
+        NativeBindingSet.TryBind("plot lifecycle", ContractIds, resolveType, includeContract, set =>
         {
-            Type T(int index, string name)
-            {
-                Require(index, includeContract);
-                return resolveType(name) ??
-                    throw new InvalidOperationException(name + " was unavailable");
-            }
+            var plot = set.Type("plot-lifecycle.plot.type-action", "PlotNodeSO");
+            var action = set.Type("plot-lifecycle.action.type-action", "PlotNodeActionSO");
+            var instance = set.Type("plot-lifecycle.instance.type-action", "PlotNodeActionInstance");
+            var list = set.Type("plot-lifecycle.list.type-action", "PlotNodeActionInstanceListVariable");
+            var listBase = set.GenericBase("plot-lifecycle.list-room-action", list, "EmptyTypeListVariable`1");
 
-            var plot = T(0, "PlotNodeSO");
-            var action = T(1, "PlotNodeActionSO");
-            var instance = T(2, "PlotNodeActionInstance");
-            var list = T(3, "PlotNodeActionInstanceListVariable");
-            var plotVisible = Method(4, plot, "IsVisible", typeof(bool), Type.EmptyTypes, includeContract);
-            var plotInstances = Method(5, plot, "GetActionInstances", null, Type.EmptyTypes, includeContract);
-            if (!typeof(IList).IsAssignableFrom(plotInstances.ReturnType))
-                throw new InvalidOperationException("PlotNodeSO.GetActionInstances did not return a list");
-            var instanceAction = Method(6, instance, "GetAction", action, Type.EmptyTypes, includeContract);
-            var instancePlot = Method(7, instance, "GetElement", plot, Type.EmptyTypes, includeContract);
-            var instanceVisible = Method(8, instance, "IsVisible", typeof(bool), Type.EmptyTypes, includeContract);
-            var affordable = Method(9, instance, "HasEnoughForOneInstance", typeof(bool), Type.EmptyTypes, includeContract);
-            var maximumRemaining = Method(10, instance, "GetMaximumRemInstances", typeof(int), Type.EmptyTypes, includeContract);
-            var maximum = Method(11, instance, "GetMaximumInstances", typeof(int), Type.EmptyTypes, includeContract);
-            var quantity = Method(12, instance, "GetActualQuantity", typeof(int), Type.EmptyTypes, includeContract);
-            var atMinimum = Method(13, instance, "IsAtMinimumQuantity", typeof(bool), Type.EmptyTypes, includeContract);
-            var cancel = Method(14, instance, "Cancel", typeof(void), Type.EmptyTypes, includeContract);
-            var find = Method(15, list, "FindInstance", instance, new[] { instance }, includeContract);
-            var listBase = FindGenericBase(list, "EmptyTypeListVariable`1");
-            var room = Method(16, listBase, "HasEmptySpot", typeof(bool), Type.EmptyTypes, includeContract);
-            var add = Method(17, list, "AddInstance", typeof(void), new[] { instance, typeof(int) }, includeContract);
-            var remove = Method(18, list, "RemoveInstance", typeof(void), new[] { instance, typeof(int) }, includeContract);
-
-            bindings = new PlotLifecycleNativeBindings(
+            return new PlotLifecycleNativeBindings(
                 plot, action, instance, list,
-                Func<bool>(plotVisible), ListFunc(plotInstances), ObjectFunc(instanceAction),
-                ObjectFunc(instancePlot), Func<bool>(instanceVisible), Func<bool>(affordable),
-                Func<int>(maximumRemaining), Func<int>(maximum), Func<int>(quantity),
-                Func<bool>(atMinimum), Action(cancel), ObjectFunc2(find), Func<bool>(room),
-                Action2<int>(add), Action2<int>(remove));
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception exception) when (exception is ArgumentException or
-            InvalidOperationException or AmbiguousMatchException or NotSupportedException)
-        {
-            reason = "Plot lifecycle contracts are unavailable: " +
-                exception.GetBaseException().Message;
-            return false;
-        }
-    }
-
-    private static void Require(int index, Func<string, bool> include)
-    {
-        if (!include(ContractIds[index]))
-            throw new InvalidOperationException(ContractIds[index] + " was unavailable");
-    }
-
-    private static MethodInfo Method(int index, Type owner, string name, Type? result,
-        Type[] parameters, Func<string, bool> include)
-    {
-        Require(index, include);
-        var method = owner.GetMethod(name, Instance, null, parameters, null);
-        if (method is null || method.IsStatic || result is not null && method.ReturnType != result)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match.");
-        return method;
-    }
-
-    private static Type FindGenericBase(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-            if (current.IsGenericType && current.GetGenericTypeDefinition().Name == name)
-                return current;
-        throw new InvalidOperationException(type.Name + " has no " + name + " base.");
-    }
-
-    private static Func<object, T> Func<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, T>>(
-            Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-                typeof(T)), target).Compile();
-    }
-
-    private static Func<object, object?> ObjectFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, object?>>(
-            Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-                typeof(object)), target).Compile();
-    }
-
-    private static Func<object, object, object?> ObjectFunc2(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var argument = Expression.Parameter(typeof(object), "argument");
-        return Expression.Lambda<Func<object, object, object?>>(
-            Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
-                Expression.Convert(argument, method.GetParameters()[0].ParameterType)), typeof(object)),
-            target, argument).Compile();
-    }
-
-    private static Func<object, IList?> ListFunc(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Func<object, IList?>>(
-            Expression.Convert(Expression.Call(Expression.Convert(target, method.DeclaringType!), method),
-                typeof(IList)), target).Compile();
-    }
-
-    private static Action<object> Action(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        return Expression.Lambda<Action<object>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method), target).Compile();
-    }
-
-    private static Action<object, object, T> Action2<T>(MethodInfo method)
-    {
-        var target = Expression.Parameter(typeof(object), "target");
-        var first = Expression.Parameter(typeof(object), "first");
-        var second = Expression.Parameter(typeof(T), "second");
-        return Expression.Lambda<Action<object, object, T>>(
-            Expression.Call(Expression.Convert(target, method.DeclaringType!), method,
-                Expression.Convert(first, method.GetParameters()[0].ParameterType), second),
-            target, first, second).Compile();
-    }
+                set.Call<Func<object, bool>>("plot-lifecycle.plot-visible-action", plot, "IsVisible", typeof(bool)),
+                set.Call<Func<object, IList?>>("plot-lifecycle.plot-instances-action", plot, "GetActionInstances",
+                    typeof(System.Collections.Generic.List<>).MakeGenericType(instance)),
+                set.Call<Func<object, object?>>("plot-lifecycle.instance-action-action", instance, "GetAction", action),
+                set.Call<Func<object, object?>>("plot-lifecycle.instance-plot-action", instance, "GetElement", plot),
+                set.Call<Func<object, bool>>(
+                    "plot-lifecycle.instance-visible-action", instance, "IsVisible", typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "plot-lifecycle.instance-affordable-action", instance, "HasEnoughForOneInstance", typeof(bool)),
+                set.Call<Func<object, int>>("plot-lifecycle.instance-maximum-remaining-action",
+                    instance, "GetMaximumRemInstances", typeof(int)),
+                set.Call<Func<object, int>>(
+                    "plot-lifecycle.instance-maximum-action", instance, "GetMaximumInstances", typeof(int)),
+                set.Call<Func<object, int>>(
+                    "plot-lifecycle.instance-quantity-action", instance, "GetActualQuantity", typeof(int)),
+                set.Call<Func<object, bool>>(
+                    "plot-lifecycle.instance-at-minimum-action", instance, "IsAtMinimumQuantity", typeof(bool)),
+                set.Call<Action<object>>("plot-lifecycle.instance-cancel-action", instance, "Cancel", typeof(void)),
+                set.Call<Func<object, object, object?>>(
+                    "plot-lifecycle.list-find-action", list, "FindInstance", instance, instance),
+                set.Call<Func<object, bool>>("plot-lifecycle.list-room-action", listBase, "HasEmptySpot", typeof(bool)),
+                set.Call<Action<object, object, int>>(
+                    "plot-lifecycle.list-add-action", list, "AddInstance", typeof(void), instance, typeof(int)),
+                set.Call<Action<object, object, int>>("plot-lifecycle.list-remove-action",
+                    list, "RemoveInstance", typeof(void), instance, typeof(int)));
+        }, out bindings, out reason);
 }

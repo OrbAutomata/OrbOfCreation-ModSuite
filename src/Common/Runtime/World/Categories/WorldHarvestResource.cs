@@ -19,7 +19,7 @@ internal sealed class WorldHarvestResourceBinder
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _elementId = bind.Call<Guid>("GetGuid");
+        _elementId = bind.StableUuid();
 
         // Rooted at the element's private resource, so the whole resource member list applies without
         // a second copy of it.

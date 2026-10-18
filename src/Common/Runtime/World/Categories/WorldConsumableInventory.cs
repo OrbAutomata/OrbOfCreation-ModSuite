@@ -141,7 +141,7 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
         _hotbarList = NativeAccessorBinder.Reference(_inventoryType, "hotBar", _listType);
         _values = NativeAccessorBinder.CollectionField(_listType, "value");
         _maximum = NativeAccessorBinder.Call<int>(_listType, "GetMax");
-        _identity = NativeAccessorBinder.Call<Guid>(_consumableType, "GetGuid");
+        _identity = NativeAccessorBinder.StableUuid(_consumableType);
         _canUse = NativeAccessorBinder.StaticCall<bool>(_inventoryType, "CanUseConsumable");
         _unavailable = _instance is null || _inventoryList is null || _hotbarList is null ||
             _values is null || _maximum is null || _identity is null || _canUse is null

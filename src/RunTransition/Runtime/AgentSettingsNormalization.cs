@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 
@@ -19,11 +18,6 @@ namespace OrbAutomata;
 /// </remarks>
 internal static class AgentSettingsNormalization
 {
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     internal static readonly string[] ContractIds =
     {
         "run-transition.settings.type-action",
@@ -51,63 +45,70 @@ internal static class AgentSettingsNormalization
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null)
     {
-        resolveType ??= ReflectionUtil.FindLoadedType;
-        includeContract ??= static _ => true;
+        if (!NativeBindingSet.TryBind<Bindings>(
+                "game settings", ContractIds, resolveType, includeContract, Bind, out var native, out reason))
+            return false;
+
+        var instance = native!.Instance();
+        if (instance is null || instance.GetType() != native.SettingsType)
+        {
+            reason = "SettingsManager.instance was unavailable after the run started";
+            return false;
+        }
         try
         {
-            var settingsType = RequireType(0, "SettingsManager", resolveType, includeContract);
-            var instance = Field(1, settingsType, "instance", settingsType, true, includeContract)
-                .GetValue(null);
-            if (instance is null || instance.GetType() != settingsType)
-            {
-                reason = "SettingsManager.instance was unavailable after the run started";
-                return false;
-            }
-
-            var boolType = RequireType(2, "BoolVariable", resolveType, includeContract);
-            var stringType = RequireType(3, "StringVariable", resolveType, includeContract);
-            var researchQueue = Field(
-                4, settingsType, "enableQueueResearch", boolType, false, includeContract);
-            var cancellableSpells = Field(
-                5, settingsType, "cancellableSpells", boolType, false, includeContract);
-            var numberDisplay = Field(
-                6, settingsType, "numDisplay", stringType, false, includeContract);
-            var readBool = Method(7, boolType, "GetValue", typeof(bool), Type.EmptyTypes, includeContract);
-            var writeBool = Method(8, boolType, "SetValue", typeof(void), new[] { typeof(bool) }, includeContract);
-            var readString = Method(9, stringType, "GetValue", typeof(string), Type.EmptyTypes, includeContract);
-            var writeString = Method(10, stringType, "SetValue", typeof(void), new[] { typeof(string) }, includeContract);
-
-            return Enable(instance, researchQueue, readBool, writeBool, "Research Queue Mode", out reason) &&
-                Enable(instance, cancellableSpells, readBool, writeBool, "Cancellable Spells", out reason) &&
-                Select(instance, numberDisplay, readString, writeString, out reason);
+            return Enable(native, native.ResearchQueue(instance), "enableQueueResearch",
+                    "Research Queue Mode", out reason) &&
+                Enable(native, native.CancellableSpells(instance), "cancellableSpells",
+                    "Cancellable Spells", out reason) &&
+                Select(native, native.NumberDisplay(instance), out reason);
         }
-        catch (Exception exception) when (exception is ArgumentException or
-            InvalidOperationException or AmbiguousMatchException or
-            NotSupportedException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            reason = "the game's settings contracts are unavailable: " +
-                exception.GetBaseException().Message;
+            reason = "the game's settings write failed: " + exception.Message;
             return false;
         }
     }
 
-    private static bool Enable(
-        object settings, FieldInfo field, MethodInfo read, MethodInfo write, string name,
-        out string reason)
+    private static Bindings Bind(NativeBindingSet set)
     {
-        var variable = field.GetValue(settings);
+        var settings = set.Type("run-transition.settings.type-action", "SettingsManager");
+        var boolean = set.Type("run-transition.bool-variable.type-action", "BoolVariable");
+        var text = set.Type("run-transition.string-variable.type-action", "StringVariable");
+        return new Bindings(
+            settings,
+            set.StaticField<Func<object?>>(
+                "run-transition.settings-instance-action", settings, "instance", settings),
+            set.Field<Func<object, object?>>(
+                "run-transition.settings-research-queue-action", settings, "enableQueueResearch", boolean),
+            set.Field<Func<object, object?>>(
+                "run-transition.settings-cancellable-spells-action", settings, "cancellableSpells", boolean),
+            set.Field<Func<object, object?>>(
+                "run-transition.settings-number-display-action", settings, "numDisplay", text),
+            set.Call<Func<object, bool>>("run-transition.bool-get-action", boolean, "GetValue", typeof(bool)),
+            set.Call<Action<object, bool>>(
+                "run-transition.bool-set-action", boolean, "SetValue", typeof(void), typeof(bool)),
+            set.Call<Func<object, string?>>(
+                "run-transition.string-get-action", text, "GetValue", typeof(string)),
+            set.Call<Action<object, string>>(
+                "run-transition.string-set-action", text, "SetValue", typeof(void), typeof(string)));
+    }
+
+    private static bool Enable(
+        Bindings native, object? variable, string field, string name, out string reason)
+    {
         if (variable is null)
         {
-            reason = "SettingsManager." + field.Name + " held no variable asset";
+            reason = "SettingsManager." + field + " held no variable asset";
             return false;
         }
-        if (read.Invoke(variable, Array.Empty<object>()) is true)
+        if (native.ReadBool(variable))
         {
             reason = string.Empty;
             return true;
         }
-        write.Invoke(variable, new object[] { true });
-        if (read.Invoke(variable, Array.Empty<object>()) is true)
+        native.WriteBool(variable, true);
+        if (native.ReadBool(variable))
         {
             reason = string.Empty;
             return true;
@@ -116,25 +117,20 @@ internal static class AgentSettingsNormalization
         return false;
     }
 
-    private static bool Select(
-        object settings, FieldInfo field, MethodInfo read, MethodInfo write, out string reason)
+    private static bool Select(Bindings native, object? variable, out string reason)
     {
-        var variable = field.GetValue(settings);
         if (variable is null)
         {
-            reason = "SettingsManager." + field.Name + " held no variable asset";
+            reason = "SettingsManager.numDisplay held no variable asset";
             return false;
         }
-        if (string.Equals(
-                read.Invoke(variable, Array.Empty<object>()) as string,
-                NumberNotation,
-                StringComparison.Ordinal))
+        if (string.Equals(native.ReadString(variable), NumberNotation, StringComparison.Ordinal))
         {
             reason = string.Empty;
             return true;
         }
-        write.Invoke(variable, new object[] { NumberNotation });
-        var settled = read.Invoke(variable, Array.Empty<object>()) as string;
+        native.WriteString(variable, NumberNotation);
+        var settled = native.ReadString(variable);
         if (string.Equals(settled, NumberNotation, StringComparison.Ordinal))
         {
             reason = string.Empty;
@@ -145,38 +141,38 @@ internal static class AgentSettingsNormalization
         return false;
     }
 
-    private static Type RequireType(
-        int index, string name, Func<string, Type?> resolveType, Func<string, bool> include)
+    private sealed class Bindings
     {
-        Require(index, include);
-        return resolveType(name) ??
-            throw new InvalidOperationException(name + " was unavailable");
-    }
+        internal Bindings(
+            Type settingsType,
+            Func<object?> instance,
+            Func<object, object?> researchQueue,
+            Func<object, object?> cancellableSpells,
+            Func<object, object?> numberDisplay,
+            Func<object, bool> readBool,
+            Action<object, bool> writeBool,
+            Func<object, string?> readString,
+            Action<object, string> writeString)
+        {
+            SettingsType = settingsType;
+            Instance = instance;
+            ResearchQueue = researchQueue;
+            CancellableSpells = cancellableSpells;
+            NumberDisplay = numberDisplay;
+            ReadBool = readBool;
+            WriteBool = writeBool;
+            ReadString = readString;
+            WriteString = writeString;
+        }
 
-    private static FieldInfo Field(
-        int index, Type owner, string name, Type type, bool isStatic, Func<string, bool> include)
-    {
-        Require(index, include);
-        var field = owner.GetField(name, isStatic ? Static : Instance);
-        if (field is null || field.IsStatic != isStatic || field.FieldType != type)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match.");
-        return field;
-    }
-
-    private static MethodInfo Method(
-        int index, Type owner, string name, Type result, Type[] parameters,
-        Func<string, bool> include)
-    {
-        Require(index, include);
-        var method = owner.GetMethod(name, Instance, null, parameters, null);
-        if (method is null || method.IsStatic || method.ReturnType != result)
-            throw new InvalidOperationException(owner.Name + "." + name + " did not match.");
-        return method;
-    }
-
-    private static void Require(int index, Func<string, bool> include)
-    {
-        if (!include(ContractIds[index]))
-            throw new InvalidOperationException(ContractIds[index] + " was unavailable");
+        internal Type SettingsType { get; }
+        internal Func<object?> Instance { get; }
+        internal Func<object, object?> ResearchQueue { get; }
+        internal Func<object, object?> CancellableSpells { get; }
+        internal Func<object, object?> NumberDisplay { get; }
+        internal Func<object, bool> ReadBool { get; }
+        internal Action<object, bool> WriteBool { get; }
+        internal Func<object, string?> ReadString { get; }
+        internal Action<object, string> WriteString { get; }
     }
 }

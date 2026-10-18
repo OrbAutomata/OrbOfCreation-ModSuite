@@ -112,7 +112,7 @@ internal sealed class WorldLevelableDecisionBinding
         _resource = tuple.Reference("resource", resourceType);
         _amount = tuple.Call<BigDouble>("GetValue");
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
-        _resourceId = resource.Call<Guid>("GetGuid");
+        _resourceId = resource.StableUuid();
         Failure = Join(item.Failure, cost.Failure, tuple.Failure, resource.Failure);
     }
 

@@ -361,7 +361,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         }
 
         var plotActions = new WorldMemberBinding(slotQueueType, "PlotNodeActionInstanceListVariable");
-        _slotQueueId = plotActions.Call<Guid>("GetGuid");
+        _slotQueueId = plotActions.StableUuid();
         _slotQueueSlots = plotActions.CollectionField("value");
 
         _slotType = plotActions.CollectionElementType("value");
@@ -373,7 +373,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         _slotActionId = slot.CallReferenceGuid("GetAction");
 
         var actionables = new WorldMemberBinding(occupancyQueueType, "ActionableListVariable");
-        _occupancyQueueId = actionables.Call<Guid>("GetGuid");
+        _occupancyQueueId = actionables.StableUuid();
         _occupancyQueueEntries = actionables.CollectionField("value");
         _occupancyQueueMaximumId = actionables.ReferenceGuid("maxQueuedItems");
 

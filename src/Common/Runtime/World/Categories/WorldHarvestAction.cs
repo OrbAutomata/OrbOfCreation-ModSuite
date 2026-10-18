@@ -65,7 +65,7 @@ internal sealed class WorldHarvestActionBinder : WorldPlainBinder<WorldHarvestAc
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _power = bind.ModifierRecord("power");
         _speed = bind.ModifierRecord("speed");
         _costMod = bind.ModifierRecord("costMod");

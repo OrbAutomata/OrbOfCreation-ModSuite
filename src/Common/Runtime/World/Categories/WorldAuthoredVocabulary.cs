@@ -49,7 +49,7 @@ internal sealed class WorldEnchantmentBinder : WorldPlainBinder<WorldEnchantment
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }
@@ -96,7 +96,7 @@ internal sealed class WorldGlyphTypeBinder : WorldPlainBinder<WorldGlyphType>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }
@@ -147,7 +147,7 @@ internal sealed class WorldRuneStoneBinder : WorldPlainBinder<WorldRuneStone>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }
@@ -194,7 +194,7 @@ internal sealed class WorldDisplayTypeBinder : WorldPlainBinder<WorldDisplayType
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }

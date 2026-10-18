@@ -31,7 +31,7 @@ internal sealed class WorldRecipeBookBinder : WorldPlainBinder<WorldRecipeBook>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _available = bind.Call<bool>("IsAvailable");
         return bind.Failure;
     }

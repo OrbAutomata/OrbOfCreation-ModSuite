@@ -252,7 +252,7 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(actionType, "PlotNodeActionSO");
-        _actionId = bind.Call<Guid>("GetGuid");
+        _actionId = bind.StableUuid();
         _blocks = bind.CollectionField("completeEffects");
 
         var block = bind.Elements(

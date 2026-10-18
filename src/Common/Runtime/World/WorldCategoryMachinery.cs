@@ -528,6 +528,9 @@ internal sealed class WorldMemberBinding
             $"{fieldName}.{nestedName}",
             NativeAccessorBinder.NestedEnumField(_type, fieldName, nestedName));
 
+    internal Func<object, Guid>? StableUuid() =>
+        Record("GetGuid", NativeAccessorBinder.StableUuid(_type));
+
     /// <summary>Binds an edge to another entity as that entity's identity. See D17.</summary>
     internal Func<object, Guid>? ReferenceGuid(string name) =>
         Record(name, NativeAccessorBinder.ReferenceGuid(_type, name));

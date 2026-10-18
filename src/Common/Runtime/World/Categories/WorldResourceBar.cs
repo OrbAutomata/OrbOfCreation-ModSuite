@@ -70,7 +70,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         }
 
         var resource = new WorldMemberBinding(_resourceType, "ResourceSO");
-        _resourceIdentity = resource.Call<Guid>("GetGuid");
+        _resourceIdentity = resource.StableUuid();
         _members = NativeAccessorBinder.CollectionField(_listType, "value");
         _unavailable = _members is null
             ? "ResourceListVariable did not expose its authored membership on this build"

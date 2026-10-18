@@ -114,7 +114,7 @@ internal sealed class WorldChallengeBinder : WorldPlainBinder<WorldChallenge>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _level = bind.Field<int>("level");
         _state = bind.EnumField("state");
         _seen = bind.Field<bool>("hasBeenSeen");

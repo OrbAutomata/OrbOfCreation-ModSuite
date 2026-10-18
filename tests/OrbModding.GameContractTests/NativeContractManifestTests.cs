@@ -35,7 +35,7 @@ public sealed class NativeContractManifestTests
 
     private static readonly Regex ReflectionUsePattern = new(
         "(?:HarmonyPatch|AccessTools\\.(?:Method|TypeByName)|ReflectionUtil\\.FindLoadedType"
-            + "|NativeAccessorBinder\\.|WorldMemberBinding"
+            + "|NativeAccessorBinder\\.|NativeBindingSet\\.|WorldMemberBinding"
             + "|\\.(?:GetMethod|GetMethods|GetField|GetFields|GetProperty|GetProperties)\\s*\\("
             + "|\\b(?:FindMethod|FindField)\\s*\\()",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -55,9 +55,9 @@ public sealed class NativeContractManifestTests
     private const string BinderSelectorNames =
         "BoxedField|CallList|CallObject|CallReferenceGuid|CallWithObjectArgument|Call|"
             + "CollectionCount|CollectionElementType|CollectionField"
-            + "|EnumField|Field|ModifierRecord|NestedCollectionCount|NestedEnumField|NestedField"
-            + "|ReferenceGuid|Reference|StaticCallObject|StaticCall|StaticDictionaryAccessor|StaticField"
-            + "|StaticListAccessor|StaticReference|Through";
+            + "|EnumField|Field|GenericBase|ModifierRecord|NestedCollectionCount|NestedEnumField|NestedField|New"
+            + "|ReferenceGuid|Reference|Setter|StableUuid|StaticCallObject|StaticCall|StaticDictionaryAccessor"
+            + "|StaticField|StaticListAccessor|StaticReference|Through|Type";
 
     /// <summary>An argument list read to its own closing parenthesis, however deeply nested.</summary>
     /// <remarks>
@@ -94,7 +94,7 @@ public sealed class NativeContractManifestTests
     /// </para>
     /// </remarks>
     private static readonly Regex BinderTargetPattern = new(
-        "(?:\\.(?:" + BinderSelectorNames + ")(?![A-Za-z0-9_])(?:<[^<>()]*>)?\\s*"
+        "(?:\\.(?:" + BinderSelectorNames + ")(?![A-Za-z0-9_])(?:<(?:[^<>()]|<[^<>()]*>)*>)?\\s*"
             + BalancedArgumentList
             + "|(?:TypeName|RegistryMember)\\s*=>\\s*\"[^\"\\r\\n]*\")",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -111,7 +111,7 @@ public sealed class NativeContractManifestTests
     /// member did not bind.
     /// </remarks>
     private static readonly string[] BinderDiagnosticNames =
-        { "Add", "Elements", "WorldMemberBinding" };
+        { "Add", "Elements", "NativeBindingException", "TryBind", "WorldMemberBinding" };
 
     /// <summary>The game type each category walks, as its binder declares it.</summary>
     /// <summary>The namespace a source file declares, which is how a capture root finds it.</summary>
@@ -509,11 +509,13 @@ public sealed class NativeContractManifestTests
     /// A mirrored contract declares a member the suite deliberately does not touch, so it must not
     /// widen what the source audit accepts. Counting it would let a literal selector pass against a
     /// row that says nobody selects anything — the audit would answer for a dependency of the wrong
-    /// kind.
+    /// kind. Every contract id is accepted: a binding set names the id beside each lookup, and an id
+    /// such as <c>consumable.quantity</c> is spelled like a member without being one.
     /// </remarks>
     private static HashSet<string> DeclaredTargets(NativeContractManifest manifest)
     {
-        var declaredTargets = new HashSet<string>(StringComparer.Ordinal);
+        var declaredTargets = new HashSet<string>(
+            manifest.Contracts.Select(contract => contract.Id), StringComparer.Ordinal);
         foreach (var contract in manifest.Contracts.Where(IsTouched))
         {
             declaredTargets.Add(contract.Type);
@@ -1297,6 +1299,7 @@ public sealed class NativeContractManifestTests
         {
             Path.Combine(repositoryRoot, "src", "Common", "Runtime", "World", "NativeAccessorBinder.cs"),
             Path.Combine(repositoryRoot, "src", "Common", "Runtime", "World", "WorldCategoryMachinery.cs"),
+            Path.Combine(repositoryRoot, "src", "Common", "NativeBindingSet.cs"),
         };
 
         var offered = new HashSet<string>(StringComparer.Ordinal);
@@ -1359,6 +1362,17 @@ public sealed class NativeContractManifestTests
         ("instance", "Reference", "_cost = bind.Reference(\"zzProbeField\", costType);", new[] { "zzProbeField" }),
         ("instance", "ReferenceGuid", "_maximumId = bind.ReferenceGuid(\"zzProbeField\");", new[] { "zzProbeField" }),
         ("instance", "Through", "_inner = bind.Through(\"zzProbeField\");", new[] { "zzProbeField" }),
+        ("instance", "StableUuid", "_id = bind.Elements(entryType, \"ZzProbeLabel\").StableUuid();", Array.Empty<string>()),
+
+        ("set", "Type", "var owner = set.Type(\"probe.type-action\", \"ZzProbeType\");", new[] { "ZzProbeType" }),
+        ("set", "GenericBase", "var list = set.GenericBase(\"probe.base-action\", owner, \"ZzProbeBase`1\");", new[] { "ZzProbeBase`1" }),
+        ("set", "Call", "set.Call<Func<object, int, object?>>(\"probe.call-action\", owner, \"ZzProbeCall\", typeof(int), typeof(int)),", new[] { "ZzProbeCall" }),
+        ("set", "StaticCall", "set.StaticCall<Func<bool>>(\"probe.static-action\", owner, \"ZzProbeCall\", typeof(bool)),", new[] { "ZzProbeCall" }),
+        ("set", "Field", "set.Field<Func<object, object?>>(\"consumable.quantity\", owner, \"zzProbeField\", valueType),", new[] { "zzProbeField" }),
+        ("set", "StaticField", "set.StaticField<Func<object?>>(\"probe.instance-action\", owner, \"zzProbeField\", owner),", new[] { "zzProbeField" }),
+        ("set", "Setter", "set.Setter<Action<object, int>>(\"probe.setter-action\", owner, \"zzProbeField\", typeof(int)),", new[] { "zzProbeField" }),
+        ("set", "New", "set.New<Func<object, object>>(\"probe.new-action\", owner, valueType),", Array.Empty<string>()),
+        ("set", "StableUuid", "set.StableUuid(\"probe.guid-action\", owner),", Array.Empty<string>()),
 
         ("static", "BoxedField", "_penalty = NativeAccessorBinder.BoxedField(recipeType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "Call", "_id = NativeAccessorBinder.Call<Guid>(recipeType, \"ZzProbeCall\");", new[] { "ZzProbeCall" }),

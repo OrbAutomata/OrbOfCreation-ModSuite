@@ -1,21 +1,65 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
 
 /// <summary>
-/// The complete reflected consumable-use transaction schema. Only metadata is retained, and one
-/// instance is validated for each game lifecycle before any item is resolved or mutated.
+/// The complete reflected consumable-use transaction schema. Only compiled accessors are retained,
+/// and one instance is validated for each game lifecycle before any item is resolved or mutated.
 /// </summary>
 internal sealed class AutoItemsNativeBindings
 {
-    private const BindingFlags PublicInstance = BindingFlags.Instance | BindingFlags.Public;
-    private const BindingFlags PublicStatic = BindingFlags.Static | BindingFlags.Public;
-    private const BindingFlags AnyInstance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+    internal static readonly string[] ContractIds =
+    {
+        "consumable.type",
+        "consumable-type.type",
+        "generic-level.resource.type-action",
+        "inventory.type",
+        "targeting.manager.type-action",
+        "consumable-usage.type",
+        "auto-items.consumable-count.type",
+        "auto-items.scaling-info.type",
+        "auto-items.instant-effect-block.type",
+        "auto-items.instant-effect-script.type",
+        "auto-items.request-target-effect-script.type",
+        "auto-items.target-select-options.type",
+        "auto-items.base-target-selection.type",
+        "auto-items.target-structure.type",
+        "auto-items.targetable.type",
+        "generic-level.cost.type-action",
+        "generic-level.tuple.type-action",
+        "consumable.consumable-types",
+        "consumable.all",
+        "consumable.consumable-usages",
+        "consumable.can-be-randomized",
+        "consumable.has-duration",
+        "consumable.duration-base",
+        "consumable.consume-cost",
+        "consumable.usage-cost",
+        "resource-cost-list.costs",
+        "resource-tuple.resource",
+        "resource-tuple.value-big",
+        "auto-items.consumable.on-use-effects",
+        "auto-harvest.effect-scripts",
+        "target-request.options",
+        "id-scriptable-object.get-guid-action",
+        "consumable.can-fire",
+        "consumable.is-visible",
+        "consumable.select-and-fire",
+        "consumable.set-randomization",
+        "consumable.is-randomized",
+        "consumable.get-quantity",
+        "consumable.get-queued",
+        "inventory.can-use-consumable",
+        "targeting-manager.is-targeting",
+        "auto-items.consumable.strongest",
+        "auto-items.consumable.strongest-level",
+        "auto-items.consumable.count-scaling",
+        "auto-items.target-options.get-targeting",
+        "auto-items.target-structure.get-random-list",
+    };
 
     private AutoItemsNativeBindings(
         Type consumableType,
@@ -30,36 +74,36 @@ internal sealed class AutoItemsNativeBindings
         Type optionsType,
         Type baseSelectionType,
         Type targetStructureType,
-        FieldInfo families,
-        FieldInfo allConsumables,
-        FieldInfo usages,
-        FieldInfo canBeRandomized,
-        FieldInfo hasDuration,
-        FieldInfo durationBase,
-        FieldInfo consumeCost,
-        FieldInfo usageCost,
-        FieldInfo costs,
-        FieldInfo costResource,
-        FieldInfo costAmount,
-        FieldInfo onUseEffects,
-        FieldInfo effectScripts,
-        FieldInfo targetOptions,
-        MethodInfo familyGuid,
-        MethodInfo resourceGuid,
-        MethodInfo canFire,
-        MethodInfo isVisible,
-        MethodInfo selectAndFire,
-        MethodInfo setRandomization,
-        MethodInfo isRandomized,
-        MethodInfo getQuantity,
-        MethodInfo getQueued,
-        MethodInfo canUseConsumable,
-        MethodInfo isTargeting,
-        MethodInfo strongest,
-        MethodInfo strongestLevel,
-        MethodInfo countScaling,
-        MethodInfo getTargeting,
-        MethodInfo getRandomList)
+        Func<object, IList?> families,
+        Func<IEnumerable?> allConsumables,
+        Func<object, ICollection?> usages,
+        Func<object, bool> canBeRandomized,
+        Func<object, bool> hasDuration,
+        Func<object, double> durationBase,
+        Func<object, object?> consumeCost,
+        Func<object, object?> usageCost,
+        Func<object, IEnumerable?> costs,
+        Func<object, object?> costResource,
+        Func<object, BigDouble> costAmount,
+        Func<object, IEnumerable?> onUseEffects,
+        Func<object, IEnumerable?> effectScripts,
+        Func<object, object?> targetOptions,
+        Func<object, Guid> familyGuid,
+        Func<object, Guid> resourceGuid,
+        Func<object, bool> canFire,
+        Func<object, bool> isVisible,
+        Action<object> selectAndFire,
+        Action<object, bool> setRandomization,
+        Func<object, bool> isRandomized,
+        Func<object, int> getQuantity,
+        Func<object, int> getQueued,
+        Func<bool> canUseConsumable,
+        Func<bool> isTargeting,
+        Func<object, object?> strongest,
+        Func<object, int> strongestLevel,
+        Func<object, object, object?> countScaling,
+        Func<object, object?> getTargeting,
+        Func<object, object, ICollection?> getRandomList)
     {
         ConsumableType = consumableType;
         FamilyType = familyType;
@@ -117,255 +161,127 @@ internal sealed class AutoItemsNativeBindings
     internal Type OptionsType { get; }
     internal Type BaseSelectionType { get; }
     internal Type TargetStructureType { get; }
-    internal FieldInfo Families { get; }
-    internal FieldInfo AllConsumables { get; }
-    internal FieldInfo Usages { get; }
-    internal FieldInfo CanBeRandomized { get; }
-    internal FieldInfo HasDuration { get; }
-    internal FieldInfo DurationBase { get; }
-    internal FieldInfo ConsumeCost { get; }
-    internal FieldInfo UsageCost { get; }
-    internal FieldInfo Costs { get; }
-    internal FieldInfo CostResource { get; }
-    internal FieldInfo CostAmount { get; }
-    internal FieldInfo OnUseEffects { get; }
-    internal FieldInfo EffectScripts { get; }
-    internal FieldInfo TargetOptions { get; }
-    internal MethodInfo FamilyGuid { get; }
-    internal MethodInfo ResourceGuid { get; }
-    internal MethodInfo CanFire { get; }
-    internal MethodInfo IsVisible { get; }
-    internal MethodInfo SelectAndFire { get; }
-    internal MethodInfo SetRandomization { get; }
-    internal MethodInfo IsRandomized { get; }
-    internal MethodInfo GetQuantity { get; }
-    internal MethodInfo GetQueued { get; }
-    internal MethodInfo CanUseConsumable { get; }
-    internal MethodInfo IsTargeting { get; }
-    internal MethodInfo Strongest { get; }
-    internal MethodInfo StrongestLevel { get; }
-    internal MethodInfo CountScaling { get; }
-    internal MethodInfo GetTargeting { get; }
-    internal MethodInfo GetRandomList { get; }
+    internal Func<object, IList?> Families { get; }
+    internal Func<IEnumerable?> AllConsumables { get; }
+    internal Func<object, ICollection?> Usages { get; }
+    internal Func<object, bool> CanBeRandomized { get; }
+    internal Func<object, bool> HasDuration { get; }
+    internal Func<object, double> DurationBase { get; }
+    internal Func<object, object?> ConsumeCost { get; }
+    internal Func<object, object?> UsageCost { get; }
+    internal Func<object, IEnumerable?> Costs { get; }
+    internal Func<object, object?> CostResource { get; }
+    internal Func<object, BigDouble> CostAmount { get; }
+    internal Func<object, IEnumerable?> OnUseEffects { get; }
+    internal Func<object, IEnumerable?> EffectScripts { get; }
+    internal Func<object, object?> TargetOptions { get; }
+    internal Func<object, Guid> FamilyGuid { get; }
+    internal Func<object, Guid> ResourceGuid { get; }
+    internal Func<object, bool> CanFire { get; }
+    internal Func<object, bool> IsVisible { get; }
+    internal Action<object> SelectAndFire { get; }
+    internal Action<object, bool> SetRandomization { get; }
+    internal Func<object, bool> IsRandomized { get; }
+    internal Func<object, int> GetQuantity { get; }
+    internal Func<object, int> GetQueued { get; }
+    internal Func<bool> CanUseConsumable { get; }
+    internal Func<bool> IsTargeting { get; }
+    internal Func<object, object?> Strongest { get; }
+    internal Func<object, int> StrongestLevel { get; }
+    internal Func<object, object, object?> CountScaling { get; }
+    internal Func<object, object?> GetTargeting { get; }
+    internal Func<object, object, ICollection?> GetRandomList { get; }
 
-    internal static bool TryCreate(out AutoItemsNativeBindings? bindings, out string reason)
-    {
-        bindings = null;
-        var consumable = ReflectionUtil.FindLoadedType("ConsumableSO");
-        var family = ReflectionUtil.FindLoadedType("ConsumableTypeSO");
-        var resource = ReflectionUtil.FindLoadedType("ResourceSO");
-        var inventory = ReflectionUtil.FindLoadedType("Inventory");
-        var targetingManager = ReflectionUtil.FindLoadedType("TargetingManager");
-        var count = ReflectionUtil.FindLoadedType("ConsumableCount");
-        var scaling = ReflectionUtil.FindLoadedType("ScalingInfo");
-        var block = ReflectionUtil.FindLoadedType("InstantEffectBlock");
-        var script = ReflectionUtil.FindLoadedType("IInstantEffectScript");
-        var request = ReflectionUtil.FindLoadedType("RequestTargetEffectScript");
-        var options = ReflectionUtil.FindLoadedType("Targeting.TargetSelectOptions");
-        var selection = ReflectionUtil.FindLoadedType("Targeting.BaseTargetSelection");
-        var structure = ReflectionUtil.FindLoadedType("Targeting.TargetStructure");
-        var targetable = ReflectionUtil.FindLoadedType("Targeting.ITargetable");
-        if (consumable is null || family is null || resource is null || inventory is null ||
-            targetingManager is null || count is null ||
-            scaling is null || block is null || script is null || request is null ||
-            options is null || selection is null || structure is null || targetable is null)
+    internal static bool TryCreate(out AutoItemsNativeBindings? bindings, out string reason) =>
+        NativeBindingSet.TryBind("Auto Items", ContractIds, null, null, set =>
         {
-            reason =
-                "The complete Auto Items type set is unavailable: ConsumableSO, " +
-                "ConsumableTypeSO, ResourceSO, Inventory, TargetingManager, ConsumableCount, " +
-                "ScalingInfo, InstantEffectBlock, " +
-                "IInstantEffectScript, RequestTargetEffectScript, Targeting.TargetSelectOptions, " +
-                "Targeting.BaseTargetSelection, Targeting.TargetStructure, and " +
-                "Targeting.ITargetable are all required.";
-            return false;
-        }
+            var consumable = set.Type("consumable.type", "ConsumableSO");
+            var family = set.Type("consumable-type.type", "ConsumableTypeSO");
+            var resource = set.Type("generic-level.resource.type-action", "ResourceSO");
+            var inventory = set.Type("inventory.type", "Inventory");
+            var targetingManager = set.Type("targeting.manager.type-action", "TargetingManager");
+            var usage = set.Type("consumable-usage.type", "ConsumableUsage");
+            var count = set.Type("auto-items.consumable-count.type", "ConsumableCount");
+            var scaling = set.Type("auto-items.scaling-info.type", "ScalingInfo");
+            var block = set.Type("auto-items.instant-effect-block.type", "InstantEffectBlock");
+            var script = set.Type("auto-items.instant-effect-script.type", "IInstantEffectScript");
+            var request = set.Type("auto-items.request-target-effect-script.type", "RequestTargetEffectScript");
+            var options = set.Type("auto-items.target-select-options.type", "Targeting.TargetSelectOptions");
+            var selection = set.Type("auto-items.base-target-selection.type", "Targeting.BaseTargetSelection");
+            var structure = set.Type("auto-items.target-structure.type", "Targeting.TargetStructure");
+            var targetable = set.Type("auto-items.targetable.type", "Targeting.ITargetable");
+            var costList = set.Type("generic-level.cost.type-action", "ResourceCostList");
+            var costEntry = set.Type("generic-level.tuple.type-action", "ResourceTuple");
+            if (!script.IsAssignableFrom(request))
+                throw new NativeBindingException(
+                    "auto-items.request-target-effect-script.type: RequestTargetEffectScript is not an IInstantEffectScript.");
 
-        var families = consumable.GetField("consumableTypes", AnyInstance);
-        var allConsumables = consumable.GetField("All", PublicStatic);
-        var usages = consumable.GetField("consumableUsages", AnyInstance);
-        var randomizable = consumable.GetField("canBeRandomized", AnyInstance);
-        var hasDuration = consumable.GetField("hasDuration", AnyInstance);
-        var durationBase = consumable.GetField("durationBase", AnyInstance);
-        var consumeCost = consumable.GetField("consumeCost", AnyInstance);
-        var usageCost = consumable.GetField("usageCost", AnyInstance);
-        var costs = consumeCost?.FieldType.GetField("costs", AnyInstance);
-        var costEntryType = costs is null ? null : CollectionElementType(costs.FieldType);
-        var costResource = costEntryType?.GetField("resource", AnyInstance);
-        var costAmount = costEntryType?.GetField("valueBig", AnyInstance);
-        var onUse = consumable.GetField("onUseEffects", AnyInstance);
-        var scripts = block.GetField("effectScripts", AnyInstance);
-        var targetOptions = request.GetField("targetOptions", AnyInstance);
-        var familyGuid = ExactMethod(family, "GetGuid", typeof(Guid), PublicInstance);
-        var resourceGuid = ExactMethod(resource, "GetGuid", typeof(Guid), PublicInstance);
-        var canFire = ExactMethod(consumable, "CanFire", typeof(bool), PublicInstance);
-        var isVisible = ExactMethod(consumable, "IsVisible", typeof(bool), PublicInstance);
-        var selectAndFire = ExactMethod(consumable, "SelectAndFire", typeof(void), PublicInstance);
-        var setRandomization = ExactMethod(
-            consumable, "SetRandomization", typeof(void), PublicInstance, typeof(bool));
-        var isRandomized = ExactMethod(consumable, "IsRandomized", typeof(bool), PublicInstance);
-        var getQuantity = ExactMethod(consumable, "GetQuantity", typeof(int), PublicInstance);
-        var getQueued = ExactMethod(consumable, "GetQueued", typeof(int), PublicInstance);
-        var canUse = ExactMethod(inventory, "CanUseConsumable", typeof(bool), PublicStatic);
-        var isTargeting = ExactMethod(
-            targetingManager, "IsTargeting", typeof(bool), PublicStatic);
-        var strongest = ExactMethod(consumable, "GetStrongest", count, PublicInstance);
-        var strongestLevel = ExactMethod(
-            consumable, "GetStrongestLevel", typeof(int), PublicInstance);
-        var countScaling = ExactMethod(
-            consumable, "GetCountScalingInfo", scaling, PublicInstance, count);
-        var getTargeting = ExactMethod(options, "GetTargeting", selection, PublicInstance);
-        var getRandomList = ExactMethod(
-            structure,
-            "GetRandomList",
-            typeof(List<>).MakeGenericType(targetable),
-            PublicInstance,
-            scaling);
+            return new AutoItemsNativeBindings(
+                consumable,
+                family,
+                resource,
+                costEntry,
+                count,
+                scaling,
+                block,
+                script,
+                request,
+                options,
+                selection,
+                structure,
+                set.Field<Func<object, IList?>>(
+                    "consumable.consumable-types", consumable, "consumableTypes", ListOf(family)),
+                set.StaticField<Func<IEnumerable?>>("consumable.all", consumable, "All", ListOf(consumable)),
+                set.Field<Func<object, ICollection?>>(
+                    "consumable.consumable-usages", consumable, "consumableUsages", ListOf(usage)),
+                set.Field<Func<object, bool>>(
+                    "consumable.can-be-randomized", consumable, "canBeRandomized", typeof(bool)),
+                set.Field<Func<object, bool>>("consumable.has-duration", consumable, "hasDuration", typeof(bool)),
+                set.Field<Func<object, double>>(
+                    "consumable.duration-base", consumable, "durationBase", typeof(double)),
+                set.Field<Func<object, object?>>("consumable.consume-cost", consumable, "consumeCost", costList),
+                set.Field<Func<object, object?>>("consumable.usage-cost", consumable, "usageCost", costList),
+                set.Field<Func<object, IEnumerable?>>(
+                    "resource-cost-list.costs", costList, "costs", ListOf(costEntry)),
+                set.Field<Func<object, object?>>("resource-tuple.resource", costEntry, "resource", resource),
+                set.Field<Func<object, BigDouble>>(
+                    "resource-tuple.value-big", costEntry, "valueBig", typeof(BigDouble)),
+                set.Field<Func<object, IEnumerable?>>(
+                    "auto-items.consumable.on-use-effects", consumable, "onUseEffects", ListOf(block)),
+                set.Field<Func<object, IEnumerable?>>(
+                    "auto-harvest.effect-scripts", block, "effectScripts", ListOf(script)),
+                set.Field<Func<object, object?>>("target-request.options", request, "targetOptions", options),
+                set.StableUuid("id-scriptable-object.get-guid-action", family),
+                set.StableUuid("id-scriptable-object.get-guid-action", resource),
+                set.Call<Func<object, bool>>("consumable.can-fire", consumable, "CanFire", typeof(bool)),
+                set.Call<Func<object, bool>>("consumable.is-visible", consumable, "IsVisible", typeof(bool)),
+                set.Call<Action<object>>(
+                    "consumable.select-and-fire", consumable, "SelectAndFire", typeof(void)),
+                set.Call<Action<object, bool>>(
+                    "consumable.set-randomization", consumable, "SetRandomization", typeof(void), typeof(bool)),
+                set.Call<Func<object, bool>>(
+                    "consumable.is-randomized", consumable, "IsRandomized", typeof(bool)),
+                set.Call<Func<object, int>>("consumable.get-quantity", consumable, "GetQuantity", typeof(int)),
+                set.Call<Func<object, int>>("consumable.get-queued", consumable, "GetQueued", typeof(int)),
+                set.StaticCall<Func<bool>>(
+                    "inventory.can-use-consumable", inventory, "CanUseConsumable", typeof(bool)),
+                set.StaticCall<Func<bool>>(
+                    "targeting-manager.is-targeting", targetingManager, "IsTargeting", typeof(bool)),
+                set.Call<Func<object, object?>>(
+                    "auto-items.consumable.strongest", consumable, "GetStrongest", count),
+                set.Call<Func<object, int>>(
+                    "auto-items.consumable.strongest-level", consumable, "GetStrongestLevel", typeof(int)),
+                set.Call<Func<object, object, object?>>(
+                    "auto-items.consumable.count-scaling", consumable, "GetCountScalingInfo", scaling, count),
+                set.Call<Func<object, object?>>(
+                    "auto-items.target-options.get-targeting", options, "GetTargeting", selection),
+                set.Call<Func<object, object, ICollection?>>(
+                    "auto-items.target-structure.get-random-list",
+                    structure,
+                    "GetRandomList",
+                    ListOf(targetable),
+                    scaling));
+        }, out bindings, out reason);
 
-        if (families is null || CollectionElementType(families.FieldType) != family)
-            return Missing("ConsumableSO.consumableTypes : List<ConsumableTypeSO>", out reason);
-        if (allConsumables is null ||
-            CollectionElementType(allConsumables.FieldType) != consumable)
-            return Missing("ConsumableSO.All : List<ConsumableSO>", out reason);
-        if (usages is null || !typeof(ICollection).IsAssignableFrom(usages.FieldType))
-            return Missing("ConsumableSO.consumableUsages : ICollection", out reason);
-        if (randomizable?.FieldType != typeof(bool))
-            return Missing("ConsumableSO.canBeRandomized : Boolean", out reason);
-        if (hasDuration?.FieldType != typeof(bool))
-            return Missing("ConsumableSO.hasDuration : Boolean", out reason);
-        if (durationBase?.FieldType != typeof(double))
-            return Missing("ConsumableSO.durationBase : Double", out reason);
-        if (consumeCost is null)
-            return Missing("ConsumableSO.consumeCost : ResourceCostList", out reason);
-        if (usageCost?.FieldType != consumeCost.FieldType)
-            return Missing("ConsumableSO.usageCost : ResourceCostList", out reason);
-        if (costs is null || costEntryType is null)
-            return Missing("ResourceCostList.costs : List<ResourceTuple>", out reason);
-        if (costResource?.FieldType != resource)
-            return Missing("ResourceTuple.resource : ResourceSO", out reason);
-        if (costAmount?.FieldType != typeof(BigDouble))
-            return Missing("ResourceTuple.valueBig : BigDouble", out reason);
-        if (onUse is null || CollectionElementType(onUse.FieldType) != block)
-            return Missing("ConsumableSO.onUseEffects : List<InstantEffectBlock>", out reason);
-        if (scripts is null || CollectionElementType(scripts.FieldType) != script)
-            return Missing("InstantEffectBlock.effectScripts : List<IInstantEffectScript>", out reason);
-        if (targetOptions?.FieldType != options)
-            return Missing(
-                "RequestTargetEffectScript.targetOptions : Targeting.TargetSelectOptions",
-                out reason);
-        if (!script.IsAssignableFrom(request))
-            return Missing("RequestTargetEffectScript : IInstantEffectScript", out reason);
-        if (familyGuid is null) return Missing("ConsumableTypeSO.GetGuid() : Guid", out reason);
-        if (resourceGuid is null) return Missing("ResourceSO.GetGuid() : Guid", out reason);
-        if (canFire is null) return Missing("ConsumableSO.CanFire() : Boolean", out reason);
-        if (isVisible is null) return Missing("ConsumableSO.IsVisible() : Boolean", out reason);
-        if (selectAndFire is null)
-            return Missing("ConsumableSO.SelectAndFire() : Void", out reason);
-        if (setRandomization is null)
-            return Missing("ConsumableSO.SetRandomization(Boolean) : Void", out reason);
-        if (isRandomized is null)
-            return Missing("ConsumableSO.IsRandomized() : Boolean", out reason);
-        if (getQuantity is null)
-            return Missing("ConsumableSO.GetQuantity() : Int32", out reason);
-        if (getQueued is null)
-            return Missing("ConsumableSO.GetQueued() : Int32", out reason);
-        if (canUse is null)
-            return Missing("Inventory.CanUseConsumable() : Boolean", out reason);
-        if (isTargeting is null)
-            return Missing("TargetingManager.IsTargeting() : Boolean", out reason);
-        if (strongest is null)
-            return Missing("ConsumableSO.GetStrongest() : ConsumableCount", out reason);
-        if (strongestLevel is null)
-            return Missing("ConsumableSO.GetStrongestLevel() : Int32", out reason);
-        if (countScaling is null)
-            return Missing(
-                "ConsumableSO.GetCountScalingInfo(ConsumableCount) : ScalingInfo",
-                out reason);
-        if (getTargeting is null)
-            return Missing(
-                "Targeting.TargetSelectOptions.GetTargeting() : Targeting.BaseTargetSelection",
-                out reason);
-        if (getRandomList is null)
-            return Missing(
-                "Targeting.TargetStructure.GetRandomList(ScalingInfo) : List<Targeting.ITargetable>",
-                out reason);
-
-        bindings = new AutoItemsNativeBindings(
-            consumable,
-            family,
-            resource,
-            costEntryType,
-            count,
-            scaling,
-            block,
-            script,
-            request,
-            options,
-            selection,
-            structure,
-            families,
-            allConsumables,
-            usages,
-            randomizable,
-            hasDuration,
-            durationBase,
-            consumeCost,
-            usageCost,
-            costs,
-            costResource,
-            costAmount,
-            onUse,
-            scripts,
-            targetOptions,
-            familyGuid,
-            resourceGuid,
-            canFire,
-            isVisible,
-            selectAndFire,
-            setRandomization,
-            isRandomized,
-            getQuantity,
-            getQueued,
-            canUse,
-            isTargeting,
-            strongest,
-            strongestLevel,
-            countScaling,
-            getTargeting,
-            getRandomList);
-        reason = string.Empty;
-        return true;
-    }
-
-    private static bool Missing(string contract, out string reason)
-    {
-        reason = "The exact audited Auto Items binding is unavailable: " + contract + ".";
-        return false;
-    }
-
-    private static MethodInfo? ExactMethod(
-        Type type,
-        string name,
-        Type returnType,
-        BindingFlags flags,
-        params Type[] parameters)
-    {
-        var method = type.GetMethod(name, flags, null, parameters, null);
-        return method?.ReturnType == returnType &&
-               method.IsStatic == flags.HasFlag(BindingFlags.Static)
-            ? method
-            : null;
-    }
-
-    private static Type? CollectionElementType(Type type)
-    {
-        if (type.IsGenericType && type.GetGenericArguments().Length == 1)
-            return type.GetGenericArguments()[0];
-        foreach (var candidate in type.GetInterfaces())
-        {
-            if (candidate.IsGenericType &&
-                candidate.GetGenericTypeDefinition() == typeof(IEnumerable<>))
-                return candidate.GetGenericArguments()[0];
-        }
-        return null;
-    }
+    private static Type ListOf(Type element) => typeof(List<>).MakeGenericType(element);
 }

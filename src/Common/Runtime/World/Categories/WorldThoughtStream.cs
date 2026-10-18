@@ -32,7 +32,7 @@ internal sealed class WorldThoughtStreamBinder : WorldPlainBinder<WorldThoughtSt
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _state = bind.EnumField("state");
         return bind.Failure;
     }

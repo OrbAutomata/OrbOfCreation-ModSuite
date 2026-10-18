@@ -54,7 +54,7 @@ internal sealed class WorldAttributeGroupBinder : WorldPlainBinder<WorldAttribut
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _description = bind.Field<string>("description");
         return bind.Failure;
     }
@@ -189,7 +189,7 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(_groupType, "AttributeGroupSO");
-        _groupId = bind.Call<Guid>("GetGuid");
+        _groupId = bind.StableUuid();
         _references = bind.CollectionField("recordReferences");
 
         var reference = bind.Elements(

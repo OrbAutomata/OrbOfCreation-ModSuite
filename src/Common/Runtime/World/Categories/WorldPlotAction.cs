@@ -640,7 +640,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         }
 
         var bind = new WorldMemberBinding(plotType, "PlotNodeSO");
-        _plotId = bind.Call<Guid>("GetGuid");
+        _plotId = bind.StableUuid();
         _offered = bind.CollectionField("availableActions");
         _instances = bind.CollectionField("actionInstances");
 
@@ -650,7 +650,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
         var actionType = bind.CollectionElementType("availableActions");
         var action = bind.Elements(actionType, "PlotNodeActionSO");
-        _actionId = action.Call<Guid>("GetGuid");
+        _actionId = action.StableUuid();
         _prerequisitesConfirmed = action.NestedField<bool>("prerequisites", "available");
         _actionDrain = action.Reference("actionDrain", costType);
 

@@ -131,7 +131,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         _recipeList = NativeAccessorBinder.Reference(_managerType, "allAlchemy");
         _activeValues = NativeAccessorBinder.CollectionField(listType, "value");
         _recipeValues = NativeAccessorBinder.CollectionField(recipeListType, "value");
-        _recipeId = NativeAccessorBinder.Call<Guid>(_recipeType, "GetGuid");
+        _recipeId = NativeAccessorBinder.StableUuid(_recipeType);
         _coreTypeId = NativeAccessorBinder.CallReferenceGuid(_recipeType, "GetCoreType");
         _discovered = NativeAccessorBinder.Call<bool>(_recipeType, "IsDiscovered");
         _usageCost = NativeAccessorBinder.CallObject(_recipeType, "GetUsageCost", costType);

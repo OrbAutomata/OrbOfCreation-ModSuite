@@ -423,11 +423,11 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         _canAddInstance = NativeAccessorBinder.CallWithObjectArgument<bool>(
             activeListType.GetMethod("CanAddInstance", Instance, null, new[] { _recipeType! }, null));
         _instanceType = NativeAccessorBinder.CollectionElementType(activeListType, "value");
-        _recipeId = NativeAccessorBinder.Call<Guid>(_recipeType, "GetGuid");
+        _recipeId = NativeAccessorBinder.StableUuid(_recipeType);
         _coreType = NativeAccessorBinder.CallValue(
             _recipeType.GetMethod("GetCoreType", Instance, null, Type.EmptyTypes, null));
         var alchemyType = resolveType("AlchemyTypeSO");
-        _coreTypeId = NativeAccessorBinder.Call<Guid>(alchemyType, "GetGuid");
+        _coreTypeId = NativeAccessorBinder.StableUuid(alchemyType);
         _recipeDrain = NativeAccessorBinder.Reference(_recipeType, "drainCost");
         _bandwidthCost = NativeAccessorBinder.Reference(_recipeType, "bandwidthCost");
         _advancementLevel = NativeAccessorBinder.Field<int>(_recipeType, "advancementLevel");
@@ -436,7 +436,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         var scalingRefType = _recipeType.GetField("instanceScaling", Instance)?.FieldType;
         _instanceScaling = NativeAccessorBinder.Reference(scalingRefType, "scaling");
         var scalingType = resolveType("InstanceScalingSO");
-        _instanceScalingId = NativeAccessorBinder.Call<Guid>(scalingType, "GetGuid");
+        _instanceScalingId = NativeAccessorBinder.StableUuid(scalingType);
         _useRarity = NativeAccessorBinder.Field<bool>(scalingType, "useRarity");
         _rarityBlacklist = NativeAccessorBinder.CollectionField(scalingType, "rarityAttributeBlacklist");
         _scalingConversion = NativeAccessorBinder.Reference(scalingType, "instanceScaling");

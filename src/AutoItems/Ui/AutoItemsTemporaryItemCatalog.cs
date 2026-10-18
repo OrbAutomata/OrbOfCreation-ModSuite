@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using UnityEngine;
@@ -92,12 +90,9 @@ internal static class AutoItemsTemporaryItemCatalog
                 if (entry is null || entry.GetType() != native.ConsumableType)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         "ConsumableSO.All contained an entry with the wrong exact native type.");
-                if (native.Visible.GetValue(entry) is not bool visible)
-                    return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                        "ConsumableSO.visible did not contain a Boolean.");
-                if (!visible) continue;
+                if (!native.Visible(entry)) continue;
 
-                var itemId = Invoke<Guid>(native.ItemGuid, entry);
+                var itemId = native.ItemGuid(entry);
                 if (itemId == Guid.Empty || !seen.Add(itemId))
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         "The discovered consumable catalog contained an empty or duplicate stable UUID.");
@@ -123,10 +118,11 @@ internal static class AutoItemsTemporaryItemCatalog
                 if (!identity.HasName)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} has no live catalog name.");
-                if (native.Quantity.GetValue(entry) is not int stock || stock < 0)
+                var stock = native.Quantity(entry);
+                if (stock < 0)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} returned invalid current stock.");
-                if (native.GetIcon.Invoke(entry, Array.Empty<object>()) is not Sprite icon)
+                if (native.GetIcon(entry) is not { } icon)
                     return AutoItemsTemporaryItemCatalogSnapshot.Failed(
                         $"Discovered temporary item {EntityIdentityFormatter.Format(itemId, catalog)} returned no audited native icon.");
 
@@ -156,7 +152,7 @@ internal static class AutoItemsTemporaryItemCatalog
         AutoItemsTemporaryItemCatalogBindings bindings,
         EntityIdentityCatalogSnapshot identities)
     {
-        if (bindings.Families.GetValue(item) is not IEnumerable entries)
+        if (bindings.Families(item) is not { } entries)
             throw new InvalidOperationException(
                 $"ConsumableSO.consumableTypes was unavailable for {EntityIdentityFormatter.Format(itemId, identities)}.");
 
@@ -167,7 +163,7 @@ internal static class AutoItemsTemporaryItemCatalog
             if (entry is null || entry.GetType() != bindings.FamilyType)
                 throw new InvalidOperationException(
                     $"ConsumableSO.consumableTypes contained the wrong exact native type for {EntityIdentityFormatter.Format(itemId, identities)}.");
-            var typeId = Invoke<Guid>(bindings.FamilyGuid, entry);
+            var typeId = bindings.FamilyGuid(entry);
             if (typeId == Guid.Empty || !seen.Add(typeId))
                 throw new InvalidOperationException(
                     $"ConsumableSO.consumableTypes contained an empty or duplicate family UUID for {EntityIdentityFormatter.Format(itemId, identities)}.");
@@ -218,10 +214,4 @@ internal static class AutoItemsTemporaryItemCatalog
         }
         return ordered;
     }
-
-    private static T Invoke<T>(MethodInfo method, object target) =>
-        method.Invoke(target, Array.Empty<object>()) is T value
-            ? value
-            : throw new InvalidOperationException(
-                $"{method.DeclaringType?.Name}.{method.Name} did not return {typeof(T).Name}.");
 }

@@ -471,7 +471,7 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _discovered = bind.Field<bool>("discovered");
         _inBattle = bind.Field<bool>("inBattle");
 
@@ -524,7 +524,7 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
         _spoilResource = spoil.CallObject("get_resource", spoilResourceType);
         _spoilQuantity = spoil.Field<BigDouble>("quantity");
         var spoilResource = new WorldMemberBinding(spoilResourceType!, "ResourceSO");
-        _spoilResourceId = spoilResource.Call<Guid>("GetGuid");
+        _spoilResourceId = spoilResource.StableUuid();
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _decision = new WorldRitualDecisionBinding(type, _resolveType);
         _completionFormula = new WorldRitualCompletionFormulaBinding(type, _resolveType);
@@ -647,7 +647,7 @@ internal sealed class WorldRitualCompletionFormulaBinding
         _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.Reference(tupleType, "resource", resourceType);
         _costValue = NativeAccessorBinder.Call<BigDouble>(tupleType, "GetValue");
-        _resourceId = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
+        _resourceId = NativeAccessorBinder.StableUuid(resourceType);
         _modifiers = NativeAccessorBinder.CollectionField(modifierListType, "modifiers");
         _exponents = NativeAccessorBinder.CollectionField(modifierListType, "exponents");
         var modifierType = NativeAccessorBinder.CollectionElementType(modifierListType, "modifiers");
@@ -758,7 +758,7 @@ internal sealed class WorldRitualDecisionBinding
         _costResource = tuple.Reference("resource", resourceType);
         _costValue = tuple.Call<BigDouble>("GetValue");
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
-        _resourceId = resource.Call<Guid>("GetGuid");
+        _resourceId = resource.StableUuid();
 
         Failure = Join(
             _manager is null ? "RitualManager.instance was unavailable" : string.Empty,

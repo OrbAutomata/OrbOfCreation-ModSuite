@@ -232,7 +232,7 @@ internal sealed class WorldPlotNodeBinder : WorldRowBinder<RawPlotNodeSample, Wo
     internal override string Bind(Type type)
     {
         var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.Call<Guid>("GetGuid");
+        _id = bind.StableUuid();
         _visible = bind.Field<bool>("visible");
         _currentTime = bind.Field<BigDouble>("currentTime");
         _nextErraticTime = bind.Field<BigDouble>("nextErraticTime");
