@@ -182,8 +182,10 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            var after = Quantity(native, native.FindInstance(list, prototype));
-            if (OutcomeObserved(in action, before, after)) return Verified(before, after);
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => Quantity(native, native.FindInstance(list, prototype)),
+                    IsExpected, out var after) &&
+                OutcomeObserved(in action, before, after)) return Verified(before, after);
             return Fault(in action, PlotLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("World > Agromancy", exception));

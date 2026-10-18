@@ -1,5 +1,6 @@
 using System;
 using OrbAutomata;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -69,6 +70,25 @@ public sealed class CraftingStationGameActionTests : IDisposable
         Assert.Equal(CraftingStationPreflight.SelectionHidden, hidden.Preflight);
         Assert.Equal(CraftingStationPreflight.NotLoaded, unloaded.Preflight);
         Assert.False(surface.Station.IsActive());
+    }
+
+    /// <summary>
+    /// The game wrote the level, threw, and then would not read back. The press may have landed,
+    /// so it is a fault with the attempt recorded, never a refusal a caller would retry.
+    /// </summary>
+    [Fact]
+    public void A_read_back_that_throws_after_the_write_is_a_fault_not_a_refusal()
+    {
+        var surface = Surface();
+        surface.Station.BreakAfterMutation = true;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, surface.Station, CraftingStationActionKind.SetLevel, Guid.Empty, 4);
+
+        Assert.Equal(CraftingStationPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted,
+            CraftingStationActionResultMapper.Map(in result).Disposition);
     }
 
     [Fact]

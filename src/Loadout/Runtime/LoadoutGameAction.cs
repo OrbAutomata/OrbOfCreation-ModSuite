@@ -255,8 +255,11 @@ internal sealed class LoadoutGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, manager, target,
-                    alchemySnapshot, expectedIndex)) return Verified();
+            var request = action;
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => OutcomeObserved(in request, native, manager, target,
+                        alchemySnapshot, expectedIndex),
+                    IsExpected, out var observed) && observed) return Verified();
             return Fault(in action, LoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy", exception));

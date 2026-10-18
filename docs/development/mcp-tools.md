@@ -4369,7 +4369,8 @@ requesting the literal `Start` destination. Back to Main Menu lives inside a pan
 the board, so the tool takes the player's whole route: with the panel shut it presses that panel's
 own button first — the one panel whose contents actually hold the control, matched by containment
 and never by caption — and then presses the control. A panel that will not open, or an opened panel
-without one interactable control, refuses in a sentence that also states the panel is now open. The
+without one interactable control, answers `faulted`, not refused: pressing the panel's button already
+changed the game, and the sentence says whether the panel is now open. The
 response is completed as soon as the native screen
 fade becomes active, before scene teardown can invalidate the HTTP operation. Its compact success
 is `status: committed, scene: Start` — which controls the tool pressed to get there is how it drove

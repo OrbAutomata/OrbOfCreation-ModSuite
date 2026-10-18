@@ -233,7 +233,10 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, list, recipe, beforeTarget))
+            var request = action;
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => OutcomeObserved(in request, native, list, recipe, beforeTarget),
+                    IsExpected, out var observed) && observed)
                 return Verified();
             return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,

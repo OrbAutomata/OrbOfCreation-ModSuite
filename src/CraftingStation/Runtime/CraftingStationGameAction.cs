@@ -191,7 +191,10 @@ internal sealed class CraftingStationGameAction : IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            if (OutcomeObserved(in action, native, station)) return Verified();
+            var request = action;
+            if (NativeMutationVerifier.TryReadAfterCall(
+                    () => OutcomeObserved(in request, native, station),
+                    IsExpected, out var observed) && observed) return Verified();
             return Fault(in action, CraftingStationPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Crafting", exception));

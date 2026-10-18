@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using OrbAutomata;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
@@ -41,6 +42,27 @@ public sealed class LoadoutGameActionTests : IDisposable
         Assert.False(current.IsSelected());
         Assert.True(target.IsSelected());
         Assert.Equal(1, LoadoutManager.instance.SetLoadoutCalls);
+    }
+
+    /// <summary>
+    /// The game switched loadouts, threw, and then would not read back. The press may have landed,
+    /// so it is a fault with the attempt recorded, never a refusal a caller would retry.
+    /// </summary>
+    [Fact]
+    public void A_read_back_that_throws_after_the_switch_is_a_fault_not_a_refusal()
+    {
+        var current = Player("Current", selected: true);
+        var target = Player("Adventure");
+        LoadoutManager.instance.playerLoadouts.value.Add(current);
+        LoadoutManager.instance.playerLoadouts.value.Add(target);
+        LoadoutManager.instance.BreakAfterSetLoadout = true;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
+
+        Assert.Equal(LoadoutPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, LoadoutActionResultMapper.Map(in result).Disposition);
     }
 
     [Fact]

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -64,6 +65,29 @@ public sealed class PlotLifecycleGameActionTests
         Assert.Equal(PlotLifecyclePreflight.QuantityUnavailable, refused.Preflight);
         Assert.Contains("only 4 active instances", refused.Reason, StringComparison.Ordinal);
         Assert.Equal(4, active.GetActualQuantity());
+    }
+
+    /// <summary>
+    /// The game added the action, threw, and then would not read back. The press may have landed,
+    /// so it is a fault with the attempt recorded, never a refusal a caller would retry.
+    /// </summary>
+    [Fact]
+    public void A_read_back_that_throws_after_the_write_is_a_fault_not_a_refusal()
+    {
+        var plot = Plot();
+        var action = Action();
+        plot.AddAction(action);
+        Register(plot);
+        Register(action);
+        _actions.BreakAfterMutation = true;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, PlotLifecycleActionKind.Add, plot, action);
+
+        Assert.Equal(PlotLifecyclePreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted,
+            PlotLifecycleActionResultMapper.Map(in result).Disposition);
     }
 
     [Fact]
