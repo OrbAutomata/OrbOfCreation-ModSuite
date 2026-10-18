@@ -36,11 +36,8 @@ internal sealed class AutoCastServiceCycleFeature : IAutomataServiceCycleFeature
             adapters.Natives,
             registration,
             context.LifecycleValue,
-            context.ConfigurationGeneration
-#if SERVICE_CYCLE_PROFILE
-            , adapters.Actions
-#endif
-            );
+            context.ConfigurationGeneration,
+            adapters.Actions);
     }
 
 }
@@ -63,9 +60,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
         AutoCastCycleAction> _registration;
     private readonly long _lifecycleValue;
     private readonly ConfigGeneration _initialConfigurationGeneration;
-#if SERVICE_CYCLE_PROFILE
     private readonly AutoCastCycleActionAdapter _actions;
-#endif
     private AutoCastServiceCycleDiagnosticsBridge? _diagnostics;
 
     internal AutoCastFeatureRuntime(
@@ -75,20 +70,15 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
             AutoCastCycleState,
             AutoCastCycleAction> registration,
         long lifecycleValue,
-        ConfigGeneration initialConfigurationGeneration
-#if SERVICE_CYCLE_PROFILE
-        , AutoCastCycleActionAdapter actions
-#endif
-        )
+        ConfigGeneration initialConfigurationGeneration,
+        AutoCastCycleActionAdapter actions)
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _natives = natives ?? throw new ArgumentNullException(nameof(natives));
         _registration = registration ?? throw new ArgumentNullException(nameof(registration));
         _lifecycleValue = lifecycleValue;
         _initialConfigurationGeneration = initialConfigurationGeneration;
-#if SERVICE_CYCLE_PROFILE
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
-#endif
     }
 
     public void ActivateDiagnostics()
@@ -101,8 +91,15 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
             _dependencies.FeatureStatus);
     }
 
-    public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report) =>
-        _diagnostics?.Observe(pump, in report, _dependencies.OwnsActionFamily());
+    public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
+    {
+        var owned = _dependencies.OwnsActionFamily();
+        if (_actions.HoldsServiceCharge &&
+            (!owned || pump.IsEmergencyStopEngaged ||
+                _dependencies.ManualPause.IsPaused(pump.DiagnosticsNow)))
+            _actions.ReleaseServiceHold();
+        _diagnostics?.Observe(pump, in report, owned);
+    }
 
     public void ObserveConfiguration(ConfigGeneration configurationGeneration) =>
         _diagnostics?.ObserveConfiguration(configurationGeneration);
@@ -112,6 +109,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
         ConfigGeneration configurationGeneration)
     {
         _natives.InvalidateLifecycle();
+        _actions.ForgetServiceHold();
         _dependencies.ManualPause.Reset();
         _diagnostics?.ObserveLifecycle(
             nativeLifecycle,
@@ -124,6 +122,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
     public void DisposeRegistration()
     {
         _registration.Dispose();
+        _actions.ReleaseServiceHold();
         _natives.Dispose();
     }
 
