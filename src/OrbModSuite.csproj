@@ -13,9 +13,6 @@
     -->
     <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/bin-stubs/**;**/obj-stubs/**;**/bin-profile/**;**/obj-profile/**;**/bin-profile-stubs/**;**/obj-profile-stubs/**</DefaultItemExcludes>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(UseGameStubs)' == 'true'">
-    <DefineConstants>$(DefineConstants);USE_GAME_STUBS</DefineConstants>
-  </PropertyGroup>
 
   <Target Name="GeneratePluginVersionSource" BeforeTargets="CoreCompile">
     <PropertyGroup>
