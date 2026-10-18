@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -63,6 +61,17 @@ internal readonly struct AutoCastSubmission
                 new NativeMutationCallOutcome(1, 1, 0),
                 reason));
 
+    /// <summary>
+    /// An unverified cast whose charge hold could not be let go either, so the fault says both.
+    /// </summary>
+    public AutoCastSubmission WithStuckHold(string releaseReason) =>
+        new(NativeActionOutcome.Fault(
+            Outcome.Code,
+            Outcome.Mutation,
+            Outcome.CallOutcome,
+            $"{Outcome.Reason}; the charge hold taken for it could not be let go: {releaseReason}"),
+            Occupant);
+
     public static AutoCastSubmission Attempted<TState>(
         NativeMutationEvidence<TState> evidence,
         int nativeCallsAttempted)
@@ -81,8 +90,8 @@ internal readonly struct AutoCastSubmission
 /// </summary>
 /// <remarks>
 /// <para>
-/// The port does only what has to happen on the main thread against the live game: bind the
-/// contracts, re-resolve the loadout position, re-check the terms that can have moved since planning
+/// The port does only what has to happen on the main thread against the live game: re-resolve the
+/// loadout position, re-check the terms that can have moved since planning
 /// or that were never publishable at all, and submit through the audited
 /// <see cref="NativeMutationVerifier"/> so the returned submission carries evidence of what actually
 /// committed. Choosing which slot to cast is not here — that is the worker's job, decided against a
@@ -94,8 +103,8 @@ internal readonly struct AutoCastSubmission
 /// the identity the plan named. That pair is what the legacy engine's <c>ReferenceEquals</c> was.
 /// </para>
 /// <para>
-/// The target preflight stays here and stays expensive. It walks the recipe's effect graph looking
-/// for target requests and asks each whether anything is in range, which is main-thread work over
+/// The target preflight stays here and stays expensive. It reads the target requests the recipe's
+/// cast effects open and asks each whether anything is in range, which is main-thread work over
 /// live objects with no snapshot form. It runs last, after every cheap refusal, for the same reason
 /// the legacy engine ran it last.
 /// </para>
@@ -108,69 +117,38 @@ internal interface IAutoCastNativePort
 
     AutoCastSubmission ToggleOff(int slotIndex, Guid spellRecipeId);
 
-    /// <summary>Whether the game currently has a target request open.</summary>
-    bool IsTargeting();
-
-    /// <summary>Whether the game says a spell can be cast at all right now.</summary>
-    bool IsCasterBusy();
-
     /// <summary>Whether the game says a ritual battle is running, or null when that cannot be read.</summary>
     bool? IsRitualRunning();
 }
 
 internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 {
-    private const BindingFlags StaticFlags =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     /// <summary>The charge-input source id, unchanged so an in-flight hold is still ours to release.</summary>
     private const string ChargeInputSource = "OrbAutomata.AutoCast.FullCharge";
 
     /// <summary>The legacy engine's bound on target rounds per cast, kept exactly.</summary>
     private const int MaximumTargetRounds = 16;
 
+    private readonly AutoCastNativeBindings? _bindings;
+    private readonly string _bindingFailure;
     private readonly Dictionary<Guid, string> _blockedSpells = new();
 
-    private Type? _managerType;
-    private Type? _spellType;
-    private Type? _targetingType;
-    private Type? _settingsType;
-    private object? _manager;
-    private object? _activeSpells;
-    private FieldInfo? _activeSpellsValue;
-    private MethodInfo? _fireSpellIndex;
-    private MethodInfo? _canCastASpell;
-    private MethodInfo? _isTargeting;
-    private MethodInfo? _getTargetingLink;
-    private MethodInfo? _submitTarget;
-    private MethodInfo? _canCast;
-    private MethodInfo? _canCharge;
-    private MethodInfo? _isEmpty;
-    private MethodInfo? _canFire;
-    private MethodInfo? _isCasting;
-    private MethodInfo? _isReadyingCast;
-    private MethodInfo? _isToggled;
-    private MethodInfo? _canCancelSpells;
-    private MethodInfo? _getReference;
-    private MethodInfo? _setChargeInput;
-    private MethodInfo? _getScalingInfo;
-    private string? _blockedReason;
-    private Type? _battleManagerType;
-    private MethodInfo? _isInCombat;
+    public AutoCastNativeAdapter() =>
+        AutoCastNativeBindings.TryCreate(out _bindings, out _bindingFailure);
 
-    private bool IsBound =>
-        _manager is not null && _activeSpells is not null && _blockedReason is null;
+    internal AutoCastNativeAdapter(Func<string, Type?>? resolveType, Func<string, bool>? includeContract) =>
+        AutoCastNativeBindings.TryCreate(out _bindings, out _bindingFailure, resolveType, includeContract);
 
     public AutoCastSubmission Fire(int slotIndex, Guid spellRecipeId, bool holdFullCharge)
     {
-        if (!TryInitialize(out var reason))
+        if (!TryReadLoadout(out var native, out var manager, out var loadout, out var reason))
             return AutoCastSubmission.ContractUnavailable(reason);
 
         try
         {
             // A target request already open is the one thing that makes a cast submission land
             // somewhere nobody asked for, so it is checked before anything else.
-            if (IsTargeting())
+            if (native.IsTargeting())
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.TargetingInProgress,
@@ -178,7 +156,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             }
 
             if (!TryResolveSlot(
-                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    native, loadout, slotIndex, spellRecipeId, out var spell, out var identityReason,
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
@@ -188,13 +166,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // SpellManager.CanCastASpell() is false while any loaded spell is readying a cast, this
             // one included, so the press's own spell is asked first and "another spell" is only
             // said when it is true.
-            if (_isReadyingCast!.Invoke(spell, Array.Empty<object>()) is true)
+            if (native.IsReadyingCast(spell))
             {
                 return AutoCastSubmission.AlreadyCasting(
                     "the spell is still starting its cast, so the press would start no cast");
             }
 
-            if (IsCasterBusy())
+            if (!native.CanCastASpell())
             {
                 return AutoCastSubmission.Skipped(
                     AutoCastActionResultCodes.NativeCasterBusy,
@@ -209,7 +187,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // input the game ignores and fire an ordinary cast under a charged name; a hold asked
             // for on a slot that moved or emptied is a slot fact, and TryResolveSlot above has
             // already said which one it was.
-            if (holdFullCharge && _canCharge!.Invoke(spell, Array.Empty<object>()) is not true)
+            if (holdFullCharge && !native.CanCharge(spell))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SpellNotChargeable,
@@ -219,7 +197,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // Spell.Fire's own first branch, asked before pressing it. A running spell answers the
             // press with a warning popup or with an end-of-cast, never with a new cast, and the
             // press left no trace a caller could read afterwards.
-            if (_isCasting!.Invoke(spell, Array.Empty<object>()) is true)
+            if (native.IsCasting(spell))
             {
                 return AutoCastSubmission.AlreadyCasting(
                     "the spell is already running, so the press would start no cast");
@@ -227,32 +205,37 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             // The game's own answer, asked again. The plan was made against a reading of it that is
             // up to a generation old, and a cooldown that came back in between is the ordinary case.
-            if (_canCast!.Invoke(spell, Array.Empty<object>()) is not true)
+            if (!native.CanCast(spell))
             {
                 return AutoCastSubmission.Skipped(
                     AutoCastActionResultCodes.SpellNotReady,
                     "the game refused the cast on its own readiness terms");
             }
 
-            if (!HasValidTargets(spell))
+            if (!HasValidTargets(native, spell))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.NoValidTarget,
                     "the native target selector has no valid target");
             }
 
-            if (holdFullCharge && !TrySetChargeHold(spell, true, out var holdReason))
+            if (holdFullCharge && !TrySetChargeHold(native, spell, true, out var holdReason))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.ChargeHoldRefused,
                     $"a charged-spell hold could not be established: {holdReason}");
             }
 
-            var submission = Submit(slotIndex, spellRecipeId);
+            var submission = Submit(native, manager, slotIndex, spellRecipeId);
 
             // A hold taken for a cast that never landed is a charge input stuck down with nothing
             // holding it, so it is let go on every failing path exactly as the legacy engine did.
-            if (holdFullCharge && !submission.Outcome.Verified) TrySetChargeHold(spell, false, out _);
+            if (holdFullCharge && !submission.Outcome.Verified &&
+                !TrySetChargeHold(native, spell, false, out var releaseReason))
+            {
+                return submission.WithStuckHold(releaseReason);
+            }
+
             return submission;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -264,7 +247,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
     public AutoCastSubmission ReleaseCharge(int slotIndex, Guid spellRecipeId)
     {
-        if (!TryInitialize(out var reason))
+        if (!TryReadLoadout(out var native, out _, out var loadout, out var reason))
             return AutoCastSubmission.ContractUnavailable(reason);
 
         try
@@ -273,14 +256,14 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             // idempotent and always safe; refusing to let go because a stale reading disagreed is
             // how an input gets stuck down with nobody tracking it.
             if (!TryResolveSlot(
-                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    native, loadout, slotIndex, spellRecipeId, out var spell, out var identityReason,
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
 
-            var released = TrySetChargeHold(spell, false, out var releaseReason);
+            var released = TrySetChargeHold(native, spell, false, out var releaseReason);
             return AutoCastSubmission.Released(released, released ? string.Empty : releaseReason);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -292,13 +275,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
     public AutoCastSubmission ToggleOff(int slotIndex, Guid spellRecipeId)
     {
-        if (!TryInitialize(out var reason))
+        if (!TryReadLoadout(out var native, out var manager, out var loadout, out var reason))
             return AutoCastSubmission.ContractUnavailable(reason);
 
         try
         {
             if (!TryResolveSlot(
-                    slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    native, loadout, slotIndex, spellRecipeId, out var spell, out var identityReason,
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
@@ -306,19 +289,19 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             }
             if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
                 return AutoCastSubmission.ContractUnavailable(blocked);
-            if (_isToggled!.Invoke(spell, Array.Empty<object>()) is not true)
+            if (!native.IsToggled(spell))
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SpellNotToggleable,
                     "the equipped spell is not a toggle spell");
-            if (_isCasting!.Invoke(spell, Array.Empty<object>()) is not true)
+            if (!native.IsCasting(spell))
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SpellAlreadyInactive,
                     "the toggle spell is already off");
-            if (_canCancelSpells!.Invoke(null, Array.Empty<object>()) is not true)
+            if (!native.CanCancelSpells())
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.CancellationDisabled,
                     "enable Cancellable Spells in the game's settings before turning this spell off");
-            if (_canFire!.Invoke(spell, Array.Empty<object>()) is not true)
+            if (!native.CanFire(spell))
                 return AutoCastSubmission.Skipped(
                     AutoCastActionResultCodes.SpellNotReady,
                     "the spell's visible cast button is not available right now");
@@ -328,13 +311,13 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                 "toggle spell off",
                 EntityIdentityFormatter.Format(spellRecipeId),
                 "Spell.IsCasting true to false",
-                () => _isCasting.Invoke(spell, Array.Empty<object>()) is true,
+                () => native.IsCasting(spell),
                 () =>
                 {
                     using (AutoCastManualSignal.EnterAutomatedFire())
                     {
                         nativeCalls++;
-                        _fireSpellIndex!.Invoke(_manager, new object[] { slotIndex });
+                        native.FireSpellIndex(manager, slotIndex);
                     }
                 },
                 (before, after) => before && !after);
@@ -352,42 +335,12 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
     }
 
-    public bool IsTargeting()
-    {
-        // Fails closed. A targeting contract that cannot be read is reported as "a request is open",
-        // because submitting a cast into an unknown targeting state is the outcome worth avoiding.
-        try
-        {
-            return _isTargeting?.Invoke(null, Array.Empty<object>()) as bool? ?? true;
-        }
-        catch (TargetInvocationException)
-        {
-            return true;
-        }
-    }
-
-    public bool IsCasterBusy()
-    {
-        try
-        {
-            return _canCastASpell?.Invoke(null, Array.Empty<object>()) is not true;
-        }
-        catch (TargetInvocationException)
-        {
-            return true;
-        }
-    }
-
     public bool? IsRitualRunning()
     {
+        if (_bindings is not { } native) return null;
         try
         {
-            _battleManagerType ??= ReflectionUtil.FindLoadedType("BattleManager");
-            if (_battleManagerType is null) return null;
-            _isInCombat ??= FindMethod(_battleManagerType, "IsInCombat");
-            var battle = _battleManagerType.GetField("instance", StaticFlags)?.GetValue(null);
-            if (_isInCombat is null || battle is null || battle.GetType() != _battleManagerType) return null;
-            return _isInCombat.Invoke(battle, Array.Empty<object>()) as bool?;
+            return native.BattleManager() is { } battle ? native.IsInCombat(battle) : null;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
@@ -398,41 +351,10 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     public void Dispose() => InvalidateLifecycle();
 
     /// <summary>
-    /// Drops every bound contract and every quarantine.
+    /// Drops every quarantine: a spell blocked because its mutation could not be verified deserves
+    /// another chance in a run of the game where the contract may hold again.
     /// </summary>
-    /// <remarks>
-    /// Both halves matter. The contracts are instance-keyed — the manager singleton and its loadout
-    /// list are replaced when the game reloads — and a spell blocked because its mutation could not
-    /// be verified deserves another chance in a run of the game where the contract may hold again.
-    /// </remarks>
-    public void InvalidateLifecycle()
-    {
-        _blockedSpells.Clear();
-        _managerType = null;
-        _spellType = null;
-        _targetingType = null;
-        _settingsType = null;
-        _manager = null;
-        _activeSpells = null;
-        _activeSpellsValue = null;
-        _fireSpellIndex = null;
-        _canCastASpell = null;
-        _isTargeting = null;
-        _getTargetingLink = null;
-        _submitTarget = null;
-        _canCast = null;
-        _canFire = null;
-        _isCasting = null;
-        _isReadyingCast = null;
-        _isToggled = null;
-        _canCancelSpells = null;
-        _getReference = null;
-        _setChargeInput = null;
-        _getScalingInfo = null;
-        _blockedReason = null;
-        _battleManagerType = null;
-        _isInCombat = null;
-    }
+    public void InvalidateLifecycle() => _blockedSpells.Clear();
 
     /// <summary>
     /// Submits the cast and resolves whatever target requests it opens, verified as an exact one-fire
@@ -443,7 +365,11 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     /// target prompt left open. Two is as wrong as none: it would mean the submission cast twice, and
     /// a cast that spent twice what was planned is precisely what verification exists to catch.
     /// </remarks>
-    private AutoCastSubmission Submit(int slotIndex, Guid spellRecipeId)
+    private AutoCastSubmission Submit(
+        AutoCastNativeBindings native,
+        object manager,
+        int slotIndex,
+        Guid spellRecipeId)
     {
         var nativeCalls = 0;
         var failure = string.Empty;
@@ -454,10 +380,10 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             () => AutoCastManualSignal.FireEpoch,
             () =>
             {
-                if (!FireAndResolveTargets(slotIndex, ref nativeCalls, out failure))
+                if (!FireAndResolveTargets(native, manager, slotIndex, ref nativeCalls, out failure))
                     throw new InvalidOperationException(failure);
             },
-            (before, after) => after == before + 1 && !IsTargeting());
+            (before, after) => after == before + 1 && !native.IsTargeting());
 
         var submission = AutoCastSubmission.Attempted(evidence, nativeCalls);
         if (!evidence.IsVerified && evidence.MutationWasAttempted)
@@ -469,7 +395,12 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return submission;
     }
 
-    private bool FireAndResolveTargets(int slotIndex, ref int nativeCalls, out string reason)
+    private static bool FireAndResolveTargets(
+        AutoCastNativeBindings native,
+        object manager,
+        int slotIndex,
+        ref int nativeCalls,
+        out string reason)
     {
         // The service's own fire must not read as the player's. The scope is around this call only,
         // exactly as before: a target submission that re-entered Spell.Fire would be a different
@@ -477,41 +408,32 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         using (AutoCastManualSignal.EnterAutomatedFire())
         {
             nativeCalls++;
-            _fireSpellIndex!.Invoke(_manager, new object[] { slotIndex });
+            native.FireSpellIndex(manager, slotIndex);
         }
 
-        for (var round = 0; round < MaximumTargetRounds && IsTargeting(); round++)
+        for (var round = 0; round < MaximumTargetRounds && native.IsTargeting(); round++)
         {
-            object? link = null;
-            if (_getTargetingLink is not null)
-            {
-                nativeCalls++;
-                link = _getTargetingLink.Invoke(null, Array.Empty<object>());
-            }
+            nativeCalls++;
+            var link = native.GetTargetingLink();
 
             object? target = null;
             if (link is not null)
             {
-                var getRandom = link.GetType().GetMethod(
-                    "GetRandom", ReflectionUtil.InstanceFlags, null, Type.EmptyTypes, null);
-                if (getRandom is not null)
-                {
-                    nativeCalls++;
-                    target = getRandom.Invoke(link, Array.Empty<object>());
-                }
+                nativeCalls++;
+                target = native.GetRandom(link);
             }
 
-            if (target is null || _submitTarget is null)
+            if (target is null)
             {
                 reason = "native target selector returned no valid target";
                 return false;
             }
 
             nativeCalls++;
-            _submitTarget.Invoke(null, new[] { target });
+            native.SubmitTarget(target);
         }
 
-        if (IsTargeting())
+        if (native.IsTargeting())
         {
             reason = "target request limit exceeded";
             return false;
@@ -521,17 +443,15 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return true;
     }
 
-    private bool TrySetChargeHold(object spell, bool holding, out string reason)
+    private static bool TrySetChargeHold(
+        AutoCastNativeBindings native,
+        object spell,
+        bool holding,
+        out string reason)
     {
-        if (_setChargeInput is null)
-        {
-            reason = "Spell.SetChargeInput(string, bool) unavailable";
-            return false;
-        }
-
         try
         {
-            _setChargeInput.Invoke(spell, new object[] { ChargeInputSource, holding });
+            native.SetChargeInput(spell, ChargeInputSource, holding);
             reason = string.Empty;
             return true;
         }
@@ -546,35 +466,27 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     /// Whether anything is in range of whatever this spell targets.
     /// </summary>
     /// <remarks>
-    /// A spell that requests no targets needs none, so an empty walk is a pass rather than a refusal.
-    /// The walk is bounded by depth and follows only members whose names say they hold effects, which
-    /// is what keeps a reflective traversal of live game objects from becoming unbounded.
+    /// A spell that requests no targets needs none, so a recipe without target requests is a pass
+    /// rather than a refusal.
     /// </remarks>
-    private bool HasValidTargets(object spell)
+    private static bool HasValidTargets(AutoCastNativeBindings native, object spell)
     {
-        if (_getReference is null || _getScalingInfo is null) return true;
-
-        var recipe = _getReference.Invoke(spell, Array.Empty<object>());
-        var scaling = _getScalingInfo.Invoke(spell, Array.Empty<object>());
+        var recipe = native.Recipe(spell);
+        var scaling = native.ScalingInfo(spell);
         if (recipe is null || scaling is null) return true;
 
         // Every request, not any. A spell whose effects open three target requests will open all three
         // when it fires, and one of them having nothing to aim at is a cast that stalls halfway with a
         // target prompt on screen. That is the whole reason the preflight exists.
-        foreach (var request in FindTargetRequests(recipe))
+        foreach (var request in TargetRequests(native, recipe))
         {
-            var options = ReflectionUtil.ReadMember(request, "targetOptions");
-            var hasValid = options?.GetType().GetMethods(ReflectionUtil.InstanceFlags)
-                .FirstOrDefault(method =>
-                    method.Name == "HasValidTargetsLeft" && method.GetParameters().Length == 1);
-
             // An unreadable preflight contract refuses. The alternative is submitting a cast whose
             // targeting nobody checked, which is the outcome this whole boundary exists to prevent.
-            if (options is null || hasValid is null) return false;
+            if (native.TargetOptions(request) is not { } options) return false;
 
             try
             {
-                if (hasValid.Invoke(options, new[] { scaling }) is not true) return false;
+                if (!native.HasValidTargetsLeft(options, scaling)) return false;
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
@@ -585,81 +497,17 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return true;
     }
 
-    private static IEnumerable<object> FindTargetRequests(object root) =>
-        Traverse(root, 0, new HashSet<object>(NodeIdentity.Instance))
-            .Where(value => value.GetType().Name == "RequestTargetEffectScript");
-
-    /// <summary>
-    /// Walks the recipe's effect graph, bounded by depth and by member name.
-    /// </summary>
-    /// <remarks>
-    /// Following only members whose names say they hold effects is what keeps a reflective traversal
-    /// of live game objects from wandering into the whole scene graph. Identity rather than equality
-    /// tracks what has been seen, because these are game objects whose <c>Equals</c> is not ours.
-    /// </remarks>
-    private static IEnumerable<object> Traverse(object value, int depth, ISet<object> visited)
+    private static IEnumerable<object> TargetRequests(AutoCastNativeBindings native, object recipe)
     {
-        const int MaximumDepth = 7;
-        if (depth > MaximumDepth || value is string || !visited.Add(value)) yield break;
-
-        if (value is IEnumerable enumerable)
+        if (native.OnCastEffects(recipe) is not { } blocks) yield break;
+        foreach (var block in blocks)
         {
-            foreach (var item in enumerable)
+            if (block is null || native.EffectScripts(block) is not { } scripts) continue;
+            foreach (var script in scripts)
             {
-                if (item is null) continue;
-                foreach (var nested in Traverse(item, depth + 1, visited)) yield return nested;
+                if (script is not null && script.GetType() == native.RequestType) yield return script;
             }
-
-            yield break;
         }
-
-        yield return value;
-        foreach (var member in ReadEffectMembers(value))
-        {
-            foreach (var nested in Traverse(member, depth + 1, visited)) yield return nested;
-        }
-    }
-
-    private static IEnumerable<object> ReadEffectMembers(object value)
-    {
-        var type = value.GetType();
-        foreach (var field in type.GetFields(ReflectionUtil.InstanceFlags))
-        {
-            if (IsEffectMember(field.Name) && field.GetValue(value) is { } fieldValue)
-                yield return fieldValue;
-        }
-
-        foreach (var property in type.GetProperties(ReflectionUtil.InstanceFlags))
-        {
-            if (!IsEffectMember(property.Name) || property.GetIndexParameters().Length > 0) continue;
-
-            object? propertyValue = null;
-            try
-            {
-                propertyValue = property.GetValue(value);
-            }
-            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-            {
-            }
-
-            if (propertyValue is not null) yield return propertyValue;
-        }
-    }
-
-    private static bool IsEffectMember(string name) =>
-        name.IndexOf("effect", StringComparison.OrdinalIgnoreCase) >= 0 ||
-        name.IndexOf("script", StringComparison.OrdinalIgnoreCase) >= 0 ||
-        name.IndexOf("block", StringComparison.OrdinalIgnoreCase) >= 0;
-
-    /// <summary>Reference identity, so the walk cannot be fooled by a game type's own equality.</summary>
-    private sealed class NodeIdentity : IEqualityComparer<object>
-    {
-        internal static readonly NodeIdentity Instance = new();
-
-        public new bool Equals(object? left, object? right) => ReferenceEquals(left, right);
-
-        public int GetHashCode(object value) =>
-            System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
     }
 
     /// <summary>
@@ -671,7 +519,9 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
     /// Casting whatever happens to be in a position is exactly the mistake identity checking exists
     /// to prevent.
     /// </remarks>
-    private bool TryResolveSlot(
+    private static bool TryResolveSlot(
+        AutoCastNativeBindings native,
+        object loadout,
         int slotIndex,
         Guid spellRecipeId,
         out object spell,
@@ -686,7 +536,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
             return false;
         }
 
-        if (_activeSpellsValue!.GetValue(_activeSpells) is not IList slots)
+        if (native.Slots(loadout) is not { } slots)
         {
             reason = "the equipped loadout is unreadable";
             return false;
@@ -699,7 +549,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
 
         var candidate = slots[slotIndex];
-        if (candidate is null || candidate.GetType() != _spellType)
+        if (candidate is null || candidate.GetType() != native.SpellType)
         {
             reason = $"Spell slot {slotIndex + 1} is empty.";
             return false;
@@ -708,7 +558,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         // The game's own emptiness, asked before the identity read. An empty socket is a live Spell
         // carrying no recipe, so reading its identity answered "what occupies it now could not be
         // named" — true, and no use to a caller whose slot is simply empty.
-        if (_isEmpty!.Invoke(candidate, Array.Empty<object>()) is true)
+        if (native.IsEmpty(candidate))
         {
             reason = $"Spell slot {slotIndex + 1} is empty.";
             return false;
@@ -719,10 +569,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         // It rides out as an id as well as a name, because a caller that wants to act on whatever
         // took the slot had nowhere else to read it: the structured id beside the sentence names
         // the spell that was planned, which is the one thing already known not to be there.
-        var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
-        var liveId = recipe is null
-            ? Guid.Empty
-            : RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(recipe);
+        var recipe = native.Recipe(candidate);
+        var liveId = recipe is null ? Guid.Empty : native.RecipeId(recipe);
         if (liveId != spellRecipeId)
         {
             occupant = liveId;
@@ -739,108 +587,41 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return true;
     }
 
-    private bool TryInitialize(out string reason)
+    /// <summary>
+    /// The bound set and the live manager and loadout, read fresh for every call: the singleton and
+    /// its list are replaced whenever the game reloads.
+    /// </summary>
+    private bool TryReadLoadout(
+        out AutoCastNativeBindings native,
+        out object manager,
+        out object loadout,
+        out string reason)
     {
-        if (IsBound)
+        native = null!;
+        manager = null!;
+        loadout = null!;
+        if (_bindings is null)
         {
-            reason = string.Empty;
-            return true;
-        }
-
-        if (_blockedReason is not null)
-        {
-            reason = _blockedReason;
+            reason = _bindingFailure;
             return false;
         }
 
-        try
+        native = _bindings;
+        if (native.Manager() is not { } liveManager)
         {
-            _managerType = ReflectionUtil.FindLoadedType("SpellManager");
-            _spellType = ReflectionUtil.FindLoadedType("Spell");
-            _targetingType = ReflectionUtil.FindLoadedType("TargetingManager");
-            _settingsType = ReflectionUtil.FindLoadedType("SettingsManager");
-            if (_managerType is null || _spellType is null || _targetingType is null ||
-                _settingsType is null)
-                return Retry("native cast types are not registered yet", out reason);
-
-            _manager = _managerType.GetField("instance", StaticFlags)?.GetValue(null);
-            if (_manager is null || _manager.GetType() != _managerType)
-                return Retry("SpellManager is not ready", out reason);
-
-            _activeSpells = ReflectionUtil.ReadMember(_manager, "activeSpells");
-            if (_activeSpells is null) return Retry("the equipped loadout is not ready", out reason);
-            _activeSpellsValue = FindField(_activeSpells.GetType(), "value");
-
-            _fireSpellIndex = _managerType.GetMethod(
-                "FireSpellIndex", ReflectionUtil.InstanceFlags, null, new[] { typeof(int) }, null);
-            _canCastASpell = _managerType.GetMethod("CanCastASpell", StaticFlags, null, Type.EmptyTypes, null);
-            _isTargeting = _targetingType.GetMethod("IsTargeting", StaticFlags, null, Type.EmptyTypes, null);
-            _getTargetingLink = _targetingType.GetMethod("GetTargetingLink", StaticFlags);
-            _submitTarget = _targetingType.GetMethods(StaticFlags)
-                .FirstOrDefault(method => method.Name == "SubmitTarget" && method.GetParameters().Length == 1);
-            _canCast = FindMethod(_spellType, "CanCast");
-            _canCharge = FindMethod(_spellType, "CanCharge");
-            _isEmpty = FindMethod(_spellType, "IsEmpty");
-            _canFire = FindMethod(_spellType, "CanFire");
-            _isCasting = FindMethod(_spellType, "IsCasting");
-            _isReadyingCast = FindMethod(_spellType, "IsReadyingCast");
-            _isToggled = FindMethod(_spellType, "IsToggledSpell");
-            _canCancelSpells = _settingsType.GetMethod(
-                "CanCancelSpells", StaticFlags, null, Type.EmptyTypes, null);
-            _getReference = FindMethod(_spellType, "get_reference");
-            _getScalingInfo = FindMethod(_spellType, "GetScalingInfo");
-            _setChargeInput = _spellType.GetMethod(
-                "SetChargeInput",
-                ReflectionUtil.InstanceFlags,
-                null,
-                new[] { typeof(string), typeof(bool) },
-                null);
-
-            if (_activeSpellsValue is null || _fireSpellIndex is null || _canCastASpell is null ||
-                _isTargeting is null || _getTargetingLink is null || _submitTarget is null ||
-                _canCast is null || _canCharge is null || _isEmpty is null ||
-                _canFire is null || _isCasting is null || _isReadyingCast is null ||
-                _isToggled is null || _canCancelSpells is null || _setChargeInput is null)
-            {
-                return Block("native cast accessors are unavailable", out reason);
-            }
-
-            reason = string.Empty;
-            return true;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return Block($"cast contract initialization failed: {ex.GetBaseException().Message}", out reason);
-        }
-    }
-
-    private static FieldInfo? FindField(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var field = current.GetField(
-                name,
-                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-            if (field is not null) return field;
+            reason = "SpellManager is not ready";
+            return false;
         }
 
-        return null;
+        if (native.ActiveSpells(liveManager) is not { } liveLoadout)
+        {
+            reason = "the equipped loadout is not ready";
+            return false;
+        }
+
+        manager = liveManager;
+        loadout = liveLoadout;
+        reason = string.Empty;
+        return true;
     }
-
-    private static MethodInfo? FindMethod(Type type, string name) =>
-        type.GetMethod(name, ReflectionUtil.InstanceFlags, null, Type.EmptyTypes, null);
-
-    private bool Block(string message, out string reason)
-    {
-        _blockedReason = message;
-        reason = message;
-        return false;
-    }
-
-    private static bool Retry(string message, out string reason)
-    {
-        reason = message;
-        return false;
-    }
-
 }

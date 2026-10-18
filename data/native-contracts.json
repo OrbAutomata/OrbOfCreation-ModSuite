@@ -2546,6 +2546,24 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<IInstantEffectScript>"}
     },
     {
+      "id": "auto-cast.block-effect-scripts-action",
+      "assembly": "assembly-csharp",
+      "type": "InstantEffectBlock",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "effectScripts",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<IInstantEffectScript>",
+      "owners": [
+        "Automata Auto Cast"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "auto-harvest.filter-type.white-list",
       "assembly": "assembly-csharp",
       "type": "FilterEffectMod+FilterType",
@@ -8116,7 +8134,8 @@
         "Automata spell workbench GameAction",
         "Automata Discovery Tree offer GameAction",
         "Automata crafting-instance GameAction",
-        "Automata Auto Items action boundary"
+        "Automata Auto Items action boundary",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -16494,6 +16513,25 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
+      "id": "auto-cast.spell-can-cast-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CanCast",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata Auto Cast"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
       "id": "spell.can-charge",
       "assembly": "assembly-csharp",
       "type": "Spell",
@@ -16513,6 +16551,25 @@
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "auto-cast.spell-can-charge-action",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CanCharge",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Boolean",
+      "parameters": [],
+      "owners": [
+        "Automata Auto Cast"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
     },
     {
       "id": "spell.current-charges",
@@ -20659,7 +20716,8 @@
       "owners": [
         "Automata Auto Items action boundary",
         "Automata Auto Scribe action boundary",
-        "Automata Auto Scribe world publication"
+        "Automata Auto Scribe world publication",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -20689,7 +20747,8 @@
       "owners": [
         "Automata Auto Items action boundary",
         "Automata Auto Scribe action boundary",
-        "Automata Auto Scribe world publication"
+        "Automata Auto Scribe world publication",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -20704,7 +20763,8 @@
       "kind": "type",
       "owners": [
         "Automata Auto Items action boundary",
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -20719,7 +20779,8 @@
       "kind": "type",
       "owners": [
         "Automata Auto Items action boundary",
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -20734,7 +20795,8 @@
       "kind": "type",
       "owners": [
         "Automata Auto Items action boundary",
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -20750,7 +20812,8 @@
       "owners": [
         "Automata Auto Items action boundary",
         "Automata targeting GameAction",
-        "Automata Auto Scribe action boundary"
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -23524,7 +23587,8 @@
       "kind": "type",
       "owners": [
         "Automata spell workbench GameAction",
-        "Automata spell loadout GameAction"
+        "Automata spell loadout GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -23539,7 +23603,8 @@
       "kind": "type",
       "owners": [
         "Automata spell workbench GameAction",
-        "Automata spell loadout GameAction"
+        "Automata spell loadout GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -25093,7 +25158,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata spell loadout GameAction"
+        "Automata spell loadout GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -25169,7 +25235,8 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata spell loadout GameAction"
+        "Automata spell loadout GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -25245,7 +25312,8 @@
       "returnType": "SpellRecipeSO",
       "parameters": [],
       "owners": [
-        "Automata spell loadout GameAction"
+        "Automata spell loadout GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -25453,7 +25521,8 @@
       "owners": [
         "Automata targeting GameAction",
         "Automata Auto Items action boundary",
-        "Automata consumable GameAction"
+        "Automata consumable GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -25467,7 +25536,8 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata targeting GameAction"
+        "Automata targeting GameAction",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -27199,7 +27269,8 @@
       "kind": "type",
       "owners": [
         "Automata research GameAction",
-        "Common research world collection"
+        "Common research world collection",
+        "Automata Auto Cast"
       ],
       "usages": [
         "reflection"
@@ -29171,7 +29242,7 @@
     },
     {
       "id": "loadout.spell.type-action", "assembly": "assembly-csharp", "type": "Spell",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Automata spell workbench GameAction", "Automata spell loadout GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.spell-list.type-action", "assembly": "assembly-csharp", "type": "SpellListVariable",
@@ -29179,7 +29250,7 @@
     },
     {
       "id": "loadout.spell-recipe.type-action", "assembly": "assembly-csharp", "type": "SpellRecipeSO",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata spell workbench GameAction", "Automata spell loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata spell workbench GameAction", "Automata spell loadout GameAction", "Automata Auto Cast"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.equipment.type-action", "assembly": "assembly-csharp", "type": "EquipmentSO",
@@ -32457,6 +32528,24 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-epoch", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<InstantEffectBlock>"}
+    },
+    {
+      "id": "auto-cast.recipe-on-cast-effects-action",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "onCastEffects",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<InstantEffectBlock>",
+      "owners": [
+        "Automata Auto Cast"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
     },
     {
       "id": "combat-effect.type",

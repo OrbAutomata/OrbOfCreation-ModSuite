@@ -269,6 +269,23 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.False(spell.HoldingCharge);
     }
 
+    [Fact]
+    public void AHoldThatCouldNotBeLetGoAfterAFailedCastIsNamedInTheFault()
+    {
+        var spell = Equip(Ember);
+        spell.EmitFireSignal = false;
+        spell.ChargeReleaseFailure = new InvalidOperationException("injected charge release failure");
+
+        var result = Execute(Fire(0, Ember, chargeable: true), fullCharge: true);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.True(spell.HoldingCharge);
+        Assert.Contains(
+            "the charge hold taken for it could not be let go: injected charge release failure",
+            result.Reason,
+            StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// "This spell has no charged cast" is a claim about the spell, so the boundary only makes it
     /// once the position resolved to the spell the caller named — and it asks the live game, not a

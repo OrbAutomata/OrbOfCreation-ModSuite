@@ -275,8 +275,6 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
         GrantedMasteryExperience.Add(exp);
         masteryExperience = Add(masteryExperience, exp);
     }
-    public new Guid GetGuid() => Guid.Parse(uuid);
-    public new Guid GetId() => GetGuid();
     public bool IsDiscovered() => DiscoveredReadFailure is { } failure ? throw failure : discovered;
     public bool CanDiscover() => NativeCanDiscover;
     public bool IsDiscoverVisible() => NativeDiscoverVisible;
@@ -1688,8 +1686,10 @@ public class Spell : ITooltipable
     private void ComputeCost()
     {
     }
-    public object GetScalingInfo() => new object();
-    public void SetChargeInput(string source, bool holding) => HoldingCharge = holding;
+    public ScalingInfo GetScalingInfo() => new ScalingInfo();
+    public Exception? ChargeReleaseFailure { get; set; }
+    public void SetChargeInput(string source, bool holding) =>
+        HoldingCharge = !holding && ChargeReleaseFailure is { } failure ? throw failure : holding;
 
     /// <summary>How many target requests this spell's effects open when it fires.</summary>
     public int RequestsOnFire { get; set; }
@@ -3651,7 +3651,7 @@ public static class TargetingManager
         EffectResultInfo.ThrowAfterCancel = false;
     }
 
-    public sealed class TargetLink
+    public class TargetLink
     {
         private readonly Targeting.ITargetable offered;
         private readonly ITooltipable owner;

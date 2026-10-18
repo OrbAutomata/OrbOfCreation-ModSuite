@@ -998,6 +998,11 @@ public sealed class RequestTargetEffectScript : IInstantEffectScript
     public Targeting.TargetSelectOptions targetOptions = new Targeting.TargetSelectOptions();
 }
 
+public sealed class ChanceEffectScript : IInstantEffectScript
+{
+    public List<InstantEffectBlock> effectBlocks = new List<InstantEffectBlock>();
+}
+
 namespace Combat
 {
     public class CombatEffect : IInstantEffectScript
@@ -1023,6 +1028,7 @@ namespace Targeting
 
     public class BaseTargetSelection
     {
+        public virtual bool HasValidTargetsLeft(ScalingInfo scaling) => false;
     }
 
     public sealed class TargetStructure : BaseTargetSelection
@@ -1031,6 +1037,8 @@ namespace Targeting
 
         public List<ITargetable> GetRandomList(ScalingInfo scaling) =>
             new List<ITargetable>(Candidates);
+
+        public override bool HasValidTargetsLeft(ScalingInfo scaling) => Candidates.Count > 0;
     }
 
     public sealed class TargetSelectOptions
@@ -1039,6 +1047,7 @@ namespace Targeting
 
         public BaseTargetSelection GetTargeting() => Targeting;
         public TargetReferenceTypes GetTargetRefType() => TargetReferenceTypes.Target;
+        public bool HasValidTargetsLeft(ScalingInfo scaling) => Targeting.HasValidTargetsLeft(scaling);
     }
 }
 
