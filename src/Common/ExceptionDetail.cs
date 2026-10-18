@@ -15,6 +15,13 @@ public static class ExceptionDetail
     public const int MaxLength = 600;
     private const int MaxMessageLength = 200;
 
+    /// <summary>
+    /// The exceptions no catch may contain: the runtime is no longer in a state where logging or
+    /// retrying means anything, so they propagate and end the process.
+    /// </summary>
+    public static bool IsProcessFatal(Exception exception) =>
+        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
+
     public static string Describe(Exception exception)
     {
         if (exception is null) throw new ArgumentNullException(nameof(exception));

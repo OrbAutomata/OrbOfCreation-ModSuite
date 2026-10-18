@@ -161,7 +161,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             }
             return result;
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return FailResult(ServiceCycleProfileMeasurementFault.AggregationFailed, exception);
         }
@@ -194,7 +194,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             _sealed = true;
             return true;
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return Fail(ServiceCycleProfileMeasurementFault.AggregationFailed, exception);
         }
@@ -225,7 +225,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             value = _rawClock.ReadTimestamp();
             return true;
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             value = 0;
             return Fail(ServiceCycleProfileMeasurementFault.RawClockFailed, exception);
@@ -246,7 +246,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             value = 0;
             return Fail(ServiceCycleProfileMeasurementFault.AllocationCounterRegressed);
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             value = 0;
             return Fail(ServiceCycleProfileMeasurementFault.AllocationCounterFailed, exception);
@@ -277,8 +277,5 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
         Fail(fault, exception);
         return ServiceCycleProfileMeasurementResult.Faulted;
     }
-
-    private static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 }
 #endif

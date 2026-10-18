@@ -1,12 +1,12 @@
 using System;
 using BepInEx.Logging;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Format;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.HostTrace;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 using System.Threading;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.Runtime.ServiceCycle.Profile;
@@ -201,7 +201,7 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
                     _roster);
             }
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             unavailable = "The recent-event buffer could not be captured: " +
                 exception.GetBaseException().Message;
@@ -212,7 +212,7 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
         {
             journal = _decisionJournal?.Flush() ?? DecisionJournalStatus.Unavailable;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             journal = _decisionJournal?.Snapshot ?? DecisionJournalStatus.Unavailable;
             unavailable = Join(unavailable, "The decision journal could not be flushed: " +

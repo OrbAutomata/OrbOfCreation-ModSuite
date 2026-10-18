@@ -1,6 +1,5 @@
 using System;
 using OrbModding.Common.Runtime.Tracing;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
 
@@ -27,7 +26,7 @@ internal static class TraceRosterWriter
             sink.CommitSideArtifact(TraceRosterFormat.FileName, TraceRosterFormat.Encode(roster));
             return true;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return false;
         }

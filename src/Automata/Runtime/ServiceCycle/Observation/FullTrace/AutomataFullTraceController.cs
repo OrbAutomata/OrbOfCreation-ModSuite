@@ -1,5 +1,6 @@
 using System;
 using BepInEx.Logging;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
@@ -75,7 +76,7 @@ internal sealed class AutomataFullTraceController : IDisposable
                 AutomataFullTracePathPolicy.FormatRelativeArtifactPath(_artifactName) + ".");
             Tick();
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _startFailed = true;
             _log.LogAutomataError(

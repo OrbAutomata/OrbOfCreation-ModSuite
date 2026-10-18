@@ -3,6 +3,7 @@ using System;
 using System.Globalization;
 using System.Threading;
 using BepInEx.Logging;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile.Control;
@@ -80,7 +81,7 @@ internal sealed class AutomataServiceCycleProfileController : IDisposable
                 Stop(ServiceCycleProfileTerminalReason.ProbeFailed);
             PublishSession();
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _failed = true;
             _log.LogWarning(
@@ -186,7 +187,7 @@ internal sealed class AutomataServiceCycleProfileController : IDisposable
             Publish(Status(PerformanceProfileControlState.Recording, PerformanceProfileResult.None));
             _log.LogInfo($"ServiceCycle performance profile {_artifactName} started.");
         }
-        catch (Exception exception) when (!IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _session?.Dispose();
             _session = null;
@@ -299,8 +300,5 @@ internal sealed class AutomataServiceCycleProfileController : IDisposable
             _ => throw new InvalidOperationException("The performance profile has no failure result."),
         };
     }
-
-    private static bool IsProcessFatal(Exception exception) =>
-        exception is StackOverflowException or OutOfMemoryException or AccessViolationException;
 }
 #endif

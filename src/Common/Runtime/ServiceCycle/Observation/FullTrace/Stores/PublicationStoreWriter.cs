@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using OrbModding.Common.Runtime.Tracing;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Observation.FullTrace.Stores;
 
@@ -67,7 +66,7 @@ internal sealed class PublicationStoreWriter
             // find, and a generation whose write threw left no file to find.
             written.Add(generation);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _faulted = true;
         }

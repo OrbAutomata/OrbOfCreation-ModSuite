@@ -38,7 +38,7 @@ internal static class AutomataServiceCycleComposition
             log.LogAutomataInfo("Automata ServiceCycle runtime registered.");
             return runtime;
         }
-        catch (Exception exception) when (IsContainedStartupFailure(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             log.LogAutomataError(
                 "Automata ServiceCycle host initialization failed and its features are disabled: " +
@@ -46,11 +46,6 @@ internal static class AutomataServiceCycleComposition
             return null;
         }
     }
-
-    internal static bool IsContainedStartupFailure(Exception exception) =>
-        exception is not StackOverflowException and
-        not OutOfMemoryException and
-        not AccessViolationException;
 
     public static AutomataServiceCycleRuntime Create(
         SuiteRuntimeConfiguration configuration,

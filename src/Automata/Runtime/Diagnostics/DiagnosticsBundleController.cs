@@ -8,7 +8,6 @@ using BepInEx.Logging;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbAutomata;
 
@@ -92,7 +91,7 @@ internal sealed class PlatformDiagnosticsBundleRevealer : IDiagnosticsBundleReve
             }
             return Process.Start(start) is not null;
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return false;
         }
@@ -169,7 +168,7 @@ internal sealed class DiagnosticsBundleController : IDisposable
             {
                 ContinueAfterJournalFlush();
             }
-            catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
                 Fail(exception, _pending?.Automatic);
             }
@@ -194,7 +193,7 @@ internal sealed class DiagnosticsBundleController : IDisposable
                 automatic);
             ContinueAfterJournalFlush();
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             Fail(exception, automatic);
         }
@@ -280,7 +279,7 @@ internal sealed class DiagnosticsBundleController : IDisposable
                 "Diagnostics bundle created: " + result.Path + " (" + result.BytesWritten + " bytes)." +
                 (revealed ? string.Empty : " The platform file manager could not reveal it."));
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             Fail(exception, automatic);
         }
@@ -312,7 +311,7 @@ internal sealed class DiagnosticsBundleController : IDisposable
     private bool TryReveal(string path)
     {
         try { return _revealer.TryReveal(path); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return false;
         }
