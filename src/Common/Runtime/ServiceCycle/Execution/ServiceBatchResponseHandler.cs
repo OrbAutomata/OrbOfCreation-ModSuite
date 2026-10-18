@@ -33,19 +33,6 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
         return new ServiceResponseAcquisition(in response, terminalReceipt);
     }
 
-    internal bool TryAcquireNonBlockingWithoutFacts(
-        MonotonicTimestamp now,
-        out BatchReceipt terminalReceipt)
-    {
-        if (!_runtime.Handoff.TryAcquireResponseNonBlocking(out var response))
-        {
-            terminalReceipt = default;
-            return false;
-        }
-        Publish(in response, now, nonBlockingHandoff: true, out terminalReceipt);
-        return true;
-    }
-
     internal void PublishAuthoritativeTerminal(
         in ServiceWorkerResponse response,
         MonotonicTimestamp now) =>

@@ -44,22 +44,6 @@ public sealed partial class ServiceRunner<TState, TAction>
             : _responses.TryAcquireNonBlocking(now);
     }
 
-    internal bool TryAcquireResponseNonBlockingWithoutFacts(
-        MonotonicTimestamp now,
-        out BatchReceipt terminalReceipt)
-    {
-        AssertOwnerThread();
-        ThrowIfDisposed();
-        if (_lifetime.IsSuperseded)
-        {
-            terminalReceipt = default;
-            return false;
-        }
-        return _responses.TryAcquireNonBlockingWithoutFacts(
-            now,
-            out terminalReceipt);
-    }
-
     internal ServiceActionDispatch TryExecuteOne(MonotonicTimestamp now)
     {
         AssertOwnerThread();

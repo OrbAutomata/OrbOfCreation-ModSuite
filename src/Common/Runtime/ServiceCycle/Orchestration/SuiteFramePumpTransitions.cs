@@ -46,13 +46,9 @@ internal sealed class SuiteFramePumpTransitions
             if (slot.IsDisposed || slot.HandoffPhaseHint != ServiceHandoffPhase.ResponseReady)
                 continue;
             var started = _state.Clock.Now;
-            var acquisition = default(ServiceResponseAcquisition);
-            var untracedTerminal = default(BatchReceipt);
-            var acquired = _state.Traces.Dispatch is null && _state.Journal.Observer is null
-                ? slot.TryAcquireResponseWithoutFacts(started, out untracedTerminal)
-                : (acquisition = slot.TryAcquireResponse(started)).Acquired;
+            var acquisition = slot.TryAcquireResponse(started);
             var ended = _state.Clock.Now;
-            if (acquired)
+            if (acquisition.Acquired)
             {
                 _state.EvidenceEmitter.ResponseAcquired(
                     ordinal,
@@ -61,7 +57,7 @@ internal sealed class SuiteFramePumpTransitions
                     frameIdentity);
                 metrics.Responses++;
                 _state.Transitioned[ordinal] = true;
-                if (acquisition.EmergencyRejected || untracedTerminal.HasEmergencyStopContext)
+                if (acquisition.EmergencyRejected)
                     metrics.EmergencyRejections++;
                 else if (_control.EffectiveEmergencyStop &&
                          slot.RejectForEmergencyStop(

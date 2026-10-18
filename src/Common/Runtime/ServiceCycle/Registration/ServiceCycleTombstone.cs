@@ -44,13 +44,6 @@ internal sealed class ServiceCycleTombstone : IServiceCycleSlot
         return false;
     }
     public ServiceResponseAcquisition TryAcquireResponse(OrbModding.Common.Runtime.MonotonicTimestamp now) => default;
-    public bool TryAcquireResponseWithoutFacts(
-        OrbModding.Common.Runtime.MonotonicTimestamp now,
-        out BatchReceipt terminalReceipt)
-    {
-        terminalReceipt = default;
-        return false;
-    }
     public bool TryAdvancePendingMainOwnership(OrbModding.Common.Runtime.MonotonicTimestamp now) => false;
     public ServiceActionDispatch TryExecuteOne(
         OrbModding.Common.Runtime.MonotonicTimestamp now,
