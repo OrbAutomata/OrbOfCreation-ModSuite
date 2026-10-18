@@ -84,6 +84,10 @@ public sealed class NativeMutationVerifierTests : IDisposable
         Assert.Contains("native failure", evidence.Detail);
     }
 
+    /// <summary>
+    /// A fault names the game's own exception, not the reflection wrapper around it: the view
+    /// toggles and the verifiers still reach the game through <c>MethodInfo.Invoke</c>.
+    /// </summary>
     [Fact]
     public void ExecutionThrewNamesTheThrowersTypeAndFrameOnOneBoundedLine()
     {

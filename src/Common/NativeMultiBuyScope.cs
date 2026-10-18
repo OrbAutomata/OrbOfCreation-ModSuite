@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using OrbAutomata;
 
 namespace OrbModding.Common;
 
@@ -58,8 +57,10 @@ internal sealed class NativeMultiBuyBindings
 /// </remarks>
 internal sealed class NativeMultiBuyScope : IDisposable
 {
-    private static readonly DecisionLogGate FailureLogGate = new DecisionLogGate(TimeSpan.FromSeconds(30));
+    private static readonly TimeSpan FailureLogInterval = TimeSpan.FromSeconds(30);
     private static readonly Stopwatch Lifetime = Stopwatch.StartNew();
+    private static Action<string>? _failureLog;
+    private static TimeSpan? _failureLoggedAt;
     private static Func<string, Type?>? _resolveType;
     private static Func<string, bool>? _includeContract;
     private static NativeMultiBuyBindings? _bindings;
@@ -148,6 +149,16 @@ internal sealed class NativeMultiBuyScope : IDisposable
         {
             LogFailure($"global multi-buy cleanup recovered after an exception: {detail}");
         }
+    }
+
+    /// <summary>
+    /// Names where a refused entry or a recovered cleanup is reported, at most once every thirty
+    /// seconds.
+    /// </summary>
+    internal static void ConfigureFailureLog(Action<string>? log)
+    {
+        _failureLog = log;
+        _failureLoggedAt = null;
     }
 
     internal static bool IsMutationQuarantined => _mutationQuarantined;
@@ -277,9 +288,9 @@ internal sealed class NativeMultiBuyScope : IDisposable
 
     private static void LogFailure(string message)
     {
-        if (FailureLogGate.ShouldLog("native-multi-buy-failure", Lifetime.Elapsed))
-        {
-            Plugin.Log?.LogAutomataError(message);
-        }
+        var now = Lifetime.Elapsed;
+        if (_failureLoggedAt is { } last && now - last < FailureLogInterval) return;
+        _failureLoggedAt = now;
+        _failureLog?.Invoke(message);
     }
 }

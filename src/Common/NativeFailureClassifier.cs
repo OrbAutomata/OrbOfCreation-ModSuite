@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 
 namespace OrbModding.Common;
 
@@ -10,6 +9,5 @@ namespace OrbModding.Common;
 public static class NativeFailureClassifier
 {
     public static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
+        exception is InvalidOperationException or ArgumentException or OverflowException;
 }

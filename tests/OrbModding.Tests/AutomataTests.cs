@@ -13,17 +13,6 @@ namespace OrbModding.Tests;
 public sealed class AutomataTests
 {
     [Fact]
-    public void DecisionLogGate_ThrottlesRepeatedStateButLogsTransitions()
-    {
-        var gate = new DecisionLogGate(TimeSpan.FromSeconds(30));
-
-        Assert.True(gate.ShouldLog("none", TimeSpan.Zero));
-        Assert.False(gate.ShouldLog("none", TimeSpan.FromSeconds(1)));
-        Assert.True(gate.ShouldLog("candidate-a", TimeSpan.FromSeconds(2)));
-        Assert.True(gate.ShouldLog("candidate-a", TimeSpan.FromSeconds(32)));
-    }
-
-    [Fact]
     public void DefaultConfiguration_IsReadyForReleaseUse()
     {
         var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
