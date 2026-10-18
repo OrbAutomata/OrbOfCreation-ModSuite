@@ -27,7 +27,7 @@ public sealed class ServiceCycleSemanticTraceSource
     /// What threw when the stream stopped recording, or empty while it still records. The first fault
     /// isolates the stream for good, so there is only ever one.
     /// </summary>
-    public string EmissionFaultCause => _emissionFaultCause;
+    internal string EmissionFaultCause => _emissionFaultCause;
 
     public ServiceCycleEventDrain DrainSince(
         ServiceCycleTraceCursor after,

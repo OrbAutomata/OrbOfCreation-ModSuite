@@ -3,7 +3,6 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
-using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
@@ -56,7 +55,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
             _publications.Bind(ordinal, service, configuration, strategy, observedAt);
             _lifecycle.Bind(ordinal, lifecycle, lifecycleSemanticVersion, observedAt);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void ObservePublications(
@@ -66,7 +65,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _publications.Observe(configuration, strategy, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void LifecycleRequested(
@@ -76,7 +75,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _lifecycle.Requested(ordinal, lifecycle, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void ObserveLifecycle(
@@ -87,7 +86,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _lifecycle.Observe(ordinal, in snapshot, lifecycleSemanticVersion, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal bool NeedsLifecycleObservation(int ordinal, long lifecycleSemanticVersion) =>
@@ -99,7 +98,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _recorder.EmergencyEntered(in emergency, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void EmergencyCleared(
@@ -108,14 +107,14 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _recorder.EmergencyCleared(in emergency, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void EmergencyAppliedToService(int ordinal, in EmergencyStopContext emergency)
     {
         if (_faulted) return;
         try { _recorder.RetainEmergencyForService(ordinal, in emergency); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     /// <summary>
@@ -144,28 +143,28 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
                 observedAt,
                 elapsed);
         }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void EnterFrame(long frameIdentity)
     {
         if (_faulted) return;
         try { _recorder.EnterFrame(frameIdentity); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void LeaveFrame()
     {
         if (_faulted) return;
         try { _recorder.LeaveFrame(); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void PumpCompleted(in SuiteFramePumpReport report, MonotonicTimestamp observedAt)
     {
         if (_faulted) return;
         try { _recorder.PumpCompleted(in report, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -173,7 +172,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _recorder.PumpHeapSampled(in sample, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 #endif
 
@@ -181,7 +180,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _execution.StartAttemptObserved(ordinal, in attempt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     public void StartAttempted(
@@ -191,7 +190,7 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _recorder.StartAttempted(ordinal, in context, observedAt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     public void StartReady(
@@ -203,42 +202,42 @@ internal sealed class ServiceCycleSemanticRuntimeTrace : IServiceCycleAttemptObs
     {
         if (_faulted) return;
         try { _recorder.StartReady(ordinal, in context, in decision, observedAt, duration); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void ResponseAcquired(int ordinal, in ServiceResponseAcquisition acquisition)
     {
         if (_faulted) return;
         try { _execution.ResponseAcquired(ordinal, in acquisition); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void ActionDispatched(int ordinal, in ServiceActionDispatch dispatch)
     {
         if (_faulted) return;
         try { _execution.ActionDispatched(ordinal, in dispatch); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     public void CaptureStarted(int ordinal, in ServiceCaptureContext context)
     {
         if (_faulted) return;
         try { _execution.CaptureStarted(ordinal, in context); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     public void ActionAttempted(int ordinal, in ServiceActionContext context)
     {
         if (_faulted) return;
         try { _execution.ActionAttempted(ordinal, in context); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     internal void EmergencyRejected(int ordinal, in BatchReceipt receipt)
     {
         if (_faulted) return;
         try { _execution.EmergencyRejected(ordinal, in receipt); }
-        catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception)) { Fault(exception); }
+        catch (Exception exception) { Fault(exception); }
     }
 
     private void Fault(Exception exception)
