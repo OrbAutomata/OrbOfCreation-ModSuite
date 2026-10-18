@@ -13,13 +13,18 @@ namespace OrbModding.Tests.Services.SpellLeveling.Runtime.ServiceCycle;
 /// adapter over the game stubs. The boundary decides the unpublished leveling prerequisite and
 /// revalidates the published readiness and affordability facts immediately before spending.
 /// </summary>
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class SpellLevelCycleActionAdapterTests : IDisposable
 {
     private const long PlannedEpoch = 7;
 
     public SpellLevelCycleActionAdapterTests() => ResetNativeState();
 
-    public void Dispose() => ResetNativeState();
+    public void Dispose()
+    {
+        ResetNativeState();
+        GameActionFaultLog.ConfigureLog(null);
+    }
 
     [Fact]
     public void ASingleLevelCommitsAsAnExactPlusOneDelta()
@@ -278,6 +283,35 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         Assert.Equal(ServiceActionDisposition.Committed, first.Disposition);
         Assert.Equal(2, spell.masteryLevel);
+
+        spell.ThrowAfterLevelMutation = null;
+        spell.readyToLevel = true;
+        var second = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
+        Assert.Equal(3, spell.masteryLevel);
+    }
+
+    /// <summary>
+    /// A level the game applied before an unexpected throw is the level the player paid for: it
+    /// commits without blocking, and the throw goes to the suite log under a reference.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowAfterTheLevelLandsCommitsAndIsLoggedWithAReference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.ThrowAfterLevelMutation = new NullReferenceException("injected defect after the level landed");
+        var levels = new SpellLevelNativeAdapter();
+
+        var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Committed, first.Disposition);
+        Assert.Equal(2, spell.masteryLevel);
+        var line = Assert.Single(logged);
+        Assert.Matches("MCP-[0-9A-F]{8}", line);
+        Assert.Contains(typeof(NullReferenceException).FullName!, line);
+        Assert.Contains("injected defect after the level landed", line);
 
         spell.ThrowAfterLevelMutation = null;
         spell.readyToLevel = true;

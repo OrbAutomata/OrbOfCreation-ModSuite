@@ -1498,7 +1498,7 @@ public class PersistentResetManager
     public int FetchCalls { get; private set; }
     public int ResetCalls { get; private set; }
     public bool SuppressReset { get; set; }
-    public bool ThrowAfterReset { get; set; }
+    public Exception? ThrowAfterReset { get; set; }
     public static Action? PersistentResetSignal { get; set; }
 
     public void FetchNewChallenges()
@@ -1530,7 +1530,7 @@ public class PersistentResetManager
             GameManager.PersistentResetGameState();
             GameManager.CleanGame();
         }
-        if (ThrowAfterReset) throw new InvalidOperationException("injected failure after persistent reset");
+        if (ThrowAfterReset is { } failure) throw failure;
     }
 }
 

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.Prestige;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class PrestigeGameActionTests : IDisposable
 {
     private long _epoch = 10;
@@ -22,7 +23,11 @@ public sealed class PrestigeGameActionTests : IDisposable
         GameManager.CleanGameCalls = 0;
     }
 
-    public void Dispose() => PersistentResetManager.PersistentResetSignal = null;
+    public void Dispose()
+    {
+        PersistentResetManager.PersistentResetSignal = null;
+        GameActionFaultLog.ConfigureLog(null);
+    }
 
     [Fact]
     public void Complete_native_transaction_commits_on_the_lifecycle_identity_transition()
@@ -88,7 +93,8 @@ public sealed class PrestigeGameActionTests : IDisposable
     [Fact]
     public void Exception_after_the_lifecycle_sentinel_commits_the_requested_reset()
     {
-        PersistentResetManager.instance.ThrowAfterReset = true;
+        PersistentResetManager.instance.ThrowAfterReset =
+            new InvalidOperationException("injected failure after persistent reset");
         using var boundary = Boundary();
 
         var submission = Submit(boundary);
@@ -109,6 +115,25 @@ public sealed class PrestigeGameActionTests : IDisposable
         Assert.Equal(PrestigeActionResultCodes.ContractUnavailable, submission.Code);
         Assert.Equal(0, submission.CallOutcome.MutationAttempts);
         Assert.Equal(0, PersistentResetManager.instance.ResetCalls);
+    }
+
+    [Fact]
+    public void An_unexpected_exception_after_the_lifecycle_sentinel_commits_and_is_logged_with_a_reference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        PersistentResetManager.instance.ThrowAfterReset =
+            new NullReferenceException("injected defect after persistent reset");
+        using var boundary = Boundary();
+
+        var submission = Submit(boundary);
+
+        Assert.True(submission.Verified, submission.Reason);
+        Assert.Equal(11, _epoch);
+        var line = Assert.Single(logged);
+        Assert.Matches("MCP-[0-9A-F]{8}", line);
+        Assert.Contains(typeof(NullReferenceException).FullName!, line);
+        Assert.Contains("injected defect after persistent reset", line);
     }
 
     [Fact]

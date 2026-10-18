@@ -122,7 +122,9 @@ public static class NativeMutationVerifier
     /// Every throw after the call is classified first: the after-state is read, the outcome is
     /// decided and, when the call was attempted and did not verify, <paramref name="quarantine"/>
     /// runs. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
-    /// suite defect stays loud and the caller's quarantine still holds for the next submission.
+    /// suite defect stays loud and the caller's quarantine still holds for the next submission. A
+    /// change that landed before such a throw commits instead, and the throw is logged with a
+    /// reference.
     /// </remarks>
     public static NativeMutationEvidence<TState> ExecuteAfterCapture<TState>(
         string feature,
@@ -144,7 +146,7 @@ public static class NativeMutationVerifier
         var evidence = Classify(
             feature, identity, expectedChange, before, captureAfter, execute, verify, out var unexpected);
         if (evidence.MutationWasAttempted && !evidence.IsVerified) quarantine?.Invoke(evidence);
-        if (unexpected is not null) ExceptionDispatchInfo.Capture(unexpected).Throw();
+        if (unexpected is not null && !evidence.IsVerified) ExceptionDispatchInfo.Capture(unexpected).Throw();
         return evidence;
     }
 
