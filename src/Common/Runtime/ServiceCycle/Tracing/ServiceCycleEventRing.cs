@@ -114,7 +114,6 @@ public sealed class ServiceCycleEventRing
         ServiceCycleTraceEventId parent = default)
     {
         EnsureOwner();
-        if (_nextSequence == ulong.MaxValue) throw new InvalidOperationException("The semantic event sequence is exhausted.");
         if (parent.IsValid && (parent.Session != _session || parent.Sequence >= _nextSequence))
             throw new ArgumentException("A causal parent must be an earlier event from this trace session.", nameof(parent));
 
@@ -128,7 +127,7 @@ public sealed class ServiceCycleEventRing
             _count++;
         }
 
-        _nextSequence = checked(_nextSequence + 1);
+        _nextSequence++;
         _observer?.Observe(in semanticEvent);
         return id;
     }
@@ -182,13 +181,6 @@ public sealed class ServiceCycleEventRing
     private ulong OverwrittenTotalUnchecked => _count == _events.Length
         ? _nextSequence - 1 - (ulong)_events.Length
         : 0;
-
-    internal static ServiceCycleEventRing AtExhaustedSequenceForTests(ServiceCycleTraceSessionId session, int capacity)
-    {
-        var ring = new ServiceCycleEventRing(session, capacity);
-        ring._nextSequence = ulong.MaxValue;
-        return ring;
-    }
 
     private void EnsureOwner()
     {
