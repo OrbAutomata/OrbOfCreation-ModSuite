@@ -308,6 +308,25 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.Equal(0, spell.FireCalls);
     }
 
+    /// <summary>
+    /// The planner forgets its hold when it plans the release, so a release refused here is a charge
+    /// input left down with nothing tracking it.
+    /// </summary>
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public void AReleaseLetsGoEvenWhenAutoCastMayNoLongerCast(bool ownsActionFamily, bool enabled)
+    {
+        var spell = Equip(Ember);
+        spell.SetChargeInput("test", true);
+
+        var result = Execute(Release(0, Ember), ownsActionFamily: ownsActionFamily,
+            mode: enabled ? AutoCastOperationMode.Active : AutoCastOperationMode.Disabled);
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.False(spell.HoldingCharge);
+    }
+
     [Fact]
     public void AnActiveToggleUsesTheSameFireRouteAsTheUiAndCommitsWhenItStopsCasting()
     {

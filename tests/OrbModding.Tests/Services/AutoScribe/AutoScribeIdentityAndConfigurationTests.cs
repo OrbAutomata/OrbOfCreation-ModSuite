@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BepInEx.Configuration;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -59,13 +60,13 @@ public sealed class AutoScribeIdentityAndConfigurationTests
     }
 
     [Fact]
-    public void NoneSelectsNoRoleAndUnknownOrDuplicateKeysAreIgnored()
+    public void NoneSelectsNoRoleAndDuplicateKeysCollapse()
     {
         var roles = AutoScribeIdentityCatalog.Audited.Roles;
 
         var none = AutoScribeRoleSelection.ParsePublication(" NONE ", roles);
         var selected = AutoScribeRoleSelection.ParsePublication(
-            "unknown,scribe.power,scribe.advancement,scribe.power",
+            "scribe.power,scribe.advancement,scribe.power",
             roles);
 
         Assert.NotNull(none);
@@ -74,6 +75,44 @@ public sealed class AutoScribeIdentityAndConfigurationTests
         Assert.Equal(2, selected!.Count);
         Assert.Equal("scribe.advancement", selected[0].Value);
         Assert.Equal("scribe.power", selected[1].Value);
+    }
+
+    /// <summary>
+    /// A misspelled role, or one Auto Scribe only watches and never writes, selects nothing at all
+    /// rather than quietly narrowing the selection to the roles that happened to match.
+    /// </summary>
+    [Theory]
+    [InlineData("scribe.powr")]
+    [InlineData("scribe.power,scribe.advancment")]
+    [InlineData("scribe.speed")]
+    public void AnUnknownOrUnwritableRoleSelectsNothing(string serialized)
+    {
+        var state = AutoScribeCycleState.Create(new LifecycleGeneration(1));
+
+        state.PinRoles(new ConfigGeneration(1), serialized, AutoScribeIdentityCatalog.Audited);
+
+        Assert.NotNull(state.EnabledRoles);
+        Assert.Equal(0, state.EnabledRoles!.Count);
+    }
+
+    [Theory]
+    [InlineData("scribe.powr", "scribe.powr")]
+    [InlineData("scribe.power,scribe.advancment", "scribe.advancment")]
+    [InlineData("scribe.speed", "scribe.speed")]
+    public void AnUnknownOrUnwritableRoleIsReportedAsAConfigurationProblem(
+        string serialized,
+        string named)
+    {
+        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        config.AutoItemsMode.Value = AutoItemsOperationMode.Active;
+        config.AutoItemsUseScrolls.Value = true;
+        config.AutoScribeMode.Value = AutoScribeOperationMode.Active;
+        config.AutoScribeRoles.Value = serialized;
+        using var statuses = new AutomataFeatureStatuses(config.Current, 7, new FeatureStatusRegistry());
+
+        Assert.Equal(FeatureStatusState.TemporarilyBlocked, statuses.AutoScribe.Current.State);
+        Assert.Equal(FeatureStatusReasonCode.ConfigurationDisabled, statuses.AutoScribe.Current.Reason.Code);
+        Assert.Contains("'" + named + "'", statuses.AutoScribe.Current.Reason.Summary, StringComparison.Ordinal);
     }
 
     [Fact]

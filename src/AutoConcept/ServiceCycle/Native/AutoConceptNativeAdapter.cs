@@ -609,7 +609,7 @@ internal sealed class AutoConceptNativeAdapter :
             }
             foreach (var entry in entries)
             {
-                if (entry.Amount.IsZero || entry.Amount.IsNegative) continue;
+                if (entry.Amount.CompareTo(default) <= 0) continue;
                 // Every check below this line is the worker's own caution, so a press the player
                 // asked for skips all of them. The game does not refuse an assignment because a
                 // drained resource sits at zero: AlchemyInstanceListVariable.EngageAlchemy gates
@@ -625,19 +625,15 @@ internal sealed class AutoConceptNativeAdapter :
                         : AutoConceptProjectionRefusal.Contract;
                     return FailProjection($"{ResourceName(entry.Resource)} {zeroReason}", out reason);
                 }
-                var trueIncrement = InvokeCompatible(entry.Resource, "GetTrueSpend", entry.NativeAmount);
-                if (!BigAmount.TryRead(trueIncrement, out var adjustedIncrement) || adjustedIncrement.IsNegative)
+                if (InvokeCompatible(entry.Resource, "GetTrueSpend", entry.NativeAmount) is not BigDouble adjustedIncrement ||
+                    adjustedIncrement.CompareTo(default) < 0)
                     return FailProjection("resource quality conversion failed", out reason);
-                if (!BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetTrueRate"), out var currentRate))
+                if (ReflectionUtil.InvokeNoArgs(entry.Resource, "GetTrueRate") is not BigDouble currentRate)
                     return FailProjection("resource true rate is unavailable", out reason);
-                if (!BigAmount.TryRead(ReflectionUtil.InvokeNoArgs(entry.Resource, "GetModdedDrain"), out var currentDrain))
+                if (ReflectionUtil.InvokeNoArgs(entry.Resource, "GetModdedDrain") is not BigDouble currentDrain)
                     return FailProjection("resource drain rate is unavailable", out reason);
-                var grossRate = currentRate.Add(currentDrain);
-                var reserve = grossRate.IsNegative
-                    ? default
-                    : grossRate.Multiply(
-                        Math.Clamp(applied.RateReservePercent, 0.0f, 100.0f) / 100.0);
-                if (currentRate.Subtract(adjustedIncrement).CompareTo(reserve) < 0)
+                if (AutoConceptResourcePolicy.BreaksRateReserve(
+                        currentRate, currentDrain, adjustedIncrement, applied.RateReservePercent))
                 {
                     refusal = AutoConceptProjectionRefusal.Backpressure;
                     return FailProjection($"{ResourceName(entry.Resource)} would fall below the configured rate reserve", out reason);
@@ -704,7 +700,7 @@ internal sealed class AutoConceptNativeAdapter :
             if (entry is null) return false;
             var resource = ReflectionUtil.ReadMember(entry, "resource");
             var nativeAmount = ReflectionUtil.InvokeNoArgs(entry, "GetValue");
-            if (resource is null || nativeAmount is null || !BigAmount.TryRead(nativeAmount, out var amount)) return false;
+            if (resource is null || nativeAmount is not BigDouble amount) return false;
             result.Add(new NativeCostEntry(resource, nativeAmount, amount));
         }
         return true;
@@ -816,7 +812,7 @@ internal sealed class AutoConceptNativeAdapter :
 
     private readonly struct NativeCostEntry
     {
-        public NativeCostEntry(object resource, object nativeAmount, BigAmount amount)
+        public NativeCostEntry(object resource, object nativeAmount, BigDouble amount)
         {
             Resource = resource;
             NativeAmount = nativeAmount;
@@ -824,7 +820,7 @@ internal sealed class AutoConceptNativeAdapter :
         }
         public object Resource { get; }
         public object NativeAmount { get; }
-        public BigAmount Amount { get; }
+        public BigDouble Amount { get; }
     }
 
     private sealed class ReferenceEqualityComparer : IEqualityComparer<object>

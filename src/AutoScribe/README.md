@@ -87,7 +87,8 @@ Configuration is additive:
 
 - `AutoScribe.Mode` defaults to `Disabled`;
 - `AutoScribe.Roles` is a comma-separated list of semantic keys, empty selects every audited
-  producible role, and `none` selects no role.
+  producible role, and `none` selects no role. A key that is not a producible role selects nothing
+  and blocks the feature status with that key named.
 
 Role narrowing is deliberately cycle-pinned under the runtime doctrine's bounded configuration
 staleness rule. Actions contain recipe UUID, Scroll UUID, level, and collection lifecycle only;

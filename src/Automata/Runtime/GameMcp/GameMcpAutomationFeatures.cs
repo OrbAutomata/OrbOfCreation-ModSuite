@@ -292,6 +292,9 @@ internal static class GameMcpAutomationPolicy
         if (roles.Count == 1 && string.Equals(roles[0], "none", StringComparison.OrdinalIgnoreCase))
             return "No Scribe role is selected, so Auto Scribe has nothing to write.";
 
+        if (AutoScribeRoleSelection.ConfigurationProblem(configuration.AutoScribe.Roles) is { } problem)
+            return problem;
+
         return "Writes at most one Scroll from each fresh reading of the world, in " +
             (roles.Count == 1 ? "one role: " : "these roles: ") + Join(roles) + ".";
     }

@@ -57,8 +57,8 @@ internal static class AutoCastCycleEvaluator
             channelBlocked: false);
 
         // A disabled service plans nothing but still reschedules, so it resumes the moment the
-        // operator turns it back on. It does not release a hold on the way out: the boundary does
-        // that, and it is reached through the ordinary lifecycle and ownership paths.
+        // operator turns it back on. It does not release a hold on the way out: no cycle runs while
+        // disabled, so the feature runtime lets go of it on the main thread.
         if (!AutoCastConfigurationPolicy.IsOperational(config)) return wake;
 
         var rows = slots.AsSpan();

@@ -345,7 +345,8 @@ internal sealed class AutomataFeatureStatuses : IDisposable
             config.General.Enabled,
             IsAutoScribeConfigured(config),
             IsAutoItemsScrollsConfigured(config),
-            configurationGeneration);
+            configurationGeneration,
+            AutoScribeRoleSelection.ConfigurationProblem(config.AutoScribe.Roles));
         ObserveConfiguredIntent(
             Mentor,
             config.General.Enabled,

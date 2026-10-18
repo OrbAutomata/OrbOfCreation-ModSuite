@@ -539,13 +539,11 @@ internal static class AutoConceptCycleEvaluator
 
             var quality = OrbGameMath.AsPercent(resource.Reading.Quality);
             if (quality.CompareTo(default) <= 0) return AutoConceptIdleReason.ResourceAtZero;
-            var trueIncrement = incremental / quality;
-            var currentDrain = resource.Reading.Drain / quality;
-            var grossRate = resource.TrueRate + currentDrain;
-            var reserve = grossRate.CompareTo(default) < 0
-                ? default
-                : grossRate * (Math.Clamp(config.AutoConcept.RateReservePercent, 0f, 100f) / 100d);
-            if ((resource.TrueRate - trueIncrement).CompareTo(reserve) < 0)
+            if (AutoConceptResourcePolicy.BreaksRateReserve(
+                    resource.TrueRate,
+                    resource.Reading.Drain / quality,
+                    incremental / quality,
+                    config.AutoConcept.RateReservePercent))
                 return AutoConceptIdleReason.RateReserve;
         }
         resourceId = Guid.Empty;

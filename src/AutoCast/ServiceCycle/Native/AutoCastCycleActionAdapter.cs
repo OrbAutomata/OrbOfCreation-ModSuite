@@ -37,6 +37,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoCastManualPauseState _manualPause;
+    private HeldCharge? _serviceHold;
 
     /// <summary>
     /// The submission this adapter last produced, so a caller can have the refusal's own sentence.
@@ -78,10 +79,14 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         bool requireAutomationPolicy)
     {
         LastSubmission = default;
-        if (requireAutomationPolicy && !AutoCastConfigurationPolicy.IsOperational(config))
+
+        // Letting go of a charge input is never held back by the feature being off or the family
+        // lease being lost: those are the moments a hold most needs releasing.
+        var release = action.Kind == AutoCastActionKind.ReleaseCharge;
+        if (!release && requireAutomationPolicy && !AutoCastConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
-        if (!Owns())
+        if (!release && !Owns())
             return ServiceActionResult.Rejected(AutoCastActionResultCodes.ActionFamilyUnavailable);
 
         if (!NativeEpochMatches(action.CollectedAtEpoch))
@@ -108,6 +113,10 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 return ServiceActionResult.Skipped(AutoCastActionResultCodes.RitualChanged);
         }
 
+        var serviceHold = requireAutomationPolicy &&
+            action.Kind == AutoCastActionKind.Fire &&
+            AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
+            action.Belief.Chargeable;
         AutoCastSubmission submission;
         try
         {
@@ -117,13 +126,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                     _casts.ReleaseCharge(action.SlotIndex, action.SpellRecipeId),
                 AutoCastActionKind.ToggleOff =>
                     _casts.ToggleOff(action.SlotIndex, action.SpellRecipeId),
-                _ => _casts.Fire(
-                    action.SlotIndex,
-                    action.SpellRecipeId,
-                    action.ChargeHold ||
-                        (requireAutomationPolicy &&
-                            AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
-                            action.Belief.Chargeable)),
+                _ => _casts.Fire(action.SlotIndex, action.SpellRecipeId, action.ChargeHold || serviceHold),
             };
         }
         catch (Exception ex) when (
@@ -136,9 +139,44 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         }
 
         LastSubmission = submission;
+        if (serviceHold && submission.Verified)
+            _serviceHold = new HeldCharge(action.SlotIndex, action.SpellRecipeId);
+        else if (release && submission.Verified && _serviceHold?.SpellRecipeId == action.SpellRecipeId)
+            _serviceHold = null;
         Narrate(in action, in submission);
         return Map(in submission);
     }
+
+    /// <summary>Whether a full-charge hold this service took is still pressed down.</summary>
+    internal bool HoldsServiceCharge => _serviceHold is not null;
+
+    /// <summary>
+    /// Lets go of the hold this service took, on the main thread, when the service may no longer
+    /// hold it. A hold the player took through <c>game_cast</c> is theirs and is never touched.
+    /// The hold is forgotten only once the release lands, so a refused release is tried again.
+    /// </summary>
+    internal void ReleaseServiceHold()
+    {
+        if (_serviceHold is not { } held) return;
+        AutoCastSubmission submission;
+        try
+        {
+            submission = _casts.ReleaseCharge(held.SlotIndex, held.SpellRecipeId);
+        }
+        catch (Exception ex) when (
+            ex is TargetInvocationException || ex is ArgumentException ||
+            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        {
+            Plugin.Log?.LogAutomataWarning(
+                $"Auto Cast failed to release the charged spell in slot {held.SlotIndex + 1}: adapter fault ({ex.GetBaseException().Message}).");
+            return;
+        }
+
+        if (submission.Verified) _serviceHold = null;
+    }
+
+    /// <summary>A lifecycle boundary replaced every spell, and with them every charge input.</summary>
+    internal void ForgetServiceHold() => _serviceHold = null;
 
     /// <summary>
     /// Preserves an unconditional warning when a native mutation was attempted but did not land.
@@ -240,4 +278,6 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         // service backs off rather than re-probing a contract it no longer understands.
         return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
     }
+
+    private readonly record struct HeldCharge(int SlotIndex, Guid SpellRecipeId);
 }

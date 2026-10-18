@@ -121,6 +121,23 @@ internal static class AutoConceptBalancer
 
 internal static class AutoConceptResourcePolicy
 {
+    /// <summary>
+    /// Whether <paramref name="trueIncrement"/> more drain would leave the resource's true rate below
+    /// the reserve, a share of its gross positive rate. The planner and the boundary keep one rule.
+    /// </summary>
+    public static bool BreaksRateReserve(
+        BigDouble trueRate,
+        BigDouble trueDrain,
+        BigDouble trueIncrement,
+        float reservePercent)
+    {
+        var grossRate = trueRate + trueDrain;
+        var reserve = grossRate.CompareTo(default) < 0
+            ? default
+            : grossRate * (Math.Clamp(reservePercent, 0f, 100f) / 100d);
+        return (trueRate - trueIncrement).CompareTo(reserve) < 0;
+    }
+
     public static bool TryAcceptPositiveDrain(object? nativeIsAtZero, out string reason)
     {
         if (nativeIsAtZero is not bool atZero)

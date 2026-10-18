@@ -221,6 +221,61 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
+    /// <summary>
+    /// The boundary keeps the same rate reserve the planner keeps: for ordinary rates, rates under
+    /// one, a rate already at zero, and a rate the add would take to exactly zero.
+    /// </summary>
+    [Theory]
+    [Trait("Category", "HeadlessIntegration")]
+    [InlineData(1.0, 0.5, 0f, true)]
+    [InlineData(0.5, 0.5, 10f, false)]
+    [InlineData(1.0, 0.25, 50f, true)]
+    [InlineData(1.0, 0.75, 50f, false)]
+    [InlineData(0.5, 0.5, 0f, true)]
+    [InlineData(0.0, 0.5, 0f, false)]
+    [InlineData(20.0, 5.0, 50f, true)]
+    [InlineData(20.0, 15.0, 50f, false)]
+    public void TheBoundaryKeepsThePlannersRateReserve(
+        double trueRate,
+        double drain,
+        float reservePercent,
+        bool accepted)
+    {
+        var resource = new ConceptResource
+        {
+            TrueRate = new BigDouble(trueRate),
+            Quantity = new BigDouble(10.0, 0),
+        };
+        var recipe = new AlchemyRecipeSO(
+            RecipeId.ToString("D"),
+            "Slow concept",
+            new[] { new AlchemyTypeSO(AlchemyGameplayDomainClassifier.ReflectiveConceptTypeUuid.ToString()) })
+        {
+            maxUsageSlots = new ValueModifierRecord(new BigDouble(4.0, 0)),
+            drainCost = new ConceptCostVector(
+                new ConceptCostEntry(resource, new BigDouble(drain))),
+        };
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+        var belief = new AutoConceptPlanBelief(0, 0, 4, Guid.Empty, 0);
+        var action = new AutoConceptCycleAction(
+            AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
+
+        var submission = runtime.Submit(in action, new AutoConceptResourceLimits(reservePercent));
+
+        if (accepted)
+        {
+            Assert.True(submission.Verified, submission.Reason);
+            Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
+        }
+        else
+        {
+            Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
+            Assert.Contains("rate reserve", submission.Reason, StringComparison.Ordinal);
+            Assert.Empty(active.value);
+        }
+    }
+
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
     public void SubmitRevalidatesIdentityQuantityProjectionAndVerifierAtTheBoundary()
