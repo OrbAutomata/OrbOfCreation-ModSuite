@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BepInEx.Logging;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.HostTrace;
@@ -12,6 +13,8 @@ namespace OrbAutomata;
 /// <summary>
 /// Builds the Automata application. The ServiceCycle owns its registry, configuration,
 /// observability, and host; each feature supplies only its typed service and native boundary.
+/// Every GameAction, a feature's or the caller's, is registered once into the one
+/// <see cref="LifecycleGameActions"/> the runtime owns.
 /// </summary>
 internal static class AutomataServiceCycleComposition
 {
@@ -21,25 +24,7 @@ internal static class AutomataServiceCycleComposition
         AutomataServiceCycleHostDependencies hostDependencies,
         IReadOnlyList<IAutomataServiceCycleFeature> features,
         ManualLogSource log,
-        Func<DiscoveryTreeOfferGameAction>? createDiscoveryTreeOffers = null,
-        Func<SpellWorkbenchGameAction>? createSpellWorkbench = null,
-        Func<SpellCompositionGameAction>? createSpellComposition = null,
-        Func<SpellLoadoutGameAction>? createSpellLoadout = null,
-        Func<TargetingGameAction>? createTargeting = null,
-        Func<EquipmentLoadoutGameAction>? createEquipmentLoadout = null,
-        Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
-        Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
-        Func<GenericLevelGameAction>? createGenericLevel = null,
-        Func<CraftingInstanceLifecycleGameAction>? createCraftingInstances = null,
-        Func<EquipmentLoadoutGameAction,
-            AlchemyLoadoutGameAction, LoadoutGameAction>? createLoadouts = null,
-        Func<HarvestLifecycleGameAction>? createHarvestLifecycle = null,
-        Func<PlotLifecycleGameAction>? createPlotLifecycle = null,
-        Func<StructureLifecycleGameAction>? createStructureLifecycle = null,
-        Func<ReturnToMenuGameAction>? createReturnToMenu = null,
-        Func<ChallengeGameAction>? createChallenges = null,
-        Func<PrestigeGameAction>? createPrestige = null,
-        Func<ResearchGameAction>? createResearch = null)
+        Action<LifecycleGameActions>? composeGameActions = null)
     {
         try
         {
@@ -49,24 +34,7 @@ internal static class AutomataServiceCycleComposition
                 hostDependencies,
                 features,
                 log,
-                createDiscoveryTreeOffers,
-                createSpellWorkbench,
-                createSpellComposition,
-                createSpellLoadout,
-                createTargeting,
-                createEquipmentLoadout,
-                createAlchemyLoadout,
-                createRitualLifecycle,
-                createGenericLevel,
-                createCraftingInstances,
-                createLoadouts,
-                createHarvestLifecycle,
-                createPlotLifecycle,
-                createStructureLifecycle,
-                createReturnToMenu,
-                createChallenges,
-                createPrestige,
-                createResearch);
+                composeGameActions);
             log.LogAutomataInfo("Automata ServiceCycle runtime registered.");
             return runtime;
         }
@@ -90,25 +58,7 @@ internal static class AutomataServiceCycleComposition
         AutomataServiceCycleHostDependencies hostDependencies,
         IReadOnlyList<IAutomataServiceCycleFeature> features,
         ManualLogSource log,
-        Func<DiscoveryTreeOfferGameAction>? createDiscoveryTreeOffers = null,
-        Func<SpellWorkbenchGameAction>? createSpellWorkbench = null,
-        Func<SpellCompositionGameAction>? createSpellComposition = null,
-        Func<SpellLoadoutGameAction>? createSpellLoadout = null,
-        Func<TargetingGameAction>? createTargeting = null,
-        Func<EquipmentLoadoutGameAction>? createEquipmentLoadout = null,
-        Func<AlchemyLoadoutGameAction>? createAlchemyLoadout = null,
-        Func<RitualLifecycleGameAction>? createRitualLifecycle = null,
-        Func<GenericLevelGameAction>? createGenericLevel = null,
-        Func<CraftingInstanceLifecycleGameAction>? createCraftingInstances = null,
-        Func<EquipmentLoadoutGameAction,
-            AlchemyLoadoutGameAction, LoadoutGameAction>? createLoadouts = null,
-        Func<HarvestLifecycleGameAction>? createHarvestLifecycle = null,
-        Func<PlotLifecycleGameAction>? createPlotLifecycle = null,
-        Func<StructureLifecycleGameAction>? createStructureLifecycle = null,
-        Func<ReturnToMenuGameAction>? createReturnToMenu = null,
-        Func<ChallengeGameAction>? createChallenges = null,
-        Func<PrestigeGameAction>? createPrestige = null,
-        Func<ResearchGameAction>? createResearch = null)
+        Action<LifecycleGameActions>? composeGameActions = null)
     {
         if (configuration is null) throw new ArgumentNullException(nameof(configuration));
         if (hostDependencies is null) throw new ArgumentNullException(nameof(hostDependencies));
@@ -121,24 +71,7 @@ internal static class AutomataServiceCycleComposition
         ServiceCycleRegistry? registry = null;
         AutomataServiceCycleHost? host = null;
         AutomataServiceCycleObservability? observability = null;
-        DiscoveryTreeOfferGameAction? discoveryTreeOffers = null;
-        SpellWorkbenchGameAction? spellWorkbench = null;
-        SpellCompositionGameAction? spellComposition = null;
-        SpellLoadoutGameAction? spellLoadout = null;
-        TargetingGameAction? targeting = null;
-        EquipmentLoadoutGameAction? equipmentLoadout = null;
-        AlchemyLoadoutGameAction? alchemyLoadout = null;
-        RitualLifecycleGameAction? ritualLifecycle = null;
-        GenericLevelGameAction? genericLevel = null;
-        CraftingInstanceLifecycleGameAction? craftingInstances = null;
-        LoadoutGameAction? loadouts = null;
-        HarvestLifecycleGameAction? harvestLifecycle = null;
-        PlotLifecycleGameAction? plotLifecycle = null;
-        StructureLifecycleGameAction? structureLifecycle = null;
-        ReturnToMenuGameAction? returnToMenu = null;
-        ChallengeGameAction? challenges = null;
-        PrestigeGameAction? prestige = null;
-        ResearchGameAction? research = null;
+        var gameActions = new LifecycleGameActions();
         var featureRuntimes = new List<IAutomataServiceCycleFeatureRuntime>(features.Count);
         try
         {
@@ -161,7 +94,8 @@ internal static class AutomataServiceCycleComposition
                 var context = new AutomataServiceCycleFeatureContext(
                     registry,
                     configurationGeneration,
-                    checked((long)lifecycle.Value)
+                    checked((long)lifecycle.Value),
+                    gameActions
 #if SERVICE_CYCLE_PROFILE
                     , profileProbe
 #endif
@@ -190,75 +124,18 @@ internal static class AutomataServiceCycleComposition
             observability = null;
             for (var index = 0; index < featureRuntimes.Count; index++)
                 featureRuntimes[index].ActivateDiagnostics();
-            discoveryTreeOffers = createDiscoveryTreeOffers?.Invoke();
-            spellWorkbench = createSpellWorkbench?.Invoke();
-            spellComposition = createSpellComposition?.Invoke();
-            spellLoadout = createSpellLoadout?.Invoke();
-            targeting = createTargeting?.Invoke();
-            equipmentLoadout = createEquipmentLoadout?.Invoke();
-            alchemyLoadout = createAlchemyLoadout?.Invoke();
-            ritualLifecycle = createRitualLifecycle?.Invoke();
-            genericLevel = createGenericLevel?.Invoke();
-            craftingInstances = createCraftingInstances?.Invoke();
-            if (createLoadouts is not null)
-            {
-                if (equipmentLoadout is null || alchemyLoadout is null)
-                    throw new InvalidOperationException(
-                        "The player-loadout action requires Equipment and Alchemy actions.");
-                loadouts = createLoadouts(equipmentLoadout, alchemyLoadout);
-            }
-            harvestLifecycle = createHarvestLifecycle?.Invoke();
-            plotLifecycle = createPlotLifecycle?.Invoke();
-            structureLifecycle = createStructureLifecycle?.Invoke();
-            returnToMenu = createReturnToMenu?.Invoke();
-            challenges = createChallenges?.Invoke();
-            prestige = createPrestige?.Invoke();
-            research = createResearch?.Invoke();
+            composeGameActions?.Invoke(gameActions);
             return new AutomataServiceCycleRuntime(
                 hostDependencies.ReadLifecycleEpoch,
                 configurationPublication,
                 host,
                 featureRuntimes.ToArray(),
                 configurationGeneration,
-                discoveryTreeOffers,
-                spellWorkbench,
-                spellComposition,
-                spellLoadout,
-                targeting,
-                equipmentLoadout,
-                alchemyLoadout,
-                ritualLifecycle,
-                genericLevel,
-                craftingInstances,
-                loadouts,
-                harvestLifecycle,
-                plotLifecycle,
-                structureLifecycle,
-                returnToMenu,
-                challenges,
-                prestige,
-                research);
+                gameActions);
         }
         catch
         {
-            discoveryTreeOffers?.Dispose();
-            spellWorkbench?.Dispose();
-            spellComposition?.Dispose();
-            spellLoadout?.Dispose();
-            targeting?.Dispose();
-            equipmentLoadout?.Dispose();
-            alchemyLoadout?.Dispose();
-            ritualLifecycle?.Dispose();
-            genericLevel?.Dispose();
-            craftingInstances?.Dispose();
-            loadouts?.Dispose();
-            harvestLifecycle?.Dispose();
-            plotLifecycle?.Dispose();
-            structureLifecycle?.Dispose();
-            returnToMenu?.Dispose();
-            challenges?.Dispose();
-            prestige?.Dispose();
-            research?.Dispose();
+            gameActions.Dispose();
             DisposeFailedConstruction(featureRuntimes, observability, host, registry);
             throw;
         }

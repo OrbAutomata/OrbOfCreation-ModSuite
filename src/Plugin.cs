@@ -579,158 +579,161 @@ public sealed class Plugin : BaseUnityPlugin
                     },
                     Log
 #if SERVICE_CYCLE_PROFILE
-                    , createDiscoveryTreeOffers: () => new DiscoveryTreeOfferGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureDiscoveryTreeOfferMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .DiscoveryTreeOfferOwnershipFailure)
-                    , createSpellWorkbench: () => new SpellWorkbenchGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureSpellWorkbenchMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .SpellWorkbenchOwnershipFailure)
-                    , createSpellComposition: () => new SpellCompositionGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureSpellCompositionMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .SpellCompositionOwnershipFailure)
-                    , createSpellLoadout: () => new SpellLoadoutGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureSpellLoadoutMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .SpellLoadoutOwnershipFailure,
-                        readAutoCastOn: () =>
-                            AutoCastConfigurationPolicy.IsOperational(_configurationStore!.Current))
-                    , createTargeting: () => new TargetingGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureTargetingMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .TargetingOwnershipFailure)
-                    , createEquipmentLoadout: () => new EquipmentLoadoutGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureEquipmentLoadoutMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .EquipmentLoadoutOwnershipFailure)
-                    , createAlchemyLoadout: () => new AlchemyLoadoutGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureAlchemyLoadoutMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .AlchemyLoadoutOwnershipFailure)
-                    , createRitualLifecycle: () => new RitualLifecycleGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureRitualLifecycleMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .RitualLifecycleOwnershipFailure)
-                    , createGenericLevel: () => new GenericLevelGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureGenericLevelMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .GenericLevelOwnershipFailure)
-                    , createCraftingInstances: () => new CraftingInstanceLifecycleGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureScribeMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .ScribeOwnershipFailure)
-                    , createLoadouts: (equipment, alchemy) => new LoadoutGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCapturePlayerLoadoutMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .PlayerLoadoutOwnershipFailure,
-                        equipment,
-                        alchemy)
-                    , createHarvestLifecycle: () => new HarvestLifecycleGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureHarvestLifecycleMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .HarvestLifecycleOwnershipFailure)
-                    , createPlotLifecycle: () => new PlotLifecycleGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureHarvestMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .HarvestOwnershipFailure)
-                    , createStructureLifecycle: () => new StructureLifecycleGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureStructureLifecycleMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .StructureLifecycleOwnershipFailure)
-                    , createReturnToMenu: () => new ReturnToMenuGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureRunTransitionMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .RunTransitionOwnershipFailure,
-                        readScene: () => SceneManager.GetActiveScene().name,
-                        findLoadedObjects: type => Resources.FindObjectsOfTypeAll(type)
-                            .Cast<object>()
-                            .ToArray())
-                    , createChallenges: () => new ChallengeGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureChallengeMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .ChallengeOwnershipFailure)
-                    , createPrestige: () => new PrestigeGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCapturePrestigeMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .PrestigeOwnershipFailure)
-                    , createResearch: () => new ResearchGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureResearchMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .ResearchOwnershipFailure)
+                    , composeGameActions: actions =>
+                    {
+                        actions.Add(new DiscoveryTreeOfferGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureDiscoveryTreeOfferMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .DiscoveryTreeOfferOwnershipFailure));
+                        actions.Add(new SpellWorkbenchGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureSpellWorkbenchMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .SpellWorkbenchOwnershipFailure));
+                        actions.Add(new SpellCompositionGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureSpellCompositionMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .SpellCompositionOwnershipFailure));
+                        actions.Add(new SpellLoadoutGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureSpellLoadoutMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .SpellLoadoutOwnershipFailure,
+                            readAutoCastOn: () => AutoCastConfigurationPolicy.IsOperational(
+                                _configurationStore!.Current)));
+                        actions.Add(new TargetingGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureTargetingMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .TargetingOwnershipFailure));
+                        var equipment = actions.Add(new EquipmentLoadoutGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureEquipmentLoadoutMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .EquipmentLoadoutOwnershipFailure));
+                        var alchemy = actions.Add(new AlchemyLoadoutGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureAlchemyLoadoutMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .AlchemyLoadoutOwnershipFailure));
+                        actions.Add(new RitualLifecycleGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureRitualLifecycleMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .RitualLifecycleOwnershipFailure));
+                        actions.Add(new GenericLevelGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureGenericLevelMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .GenericLevelOwnershipFailure));
+                        actions.Add(new CraftingInstanceLifecycleGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureScribeMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .ScribeOwnershipFailure));
+                        actions.Add(new LoadoutGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCapturePlayerLoadoutMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .PlayerLoadoutOwnershipFailure,
+                            equipment,
+                            alchemy));
+                        actions.Add(new HarvestLifecycleGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureHarvestLifecycleMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .HarvestLifecycleOwnershipFailure));
+                        actions.Add(new PlotLifecycleGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureHarvestMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .HarvestOwnershipFailure));
+                        actions.Add(new StructureLifecycleGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureStructureLifecycleMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .StructureLifecycleOwnershipFailure));
+                        actions.Add(new ReturnToMenuGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureRunTransitionMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .RunTransitionOwnershipFailure,
+                            readScene: () => SceneManager.GetActiveScene().name,
+                            findLoadedObjects: type => Resources.FindObjectsOfTypeAll(type)
+                                .Cast<object>()
+                                .ToArray()));
+                        actions.Add(new ChallengeGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureChallengeMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .ChallengeOwnershipFailure));
+                        actions.Add(new PrestigeGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCapturePrestigeMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .PrestigeOwnershipFailure));
+                        actions.Add(new ResearchGameAction(
+                            readAutoHarvestLifecycleEpoch,
+                            tryCaptureMutationPermit: () =>
+                                _automataActionFamilyOwnership!
+                                    .TryCaptureResearchMutationPermit(),
+                            readOwnershipFailure: () =>
+                                _automataActionFamilyOwnership!
+                                    .ResearchOwnershipFailure));
+                    }
 #endif
                     );
             },

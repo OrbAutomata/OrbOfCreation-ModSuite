@@ -133,7 +133,8 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
                 new AutoCastManualPauseState(),
                 _status));
             Runtime = (AutoCastFeatureRuntime)feature.Register(
-                new AutomataServiceCycleFeatureContext(_registry, new ConfigGeneration(1), NativeEpoch));
+                new AutomataServiceCycleFeatureContext(
+                    _registry, new ConfigGeneration(1), NativeEpoch, new LifecycleGameActions()));
             PublishWorld(2);
             _registry.Seal();
             Pump = new SuiteFramePump(_registry);

@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -7,22 +8,20 @@ internal sealed class AutoScribeServiceAdapterComposition
     private AutoScribeServiceAdapterComposition(
         IAutomataServiceDefinition<AutoScribeCycleState, AutoScribeCycleAction> definition,
         AutoScribeOneShotCraftGameAction gameAction,
-        AutoScribeOneShotCraftPlayerGameAction playerAction,
         AutoScribeActionHealth health)
     {
         Definition = definition;
         GameAction = gameAction;
-        PlayerAction = playerAction;
         Health = health;
     }
 
     internal IAutomataServiceDefinition<AutoScribeCycleState, AutoScribeCycleAction> Definition { get; }
     internal AutoScribeOneShotCraftGameAction GameAction { get; }
-    internal AutoScribeOneShotCraftPlayerGameAction PlayerAction { get; }
     internal AutoScribeActionHealth Health { get; }
 
     internal static AutoScribeServiceAdapterComposition Create(
-        AutoScribeFeatureDependencies dependencies)
+        AutoScribeFeatureDependencies dependencies,
+        LifecycleGameActions gameActions)
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
         var health = new AutoScribeActionHealth();
@@ -32,11 +31,13 @@ internal sealed class AutoScribeServiceAdapterComposition
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
-        var playerAction = new AutoScribeOneShotCraftPlayerGameAction(
+#if SERVICE_CYCLE_PROFILE
+        gameActions.Add(new AutoScribeOneShotCraftPlayerGameAction(
             dependencies.RegistryResolver,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
-            dependencies.ReadOwnershipFailure);
+            dependencies.ReadOwnershipFailure));
+#endif
         var actionPort = new AutoScribeCycleActionAdapter(
             gameAction,
             dependencies.ReadLifecycleEpoch,
@@ -49,7 +50,6 @@ internal sealed class AutoScribeServiceAdapterComposition
                 dependencies.OwnsActionFamily,
                 () => gameAction.IsQuarantined),
             gameAction,
-            playerAction,
             health);
     }
 }

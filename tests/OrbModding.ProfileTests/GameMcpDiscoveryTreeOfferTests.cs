@@ -1351,10 +1351,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     new ServiceActionOutcomeWindowRegistry()),
                 new IAutomataServiceCycleFeature[] { feature },
                 new ManualLogSource(),
-                createDiscoveryTreeOffers: () => new DiscoveryTreeOfferGameAction(
+                composeGameActions: actions => actions.Add(new DiscoveryTreeOfferGameAction(
                     () => lifecycle,
                     () => true,
-                    () => string.Empty));
+                    () => string.Empty)));
             var command = new GameMcpCommand(
                 1,
                 GameMcpCommandKind.DiscoveryTreeOffer,
@@ -1431,10 +1431,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     new ServiceActionOutcomeWindowRegistry()),
                 new IAutomataServiceCycleFeature[] { feature },
                 new ManualLogSource(),
-                createDiscoveryTreeOffers: () => new DiscoveryTreeOfferGameAction(
+                composeGameActions: actions => actions.Add(new DiscoveryTreeOfferGameAction(
                     () => lifecycle,
                     () => true,
-                    () => string.Empty));
+                    () => string.Empty)));
             var worldTree = new WorldDiscoveryTree(
                 tree.GetGuid(), true, 0, BigDouble.Zero, 0, false, Guid.Empty,
                 Array.Empty<Guid>(), false, true, Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty,

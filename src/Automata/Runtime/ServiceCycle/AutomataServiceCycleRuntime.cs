@@ -27,24 +27,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     private readonly IAutomataServiceCycleFeatureRuntime[] _features;
     private readonly ServiceConfigurationPublisher _configurationPublication;
     private ConfigGeneration _configurationGeneration;
-    private readonly DiscoveryTreeOfferGameAction? _discoveryTreeOffers;
-    private readonly SpellWorkbenchGameAction? _spellWorkbench;
-    private readonly SpellCompositionGameAction? _spellComposition;
-    private readonly SpellLoadoutGameAction? _spellLoadout;
-    private readonly TargetingGameAction? _targeting;
-    private readonly EquipmentLoadoutGameAction? _equipmentLoadout;
-    private readonly AlchemyLoadoutGameAction? _alchemyLoadout;
-    private readonly RitualLifecycleGameAction? _ritualLifecycle;
-    private readonly GenericLevelGameAction? _genericLevel;
-    private readonly CraftingInstanceLifecycleGameAction? _craftingInstances;
-    private readonly LoadoutGameAction? _loadouts;
-    private readonly HarvestLifecycleGameAction? _harvestLifecycle;
-    private readonly PlotLifecycleGameAction? _plotLifecycle;
-    private readonly StructureLifecycleGameAction? _structureLifecycle;
-    private readonly ReturnToMenuGameAction? _returnToMenu;
-    private readonly ChallengeGameAction? _challenges;
-    private readonly PrestigeGameAction? _prestige;
-    private readonly ResearchGameAction? _research;
+    private readonly LifecycleGameActions _gameActions;
     private bool _disposed;
 #if SERVICE_CYCLE_PROFILE
     private ulong _nextGameMcpActionIdentity;
@@ -56,24 +39,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         AutomataServiceCycleHost host,
         IAutomataServiceCycleFeatureRuntime[] features,
         ConfigGeneration configurationGeneration,
-        DiscoveryTreeOfferGameAction? discoveryTreeOffers = null,
-        SpellWorkbenchGameAction? spellWorkbench = null,
-        SpellCompositionGameAction? spellComposition = null,
-        SpellLoadoutGameAction? spellLoadout = null,
-        TargetingGameAction? targeting = null,
-        EquipmentLoadoutGameAction? equipmentLoadout = null,
-        AlchemyLoadoutGameAction? alchemyLoadout = null,
-        RitualLifecycleGameAction? ritualLifecycle = null,
-        GenericLevelGameAction? genericLevel = null,
-        CraftingInstanceLifecycleGameAction? craftingInstances = null,
-        LoadoutGameAction? loadouts = null,
-        HarvestLifecycleGameAction? harvestLifecycle = null,
-        PlotLifecycleGameAction? plotLifecycle = null,
-        StructureLifecycleGameAction? structureLifecycle = null,
-        ReturnToMenuGameAction? returnToMenu = null,
-        ChallengeGameAction? challenges = null,
-        PrestigeGameAction? prestige = null,
-        ResearchGameAction? research = null)
+        LifecycleGameActions gameActions)
     {
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _configurationPublication = configurationPublication ??
@@ -81,24 +47,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         _host = host ?? throw new ArgumentNullException(nameof(host));
         _features = features ?? throw new ArgumentNullException(nameof(features));
         _configurationGeneration = configurationGeneration;
-        _discoveryTreeOffers = discoveryTreeOffers;
-        _spellWorkbench = spellWorkbench;
-        _spellComposition = spellComposition;
-        _spellLoadout = spellLoadout;
-        _targeting = targeting;
-        _equipmentLoadout = equipmentLoadout;
-        _alchemyLoadout = alchemyLoadout;
-        _ritualLifecycle = ritualLifecycle;
-        _genericLevel = genericLevel;
-        _craftingInstances = craftingInstances;
-        _loadouts = loadouts;
-        _harvestLifecycle = harvestLifecycle;
-        _plotLifecycle = plotLifecycle;
-        _structureLifecycle = structureLifecycle;
-        _returnToMenu = returnToMenu;
-        _challenges = challenges;
-        _prestige = prestige;
-        _research = research;
+        _gameActions = gameActions ?? throw new ArgumentNullException(nameof(gameActions));
     }
 
     internal SuiteRuntimeConfiguration CurrentConfiguration => _configurationPublication.ReadLatest().Snapshot;
@@ -156,24 +105,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             _features[index].ObserveLifecycle(
                 nativeLifecycle,
                 _configurationGeneration);
-        _discoveryTreeOffers?.InvalidateLifecycle();
-        _spellWorkbench?.InvalidateLifecycle();
-        _spellComposition?.InvalidateLifecycle();
-        _spellLoadout?.InvalidateLifecycle();
-        _targeting?.InvalidateLifecycle();
-        _equipmentLoadout?.InvalidateLifecycle();
-        _alchemyLoadout?.InvalidateLifecycle();
-        _ritualLifecycle?.InvalidateLifecycle();
-        _genericLevel?.InvalidateLifecycle();
-        _craftingInstances?.InvalidateLifecycle();
-        _loadouts?.InvalidateLifecycle();
-        _harvestLifecycle?.InvalidateLifecycle();
-        _plotLifecycle?.InvalidateLifecycle();
-        _structureLifecycle?.InvalidateLifecycle();
-        _returnToMenu?.InvalidateLifecycle();
-        _challenges?.InvalidateLifecycle();
-        _prestige?.InvalidateLifecycle();
-        _research?.InvalidateLifecycle();
+        _gameActions.InvalidateLifecycle();
     }
 
     public AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics()
@@ -188,24 +120,17 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     public AutomataRuntimeFrameFacts CaptureFrameFacts(bool includeServices)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(AutomataServiceCycleRuntime));
-        var playerCraftingAvailable = false;
-        var playerCraftingUnavailableReason =
-            "the player crafting action boundary was not composed";
-        for (var index = 0; index < _features.Length; index++)
-        {
-            if (_features[index] is not AutoScribeServiceCycleFeature.Runtime scribe) continue;
-            playerCraftingAvailable = scribe.PlayerCraftingBindingsAvailable;
-            playerCraftingUnavailableReason = scribe.PlayerCraftingBindingFailure;
-            break;
-        }
+        var playerCrafting = _gameActions.Find<AutoScribeOneShotCraftPlayerGameAction>();
+        var craftingInstances = _gameActions.Find<CraftingInstanceLifecycleGameAction>();
         return AutomataRuntimeFrameFacts.Capture(
             _host,
             _configurationPublication,
             includeServices,
-            playerCraftingAvailable,
-            playerCraftingUnavailableReason,
-            _craftingInstances?.BindingsAvailable == true,
-            _craftingInstances?.BindingFailure ??
+            playerCrafting?.BindingsAvailable == true,
+            playerCrafting?.BindingFailure ??
+                "the player crafting action boundary was not composed",
+            craftingInstances?.BindingsAvailable == true,
+            craftingInstances?.BindingFailure ??
                 "the crafting-instance action boundary was not composed");
     }
 
@@ -435,11 +360,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The ServiceCycle runtime has been disposed.");
-        if (_spellWorkbench is null)
+        var spellWorkbench = _gameActions.Find<SpellWorkbenchGameAction>();
+        if (spellWorkbench is null)
             return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The shared spell workbench boundary is unavailable.");
-        return _spellWorkbench.Preview(in request);
+        return spellWorkbench.Preview(in request);
     }
 
     public SpellWorkbenchStagedLayout ReadStagedSpellWorkbench()
@@ -448,11 +374,12 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The ServiceCycle runtime has been disposed.");
-        if (_spellWorkbench is null)
+        var spellWorkbench = _gameActions.Find<SpellWorkbenchGameAction>();
+        if (spellWorkbench is null)
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The shared Spellcraft boundary is unavailable.");
-        return _spellWorkbench.ReadStagedLayout();
+        return spellWorkbench.ReadStagedLayout();
     }
 
     private GameMcpCommandResult ExecuteSpellComposition(
@@ -461,7 +388,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "IntVariable");
-        if (_spellComposition is null)
+        var spellComposition = _gameActions.Find<SpellCompositionGameAction>();
+        if (spellComposition is null)
             return GameMcpCommandResult.Rejected(
                 "contract_unavailable",
                 "the shared spell composition GameAction was not composed",
@@ -485,7 +413,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             dial.Value,
             command.Amount,
             command.ExpectedLifecycleGeneration);
-        var submission = _spellComposition.Submit(in action);
+        var submission = spellComposition.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
@@ -500,13 +428,14 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "Spell");
-        if (_spellLoadout is null)
+        var spellLoadout = _gameActions.Find<SpellLoadoutGameAction>();
+        if (spellLoadout is null)
             return GameMcpCommandResult.Rejected(
                 "contract_unavailable",
                 "the shared spell loadout GameAction was not composed",
                 lifecycle,
                 configurationGeneration);
-        return SubmitSpellLoadout(_spellLoadout, command, lifecycle, configurationGeneration);
+        return SubmitSpellLoadout(spellLoadout, command, lifecycle, configurationGeneration);
     }
 
     internal static GameMcpCommandResult SubmitSpellLoadout(
@@ -543,7 +472,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         GameMcpNativeActionAdmission.AssertNativeType(
             command,
             command.Mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink");
-        if (_targeting is null)
+        var targeting = _gameActions.Find<TargetingGameAction>();
+        if (targeting is null)
             return GameMcpCommandResult.Rejected(
                 "contract_unavailable", "the shared targeting GameAction was not composed",
                 lifecycle, configurationGeneration);
@@ -555,7 +485,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             _ => throw new ArgumentException("unsupported targeting mode " + command.Mode),
         };
         var action = new TargetingAction(kind, command.TargetId, command.ExpectedLifecycleGeneration);
-        var submission = _targeting.Submit(in action);
+        var submission = targeting.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
@@ -567,7 +497,13 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "ConsumableSO");
-        var feature = FindFeature(command.Kind);
+        var consumables = _gameActions.Find<AutoItemsConsumablePlayerGameAction>();
+        if (consumables is null)
+            return GameMcpCommandResult.Rejected(
+                "contract_unavailable",
+                "the shared consumable player GameAction was not composed",
+                lifecycle,
+                configurationGeneration);
         var kind = command.Mode switch
         {
             "use" => ConsumablePlayerActionKind.Use,
@@ -595,7 +531,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             randomized,
             list,
             kind == ConsumablePlayerActionKind.Move ? command.Amount - 1 : -1);
-        var submission = ((AutoItemsFeatureRuntime)feature).TryExecuteGameMcp(in action);
+        var submission = consumables.Submit(in action);
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
@@ -613,7 +549,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         GameMcpNativeActionAdmission.AssertNativeType(command, "CraftingRecipeSO");
         if (command.Mode != "craft")
         {
-            if (_craftingInstances is null)
+            var craftingInstances = _gameActions.Find<CraftingInstanceLifecycleGameAction>();
+            if (craftingInstances is null)
                 return GameMcpCommandResult.Rejected(
                     "contract_unavailable",
                     "the shared crafting-instance GameAction was not composed",
@@ -628,7 +565,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             };
             var instanceAction = new CraftingInstanceLifecycleAction(
                 kind, command.TargetId, command.ExpectedLifecycleGeneration);
-            var instanceSubmission = _craftingInstances.Submit(in instanceAction);
+            var instanceSubmission = craftingInstances.Submit(in instanceAction);
             var instanceResult = instanceSubmission.Outcome.ToResult();
             return GameMcpCommandResult.FromAction(
                 in instanceResult,
@@ -636,7 +573,13 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 configurationGeneration,
                 GameMcpCraftingProjection.Project(in instanceSubmission));
         }
-        var feature = (AutoScribeServiceCycleFeature.Runtime)FindFeature(command.Kind);
+        var crafting = _gameActions.Find<AutoScribeOneShotCraftPlayerGameAction>();
+        if (crafting is null)
+            return GameMcpCommandResult.Rejected(
+                "contract_unavailable",
+                "the shared player crafting GameAction was not composed",
+                lifecycle,
+                configurationGeneration);
         var max = command.PayloadValue == "max";
         return GameMcpCraftingProjection.Press(
             command,
@@ -651,7 +594,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     command.ExpectedLifecycleGeneration,
                     remaining,
                     max);
-                return feature.TryExecuteGameMcp(in action);
+                return crafting.Submit(in action);
             });
     }
 
@@ -660,7 +603,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_equipmentLoadout is null)
+        var equipmentLoadout = _gameActions.Find<EquipmentLoadoutGameAction>();
+        if (equipmentLoadout is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared equipment loadout GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -670,7 +614,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             : EquipmentLoadoutActionKind.Unequip;
         var action = new EquipmentLoadoutAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
-        var submission = _equipmentLoadout.Submit(in action);
+        var submission = equipmentLoadout.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -682,7 +626,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_challenges is null)
+        var challenges = _gameActions.Find<ChallengeGameAction>();
+        if (challenges is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared challenge GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -698,7 +643,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new ChallengeAction(kind, command.TargetId, command.SecondaryId,
             command.ExpectedLifecycleGeneration);
-        var submission = _challenges.Submit(in action);
+        var submission = challenges.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -710,7 +655,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_alchemyLoadout is null)
+        var alchemyLoadout = _gameActions.Find<AlchemyLoadoutGameAction>();
+        if (alchemyLoadout is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared ordinary Alchemy GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -723,7 +669,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new AlchemyLoadoutAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
-        var submission = _alchemyLoadout.Submit(in action);
+        var submission = alchemyLoadout.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -735,12 +681,13 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_prestige is null)
+        var prestige = _gameActions.Find<PrestigeGameAction>();
+        if (prestige is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared prestige GameAction was not composed", lifecycle,
                 configurationGeneration);
         var action = new PrestigeAction(command.ExpectedLifecycleGeneration);
-        var submission = _prestige.Submit(in action);
+        var submission = prestige.Submit(in action);
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -752,7 +699,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_ritualLifecycle is null)
+        var ritualLifecycle = _gameActions.Find<RitualLifecycleGameAction>();
+        if (ritualLifecycle is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared Ritual GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -770,7 +718,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new RitualLifecycleAction(kind, command.TargetId,
             kind == RitualLifecycleActionKind.SetLevel ? command.Amount - 1 : 0,
             command.ExpectedLifecycleGeneration);
-        var submission = _ritualLifecycle.Submit(in action);
+        var submission = ritualLifecycle.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -782,7 +730,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_harvestLifecycle is null)
+        var harvestLifecycle = _gameActions.Find<HarvestLifecycleGameAction>();
+        if (harvestLifecycle is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared harvest-list GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -797,7 +746,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new HarvestLifecycleAction(kind, command.TargetId,
             command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = _harvestLifecycle.Submit(in action);
+        var submission = harvestLifecycle.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -809,7 +758,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_plotLifecycle is null)
+        var plotLifecycle = _gameActions.Find<PlotLifecycleGameAction>();
+        if (plotLifecycle is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared plot-action GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -822,7 +772,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new PlotLifecycleAction(kind, command.TargetId,
             command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = _plotLifecycle.Submit(in action);
+        var submission = plotLifecycle.Submit(in action);
         var result = submission.Outcome.ToResult();
         GameMcpValue? details = submission.Outcome.Verified
             ? new GameMcpObjectBuilder
@@ -848,7 +798,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_structureLifecycle is null)
+        var structureLifecycle = _gameActions.Find<StructureLifecycleGameAction>();
+        if (structureLifecycle is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared structure GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -861,7 +812,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new StructureLifecycleAction(
             kind, command.TargetId, command.ExpectedLifecycleGeneration);
-        var submission = _structureLifecycle.Submit(in action);
+        var submission = structureLifecycle.Submit(in action);
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -873,13 +824,14 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_returnToMenu is null)
+        var returnToMenu = _gameActions.Find<ReturnToMenuGameAction>();
+        if (returnToMenu is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared Back to Menu GameAction was not composed", lifecycle,
                 configurationGeneration);
         GameMcpNativeActionAdmission.AssertNativeType(command, "UIBackToMenuButton");
         var action = new ReturnToMenuAction(command.ExpectedLifecycleGeneration);
-        var submission = _returnToMenu.Submit(in action);
+        var submission = returnToMenu.Submit(in action);
         var result = submission.Outcome.ToResult();
         var details = submission.Outcome.Verified
             // Which control the verb pressed, and whether it had to open a panel to reach it, are
@@ -897,7 +849,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_genericLevel is null)
+        var genericLevel = _gameActions.Find<GenericLevelGameAction>();
+        if (genericLevel is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared level GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -910,7 +863,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new GenericLevelAction(kind, command.TargetId,
             command.DerivedNativeType, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = _genericLevel.Submit(in action);
+        var submission = genericLevel.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -922,7 +875,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         long lifecycle,
         ulong configurationGeneration)
     {
-        if (_loadouts is null)
+        var loadouts = _gameActions.Find<LoadoutGameAction>();
+        if (loadouts is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared player-loadout GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -943,7 +897,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var enabled = string.Equals(command.PayloadValue, "true", StringComparison.Ordinal);
         var action = new LoadoutAction(kind, command.TargetId, command.Amount - 1,
             enabled, command.PayloadValue, command.ExpectedLifecycleGeneration);
-        var submission = _loadouts.Submit(in action);
+        var submission = loadouts.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
@@ -957,7 +911,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "ResearchSO");
-        if (_research is null)
+        var researchAction = _gameActions.Find<ResearchGameAction>();
+        if (researchAction is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared research GameAction was not composed", lifecycle,
                 configurationGeneration);
@@ -972,7 +927,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         };
         var action = new ResearchAction(kind, command.TargetId, command.Amount,
             command.ExpectedLifecycleGeneration);
-        var submission = _research.Submit(in action);
+        var submission = researchAction.Submit(in action);
         var result = submission.Outcome.ToResult();
 
         // The read block and this refusal answer the same gate, so they say the same sentence.
@@ -996,7 +951,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "SpellRecipeSO");
-        if (_spellWorkbench is null)
+        var spellWorkbench = _gameActions.Find<SpellWorkbenchGameAction>();
+        if (spellWorkbench is null)
             return GameMcpCommandResult.Rejected(
                 "contract_unavailable",
                 "the shared spell workbench GameAction was not composed",
@@ -1011,7 +967,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.TargetId,
             command.ExpectedLifecycleGeneration,
             layout);
-        var submission = _spellWorkbench.Submit(in action);
+        var submission = spellWorkbench.Submit(in action);
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
@@ -1026,7 +982,8 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         ulong configurationGeneration)
     {
         GameMcpNativeActionAdmission.AssertNativeType(command, "DiscoveryTreeSO");
-        if (_discoveryTreeOffers is null)
+        var discoveryTreeOffers = _gameActions.Find<DiscoveryTreeOfferGameAction>();
+        if (discoveryTreeOffers is null)
             return GameMcpCommandResult.Rejected(
                 "contract_unavailable",
                 "the shared Discovery Tree offer GameAction was not composed",
@@ -1045,7 +1002,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.TargetId,
             command.SecondaryId,
             command.ExpectedLifecycleGeneration);
-        var submission = _discoveryTreeOffers.Submit(in action);
+        var submission = discoveryTreeOffers.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
@@ -1373,14 +1330,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         for (var index = 0; index < _features.Length; index++)
         {
             var feature = _features[index];
-            if ((kind == GameMcpCommandKind.Purchase && feature is AutoBuyFeatureRuntime ||
+            if (kind == GameMcpCommandKind.Purchase && feature is AutoBuyFeatureRuntime ||
                 kind == GameMcpCommandKind.Cast && feature is AutoCastFeatureRuntime ||
                 kind == GameMcpCommandKind.Concept && feature is AutoConceptFeatureRuntime ||
                 kind == GameMcpCommandKind.Harvest && feature is AutoHarvestFeatureRuntime ||
-                kind == GameMcpCommandKind.SpellLevel && feature is SpellLevelFeatureRuntime) ||
-                kind == GameMcpCommandKind.Consumable && feature is AutoItemsFeatureRuntime ||
-                kind == GameMcpCommandKind.Crafting &&
-                    feature is AutoScribeServiceCycleFeature.Runtime)
+                kind == GameMcpCommandKind.SpellLevel && feature is SpellLevelFeatureRuntime)
                 return feature;
         }
         throw new InvalidOperationException(
@@ -1442,24 +1396,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         _disposed = true;
         try
         {
-            _discoveryTreeOffers?.Dispose();
-            _spellWorkbench?.Dispose();
-            _spellComposition?.Dispose();
-            _spellLoadout?.Dispose();
-            _targeting?.Dispose();
-            _equipmentLoadout?.Dispose();
-            _alchemyLoadout?.Dispose();
-            _ritualLifecycle?.Dispose();
-            _genericLevel?.Dispose();
-            _craftingInstances?.Dispose();
-            _loadouts?.Dispose();
-            _harvestLifecycle?.Dispose();
-            _plotLifecycle?.Dispose();
-            _structureLifecycle?.Dispose();
-            _returnToMenu?.Dispose();
-            _challenges?.Dispose();
-            _prestige?.Dispose();
-            _research?.Dispose();
+            _gameActions.Dispose();
             if (!_host.EmergencyStopEngaged)
                 _host.SetEmergencyStop(true, EmergencyStopReason.SuiteShutdown);
         }

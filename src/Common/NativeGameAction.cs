@@ -10,7 +10,7 @@ namespace OrbModding.Common;
 /// permit, and the one post-call classification on <see cref="NativeMutationVerifier"/>. A feature
 /// supplies its binding factory, screen, admission, native call and one sentinel.
 /// </summary>
-internal abstract class NativeGameAction<TBindings> : IDisposable
+internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
     where TBindings : class
 {
     internal delegate bool Bind(out TBindings? bindings, out string reason);
@@ -51,12 +51,12 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         BindLifecycle();
     }
 
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
+    public bool BindingsAvailable => _bindings is not null;
+    public string BindingFailure => _bindingFailure;
 
     protected Func<long> ReadLifecycleEpoch { get; }
 
-    internal void InvalidateLifecycle()
+    public void InvalidateLifecycle()
     {
         OnInvalidate();
         BindLifecycle();
