@@ -175,10 +175,10 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(report.IsComplete, report.Describe());
         // Five primary entities, two purchase-view relations, two Scribe queues, eight complete
         // zero-candidate Scroll-target evidence rows, one frame-local challenge-decision context
-        // row, the two empty snapshot-list owners, and the two entities the keyword walk visits —
-        // the resource and the structure — which are sampled for their authored keywords whether or
-        // not the fixture gave them any.
-        Assert.Equal(22, report.TotalSampled);
+        // row, the two empty snapshot-list owners, the Mana orb the resource panel pins, and the two
+        // entities the keyword walk visits — the resource and the structure — which are sampled for
+        // their authored keywords whether or not the fixture gave them any.
+        Assert.Equal(23, report.TotalSampled);
 
         Assert.True(WorldLookup.TryFind(world.Resources, mana, out var resource));
         Assert.Equal(60d, resource.Reading.Quantity.ToDouble());
@@ -648,6 +648,46 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(4, row.Level);
     }
 
+    /// <summary>
+    /// A harvest element that throws after an earlier one was read withdraws the whole category, so
+    /// no element reads as one the player cannot add.
+    /// </summary>
+    [Fact]
+    public void A_harvest_lifecycle_read_that_throws_part_way_leaves_no_controls_behind()
+    {
+        FakeHarvestElement.All.Add(new FakeHarvestElement());
+        FakeHarvestElement.All.Add(new FakeHarvestElement { throwsOnMaximum = true });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("harvest lifecycle").Outcome);
+        Assert.Equal(0, world.HarvestElementControls.Count);
+    }
+
+    /// <summary>
+    /// A station that throws after an earlier one was read withdraws the whole category, so no
+    /// station reads as absent while the report says the category could not be read.
+    /// </summary>
+    [Fact]
+    public void A_brewing_station_read_that_throws_part_way_leaves_no_stations_behind()
+    {
+        var structure = new FakeCraftingStructure();
+        var read = new FakeCraftingStation { reference = structure };
+        var throwing = new FakeCraftingStation { reference = structure, throwsOnLevel = true };
+        structure.instances.value.Add(read);
+        structure.instances.value.Add(throwing);
+        FakeCraftingStructure.All.Add(structure);
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("crafting stations").Outcome);
+        Assert.Equal(0, world.CraftingStations.Count);
+    }
+
     [Fact]
     public void Player_loadouts_and_snapshot_slots_are_collected_with_named_entry_identities()
     {
@@ -699,6 +739,47 @@ public sealed class GameWorldCollectorTests : IDisposable
                    row.Slot == 0 && row.Populated);
         Assert.Contains(world.SnapshotEntries.AsSpan().ToArray(),
             row => row.EntryId == equipment.Identity && row.Quantity == 2);
+    }
+
+    /// <summary>
+    /// A loadout entry the reader could not identify is a shortfall the report names. Only a slot
+    /// that genuinely holds nothing stays silent.
+    /// </summary>
+    [Fact]
+    public void A_loadout_entry_without_an_identity_is_skipped_by_name()
+    {
+        var unidentified = new FakeEquipment { isCreated = true, Identity = Guid.Empty };
+        var player = new FakePlayerLoadout { isSelected = true, saveEquipment = true };
+        player.spells.Add(new FakeSpell { empty = true });
+        player.equipment.Set(unidentified, 2);
+        FakeLoadoutManager.instance.playerLoadouts.value.Add(player);
+
+        var collector = Collector();
+        var report = collector.Collect().For("loadouts");
+        var world = collector.Build();
+
+        Assert.Equal(1, report.Skipped);
+        Assert.Equal("a loadout's equipment entry had an empty identity", report.FirstFailure);
+        Assert.True(WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts, player.Identity, out _));
+        Assert.Equal(0, world.PlayerLoadoutEntries.Count);
+    }
+
+    /// <summary>
+    /// A loadout that throws after an earlier one was read withdraws the category whole, so no
+    /// loadout reads as one the player does not have.
+    /// </summary>
+    [Fact]
+    public void A_loadout_read_that_throws_part_way_leaves_no_loadouts_behind()
+    {
+        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { isSelected = true });
+        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { throwsOnSpells = true });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("loadouts").Outcome);
+        Assert.Equal(0, world.PlayerLoadouts.Count);
     }
 
     [Theory]
@@ -969,6 +1050,35 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(100, world.SpellWorkbench.MaximumOutputLevel);
         Assert.Equal(1, world.SpellWorkbench.ReserveLevel);
         Assert.Equal(100, world.SpellWorkbench.MaximumReserveLevel);
+    }
+
+    /// <summary>
+    /// A spell's level costs are filed under that spell, even when the registry holds an entry the
+    /// spell reader skipped before it.
+    /// </summary>
+    [Fact]
+    public void ASpellsLevelCostsAreFiledUnderThatSpellPastASkippedRegistryEntry()
+    {
+        var firstResource = Guid.NewGuid();
+        var secondResource = Guid.NewGuid();
+        var first = new FakeSpellRecipe { baseLevelingCost = new FakeSpellCostList().With(firstResource, 3) };
+        var second = new FakeSpellRecipe { baseLevelingCost = new FakeSpellCostList().With(secondResource, 7) };
+        FakeSpellRecipe.All.Add(new FakeSpellRecipe { Identity = Guid.Empty });
+        FakeSpellRecipe.All.Add(first);
+        FakeSpellRecipe.All.Add(second);
+
+        var collector = Collector();
+        var report = collector.Collect().For("spell level costs");
+        var costs = collector.Build().MasteryCosts;
+
+        Assert.Equal(2, report.Sampled);
+        var filed = new List<(Guid Recipe, Guid Resource)>();
+        for (var index = 0; index < costs.Count; index++)
+            filed.Add((costs[index].RecipeId, costs[index].ResourceId));
+        Assert.Equal(
+            new[] { (first.Identity, firstResource), (second.Identity, secondResource) }
+                .OrderBy(row => row.Item1),
+            filed.OrderBy(row => row.Recipe));
     }
 
     [Fact]
@@ -2339,18 +2449,19 @@ public sealed class GameWorldCollectorTests : IDisposable
 
     /// <summary>
     /// The frame globals bind by name like a category does, so a build that renamed one of their five
-    /// accessors is the same shortfall — and the only one nothing else reports, because the reader
-    /// answers with neutral terms instead of refusing. A complete report is therefore not full
-    /// availability.
+    /// accessors is the same shortfall. The reader answers with neutral terms instead of refusing, so
+    /// the report must say so and name the accessor, or the run logs a complete world.
     /// </summary>
     [Fact]
-    public void RenamingAFrameGlobalsAccessorCostsFullAvailabilityThoughEveryCategoryStillBinds()
+    public void RenamingAFrameGlobalsAccessorMakesTheReportIncompleteAndNamesIt()
     {
         var collector = Collector(("Player", typeof(FakePlayerGlobalsMissingTheQualityBonus)));
         var report = collector.Collect();
 
-        Assert.True(report.IsComplete, report.Describe());
         Assert.False(collector.IsFullyAvailable);
+        Assert.False(report.IsComplete);
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("modifier folding").Outcome);
+        Assert.Contains("GetAttributeQualityBonus", report.For("modifier folding").FirstFailure);
     }
 
     [Fact]
@@ -3877,6 +3988,37 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(expected, published.CanFire);
     }
 
+    /// <summary>
+    /// A cost or family with no identity is unreadable, not absent: the whole consumable is skipped
+    /// by name rather than published with a shorter price than the game charges.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AConsumableRelationWithoutAnIdentitySkipsTheWholeItem(bool cost)
+    {
+        var item = Guid.NewGuid();
+        var consumable = new FakeConsumable { Identity = item, quantity = 1 };
+        consumable.consumableTypes.Add(
+            new FakeConsumableType { Identity = cost ? Guid.NewGuid() : Guid.Empty });
+        consumable.consumeCost.costs.Add(new FakeConsumableCost(KnownEntities.PotionToxicity.Uuid, 2d));
+        consumable.consumeCost.costs.Add(new FakeConsumableCost(cost ? Guid.Empty : Guid.NewGuid(), 5d));
+        FakeConsumable.All.Add(consumable);
+
+        var collector = Collector();
+        var report = collector.Collect().For("consumables");
+        var world = collector.Build();
+
+        Assert.Equal(1, report.Skipped);
+        Assert.Equal(
+            cost
+                ? "a consumable cost at position 1 was null or unidentified"
+                : "a consumable type at position 0 was null or unidentified",
+            report.FirstFailure);
+        Assert.False(WorldLookup.TryFind(world.Consumables, item, out _));
+        Assert.Equal(0, world.ConsumableCosts.Count);
+    }
+
     [Fact]
     public void AnUnreadableConsumableRelationSkipsTheWholeItem()
     {
@@ -5245,6 +5387,33 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
+    /// A queue whose walk throws part-way publishes none of its slots: the slots already read would
+    /// otherwise stand without their queue and undercount what is running.
+    /// </summary>
+    [Fact]
+    public void APlotActionQueueThatThrowsMidWalkLeavesNoSlotsBehind()
+    {
+        var collecting = new FakePlotNodeAction();
+        FakePlotNodeAction.All.Add(collecting);
+        var orchard = new FakePlotNode { Identity = Guid.NewGuid() }.With(FakePlotPhase.Idle, 4);
+        FakePlotNode.All.Add(orchard);
+
+        var queue = new FakeActionQueue();
+        queue.value.Add(new FakeQueueSlot { quantity = 3, plot = orchard, action = collecting });
+        queue.value.Add(new FakeQueueSlot { quantity = 1, plot = orchard, action = collecting, throwsOnEngaged = true });
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.Equal(1, report.For("action queues").Skipped);
+        Assert.StartsWith("reading the plot-action queue threw: ", report.For("action queues").FirstFailure);
+        Assert.False(WorldLookup.TryFind(world.ActionQueues, queue.Identity, out _));
+        Assert.Equal(0, world.ActionQueueSlots.Count);
+    }
+
+    /// <summary>
     /// The plot-action queue publishes its occupancy and what sits in each of its slots.
     /// </summary>
     /// <remarks>
@@ -5750,6 +5919,27 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
+    /// A workbench whose weight budget did not read publishes no loadout room either: an unavailable
+    /// category carries nothing, so its half-read capacity cannot pass for the player's.
+    /// </summary>
+    [Fact]
+    public void AWorkbenchThatFailsAfterReadingItsRoomPublishesNoRoom()
+    {
+        var manager = new FakeSpellManager { spellWeightVariables = null! };
+        manager.activeSpells.maximum = 3;
+        manager.activeSpells.value.Add(new FakeSpell());
+        FakeSpellManager.instance = manager;
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("spell workbench").Outcome);
+        Assert.Equal(0, world.SpellWorkbench.EquippedCount);
+        Assert.Equal(0, world.SpellWorkbench.MaximumEquipped);
+    }
+
+    /// <summary>
     /// A player that cannot be bound still leaves unrelated rows usable, but the spell workbench
     /// now fails closed because output level is required pre-decision state for composition.
     /// </summary>
@@ -6059,6 +6249,21 @@ public sealed class GameWorldCollectorTests : IDisposable
                 (2, stormshaper.Identity),
             },
             edges);
+    }
+
+    /// <summary>
+    /// When the draft's buckets and the prestige decision both fail, the report names the first of
+    /// them, so no counted shortfall goes unnamed behind a later one.
+    /// </summary>
+    [Fact]
+    public void TheChallengeTypeFailureIsNamedFirstWhenPrestigeAlsoFails()
+    {
+        FakePersistentResetManager.instance.persistentResource = null!;
+
+        var report = Collector(("ChallengeTypeSO", null)).Collect().For("challenge decisions");
+
+        Assert.Equal(2, report.Skipped);
+        Assert.Equal("the complete challenge type binding set was unavailable", report.FirstFailure);
     }
 
     /// <summary>

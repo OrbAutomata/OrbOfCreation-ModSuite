@@ -140,11 +140,6 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
         string reason)
     {
         buffer.Reset();
-        return new WorldCategoryReport(
-            Category,
-            WorldCategoryOutcome.Collected,
-            sampled: 0,
-            skipped: 0,
-            "the authored glyph-to-book link was withheld: " + reason);
+        return WorldCategoryReport.Missing(Category, "the authored glyph-to-book link was withheld: " + reason);
     }
 }

@@ -335,48 +335,27 @@ internal static class WorldConsumableRelationDeriver
     {
         if (buffer.Count == 0) return PublicationTable<WorldConsumableType>.Empty;
         var rows = new WorldConsumableType[buffer.Count];
-        var count = 0;
-        for (var index = 0; index < buffer.Count; index++)
-        {
-            var row = buffer[index];
-            if (row.ConsumableId == Guid.Empty || row.TypeId == Guid.Empty) continue;
-            rows[count++] = row;
-        }
-        Array.Sort(rows, 0, count, ConsumableTypeComparer.Instance);
-        return PublicationTable<WorldConsumableType>.Create(rows, count);
+        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
+        Array.Sort(rows, ConsumableTypeComparer.Instance);
+        return PublicationTable<WorldConsumableType>.Create(rows, rows.Length);
     }
 
     internal static PublicationTable<WorldConsumableCost> Build(WorldConsumableCostBuffer buffer)
     {
         if (buffer.Count == 0) return PublicationTable<WorldConsumableCost>.Empty;
         var rows = new WorldConsumableCost[buffer.Count];
-        var count = 0;
-        for (var index = 0; index < buffer.Count; index++)
-        {
-            var row = buffer[index];
-            if (row.ConsumableId == Guid.Empty || row.ResourceId == Guid.Empty) continue;
-            rows[count++] = row;
-        }
-        Array.Sort(rows, 0, count, ConsumableCostComparer.Instance);
-        return PublicationTable<WorldConsumableCost>.Create(rows, count);
+        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
+        Array.Sort(rows, ConsumableCostComparer.Instance);
+        return PublicationTable<WorldConsumableCost>.Create(rows, rows.Length);
     }
 
     internal static PublicationTable<WorldConsumableUsage> Build(WorldConsumableUsageBuffer buffer)
     {
         if (buffer.Count == 0) return PublicationTable<WorldConsumableUsage>.Empty;
         var rows = new WorldConsumableUsage[buffer.Count];
-        var identities = new HashSet<ConsumableUsageKey>();
-        var count = 0;
-        for (var index = 0; index < buffer.Count; index++)
-        {
-            var row = buffer[index];
-            if (row.UsageId == Guid.Empty || row.Level <= 0 ||
-                !identities.Add(new ConsumableUsageKey(row.ConsumableId, row.UsageId)))
-                continue;
-            rows[count++] = row;
-        }
-        Array.Sort(rows, 0, count, ConsumableUsageComparer.Instance);
-        return PublicationTable<WorldConsumableUsage>.Create(rows, count);
+        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
+        Array.Sort(rows, ConsumableUsageComparer.Instance);
+        return PublicationTable<WorldConsumableUsage>.Create(rows, rows.Length);
     }
 
     internal static PublicationTable<WorldConsumableCount> Build(WorldConsumableCountBuffer buffer)
@@ -429,24 +408,6 @@ internal static class WorldConsumableRelationDeriver
             var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
             return byConsumable != 0 ? byConsumable : left.UsageId.CompareTo(right.UsageId);
         }
-    }
-
-    private readonly struct ConsumableUsageKey : IEquatable<ConsumableUsageKey>
-    {
-        internal ConsumableUsageKey(Guid consumableId, Guid usageId)
-        {
-            ConsumableId = consumableId;
-            UsageId = usageId;
-        }
-
-        private Guid ConsumableId { get; }
-        private Guid UsageId { get; }
-        public bool Equals(ConsumableUsageKey other) =>
-            ConsumableId == other.ConsumableId && UsageId == other.UsageId;
-        public override bool Equals(object? value) =>
-            value is ConsumableUsageKey other && Equals(other);
-        public override int GetHashCode() =>
-            unchecked((ConsumableId.GetHashCode() * 397) ^ UsageId.GetHashCode());
     }
 
     private sealed class ConsumableCountComparer : IComparer<WorldConsumableCount>
@@ -675,7 +636,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            if (entry is null)
+            if (entry is null || _typeId!(entry) == Guid.Empty)
             {
                 failure = $"a consumable type at position {index} was null or unidentified";
                 return false;
@@ -695,7 +656,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            if (entry is null)
+            if (entry is null || _costResourceId!(entry) == Guid.Empty)
             {
                 failure = $"a consumable cost at position {index} was null or unidentified";
                 return false;

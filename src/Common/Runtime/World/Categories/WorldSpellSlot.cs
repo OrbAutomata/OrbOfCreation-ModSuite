@@ -437,6 +437,8 @@ internal sealed class WorldSpellSlotBuffer
 
     internal void Reset() => _count = 0;
 
+    internal void Truncate(int count) => _count = count;
+
     internal void Append(in WorldSpellSlot sample)
     {
         if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
@@ -794,6 +796,9 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
                 continue;
             }
 
+            var slotCount = slots.Count;
+            var costCount = costs.Count;
+            var slotTypeCount = slotTypes.Count;
             try
             {
                 Read(entry, index, cancellationEnabled, casterAvailable, slots, costs, slotTypes);
@@ -801,6 +806,9 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             }
             catch (Exception ex)
             {
+                slots.Truncate(slotCount);
+                costs.Truncate(costCount);
+                slotTypes.Truncate(slotTypeCount);
                 Skip(
                     ref skipped,
                     ref firstFailure,

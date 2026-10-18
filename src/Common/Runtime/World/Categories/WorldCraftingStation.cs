@@ -125,7 +125,7 @@ internal sealed class WorldCraftingStationReader : IWorldCategoryReader
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
         if (frame is null) throw new ArgumentNullException(nameof(frame));
-        frame.CraftingStations.Reset();
+        ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         try
@@ -188,9 +188,15 @@ internal sealed class WorldCraftingStationReader : IWorldCategoryReader
         catch (Exception exception) when (exception is TargetInvocationException or
             ArgumentException or InvalidOperationException or OverflowException)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
                 "reading Brewing Stations threw: " + exception.GetBaseException().Message);
         }
+    }
+
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.CraftingStations.Reset();
     }
 
     private Guid ReadElementId(object? element) =>

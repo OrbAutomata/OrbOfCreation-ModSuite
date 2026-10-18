@@ -212,6 +212,30 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A failure after the recipes were read withdraws them too: an unavailable category publishes
+    /// nothing, so no recipe reads as one no queue is working on.
+    /// </summary>
+    [Fact]
+    public void AFailureAfterTheRecipesWithdrawsTheRowsAlreadyRead()
+    {
+        Seed();
+        var scroll = Registered<global::ConsumableSO>(KnownEntities.ScrollEcho.Uuid);
+        ((global::EnchantmentSO.EnchantItemScript)scroll.onUseEffects[0].effectScripts[1])
+            .enchantment = Enchantment(OtherEnchantmentId);
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 3 };
+
+        var report = Reader().Collect(new HashSet<Guid>(), frame);
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
+        Assert.Equal(0, frame.ScribeRecipes.Count);
+        Assert.Equal(0, frame.ScribeQueues.Count);
+        Assert.Equal(0, frame.ScribeWork.Count);
+        Assert.Equal(0, frame.StructureEnchantments.Count);
+        Assert.Equal(0, frame.ScrollTargets.Count);
+        Assert.Equal(0, frame.ScrollTargetEvidence.Count);
+    }
+
     [Fact]
     public void AScrollWhoseEnchantEffectMovedDegradesTheCategory()
     {

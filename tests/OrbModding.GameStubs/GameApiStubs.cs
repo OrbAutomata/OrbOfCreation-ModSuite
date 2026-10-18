@@ -363,7 +363,8 @@ public class IdScriptableObject : UnityEngine.ScriptableObject
     public static Dictionary<Guid, IdScriptableObject> RuntimeLookup = new();
     public Guid uuid = Guid.NewGuid();
     public static object? GetInstance(Guid guid) => RuntimeLookup.TryGetValue(guid, out var value) ? value : null;
-    public Guid GetGuid() => uuid;
+    public bool ThrowOnGetGuid { get; set; }
+    public Guid GetGuid() => ThrowOnGetGuid ? throw new InvalidOperationException("GetGuid failed") : uuid;
     public Guid GetId() => uuid;
     public void SetGuid(Guid guid) => uuid = guid;
 }
@@ -1604,7 +1605,9 @@ public class Spell : ITooltipable
     /// </summary>
     public BigDouble GetRecharge() => Recharge;
     public ResourceCostList GetCost() => Cost;
-    public ResourceCostList GetDrainCost() => new ResourceCostList();
+    public bool ThrowOnDrainCost { get; set; }
+    public ResourceCostList GetDrainCost() =>
+        ThrowOnDrainCost ? throw new InvalidOperationException("GetDrainCost failed") : new ResourceCostList();
     public int GetOutputLevel() => Player.GetSpellOutputLevel().AsInt();
     public int GetLevel() => Math.Max(GetOutputLevel(), BaseEffectLevel);
     public int GetRequiredLevel() => GlyphSO.GetMasterReqOfList(augmentGlyphs);
@@ -3325,6 +3328,9 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public bool SuppressRemoveMutation { get; set; }
     public bool ThrowOnCanAdd { get; set; }
 
+    /// <summary>The game throws asking about this one recipe, after earlier ones answered.</summary>
+    public AlchemyRecipeSO? ThrowOnCanAddFor { get; set; }
+
     /// <summary>The write lands, then the game throws and its instances stop reading.</summary>
     public bool BreakAfterMutation { get; set; }
     public int TypelessSlots { get; set; } = 16;
@@ -3333,7 +3339,8 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
 
     public bool CanAddInstance(AlchemyRecipeSO recipe)
     {
-        if (ThrowOnCanAdd) throw new InvalidOperationException("CanAddInstance failed");
+        if (ThrowOnCanAdd || ReferenceEquals(recipe, ThrowOnCanAddFor))
+            throw new InvalidOperationException("CanAddInstance failed");
         var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
         if (instance is not null && instance.queuedQuantity >= recipe.GetMaxUsageSlots()) return false;
         if (instance is not null) return true;

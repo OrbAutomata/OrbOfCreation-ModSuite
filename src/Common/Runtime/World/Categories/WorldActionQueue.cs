@@ -422,6 +422,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             }
             catch (Exception ex)
             {
+                slots.Reset();
                 Skip(ref skipped, ref firstFailure, Threw("plot-action", ex));
             }
         }

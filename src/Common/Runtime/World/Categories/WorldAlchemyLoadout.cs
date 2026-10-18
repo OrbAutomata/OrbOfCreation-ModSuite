@@ -160,8 +160,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
         if (frame is null) throw new ArgumentNullException(nameof(frame));
-        frame.AlchemyLoadout.Reset();
-        frame.AlchemyUsageCosts.Reset();
+        ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
         try
         {
@@ -226,9 +225,16 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         // not wrap reader calls. Same fail-closed answer, same granularity, still loud.
         catch (Exception exception)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
                 "reading ordinary alchemy threw: " + exception.GetBaseException().Message);
         }
+    }
+
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.AlchemyLoadout.Reset();
+        frame.AlchemyUsageCosts.Reset();
     }
 
     private void AppendCosts(Guid recipeId, object cost,

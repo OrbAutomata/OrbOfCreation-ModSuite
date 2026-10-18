@@ -495,10 +495,10 @@ internal sealed class GameWorldCollector
 
     /// <summary>Whether every category resolved. False means the snapshot will be partial by design.</summary>
     /// <remarks>
-    /// The frame globals are not a category and never appear in a report row, but they bind against
-    /// the game by name exactly as a category does, so a build that renamed one of their accessors is
-    /// the same kind of shortfall. Leaving them out let the whole set degrade unnoticed: the reader
-    /// yields neutral terms rather than throwing, so nothing else says a word about it.
+    /// The frame globals are not a category, but they bind against the game by name exactly as a
+    /// category does, so a build that renamed one of their accessors is the same kind of shortfall.
+    /// The reader yields neutral terms rather than throwing, so the report's modifier-folding row is
+    /// where a pass says so.
     /// </remarks>
     internal bool IsFullyAvailable
     {
@@ -541,10 +541,10 @@ internal sealed class GameWorldCollector
         frame.ModifierPrograms.Reset();
         frame.ModifierProgramEntries.Reset();
 
-        // One extra row when the modifier fold had to reconstruct an input. It is reported as an
-        // unavailable pseudo-category rather than logged, because it makes every folded number in the
-        // pass suspect and a report that still called itself complete would be lying about all of
-        // them. When nothing degraded the row is absent and the report is exactly as it was.
+        // One extra row when a frame global did not bind or the modifier fold had to reconstruct an
+        // input. It is reported as an unavailable pseudo-category rather than logged, because it
+        // makes every folded number in the pass suspect and a report that still called itself
+        // complete would be lying about all of them. When nothing degraded the row is absent.
         var degradation = _rateGlobals.Degradation;
         var reports = new WorldCategoryReport[_readers.Length + (degradation.Length == 0 ? 0 : 1)];
         if (degradation.Length > 0)

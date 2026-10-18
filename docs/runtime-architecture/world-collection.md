@@ -83,7 +83,8 @@ in the registry's own lifecycle request, so no caller can forget it.
 **A missing member degrades one category, not the pass.** Binding failures are reported per category in
 `WorldCollectionReport` with the member that could not be found, and a build that renamed one field
 still publishes the other fifty-nine. Degradation is per-term and never neutral-by-default
-([W28](world-collection-decisions.md)).
+([W28](world-collection-decisions.md)). A category that fails withdraws the rows it had already
+read, and a frame-global accessor that did not bind is named in the report's modifier-folding row.
 
 ## D16 — The suite owns transcribed economy math, gated by an assembly hash
 
@@ -610,19 +611,21 @@ worth knowing:
   It is what lets every surface that meets one of those ids answer with the book's row instead of with
   a bare not-found, and it is the reason `WorldGlyph` publishes only the 22 that carry no book —
   `Publishes(entity)` is that field being empty, so one native class backs two player concepts without
-  either category having to filter the other's rows out after the fact.
+  either category having to filter the other's rows out after the fact. Published whole or withheld
+  whole, and a withheld table reports its category unavailable, so the next pass reads it again.
 - **Discovery tree books.** `WorldDiscoveryTreeBook.cs` publishes which discovery pools a Recipe Book
   widens, walking `DiscoveryTreeSO.All` and reading each tree's authored `availableRecipeBooks`. The
   edge runs tree-to-book in the game's data and is published book-first because that is the direction a
   reader asks it in — *what does owning this widen* — and `UIDiscoveryTreePage.UIStart()` is the only
   reader of that field, which is why the book tile appears on the discovery page whose pool it widens
   rather than on a single authored screen of its own. Published whole or withheld whole: a partial
-  table is indistinguishable from a book that genuinely widens nothing.
+  table is indistinguishable from a book that genuinely widens nothing. A tree with no book list
+  withholds the table, and a withheld table reports its category unavailable.
 - **Resource panel.** `WorldResourceBar.cs` publishes which resources the left resource panel draws,
   in its order: the pinned Mana orb, then the pinned `NonManaCoreResources` and `MaterialResources`
   lists' authored members, read once per lifecycle from the identity registry. Every other resource
   is drawn by the page that owns it. Published whole or withheld whole: a partial panel reads like a
-  run that has fewer resources.
+  run that has fewer resources, so a withheld panel reports its category unavailable.
 - **Spell slots and costs.** `WorldSpellSlot.cs` publishes the equipped loadout and `WorldSpellCost.cs`
   what casting out of it costs, both from one reader, because a slot's price is only answerable from the
   same equipped instance the slot was read from. Neither is identity-keyed: a position may be unfilled

@@ -325,6 +325,7 @@ internal sealed class RawMasteryCostBuffer
     internal int Count => _count;
     internal ref readonly RawMasteryCost this[int index] => ref _rows[index];
     internal void Reset() => _count = 0;
+    internal void Truncate(int count) => _count = count;
     internal void Append(in RawMasteryCost row)
     {
         if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);

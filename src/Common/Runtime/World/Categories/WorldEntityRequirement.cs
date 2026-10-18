@@ -435,6 +435,8 @@ internal sealed class WorldEntityRequirementBuffer
 
     internal void Reset() => _count = 0;
 
+    internal void Truncate(int count) => _count = count;
+
     internal void Append(in WorldEntityRequirement sample)
     {
         if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
@@ -1148,12 +1150,16 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             var owner = owners[index];
             if (owner is null) continue;
 
+            var start = buffer.Count;
+            var ownerId = Guid.Empty;
             try
             {
+                ownerId = identity(owner);
+                if (ownerId == Guid.Empty) continue;
                 sampled += Read(
                     owner,
+                    ownerId,
                     kind,
-                    identity,
                     container,
                     buffer,
                     ref unmodelled,
@@ -1163,11 +1169,27 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             }
             catch (Exception ex)
             {
+                buffer.Truncate(start);
                 unmodelled++;
                 if (firstFailure.Length == 0)
                 {
                     firstFailure = "reading a per-level prerequisite threw: " +
                         ex.GetBaseException().Message;
+                }
+                if (ownerId == Guid.Empty) continue;
+                if (container is not null)
+                {
+                    var row = Unreadable(
+                        ownerId, kind, WorldRequirementProgramKind.NextLevel, UnreadableRequirements);
+                    buffer.Append(in row);
+                    sampled++;
+                }
+                if (unlockContainer is not null || secondUnlockContainer is not null)
+                {
+                    var row = Unreadable(
+                        ownerId, kind, WorldRequirementProgramKind.Unlock, UnreadableRequirements);
+                    buffer.Append(in row);
+                    sampled++;
                 }
             }
         }
@@ -1175,8 +1197,8 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
     private int Read(
         object owner,
+        Guid ownerId,
         WorldRequirementOwnerKind kind,
-        Func<object, Guid> identity,
         Func<object, object?>? container,
         WorldEntityRequirementBuffer buffer,
         ref int unmodelled,
@@ -1185,9 +1207,6 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Func<object, object?>? unlockContainer = null,
         Func<object, object?>? secondUnlockContainer = null)
     {
-        var ownerId = identity(owner);
-        if (ownerId == Guid.Empty) return 0;
-
         var appended = 0;
         var held = container?.Invoke(owner);
         if (held is not null)
@@ -1383,6 +1402,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         {
             var owner = owners[index];
             if (owner is null) continue;
+            var start = buffer.Count;
             try
             {
                 sampled += ReadKnownId(
@@ -1391,7 +1411,9 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             }
             catch (Exception ex)
             {
-                var row = UnreadableUsage(identities[index].EntityId, program);
+                buffer.Truncate(start);
+                var row = Unreadable(
+                    identities[index].EntityId, kind, program, UnreadableUsageRequirements);
                 buffer.Append(in row);
                 sampled++;
                 unmodelled++;
@@ -1430,7 +1452,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         ref int unmodelled,
         ref string firstFailure)
     {
-        var row = UnreadableUsage(ownerId, program, ownerKind);
+        var row = Unreadable(ownerId, ownerKind, program, UnreadableUsageRequirements);
         buffer.Append(in row);
         unmodelled++;
         if (firstFailure.Length == 0)
@@ -1438,16 +1460,20 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         return 1;
     }
 
-    private static WorldEntityRequirement UnreadableUsage(
+    private const string UnreadableRequirements = "UnreadableRequirements";
+    private const string UnreadableUsageRequirements = "UnreadableUsageRequirements";
+
+    private static WorldEntityRequirement Unreadable(
         Guid ownerId,
+        WorldRequirementOwnerKind ownerKind,
         WorldRequirementProgramKind program,
-        WorldRequirementOwnerKind ownerKind = WorldRequirementOwnerKind.AlchemyRecipe) =>
+        string typeName) =>
         new(
             ownerId,
             ownerKind,
             0,
             WorldRequirementConditionKind.Unknown,
-            "UnreadableUsageRequirements",
+            typeName,
             Guid.Empty,
             -1,
             0,

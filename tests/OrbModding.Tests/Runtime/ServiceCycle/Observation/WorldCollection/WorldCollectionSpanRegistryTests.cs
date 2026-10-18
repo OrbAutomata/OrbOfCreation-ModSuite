@@ -130,9 +130,11 @@ public sealed class WorldCollectionSpanRegistryTests
         Assert.All(names, name => Assert.False(string.IsNullOrWhiteSpace(name)));
         Assert.Equal("modifier folding", names[^1]);
         Assert.Equal(names.Length, names.Distinct(StringComparer.Ordinal).Count());
-        // Every category a pass can report has a name at the identity its spans carry: a full pass
-        // reports one row per reader, and a degraded one appends the pseudo category last.
-        Assert.Equal(collector.Collect().Categories.Length, names.Length - 1);
+        // Every category a pass can report has a name at the identity its spans carry. A collector
+        // that bound nothing has unbound frame globals too, so its pass appends the pseudo category.
+        var reported = collector.Collect().Categories;
+        Assert.Equal(names.Length, reported.Length);
+        Assert.Equal("modifier folding", reported[^1].Category);
     }
 
     private static long RawTicks(int milliseconds) => Stopwatch.Frequency * milliseconds / 1000;

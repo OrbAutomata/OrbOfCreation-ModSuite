@@ -493,10 +493,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
         if (frame is null) throw new ArgumentNullException(nameof(frame));
-        frame.ConceptRecipes.Reset();
-        frame.AlchemyInstances.Reset();
-        frame.AlchemyCosts.Reset();
-        frame.ConceptDrainBasis.Reset();
+        ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var source = _registryBinding.Read();
@@ -591,9 +588,18 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         // does not wrap reader calls. Same fail-closed answer, same granularity, still loud.
         catch (Exception ex)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(
                 Category, $"reading Concept instances threw: {ex.GetBaseException().Message}");
         }
+    }
+
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.ConceptRecipes.Reset();
+        frame.AlchemyInstances.Reset();
+        frame.AlchemyCosts.Reset();
+        frame.ConceptDrainBasis.Reset();
     }
 
     private void AppendCosts(

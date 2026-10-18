@@ -188,6 +188,27 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
     }
 
     /// <summary>
+    /// A slot that throws after its row was read is withdrawn whole: a skipped slot leaves neither
+    /// its row nor half its price behind, so no planner reads it as cheaper than it is.
+    /// </summary>
+    [Fact]
+    public void ASlotThatThrowsPartWayThroughLeavesNoRowsBehind()
+    {
+        Seed();
+        Loadout().value[0]!.ThrowOnDrainCost = true;
+
+        var frame = new GameWorldCycleFrame();
+        var report = Reader().Collect(new HashSet<Guid>(), frame);
+
+        Assert.Equal(1, report.Skipped);
+        Assert.StartsWith("reading slot 0 threw: ", report.FirstFailure);
+        Assert.Equal(2, frame.SpellSlots.Count);
+        Assert.NotEqual(0, frame.SpellSlots[0].SlotIndex);
+        Assert.Equal(0, frame.SpellCosts.Count);
+        Assert.Equal(0, frame.SpellSlotTypes.Count);
+    }
+
+    /// <summary>
     /// A loadout the identity registry does not hold yet is a fact about the save rather than a
     /// shortfall to report.
     /// </summary>

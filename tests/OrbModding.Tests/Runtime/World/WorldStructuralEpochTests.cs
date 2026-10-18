@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
@@ -26,9 +27,32 @@ public sealed class WorldStructuralEpochTests : IDisposable
     private static readonly Guid PlotId = new("3f1c1b7e-0000-4000-8000-00000000ce01");
     private static readonly Guid ActionId = new("3f1c1b7e-0000-4000-8000-00000000ce02");
 
-    public WorldStructuralEpochTests() => ClearRegistries();
+    private static readonly Guid[] ResourceBar =
+    {
+        KnownEntities.Mana.Uuid,
+        KnownEntities.ResourceBarCore.Uuid,
+        KnownEntities.ResourceBarMaterials.Uuid,
+    };
 
-    public void Dispose() => ClearRegistries();
+    public WorldStructuralEpochTests()
+    {
+        ClearRegistries();
+        var mana = new global::ResourceSO();
+        mana.SetGuid(KnownEntities.Mana.Uuid);
+        global::IdScriptableObject.RuntimeLookup[KnownEntities.Mana.Uuid] = mana;
+        foreach (var listId in ResourceBar[1..])
+        {
+            var list = new global::ResourceListVariable();
+            list.SetGuid(listId);
+            global::IdScriptableObject.RuntimeLookup[listId] = list;
+        }
+    }
+
+    public void Dispose()
+    {
+        ClearRegistries();
+        foreach (var identity in ResourceBar) global::IdScriptableObject.RuntimeLookup.Remove(identity);
+    }
 
     [Fact]
     public void AuthoredContentIsReadOnTheFirstPass()
@@ -432,6 +456,65 @@ public sealed class WorldStructuralEpochTests : IDisposable
     }
 
     /// <summary>
+    /// A withheld table is a failed read: the report says so, and the next pass reads it again
+    /// rather than answering every retired glyph id with "no book" for the rest of the run.
+    /// </summary>
+    [Fact]
+    public void AWithheldGlyphToBookTableIsUnavailableAndReadAgain()
+    {
+        var book = new global::RecipeBookSO();
+        global::GlyphSO.All.Add(new global::GlyphSO { associatedRecipeBook = book });
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        var registry = global::GlyphSO.All;
+        try
+        {
+            global::GlyphSO.All = null!;
+            var report = collector.Collect(frame);
+            Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("recipe book glyphs").Outcome);
+            Assert.False(report.IsComplete);
+        }
+        finally
+        {
+            global::GlyphSO.All = registry;
+        }
+
+        collector.Collect(frame);
+
+        var links = GameWorldFrameDeriver.Build(frame).RecipeBookGlyphs;
+        Assert.Equal(1, links.Count);
+        Assert.Equal(book.GetGuid(), links[0].RecipeBookId);
+    }
+
+    /// <summary>
+    /// A tree whose book list did not read is not a tree that draws on no books. The pinned build
+    /// gives every tree a list, the Time Rune tree's empty, so a missing one withholds the table.
+    /// </summary>
+    [Fact]
+    public void ATreeWhoseBookListIsMissingWithholdsTheTableAndIsReadAgain()
+    {
+        var book = new global::RecipeBookSO();
+        var books = new global::RecipeBookListVariable();
+        books.value.Add(book);
+        var tree = new global::DiscoveryTreeSO { availableRecipeBooks = null! };
+        global::DiscoveryTreeSO.All.Add(tree);
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+
+        var report = collector.Collect(frame);
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.For("discovery tree books").Outcome);
+        Assert.False(report.IsComplete);
+
+        tree.availableRecipeBooks = books;
+        collector.Collect(frame);
+
+        var edges = GameWorldFrameDeriver.Build(frame).DiscoveryTreeBooks;
+        Assert.Equal(1, edges.Count);
+        Assert.Equal(book.GetGuid(), edges[0].RecipeBookId);
+        Assert.Equal(tree.GetGuid(), edges[0].TreeId);
+    }
+
+    /// <summary>
     /// A category this build never had is not a failed read. Holding the gate open for one would
     /// re-walk every other structural category four times a second for an answer that cannot arrive.
     /// </summary>
@@ -501,5 +584,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         global::CraftingRecipeTypeSO.All.Clear();
         global::CraftingRecipeSO.All.Clear();
         global::ConsumableSO.All.Clear();
+        global::GlyphSO.All.Clear();
+        global::DiscoveryTreeSO.All.Clear();
     }
 }

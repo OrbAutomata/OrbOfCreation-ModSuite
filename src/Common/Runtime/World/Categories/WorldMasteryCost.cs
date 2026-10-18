@@ -16,6 +16,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _spellType;
+    private readonly Func<object, Guid>? _spellId;
     private readonly FieldInfo? _globalsInstance;
     private readonly Func<object, object?>? _baseCost;
     private readonly Func<object, IList?>? _costs;
@@ -36,6 +37,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         var listType = resolveType("ValueModifierList");
         var recordType = resolveType("ValueModifierRecord");
 
+        _spellId = NativeAccessorBinder.Call<Guid>(_spellType, "GetGuid");
         _baseCost = NativeAccessorBinder.Reference(_spellType, "baseLevelingCost");
         var costType = _spellType?.GetField(
             "baseLevelingCost",
@@ -96,18 +98,12 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         {
             var spell = spells[index];
             if (spell is null) { skipped++; continue; }
+            var start = frame.MasteryCosts.Count;
             try
             {
-                if (index >= frame.SpellRecipes.Count)
-                {
-                    skipped++;
-                    if (firstFailure.Length == 0)
-                        firstFailure = "spell registry identity snapshot was incomplete";
-                    continue;
-                }
-                var id = frame.SpellRecipes[index].EntityId;
-                var costs = _costs!(_baseCost!(spell)!);
+                var id = _spellId!(spell);
                 if (id == Guid.Empty) { skipped++; continue; }
+                var costs = _costs!(_baseCost!(spell)!);
                 var rows = 0;
                 for (var position = 0; costs is not null && position < costs.Count; position++)
                 {
@@ -128,6 +124,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
             }
             catch (Exception ex)
             {
+                frame.MasteryCosts.Truncate(start);
                 skipped++;
                 if (firstFailure.Length == 0)
                     firstFailure = $"reading a spell level cost threw: {ex.GetBaseException().Message}";
@@ -139,7 +136,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
     }
 
     private bool IsFullyBound() =>
-        _spellType is not null && _globalsInstance is not null &&
+        _spellType is not null && _spellId is not null && _globalsInstance is not null &&
         _baseCost is not null && _costs is not null && _resourceId is not null && _amount is not null &&
         _standard is not null && _standardId is not null && _standardValue is not null &&
         _typeXpPerMastery is not null && _programReader?.IsAvailable == true;

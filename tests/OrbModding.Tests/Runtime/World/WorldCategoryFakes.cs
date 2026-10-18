@@ -216,6 +216,16 @@ internal static class WorldCategoryFakes
         UnityEngine.Resources.Objects.Clear();
         SeedScribeRelations();
         SeedHarvestLifecycle();
+        SeedResourceBar();
+    }
+
+    private static void SeedResourceBar()
+    {
+        FakeIdRegistry.RuntimeLookup[KnownEntities.Mana.Uuid] =
+            new FakeResource { Identity = KnownEntities.Mana.Uuid };
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ResourceBarCore.Uuid] = new FakeSpellWeightList();
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ResourceBarMaterials.Uuid] =
+            new FakeSpellWeightList();
     }
 
     private static void SeedScribeRelations()
@@ -590,7 +600,10 @@ internal sealed class FakeCraftingStation
 
     public bool IsActive() => active;
 
-    public int GetLevel() => level;
+    public bool throwsOnLevel;
+
+    public int GetLevel() =>
+        throwsOnLevel ? throw new InvalidOperationException("GetLevel failed") : level;
 
     public int GetMinSelectedLevel() => minimumLevel;
 
@@ -815,7 +828,10 @@ internal class FakeQueueSlot
 
     public bool IsEmpty() => quantity <= 0;
 
-    public bool IsEngaged() => engaged;
+    public bool throwsOnEngaged;
+
+    public bool IsEngaged() =>
+        throwsOnEngaged ? throw new InvalidOperationException("IsEngaged failed") : engaged;
 
     public int GetActualQuantity() => quantity;
 
@@ -2095,7 +2111,9 @@ internal sealed class FakeHarvestElement
     public Guid GetGuid() => Identity;
     public bool IsVisible() => Visible;
     public bool IsAvailable() => Available;
-    public BigDouble MaximumNumberInstances() => new(MaximumAdditional);
+    public bool throwsOnMaximum;
+    public BigDouble MaximumNumberInstances() =>
+        throwsOnMaximum ? throw new InvalidOperationException("MaximumNumberInstances failed") : new(MaximumAdditional);
     public List<FakeHarvestActionInstance> GetActionInstances() => ActionInstances;
 }
 
@@ -2854,7 +2872,7 @@ internal sealed class FakeDiscoveryTree
     public bool visible = true;
     public bool immediateRequired;
     public FakeDiscoveryCostList nextItemCost = new();
-    public FakeRecipeBookListVariable? availableRecipeBooks;
+    public FakeRecipeBookListVariable? availableRecipeBooks = new();
 
     public Guid GetGuid() => Identity;
     public bool IsVisible() => visible;

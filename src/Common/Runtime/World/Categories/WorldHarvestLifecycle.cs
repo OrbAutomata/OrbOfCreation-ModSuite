@@ -176,9 +176,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
         if (frame is null) throw new ArgumentNullException(nameof(frame));
-        frame.HarvestElementControls.Reset();
-        frame.HarvestActionControls.Reset();
-        frame.HarvestLifecycleCosts.Reset();
+        ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
         var source = _registry.Read();
@@ -272,9 +270,17 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         catch (Exception exception) when (exception is ArgumentException or
             InvalidOperationException or OverflowException)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
                 "reading harvest lifecycle state threw: " + exception.GetBaseException().Message);
         }
+    }
+
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.HarvestElementControls.Reset();
+        frame.HarvestActionControls.Reset();
+        frame.HarvestLifecycleCosts.Reset();
     }
 
     private Dictionary<(Guid Element, Guid Action), object> BuildActive(IList? values)

@@ -131,6 +131,25 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
         Assert.Equal(0, frame.AlchemyUsageCosts.Count);
     }
 
+    /// <summary>
+    /// A throw on a later recipe withdraws the holdings already read, so no recipe reads as one
+    /// nothing holds because the read stopped before it.
+    /// </summary>
+    [Fact]
+    public void AThrowPartWayThroughWithdrawsTheRowsAlreadyRead()
+    {
+        Seed();
+        var manager = global::AlchemyManager.instance!;
+        manager.activeAlchemy.ThrowOnCanAddFor = manager.allAlchemy.value[2];
+
+        var frame = new GameWorldCycleFrame();
+        var report = new WorldAlchemyLoadoutReader(Resolve).Collect(new HashSet<Guid>(), frame);
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
+        Assert.Equal(0, frame.AlchemyLoadout.Count);
+        Assert.Equal(0, frame.AlchemyUsageCosts.Count);
+    }
+
     /// <summary>A manager the game has not created yet is named rather than read through.</summary>
     [Fact]
     public void AnAbsentManagerIsNamedRatherThanReadThrough()

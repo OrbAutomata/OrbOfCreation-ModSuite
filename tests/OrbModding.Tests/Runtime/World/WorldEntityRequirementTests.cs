@@ -371,6 +371,38 @@ public sealed class WorldEntityRequirementTests : IDisposable
         Assert.False(report.IsComplete);
     }
 
+    /// <summary>
+    /// An owner whose conditions threw is published as a gate nobody can evaluate, never as an
+    /// owner with no gate: a missing row reads as "nothing required".
+    /// </summary>
+    [Fact]
+    public void AnOwnerWhoseConditionsThrowPublishesAnUnknownRow()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = new global::UpgradeSO { ThrowOnGetGuid = true },
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+        });
+
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 1 };
+        var category = collector.Collect(frame).For("entity requirements");
+        var world = GameWorldFrameDeriver.Build(frame);
+
+        Assert.StartsWith("reading a per-level prerequisite threw: ", category.FirstFailure);
+        Assert.True(WorldEntityRequirementLookup.TryFindRange(
+            world.EntityRequirements, gated.GetGuid(), out var start, out var count));
+        var programs = new List<WorldRequirementProgramKind>();
+        for (var index = start; index < start + count; index++)
+        {
+            Assert.Equal(WorldRequirementConditionKind.Unknown, world.EntityRequirements[index].Kind);
+            Assert.Equal("UnreadableRequirements", world.EntityRequirements[index].ConditionTypeName);
+            programs.Add(world.EntityRequirements[index].Program);
+        }
+        Assert.Contains(WorldRequirementProgramKind.NextLevel, programs);
+    }
+
     [Fact]
     public void ACompositeNestedInsideACompositeIsOneBranchOfItsGroup()
     {
