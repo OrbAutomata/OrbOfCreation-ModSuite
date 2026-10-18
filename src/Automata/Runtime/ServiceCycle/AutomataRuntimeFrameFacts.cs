@@ -1,5 +1,6 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.Strategy;
@@ -22,10 +23,7 @@ internal sealed class AutomataRuntimeFrameFacts
         long acceptedFrameCount,
         long currentLifecycle,
         AutomataServiceFrameFacts[] services,
-        bool playerCraftingAvailable,
-        string playerCraftingUnavailableReason,
-        bool craftingInstancesAvailable,
-        string craftingInstancesUnavailableReason)
+        UnavailableGameAction[] unavailableGameActions)
     {
         World = world;
         StrategistBulletin = strategistBulletin;
@@ -34,10 +32,7 @@ internal sealed class AutomataRuntimeFrameFacts
         AcceptedFrameCount = acceptedFrameCount;
         CurrentLifecycle = currentLifecycle;
         Services = services;
-        PlayerCraftingAvailable = playerCraftingAvailable;
-        PlayerCraftingUnavailableReason = playerCraftingUnavailableReason ?? string.Empty;
-        CraftingInstancesAvailable = craftingInstancesAvailable;
-        CraftingInstancesUnavailableReason = craftingInstancesUnavailableReason ?? string.Empty;
+        UnavailableGameActions = unavailableGameActions;
     }
 
     internal WorldPublication<GameWorldState> World { get; }
@@ -47,19 +42,13 @@ internal sealed class AutomataRuntimeFrameFacts
     internal long AcceptedFrameCount { get; }
     internal long CurrentLifecycle { get; }
     internal AutomataServiceFrameFacts[] Services { get; }
-    internal bool PlayerCraftingAvailable { get; }
-    internal string PlayerCraftingUnavailableReason { get; }
-    internal bool CraftingInstancesAvailable { get; }
-    internal string CraftingInstancesUnavailableReason { get; }
+    internal UnavailableGameAction[] UnavailableGameActions { get; }
 
     internal static AutomataRuntimeFrameFacts Capture(
         AutomataServiceCycleHost host,
         ServiceConfigurationPublisher configuration,
         bool includeServices,
-        bool playerCraftingAvailable,
-        string playerCraftingUnavailableReason,
-        bool craftingInstancesAvailable,
-        string craftingInstancesUnavailableReason)
+        UnavailableGameAction[] unavailableGameActions)
     {
         if (host is null) throw new ArgumentNullException(nameof(host));
         if (configuration is null) throw new ArgumentNullException(nameof(configuration));
@@ -77,10 +66,7 @@ internal sealed class AutomataRuntimeFrameFacts
             diagnostics.AcceptedFrameCount,
             checked((long)host.CurrentLifecycle.Value),
             services,
-            playerCraftingAvailable,
-            playerCraftingUnavailableReason,
-            craftingInstancesAvailable,
-            craftingInstancesUnavailableReason);
+            unavailableGameActions);
     }
 
     private static AutomataServiceFrameFacts[] CaptureServices(

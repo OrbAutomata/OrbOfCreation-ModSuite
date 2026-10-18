@@ -30,7 +30,7 @@ internal sealed class AutoItemsServiceAdapterComposition
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
 #if SERVICE_CYCLE_PROFILE
-        gameActions.Add(new AutoItemsConsumablePlayerGameAction(
+        gameActions.Add("game_consumable", new AutoItemsConsumablePlayerGameAction(
             dependencies.RegistryResolver,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,

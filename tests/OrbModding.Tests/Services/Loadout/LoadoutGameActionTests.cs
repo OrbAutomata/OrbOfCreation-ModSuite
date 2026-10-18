@@ -353,13 +353,13 @@ public sealed class LoadoutGameActionTests : IDisposable
             new ManualLogSource(),
             actions =>
             {
-                equipmentChild = actions.Add(new EquipmentLoadoutGameAction(() => lifecycle,
+                equipmentChild = actions.Add("game_equipment", new EquipmentLoadoutGameAction(() => lifecycle,
                     static () => true, static () => "Equipment ownership unavailable", resolve,
                     id => !withheld || id != missingEquipment));
-                alchemyChild = actions.Add(new AlchemyLoadoutGameAction(() => lifecycle,
+                alchemyChild = actions.Add("game_alchemy", new AlchemyLoadoutGameAction(() => lifecycle,
                     static () => true, static () => "Alchemy ownership unavailable", resolve,
                     id => !withheld || id != missingAlchemy));
-                loadouts = actions.Add(new LoadoutGameAction(() => lifecycle, static () => true,
+                loadouts = actions.Add("game_loadout", new LoadoutGameAction(() => lifecycle, static () => true,
                     static () => "loadout ownership unavailable", equipmentChild, alchemyChild,
                     resolve));
             });

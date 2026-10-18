@@ -32,7 +32,7 @@ internal sealed class AutoScribeServiceAdapterComposition
             dependencies.TryCaptureMutationPermit,
             dependencies.ReadOwnershipFailure);
 #if SERVICE_CYCLE_PROFILE
-        gameActions.Add(new AutoScribeOneShotCraftPlayerGameAction(
+        gameActions.Add("game_craft", new AutoScribeOneShotCraftPlayerGameAction(
             dependencies.RegistryResolver,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
