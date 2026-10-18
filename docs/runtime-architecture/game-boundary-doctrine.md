@@ -261,7 +261,10 @@ and its lifecycle live in `Plugin.cs`.
 Composition registers each GameAction on the shell once, into the one `LifecycleGameActions` the
 runtime owns, whether the composition root or a feature builds it. That registration is its whole
 lifecycle wiring: the runtime rebinds every registered action in creation order after the features
-observe an accepted lifecycle, disposes them in reverse, and reaches each by its type.
+observe an accepted lifecycle, disposes them in reverse, and reaches each by its type. Its mutation
+permit and its ownership refusal come from the one family its MCP kind names in the
+`AutomataActionFamilyOwnership` table, the same entry that says what the MCP operation claims;
+naming the family once yields both, and the refusal sentence is derived from the family's members.
 
 Mutation entry points, in strict order of preference:
 

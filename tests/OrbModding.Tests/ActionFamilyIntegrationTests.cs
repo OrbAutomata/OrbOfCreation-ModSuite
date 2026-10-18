@@ -127,7 +127,7 @@ public sealed class ActionFamilyIntegrationTests
         ownership.Refresh(config.Current, lifecycleReady: true);
 
         Assert.True(ownership.OwnsHarvest);
-        Assert.True(ownership.TryCaptureHarvestMutationPermit());
+        Assert.True(ownership.Family(AutomataActionFamilyOwnership.Harvest).TryCapture());
 
         using var external = registry.RegisterKnownExternal(
             new ActionFamilyOwner(
@@ -136,7 +136,7 @@ public sealed class ActionFamilyIntegrationTests
             new[] { AutomationActionFamily.HarvestAction });
 
         Assert.False(ownership.OwnsHarvest);
-        Assert.False(ownership.TryCaptureHarvestMutationPermit());
+        Assert.False(ownership.Family(AutomataActionFamilyOwnership.Harvest).TryCapture());
     }
 
     [Fact]
@@ -155,8 +155,8 @@ public sealed class ActionFamilyIntegrationTests
         ownership.Refresh(config.Current, lifecycleReady: true);
 
         Assert.False(ownership.OwnsItems);
-        Assert.Contains("ConsumableUse", ownership.ItemsOwnershipFailure);
-        Assert.Contains("External Items", ownership.ItemsOwnershipFailure);
+        Assert.Contains("ConsumableUse", ownership.Family(AutomataActionFamilyOwnership.Items).Failure());
+        Assert.Contains("External Items", ownership.Family(AutomataActionFamilyOwnership.Items).Failure());
     }
 
     [Fact]
@@ -175,10 +175,10 @@ public sealed class ActionFamilyIntegrationTests
         ownership.Refresh(config.Current, lifecycleReady: true);
 
         Assert.False(ownership.OwnsItems);
-        Assert.False(ownership.TryCaptureItemMutationPermit());
+        Assert.False(ownership.Family(AutomataActionFamilyOwnership.Items).TryCapture());
         Assert.Contains(
             "Committed configuration no longer enables Auto Items",
-            ownership.ItemsOwnershipFailure);
+            ownership.Family(AutomataActionFamilyOwnership.Items).Failure());
         using var replacement = Claim(
             registry,
             new FeatureStatusKey("tests", "replacement-items"),
@@ -197,22 +197,95 @@ public sealed class ActionFamilyIntegrationTests
         ownership.Refresh(config.Current, lifecycleReady: true);
 
         Assert.True(ownership.OwnsScribe);
-        Assert.True(ownership.TryCaptureScribeMutationPermit());
+        Assert.True(ownership.Family(AutomataActionFamilyOwnership.Scribe).TryCapture());
 
         config.AutoScribeMode.Value = AutoScribeOperationMode.Disabled;
         ownership.Refresh(config.Current, lifecycleReady: true);
 
         Assert.False(ownership.OwnsScribe);
-        Assert.False(ownership.TryCaptureScribeMutationPermit());
+        Assert.False(ownership.Family(AutomataActionFamilyOwnership.Scribe).TryCapture());
         Assert.Contains(
             "Committed configuration no longer enables Auto Scribe",
-            ownership.ScribeOwnershipFailure);
+            ownership.Family(AutomataActionFamilyOwnership.Scribe).Failure());
         using var replacement = Claim(
             registry,
             new FeatureStatusKey("tests", "replacement-scribe"),
             AutomationActionFamily.CraftingQueueSubmission);
         Assert.True(replacement.IsHeld);
     }
+
+    [Fact]
+    public void A_feature_lease_revoked_before_the_next_refresh_refuses_with_its_family_sentence()
+    {
+        var harvestRegistry = new ActionFamilyOwnershipRegistry();
+        var harvestConfig = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        harvestConfig.AutoHarvestMode.Value = AutoHarvestOperationMode.Active;
+        using var harvest = new AutomataActionFamilyOwnership(harvestRegistry);
+        harvest.Refresh(harvestConfig.Current, lifecycleReady: true);
+        using var harvestExternal = External(harvestRegistry, AutomationActionFamily.HarvestAction);
+        Assert.False(harvest.Family(AutomataActionFamilyOwnership.Harvest).TryCapture());
+        Assert.Equal(
+            "The current MCP operation does not hold HarvestAction.",
+            harvest.Family(AutomataActionFamilyOwnership.Harvest).Failure());
+
+        var itemsRegistry = new ActionFamilyOwnershipRegistry();
+        var itemsConfig = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        itemsConfig.AutoItemsMode.Value = AutoItemsOperationMode.Active;
+        using var items = new AutomataActionFamilyOwnership(itemsRegistry);
+        items.Refresh(itemsConfig.Current, lifecycleReady: true);
+        Assert.True(items.Family(AutomataActionFamilyOwnership.Items).TryCapture());
+        using var itemsExternal = External(itemsRegistry, AutomationActionFamily.ConsumableUse);
+        Assert.False(items.Family(AutomataActionFamilyOwnership.Items).TryCapture());
+        Assert.Equal(
+            "Auto Items does not hold ConsumableUse and NativeMultiBuyOverride.",
+            items.Family(AutomataActionFamilyOwnership.Items).Failure());
+
+        var scribeRegistry = new ActionFamilyOwnershipRegistry();
+        var scribeConfig = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        scribeConfig.AutoItemsMode.Value = AutoItemsOperationMode.Active;
+        scribeConfig.AutoScribeMode.Value = AutoScribeOperationMode.Active;
+        using var scribe = new AutomataActionFamilyOwnership(scribeRegistry);
+        scribe.Refresh(scribeConfig.Current, lifecycleReady: true);
+        Assert.True(scribe.Family(AutomataActionFamilyOwnership.Scribe).TryCapture());
+        using var scribeExternal = External(scribeRegistry, AutomationActionFamily.CraftingQueueSubmission);
+        Assert.False(scribe.Family(AutomataActionFamilyOwnership.Scribe).TryCapture());
+        Assert.Equal(
+            "Auto Scribe does not hold CraftingQueueSubmission.",
+            scribe.Family(AutomataActionFamilyOwnership.Scribe).Failure());
+    }
+
+    [Fact]
+    public void Auto_items_names_its_own_claim_failure_before_the_multi_buy_one()
+    {
+        var registry = new ActionFamilyOwnershipRegistry();
+        var consumableExternal = External(registry, AutomationActionFamily.ConsumableUse);
+        using var multiBuyExternal = External(registry, AutomationActionFamily.NativeMultiBuyOverride);
+        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        config.AutoItemsMode.Value = AutoItemsOperationMode.Active;
+        using var ownership = new AutomataActionFamilyOwnership(registry);
+
+        ownership.Refresh(config.Current, lifecycleReady: true);
+        Assert.Equal(
+            "Automata Auto Items could not claim ConsumableUse; External ConsumableUse currently owns it.",
+            ownership.Family(AutomataActionFamilyOwnership.Items).Failure());
+
+        consumableExternal.Dispose();
+        ownership.Refresh(config.Current, lifecycleReady: true, frame: 60);
+        Assert.False(ownership.Family(AutomataActionFamilyOwnership.Items).TryCapture());
+        Assert.Equal(
+            "Automata Native Multi-Buy Scope could not claim NativeMultiBuyOverride; " +
+            "External NativeMultiBuyOverride currently owns it.",
+            ownership.Family(AutomataActionFamilyOwnership.Items).Failure());
+    }
+
+    private static IDisposable External(
+        ActionFamilyOwnershipRegistry registry,
+        AutomationActionFamily family) =>
+        registry.RegisterKnownExternal(
+            new ActionFamilyOwner(
+                new FeatureStatusKey("tests.external", family.ToString()),
+                "External " + family),
+            new[] { family });
 
     [Fact]
     public void MentorDomainClaimsAreIndependentAndReleaseOnLifecycleTeardown()

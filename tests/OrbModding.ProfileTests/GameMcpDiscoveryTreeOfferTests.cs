@@ -1164,10 +1164,10 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         using (scope)
         {
             Assert.True(ownership.OwnsDiscoveryTreeOffers);
-            Assert.True(ownership.TryCaptureDiscoveryTreeOfferMutationPermit());
+            Assert.True(ownership.Family(GameMcpCommandKind.DiscoveryTreeOffer).TryCapture());
         }
         Assert.False(ownership.OwnsDiscoveryTreeOffers);
-        Assert.False(ownership.TryCaptureDiscoveryTreeOfferMutationPermit());
+        Assert.False(ownership.Family(GameMcpCommandKind.DiscoveryTreeOffer).TryCapture());
     }
 
     [Fact]

@@ -639,15 +639,15 @@ public sealed class GameMcpSpellLoadoutTests
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile()).Current;
         using var ownership = new AutomataActionFamilyOwnership(registry);
         ownership.Refresh(configuration, lifecycleReady: true);
-        Assert.False(ownership.TryCaptureSpellLoadoutMutationPermit());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellLoadout).TryCapture());
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.SpellLoadout,
             "move",
             out var scope,
             out var reason), reason);
         using (scope)
-            Assert.True(ownership.TryCaptureSpellLoadoutMutationPermit());
-        Assert.False(ownership.TryCaptureSpellLoadoutMutationPermit());
+            Assert.True(ownership.Family(GameMcpCommandKind.SpellLoadout).TryCapture());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellLoadout).TryCapture());
     }
 
     private static GameMcpCommand Command(
