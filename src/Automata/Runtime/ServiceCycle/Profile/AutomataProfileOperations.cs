@@ -7,8 +7,8 @@ namespace OrbAutomata.Runtime.ServiceCycle.Profile;
 internal sealed class AutomataProfileOperations
 {
     private readonly ServiceCycleProfileProbe _probe;
-    private uint _stableIdReads;
-    private uint _listEntries;
+    private ulong _stableIdReads;
+    private ulong _listEntries;
     private bool _active;
     private bool _failed;
 
@@ -97,15 +97,9 @@ internal sealed class AutomataProfileOperations
         _failed = false;
     }
 
-    private void Add(ref uint value)
+    private void Add(ref ulong value)
     {
         if (!_active || _failed) return;
-        if (value == uint.MaxValue)
-        {
-            _failed = true;
-            _probe.Fail(ServiceCycleProfileProbeFault.OperationCounterExhausted);
-            return;
-        }
         value++;
     }
 }

@@ -64,44 +64,20 @@ internal readonly struct ServiceCycleProfileCalibration
 
 internal readonly struct ServiceCycleProfileOperations : IEquatable<ServiceCycleProfileOperations>
 {
-    internal ServiceCycleProfileOperations(
-        uint reflectedFieldReads,
-        uint reflectedMethodCalls,
-        uint stableIdReads,
-        uint listEntries,
-        uint invocationArgumentArrays,
-        uint recordCopies)
+    internal ServiceCycleProfileOperations(ulong stableIdReads, ulong listEntries)
     {
-        ReflectedFieldReads = reflectedFieldReads;
-        ReflectedMethodCalls = reflectedMethodCalls;
         StableIdReads = stableIdReads;
         ListEntries = listEntries;
-        InvocationArgumentArrays = invocationArgumentArrays;
-        RecordCopies = recordCopies;
     }
 
-    internal uint ReflectedFieldReads { get; }
-    internal uint ReflectedMethodCalls { get; }
-    internal uint StableIdReads { get; }
-    internal uint ListEntries { get; }
-    internal uint InvocationArgumentArrays { get; }
-    internal uint RecordCopies { get; }
+    internal ulong StableIdReads { get; }
+    internal ulong ListEntries { get; }
 
     public bool Equals(ServiceCycleProfileOperations other) =>
-        ReflectedFieldReads == other.ReflectedFieldReads &&
-        ReflectedMethodCalls == other.ReflectedMethodCalls &&
         StableIdReads == other.StableIdReads &&
-        ListEntries == other.ListEntries &&
-        InvocationArgumentArrays == other.InvocationArgumentArrays &&
-        RecordCopies == other.RecordCopies;
+        ListEntries == other.ListEntries;
 
     public override bool Equals(object? obj) => obj is ServiceCycleProfileOperations other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(
-        ReflectedFieldReads,
-        ReflectedMethodCalls,
-        StableIdReads,
-        ListEntries,
-        InvocationArgumentArrays,
-        RecordCopies);
+    public override int GetHashCode() => HashCode.Combine(StableIdReads, ListEntries);
 }
 #endif

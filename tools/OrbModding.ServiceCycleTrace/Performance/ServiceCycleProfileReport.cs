@@ -45,17 +45,13 @@ internal static class ServiceCycleProfileReport
 
     private static string Operations(in ServiceCycleProfileOperations value)
     {
-        var parts = new List<string>(8);
-        Add(parts, "fields", value.ReflectedFieldReads);
-        Add(parts, "methods", value.ReflectedMethodCalls);
+        var parts = new List<string>(2);
         Add(parts, "ids", value.StableIdReads);
         Add(parts, "entries", value.ListEntries);
-        Add(parts, "args", value.InvocationArgumentArrays);
-        Add(parts, "copies", value.RecordCopies);
         return parts.Count == 0 ? "-" : string.Join(", ", parts);
     }
 
-    private static void Add(List<string> parts, string name, uint value)
+    private static void Add(List<string> parts, string name, ulong value)
     {
         if (value != 0) parts.Add(name + "=" + value.ToString(CultureInfo.InvariantCulture));
     }

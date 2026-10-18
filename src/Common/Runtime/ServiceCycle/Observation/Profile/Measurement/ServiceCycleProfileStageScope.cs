@@ -23,18 +23,10 @@ internal ref struct ServiceCycleProfileStageScope
 
     internal bool IsActive => _measurement is not null;
 
-    internal void AddReflectedFieldReads(uint count = 1) =>
-        _operations.AddReflectedFieldReads(count);
-    internal void AddReflectedMethodCalls(uint count = 1) =>
-        _operations.AddReflectedMethodCalls(count);
-    internal void AddStableIdReads(uint count = 1) =>
+    internal void AddStableIdReads(ulong count = 1) =>
         _operations.AddStableIdReads(count);
-    internal void AddListEntries(uint count = 1) =>
+    internal void AddListEntries(ulong count = 1) =>
         _operations.AddListEntries(count);
-    internal void AddInvocationArgumentArrays(uint count = 1) =>
-        _operations.AddInvocationArgumentArrays(count);
-    internal void AddRecordCopies(uint count = 1) =>
-        _operations.AddRecordCopies(count);
 
     internal ServiceCycleProfileMeasurementResult Complete()
     {

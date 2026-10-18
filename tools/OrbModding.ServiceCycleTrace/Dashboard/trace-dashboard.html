@@ -375,7 +375,7 @@
       .map(x=>`<tr data-at="${x.offsetMilliseconds}"><td>${fmt(x.offsetMilliseconds/1000)} s</td><td>${esc(x.stage)}</td><td>${esc(ordinalName(x.service))}</td><td>${x.frame}</td><td>${x.cycle}</td><td>${esc(x.temperature)}</td><td>${fmt(x.elapsedMicroseconds)} µs</td><td>${x.allocatedBytes===null||x.allocatedBytes===undefined?'–':bytes(x.allocatedBytes)}</td><td>${operations(x.operations)}</td></tr>`).join('')
       ||'<tr><td colspan="9">No profiler capture in this session.</td></tr>';
   }
-  function operations(o){const names={reflectedFieldReads:'fields',reflectedMethodCalls:'methods',stableIdReads:'ids',listEntries:'entries',invocationArgumentArrays:'args',recordCopies:'copies'};return Object.entries(names).filter(([k])=>o[k]).map(([k,n])=>`${n}=${o[k]}`).join(', ')||'–'}
+  function operations(o){const names={stableIdReads:'ids',listEntries:'entries'};return Object.entries(names).filter(([k])=>o[k]).map(([k,n])=>`${n}=${o[k]}`).join(', ')||'–'}
   function showEvent(e){document.getElementById('selectedDetail').textContent=`${e.kind} at ${fmt(e.offsetMilliseconds/1000)} s\nService ${e.service||'-'}, lifecycle ${e.lifecycle||'-'}, world ${e.world||'-'}, capture ${e.capture||'-'}, cycle ${e.cycle||'-'}, batch ${e.batch||'-'}, action ${e.action||'-'}, frame ${e.framed?e.frame:'none'}\nDuration ${fmt(e.durationMilliseconds)} ms; code ${e.code}; disposition ${e.disposition}\nNative calls / mutation attempts / commits: ${e.nativeCallsAttempted} / ${e.mutationAttempts} / ${e.mutationsCommitted}`}
 
   function initialize(){

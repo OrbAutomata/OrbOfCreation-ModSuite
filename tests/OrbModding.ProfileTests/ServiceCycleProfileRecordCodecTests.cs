@@ -32,6 +32,10 @@ public sealed class ServiceCycleProfileRecordCodecTests
         Assert.Equal(expected.TotalAllocatedBytes, actual.TotalAllocatedBytes);
         Assert.Equal(expected.Temperature, actual.Temperature);
         Assert.Equal(expected.Operations, actual.Operations);
+        Assert.Equal((ushort)4, ServiceCycleProfileRecordCodec.SchemaVersion);
+        Assert.Equal(5_000_000_000UL, ServiceCycleProfileBinary.U64(bytes, 96));
+        Assert.Equal(6_000_000_001UL, ServiceCycleProfileBinary.U64(bytes, 104));
+        Assert.True(ServiceCycleProfileBinary.AllZero(bytes.AsSpan(112)));
     }
 
     [Fact]
@@ -50,7 +54,7 @@ public sealed class ServiceCycleProfileRecordCodecTests
     [Fact]
     public void AggregateRoundTripsSummaryAndOperationSignature()
     {
-        var operations = new ServiceCycleProfileOperations(1, 0, 3, 4, 0, 1);
+        var operations = new ServiceCycleProfileOperations(stableIdReads: 3, listEntries: 4);
         var expected = ServiceCycleProfileRecord.Aggregate(
             stageCode: 7,
             serviceOrdinal: 2,

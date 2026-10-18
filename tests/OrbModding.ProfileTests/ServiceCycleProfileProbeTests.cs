@@ -29,7 +29,7 @@ public sealed class ServiceCycleProfileProbeTests
         try
         {
             measurement.AddListEntries(3);
-            measurement.AddRecordCopies(2);
+            measurement.AddStableIdReads(2);
             Assert.Equal(ServiceCycleProfileMeasurementResult.Accepted, measurement.Complete());
         }
         finally
@@ -46,8 +46,8 @@ public sealed class ServiceCycleProfileProbeTests
         Assert.Equal((ulong)12, sample.Cycle);
         Assert.Equal((ulong)91, sample.Frame);
         Assert.Equal(ServiceCycleProfileTemperature.LifecycleRebind, sample.Temperature);
-        Assert.Equal((uint)3, sample.Operations.ListEntries);
-        Assert.Equal((uint)2, sample.Operations.RecordCopies);
+        Assert.Equal((ulong)3, sample.Operations.ListEntries);
+        Assert.Equal((ulong)2, sample.Operations.StableIdReads);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class ServiceCycleProfileProbeTests
         var measurement = probe.Begin(in context);
         try
         {
-            measurement.AddReflectedFieldReads();
+            measurement.AddListEntries();
             Assert.False(measurement.IsActive);
             Assert.Equal(ServiceCycleProfileMeasurementResult.Accepted, measurement.Complete());
         }
@@ -165,7 +165,7 @@ public sealed class ServiceCycleProfileProbeTests
         {
             try
             {
-                abandoned.AddRecordCopies();
+                abandoned.AddListEntries();
                 throw expected;
             }
             finally

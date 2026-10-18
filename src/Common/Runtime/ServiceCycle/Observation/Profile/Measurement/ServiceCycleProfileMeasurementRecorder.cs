@@ -108,8 +108,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             return ServiceCycleProfileMeasurementResult.Faulted;
         if (completedAllocatedBytes < token.AllocatedBytes)
             return FailResult(ServiceCycleProfileMeasurementFault.AllocationCounterRegressed);
-        if (!operations.TrySnapshot(out var snapshot))
-            return FailResult(ServiceCycleProfileMeasurementFault.OperationCounterExhausted);
+        var snapshot = operations.Snapshot();
 
         long elapsedRawTicks;
         long allocatedBytes;

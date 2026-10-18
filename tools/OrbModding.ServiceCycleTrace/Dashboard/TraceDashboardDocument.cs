@@ -218,10 +218,6 @@ internal sealed record TraceDashboardStageSample(
     TraceDashboardOperations Operations);
 
 internal sealed record TraceDashboardOperations(
-    uint ReflectedFieldReads,
-    uint ReflectedMethodCalls,
-    uint StableIdReads,
-    uint ListEntries,
-    uint InvocationArgumentArrays,
-    uint RecordCopies);
+    ulong StableIdReads,
+    ulong ListEntries);
 #endif

@@ -78,23 +78,9 @@ public sealed class ServiceCycleProfileMeasurementFailureTests
     }
 
     [Fact]
-    public void CounterOrAggregatorExhaustionInvalidatesRecorder()
+    public void AggregatorExhaustionInvalidatesRecorder()
     {
         var context = ServiceCycleProfileAggregatorTests.Context(stage: 1, lifecycle: 1);
-        var exhaustedCounters = new ServiceCycleProfileOperationCounters();
-        exhaustedCounters.AddListEntries(uint.MaxValue);
-        exhaustedCounters.AddListEntries();
-        var counterRecorder = ServiceCycleProfileMeasurementRecorderTests.Recorder(
-            new ScriptedProfileRawClock(1_000, new long[] { 100, 102, 110, 120 }),
-            UnavailableCounter());
-        Assert.True(counterRecorder.TryBegin(in context, out var token));
-        Assert.Equal(
-            ServiceCycleProfileMeasurementResult.Faulted,
-            counterRecorder.Complete(in token, in exhaustedCounters));
-        Assert.Equal(
-            ServiceCycleProfileMeasurementFault.OperationCounterExhausted,
-            counterRecorder.Fault);
-
         var capacityRecorder = ServiceCycleProfileMeasurementRecorderTests.Recorder(
             new ScriptedProfileRawClock(
                 1_000,
