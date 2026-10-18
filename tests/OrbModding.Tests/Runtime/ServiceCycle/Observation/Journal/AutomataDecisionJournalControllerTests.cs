@@ -21,6 +21,10 @@ public sealed class AutomataDecisionJournalControllerTests
 {
     private static readonly TimeSpan Deadline = ServiceCycleTestDeadline.Value;
 
+    /// <remarks>
+    /// The writer publishes a segment's records, then its bytes, then the segment itself, as separate
+    /// counters, so only the segment count says the others already include it.
+    /// </remarks>
     [Fact]
     public void ControllerRecordsAndPublishesTransportStatus()
     {
@@ -43,14 +47,14 @@ public sealed class AutomataDecisionJournalControllerTests
             () =>
             {
                 controller.Tick();
-                return status.Status.WrittenRecords > 0;
+                return status.Status.WrittenSegments > 0;
             },
-            "a durable journal record");
+            "a durable journal segment");
 
         Assert.Equal("journal", status.Status.ArtifactName);
         Assert.True(status.Status.AcceptedRecords > 0);
+        Assert.True(status.Status.WrittenRecords > 0);
         Assert.True(status.Status.BytesWritten > 0);
-        Assert.True(status.Status.WrittenSegments > 0);
         Assert.NotEmpty(storage.ReadRecords());
         Assert.Equal(1, source.CreateCount);
 
