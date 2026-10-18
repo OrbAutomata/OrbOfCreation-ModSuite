@@ -233,8 +233,7 @@ internal static class AutoHarvestProfileTestSupport
             in ServiceCycleProfileMeasurementToken token,
             in ServiceCycleProfileOperationCounters operations)
         {
-            Assert.True(operations.TrySnapshot(out var snapshot));
-            Completed.Add(new CapturedMeasurement(token.Context, snapshot));
+            Completed.Add(new CapturedMeasurement(token.Context, operations.Snapshot()));
             return ServiceCycleProfileMeasurementResult.Accepted;
         }
 

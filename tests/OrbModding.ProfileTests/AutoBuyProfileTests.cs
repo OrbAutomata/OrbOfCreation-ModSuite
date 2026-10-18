@@ -493,7 +493,6 @@ public sealed class AutoBuyProfileTests : IDisposable
         Assert.Equal(ServiceCycleProfileTemperature.Warm, item.Context.Temperature);
         Assert.Equal(stableIdReads, item.Operations.StableIdReads);
         Assert.Equal(listEntries, item.Operations.ListEntries);
-        Assert.Equal((uint)0, item.Operations.RecordCopies);
     }
 
     // The game registers every entity in IdScriptableObject.RuntimeLookup as well as its own list,

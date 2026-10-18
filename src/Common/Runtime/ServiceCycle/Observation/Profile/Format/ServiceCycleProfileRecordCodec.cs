@@ -5,7 +5,7 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Observation.Profile.Format;
 
 internal static class ServiceCycleProfileRecordCodec
 {
-    internal const ushort SchemaVersion = 3;
+    internal const ushort SchemaVersion = 4;
     internal const int RecordBytes = 144;
 
     internal static void Write(Span<byte> destination, in ServiceCycleProfileRecord record)
@@ -30,27 +30,19 @@ internal static class ServiceCycleProfileRecordCodec
         ServiceCycleProfileBinary.I64(output, 80, record.MaximumElapsedRawTicks);
         ServiceCycleProfileBinary.U64(output, 88, record.TotalAllocatedBytes);
         var operations = record.Operations;
-        ServiceCycleProfileBinary.U32(output, 96, operations.ReflectedFieldReads);
-        ServiceCycleProfileBinary.U32(output, 100, operations.ReflectedMethodCalls);
-        ServiceCycleProfileBinary.U32(output, 104, operations.StableIdReads);
-        ServiceCycleProfileBinary.U32(output, 108, operations.ListEntries);
-        ServiceCycleProfileBinary.U32(output, 112, operations.InvocationArgumentArrays);
-        ServiceCycleProfileBinary.U32(output, 116, operations.RecordCopies);
+        ServiceCycleProfileBinary.U64(output, 96, operations.StableIdReads);
+        ServiceCycleProfileBinary.U64(output, 104, operations.ListEntries);
     }
 
     internal static ServiceCycleProfileRecord Read(ReadOnlySpan<byte> source)
     {
-        if (source.Length != RecordBytes || !ServiceCycleProfileBinary.AllZero(source.Slice(120, 24)))
+        if (source.Length != RecordBytes || !ServiceCycleProfileBinary.AllZero(source.Slice(112, 32)))
             throw Invalid();
         try
         {
             var operations = new ServiceCycleProfileOperations(
-                ServiceCycleProfileBinary.U32(source, 96),
-                ServiceCycleProfileBinary.U32(source, 100),
-                ServiceCycleProfileBinary.U32(source, 104),
-                ServiceCycleProfileBinary.U32(source, 108),
-                ServiceCycleProfileBinary.U32(source, 112),
-                ServiceCycleProfileBinary.U32(source, 116));
+                ServiceCycleProfileBinary.U64(source, 96),
+                ServiceCycleProfileBinary.U64(source, 104));
             return new ServiceCycleProfileRecord(
                 (ServiceCycleProfileRecordKind)ServiceCycleProfileBinary.I32(source, 0),
                 ServiceCycleProfileBinary.I32(source, 4),

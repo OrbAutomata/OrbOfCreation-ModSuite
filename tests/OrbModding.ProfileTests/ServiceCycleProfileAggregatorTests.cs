@@ -197,13 +197,9 @@ public sealed class ServiceCycleProfileAggregatorTests
         in ServiceCycleProfileOperations operations) =>
         new(in context, startedAtRawTicks, elapsedRawTicks, allocatedBytes, in operations);
 
-    internal static ServiceCycleProfileOperations Operations(uint listEntries) => new(
-        reflectedFieldReads: 1,
-        reflectedMethodCalls: 2,
+    internal static ServiceCycleProfileOperations Operations(ulong listEntries) => new(
         stableIdReads: 3,
-        listEntries,
-        invocationArgumentArrays: 0,
-        recordCopies: 0);
+        listEntries);
 
     internal static void AssertAccepted(ServiceCycleProfileAggregationResult result) =>
         Assert.Equal(ServiceCycleProfileAggregationResult.Accepted, result);

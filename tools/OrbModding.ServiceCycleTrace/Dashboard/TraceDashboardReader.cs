@@ -697,12 +697,8 @@ internal static class TraceDashboardReader
     }
 
     private static TraceDashboardOperations Operations(in ServiceCycleProfileOperations value) => new(
-        value.ReflectedFieldReads,
-        value.ReflectedMethodCalls,
         value.StableIdReads,
-        value.ListEntries,
-        value.InvocationArgumentArrays,
-        value.RecordCopies);
+        value.ListEntries);
 
     private static long CalibratedTimestamp(long rawTimestamp, in ServiceCycleProfileCalibration calibration)
     {

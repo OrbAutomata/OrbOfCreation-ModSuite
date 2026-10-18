@@ -408,8 +408,8 @@ evidence, never inferred complete. Sessions publish as `session-{id}` directorie
 beside the full trace it correlates with.
 
 Records are tagged aggregates or sparse samples, both retaining a neutral numeric stage code, service
-ordinal, lifecycle temperature, raw tick range, allocation evidence, and the exact eight-counter
-operation signature. Impossible summaries and unknown tags fail closed. When allocation probing is
+ordinal, lifecycle temperature, raw tick range, allocation evidence, and the exact operation
+signature: the stage's stable-id reads and list entries, each a 64-bit count. Impossible summaries and unknown tags fail closed. When allocation probing is
 unavailable the session flag says so, every encoded allocation total must be zero, and reports must
 render `Unavailable` rather than measured zero.
 

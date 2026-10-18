@@ -36,12 +36,10 @@ internal readonly struct ServiceCycleProfileAggregateKey : IEquatable<ServiceCyc
         Mix(ref hash, unchecked((uint)Lifecycle));
         Mix(ref hash, unchecked((uint)(Lifecycle >> 32)));
         Mix(ref hash, checked((uint)Temperature));
-        Mix(ref hash, Operations.ReflectedFieldReads);
-        Mix(ref hash, Operations.ReflectedMethodCalls);
-        Mix(ref hash, Operations.StableIdReads);
-        Mix(ref hash, Operations.ListEntries);
-        Mix(ref hash, Operations.InvocationArgumentArrays);
-        Mix(ref hash, Operations.RecordCopies);
+        Mix(ref hash, unchecked((uint)Operations.StableIdReads));
+        Mix(ref hash, unchecked((uint)(Operations.StableIdReads >> 32)));
+        Mix(ref hash, unchecked((uint)Operations.ListEntries));
+        Mix(ref hash, unchecked((uint)(Operations.ListEntries >> 32)));
         return hash;
     }
 

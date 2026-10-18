@@ -14,7 +14,6 @@ internal enum ServiceCycleProfileProbeFault
     MeasurementPortRejected = 2,
     MeasurementPortFailed = 3,
     StageOverlapRejected = 4,
-    OperationCounterExhausted = 5,
 }
 
 internal enum ServiceCycleProfileMeasurementFault
@@ -26,7 +25,6 @@ internal enum ServiceCycleProfileMeasurementFault
     RawClockRegressed = 4,
     AllocationCounterFailed = 5,
     AllocationCounterRegressed = 6,
-    OperationCounterExhausted = 7,
     MeasurementArithmeticExhausted = 8,
     AggregationFailed = 9,
     AggregatorSealed = 10,
