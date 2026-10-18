@@ -9,8 +9,7 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
 public sealed class ServiceCycleSemanticTraceSource
 {
     private readonly ServiceCycleSemanticRecorder _recorder;
-    private bool _emissionFaulted;
-    private long _emissionFaultCount;
+    private string _emissionFaultCause = string.Empty;
 
     internal ServiceCycleSemanticTraceSource(ServiceCycleSemanticRecorder recorder) =>
         _recorder = recorder ?? throw new ArgumentNullException(nameof(recorder));
@@ -22,8 +21,13 @@ public sealed class ServiceCycleSemanticTraceSource
     public ulong OverwrittenTotal => _recorder.OverwrittenTotal;
     public ServiceCycleTraceDropRange OverwrittenRange => _recorder.OverwrittenRange;
     public ServiceCycleTraceCursor Cursor => _recorder.Cursor;
-    public bool EmissionFaulted => _emissionFaulted;
-    public long EmissionFaultCount => _emissionFaultCount;
+    public bool EmissionFaulted => _emissionFaultCause.Length != 0;
+
+    /// <summary>
+    /// What threw when the stream stopped recording, or empty while it still records. The first fault
+    /// isolates the stream for good, so there is only ever one.
+    /// </summary>
+    public string EmissionFaultCause => _emissionFaultCause;
 
     public ServiceCycleEventDrain DrainSince(
         ServiceCycleTraceCursor after,
@@ -36,9 +40,8 @@ public sealed class ServiceCycleSemanticTraceSource
 
     internal ServiceCycleSemanticRecorder Recorder => _recorder;
 
-    internal void RecordEmissionFault()
+    internal void RecordEmissionFault(Exception exception)
     {
-        _emissionFaulted = true;
-        if (_emissionFaultCount != long.MaxValue) _emissionFaultCount++;
+        if (_emissionFaultCause.Length == 0) _emissionFaultCause = ExceptionDetail.Describe(exception);
     }
 }
