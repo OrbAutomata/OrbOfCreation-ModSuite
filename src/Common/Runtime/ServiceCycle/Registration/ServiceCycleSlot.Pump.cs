@@ -31,21 +31,6 @@ internal sealed partial class ServiceCycleSlot<TState, TAction>
         MonotonicTimestamp now) =>
         CurrentRunner?.TryAcquireResponseNonBlocking(now) ?? default;
 
-    public bool TryAcquireResponseWithoutFacts(
-        MonotonicTimestamp now,
-        out BatchReceipt terminalReceipt)
-    {
-        var runner = CurrentRunner;
-        if (runner is null)
-        {
-            terminalReceipt = default;
-            return false;
-        }
-        return runner.TryAcquireResponseNonBlockingWithoutFacts(
-            now,
-            out terminalReceipt);
-    }
-
     public bool TryAdvancePendingMainOwnership(MonotonicTimestamp now) =>
         CurrentRunner?.TryAdvancePendingMainOwnership() ?? false;
 

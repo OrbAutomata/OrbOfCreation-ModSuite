@@ -31,7 +31,6 @@ internal interface IServiceCycleSlot : IDisposable
     StrategyGeneration LatestStrategy { get; }
     bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot);
     ServiceResponseAcquisition TryAcquireResponse(MonotonicTimestamp now);
-    bool TryAcquireResponseWithoutFacts(MonotonicTimestamp now, out BatchReceipt terminalReceipt);
     bool TryAdvancePendingMainOwnership(MonotonicTimestamp now);
     ServiceActionDispatch TryExecuteOne(
         MonotonicTimestamp now,
