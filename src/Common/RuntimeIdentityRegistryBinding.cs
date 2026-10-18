@@ -11,9 +11,11 @@ namespace OrbModding.Common;
 /// </summary>
 /// <remarks>
 /// Binding is lazy because the game assembly is not guaranteed to be loaded at plugin construction.
-/// Once the exact public declarations resolve, they are compiled once, and both mutation-grade typed
-/// resolution and the lifecycle identity catalog read through those same delegates. A shape mismatch
-/// is terminal for the current process; an unloaded type or null registry is merely not ready yet.
+/// Once the exact public declarations resolve, they are compiled and published as one immutable
+/// snapshot, and both mutation-grade typed resolution and the lifecycle identity catalog read through
+/// those same delegates. Threads that bind at the same time each publish a whole snapshot, so none
+/// reads a half-bound one. A shape mismatch is terminal for the current process; an unloaded type or
+/// null registry is merely not ready yet.
 /// </remarks>
 internal sealed class RuntimeIdentityRegistryBinding
 {
@@ -21,13 +23,11 @@ internal sealed class RuntimeIdentityRegistryBinding
         BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly;
     private const BindingFlags InstanceFlags =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly;
+    private const string TypeNotLoaded = "native IdScriptableObject type is not loaded yet";
 
     private readonly Func<Type?> _resolveIdentityType;
     private readonly bool _requireStableIdentityContract;
-    private Func<IDictionary?>? _runtimeLookup;
-    private MethodInfo? _getGuidMethod;
-    private Func<object, Guid>? _getGuid;
-    private string? _contractFailure;
+    private volatile Bound? _bound;
 
     internal RuntimeIdentityRegistryBinding(
         Func<Type?>? resolveIdentityType = null,
@@ -42,37 +42,11 @@ internal sealed class RuntimeIdentityRegistryBinding
 
     internal TypedRegistrySourceSnapshot Read()
     {
-        if (_contractFailure is not null)
-            return TypedRegistrySourceSnapshot.ContractUnavailable(_contractFailure);
-        if (_runtimeLookup is null)
-        {
-            var idType = _resolveIdentityType();
-            if (idType is null)
-                return TypedRegistrySourceSnapshot.NotReady(
-                    "native IdScriptableObject type is not loaded yet");
+        var bound = _bound ?? Bind();
+        if (bound is null) return TypedRegistrySourceSnapshot.NotReady(TypeNotLoaded);
+        if (bound.ContractFailure is { } failure) return TypedRegistrySourceSnapshot.ContractUnavailable(failure);
 
-            var lookup = idType.GetField("RuntimeLookup", StaticFlags);
-            var getGuid = _requireStableIdentityContract
-                ? idType.GetMethod("GetGuid", InstanceFlags, null, Type.EmptyTypes, null)
-                : null;
-            if (!HasRuntimeLookupContract(
-                    lookup, idType, _requireStableIdentityContract) ||
-                (_requireStableIdentityContract &&
-                 !HasExactGetGuidContract(getGuid, idType)))
-            {
-                _contractFailure = _requireStableIdentityContract
-                    ? "native public IdScriptableObject.RuntimeLookup/GetGuid contract is unavailable"
-                    : "native public identity RuntimeLookup dictionary contract is unavailable";
-                return TypedRegistrySourceSnapshot.ContractUnavailable(_contractFailure);
-            }
-
-            _getGuidMethod = getGuid;
-            _getGuid = getGuid is null ? null : Compile(getGuid);
-            _runtimeLookup = Expression.Lambda<Func<IDictionary?>>(
-                Expression.Convert(Expression.Field(null, lookup!), typeof(IDictionary))).Compile();
-        }
-
-        return _runtimeLookup() is { } registry
+        return bound.RuntimeLookup!() is { } registry
             ? TypedRegistrySourceSnapshot.Ready(registry)
             : TypedRegistrySourceSnapshot.NotReady(
                 "native IdScriptableObject.RuntimeLookup is not ready");
@@ -81,16 +55,11 @@ internal sealed class RuntimeIdentityRegistryBinding
     internal Guid ReadStableUuid(object value)
     {
         if (value is null) throw new ArgumentNullException(nameof(value));
-        if (_getGuid is null)
-        {
-            var source = Read();
-            if (_getGuid is null)
-                throw new InvalidOperationException(_requireStableIdentityContract
-                    ? source.Reason
-                    : "this identity binding does not read IdScriptableObject.GetGuid");
-        }
-
-        return _getGuid(value);
+        var bound = _bound ?? Bind();
+        if (bound?.GetGuid is { } getGuid) return getGuid(value);
+        throw new InvalidOperationException(_requireStableIdentityContract
+            ? bound?.ContractFailure ?? TypeNotLoaded
+            : "this identity binding does not read IdScriptableObject.GetGuid");
     }
 
     /// <summary>
@@ -99,9 +68,9 @@ internal sealed class RuntimeIdentityRegistryBinding
     /// </summary>
     internal Func<object, Guid>? StableUuid(Type type)
     {
-        var method = StableUuidMethod(type);
+        var method = StableUuidMethod(type, out var bound);
         if (method is null) return null;
-        return method == _getGuidMethod ? _getGuid : Compile(method);
+        return bound is not null && method == bound.GetGuidMethod ? bound.GetGuid : Compile(method);
     }
 
     /// <summary>
@@ -113,16 +82,49 @@ internal sealed class RuntimeIdentityRegistryBinding
     /// <c>ConsumableUsage</c> and <c>PlayerLoadout</c>, declare their own exact <c>GetGuid()</c>.
     /// Anything else, or anything while the game's identity type is not loaded, has no identity to read.
     /// </remarks>
-    internal MethodInfo? StableUuidMethod(Type type)
+    internal MethodInfo? StableUuidMethod(Type type) => StableUuidMethod(type, out _);
+
+    private MethodInfo? StableUuidMethod(Type type, out Bound? bound)
     {
         if (type is null) throw new ArgumentNullException(nameof(type));
+        bound = null;
         var method = type.GetMethod(
             "GetGuid", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
         var identityType = _resolveIdentityType();
         if (method is null || method.ReturnType != typeof(Guid) || identityType is null) return null;
         if (method.DeclaringType != identityType) return method;
-        if (_getGuidMethod is null) Read();
-        return _getGuidMethod;
+        bound = _bound ?? Bind();
+        return bound?.GetGuidMethod;
+    }
+
+    private Bound? Bind()
+    {
+        var idType = _resolveIdentityType();
+        if (idType is null) return null;
+
+        var lookup = idType.GetField("RuntimeLookup", StaticFlags);
+        var getGuid = _requireStableIdentityContract
+            ? idType.GetMethod("GetGuid", InstanceFlags, null, Type.EmptyTypes, null)
+            : null;
+        Bound bound;
+        if (!HasRuntimeLookupContract(lookup, idType, _requireStableIdentityContract) ||
+            (_requireStableIdentityContract && !HasExactGetGuidContract(getGuid, idType)))
+        {
+            bound = new Bound(_requireStableIdentityContract
+                ? "native public IdScriptableObject.RuntimeLookup/GetGuid contract is unavailable"
+                : "native public identity RuntimeLookup dictionary contract is unavailable");
+        }
+        else
+        {
+            bound = new Bound(
+                getGuid,
+                getGuid is null ? null : Compile(getGuid),
+                Expression.Lambda<Func<IDictionary?>>(
+                    Expression.Convert(Expression.Field(null, lookup!), typeof(IDictionary))).Compile());
+        }
+
+        _bound = bound;
+        return bound;
     }
 
     private static Func<object, Guid> Compile(MethodInfo getGuid)
@@ -160,4 +162,24 @@ internal sealed class RuntimeIdentityRegistryBinding
         !method.IsStatic &&
         method.ReturnType == typeof(Guid) &&
         method.GetParameters().Length == 0;
+
+    private sealed class Bound
+    {
+        internal Bound(string contractFailure) => ContractFailure = contractFailure;
+
+        internal Bound(
+            MethodInfo? getGuidMethod,
+            Func<object, Guid>? getGuid,
+            Func<IDictionary?> runtimeLookup)
+        {
+            GetGuidMethod = getGuidMethod;
+            GetGuid = getGuid;
+            RuntimeLookup = runtimeLookup;
+        }
+
+        internal string? ContractFailure { get; }
+        internal MethodInfo? GetGuidMethod { get; }
+        internal Func<object, Guid>? GetGuid { get; }
+        internal Func<IDictionary?>? RuntimeLookup { get; }
+    }
 }

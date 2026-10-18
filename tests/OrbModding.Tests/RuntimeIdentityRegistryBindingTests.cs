@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using OrbModding.Common;
 using Xunit;
 
@@ -70,6 +71,40 @@ public sealed class RuntimeIdentityRegistryBindingTests
 
         Assert.Equal(usage.Id, method?.Invoke(usage, null));
         Assert.Null(binding.StableUuidMethod(typeof(object)));
+    }
+
+    /// <summary>
+    /// The first identity bind can happen on two threads at once, as when parallel tests or a
+    /// binder and a world read meet the shared binding. A thread arriving mid-bind either finishes
+    /// the bind itself or sees it whole; it never sees GetGuid bound without its compiled read.
+    /// </summary>
+    [Fact]
+    public void AConcurrentFirstBindNeverAnswersAHalfBoundIdentity()
+    {
+        var halfBound = 0;
+        for (var attempt = 0; attempt < 2000; attempt++)
+        {
+            var binding = new RuntimeIdentityRegistryBinding();
+            using var start = new Barrier(2);
+            Func<object, Guid>? read = null;
+            var binder = new Thread(() =>
+            {
+                start.SignalAndWait();
+                binding.Read();
+            });
+            var reader = new Thread(() =>
+            {
+                start.SignalAndWait();
+                read = binding.StableUuid(typeof(PlotNodeSO));
+            });
+            binder.Start();
+            reader.Start();
+            binder.Join();
+            reader.Join();
+            if (read is null) halfBound++;
+        }
+
+        Assert.Equal(0, halfBound);
     }
 
     [Fact]
