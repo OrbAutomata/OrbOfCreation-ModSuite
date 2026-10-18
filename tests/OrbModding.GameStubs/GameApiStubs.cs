@@ -3242,7 +3242,7 @@ public sealed class EquipmentManager
     public EquipmentListVariable allEquipment = new EquipmentListVariable { Maximum = int.MaxValue };
     public EquipmentListVariable equippedEquipment = new EquipmentListVariable();
     public bool SuppressMutation { get; set; }
-    public bool ThrowBeforeMutation { get; set; }
+    public Exception? ThrowBeforeMutation { get; set; }
     public bool ThrowAfterMutation { get; set; }
     public bool ThrowAfterMutationWithoutReadablePostState { get; set; }
     public int EquipCalls { get; private set; }
@@ -3251,7 +3251,7 @@ public sealed class EquipmentManager
     public void EquipItem(EquipmentSO equipment)
     {
         EquipCalls++;
-        if (ThrowBeforeMutation) throw new InvalidOperationException("injected equip failure before mutation");
+        if (ThrowBeforeMutation is { } equipFailure) throw equipFailure;
         var cost = equipment.GetUsageCost();
         if (!cost.HasEnough() ||
             (!equippedEquipment.value.Contains(equipment) && equippedEquipment.IsAtMax())) return;
@@ -3276,7 +3276,7 @@ public sealed class EquipmentManager
     public void UnEquipItem(EquipmentSO equipment)
     {
         UnEquipCalls++;
-        if (ThrowBeforeMutation) throw new InvalidOperationException("injected unequip failure before mutation");
+        if (ThrowBeforeMutation is { } unequipFailure) throw unequipFailure;
         if (!equipment.IsEquipped()) return;
         var amount = Math.Min(GlobalVariables.GetMultiBuy().AsInt(), equippedEquipment.GetStacks(equipment));
         if (!SuppressMutation && amount > 0)

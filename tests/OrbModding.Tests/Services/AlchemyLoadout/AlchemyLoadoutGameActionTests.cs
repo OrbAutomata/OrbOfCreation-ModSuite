@@ -131,6 +131,22 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var recipe = OrdinaryRecipe(5);
+        Register(recipe);
+        AlchemyManager.instance!.allAlchemy.value.Add(recipe);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, recipe, AlchemyLoadoutActionKind.Add);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Empty(AlchemyManager.instance.activeAlchemy.value);
+    }
+
+    [Fact]
     public void Unity_thread_is_refused_before_identity_or_native_state()
     {
         var recipe = OrdinaryRecipe(5);
@@ -154,12 +170,14 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         }
     }
 
-    private AlchemyLoadoutGameAction Boundary(Func<string, bool>? includeContract = null)
+    private AlchemyLoadoutGameAction Boundary(Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null)
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
+        var readEpoch = epoch ?? (() => Epoch);
+        var resolver = new TypedRegistryResolver(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
-        return new AlchemyLoadoutGameAction(() => Epoch, static () => true,
+        return new AlchemyLoadoutGameAction(readEpoch, static () => true,
             static () => "AlchemyLoadout ownership was revoked.",
             includeContract: includeContract, registry: resolver,
             classifier: new AlchemyGameplayDomainClassifier(resolver));

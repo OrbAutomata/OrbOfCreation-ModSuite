@@ -1,120 +1,74 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-internal sealed class ResearchGameAction : IDisposable
+internal sealed class ResearchGameAction : NativeGameAction<ResearchNativeBindings>
 {
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly Func<string, Type?>? _resolveType;
-    private readonly Func<string, bool>? _includeContract;
+    private const string Screen = "Scholar > Research";
+
+    private static readonly GameActionCodes Codes = new(
+        ResearchActionResultCodes.WrongThread,
+        ResearchActionResultCodes.ContractUnavailable,
+        ResearchActionResultCodes.MutationPermitUnavailable,
+        ResearchActionResultCodes.PostCommitFault,
+        ResearchActionResultCodes.VerificationFailed);
+
     private readonly TypedRegistryResolver _registry;
-    private readonly int _mainThreadId;
-    private ResearchNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal ResearchGameAction(Func<long> readLifecycleEpoch,
         Func<bool> tryCaptureMutationPermit, Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null, Func<string, bool>? includeContract = null,
         TypedRegistryResolver? registry = null)
+        : base("Research", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readOwnershipFailure,
+            (out ResearchNativeBindings? bindings, out string reason) =>
+                ResearchNativeBindings.TryCreate(
+                    out bindings, out reason, resolveType, includeContract))
     {
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ?? throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ?? throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _resolveType = resolveType; _includeContract = includeContract;
-        var identity = RuntimeIdentityRegistryBinding.Shared;
-        _registry = registry ?? new TypedRegistryResolver(_readLifecycleEpoch, identity.Read, identity.ReadStableUuid);
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
+        _registry = registry ?? TypedRegistryResolver.Shared;
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal ResearchSubmission Submit(in ResearchAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return ResearchSubmission.Reject(ResearchActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        if (_bindings is not { } native)
-            return ResearchSubmission.Reject(ResearchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Research", _bindingFailure));
-        long epoch;
-        try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return ResearchSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.CouldNotRead("Scholar > Research", exception));
-        }
-        if (action.LifecycleEpoch != epoch)
-            return ResearchSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-        try
-        {
-            var resolution = _registry.Resolve(action.TargetId, native.ResearchType);
-            if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return ResearchSubmission.Reject(ResearchActionResultCodes.IdentityUnavailable,
-                    resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Reason);
-            var target = resolution.Value!;
-            var before = Capture(native, target, action.Amount);
-            var preflight = Preflight(action.Kind, in before, out var reason);
-            if (preflight != CommonActionResultCodes.Committed)
-                return ResearchSubmission.Reject(
-                    preflight,
-                    reason,
-                    preflight == ResearchActionResultCodes.AmountUnavailable
-                        ? before.LevelsAvailable
-                        : -1);
-            if (!_tryCaptureMutationPermit())
-                return ResearchSubmission.Reject(ResearchActionResultCodes.MutationPermitUnavailable,
-                    _readOwnershipFailure());
-            if (action.Kind != ResearchActionKind.Develop)
-                return Execute(in action, native, target, in before);
-            if (!NativeMultiBuyScope.TryEnter(action.Amount, out var scope, out var scopeReason))
-                return ResearchSubmission.Reject(ResearchActionResultCodes.MultiBuyUnavailable,
-                    "The requested research amount could not be applied: " + scopeReason);
-            using (scope)
-                return Execute(in action, native, target, in before);
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return ResearchSubmission.Reject(ResearchActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Research", exception));
-        }
+        var request = action;
+        return Admit(action.LifecycleEpoch, static outcome => new ResearchSubmission(outcome),
+            native => Press(in request, native));
     }
 
-    internal void InvalidateLifecycle()
-    { _bindings = null; _bindingFailure = string.Empty; BindLifecycle(); }
-
-    public void Dispose()
-    { _bindings = null; _bindingFailure = string.Empty; }
-
-    private ResearchSubmission Execute(in ResearchAction action, ResearchNativeBindings native,
-        object target, in ResearchAdmissionState before)
+    private ResearchSubmission Press(in ResearchAction action, ResearchNativeBindings native)
     {
-        var stage = "NativeCallback";
-        try
-        {
-            Invoke(action.Kind, native, target);
-            stage = "Verification";
-            return OutcomeLanded(action.Kind, native, target, in before)
-                ? Verified()
-                : Fault(in action, ResearchActionResultCodes.VerificationFailed, stage,
-                    NativeMutationOutcome.PostconditionFailed,
-                    "The exact research target did not make the requested state transition.");
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            if (OutcomeLandedBestEffort(action.Kind, native, target, in before))
-                return Verified();
-            return Fault(in action, ResearchActionResultCodes.PostCommitFault, stage,
-                NativeMutationOutcome.ExecutionThrew,
-                GameActionAnswer.GameErrored("Scholar > Research", exception));
-        }
+        var resolution = _registry.Resolve(action.TargetId, native.ResearchType);
+        if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
+            return ResearchSubmission.Reject(ResearchActionResultCodes.IdentityUnavailable,
+                resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Reason);
+        var target = resolution.Value!;
+        var before = Capture(native, target, action.Amount);
+        var preflight = Preflight(action.Kind, in before, out var reason);
+        if (preflight != CommonActionResultCodes.Committed)
+            return ResearchSubmission.Reject(
+                preflight,
+                reason,
+                preflight == ResearchActionResultCodes.AmountUnavailable
+                    ? before.LevelsAvailable
+                    : -1);
+        if (!TryPermit(out var refusal)) return new ResearchSubmission(refusal);
+        var kind = action.Kind;
+        NativeMultiBuyScope? scope = null;
+        if (kind == ResearchActionKind.Develop &&
+            !NativeMultiBuyScope.TryEnter(action.Amount, out scope, out var scopeReason))
+            return ResearchSubmission.Reject(ResearchActionResultCodes.MultiBuyUnavailable,
+                "The requested research amount could not be applied: " + scopeReason);
+
+        return new ResearchSubmission(Execute(EntityIdentityFormatter.PlayerName(action.TargetId),
+            "The requested research transition is visible.", false,
+            () => OutcomeLanded(kind, native, target, in before),
+            () =>
+            {
+                using (scope) Invoke(kind, native, target);
+            },
+            static (_, landed) => landed));
     }
 
     /// <summary>
@@ -308,33 +262,4 @@ internal sealed class ResearchGameAction : IDisposable
             native.SelfBonusLevels(target) == checked(before.SelfBonusLevels + 1),
         _ => false,
     };
-
-    private static bool OutcomeLandedBestEffort(ResearchActionKind kind,
-        ResearchNativeBindings native, object target, in ResearchAdmissionState before)
-    {
-        try { return OutcomeLanded(kind, native, target, in before); }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception)) { return false; }
-    }
-
-    private static ResearchSubmission Verified() =>
-        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
-            "The requested research transition is visible."));
-
-    private static ResearchSubmission Fault(in ResearchAction action, ServiceActionResultCode code,
-        string stage, NativeMutationOutcome outcome,
-        string reason)
-    {
-        var exactReason = "Research " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
-        return new ResearchSubmission(NativeActionOutcome.Fault(code, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason));
-    }
-
-    private void BindLifecycle()
-    {
-        if (ResearchNativeBindings.TryCreate(out var bindings, out var reason, _resolveType, _includeContract))
-        { _bindings = bindings; _bindingFailure = string.Empty; return; }
-        _bindings = null; _bindingFailure = reason;
-    }
-
 }

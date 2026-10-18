@@ -265,6 +265,71 @@ public sealed class LoadoutGameActionTests : IDisposable
     }
 
     [Fact]
+    public void A_snapshot_clear_the_game_did_not_apply_names_the_owner_the_player_knows()
+    {
+        var equipment = Equipment("Ward", 1);
+        var owner = new EquipmentSnapshotListVariable();
+        owner.SetGuid(Guid.NewGuid());
+        var slot = new EquipmentSnapshot { SuppressClear = true };
+        var saved = new Stacked.StackedIdRecord<EquipmentSO>();
+        saved.Set(equipment, 1);
+        slot.SaveSnapshot(saved);
+        owner.value.Add(slot);
+        LoadoutManager.instance.equipmentLoadouts = owner;
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Bound(Epoch, new[]
+        {
+            new EntityIdentityName(owner.GetGuid(), "EquipmentSnapshotListVariable",
+                "Equipment Loadouts", "EquipmentSnapshotLoadouts"),
+        }));
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotClear, slot: 0);
+
+        Assert.Equal(LoadoutActionResultCodes.VerificationFailed, result.Outcome.Code);
+        Assert.Contains("failed on Equipment Loadouts:", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain(owner.GetGuid().ToString("D"), result.Outcome.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_snapshot_load_without_the_artifact_binding_names_the_screen_it_could_not_attach_to()
+    {
+        var equipment = Equipment("Ward", 1);
+        var owner = new EquipmentSnapshotListVariable();
+        owner.SetGuid(Guid.NewGuid());
+        var slot = new EquipmentSnapshot();
+        var saved = new Stacked.StackedIdRecord<EquipmentSO>();
+        saved.Set(equipment, 1);
+        slot.SaveSnapshot(saved);
+        owner.value.Add(slot);
+        LoadoutManager.instance.equipmentLoadouts = owner;
+        var missing = EquipmentLoadoutNativeBindings.ContractIds.First();
+        using var boundary = Boundary(includeEquipment: id => id != missing);
+
+        var result = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotLoad, slot: 0);
+
+        Assert.Equal(LoadoutActionResultCodes.EntryUnavailable, result.Outcome.Code);
+        Assert.StartsWith("The suite could not attach to Workshop > Artifacts", result.Outcome.Reason,
+            StringComparison.Ordinal);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, LoadoutManager.instance.activeEquipment.GetStacks(equipment));
+    }
+
+    [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Player("Current", selected: true);
+        LoadoutManager.instance.playerLoadouts.value.Add(target);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.NextIcon);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(LoadoutActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, target.GetLabel().GetIconIndex());
+    }
+
+    [Fact]
     public void OffThreadSubmissionRefusesBeforeNativeState()
     {
         var target = Player("Current", selected: true);
@@ -289,15 +354,17 @@ public sealed class LoadoutGameActionTests : IDisposable
         }
     }
 
-    private static LoadoutGameAction Boundary(Func<string, bool>? include = null)
+    private static LoadoutGameAction Boundary(Func<string, bool>? include = null,
+        Func<long>? epoch = null, Func<string, bool>? includeEquipment = null)
     {
+        var readEpoch = epoch ?? (() => Epoch);
         var resolve = new Func<string, Type?>(name => typeof(LoadoutManager).Assembly.GetTypes()
             .FirstOrDefault(type => type.Name == name || type.FullName == name));
-        var equipment = new EquipmentLoadoutGameAction(() => Epoch, static () => true,
-            static () => "Equipment ownership unavailable", resolve);
-        var alchemy = new AlchemyLoadoutGameAction(() => Epoch, static () => true,
+        var equipment = new EquipmentLoadoutGameAction(readEpoch, static () => true,
+            static () => "Equipment ownership unavailable", resolve, includeEquipment);
+        var alchemy = new AlchemyLoadoutGameAction(readEpoch, static () => true,
             static () => "Alchemy ownership unavailable", resolve);
-        var result = new LoadoutGameAction(() => Epoch, static () => true,
+        var result = new LoadoutGameAction(readEpoch, static () => true,
             static () => "loadout ownership unavailable", equipment, alchemy,
             resolve, include);
         if (include is null) Assert.True(result.BindingsAvailable, result.BindingFailure);

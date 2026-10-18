@@ -233,13 +233,13 @@ declares:
   fails, and, for automation consumers only, what quarantines.
 
 `NativeGameAction` in Common is the shell a GameAction derives from; the action supplies only its
-binding factory, screen, admission, native call and sentinel. The shell answers in a fixed order:
-the wrong thread, then a missing binding set, then the run. An epoch the game cannot answer is a
-fault, never a replaced run. An expected throw during admission is a refusal, because nothing was
-sent. The native call goes through `NativeMutationVerifier`: a visible outcome commits, a missing
-one is a verification fault, and an expected throw or an unreadable after-state is a post-commit
-fault that names the game's error by its log reference. A GameAction not yet on the shell is
-migration debt.
+binding factory, screen, admission, native call and sentinel. The shell answers in a fixed order,
+for presses and for the reads another GameAction makes through it alike: the wrong thread, then a
+missing binding set, then the run. An epoch the game cannot answer is a fault, never a replaced
+run. An expected throw during admission is a refusal, because nothing was sent. The native call
+goes through `NativeMutationVerifier`: a visible outcome commits, a missing one is a verification
+fault, and an expected throw or an unreadable after-state is a post-commit fault that names the
+game's error by its log reference. A GameAction not yet on the shell is migration debt.
 
 Mutation entry points, in strict order of preference:
 

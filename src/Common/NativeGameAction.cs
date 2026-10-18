@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common;
@@ -55,12 +56,25 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
 
     protected Func<long> ReadLifecycleEpoch { get; }
 
-    internal void InvalidateLifecycle() => BindLifecycle();
+    internal void InvalidateLifecycle()
+    {
+        OnInvalidate();
+        BindLifecycle();
+    }
 
     public void Dispose()
     {
+        OnInvalidate();
         _bindings = null;
         _bindingFailure = string.Empty;
+    }
+
+    /// <summary>
+    /// Drops lifecycle-scoped state the feature owns beside its bindings, on invalidate and on
+    /// dispose alike.
+    /// </summary>
+    protected virtual void OnInvalidate()
+    {
     }
 
     protected NativeActionOutcome Admit(
@@ -80,25 +94,7 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
         Func<NativeActionOutcome, TSubmission> answer,
         Func<TBindings, TSubmission> admission)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return answer(NativeActionOutcome.Reject(_codes.WrongThread, GameActionAnswer.SuiteStopped()));
-        if (_bindings is not { } native)
-            return answer(NativeActionOutcome.Reject(_codes.ContractUnavailable,
-                GameActionAnswer.NotAttached(_screen, _bindingFailure)));
-        long epoch;
-        try
-        {
-            epoch = ReadLifecycleEpoch();
-        }
-        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-        {
-            return answer(NativeActionOutcome.FaultBeforeCall(_codes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead(_screen, exception)));
-        }
-        if (plannedEpoch != epoch)
-            return answer(NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged()));
-
+        if (!TryEnter(plannedEpoch, out var native, out var refusal)) return answer(refusal);
         try
         {
             return admission(native);
@@ -108,6 +104,49 @@ internal abstract class NativeGameAction<TBindings> : IDisposable
             return answer(NativeActionOutcome.Reject(_codes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead(_screen, exception)));
         }
+    }
+
+    /// <summary>
+    /// The prologue every entry point shares, admission and read alike: the Unity main thread,
+    /// this lifecycle's bindings, and the run the caller planned for.
+    /// </summary>
+    protected bool TryEnter(
+        long plannedEpoch,
+        [NotNullWhen(true)] out TBindings? bindings,
+        out NativeActionOutcome refusal)
+    {
+        bindings = null;
+        if (Environment.CurrentManagedThreadId != _mainThreadId)
+        {
+            refusal = NativeActionOutcome.Reject(_codes.WrongThread, GameActionAnswer.SuiteStopped());
+            return false;
+        }
+        if (_bindings is not { } native)
+        {
+            refusal = NativeActionOutcome.Reject(_codes.ContractUnavailable,
+                GameActionAnswer.NotAttached(_screen, _bindingFailure));
+            return false;
+        }
+        long epoch;
+        try
+        {
+            epoch = ReadLifecycleEpoch();
+        }
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+        {
+            refusal = NativeActionOutcome.FaultBeforeCall(_codes.ContractUnavailable,
+                GameActionAnswer.CouldNotRead(_screen, exception));
+            return false;
+        }
+        if (plannedEpoch != epoch)
+        {
+            refusal = NativeActionOutcome.Reject(CommonActionResultCodes.LifecycleReplaced,
+                GameActionAnswer.RunChanged());
+            return false;
+        }
+        bindings = native;
+        refusal = default;
+        return true;
     }
 
     protected bool TryPermit(out NativeActionOutcome refusal)

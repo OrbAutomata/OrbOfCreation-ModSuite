@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -32,6 +33,11 @@ internal readonly struct CraftingInstanceLifecycleSubmission
         Outcome = outcome;
         SideEffect = sideEffect;
     }
+
+    internal static CraftingInstanceLifecycleSubmission Refused(
+        ServiceActionResultCode code,
+        string reason) =>
+        new(NativeActionOutcome.Reject(code, reason));
 
     internal NativeActionOutcome Outcome { get; }
     internal CraftingInstanceLifecycleSideEffect SideEffect { get; }

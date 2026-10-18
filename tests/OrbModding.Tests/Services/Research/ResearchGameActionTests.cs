@@ -240,6 +240,21 @@ public sealed class ResearchGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Research();
+        Register(target);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, target, ResearchActionKind.Develop);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(ResearchActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.False(target.isDeveloping);
+    }
+
+    [Fact]
     public void Unity_thread_is_revalidated_before_identity_or_native_state()
     {
         var target = Research();
@@ -264,13 +279,13 @@ public sealed class ResearchGameActionTests : IDisposable
     }
 
     private ResearchGameAction Boundary(Func<bool>? permit = null,
-        Func<string, bool>? includeContract = null)
+        Func<string, bool>? includeContract = null, Func<long>? epoch = null)
     {
-        static long ReadEpoch() => Epoch;
-        var resolver = new TypedRegistryResolver(ReadEpoch,
+        var readEpoch = epoch ?? (() => Epoch);
+        var resolver = new TypedRegistryResolver(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is ResearchSO research ? research.GetGuid() : Guid.Empty);
-        return new ResearchGameAction(ReadEpoch, permit ?? (() => true),
+        return new ResearchGameAction(readEpoch, permit ?? (() => true),
             static () => "ResearchLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);
     }
