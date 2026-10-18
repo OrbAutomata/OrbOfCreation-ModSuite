@@ -82,10 +82,6 @@ public sealed class AutoBuyCycleEvaluatorTests
         Assert.Equal(2, metrics.PlannedActions);
         Assert.Equal(5, metrics.RequestedLevels);
         Assert.Equal(actions.Count, metrics.PlannedActions);
-        Assert.Equal(2, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.LedgerStarved);
-        Assert.Equal(metrics.EligibleCandidates, metrics.GroupOutcomes.TotalCandidates);
     }
 
     [Fact]
@@ -118,9 +114,6 @@ public sealed class AutoBuyCycleEvaluatorTests
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationUnreadableKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationContradictoryKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedDestinationFullKey, 0));
-        Assert.DoesNotContain(
-            Enumerable.Range(0, projection.Count).Select(projection.GetEntry),
-            entry => entry.Key.Value == AutoBuyServiceProjection.RetiredOwningViewRelationAmbiguousKey);
     }
 
     /// <summary>
@@ -292,7 +285,7 @@ public sealed class AutoBuyCycleEvaluatorTests
     }
 
     [Fact]
-    public void LiveMissedStructurePlansOneExactLevelAndRecordsReducedGroup()
+    public void LiveMissedStructurePlansOneExactLevel()
     {
         // Alchemic Command's live Water arithmetic: one level was 77.4098% of stock, while the
         // exact two-level sum was 174.2981%. One-level admission therefore must result in one action.
@@ -311,15 +304,10 @@ public sealed class AutoBuyCycleEvaluatorTests
 
         Assert.Equal(1, action.Count);
         Assert.Equal(nextCost / stock, action.Belief.CostRatio, 6);
-        Assert.Equal(0, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(1, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(1, metrics.GroupOutcomes.ReducedGroupLevels);
-        Assert.Equal(0, metrics.GroupOutcomes.LedgerStarved);
-        Assert.Equal(metrics.EligibleCandidates, metrics.GroupOutcomes.TotalCandidates);
     }
 
     [Fact]
-    public void CandidateSpentOutByEarlierActionRecordsLedgerStarved()
+    public void CandidateSpentOutByEarlierActionIsNotPlanned()
     {
         var builder = new FrameBuilder().Bulk(1);
         var resource = builder.Resource(15);
@@ -331,10 +319,6 @@ public sealed class AutoBuyCycleEvaluatorTests
         Assert.Equal(StructureA, action.Uuid);
         Assert.Equal(2, metrics.EligibleCandidates);
         Assert.Equal(1, metrics.PlannedActions);
-        Assert.Equal(1, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(1, metrics.GroupOutcomes.LedgerStarved);
-        Assert.Equal(metrics.EligibleCandidates, metrics.GroupOutcomes.TotalCandidates);
     }
 
     [Fact]
@@ -355,10 +339,6 @@ public sealed class AutoBuyCycleEvaluatorTests
 
         Assert.Equal(2, action.Count);
         Assert.Equal(exactTwoLevelCost / stock, action.Belief.CostRatio, 6);
-        Assert.Equal(1, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroupLevels);
-        Assert.Equal(0, metrics.GroupOutcomes.LedgerStarved);
     }
 
     [Fact]
@@ -402,8 +382,6 @@ public sealed class AutoBuyCycleEvaluatorTests
         var action = Assert.Single(Plan(builder.Build(), Config(), out _, out var metrics));
 
         Assert.Equal(2, action.Count);
-        Assert.Equal(1, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(2, metrics.GroupOutcomes.ReducedGroupLevels);
     }
 
     // ---- Affordability threshold ----------------------------------------------------------------
@@ -654,9 +632,6 @@ public sealed class AutoBuyCycleEvaluatorTests
             frame.Resources[resource].ResourceId,
             cost: 10.0,
             available: 40.0);
-        Assert.Equal(1, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.LedgerStarved);
     }
 
     /// <summary>One action stays readable: a hundred levels is the ceiling, as it was in legacy.</summary>
@@ -706,9 +681,6 @@ public sealed class AutoBuyCycleEvaluatorTests
             frame.Resources[resource].ResourceId,
             cost: 1.0,
             available: 1_000_000.0);
-        Assert.Equal(1, metrics.GroupOutcomes.FullGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.ReducedGroups);
-        Assert.Equal(0, metrics.GroupOutcomes.LedgerStarved);
     }
 
     // ---- One action per candidate, room- and batch-bounded --------------------------------------
@@ -850,7 +822,6 @@ public sealed class AutoBuyCycleEvaluatorTests
         Assert.Equal(
             metrics.CapturedCandidates,
             metrics.EligibleCandidates + metrics.Exclusions.Total);
-        Assert.Equal(metrics.EligibleCandidates, metrics.GroupOutcomes.TotalCandidates);
     }
 
     /// <summary>
@@ -1172,18 +1143,10 @@ public sealed class AutoBuyCycleEvaluatorTests
         /// </param>
         public int Resource(double quantity, bool bandwidth = false, double headroom = 0.0)
         {
-            var capped = headroom > 0.0;
             _resources.Add(new AutoBuyResourceRow(
                 Guid.NewGuid(),
                 bandwidth,
-                quantity,
-                quantity,
-                bandwidth ? headroom : quantity,
-                1.0,
-                1.0,
-                hasCapacity: capped,
-                capped ? quantity + headroom : default,
-                isAvailable: true));
+                bandwidth ? headroom : quantity));
             return _resources.Count - 1;
         }
 

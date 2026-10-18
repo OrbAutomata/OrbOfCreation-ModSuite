@@ -173,47 +173,23 @@ internal readonly struct AutoBuyCandidateRow
 }
 
 /// <summary>
-/// One captured resource row: the verbatim native quantity/quality/capacity/availability
-/// facts (per AB-SC-007 <c>GetTrueQuantity</c>/<c>GetAttributeCostMod</c>/<c>IsAvailable</c>
-/// convenience results) keyed by stable resource UUID. Magnitudes are the game's own
-/// <see cref="BigDouble"/> so no conversion or allocation happens at capture.
+/// One resource a candidate's cost draws on, keyed by stable resource UUID: whether it is a
+/// bandwidth resource and what a purchase may spend from it.
 /// </summary>
 internal readonly struct AutoBuyResourceRow
 {
     public AutoBuyResourceRow(
         Guid resourceId,
         bool isBandwidth,
-        BigDouble storedQuantity,
-        BigDouble trueQuantity,
-        BigDouble spendable,
-        BigDouble quality,
-        BigDouble effectiveAttributeCost,
-        bool hasCapacity,
-        BigDouble capacity,
-        bool isAvailable)
+        BigDouble spendable)
     {
         ResourceId = resourceId;
         IsBandwidth = isBandwidth;
-        StoredQuantity = storedQuantity;
-        TrueQuantity = trueQuantity;
         Spendable = spendable;
-        Quality = quality;
-        EffectiveAttributeCost = effectiveAttributeCost;
-        HasCapacity = hasCapacity;
-        Capacity = capacity;
-        IsAvailable = isAvailable;
     }
 
     public Guid ResourceId { get; }
     public bool IsBandwidth { get; }
-    public BigDouble StoredQuantity { get; }
-    public BigDouble TrueQuantity { get; }
-    public BigDouble Quality { get; }
-    public BigDouble EffectiveAttributeCost { get; }
-    public bool HasCapacity { get; }
-    public BigDouble Capacity { get; }
-
-    public bool IsAvailable { get; }
 
     /// <summary>
     /// What a purchase drawing on this resource may spend in the native-cost coordinate, selected

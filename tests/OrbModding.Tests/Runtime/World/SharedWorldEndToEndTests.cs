@@ -71,7 +71,7 @@ public sealed class SharedWorldEndToEndTests : IDisposable
 
         var cost = frame.Costs[candidate.CostRowStart];
         Assert.Equal(resourceId, frame.Resources[cost.ResourceRowIndex].ResourceId);
-        Assert.Equal(5.0, frame.Resources[cost.ResourceRowIndex].TrueQuantity.ToDouble());
+        Assert.Equal(5.0, frame.Resources[cost.ResourceRowIndex].Spendable.ToDouble());
     }
 
     /// <summary>

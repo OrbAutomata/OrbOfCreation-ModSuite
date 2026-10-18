@@ -393,14 +393,7 @@ internal static class AutoBuyFrameProjector
         var row = new AutoBuyResourceRow(
             resourceId,
             reading.Traits.BandwidthResource,
-            reading.Quantity,
-            resource.TrueQuantity,
-            WorldResourceCoordinate.NativeCostAmount(in resource),
-            reading.Quality,
-            reading.Modifiers.AttributeCostMod,
-            resource.IsCapped,
-            reading.Capacity,
-            reading.Visible);
+            WorldResourceCoordinate.NativeCostAmount(in resource));
         resourceRowIndex = resourceCount;
         Append(ref resources, resourceCount, row);
         resourceCount++;

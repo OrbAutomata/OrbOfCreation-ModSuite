@@ -72,8 +72,6 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
 
         var resourceRow = frame.Resources[cost.ResourceRowIndex];
         Assert.Equal(Guid.Parse(resource.uuid), resourceRow.ResourceId);
-        Assert.Equal(4.0, resourceRow.TrueQuantity.Mantissa);
-        Assert.Equal(6, resourceRow.TrueQuantity.Exponent);
     }
 
     [Fact]
