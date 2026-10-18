@@ -137,9 +137,9 @@ intention that cannot.
 
 Treat the update as a reviewed manifest diff:
 
-1. Add one complete platform pair with audit date, build description, and
-   platform-relative provenance. Never admit independent hashes that can form an
-   untested mixed pair.
+1. Admit only one complete platform pair, through the checklist
+   `script/re-audit --stamp` prints once steps 2 to 4 pass. Never admit independent
+   hashes that can form an untested mixed pair.
 2. Run the installed audit even when the hash is unknown so identity and all
    structural differences appear together.
 3. Update changed signatures in place, add genuinely new targets, and remove

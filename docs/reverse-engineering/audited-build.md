@@ -18,13 +18,10 @@ timestamp admission. Assembly timestamps are diagnostics.
 | Main assembly | `Orb Of Creation_Data/Managed/Assembly-CSharp.dll` |
 | Numeric assembly | `Orb Of Creation_Data/Managed/Assembly-CSharp-firstpass.dll` |
 
-Two platform pairs are admitted for this game build. `Assembly-CSharp.dll` differs between them;
+The admitted pairs are the `baselines` in
+[`data/native-contracts.json`](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/data/native-contracts.json),
+one per platform and build. `Assembly-CSharp.dll` differs between platforms;
 `Assembly-CSharp-firstpass.dll`, which holds `BigDouble`, is identical.
-
-| Baseline | `Assembly-CSharp.dll` | `Assembly-CSharp-firstpass.dll` |
-|---|---|---|
-| `steam-windows-2026-07-29` (Steam build `24426975`) | `436210E6…D9F7AA4C` | `D14D5265…767F480A` |
-| `steam-macos-2026-07-13` | `5652EBE3…892055DE4` | `CAFE3F4F…910A0891` |
 
 A finding read from one platform pair does not prove equivalent behaviour on the other. Say which
 pair a formula or IL order came from when the two could differ.
@@ -49,12 +46,14 @@ present in the loader directory do not.
 
 ## Re-baselining after a game update
 
-1. Hash both installed assemblies and add the pair to the manifest as a new named baseline.
-2. Run the installed-game contract tests. A missing or reshaped member fails closed and names
+1. Run `script/re-audit --game-dir <game root>`. It hashes the pair, compiles against it, and runs
+   the gate and the installed-game contracts. A missing or reshaped member fails closed and names
    itself; that list is the migration work.
-3. Re-read any IL-derived formula on this folder's pages that the diff touches. Cost chains,
+2. Re-read any IL-derived formula on this folder's pages that the diff touches. Cost chains,
    admission short-circuits, and rounding are the ones that move.
-4. Run the in-game differential verifier against a disposable save to confirm parity for costs,
+3. Run the in-game differential verifier against a disposable save to confirm parity for costs,
    rates, modifiers, affordability, accessors, and structure/upgrade requirements.
+4. Admit the pair with the checklist `script/re-audit --game-dir <game root> --stamp` prints; it is
+   the one admission procedure.
 5. Re-import [`data/entity-mappings.tsv`](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/data/entity-mappings.tsv) if assets were added or
    removed; UUIDs are stable across builds, but the population is not.

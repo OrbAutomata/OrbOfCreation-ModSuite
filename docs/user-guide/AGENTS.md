@@ -1,5 +1,3 @@
-# user-guide charter
+# User guide
 
-Player-facing suite documentation in player voice: install, configure, troubleshoot,
-uninstall. No engineering references — those live in `../development/` — and no game
-mechanics, which live in `../game-systems/`.
+Player-facing suite documentation in the player's voice: install, configure, troubleshoot and uninstall. Engineering references belong in `../development/`, game mechanics in `../game-systems/`.

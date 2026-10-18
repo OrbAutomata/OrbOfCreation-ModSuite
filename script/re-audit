@@ -12,7 +12,7 @@
 #
 # Usage:
 #   script/re-audit --game-dir /path/to/game            # verify only, report what changed
-#   script/re-audit --game-dir /path/to/game --stamp    # verify, then write the new baseline
+#   script/re-audit --game-dir /path/to/game --stamp    # verify, then print the admission checklist
 #
 # Compilation stages also require BepInEx/core under the game root passed to --game-dir.
 set -euo pipefail
@@ -176,19 +176,39 @@ fi
 
 cat <<EOF
 
-Ready to stamp a new baseline. Update ${audit_source#"${repository_root}/"} with:
+Ready to stamp a new baseline. This is the whole admission checklist. Step 1 is what admits the
+build at runtime; the others keep the quarantine message, Auto Scribe and the manifest in step with
+it. Pick a baseline id such as steam-<platform>-<install date>.
 
-  Assembly-CSharp            = ${main_sha}
-  Assembly-CSharp-firstpass  = ${firstpass_sha}
+1. ${audit_source#"${repository_root}/"}:
+   - a <Name>BaselineId constant holding the id;
+   - <Name>AssemblyCSharpSha256 = "${main_sha}"
+     and <Name>FirstPassSha256  = "${firstpass_sha}";
+   - a <Name>SteamBaseline property built from those three constants;
+   - a branch for that property in MatchBaseline, which admits only the baselines it names.
 
-and add the matching entry to data/native-contracts.json (id, platform, auditedAt,
-gameBuild, provenance). Then run the whole contract project against this build:
+2. src/Common/SuiteLoadGate.cs: add the id to the audited baselines DescribeQuarantine lists.
 
-  OOC_GAME_DIR="${game_dir}" dotnet test tests/OrbModding.GameContractTests
+3. src/AutoScribe/Identity/AutoScribeIdentityProfile.cs: give the id a profile in
+   TryGetProfile, or Auto Scribe stays unavailable on this build.
 
-with nothing filtered out. Stage 4 skipped the baseline-identity test because no baseline
-existed yet; once one does, it must pass, and a run that still reports an unknown assembly
-pair means the stamp does not describe the build it was taken from.
+4. data/native-contracts.json, a new entry in "baselines" for the complete pair:
+   id (the same id), platform, auditedAt, gameBuild, provenance, and an "assemblies" array with
+   one entry each for "assembly-csharp" (sha256 ${main_sha}) and
+   "assembly-csharp-firstpass" (sha256 ${firstpass_sha}), each with its provenance path
+   relative to the game root: ${managed#"${game_dir%/}/"}/<file>.dll
+
+5. tests/OrbModding.GameContractTests/NativeContractManifestTests.cs:
+   RuntimeHashGuards_MatchEveryManifestBaselinePair counts the baselines and asserts each one;
+   raise the count and add the new property.
+
+6. Run the whole contract project against this build, with nothing filtered out:
+
+   OOC_GAME_DIR="${game_dir}" dotnet test tests/OrbModding.GameContractTests
+
+   Stage 4 skipped the baseline-identity test because no baseline existed yet; now it must pass.
+   A run that still reports an unknown assembly pair means the stamp does not describe the build
+   it was taken from.
 
 Stamping is deliberately not automatic: it asserts a human confirmed stage 5 in game.
 EOF

@@ -5,11 +5,9 @@
 
 ## Repository flow
 
-Branch from `develop` and keep the pull request focused. Pull requests target
-`develop`; `main` is updated by the release flow in
-[the release procedure](../releasing.md) and
-[release review checklist](releases.md). Use an area-prefixed commit subject such
-as `autobuy: ...`, `ui: ...`, `build: ...`, or `docs: ...`.
+Branch from `main` and open the pull request against `main`.
+[CONTRIBUTING.md](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/CONTRIBUTING.md)
+owns the branch, scope, and commit-subject rules.
 
 ## Dependencies
 

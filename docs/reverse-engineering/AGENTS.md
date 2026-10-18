@@ -1,9 +1,7 @@
-# reverse-engineering charter
+# Reverse engineering
 
-How an engineer digs into the game's code: decompiling workflow, identity and type model,
-naming traps, math internals, save format, UI internals, hooks, and native action surfaces.
+How an engineer reads the game's code: the decompiling workflow, the identity and type model, naming traps, math internals, the save format, UI internals, hooks and native action surfaces.
 
 - Techniques and code-level truths only; player-facing facts belong in `../game-systems/`.
-- Cite against the audited build (`audited-build.md`); IL and asset citations are
-  baseline-scoped and die with a game update — do not copy them into other layers.
+- Cite against [the audited build](audited-build.md). IL and asset citations belong to one baseline and die with a game update, so never copy them into other folders.
 - The game stays authoritative at runtime: findings here describe code, not guarantees.
