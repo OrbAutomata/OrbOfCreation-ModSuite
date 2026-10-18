@@ -28,10 +28,9 @@ internal sealed class AutomataUsagePrerequisiteVerifier
     internal AutomataUsagePrerequisiteVerifier(Type ownerType)
     {
         _container = ownerType?.GetField("usagePrerequisites", Instance);
-        _getGuid = ownerType?.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        _getGuid = ownerType is null ? null : RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(ownerType);
         _check = _container is null ? null : AutomataRequirementVerifier.FindParameterisedCheck(_container.FieldType);
         _conditionInfo = _check?.GetParameters()[0].ParameterType.GetConstructor(new[] { typeof(long) });
-        if (_getGuid?.ReturnType != typeof(Guid)) _getGuid = null;
     }
 
     internal bool IsAvailable =>

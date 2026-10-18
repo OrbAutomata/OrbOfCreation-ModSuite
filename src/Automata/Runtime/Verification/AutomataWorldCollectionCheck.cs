@@ -477,7 +477,8 @@ internal sealed class AutomataWorldCollectionCheck
         }
 
         compared++;
-        var actual = Guid.TryParse(ReflectionUtil.ReadStableId(variable), out var id) ? id : Guid.Empty;
+        var actual = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(variable.GetType())
+            ?.Invoke(variable, null) as Guid? ?? Guid.Empty;
         var published = WorldLookup.TryFind(world.IntVariables, expected, out _);
         if (actual == expected && published) return;
 
@@ -1366,7 +1367,7 @@ internal sealed class AutomataWorldCollectionCheck
 
             var entryType = entry.GetType();
             var resource = entryType.GetField("resource", Instance)?.GetValue(entry);
-            var getGuid = resource?.GetType().GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+            var getGuid = resource is null ? null : RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(resource.GetType());
             if (getGuid?.Invoke(resource, null) is not Guid entryResource || entryResource != resourceId)
                 continue;
 
@@ -1470,7 +1471,7 @@ internal sealed class AutomataWorldCollectionCheck
         {
             var entry = entries[index];
             var resource = entry?.GetType().GetField("resource", Instance)?.GetValue(entry);
-            var getGuid = resource is null ? null : FindNoArg(resource.GetType(), "GetGuid");
+            var getGuid = resource is null ? null : RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(resource.GetType());
             if (getGuid?.Invoke(resource, null) is Guid entryResource && entryResource == resourceId)
                 return resource;
         }
@@ -1627,8 +1628,8 @@ internal sealed class AutomataWorldCollectionCheck
             var tupleGetValue = tupleType is null ? null : FindNoArg(tupleType, "GetValue");
             if (tupleResource is null || tupleGetValue is null) return null;
 
-            var resourceGetGuid = FindNoArg(tupleResource.FieldType, "GetGuid");
-            if (resourceGetGuid is null || resourceGetGuid.ReturnType != typeof(Guid)) return null;
+            var resourceGetGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(tupleResource.FieldType);
+            if (resourceGetGuid is null) return null;
 
             return new PublishedCostContract(
                 accessors, gates, entries, tupleResource, tupleGetValue, resourceGetGuid, hasEnough);

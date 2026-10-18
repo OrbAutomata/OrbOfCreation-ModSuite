@@ -103,58 +103,6 @@ public sealed class TypedRegistryResolverTests
     }
 
     [Fact]
-    public void MembershipResolutionRecordsExactNativeRelationship()
-    {
-        var entityId = Guid.NewGuid();
-        var registryId = Guid.NewGuid();
-        var entity = new Entity(entityId);
-        var membership = new MembershipRegistry(registryId, entity);
-        var lookup = new Hashtable { [entityId] = entity, [registryId] = membership };
-        var resolver = Resolver(Ready(lookup));
-
-        var result = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            value => ((MembershipRegistry)value).Members);
-
-        Assert.True(result.IsResolved);
-        Assert.True(result.Evidence.Sources.HasFlag(EvidenceSource.NativeRelationship));
-        Assert.Equal(TypedRegistryMembership.Included, result.Membership);
-    }
-
-    [Fact]
-    public void MissingMembershipAndReplacementIdentityAreDistinct()
-    {
-        var entityId = Guid.NewGuid();
-        var registryId = Guid.NewGuid();
-        var entity = new Entity(entityId);
-        var membership = new MembershipRegistry(registryId);
-        var lookup = new Hashtable { [entityId] = entity, [registryId] = membership };
-        var resolver = Resolver(Ready(lookup));
-
-        var missing = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            value => ((MembershipRegistry)value).Members);
-        membership.Members.Add(new Entity(entityId));
-        var ambiguous = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            value => ((MembershipRegistry)value).Members);
-
-        Assert.True(missing.IsResolved);
-        Assert.Equal(TypedRegistryMembership.Excluded, missing.Membership);
-        Assert.Equal(TypedRegistryResolutionStatus.AmbiguousEvidence, ambiguous.Status);
-        Assert.True(ambiguous.Evidence.IsContradictory);
-    }
-
-    [Fact]
     public void LifecycleChangeDuringReadRejectsResolvedValue()
     {
         var uuid = Guid.NewGuid();
@@ -236,75 +184,13 @@ public sealed class TypedRegistryResolverTests
     }
 
     [Fact]
-    public void EmptyUuidAndNullMembershipContentsFailClosed()
+    public void AnEmptyUuidFailsClosed()
     {
-        var registryId = Guid.NewGuid();
-        var membership = new MembershipRegistry(registryId);
-        var lookup = new Hashtable { [registryId] = membership };
-        var resolver = Resolver(Ready(lookup));
+        var resolver = Resolver(Ready(new Hashtable()));
 
         Assert.Equal(
             TypedRegistryResolutionStatus.AmbiguousEvidence,
             resolver.Resolve(Guid.Empty, typeof(Entity)).Status);
-
-        var entityId = Guid.NewGuid();
-        lookup[entityId] = new Entity(entityId);
-        var member = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            _ => null);
-        Assert.Equal(TypedRegistryResolutionStatus.RegistryNotReady, member.Status);
-    }
-
-    [Fact]
-    public void MalformedMembershipCannotProveExclusion()
-    {
-        var entityId = Guid.NewGuid();
-        var registryId = Guid.NewGuid();
-        var entity = new Entity(entityId);
-        var membership = new MembershipRegistry(registryId);
-        var lookup = new Hashtable { [entityId] = entity, [registryId] = membership };
-        var resolver = Resolver(Ready(lookup));
-
-        var wrongType = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            _ => new object[] { new OtherEntity(Guid.NewGuid()) });
-        var nullEntry = resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            _ => new object?[] { null });
-
-        Assert.Equal(TypedRegistryResolutionStatus.WrongType, wrongType.Status);
-        Assert.Equal(TypedRegistryResolutionStatus.AmbiguousEvidence, nullEntry.Status);
-        Assert.NotEqual(TypedRegistryMembership.Excluded, wrongType.Membership);
-        Assert.NotEqual(TypedRegistryMembership.Excluded, nullEntry.Membership);
-    }
-
-    [Fact]
-    public void AnUnexpectedExceptionFromTheMembershipReadEscapesInsteadOfReadingAsUnavailable()
-    {
-        var entityId = Guid.NewGuid();
-        var registryId = Guid.NewGuid();
-        var lookup = new Hashtable
-        {
-            [entityId] = new Entity(entityId),
-            [registryId] = new MembershipRegistry(registryId),
-        };
-        var resolver = Resolver(Ready(lookup));
-
-        Assert.Throws<NotSupportedException>(() => resolver.ResolveMember(
-            entityId,
-            typeof(Entity),
-            registryId,
-            typeof(MembershipRegistry),
-            _ => throw new NotSupportedException("injected membership read failure")));
     }
 
     private static TypedRegistryResolver Resolver(
@@ -334,18 +220,6 @@ public sealed class TypedRegistryResolverTests
         public OtherEntity(Guid id) => Id = id;
         public Guid Id { get; }
         public string Name { get; set; } = string.Empty;
-    }
-
-    private sealed class MembershipRegistry : IStableEntity
-    {
-        public MembershipRegistry(Guid id, params Entity[] members)
-        {
-            Id = id;
-            Members.AddRange(members);
-        }
-
-        public Guid Id { get; }
-        public List<Entity> Members { get; } = new();
     }
 
     private sealed class NearMatchRegistryContract

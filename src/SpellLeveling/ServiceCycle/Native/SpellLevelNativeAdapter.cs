@@ -347,12 +347,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     private bool TryResolveRecipe(Guid uuid, out object recipe)
     {
-        var wanted = uuid.ToString("D");
         foreach (var candidate in ReadRecipes())
         {
             if (candidate is null || candidate.GetType() != _recipeType) continue;
-            if (!string.Equals(ReflectionUtil.ReadStableId(candidate), wanted, StringComparison.Ordinal))
-                continue;
+            if (RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(candidate) != uuid) continue;
             recipe = candidate;
             return true;
         }

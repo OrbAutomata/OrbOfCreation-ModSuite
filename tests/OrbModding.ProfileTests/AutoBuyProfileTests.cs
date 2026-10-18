@@ -37,7 +37,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             purchasable = true,
             queuedQuantity = 3,
         };
-        global::StructureSO.All.Add(structure);
+        Publish(structure);
 
         var result = Execute(operations, AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid));
 
@@ -50,8 +50,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             item => AssertStage(
                 item,
                 ServiceCycleProfileSpan.AutoBuyActionCandidateResolution,
-                stableIdReads: 2,
-                listEntries: 1),
+                stableIdReads: 1),
             // Lifecycle bind already captured the authored category/list/view chain. The action
             // boundary reads only current view availability and the thin StructureSO.CanPurchase()
             // fold, so no topology fields or list entries appear on the warm action path.
@@ -83,7 +82,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             purchasable = false,
             queuedQuantity = 3,
         };
-        global::StructureSO.All.Add(structure);
+        Publish(structure);
 
         var result = Execute(operations, AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid));
 
@@ -110,7 +109,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             available = true,
             purchasable = true,
         };
-        global::StructureSO.All.Add(structure);
+        Publish(structure);
         var topology = CaptureTopology(out var relations, out var routes);
 
         Assert.Equal(1, relations.Count);
@@ -152,7 +151,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             purchasable = true,
             queuedQuantity = 3,
         };
-        global::StructureSO.All.Add(structure);
+        Publish(structure);
 
         GameWorldCollector.ForSession().Collect(
             new GameWorldCycleFrame { CollectedAtEpoch = PlannedEpoch });
@@ -208,7 +207,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             new global::ResourceTuple(skill, new BigDouble(2, 6)));
         improvedBrewing.purchaseCost.costs.Add(
             new global::ResourceTuple(control, new BigDouble(1, 4)));
-        global::UpgradeSO.All.Add(improvedBrewing);
+        Publish(improvedBrewing);
         var uuid = Guid.Parse(improvedBrewing.uuid);
         var topology = CaptureTopology(out _, out _);
         var refusals = new RecordingRefusals();
@@ -510,8 +509,23 @@ public sealed class AutoBuyProfileTests : IDisposable
         Assert.Equal((uint)0, item.Operations.RecordCopies);
     }
 
+    // The game registers every entity in IdScriptableObject.RuntimeLookup as well as its own list,
+    // and the purchase boundary resolves a candidate through that registry.
+    private static void Publish(global::StructureSO structure)
+    {
+        global::StructureSO.All.Add(structure);
+        global::IdScriptableObject.RuntimeLookup[structure.GetGuid()] = structure;
+    }
+
+    private static void Publish(global::UpgradeSO upgrade)
+    {
+        global::UpgradeSO.All.Add(upgrade);
+        global::IdScriptableObject.RuntimeLookup[upgrade.GetGuid()] = upgrade;
+    }
+
     private static void ResetNativeState()
     {
+        global::IdScriptableObject.RuntimeLookup.Clear();
         global::StructureSO.All.Clear();
         global::UpgradeSO.All.Clear();
         global::ViewSO.All.Clear();

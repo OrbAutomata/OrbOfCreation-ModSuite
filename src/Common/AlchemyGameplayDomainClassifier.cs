@@ -132,7 +132,6 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
     private Type? _recipeType;
     private Type? _alchemyType;
     private FieldInfo? _alchemyTypesField;
-    private MethodInfo? _getGuid;
     private TypedRegistryResolution? _registryResolution;
     private string _statusReason = "classifier has not been initialized for this lifecycle";
     private int _classifierGeneration = 1;
@@ -166,17 +165,15 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
 
         try
         {
-            var idType = FindLoadedType("IdScriptableObject");
             _recipeType = FindLoadedType("AlchemyRecipeSO");
             _alchemyType = FindLoadedType(KnownEntities.Alchemy.ManagedTypeName);
             var recipeListType = FindLoadedType(KnownEntities.ConceptRecipes.ManagedTypeName);
-            if (idType is null || _recipeType is null || _alchemyType is null || recipeListType is null)
+            if (_recipeType is null || _alchemyType is null || recipeListType is null)
                 return Retry("native alchemy classifier types are not loaded yet", out reason);
 
-            _getGuid = FindNoArgumentGuidMethod(idType, "GetGuid");
             _alchemyTypesField = FindField(_recipeType, "alchemyTypes", BindingFlags.Instance);
             var valuesField = FindField(recipeListType, "value", BindingFlags.Instance);
-            if (_getGuid is null || _alchemyTypesField is null || valuesField is null)
+            if (_alchemyTypesField is null || valuesField is null)
                 return Block("native alchemy classifier metadata does not match the audited contract", out reason);
 
             var registryResolution = _registryResolver.Resolve(ConceptRecipesUuid, recipeListType);
@@ -297,7 +294,6 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         _recipeType = null;
         _alchemyType = null;
         _alchemyTypesField = null;
-        _getGuid = null;
         _registryResolution = null;
         _classifierGeneration++;
         Status = AlchemyDomainClassifierStatus.Uninitialized;
@@ -390,22 +386,17 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             "recipe has no audited ordinary alchemy or Scholar concept type UUID");
     }
 
-    private bool TryReadStableUuid(object instance, out Guid uuid)
+    private static bool TryReadStableUuid(object instance, out Guid uuid)
     {
         try
         {
-            var value = _getGuid!.Invoke(instance, Array.Empty<object>());
-            if (value is Guid result && result != Guid.Empty)
-            {
-                uuid = result;
-                return true;
-            }
+            uuid = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(instance) ?? Guid.Empty;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
+            uuid = Guid.Empty;
         }
-        uuid = Guid.Empty;
-        return false;
+        return uuid != Guid.Empty;
     }
 
     private AlchemyDomainClassification Unknown(
@@ -516,21 +507,6 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
                 name,
                 scope | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
             if (field is not null) return field;
-        }
-        return null;
-    }
-
-    private static MethodInfo? FindNoArgumentGuidMethod(Type type, string name)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            var method = current.GetMethod(
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly,
-                null,
-                Type.EmptyTypes,
-                null);
-            if (method is not null && method.ReturnType == typeof(Guid)) return method;
         }
         return null;
     }

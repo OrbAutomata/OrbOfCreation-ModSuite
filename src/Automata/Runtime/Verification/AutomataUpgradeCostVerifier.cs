@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 
 namespace OrbAutomata;
@@ -228,7 +229,7 @@ internal sealed class AutomataUpgradeCostVerifier
         {
             if (upgradeType is null) return null;
 
-            var getGuid = FindNoArg(upgradeType, "GetGuid");
+            var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(upgradeType);
             var resourceCost = upgradeType.GetField("resourceCost", Instance);
             var costModPerLevel = upgradeType.GetField("resourceCostModPerLevel", Instance);
             var level = upgradeType.GetField("level", Instance);
@@ -252,7 +253,7 @@ internal sealed class AutomataUpgradeCostVerifier
             var tupleGetValue = tupleType is null ? null : FindNoArg(tupleType, "GetValue");
             var resourceGetGuid = tupleResource is null
                 ? null
-                : FindNoArg(tupleResource.FieldType, "GetGuid");
+                : RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(tupleResource.FieldType);
             if (costEntries is null || tupleResource is null || tupleGetValue is null ||
                 resourceGetGuid is null)
             {

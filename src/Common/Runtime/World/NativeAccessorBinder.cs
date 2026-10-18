@@ -596,7 +596,8 @@ internal static class NativeAccessorBinder
     /// the global registry already collects, so only the edge to it was absent.
     /// </para>
     /// <para>
-    /// The game spells a reference two ways. An <c>IdScriptableObject</c> answers <c>GetGuid()</c>; a
+    /// The game spells a reference two ways. An entity answers <c>GetGuid()</c>, read through
+    /// <see cref="RuntimeIdentityRegistryBinding.StableUuidMethod"/>'s accepted shapes; a
     /// <c>GuidContainer</c> wraps a private <c>_guid</c>. Both are accepted here because both mean
     /// "this points at that", and a caller should not have to know which one a field happens to use.
     /// </para>
@@ -613,14 +614,14 @@ internal static class NativeAccessorBinder
         var field = owner.GetField(name, Instance);
         if (field is null || field.FieldType.IsValueType) return null;
 
-        var getGuid = field.FieldType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(field.FieldType);
         var guidField = field.FieldType.GetField("_guid", Instance);
 
         var source = Expression.Parameter(typeof(object), "source");
         var reference = Expression.Field(Expression.Convert(source, owner), field);
 
         Expression identity;
-        if (getGuid is not null && getGuid.ReturnType == typeof(Guid))
+        if (getGuid is not null)
         {
             identity = Expression.Call(reference, getGuid);
         }
@@ -655,8 +656,8 @@ internal static class NativeAccessorBinder
         var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
         if (method is null || method.ReturnType.IsValueType) return null;
 
-        var getGuid = method.ReturnType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
-        if (getGuid is null || getGuid.ReturnType != typeof(Guid)) return null;
+        var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(method.ReturnType);
+        if (getGuid is null) return null;
 
         var source = Expression.Parameter(typeof(object), "source");
         var referenced = Expression.Variable(method.ReturnType, "referenced");
@@ -691,9 +692,8 @@ internal static class NativeAccessorBinder
             exactReturnType.IsValueType || identityType.IsValueType) return null;
 
         var method = owner.GetMethod(name, Instance, null, Type.EmptyTypes, null);
-        var getGuid = identityType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
-        if (method is null || method.ReturnType != exactReturnType ||
-            getGuid is null || getGuid.ReturnType != typeof(Guid)) return null;
+        var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(identityType);
+        if (method is null || method.ReturnType != exactReturnType || getGuid is null) return null;
 
         var source = Expression.Parameter(typeof(object), "source");
         var referenced = Expression.Variable(exactReturnType, "referenced");

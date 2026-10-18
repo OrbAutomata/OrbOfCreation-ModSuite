@@ -720,8 +720,10 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         // took the slot had nowhere else to read it: the structured id beside the sentence names
         // the spell that was planned, which is the one thing already known not to be there.
         var recipe = _getReference?.Invoke(candidate, Array.Empty<object>());
-        var identity = recipe is null ? null : ReflectionUtil.ReadStableId(recipe);
-        if (!Guid.TryParse(identity, out var liveId) || liveId != spellRecipeId)
+        var liveId = recipe is null
+            ? Guid.Empty
+            : RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(recipe) ?? Guid.Empty;
+        if (liveId != spellRecipeId)
         {
             occupant = liveId;
             reason = liveId == Guid.Empty

@@ -223,11 +223,7 @@ internal static class MentorCycleEvaluator
         var concepts = world.ConceptRecipes.AsSpan();
         for (var index = 0; index < concepts.Length; index++)
             if (concepts[index].RecipeId == recipe.RecipeId) return false;
-        return recipe.CoreTypeId == AlchemyGameplayDomainClassifier.AlchemyTypeUuid ||
-               recipe.CoreTypeId == AlchemyGameplayDomainClassifier.BrewingTypeUuid ||
-               recipe.CoreTypeId == AlchemyGameplayDomainClassifier.DismantleTypeUuid ||
-               recipe.CoreTypeId == AlchemyGameplayDomainClassifier.EnchantmentTypeUuid ||
-               recipe.CoreTypeId == AlchemyGameplayDomainClassifier.RefinementTypeUuid ||
-               recipe.CoreTypeId == AlchemyGameplayDomainClassifier.TransmutationTypeUuid;
+        return AlchemyGameplayDomainClassifier.ClassifyTypeUuid(recipe.CoreTypeId) ==
+               AlchemyGameplayDomain.OrdinaryAlchemy;
     }
 }

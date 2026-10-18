@@ -89,6 +89,27 @@ internal sealed class RuntimeIdentityRegistryBinding
         return _getGuid.Invoke(value, Array.Empty<object>()) is Guid uuid ? uuid : null;
     }
 
+    /// <summary>
+    /// The suite's one accepted-shape list for a native identity accessor on <paramref name="type"/>.
+    /// </summary>
+    /// <remarks>
+    /// An <c>IdScriptableObject</c> answers through the bound <c>GetGuid()</c>, and stays unreadable
+    /// while that contract is unavailable. The few plain game objects that carry an identity, such as
+    /// <c>ConsumableUsage</c> and <c>PlayerLoadout</c>, declare their own exact <c>GetGuid()</c>.
+    /// Anything else, or anything while the game's identity type is not loaded, has no identity to read.
+    /// </remarks>
+    internal MethodInfo? StableUuidMethod(Type type)
+    {
+        if (type is null) throw new ArgumentNullException(nameof(type));
+        var method = type.GetMethod(
+            "GetGuid", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+        var identityType = _resolveIdentityType();
+        if (method is null || method.ReturnType != typeof(Guid) || identityType is null) return null;
+        if (method.DeclaringType != identityType) return method;
+        if (_getGuid is null) Read();
+        return _getGuid;
+    }
+
     internal static bool HasExactRuntimeLookupContract(FieldInfo? field, Type idType)
         => HasRuntimeLookupContract(field, idType, requireExactValueType: true);
 

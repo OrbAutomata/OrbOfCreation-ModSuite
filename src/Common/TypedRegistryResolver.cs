@@ -15,13 +15,6 @@ public enum TypedRegistryResolutionStatus
     StaleGeneration = 6,
 }
 
-public enum TypedRegistryMembership
-{
-    NotEvaluated = 0,
-    Included = 1,
-    Excluded = 2,
-}
-
 public readonly struct TypedRegistrySourceSnapshot
 {
     private TypedRegistrySourceSnapshot(
@@ -58,8 +51,7 @@ public sealed class TypedRegistryResolution
         object? value,
         EvidenceAssessment evidence,
         long lifecycleGeneration,
-        string reason,
-        TypedRegistryMembership membership)
+        string reason)
     {
         Uuid = uuid;
         ExpectedType = expectedType;
@@ -68,7 +60,6 @@ public sealed class TypedRegistryResolution
         Evidence = evidence;
         LifecycleGeneration = lifecycleGeneration;
         Reason = reason;
-        Membership = membership;
     }
 
     public Guid Uuid { get; }
@@ -79,7 +70,6 @@ public sealed class TypedRegistryResolution
     public EvidenceAssessment Evidence { get; }
     public long LifecycleGeneration { get; }
     public string Reason { get; }
-    public TypedRegistryMembership Membership { get; }
     public bool IsResolved => Status == TypedRegistryResolutionStatus.Resolved && Value is not null;
     public bool IsRetryable => Status is
         TypedRegistryResolutionStatus.RegistryNotReady or
@@ -93,7 +83,7 @@ public sealed class TypedRegistryResolution
         lifecycleGeneration == LifecycleGeneration;
 
     public string Format() =>
-        $"Identity={EntityIdentityFormatter.Format(Uuid)}, ExpectedType={ExpectedTypeName}, Status={Status}, Membership={Membership}, " +
+        $"Identity={EntityIdentityFormatter.Format(Uuid)}, ExpectedType={ExpectedTypeName}, Status={Status}, " +
         $"Level={Evidence.Level}, Sources={Evidence.Sources}, Reason={Reason}";
 }
 
@@ -129,169 +119,6 @@ public sealed class TypedRegistryResolver
         if (expectedType is null) throw new ArgumentNullException(nameof(expectedType));
         var generation = _readGeneration();
         return Resolve(uuid, expectedType, generation);
-    }
-
-    public TypedRegistryResolution ResolveMember(
-        Guid uuid,
-        Type expectedType,
-        Guid registryUuid,
-        Type expectedRegistryType,
-        Func<object, IEnumerable?> readMembers)
-    {
-        if (expectedType is null) throw new ArgumentNullException(nameof(expectedType));
-        if (expectedRegistryType is null) throw new ArgumentNullException(nameof(expectedRegistryType));
-        if (readMembers is null) throw new ArgumentNullException(nameof(readMembers));
-
-        var generation = _readGeneration();
-        var entity = Resolve(uuid, expectedType, generation);
-        if (!entity.IsResolved) return entity;
-        var registry = Resolve(registryUuid, expectedRegistryType, generation);
-        if (!registry.IsResolved)
-        {
-            return Result(
-                uuid,
-                expectedType,
-                registry.Status,
-                null,
-                registry.Evidence,
-                generation,
-                $"membership registry {registryUuid} ({registry.ExpectedTypeName}) is unavailable: {registry.Reason}");
-        }
-
-        IEnumerable? members;
-        try
-        {
-            members = readMembers(registry.Value!);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return Result(
-                uuid,
-                expectedType,
-                TypedRegistryResolutionStatus.ContractUnavailable,
-                null,
-                EvidenceAssessment.Unresolved(entity.Evidence.Sources | registry.Evidence.Sources),
-                generation,
-                "membership accessor failed: " + ex.GetBaseException().Message);
-        }
-
-        if (members is null)
-        {
-            return Result(
-                uuid,
-                expectedType,
-                TypedRegistryResolutionStatus.RegistryNotReady,
-                null,
-                EvidenceAssessment.Unresolved(entity.Evidence.Sources | registry.Evidence.Sources),
-                generation,
-                "membership registry contents are not ready");
-        }
-
-        try
-        {
-            foreach (var member in members)
-            {
-                if (ReferenceEquals(member, entity.Value))
-                    return EnsureCurrent(Result(
-                        uuid,
-                        expectedType,
-                        TypedRegistryResolutionStatus.Resolved,
-                        entity.Value,
-                        new EvidenceAssessment(
-                            EvidenceLevel.RuntimeObserved,
-                            entity.Evidence.Sources |
-                            registry.Evidence.Sources |
-                            EvidenceSource.NativeRelationship),
-                        generation,
-                        string.Empty,
-                        TypedRegistryMembership.Included));
-
-                if (member is null)
-                {
-                    return Result(
-                        uuid,
-                        expectedType,
-                        TypedRegistryResolutionStatus.AmbiguousEvidence,
-                        null,
-                        EvidenceAssessment.Contradictory(
-                            entity.Evidence.Sources |
-                            registry.Evidence.Sources |
-                            EvidenceSource.NativeRelationship),
-                        generation,
-                        "membership contains a null entry");
-                }
-                if (member.GetType() != expectedType)
-                {
-                    return Result(
-                        uuid,
-                        expectedType,
-                        TypedRegistryResolutionStatus.WrongType,
-                        null,
-                        EvidenceAssessment.Contradictory(
-                            entity.Evidence.Sources |
-                            registry.Evidence.Sources |
-                            EvidenceSource.RuntimeNativeType |
-                            EvidenceSource.NativeRelationship),
-                        generation,
-                        $"membership contains {member.GetType().FullName ?? member.GetType().Name}, not {expectedType.FullName ?? expectedType.Name}");
-                }
-                var memberUuid = _readStableUuid(member);
-                if (!memberUuid.HasValue || memberUuid.Value == Guid.Empty)
-                {
-                    return Result(
-                        uuid,
-                        expectedType,
-                        TypedRegistryResolutionStatus.AmbiguousEvidence,
-                        null,
-                        EvidenceAssessment.Contradictory(
-                            entity.Evidence.Sources |
-                            registry.Evidence.Sources |
-                            EvidenceSource.StableIdentity |
-                            EvidenceSource.NativeRelationship),
-                        generation,
-                        "membership contains an entry without a stable UUID");
-                }
-                if (memberUuid == uuid)
-                {
-                    return Result(
-                        uuid,
-                        expectedType,
-                        TypedRegistryResolutionStatus.AmbiguousEvidence,
-                        null,
-                        EvidenceAssessment.Contradictory(
-                            entity.Evidence.Sources |
-                            registry.Evidence.Sources |
-                            EvidenceSource.NativeRelationship),
-                        generation,
-                        "membership contains the UUID under a different lifecycle-scoped native reference");
-                }
-            }
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return Result(
-                uuid,
-                expectedType,
-                TypedRegistryResolutionStatus.ContractUnavailable,
-                null,
-                EvidenceAssessment.Unresolved(entity.Evidence.Sources | registry.Evidence.Sources),
-                generation,
-                "membership enumeration failed: " + ex.GetBaseException().Message);
-        }
-
-        return EnsureCurrent(Result(
-            uuid,
-            expectedType,
-            TypedRegistryResolutionStatus.Resolved,
-            entity.Value,
-            new EvidenceAssessment(
-                EvidenceLevel.RuntimeObserved,
-                entity.Evidence.Sources |
-                registry.Evidence.Sources |
-                EvidenceSource.NativeRelationship),
-            generation,
-            string.Empty,
-            TypedRegistryMembership.Excluded));
     }
 
     private TypedRegistryResolution Resolve(Guid uuid, Type expectedType, long generation)
@@ -462,8 +289,7 @@ public sealed class TypedRegistryResolver
         object? value,
         EvidenceAssessment evidence,
         long generation,
-        string reason,
-        TypedRegistryMembership membership = TypedRegistryMembership.NotEvaluated) =>
+        string reason) =>
         EnsureCurrent(RawResult(
             uuid,
             expectedType,
@@ -471,8 +297,7 @@ public sealed class TypedRegistryResolver
             value,
             evidence,
             generation,
-            reason,
-            membership));
+            reason));
 
     private static TypedRegistryResolution RawResult(
         Guid uuid,
@@ -481,9 +306,8 @@ public sealed class TypedRegistryResolver
         object? value,
         EvidenceAssessment evidence,
         long generation,
-        string reason,
-        TypedRegistryMembership membership = TypedRegistryMembership.NotEvaluated) =>
-        new(uuid, expectedType, status, value, evidence, generation, reason, membership);
+        string reason) =>
+        new(uuid, expectedType, status, value, evidence, generation, reason);
 
     private static TypedRegistryResolver CreateShared()
     {

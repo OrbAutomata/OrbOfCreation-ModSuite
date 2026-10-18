@@ -268,7 +268,7 @@ internal sealed class AutomataCostVerifier
             var queuedQuantity = structureType.GetField("queuedQuantity", Instance);
             var getNextCostMod = FindNoArg(structureType, "GetNextCostMod");
             var getPurchaseCost = FindNoArg(structureType, "GetPurchaseCost");
-            var getGuid = FindNoArg(structureType, "GetGuid");
+            var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(structureType);
             if (baseCost is null || costPerQuantity is null || costScalingMod is null ||
                 quantity is null || queuedQuantity is null || getNextCostMod is null ||
                 getPurchaseCost is null || getGuid is null)
@@ -286,7 +286,7 @@ internal sealed class AutomataCostVerifier
             if (tupleResource is null || tupleGetValue is null) return null;
 
             var resourceType = tupleResource.FieldType;
-            var resourceGetGuid = FindNoArg(resourceType, "GetGuid");
+            var resourceGetGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(resourceType);
             var resourceAttributeCostMod = FindNoArg(resourceType, "GetAttributeCostMod");
             if (resourceGetGuid is null || resourceAttributeCostMod is null) return null;
 

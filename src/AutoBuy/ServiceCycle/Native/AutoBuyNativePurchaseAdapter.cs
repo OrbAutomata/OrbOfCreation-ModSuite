@@ -272,7 +272,6 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 {
     private readonly System.Collections.Generic.Dictionary<Type, PurchaseAccessors?> _accessors =
         new System.Collections.Generic.Dictionary<Type, PurchaseAccessors?>();
-    private readonly CandidateIndex?[] _candidateIndices = new CandidateIndex?[2];
     private readonly NativePurchaseViewAdmissionResolver? _viewAdmission;
 #if SERVICE_CYCLE_PROFILE
     private readonly AutomataProfileOperations _profileOperations;
@@ -708,12 +707,6 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             stoppedShort ? accessors.ReadLiveCosts(source) : default);
     }
 
-    // The native StructureSO.All / UpgradeSO.All membership is constant after game start (only
-    // per-candidate state changes), so resolution keeps a UUID index per kind instead of scanning
-    // the list per action. The index is keyed to the list's identity and count and self-heals with
-    // one rebuild when a lookup misses or a hit's stable id no longer matches (game reload rebuilt
-    // the list in place); the lifecycle-epoch guard in the action adapter remains the authority
-    // that rejects stale cycles.
     private bool TryResolveCandidate(
         AutoBuyCandidateKind kind,
         Guid uuid,
@@ -722,84 +715,20 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     {
         source = null!;
         accessors = null!;
-        var listType = kind == AutoBuyCandidateKind.Structure ? "StructureSO" : "UpgradeSO";
-        var list = ReadStaticList(listType, "All");
-        var index = ResolveIndex(kind, list, rebuild: false);
-        if (!TryLookupFresh(index, uuid, out var candidate))
-        {
-            index = ResolveIndex(kind, list, rebuild: true);
-            if (!TryLookupFresh(index, uuid, out candidate)) return false;
-        }
-
-        var resolved = ResolveAccessors(candidate.GetType(), kind);
-        if (resolved is null) return false;
-        source = candidate;
-        accessors = resolved;
-        return true;
-    }
-
-    private bool TryLookupFresh(
-        System.Collections.Generic.Dictionary<Guid, object> index,
-        Guid uuid,
-        out object candidate)
-    {
-        if (!index.TryGetValue(uuid, out candidate!)) return false;
+        var nativeType = ReflectionUtil.FindLoadedType(
+            kind == AutoBuyCandidateKind.Structure ? "StructureSO" : "UpgradeSO");
+        if (nativeType is null) return false;
+        var resolution = TypedRegistryResolver.Shared.Resolve(uuid, nativeType);
+        if (!resolution.IsResolved) return false;
 #if SERVICE_CYCLE_PROFILE
         _profileOperations.AddStableIdRead();
 #endif
-        return Guid.TryParse(ReflectionUtil.ReadStableId(candidate), out var liveId) && liveId == uuid;
-    }
 
-    private System.Collections.Generic.Dictionary<Guid, object> ResolveIndex(
-        AutoBuyCandidateKind kind,
-        IList list,
-        bool rebuild)
-    {
-        var slot = kind == AutoBuyCandidateKind.Structure ? 0 : 1;
-        var cached = _candidateIndices[slot];
-        if (!rebuild && cached is not null &&
-            ReferenceEquals(cached.Source, list) && cached.Count == list.Count)
-        {
-            return cached.ByUuid;
-        }
-
-        var index = new System.Collections.Generic.Dictionary<Guid, object>(list.Count);
-        for (var i = 0; i < list.Count; i++)
-        {
-            var candidate = list[i];
-#if SERVICE_CYCLE_PROFILE
-            _profileOperations.AddListEntry();
-#endif
-            if (candidate is null) continue;
-#if SERVICE_CYCLE_PROFILE
-            _profileOperations.AddStableIdRead();
-#endif
-            if (!Guid.TryParse(ReflectionUtil.ReadStableId(candidate), out var candidateId) ||
-                candidateId == Guid.Empty)
-                continue;
-            // First match wins, mirroring the previous linear-scan semantics.
-            if (!index.ContainsKey(candidateId)) index.Add(candidateId, candidate);
-        }
-
-        _candidateIndices[slot] = new CandidateIndex(list, list.Count, index);
-        return index;
-    }
-
-    private sealed class CandidateIndex
-    {
-        internal CandidateIndex(
-            IList source,
-            int count,
-            System.Collections.Generic.Dictionary<Guid, object> byUuid)
-        {
-            Source = source;
-            Count = count;
-            ByUuid = byUuid;
-        }
-
-        internal IList Source { get; }
-        internal int Count { get; }
-        internal System.Collections.Generic.Dictionary<Guid, object> ByUuid { get; }
+        var resolved = ResolveAccessors(nativeType, kind);
+        if (resolved is null) return false;
+        source = resolution.Value!;
+        accessors = resolved;
+        return true;
     }
 
     private PurchaseAccessors? ResolveAccessors(Type type, AutoBuyCandidateKind kind)
@@ -811,14 +740,6 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         }
 
         return accessors;
-    }
-
-    private static IList ReadStaticList(string typeName, string memberName)
-    {
-        var type = ReflectionUtil.FindLoadedType(typeName);
-        var value = type?.GetField(memberName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null) ??
-                    type?.GetProperty(memberName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null, null);
-        return value as IList ?? Array.Empty<object>();
     }
 
     /// <summary>

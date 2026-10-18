@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.World;
 
@@ -22,7 +23,7 @@ internal sealed class AutomataConceptDrainVerifier
 
     internal AutomataConceptDrainVerifier(Type recipeType, Type? instanceType)
     {
-        _recipeId = recipeType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        _recipeId = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(recipeType);
         _maximum = recipeType.GetMethod("GetMaxUsageSlots", Instance, null, Type.EmptyTypes, null);
         _instanceConstructor = instanceType?.GetConstructor(
             Instance, null, new[] { recipeType }, null);
@@ -32,7 +33,7 @@ internal sealed class AutomataConceptDrainVerifier
     }
 
     internal bool IsAvailable =>
-        _recipeId?.ReturnType == typeof(Guid) && _maximum?.ReturnType == typeof(int) &&
+        _recipeId is not null && _maximum?.ReturnType == typeof(int) &&
         _instanceConstructor is not null && _quantity?.FieldType == typeof(int) &&
         _nativeModifier?.ReturnType.Name == "BigDouble";
 
@@ -162,7 +163,7 @@ internal sealed class AutomataSpellLevelVerifier
 
     internal AutomataSpellLevelVerifier(Type spellType, Type? costListType)
     {
-        _recipeId = spellType.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
+        _recipeId = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(spellType);
         _getLevelCost = spellType.GetMethod("GetLevelCost", Instance, null, Type.EmptyTypes, null);
         _hasEnough = costListType?.GetMethod("HasEnough", Instance, null, Type.EmptyTypes, null);
         _costs = NativeAccessorBinder.CollectionField(costListType, "costs");
@@ -172,7 +173,7 @@ internal sealed class AutomataSpellLevelVerifier
     }
 
     internal bool IsAvailable =>
-        _recipeId?.ReturnType == typeof(Guid) && _getLevelCost is not null &&
+        _recipeId is not null && _getLevelCost is not null &&
         _hasEnough?.ReturnType == typeof(bool) && _costs is not null &&
         _resourceId is not null && _amount is not null;
 

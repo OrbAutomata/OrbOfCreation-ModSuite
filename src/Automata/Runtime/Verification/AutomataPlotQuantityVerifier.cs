@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.World;
 
@@ -123,7 +124,7 @@ internal sealed class AutomataPlotQuantityVerifier
         {
             if (plotNodeType is null) return null;
 
-            var getGuid = FindNoArg(plotNodeType, "GetGuid");
+            var getGuid = RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(plotNodeType);
             var getTotalQuantity = FindNoArg(plotNodeType, "GetTotalQuantity");
             var getRemainingQuantity = FindNoArg(plotNodeType, "GetRemainingQuantity");
             var getRemainingTotalQuantity = FindNoArg(plotNodeType, "GetRemainingTotalQuantity");
