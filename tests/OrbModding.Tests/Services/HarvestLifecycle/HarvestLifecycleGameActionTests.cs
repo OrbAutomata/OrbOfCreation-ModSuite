@@ -33,9 +33,9 @@ public sealed class HarvestLifecycleGameActionTests
         var added = Submit(boundary, HarvestLifecycleActionKind.AddElement, element, amount: 2);
         var removed = Submit(boundary, HarvestLifecycleActionKind.RemoveElement, element);
 
-        Assert.True(added.Verified, added.Reason);
+        Assert.True(added.Outcome.Verified, added.Outcome.Reason);
         Assert.Equal(1, _elements.GetStacks(element));
-        Assert.True(removed.Verified, removed.Reason);
+        Assert.True(removed.Outcome.Verified, removed.Outcome.Reason);
     }
 
     [Fact]
@@ -56,9 +56,9 @@ public sealed class HarvestLifecycleGameActionTests
         var removed = Submit(boundary, HarvestLifecycleActionKind.RemoveAction,
             element, action, amount: 2);
 
-        Assert.True(added.Verified, added.Reason);
+        Assert.True(added.Outcome.Verified, added.Outcome.Reason);
         Assert.Equal(2, addedInstances);
-        Assert.True(removed.Verified, removed.Reason);
+        Assert.True(removed.Outcome.Verified, removed.Outcome.Reason);
         Assert.Empty(_actions.value);
     }
 
@@ -80,10 +80,10 @@ public sealed class HarvestLifecycleGameActionTests
 
         var result = Submit(boundary, HarvestLifecycleActionKind.AddAction, element, action);
 
-        Assert.Equal(HarvestLifecyclePreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(HarvestLifecycleActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
         Assert.Equal(ServiceActionDisposition.Faulted,
-            HarvestLifecycleActionResultMapper.Map(in result).Disposition);
+            result.Outcome.ToResult().Disposition);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class HarvestLifecycleGameActionTests
 
         var result = Submit(boundary, HarvestLifecycleActionKind.AddAction, first, action);
 
-        Assert.Equal(HarvestLifecyclePreflight.ActionUnavailable, result.Preflight);
+        Assert.Equal(HarvestLifecycleActionResultCodes.ActionUnavailable, result.Outcome.Code);
         Assert.Empty(_actions.value);
     }
 
@@ -119,10 +119,10 @@ public sealed class HarvestLifecycleGameActionTests
         var actionResult = Submit(boundary, HarvestLifecycleActionKind.AddAction,
             element, action, amount: 2);
 
-        Assert.Equal(HarvestLifecyclePreflight.ElementUsageUnavailable,
-            elementResult.Preflight);
-        Assert.Equal(HarvestLifecyclePreflight.AmountUnavailable,
-            actionResult.Preflight);
+        Assert.Equal(HarvestLifecycleActionResultCodes.ElementUsageUnavailable,
+            elementResult.Outcome.Code);
+        Assert.Equal(HarvestLifecycleActionResultCodes.AmountUnavailable,
+            actionResult.Outcome.Code);
     }
 
     [Theory]
@@ -143,7 +143,7 @@ public sealed class HarvestLifecycleGameActionTests
 
         var result = Submit(boundary, kind, element, action);
 
-        Assert.Equal(HarvestLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(HarvestLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public sealed class HarvestLifecycleGameActionTests
         var result = ForeignThread.Run(() =>
             Submit(boundary, HarvestLifecycleActionKind.AddElement, element));
 
-        Assert.Equal(HarvestLifecyclePreflight.WrongThread, result.Preflight);
+        Assert.Equal(HarvestLifecycleActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Empty(_elements.value);
     }
 

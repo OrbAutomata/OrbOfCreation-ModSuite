@@ -195,40 +195,38 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     private static AutoScribeFeatureStatus FromActionHealth(AutoScribeActionHealth health)
     {
         var summary = string.IsNullOrWhiteSpace(health.Reason)
-            ? $"Auto Scribe failed at {health.Stage}/{health.Preflight}."
+            ? "Auto Scribe failed without a reason."
             : health.Reason;
-        switch (health.Preflight)
-        {
-            case AutoScribePreflight.ContractUnavailable:
-                return new AutoScribeFeatureStatus(
-                    FeatureStatusState.ContractUnavailable,
-                    FeatureStatusReasonCode.ContractUnavailable,
-                    summary);
-            case AutoScribePreflight.IdentityUnavailable:
-                return new AutoScribeFeatureStatus(
-                    FeatureStatusState.ContractUnavailable,
-                    FeatureStatusReasonCode.IdentityMismatch,
-                    summary);
-            case AutoScribePreflight.PostPaymentFault:
-            case AutoScribePreflight.VerificationFailed:
-            case AutoScribePreflight.Quarantined:
-                return new AutoScribeFeatureStatus(
-                    FeatureStatusState.Faulted,
-                    FeatureStatusReasonCode.MutationQuarantined,
-                    summary);
-            case AutoScribePreflight.RelationshipMismatch:
-                return new AutoScribeFeatureStatus(
-                    FeatureStatusState.ContractUnavailable,
-                    FeatureStatusReasonCode.IdentityMismatch,
-                    summary);
-            case AutoScribePreflight.WrongThread:
-                return new AutoScribeFeatureStatus(
-                    FeatureStatusState.Faulted,
-                    FeatureStatusReasonCode.ContractUnavailable,
-                    summary);
-        }
+        var code = health.Code;
+        if (code == AutoScribeActionResultCodes.ContractUnavailable)
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.ContractUnavailable,
+                summary);
+        if (code == AutoScribeActionResultCodes.IdentityUnavailable)
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.IdentityMismatch,
+                summary);
+        if (code == AutoScribeActionResultCodes.PostPaymentFault ||
+            code == AutoScribeActionResultCodes.VerificationFailed ||
+            code == AutoScribeActionResultCodes.Quarantined)
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.MutationQuarantined,
+                summary);
+        if (code == AutoScribeActionResultCodes.RelationshipMismatch)
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.IdentityMismatch,
+                summary);
+        if (code == AutoScribeActionResultCodes.WrongThread)
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.ContractUnavailable,
+                summary);
         throw new InvalidOperationException(
-            $"Auto Scribe action health retained non-failure {health.Preflight}.");
+            $"Auto Scribe action health retained non-failure code {code}.");
     }
 
     private string OwnershipReason()

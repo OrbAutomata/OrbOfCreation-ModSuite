@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.Runtime.ServiceCycle.Profile;
 #endif
@@ -82,7 +83,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
         return true;
     }
 
-    public AutoHarvestSubmissionFailureCode ValidateClickAdmission(
+    public ServiceActionResultCode ValidateClickAdmission(
         in ResolvedAutoHarvestPair resolved,
         out object? prototype)
     {
@@ -90,55 +91,55 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
         try
         {
             if (!InvokeBool(resolved.Contract.PlotIsVisible, resolved.Target.Plot))
-                return AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused;
+                return AutoHarvestActionResultCodes.NativePlotVisibilityRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused;
+            return AutoHarvestActionResultCodes.NativePlotVisibilityRefused;
         }
 
         try
         {
             prototype = ReadPrototype(resolved);
             if (prototype is null)
-                return AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused;
+                return AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused;
+            return AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused;
         }
 
         try
         {
             if (!InvokeBool(resolved.Contract.InstanceIsVisible, prototype))
-                return AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused;
+                return AutoHarvestActionResultCodes.NativeActionRowVisibilityRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused;
+            return AutoHarvestActionResultCodes.NativeActionRowVisibilityRefused;
         }
 
         try
         {
             if (!InvokeBool(resolved.Contract.InstanceHasEnoughForOneInstance, prototype))
-                return AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused;
+                return AutoHarvestActionResultCodes.NativeHasEnoughForOneInstanceRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused;
+            return AutoHarvestActionResultCodes.NativeHasEnoughForOneInstanceRefused;
         }
 
         try
         {
             if (InvokeInt(resolved.Contract.InstanceGetMaximumRemInstances, prototype) <= 0)
-                return AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused;
+                return AutoHarvestActionResultCodes.NativeMaximumRemainingInstancesRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused;
+            return AutoHarvestActionResultCodes.NativeMaximumRemainingInstancesRefused;
         }
 
-        return AutoHarvestSubmissionFailureCode.None;
+        return CommonActionResultCodes.Committed;
     }
 
     /// <summary>

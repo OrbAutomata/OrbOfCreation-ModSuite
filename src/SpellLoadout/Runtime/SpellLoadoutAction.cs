@@ -34,64 +34,6 @@ internal readonly struct SpellLoadoutAction
     internal long LifecycleEpoch { get; }
 }
 
-internal enum SpellLoadoutPreflight
-{
-    Proceeded = 0,
-    LifecycleReplaced = 1,
-    ContractUnavailable = 2,
-    WrongThread = 4,
-    IdentityUnavailable = 5,
-    SpellRecharging = 6,
-    DestinationOutOfRange = 7,
-    AlreadyInRequestedState = 8,
-    MutationPermitUnavailable = 9,
-    PostCommitFault = 10,
-    VerificationFailed = 11,
-    CastInProgress = 12,
-
-    /// <summary>The screen the loadout bar lives on is not unlocked.</summary>
-    ScreenLocked = 13,
-}
-
-internal enum SpellLoadoutNativeStage
-{
-    None = 0,
-    Remove = 1,
-    Swap = 2,
-    Notify = 3,
-    Verification = 4,
-}
-
-internal readonly struct SpellLoadoutSubmission
-{
-    internal SpellLoadoutSubmission(
-        SpellLoadoutPreflight preflight,
-        SpellLoadoutNativeStage stage,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        string reason)
-    {
-        Preflight = preflight;
-        Stage = stage;
-        Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
-    }
-
-    internal SpellLoadoutPreflight Preflight { get; }
-    internal SpellLoadoutNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
-    internal string Reason { get; }
-    internal bool Verified => Preflight == SpellLoadoutPreflight.Proceeded &&
-        Outcome == NativeMutationOutcome.Verified;
-
-    internal static SpellLoadoutSubmission Reject(
-        SpellLoadoutPreflight preflight,
-        string reason) =>
-        new(preflight, SpellLoadoutNativeStage.None, default, default, reason);
-}
-
 internal static class SpellLoadoutActionResultCodes
 {
     internal static readonly ServiceActionResultCode ContractUnavailable = new(7401);

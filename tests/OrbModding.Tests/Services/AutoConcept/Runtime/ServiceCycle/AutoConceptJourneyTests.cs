@@ -52,7 +52,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             in removeBelief);
         var removed = native.Submit(in remove, DefaultLimits);
 
-        Assert.True(removed.Verified, removed.Reason);
+        Assert.True(removed.Outcome.Verified, removed.Outcome.Reason);
         Assert.DoesNotContain(active.value, value => value.reference == activeRecipe);
 
         var assignBelief = new AutoConceptPlanBelief(0, 0, 3, Guid.Empty, 0);
@@ -65,7 +65,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             in assignBelief);
         var assigned = native.Submit(in assign, DefaultLimits);
 
-        Assert.True(assigned.Verified, assigned.Reason);
+        Assert.True(assigned.Outcome.Verified, assigned.Outcome.Reason);
         var replacement = Assert.Single(active.value, value => value.reference == replacementRecipe);
         Assert.Equal(1, replacement.queuedQuantity);
         replacement.quantity = 1;
@@ -80,7 +80,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
             in depthBelief);
         var deepened = native.Submit(in depth, DefaultLimits);
 
-        Assert.True(deepened.Verified, deepened.Reason);
+        Assert.True(deepened.Outcome.Verified, deepened.Outcome.Reason);
         Assert.Equal(2, deepened.AppliedDelta);
         Assert.Equal(3, replacement.queuedQuantity);
     }
@@ -600,7 +600,7 @@ public sealed class AutoConceptHeadlessJourneyTests
                 var replacement = Find(action.ReplacementId);
                 if (replacement.UnsafeReplacement)
                     return AutoConceptSubmission.Rejected(
-                        AutoConceptPreflight.SlotUnavailable,
+                        AutoConceptActionResultCodes.SlotUnavailable,
                         "simulated drained resource is at zero");
                 var removed = candidate.QueuedQuantity;
                 candidate.QueuedQuantity = 0;
@@ -619,7 +619,7 @@ public sealed class AutoConceptHeadlessJourneyTests
                 _candidates.Count(item => Math.Max(item.Quantity, item.QueuedQuantity) > 0) >=
                 _activeSlots)
                 return AutoConceptSubmission.Rejected(
-                    AutoConceptPreflight.SlotUnavailable,
+                    AutoConceptActionResultCodes.SlotUnavailable,
                     "simulated active concept slots are full");
             var delta = target - candidate.QueuedQuantity;
             candidate.QueuedQuantity = target;

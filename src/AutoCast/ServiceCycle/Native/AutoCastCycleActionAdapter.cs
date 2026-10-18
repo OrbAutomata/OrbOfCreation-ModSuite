@@ -137,12 +137,12 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         }
 
         LastSubmission = submission;
-        if (serviceHold && submission.Verified)
+        if (serviceHold && submission.Outcome.Verified)
             _serviceHold = new HeldCharge(action.SlotIndex, action.SpellRecipeId);
-        else if (release && submission.Verified && _serviceHold?.SpellRecipeId == action.SpellRecipeId)
+        else if (release && submission.Outcome.Verified && _serviceHold?.SpellRecipeId == action.SpellRecipeId)
             _serviceHold = null;
         Narrate(in action, in submission);
-        return Map(in submission);
+        return submission.Outcome.ToResult();
     }
 
     /// <summary>Whether a full-charge hold this service took is still pressed down.</summary>
@@ -168,7 +168,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
             return;
         }
 
-        if (submission.Verified) _serviceHold = null;
+        if (submission.Outcome.Verified) _serviceHold = null;
     }
 
     /// <summary>A lifecycle boundary replaced every spell, and with them every charge input.</summary>
@@ -193,12 +193,12 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 $"turn off the toggled spell in slot {action.SlotIndex + 1}",
             _ => $"cast the spell in slot {action.SlotIndex + 1}",
         };
-        if (submission.Verified) return;
+        if (submission.Outcome.Verified) return;
 
         var message =
-            $"Auto Cast did not {what}: {submission.Reason} " +
+            $"Auto Cast did not {what}: {submission.Outcome.Reason} " +
             $"(planned from a snapshot with {action.Belief.EligibleSlots} eligible slots).";
-        if (submission.Preflight == AutoCastPreflight.Proceeded)
+        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
             Plugin.Log?.LogAutomataWarning(message);
     }
 
@@ -228,49 +228,6 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         }
 
         return epoch > 0 && epoch == plannedEpoch;
-    }
-
-    private static ServiceActionResult Map(in AutoCastSubmission submission)
-    {
-        switch (submission.Preflight)
-        {
-            case AutoCastPreflight.ContractUnavailable:
-                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
-            case AutoCastPreflight.TargetingInProgress:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.TargetingInProgress);
-            case AutoCastPreflight.CasterBusy:
-                return ServiceActionResult.Skipped(AutoCastActionResultCodes.NativeCasterBusy);
-            case AutoCastPreflight.SlotIdentityChanged:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.SlotIdentityChanged);
-            case AutoCastPreflight.NotReady:
-                return ServiceActionResult.Skipped(AutoCastActionResultCodes.SpellNotReady);
-            case AutoCastPreflight.NoValidTarget:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.NoValidTarget);
-            case AutoCastPreflight.ChargeHoldRefused:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.ChargeHoldRefused);
-            case AutoCastPreflight.NotChargeable:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellNotChargeable);
-            case AutoCastPreflight.NotToggleable:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellNotToggleable);
-            case AutoCastPreflight.AlreadyInactive:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.SpellAlreadyInactive);
-            case AutoCastPreflight.CancellationDisabled:
-                return ServiceActionResult.Rejected(AutoCastActionResultCodes.CancellationDisabled);
-            case AutoCastPreflight.AlreadyCasting:
-                // Ordinary snapshot staleness for the service, exactly like an unready spell: the
-                // cast started between planning and pressing. No penalty, and the MCP caller reads
-                // it as the refusal it is.
-                return ServiceActionResult.Skipped(AutoCastActionResultCodes.SpellAlreadyCasting);
-        }
-
-        var evidence = ServiceNativeMutationEvidence.Observed(submission.Outcome, submission.CallOutcome);
-        if (submission.Verified)
-            return ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence);
-
-        // An attempted mutation the verifier could not confirm is a fault, not a skip. The native port
-        // has already blocked that spell until the next lifecycle, so this is reported once and the
-        // service backs off rather than re-probing a contract it no longer understands.
-        return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
     }
 
     private readonly record struct HeldCharge(int SlotIndex, Guid SpellRecipeId);

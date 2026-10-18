@@ -37,9 +37,9 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         var addedAmount = instance.GetQueuedQuantity();
         var removed = Submit(boundary, recipe, AlchemyLoadoutActionKind.Remove, amount: 2);
 
-        Assert.True(added.Verified, added.Reason);
+        Assert.True(added.Outcome.Verified, added.Outcome.Reason);
         Assert.Equal(2, addedAmount);
-        Assert.True(removed.Verified, removed.Reason);
+        Assert.True(removed.Outcome.Verified, removed.Outcome.Reason);
         Assert.Empty(AlchemyManager.instance.activeAlchemy.value);
     }
 
@@ -54,9 +54,9 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         var added = Submit(boundary, recipe, AlchemyLoadoutActionKind.Add, amount: 2);
         var removeTooMany = Submit(boundary, recipe, AlchemyLoadoutActionKind.Remove, amount: 3);
 
-        Assert.Equal(AlchemyLoadoutPreflight.UsageUnavailable, tooMany.Preflight);
-        Assert.True(added.Verified, added.Reason);
-        Assert.Equal(AlchemyLoadoutPreflight.UsageUnavailable, removeTooMany.Preflight);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.UsageUnavailable, tooMany.Outcome.Code);
+        Assert.True(added.Outcome.Verified, added.Outcome.Reason);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.UsageUnavailable, removeTooMany.Outcome.Code);
         Assert.Equal(2, Assert.Single(AlchemyManager.instance!.activeAlchemy.value).queuedQuantity);
     }
 
@@ -76,7 +76,7 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, first, AlchemyLoadoutActionKind.Add);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Same(first, AlchemyManager.instance.activeAlchemy.value[0].get_reference());
         Assert.Equal(0, AlchemyManager.instance.activeAlchemy.UpdateObservableCalls);
         Assert.DoesNotContain(AlchemyLoadoutNativeBindings.ContractIds,
@@ -93,7 +93,7 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, concept, AlchemyLoadoutActionKind.Add);
 
-        Assert.Equal(AlchemyLoadoutPreflight.WrongDomain, result.Preflight);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.WrongDomain, result.Outcome.Code);
         Assert.Empty(AlchemyManager.instance!.activeAlchemy.value);
     }
 
@@ -107,7 +107,7 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, AlchemyLoadoutActionKind.Add);
 
-        Assert.Equal(AlchemyLoadoutPreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Empty(AlchemyManager.instance.activeAlchemy.value);
     }
 
@@ -125,9 +125,9 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, recipe, AlchemyLoadoutActionKind.Add);
 
-        Assert.Equal(AlchemyLoadoutPreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
-        Assert.Equal(ServiceActionDisposition.Faulted, AlchemyLoadoutActionResultMapper.Map(in result).Disposition);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Outcome.ToResult().Disposition);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
 
         var result = ForeignThread.Run(() => Submit(boundary, recipe, AlchemyLoadoutActionKind.Add));
 
-        Assert.Equal(AlchemyLoadoutPreflight.WrongThread, result.Preflight);
+        Assert.Equal(AlchemyLoadoutActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Empty(AlchemyManager.instance!.activeAlchemy.value);
     }
 

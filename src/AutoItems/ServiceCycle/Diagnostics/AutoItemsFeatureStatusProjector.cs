@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -56,7 +57,7 @@ internal static class AutoItemsFeatureStatusProjector
                 quarantinedTemporaryItem,
                 temporaryQuarantineCause);
         if (health.HasFailure)
-            return FromActionFailure(health.Preflight, health.Reason);
+            return FromActionFailure(health.Code, health.Reason);
         if (!cycleObserved)
             return new AutoItemsFeatureStatus(
                 FeatureStatusState.NotReady,
@@ -101,47 +102,45 @@ internal static class AutoItemsFeatureStatusProjector
     }
 
     private static AutoItemsFeatureStatus FromActionFailure(
-        AutoItemsPreflight preflight,
+        ServiceActionResultCode code,
         string reason)
     {
         var summary = string.IsNullOrWhiteSpace(reason)
-            ? $"Auto Items failed at {preflight}."
+            ? "Auto Items failed without a reason."
             : reason;
-        return preflight switch
-        {
-            AutoItemsPreflight.ContractUnavailable =>
-                new AutoItemsFeatureStatus(
-                    FeatureStatusState.ContractUnavailable,
-                    FeatureStatusReasonCode.ContractUnavailable,
-                    summary),
-            AutoItemsPreflight.Quarantined =>
-                new AutoItemsFeatureStatus(
-                    FeatureStatusState.Faulted,
-                    FeatureStatusReasonCode.MutationQuarantined,
-                    summary),
-            AutoItemsPreflight.ItemUnavailable =>
-                new AutoItemsFeatureStatus(
-                    FeatureStatusState.NotReady,
-                    FeatureStatusReasonCode.RegistryNotReady,
-                    summary),
-            AutoItemsPreflight.FamilyChanged =>
-                new AutoItemsFeatureStatus(
-                    FeatureStatusState.ContractUnavailable,
-                    FeatureStatusReasonCode.IdentityMismatch,
-                    summary),
-            AutoItemsPreflight.MultiBuyUnavailable =>
-                new AutoItemsFeatureStatus(
-                    FeatureStatusState.Faulted,
-                    FeatureStatusReasonCode.ContractUnavailable,
-                    summary),
-            AutoItemsPreflight.NativeBusy or AutoItemsPreflight.CanFireRefused =>
-                Blocked(FeatureStatusReasonCode.NativeBusy, summary),
-            AutoItemsPreflight.TargetingInProgress =>
-                Blocked(FeatureStatusReasonCode.TargetingInProgress, summary),
-            AutoItemsPreflight.MutationPermitUnavailable =>
-                Blocked(FeatureStatusReasonCode.ActionFamilyConflict, summary),
-            _ => Blocked(FeatureStatusReasonCode.TemporarySafetyBlock, summary),
-        };
+        if (code == AutoItemsActionResultCodes.ContractUnavailable)
+            return new AutoItemsFeatureStatus(
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.ContractUnavailable,
+                summary);
+        if (code == AutoItemsActionResultCodes.Quarantined)
+            return new AutoItemsFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.MutationQuarantined,
+                summary);
+        if (code == AutoItemsActionResultCodes.ItemUnavailable)
+            return new AutoItemsFeatureStatus(
+                FeatureStatusState.NotReady,
+                FeatureStatusReasonCode.RegistryNotReady,
+                summary);
+        if (code == AutoItemsActionResultCodes.FamilyChanged)
+            return new AutoItemsFeatureStatus(
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.IdentityMismatch,
+                summary);
+        if (code == AutoItemsActionResultCodes.MultiBuyUnavailable)
+            return new AutoItemsFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.ContractUnavailable,
+                summary);
+        if (code == AutoItemsActionResultCodes.NativeBusy ||
+            code == AutoItemsActionResultCodes.CanFireRefused)
+            return Blocked(FeatureStatusReasonCode.NativeBusy, summary);
+        if (code == AutoItemsActionResultCodes.TargetingInProgress)
+            return Blocked(FeatureStatusReasonCode.TargetingInProgress, summary);
+        if (code == AutoItemsActionResultCodes.MutationPermitUnavailable)
+            return Blocked(FeatureStatusReasonCode.ActionFamilyConflict, summary);
+        return Blocked(FeatureStatusReasonCode.TemporarySafetyBlock, summary);
     }
 
     private static AutoItemsFeatureStatus Blocked(

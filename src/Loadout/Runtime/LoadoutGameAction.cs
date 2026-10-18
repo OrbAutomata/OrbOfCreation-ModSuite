@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -44,27 +45,27 @@ internal sealed class LoadoutGameAction : IDisposable
     internal LoadoutSubmission Submit(in LoadoutAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(LoadoutPreflight.WrongThread,
+            return Reject(LoadoutActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(LoadoutPreflight.ContractUnavailable,
+            return Reject(LoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Workshop > Artifacts and Alchemy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(LoadoutPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(LoadoutPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
-                return Reject(LoadoutPreflight.ContractUnavailable,
+                return Reject(LoadoutActionResultCodes.ContractUnavailable,
                     "Loadouts are not available in this scene.");
             object? target;
             var snapshotIsAlchemy = false;
@@ -73,24 +74,24 @@ internal sealed class LoadoutGameAction : IDisposable
             if (action.Kind <= LoadoutActionKind.NextColor)
             {
                 if (!TryFindPlayer(native, manager, action.TargetId, out target))
-                    return Reject(LoadoutPreflight.IdentityUnavailable,
+                    return Reject(LoadoutActionResultCodes.IdentityUnavailable,
                         "That player loadout is not present in the current game.");
                 if (action.Kind == LoadoutActionKind.Select)
                 {
                     if (native.PlayerSelected(target!))
-                        return Reject(LoadoutPreflight.AlreadyInRequestedState,
+                        return Reject(LoadoutActionResultCodes.AlreadyInRequestedState,
                             native.PlayerName(target!) + " is already selected.");
                     // The game's whole admission for a swap is CanSwapLoadouts() plus the
                     // same-index early return above; LoadLoadout and SwapOnLoadout validate
                     // nothing. The suite does not get to be stricter than the transaction.
                     if (!native.CanSwap(manager))
-                        return Reject(LoadoutPreflight.SwitchBlocked,
+                        return Reject(LoadoutActionResultCodes.SwitchBlocked,
                             "Finish casting or readying the active spell before switching loadouts.");
                 }
                 else
                 {
                     if (!native.PlayerSelected(target!))
-                        return Reject(LoadoutPreflight.WrongTargetType,
+                        return Reject(LoadoutActionResultCodes.WrongTargetType,
                             "Edit the currently selected player loadout.");
                     var refusal = ValidatePlayerEdit(in action, native, target!, out expectedIndex);
                     if (refusal.HasValue) return refusal.Value;
@@ -104,10 +105,10 @@ internal sealed class LoadoutGameAction : IDisposable
                 var reason = string.Empty;
                 var empty = IsSnapshotEmpty(native, target!, snapshotIsAlchemy);
                 if (action.Kind == LoadoutActionKind.SnapshotSave && !empty)
-                    return Reject(LoadoutPreflight.SlotOccupied,
+                    return Reject(LoadoutActionResultCodes.SlotOccupied,
                         "Clear snapshot slot " + (action.Slot + 1) + " before saving into it.");
                 if (action.Kind is LoadoutActionKind.SnapshotLoad or LoadoutActionKind.SnapshotClear && empty)
-                    return Reject(LoadoutPreflight.SlotEmpty,
+                    return Reject(LoadoutActionResultCodes.SlotEmpty,
                         "Snapshot slot " + (action.Slot + 1) + " is empty.");
 
                 // Nothing staged is answered before the record is validated. A save reads the
@@ -115,32 +116,32 @@ internal sealed class LoadoutGameAction : IDisposable
                 // ordering, not the checks, is what made an empty section claim it overflowed.
                 if (action.Kind == LoadoutActionKind.SnapshotSave &&
                     IsActiveSectionEmpty(native, manager, snapshotIsAlchemy))
-                    return Reject(LoadoutPreflight.ActiveSectionEmpty,
+                    return Reject(LoadoutActionResultCodes.ActiveSectionEmpty,
                         "There is nothing staged in the active " +
                         (snapshotIsAlchemy ? "Alchemy" : "Equipment") +
                         " section to save.");
                 if (action.Kind == LoadoutActionKind.SnapshotSave &&
                     !TryValidateActive(native, manager, snapshotIsAlchemy, out reason))
-                    return Reject(LoadoutPreflight.EntryUnavailable, reason);
+                    return Reject(LoadoutActionResultCodes.EntryUnavailable, reason);
                 if (action.Kind == LoadoutActionKind.SnapshotLoad)
                 {
                     if (!TryValidateSnapshot(native, manager, target!, snapshotIsAlchemy, out reason))
-                        return Reject(LoadoutPreflight.EntryUnavailable, reason);
+                        return Reject(LoadoutActionResultCodes.EntryUnavailable, reason);
                     if (RecordsEqual(native, ActiveRecord(native, manager, snapshotIsAlchemy),
                             SnapshotRecord(native, target!, snapshotIsAlchemy), snapshotIsAlchemy))
-                        return Reject(LoadoutPreflight.AlreadyInRequestedState,
+                        return Reject(LoadoutActionResultCodes.AlreadyInRequestedState,
                             "The active " + (snapshotIsAlchemy ? "Alchemy" : "Equipment") +
                             " section already matches snapshot slot " + (action.Slot + 1) + ".");
                 }
             }
 
             if (!_tryCaptureMutationPermit())
-                return Reject(LoadoutPreflight.MutationPermitUnavailable, _readOwnershipFailure());
+                return Reject(LoadoutActionResultCodes.MutationPermitUnavailable, _readOwnershipFailure());
             return Execute(in action, native, manager, target!, snapshotIsAlchemy, expectedIndex);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(LoadoutPreflight.ContractUnavailable,
+            return Reject(LoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
         }
     }
@@ -164,30 +165,30 @@ internal sealed class LoadoutGameAction : IDisposable
         expectedIndex = 0;
         if (action.Kind == LoadoutActionKind.SetEquipmentSection &&
             native.EquipmentEnabled(player) == action.Enabled)
-            return Reject(LoadoutPreflight.AlreadyInRequestedState,
+            return Reject(LoadoutActionResultCodes.AlreadyInRequestedState,
                 "Equipment saving is already " + (action.Enabled ? "on." : "off."));
         if (action.Kind == LoadoutActionKind.SetAlchemySection &&
             native.AlchemyEnabled(player) == action.Enabled)
-            return Reject(LoadoutPreflight.AlreadyInRequestedState,
+            return Reject(LoadoutActionResultCodes.AlreadyInRequestedState,
                 "Alchemy saving is already " + (action.Enabled ? "on." : "off."));
         var label = native.PlayerLabel(player);
         if (label is null)
-            return Reject(LoadoutPreflight.ContractUnavailable,
+            return Reject(LoadoutActionResultCodes.ContractUnavailable,
                 "The selected loadout label is unavailable.");
         if (action.Kind == LoadoutActionKind.Rename)
         {
             if (action.Name.Length > 24)
-                return Reject(LoadoutPreflight.NameOutOfRange,
+                return Reject(LoadoutActionResultCodes.NameOutOfRange,
                     "Loadout names may contain at most 24 characters.");
             if (native.LabelName(label) == action.Name)
-                return Reject(LoadoutPreflight.AlreadyInRequestedState,
+                return Reject(LoadoutActionResultCodes.AlreadyInRequestedState,
                     "The loadout already has that name.");
         }
         else if (action.Kind == LoadoutActionKind.NextIcon)
         {
             var count = native.CustomIcons()?.Count ?? 0;
             if (count <= 0)
-                return Reject(LoadoutPreflight.ContractUnavailable,
+                return Reject(LoadoutActionResultCodes.ContractUnavailable,
                     "No loadout icons are available.");
             expectedIndex = (native.LabelIcon(label) + 1) % count;
         }
@@ -195,7 +196,7 @@ internal sealed class LoadoutGameAction : IDisposable
         {
             var count = native.CustomColors()?.Count ?? 0;
             if (count <= 0)
-                return Reject(LoadoutPreflight.ContractUnavailable,
+                return Reject(LoadoutActionResultCodes.ContractUnavailable,
                     "No loadout colors are available.");
             expectedIndex = (native.LabelColor(label) + 1) % count;
         }
@@ -205,7 +206,7 @@ internal sealed class LoadoutGameAction : IDisposable
     private LoadoutSubmission Execute(in LoadoutAction action, LoadoutNativeBindings native,
         object manager, object target, bool alchemySnapshot, int expectedIndex)
     {
-        var stage = LoadoutNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             switch (action.Kind)
@@ -245,11 +246,11 @@ internal sealed class LoadoutGameAction : IDisposable
                     else native.ClearEquipmentSnapshot(target);
                     break;
             }
-            stage = LoadoutNativeStage.Verification;
+            stage = "Verification";
             return OutcomeObserved(in action, native, manager, target,
                     alchemySnapshot, expectedIndex)
                 ? Verified()
-                : Fault(in action, LoadoutPreflight.VerificationFailed, stage,
+                : Fault(in action, LoadoutActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Workshop > Artifacts and Alchemy"));
         }
@@ -259,7 +260,7 @@ internal sealed class LoadoutGameAction : IDisposable
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, manager, target,
                         alchemySnapshot, expectedIndex), out var observed) && observed) return Verified();
-            return Fault(in action, LoadoutPreflight.PostCommitFault, stage,
+            return Fault(in action, LoadoutActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy", exception));
         }
@@ -473,7 +474,7 @@ internal sealed class LoadoutGameAction : IDisposable
         if (owner is null || native.Identity(owner) != ownerId)
         {
             snapshot = null;
-            refusal = Reject(LoadoutPreflight.IdentityUnavailable,
+            refusal = Reject(LoadoutActionResultCodes.IdentityUnavailable,
                 "That Equipment or Alchemy snapshot list is not present in the current game.");
             return false;
         }
@@ -493,7 +494,7 @@ internal sealed class LoadoutGameAction : IDisposable
             return false;
         }
         snapshot = values![slot];
-        refusal = Reject(LoadoutPreflight.ContractUnavailable,
+        refusal = Reject(LoadoutActionResultCodes.ContractUnavailable,
             "The requested snapshot slot is unavailable.");
         return snapshot is not null;
     }
@@ -568,19 +569,18 @@ internal sealed class LoadoutGameAction : IDisposable
         _ => false,
     };
 
-    private static LoadoutSubmission Reject(LoadoutPreflight preflight, string reason) =>
-        LoadoutSubmission.Reject(preflight, reason);
+    private static LoadoutSubmission Reject(ServiceActionResultCode code, string reason) =>
+        LoadoutSubmission.Reject(code, reason);
 
     private static LoadoutSubmission Verified() =>
-        new(LoadoutPreflight.Proceeded, LoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The requested loadout transition is visible.");
+        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
+            "The requested loadout transition is visible."));
 
     private static LoadoutSubmission Fault(in LoadoutAction action,
-        LoadoutPreflight preflight, LoadoutNativeStage stage,
+        ServiceActionResultCode code, string stage,
         NativeMutationOutcome outcome, string reason) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
-            "Loadout " + stage + " failed on " + action.TargetId + ": " + reason);
+        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
+            "Loadout " + stage + " failed on " + action.TargetId + ": " + reason));
 
     private void BindLifecycle()
     {

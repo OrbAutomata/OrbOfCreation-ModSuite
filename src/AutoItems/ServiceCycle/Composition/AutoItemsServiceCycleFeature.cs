@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
@@ -83,7 +84,7 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
         _diagnostics?.ObserveLifecycle(nativeLifecycle, configurationGeneration);
     }
 
-    internal ConsumablePlayerSubmission TryExecuteGameMcp(
+    internal NativeActionOutcome TryExecuteGameMcp(
         in ConsumablePlayerAction action) =>
         _gameAction.Submit(in action);
 

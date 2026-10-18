@@ -9,10 +9,10 @@ internal static class GameMcpTargetingProjection
     internal static GameMcpValue Project(in TargetingSubmission submission)
     {
         var result = new JObject();
-        if (submission.Verified && submission.SubmittedTarget != Guid.Empty)
+        if (submission.Outcome.Verified && submission.SubmittedTarget != Guid.Empty)
             result["submittedTargetUuid"] = submission.SubmittedTarget.ToString("D");
-        if (submission.Verified) return result.Freeze();
-        if (submission.CallOutcome.MutationAttempts > 0)
+        if (submission.Outcome.Verified) return result.Freeze();
+        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
             result["missingOutcome"] = "target request settlement";
         return result.Freeze();
     }

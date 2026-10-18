@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Threading;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -43,11 +44,11 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.WrongThread,
+                DiscoveryTreeOfferActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.ContractUnavailable,
+                DiscoveryTreeOfferActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("the screen this tree is drawn on", _bindingFailure));
 
         long currentEpoch;
@@ -55,21 +56,21 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.LifecycleReplaced,
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex));
         }
         if (action.LifecycleEpoch != currentEpoch)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.LifecycleReplaced,
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             if (!TryResolveTree(native, action.TreeId, out var tree, out var reason))
-                return DiscoveryTreeOfferSubmission.Reject(DiscoveryTreeOfferPreflight.IdentityUnavailable, reason);
+                return DiscoveryTreeOfferSubmission.Reject(DiscoveryTreeOfferActionResultCodes.IdentityUnavailable, reason);
             if (!native.IsVisible(tree))
                 return DiscoveryTreeOfferSubmission.Reject(
-                    DiscoveryTreeOfferPreflight.TreeUnavailable,
+                    DiscoveryTreeOfferActionResultCodes.TreeUnavailable,
                     "The game is not showing " +
                     EntityIdentityFormatter.PlayerName(action.TreeId) + " yet.");
 
@@ -80,14 +81,14 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 DiscoveryTreeOfferActionKind.Confirm => SubmitConfirm(in action, native, tree),
                 DiscoveryTreeOfferActionKind.Reroll => SubmitReroll(in action, native, tree),
                 _ => DiscoveryTreeOfferSubmission.Reject(
-                    DiscoveryTreeOfferPreflight.ContractUnavailable,
+                    DiscoveryTreeOfferActionResultCodes.ContractUnavailable,
                     $"Unknown Discovery Tree offer action kind {(int)action.Kind}."),
             };
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.ContractUnavailable,
+                DiscoveryTreeOfferActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex));
         }
     }
@@ -114,31 +115,31 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             return WrongMode("This tree is already showing offers to choose from.");
         if (!native.HasRemainingDiscoveries(tree) && !native.HasImmediateRequired(tree))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.NoDiscoveries,
+                DiscoveryTreeOfferActionResultCodes.NoDiscoveries,
                 "This tree has no discovery left to start.");
 
         var cost = native.GetNextCost(tree);
         if (cost is null || cost.GetType() != native.CostType)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.ContractUnavailable,
+                DiscoveryTreeOfferActionResultCodes.ContractUnavailable,
                 "The game did not report a price for the next discovery.");
         if (!native.HasEnough(cost))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.Unaffordable,
+                DiscoveryTreeOfferActionResultCodes.Unaffordable,
                 "The next discovery on " +
                 EntityIdentityFormatter.PlayerName(action.TreeId) +
                 " costs more than is held.");
         if (!TryCapturePermit(out var reason))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
+                DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable, reason);
 
-        var stage = DiscoveryTreeOfferNativeStage.Payment;
+        var stage = "Payment";
         var nativeCalls = 0;
         try
         {
             native.PerformCost(cost);
             nativeCalls++;
-            stage = DiscoveryTreeOfferNativeStage.Initiate;
+            stage = "Initiate";
             native.Initiate(tree);
             nativeCalls++;
             return CompleteModeTransition(in action, native, tree, nativeCalls);
@@ -147,7 +148,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             if (IsCraftingBestEffort(native, tree))
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
-            return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
+            return Fault(in action, DiscoveryTreeOfferActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, nativeCalls,
                 GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
@@ -164,10 +165,10 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             return DiscoveryTreeOfferSubmission.Reject(rejection, reason);
         if (!TryCapturePermit(out reason))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
+                DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable, reason);
 
         var offerId = action.OfferId;
-        return ExecuteSingle(in action, DiscoveryTreeOfferNativeStage.Select,
+        return ExecuteSingle(in action, "Select",
             () => native.Select(tree, offerId),
             () => ReadGuid(native, native.ReadSelected(tree)) == offerId,
             "The requested offered UUID is selected.");
@@ -185,7 +186,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         var selected = ReadGuid(native, native.ReadSelected(tree));
         if (selected != action.OfferId)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.OfferUnavailable,
+                DiscoveryTreeOfferActionResultCodes.OfferUnavailable,
 
                 // An empty selection is no selection. Rendering the all-zeros GUID as if it named
                 // an offer told a caller to go look for an entity that does not exist.
@@ -196,13 +197,13 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                       EntityIdentityFormatter.PlayerName(action.OfferId) + ".");
         if (!TryCapturePermit(out reason))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
+                DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable, reason);
 
         // The game's own Confirm ends in ResetMode: the tree leaves choice mode and drops its
         // selection. That is the transition this press owns. The discovered flag is a ledger bit
         // the press shares with the by-row route, and on an offer that already carried it the
         // sentinel read true before the press, so it could not witness anything.
-        return ExecuteSingle(in action, DiscoveryTreeOfferNativeStage.Confirm,
+        return ExecuteSingle(in action, "Confirm",
             () => native.Confirm(tree),
             () => !native.IsChoice(tree),
             "The tree took the offer and left choice mode.");
@@ -222,19 +223,19 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 "No rerolls are left on this tree.", rerolls);
         if (offers.Count == 0)
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.RerollUnavailable,
+                DiscoveryTreeOfferActionResultCodes.RerollUnavailable,
                 "This tree is showing no offers to reroll.");
         if (!TryCapturePermit(out var reason))
             return DiscoveryTreeOfferSubmission.Reject(
-                DiscoveryTreeOfferPreflight.MutationPermitUnavailable, reason);
+                DiscoveryTreeOfferActionResultCodes.MutationPermitUnavailable, reason);
 
-        var stage = DiscoveryTreeOfferNativeStage.Reroll;
+        var stage = "Reroll";
         var nativeCalls = 0;
         try
         {
             native.Reroll(tree);
             nativeCalls++;
-            stage = DiscoveryTreeOfferNativeStage.ClearSelection;
+            stage = "ClearSelection";
             try
             {
                 native.Select(tree, Guid.Empty);
@@ -250,7 +251,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             if (IsCraftingBestEffort(native, tree))
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
-            return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
+            return Fault(in action, DiscoveryTreeOfferActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, nativeCalls,
                 GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
@@ -263,14 +264,14 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         int nativeCalls) =>
         native.IsCrafting(tree)
             ? Verified(nativeCalls, "The tree entered Crafting mode.")
-            : Fault(in action, DiscoveryTreeOfferPreflight.VerificationFailed,
-                DiscoveryTreeOfferNativeStage.Verification,
+            : Fault(in action, DiscoveryTreeOfferActionResultCodes.VerificationFailed,
+                "Verification",
                 NativeMutationOutcome.PostconditionFailed, nativeCalls,
                 "The tree did not enter Crafting mode.");
 
     private static DiscoveryTreeOfferSubmission ExecuteSingle(
         in DiscoveryTreeOfferAction action,
-        DiscoveryTreeOfferNativeStage stage,
+        string stage,
         Action execute,
         Func<bool> landed,
         string success)
@@ -280,8 +281,8 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             execute();
             return landed()
                 ? Verified(1, success)
-                : Fault(in action, DiscoveryTreeOfferPreflight.VerificationFailed,
-                    DiscoveryTreeOfferNativeStage.Verification,
+                : Fault(in action, DiscoveryTreeOfferActionResultCodes.VerificationFailed,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed, 1,
                     GameActionAnswer.ChangeNotSeen("the screen this tree is drawn on"));
         }
@@ -289,30 +290,29 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         {
             if (LandedBestEffort(landed))
                 return Verified(1, $"The requested {action.Kind} transition landed before the native exception.");
-            return Fault(in action, DiscoveryTreeOfferPreflight.PostCommitFault, stage,
+            return Fault(in action, DiscoveryTreeOfferActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew, 1,
                 GameActionAnswer.GameErrored("the screen this tree is drawn on", ex));
         }
     }
 
     private static DiscoveryTreeOfferSubmission Verified(int nativeCalls, string reason) =>
-        new(DiscoveryTreeOfferPreflight.Proceeded, DiscoveryTreeOfferNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(Math.Max(1, nativeCalls), 1, 1), reason);
+        new(NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(Math.Max(1, nativeCalls), 1, 1), reason));
 
     private static DiscoveryTreeOfferSubmission Fault(
         in DiscoveryTreeOfferAction action,
-        DiscoveryTreeOfferPreflight preflight,
-        DiscoveryTreeOfferNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         int nativeCalls,
         string reason) =>
-        new(preflight, stage, outcome,
+        new(NativeActionOutcome.Fault(code, outcome,
             new NativeMutationCallOutcome(Math.Max(1, nativeCalls), 1, 0),
-            $"Discovery Tree offer {stage} failed on tree {EntityIdentityFormatter.PlayerName(action.TreeId)}: {reason}");
+            $"Discovery Tree offer {stage} failed on tree {EntityIdentityFormatter.PlayerName(action.TreeId)}: {reason}"));
 
     private static DiscoveryTreeOfferSubmission WrongMode(string reason) =>
-        DiscoveryTreeOfferSubmission.Reject(DiscoveryTreeOfferPreflight.WrongMode, reason);
+        DiscoveryTreeOfferSubmission.Reject(DiscoveryTreeOfferActionResultCodes.WrongMode, reason);
 
     private static bool TryResolveTree(
         DiscoveryTreeOfferNativeBindings native,
@@ -351,12 +351,12 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
         object tree,
         Guid offerId,
         out string reason,
-        out DiscoveryTreeOfferPreflight rejection)
+        out ServiceActionResultCode rejection)
     {
         if (!Contains(native, native.ReadCurrentChoices(tree), offerId))
         {
             reason = $"{EntityIdentityFormatter.PlayerName(offerId)} is not one of the offers this tree is showing.";
-            rejection = DiscoveryTreeOfferPreflight.OfferUnavailable;
+            rejection = DiscoveryTreeOfferActionResultCodes.OfferUnavailable;
             return false;
         }
         var resolved = native.GetItem(tree, offerId);
@@ -364,11 +364,11 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             native.ReadItemIdentity(resolved) != offerId)
         {
             reason = $"The offer {EntityIdentityFormatter.PlayerName(offerId)} did not resolve to exactly one thing to discover.";
-            rejection = DiscoveryTreeOfferPreflight.IdentityUnavailable;
+            rejection = DiscoveryTreeOfferActionResultCodes.IdentityUnavailable;
             return false;
         }
         reason = string.Empty;
-        rejection = DiscoveryTreeOfferPreflight.Proceeded;
+        rejection = CommonActionResultCodes.Committed;
         return true;
     }
 

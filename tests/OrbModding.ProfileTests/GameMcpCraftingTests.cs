@@ -395,7 +395,7 @@ public sealed class GameMcpCraftingTests
             _ => ++submissions == 1
                 ? Landed(CraftingPlayerPostcondition.InstanceQuantityIncreased, 3)
                 : Refused(
-                    CraftingPlayerPreflight.Unaffordable,
+                    CraftingPlayerActionResultCodes.Unaffordable,
                     "The cost of another of this craft is not met."));
         var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
             Context(), CraftCommand(45), result));
@@ -415,7 +415,7 @@ public sealed class GameMcpCraftingTests
             CraftCommand(5), 15, 8, true,
             () => GameMcpWorldQuery.CraftShortfallReason(world, RecipeId),
             _ => Refused(
-                CraftingPlayerPreflight.Unaffordable,
+                CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of another of this craft is not met."));
 
         Assert.Equal("refused", result.Status);
@@ -431,7 +431,7 @@ public sealed class GameMcpCraftingTests
             CraftCommand(5), 15, 8, false,
             () => GameMcpWorldQuery.CraftShortfallReason(world, RecipeId),
             _ => Refused(
-                CraftingPlayerPreflight.Unaffordable,
+                CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of another of this craft is not met."));
 
         Assert.Equal("unaffordable", result.Code);
@@ -444,7 +444,8 @@ public sealed class GameMcpCraftingTests
         var result = GameMcpCraftingProjection.Press(
             CraftCommand(5), 15, 8, false, NoShortfall,
             _ => Refused(
-                CraftingPlayerPreflight.QueueFull, "The Manual crafting queue has no empty slot."));
+                CraftingPlayerActionResultCodes.QueueFull,
+                "The Manual crafting queue has no empty slot."));
 
         Assert.Equal("refused", result.Status);
         Assert.Equal("queue_full", result.Code);
@@ -460,12 +461,12 @@ public sealed class GameMcpCraftingTests
             _ => ++submissions <= 2
                 ? Landed(CraftingPlayerPostcondition.QueueAdmitted, 1)
                 : new CraftingPlayerSubmission(
-                    RecipeId,
-                    CraftingPlayerPreflight.VerificationFailed,
-                    CraftingPlayerNativeStage.Verification,
-                    NativeMutationOutcome.PostconditionFailed,
-                    new NativeMutationCallOutcome(5, 1, 0),
-                    "The exact crafting instance was not admitted to the authored queue."));
+                    NativeActionOutcome.Fault(
+                        CraftingPlayerActionResultCodes.VerificationFailed,
+                        NativeMutationOutcome.PostconditionFailed,
+                        new NativeMutationCallOutcome(5, 1, 0),
+                        "The exact crafting instance was not admitted to the authored queue."),
+                    RecipeId));
 
         Assert.Equal("faulted", result.Status);
         Assert.StartsWith("2 of 5 asked went through before this craft. ", result.Reason);
@@ -516,19 +517,15 @@ public sealed class GameMcpCraftingTests
     public void SuccessDetailsYieldToPostStateWhileFaultNamesTheMissingOutcome()
     {
         var fault = new CraftingPlayerSubmission(
-            RecipeId,
-            CraftingPlayerPreflight.VerificationFailed,
-            CraftingPlayerNativeStage.Verification,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(2, 1, 0),
-            "queue did not change");
+            NativeActionOutcome.Fault(
+                CraftingPlayerActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(2, 1, 0),
+                "queue did not change"),
+            RecipeId);
         var committed = new CraftingPlayerSubmission(
+            NativeActionOutcome.Commit(new NativeMutationCallOutcome(2, 1, 1), "queue changed"),
             RecipeId,
-            CraftingPlayerPreflight.Proceeded,
-            CraftingPlayerNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(2, 1, 1),
-            "queue changed",
             CraftingPlayerPostcondition.QueueAdmitted);
 
         var failure = Json(GameMcpCraftingProjection.Project(in fault));
@@ -542,18 +539,17 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void A_faulted_instance_transition_names_the_state_it_already_moved()
     {
-        var silent = new CraftingInstanceLifecycleSubmission(
-            CraftingInstanceLifecyclePreflight.VerificationFailed,
-            CraftingInstanceLifecycleNativeStage.Verification,
+        var silent = new CraftingInstanceLifecycleSubmission(NativeActionOutcome.Fault(
+            CraftingInstanceLifecycleActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(1, 1, 0),
-            "nothing moved");
+            "nothing moved"));
         var damaging = new CraftingInstanceLifecycleSubmission(
-            CraftingInstanceLifecyclePreflight.VerificationFailed,
-            CraftingInstanceLifecycleNativeStage.Verification,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0),
-            "the automation entry grew",
+            NativeActionOutcome.Fault(
+                CraftingInstanceLifecycleActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0),
+                "the automation entry grew"),
             CraftingInstanceLifecycleSideEffect.Automation(1, 2));
 
         var quiet = Json(GameMcpCraftingProjection.Project(in silent));
@@ -575,21 +571,17 @@ public sealed class GameMcpCraftingTests
         CraftingPlayerPostcondition postcondition,
         BigDouble crafted) =>
         new(
+            NativeActionOutcome.Commit(new NativeMutationCallOutcome(5, 1, 1), "verified"),
             RecipeId,
-            CraftingPlayerPreflight.Proceeded,
-            CraftingPlayerNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(5, 1, 1),
-            "verified",
             postcondition,
             crafted);
 
     private static CraftingPlayerSubmission Refused(
-        CraftingPlayerPreflight preflight,
+        ServiceActionResultCode code,
         string reason)
     {
         var action = new CraftingPlayerAction(RecipeId, 15, 1, false);
-        return CraftingPlayerSubmission.Reject(in action, preflight, reason);
+        return CraftingPlayerSubmission.Reject(in action, code, reason);
     }
 
     private static GameMcpFrameContext Context(

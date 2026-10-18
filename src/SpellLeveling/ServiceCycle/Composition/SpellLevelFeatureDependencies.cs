@@ -47,8 +47,8 @@ internal sealed class SpellLevelBoundaryStatusState
     public void Observe(SpellLevelSubmission submission) =>
         Volatile.Write(
             ref _waitingReason,
-            submission.Preflight == SpellLevelPreflight.NotAffordable
-                ? submission.Reason
+            submission.Outcome.Code == SpellLevelActionResultCodes.LevelNotAffordable
+                ? submission.Outcome.Reason
                 : null);
 
     public void Reset() => Volatile.Write(ref _waitingReason, null);

@@ -161,7 +161,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
         if (_disposed || _runtime is null)
         {
             preview = SpellWorkbenchLoadPreview.Refused(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The suite is not running on this screen, so nothing can be previewed.");
             return false;
         }
@@ -174,7 +174,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
         if (_disposed || _runtime is null)
         {
             layout = SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The suite is not running on this screen, so nothing can be read here.");
             return false;
         }

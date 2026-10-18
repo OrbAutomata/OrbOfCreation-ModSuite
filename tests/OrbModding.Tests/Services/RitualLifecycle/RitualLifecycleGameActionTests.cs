@@ -34,8 +34,8 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         var selected = Submit(boundary, ritual, RitualLifecycleActionKind.Select);
         var deselected = Submit(boundary, ritual, RitualLifecycleActionKind.Deselect);
 
-        Assert.True(selected.Verified, selected.Reason);
-        Assert.True(deselected.Verified, deselected.Reason);
+        Assert.True(selected.Outcome.Verified, selected.Outcome.Reason);
+        Assert.True(deselected.Outcome.Verified, deselected.Outcome.Reason);
         Assert.False(RitualManager.instance!.selectedRitual.IsItem(ritual));
     }
 
@@ -52,9 +52,9 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         ritual.SuppressLevelChange = true;
         var missing = Submit(boundary, ritual, RitualLifecycleActionKind.SetLevel, level: 6);
 
-        Assert.True(changed.Verified, changed.Reason);
+        Assert.True(changed.Outcome.Verified, changed.Outcome.Reason);
         Assert.Equal(5, ritual.selectedLevel);
-        Assert.Equal(RitualLifecyclePreflight.VerificationFailed, missing.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.VerificationFailed, missing.Outcome.Code);
     }
 
     [Fact]
@@ -69,10 +69,10 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
 
         var refused = Submit(boundary, ritual, RitualLifecycleActionKind.SetLevel, level: 0);
 
-        Assert.Equal(RitualLifecyclePreflight.LevelOutOfRange, refused.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.LevelOutOfRange, refused.Outcome.Code);
         Assert.Equal(1, refused.MinimumAmount);
         Assert.Equal(7, refused.MaximumAmount);
-        Assert.Contains("between 1 and 7", refused.Reason, StringComparison.Ordinal);
+        Assert.Contains("between 1 and 7", refused.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(3, ritual.selectedLevel);
     }
 
@@ -98,9 +98,9 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         var leveled = Submit(boundary, wanted, RitualLifecycleActionKind.SetLevel, level: 5);
         var activated = Submit(boundary, wanted, RitualLifecycleActionKind.Activate);
 
-        Assert.True(leveled.Verified, leveled.Reason);
+        Assert.True(leveled.Outcome.Verified, leveled.Outcome.Reason);
         Assert.Equal(5, wanted.selectedLevel);
-        Assert.True(activated.Verified, activated.Reason);
+        Assert.True(activated.Outcome.Verified, activated.Outcome.Reason);
         Assert.True(wanted.inBattle);
         Assert.True(RitualManager.instance.selectedRitual.IsItem(wanted));
     }
@@ -118,7 +118,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, ritual, RitualLifecycleActionKind.Activate);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(ritual.inBattle);
         Assert.Equal(1, ritual.activationCost.PerformCalls);
         Assert.Equal(new BigDouble(7), resource.quantity);
@@ -135,7 +135,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
 
         var result = Submit(boundary, ritual, RitualLifecycleActionKind.Activate);
 
-        Assert.Equal(RitualLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.False(ritual.inBattle);
     }
 
@@ -153,8 +153,8 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         ritual.SuppressCancel = true;
         var missing = Submit(boundary, ritual, RitualLifecycleActionKind.CancelDuration);
 
-        Assert.True(canceled.Verified, canceled.Reason);
-        Assert.Equal(RitualLifecyclePreflight.VerificationFailed, missing.Preflight);
+        Assert.True(canceled.Outcome.Verified, canceled.Outcome.Reason);
+        Assert.Equal(RitualLifecycleActionResultCodes.VerificationFailed, missing.Outcome.Code);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
 
         var ended = Submit(boundary, ritual, RitualLifecycleActionKind.EndBattle);
 
-        Assert.True(ended.Verified, ended.Reason);
+        Assert.True(ended.Outcome.Verified, ended.Outcome.Reason);
         Assert.False(BattleManager.instance.IsInCombat());
         Assert.False(ritual.inBattle);
     }
@@ -184,13 +184,13 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         using var boundary = Boundary();
 
         var wrong = Submit(boundary, requested, RitualLifecycleActionKind.EndBattle);
-        Assert.Equal(RitualLifecyclePreflight.WrongActiveRitual, wrong.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.WrongActiveRitual, wrong.Outcome.Code);
 
         BattleManager.instance.activeRitual.ToggleValue(active);
         BattleManager.instance.activeRitual.ToggleValue(requested);
         BattleManager.instance.SuppressEndRitual = true;
         var noOp = Submit(boundary, requested, RitualLifecycleActionKind.EndBattle);
-        Assert.Equal(RitualLifecyclePreflight.VerificationFailed, noOp.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.VerificationFailed, noOp.Outcome.Code);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         var result = ForeignThread.Run(() =>
             Submit(boundary, ritual, RitualLifecycleActionKind.Select));
 
-        Assert.Equal(RitualLifecyclePreflight.WrongThread, result.Preflight);
+        Assert.Equal(RitualLifecycleActionResultCodes.WrongThread, result.Outcome.Code);
     }
 
     [Fact]

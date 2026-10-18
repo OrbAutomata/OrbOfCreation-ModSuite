@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -45,18 +46,18 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.WrongThread,
+                SpellWorkbenchActionResultCodes.WrongThread,
                 "The staged Spellcraft layout must be read on the Unity main thread.");
         if (_bindings is not { } native)
             return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure));
         try
         {
             var manager = native.ReadManager();
             if (manager is null)
                 return SpellWorkbenchStagedLayout.Unavailable(
-                    SpellWorkbenchPreflight.SelectionUnavailable,
+                    SpellWorkbenchActionResultCodes.SelectionUnavailable,
                     "Spellcraft is not available in the current game state.");
             if (!TryReadStagedGlyphs(
                     native,
@@ -64,7 +65,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     out var core,
                     out var coreReason))
                 return SpellWorkbenchStagedLayout.Unavailable(
-                    SpellWorkbenchPreflight.SelectionUnavailable,
+                    SpellWorkbenchActionResultCodes.SelectionUnavailable,
                     coreReason);
             if (!TryReadStagedGlyphs(
                     native,
@@ -72,14 +73,14 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     out var augments,
                     out var augmentReason))
                 return SpellWorkbenchStagedLayout.Unavailable(
-                    SpellWorkbenchPreflight.SelectionUnavailable,
+                    SpellWorkbenchActionResultCodes.SelectionUnavailable,
                     augmentReason);
             return SpellWorkbenchStagedLayout.Captured(core, augments);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return SpellWorkbenchStagedLayout.Unavailable(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook", exception));
         }
     }
@@ -271,7 +272,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return true;
     }
 
-    internal SpellWorkbenchSubmission Submit(in SpellWorkbenchAction action)
+    internal NativeActionOutcome Submit(in SpellWorkbenchAction action)
     {
         if (!TryResolveContext(
                 action.LifecycleEpoch,
@@ -281,14 +282,14 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                 out var recipe,
                 out var preflight,
                 out var contextReason))
-            return SpellWorkbenchSubmission.Reject(preflight, contextReason);
+            return NativeActionOutcome.Reject(preflight, contextReason);
         try
         {
             return CreateWithLayout(in action, native, manager, recipe);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return SpellWorkbenchSubmission.Reject(SpellWorkbenchPreflight.ContractUnavailable,
+            return NativeActionOutcome.Reject(SpellWorkbenchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
         }
     }
@@ -332,7 +333,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellWorkbenchLoadPreview.Refused(
-                SpellWorkbenchPreflight.ContractUnavailable,
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
         }
     }
@@ -365,7 +366,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     /// after the fact by the game's own recompute, never predicted here.
     /// </para>
     /// </remarks>
-    private SpellWorkbenchSubmission CreateWithLayout(
+    private NativeActionOutcome CreateWithLayout(
         in SpellWorkbenchAction action,
         SpellWorkbenchNativeBindings native,
         object manager,
@@ -374,33 +375,33 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         if (!TryResolveGlyphLayout(
                 action.AugmentGlyphs, expectAugment: true, native,
                 out var augments, out var augmentRefusal, out var augmentReason))
-            return SpellWorkbenchSubmission.Reject(augmentRefusal, augmentReason);
+            return NativeActionOutcome.Reject(augmentRefusal, augmentReason);
         if (!TryAdmitLoad(native, manager, recipe, augments, null, out var refusal, out var refusalReason))
-            return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
+            return NativeActionOutcome.Reject(refusal, refusalReason);
 
         var expectedLayout = ReadIds(native, augments);
         var before = ReadMatchingInstanceIds(native, manager, recipe, expectedLayout);
         if (!TryCapturePermit(out var permitReason))
-            return SpellWorkbenchSubmission.Reject(
-                SpellWorkbenchPreflight.MutationPermitUnavailable, permitReason);
+            return NativeActionOutcome.Reject(
+                SpellWorkbenchActionResultCodes.MutationPermitUnavailable, permitReason);
 
         var nativeCalls = 0;
-        var stage = SpellWorkbenchNativeStage.ClearSelection;
+        var stage = "ClearSelection";
         if (!TryReadAugmentSelection(native, manager, out var previous, out var snapshotReason))
-            return SpellWorkbenchSubmission.Reject(
-                SpellWorkbenchPreflight.ContractUnavailable, snapshotReason);
+            return NativeActionOutcome.Reject(
+                SpellWorkbenchActionResultCodes.ContractUnavailable, snapshotReason);
         try
         {
             var staged = TryStageAugments(
                 native, manager, augments, ref nativeCalls, out var stagingReason);
-            stage = SpellWorkbenchNativeStage.ApplySelection;
+            stage = "ApplySelection";
             if (!staged)
             {
                 return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
-                    ? SpellWorkbenchSubmission.Reject(
-                        SpellWorkbenchPreflight.StagedWriteFailed, stagingReason)
-                    : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
-                        SpellWorkbenchNativeStage.ApplySelection,
+                    ? NativeActionOutcome.Reject(
+                        SpellWorkbenchActionResultCodes.StagedWriteFailed, stagingReason)
+                    : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
+                        "ApplySelection",
                         NativeMutationOutcome.PostconditionFailed, nativeCalls,
                         stagingReason +
                         " The player's own augment selection could not be restored either. " +
@@ -410,10 +411,10 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (!TryReadAugmentSelection(native, manager, out var selected, out var readBackReason))
             {
                 return RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure)
-                    ? SpellWorkbenchSubmission.Reject(
-                        SpellWorkbenchPreflight.StagedWriteFailed, readBackReason)
-                    : FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
-                        SpellWorkbenchNativeStage.ApplySelection,
+                    ? NativeActionOutcome.Reject(
+                        SpellWorkbenchActionResultCodes.StagedWriteFailed, readBackReason)
+                    : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
+                        "ApplySelection",
                         NativeMutationOutcome.PostconditionFailed, nativeCalls,
                         readBackReason +
                         " The player's own augment selection could not be restored either. " +
@@ -422,9 +423,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (!TryAdmitLoad(native, manager, recipe, selected, null, out refusal, out refusalReason))
             {
                 if (RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure))
-                    return SpellWorkbenchSubmission.Reject(refusal, refusalReason);
-                return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
-                    SpellWorkbenchNativeStage.ApplySelection,
+                    return NativeActionOutcome.Reject(refusal, refusalReason);
+                return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
+                    "ApplySelection",
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
                     "The game stopped admitting this load between the check and the staging (" +
                     refusalReason + ") and the player's own augment selection could not be put " +
@@ -432,21 +433,21 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     "this call staged. " + restoreFailure);
             }
 
-            stage = SpellWorkbenchNativeStage.Create;
+            stage = "Create";
             native.Create(manager, recipe);
             nativeCalls++;
             if (!RestoreAugments(native, manager, previous, ref nativeCalls, out var unrestored))
-                return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
-                    SpellWorkbenchNativeStage.Verification,
+                return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
                     "The spell was loaded but the player's own augment selection could not be " +
                     "restored. " + unrestored);
             return HasNewMatchingInstance(
                     native, manager, recipe, expectedLayout, before)
-                ? Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
+                ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(nativeCalls, 1, 1),
                     "A new spell with the exact requested augment layout is loaded.")
-                : FaultAfterCommit(in action, SpellWorkbenchPreflight.VerificationFailed,
-                    SpellWorkbenchNativeStage.Verification,
+                : FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.VerificationFailed,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed, nativeCalls,
                     "The game returned from the load without a spell carrying the requested " +
                     "layout, so nothing is loaded and the player's own augment selection is " +
@@ -457,9 +458,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var restored = RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure);
             if (restored && HasNewMatchingInstanceBestEffort(
                     native, manager, recipe, expectedLayout, before))
-                return Verified(SpellWorkbenchNativeStage.Verification, nativeCalls,
+                return NativeActionOutcome.Commit(new NativeMutationCallOutcome(nativeCalls, 1, 1),
                     "The exact layout was loaded before the native fault.");
-            return FaultAfterCommit(in action, SpellWorkbenchPreflight.PostCommitFault,
+            return FaultAfterCommit(in action, SpellWorkbenchActionResultCodes.PostCommitFault,
                 stage, NativeMutationOutcome.ExecutionThrew, nativeCalls,
                 restored
                     ? GameActionAnswer.GameErrored("Magic > Spellbook", ex)
@@ -500,23 +501,23 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     /// </summary>
     private bool TryAdmitScreen(
         SpellWorkbenchNativeBindings native,
-        out SpellWorkbenchPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         var resolution = _registry.Resolve(
             KnownEntities.MagicSpellbookLoadout.Uuid, native.ViewType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             resolution.Value is not { } view)
-            return Refuse(SpellWorkbenchPreflight.ContractUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.ContractUnavailable,
                 "The game's Magic > Spellbook > Loadout screen could not be read, so whether the " +
                 "game would draw a row to load is unknown.",
                 out refusal, out reason);
         if (!native.IsViewAvailable(view))
-            return Refuse(SpellWorkbenchPreflight.ScreenLocked,
+            return Refuse(SpellWorkbenchActionResultCodes.ScreenLocked,
                 "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row to " +
                 "load. Buy the Spellbook Loadout upgrade first.",
                 out refusal, out reason);
-        refusal = SpellWorkbenchPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -527,13 +528,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         object recipe,
         IList<object> augments,
         LoadedCopy? replaced,
-        out SpellWorkbenchPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         if (!TryAdmitScreen(native, out refusal, out reason)) return false;
         var recipeName = EntityIdentityFormatter.PlayerName(native.ReadIdentity(recipe));
         if (!native.IsDiscovered(recipe))
-            return Refuse(SpellWorkbenchPreflight.DiscoveryUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.DiscoveryUnavailable,
                 recipeName + " is not discovered, so Magic > Spellbook > Loadout lists no row " +
                 "for it. Discover it first, and the same call loads it.",
                 out refusal, out reason);
@@ -542,7 +543,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         var slots = native.GetListMax(augmentList);
         var distinct = DistinctCount(native, augments);
         if (distinct > slots)
-            return Refuse(SpellWorkbenchPreflight.AugmentSlotsExceeded,
+            return Refuse(SpellWorkbenchActionResultCodes.AugmentSlotsExceeded,
                 "This layout puts " + distinct + " different augments on " + recipeName +
                 " and the game allows " + slots +
                 " at once (Max Spell Augment Slots). Ask for " + slots +
@@ -552,14 +553,14 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         var candidate = BuildCandidate(native, recipe, augments);
         var nativeAugments = NativeGlyphList(native, augments);
         if (!native.MeetsNonLevelRequirements(nativeAugments, candidate))
-            return Refuse(SpellWorkbenchPreflight.GlyphRequirementsUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.GlyphRequirementsUnavailable,
                 "The game refuses " + Describe(native, augments) + " on " + recipeName +
                 ": augments that require a duration spell or a toggleable spell only attach to " +
                 "one, and this spell is not the kind they need. Load it with a layout those " +
                 "augments fit, or leave them out.",
                 out refusal, out reason);
         if (!native.HasMetUsageRequirements(recipe) && augments.Count > 0)
-            return Refuse(SpellWorkbenchPreflight.UsageRequirementsUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.UsageRequirementsUnavailable,
                 recipeName + " has not met its usage requirements yet, and the game only lets " +
                 "that pass while no augment is selected. Load it with no augments, or meet the " +
                 "requirement first.",
@@ -571,7 +572,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (TryReadShortUsage(native, usageCost, released, out var shortId, out var shortNeeded,
                     out var shortFree))
                 return Refuse(
-                    SpellWorkbenchPreflight.UsageUnaffordable,
+                    SpellWorkbenchActionResultCodes.UsageUnaffordable,
                     recipeName + " in place of its copy in slot " + (copy.Slot + 1) +
                         " would push " + EntityIdentityFormatter.PlayerName(shortId) +
                         " past its allocation, counting that copy's weight as free. " +
@@ -582,7 +583,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         else if (!native.HasEnough(usageCost))
         {
             return Refuse(
-                SpellWorkbenchPreflight.UsageUnaffordable,
+                SpellWorkbenchActionResultCodes.UsageUnaffordable,
                 TryReadShortUsage(native, usageCost, null, out var shortResourceId, out var needed,
                         out var free)
                     ? "Loading " + recipeName + " would push " +
@@ -596,18 +597,18 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         var activeList = native.ReadActive(manager);
         if (replaced is null && !native.HasEmpty(activeList))
-            return Refuse(SpellWorkbenchPreflight.LoadoutFull,
+            return Refuse(SpellWorkbenchActionResultCodes.LoadoutFull,
                 "All " + native.ReadActiveValues(activeList).Count +
                 " loadout slots hold a spell, so there is nowhere to put " + recipeName +
                 ". Remove a loaded spell first; nothing was staged and nothing was spent.",
                 out refusal, out reason);
         if (replaced is null && native.IsUniqueSpell(candidate) &&
             HasActiveRecipe(native, manager, recipe))
-            return Refuse(SpellWorkbenchPreflight.UniqueSpellConflict,
+            return Refuse(SpellWorkbenchActionResultCodes.UniqueSpellConflict,
                 recipeName + " is loadout-unique and one copy is already loaded. " +
                 "Remove that copy first.",
                 out refusal, out reason);
-        refusal = SpellWorkbenchPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -642,9 +643,9 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
     }
 
     private static bool Refuse(
-        SpellWorkbenchPreflight exact,
+        ServiceActionResultCode exact,
         string exactReason,
-        out SpellWorkbenchPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         refusal = exact;
@@ -702,7 +703,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         bool expectAugment,
         SpellWorkbenchNativeBindings native,
         out List<object> glyphs,
-        out SpellWorkbenchPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         glyphs = new List<object>();
@@ -717,7 +718,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var total = (long)prior + stack.Count;
             if (total > int.MaxValue)
             {
-                return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                return Refuse(SpellWorkbenchActionResultCodes.SelectionUnavailable,
                     "The requested glyph count exceeds the supported native integer range.",
                     out refusal, out reason);
             }
@@ -729,7 +730,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var resolution = _registry.Resolve(glyphId, native.GlyphType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             {
-                return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+                return Refuse(SpellWorkbenchActionResultCodes.SelectionUnavailable,
                     resolution.IsResolved ? GameActionAnswer.Replaced("glyph") : resolution.Reason,
                     out refusal, out reason);
             }
@@ -741,7 +742,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             if (requested > maximum)
             {
                 var glyphName = EntityIdentityFormatter.PlayerName(glyphId);
-                return Refuse(SpellWorkbenchPreflight.GlyphUsagesExceeded,
+                return Refuse(SpellWorkbenchActionResultCodes.GlyphUsagesExceeded,
                     maximum <= 0
                         ? glyphName + " has no usable copy in this run, so no layout can hold one."
                         : glyphName + " allows " + maximum + (maximum == 1 ? " use" : " uses") +
@@ -757,7 +758,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             for (var count = 0; count < totals[glyphId]; count++)
                 glyphs.Add(resolved[glyphId]);
         }
-        refusal = SpellWorkbenchPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -774,18 +775,18 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         object glyph,
         Guid glyphId,
         bool expectAugment,
-        out SpellWorkbenchPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         if (glyph.GetType() != native.GlyphType)
         {
-            return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.SelectionUnavailable,
                 "The resolved spell component has the wrong native type.",
                 out refusal, out reason);
         }
         if (native.IsGlyphAugment(glyph) != expectAugment)
         {
-            return Refuse(SpellWorkbenchPreflight.SelectionUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.SelectionUnavailable,
                 EntityIdentityFormatter.PlayerName(glyphId) +
                 (expectAugment
                     ? " is not a spell augment."
@@ -794,13 +795,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         }
         if (!native.IsGlyphAvailable(glyph))
         {
-            return Refuse(SpellWorkbenchPreflight.GlyphUnavailable,
+            return Refuse(SpellWorkbenchActionResultCodes.GlyphUnavailable,
                 EntityIdentityFormatter.PlayerName(glyphId) +
                 " is not available yet, so Magic > Spellbook > Loadout offers no copy of it to " +
                 "socket. Discover it, or meet the requirements it names, first.",
                 out refusal, out reason);
         }
-        refusal = SpellWorkbenchPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         return true;
     }
@@ -1187,7 +1188,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         out SpellWorkbenchNativeBindings native,
         out object manager,
         out object recipe,
-        out SpellWorkbenchPreflight preflight,
+        out ServiceActionResultCode preflight,
         out string reason)
     {
         native = null!;
@@ -1195,13 +1196,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         recipe = null!;
         if (Environment.CurrentManagedThreadId != _mainThreadId)
         {
-            preflight = SpellWorkbenchPreflight.WrongThread;
+            preflight = SpellWorkbenchActionResultCodes.WrongThread;
             reason = GameActionAnswer.SuiteStopped();
             return false;
         }
         if (_bindings is not { } available)
         {
-            preflight = SpellWorkbenchPreflight.ContractUnavailable;
+            preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
             reason = GameActionAnswer.NotAttached("Magic > Spellbook", _bindingFailure);
             return false;
         }
@@ -1211,29 +1212,29 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             var currentEpoch = _readLifecycleEpoch();
             if (currentEpoch != requestedEpoch)
             {
-                preflight = SpellWorkbenchPreflight.LifecycleReplaced;
+                preflight = CommonActionResultCodes.LifecycleReplaced;
                 reason = GameActionAnswer.RunChanged();
                 return false;
             }
             manager = native.ReadManager()!;
             if (manager is null)
             {
-                preflight = SpellWorkbenchPreflight.ContractUnavailable;
+                preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
                 reason = "The spellbook is not loaded right now.";
                 return false;
             }
             if (!TryResolveRecipe(native, recipeId, out recipe, out reason))
             {
-                preflight = SpellWorkbenchPreflight.IdentityUnavailable;
+                preflight = SpellWorkbenchActionResultCodes.IdentityUnavailable;
                 return false;
             }
-            preflight = SpellWorkbenchPreflight.Proceeded;
+            preflight = CommonActionResultCodes.Committed;
             reason = string.Empty;
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            preflight = SpellWorkbenchPreflight.ContractUnavailable;
+            preflight = SpellWorkbenchActionResultCodes.ContractUnavailable;
             reason = GameActionAnswer.CouldNotRead("Magic > Spellbook", ex);
             return false;
         }
@@ -1257,21 +1258,13 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         return false;
     }
 
-    private static SpellWorkbenchSubmission Verified(SpellWorkbenchNativeStage stage,
-        int nativeCalls, string reason)
-    {
-        return new SpellWorkbenchSubmission(SpellWorkbenchPreflight.Proceeded, stage,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(nativeCalls, 1, 1),
-            reason);
-    }
-
-    private static SpellWorkbenchSubmission FaultAfterCommit(in SpellWorkbenchAction action,
-        SpellWorkbenchPreflight preflight, SpellWorkbenchNativeStage stage,
+    private static NativeActionOutcome FaultAfterCommit(in SpellWorkbenchAction action,
+        ServiceActionResultCode code, string stage,
         NativeMutationOutcome outcome, int nativeCalls, string reason)
     {
         var exactReason = $"Spell workbench action faulted after {stage} on " +
             $"recipe {EntityIdentityFormatter.PlayerName(action.SpellRecipeId)}: {reason}";
-        return new SpellWorkbenchSubmission(preflight, stage, outcome,
+        return NativeActionOutcome.Fault(code, outcome,
             new NativeMutationCallOutcome(nativeCalls, 1, 0), exactReason);
     }
 

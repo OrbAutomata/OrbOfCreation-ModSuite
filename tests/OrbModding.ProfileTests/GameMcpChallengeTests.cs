@@ -216,9 +216,9 @@ public sealed class GameMcpChallengeTests
     [Fact]
     public void A_failed_press_refuses_with_the_budget_on_both_sides()
     {
-        var faulted = new ChallengeSubmission(ChallengePreflight.PostCommitFault,
-            ChallengeNativeStage.DecisionCommit, NativeMutationOutcome.ExecutionThrew,
-            new NativeMutationCallOutcome(1, 1, 0), "the native pipeline threw", 3, 3);
+        var faulted = new ChallengeSubmission(NativeActionOutcome.Fault(
+            ChallengeActionResultCodes.PostCommitFault, NativeMutationOutcome.ExecutionThrew,
+            new NativeMutationCallOutcome(1, 1, 0), "the native pipeline threw"), 3, 3);
 
         var refused = Json(GameMcpChallengeProjection.Project(in faulted), World());
 
@@ -241,12 +241,11 @@ public sealed class GameMcpChallengeTests
     [Fact]
     public void Failure_names_the_missing_outcome_while_success_yields_to_newer_poststate()
     {
-        var failure = new ChallengeSubmission(ChallengePreflight.VerificationFailed,
-            ChallengeNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0), "state unchanged");
-        var success = new ChallengeSubmission(ChallengePreflight.Proceeded,
-            ChallengeNativeStage.Verification, NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1), "state changed");
+        var failure = new ChallengeSubmission(NativeActionOutcome.Fault(
+            ChallengeActionResultCodes.VerificationFailed, NativeMutationOutcome.PostconditionFailed,
+            new NativeMutationCallOutcome(1, 1, 0), "state unchanged"));
+        var success = new ChallengeSubmission(NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(1, 1, 1), "state changed"));
 
         var failed = Json(GameMcpChallengeProjection.Project(in failure), World());
         var committed = Json(GameMcpChallengeProjection.Project(in success), World());

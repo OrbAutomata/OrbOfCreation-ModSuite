@@ -34,7 +34,7 @@ public sealed class AutoConceptCycleActionAdapterTests
     public void AProjectionRefusalIsAnOrdinaryNonLatchingRejection()
     {
         var result = Execute(AutoConceptSubmission.Rejected(
-            AutoConceptPreflight.ProjectionRefused,
+            AutoConceptActionResultCodes.ProjectionRefused,
             "resource would fall below reserve"));
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
@@ -45,8 +45,7 @@ public sealed class AutoConceptCycleActionAdapterTests
     [Fact]
     public void BoundaryTimeResourceBackpressureIsAnExactQuietSkip()
     {
-        var result = Execute(AutoConceptSubmission.Rejected(
-            AutoConceptPreflight.ResourceBackpressure,
+        var result = Execute(AutoConceptSubmission.Backpressure(
             "resource would fall below reserve"));
 
         Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
@@ -129,17 +128,15 @@ public sealed class AutoConceptCycleActionAdapterTests
     }
 
     [Theory]
-    [InlineData(2, 3329)]
-    [InlineData(3, 3330)]
-    [InlineData(4, 3331)]
-    [InlineData(5, 3332)]
-    [InlineData(7, 3334)]
-    public void LiveStateDriftIsRejectedWithoutFaulting(
-        int preflight,
-        int expectedCode)
+    [InlineData(3329)]
+    [InlineData(3330)]
+    [InlineData(3331)]
+    [InlineData(3332)]
+    [InlineData(3334)]
+    public void LiveStateDriftIsRejectedWithoutFaulting(int expectedCode)
     {
         var result = Execute(AutoConceptSubmission.Rejected(
-            (AutoConceptPreflight)preflight, "changed"));
+            new ServiceActionResultCode(expectedCode), "changed"));
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(new ServiceActionResultCode(expectedCode), result.Code);

@@ -38,7 +38,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.False(current.IsSelected());
         Assert.True(target.IsSelected());
         Assert.Equal(1, LoadoutManager.instance.SetLoadoutCalls);
@@ -60,9 +60,9 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.Equal(LoadoutPreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
-        Assert.Equal(ServiceActionDisposition.Faulted, LoadoutActionResultMapper.Map(in result).Disposition);
+        Assert.Equal(LoadoutActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Outcome.ToResult().Disposition);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(target.IsSelected());
     }
 
@@ -124,7 +124,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(target.IsSelected());
     }
 
@@ -140,7 +140,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.Equal(LoadoutPreflight.SwitchBlocked, result.Preflight);
+        Assert.Equal(LoadoutActionResultCodes.SwitchBlocked, result.Outcome.Code);
         Assert.Equal(0, LoadoutManager.instance.SetLoadoutCalls);
         Assert.Equal(0, LoadoutManager.instance.RefusalFeedbacks);
     }
@@ -157,7 +157,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, target.GetGuid(), LoadoutActionKind.Select);
 
-        Assert.Equal(LoadoutPreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(LoadoutActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.False(target.IsSelected());
     }
 
@@ -175,10 +175,10 @@ public sealed class LoadoutGameActionTests : IDisposable
         var icon = Submit(boundary, target.GetGuid(), LoadoutActionKind.NextIcon);
         var color = Submit(boundary, target.GetGuid(), LoadoutActionKind.NextColor);
 
-        Assert.True(equipment.Verified, equipment.Reason);
-        Assert.True(renamed.Verified, renamed.Reason);
-        Assert.True(icon.Verified, icon.Reason);
-        Assert.True(color.Verified, color.Reason);
+        Assert.True(equipment.Outcome.Verified, equipment.Outcome.Reason);
+        Assert.True(renamed.Outcome.Verified, renamed.Outcome.Reason);
+        Assert.True(icon.Outcome.Verified, icon.Outcome.Reason);
+        Assert.True(color.Outcome.Verified, color.Outcome.Reason);
         Assert.True(target.HasEquipment());
         Assert.Equal("Boss setup", target.GetName());
         Assert.Equal(1, target.GetLabel().GetIconIndex());
@@ -204,10 +204,10 @@ public sealed class LoadoutGameActionTests : IDisposable
         var loaded = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotLoad, slot: 0);
         var cleared = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotClear, slot: 0);
 
-        Assert.True(saved.Verified, saved.Reason);
-        Assert.True(loaded.Verified, loaded.Reason);
+        Assert.True(saved.Outcome.Verified, saved.Outcome.Reason);
+        Assert.True(loaded.Outcome.Verified, loaded.Outcome.Reason);
         Assert.Equal(2, LoadoutManager.instance.activeEquipment.GetStacks(equipment));
-        Assert.True(cleared.Verified, cleared.Reason);
+        Assert.True(cleared.Outcome.Verified, cleared.Outcome.Reason);
         Assert.True(owner.value[0].IsEmpty());
     }
 
@@ -227,7 +227,7 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotSave, slot: 0);
 
-        Assert.Equal(LoadoutPreflight.SlotOccupied, result.Preflight);
+        Assert.Equal(LoadoutActionResultCodes.SlotOccupied, result.Outcome.Code);
         Assert.Equal(1, slot.GetRecord().GetQuantity(equipment));
     }
 
@@ -243,9 +243,9 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotSave, slot: 0);
 
-        Assert.Equal(LoadoutPreflight.ActiveSectionEmpty, result.Preflight);
-        Assert.Contains("nothing staged", result.Reason, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        Assert.Equal(LoadoutActionResultCodes.ActiveSectionEmpty, result.Outcome.Code);
+        Assert.Contains("nothing staged", result.Outcome.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
         Assert.True(slot.IsEmpty());
     }
 
@@ -259,9 +259,9 @@ public sealed class LoadoutGameActionTests : IDisposable
 
         var result = Submit(boundary, owner.GetGuid(), LoadoutActionKind.SnapshotSave, slot: 0);
 
-        Assert.Equal(LoadoutPreflight.SlotOutOfRange, result.Preflight);
-        Assert.Equal("This save owns zero snapshot slots.", result.Reason);
-        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        Assert.Equal(LoadoutActionResultCodes.SlotOutOfRange, result.Outcome.Code);
+        Assert.Equal("This save owns zero snapshot slots.", result.Outcome.Reason);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public sealed class LoadoutGameActionTests : IDisposable
         var result = ForeignThread.Run(() =>
             Submit(boundary, target.GetGuid(), LoadoutActionKind.NextIcon));
 
-        Assert.Equal(LoadoutPreflight.WrongThread, result.Preflight);
+        Assert.Equal(LoadoutActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Equal(0, target.GetLabel().GetIconIndex());
     }
 

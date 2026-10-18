@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoConcept.Runtime.ServiceCycle;
@@ -66,8 +67,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
-        Assert.Contains("at most 2 more", submission.Reason, StringComparison.Ordinal);
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+        Assert.Contains("at most 2 more", submission.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
         Assert.Empty(active.value);
@@ -93,21 +94,21 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var failed = runtime.Submit(in action, DefaultLimits);
 
-        Assert.False(failed.Verified);
-        Assert.Contains("PostconditionFailed", failed.Reason);
+        Assert.False(failed.Outcome.Verified);
+        Assert.Contains("PostconditionFailed", failed.Outcome.Reason);
         Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
         Assert.NotNull(runtime.BlockedReason);
         var blocked = runtime.Submit(in action, DefaultLimits);
-        Assert.Equal(AutoConceptPreflight.ContractUnavailable, blocked.Preflight);
-        Assert.Contains("blocked until the next lifecycle", blocked.Reason);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, blocked.Outcome.Code);
+        Assert.Contains("blocked until the next lifecycle", blocked.Outcome.Reason);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
 
         active.SuppressAddMutation = false;
         runtime.InvalidateLifecycle();
         var recovered = runtime.Submit(in action, DefaultLimits);
 
-        Assert.True(recovered.Verified, recovered.Reason);
+        Assert.True(recovered.Outcome.Verified, recovered.Outcome.Reason);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -133,8 +134,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
-        Assert.Contains("at zero", submission.Reason);
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+        Assert.Contains("at zero", submission.Outcome.Reason);
         Assert.Empty(active.value);
     }
 
@@ -172,7 +173,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var press = runtime.Submit(in action, limits: null);
 
-        Assert.True(press.Verified, press.Reason);
+        Assert.True(press.Outcome.Verified, press.Outcome.Reason);
         Assert.Equal(4, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -211,13 +212,13 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var worker = runtime.Submit(
             in action, new AutoConceptResourceLimits(90.0f));
 
-        Assert.Equal(AutoConceptPreflight.ResourceBackpressure, worker.Preflight);
-        Assert.Contains("rate reserve", worker.Reason, StringComparison.Ordinal);
+        Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, worker.Outcome.Code);
+        Assert.Contains("rate reserve", worker.Outcome.Reason, StringComparison.Ordinal);
         Assert.Empty(active.value);
 
         var press = runtime.Submit(in action, limits: null);
 
-        Assert.True(press.Verified, press.Reason);
+        Assert.True(press.Outcome.Verified, press.Outcome.Reason);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -265,13 +266,13 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         if (accepted)
         {
-            Assert.True(submission.Verified, submission.Reason);
+            Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
             Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
         }
         else
         {
-            Assert.Equal(AutoConceptPreflight.ResourceBackpressure, submission.Preflight);
-            Assert.Contains("rate reserve", submission.Reason, StringComparison.Ordinal);
+            Assert.Equal(AutoConceptActionResultCodes.AmountUnavailable, submission.Outcome.Code);
+            Assert.Contains("rate reserve", submission.Outcome.Reason, StringComparison.Ordinal);
             Assert.Empty(active.value);
         }
     }
@@ -295,7 +296,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.True(submission.Verified, submission.Reason);
+        Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
         Assert.Equal(1, submission.AppliedDelta);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
@@ -320,7 +321,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.Equal(AutoConceptPreflight.OwnershipChanged, submission.Preflight);
+        Assert.Equal(AutoConceptActionResultCodes.OwnershipChanged, submission.Outcome.Code);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
@@ -350,7 +351,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.True(submission.Verified, submission.Reason);
+        Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
         Assert.Equal(-1, submission.AppliedDelta);
         Assert.Empty(active.value);
     }
@@ -381,7 +382,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.Equal(AutoConceptPreflight.SlotUnavailable, submission.Preflight);
+        Assert.Equal(AutoConceptActionResultCodes.SlotUnavailable, submission.Outcome.Code);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -440,8 +441,8 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var submission = runtime.Submit(in action, DefaultLimits);
 
-        Assert.Equal(AutoConceptPreflight.SlotUnavailable, submission.Preflight);
-        Assert.Contains("unlock", submission.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AutoConceptActionResultCodes.SlotUnavailable, submission.Outcome.Code);
+        Assert.Contains("unlock", submission.Outcome.Reason, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 

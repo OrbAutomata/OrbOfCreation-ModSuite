@@ -5,9 +5,9 @@ internal static class GameMcpAlchemyLoadoutProjection
 {
     internal static GameMcpValue Project(in AlchemyLoadoutSubmission submission)
     {
-        if (submission.Verified) return new GameMcpObjectBuilder().Freeze();
+        if (submission.Outcome.Verified) return new GameMcpObjectBuilder().Freeze();
         var result = new GameMcpObjectBuilder();
-        if (submission.CallOutcome.MutationAttempts > 0)
+        if (submission.Outcome.CallOutcome.MutationAttempts > 0)
             result["missingOutcome"] = "requested Alchemy loadout transition";
 
         // A refusal whose sentence names a ceiling carries that same ceiling as a number, read from

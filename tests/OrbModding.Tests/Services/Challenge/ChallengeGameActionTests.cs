@@ -43,9 +43,9 @@ public sealed class ChallengeGameActionTests : IDisposable
         ChallengeManager.instance.preferredChallenges.value.Add(conflicting);
         var restricted = Submit(boundary, ChallengeActionKind.Select, target);
 
-        Assert.True(selected.Verified, selected.Reason);
-        Assert.True(unselected.Verified, unselected.Reason);
-        Assert.Equal(ChallengePreflight.SelectionRestricted, restricted.Preflight);
+        Assert.True(selected.Outcome.Verified, selected.Outcome.Reason);
+        Assert.True(unselected.Outcome.Verified, unselected.Outcome.Reason);
+        Assert.Equal(ChallengeActionResultCodes.SelectionRestricted, restricted.Outcome.Code);
         Assert.Equal(2, ChallengeManager.instance.preferredChallenges.ToggleCalls);
     }
 
@@ -68,7 +68,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var swapped = Submit(boundary, ChallengeActionKind.Select, wanted, held);
 
-        Assert.True(swapped.Verified, swapped.Reason);
+        Assert.True(swapped.Outcome.Verified, swapped.Outcome.Reason);
         Assert.Equal(new[] { wanted }, ChallengeManager.instance.preferredChallenges.value);
     }
 
@@ -91,9 +91,9 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var refused = Submit(boundary, ChallengeActionKind.Select, wanted, held);
 
-        Assert.Equal(ChallengePreflight.SelectionRestricted, refused.Preflight);
+        Assert.Equal(ChallengeActionResultCodes.SelectionRestricted, refused.Outcome.Code);
         Assert.Equal(new[] { blocking, held }, ChallengeManager.instance.preferredChallenges.value);
-        Assert.Equal(0, refused.CallOutcome.MutationsCommitted);
+        Assert.Equal(0, refused.Outcome.CallOutcome.MutationsCommitted);
     }
 
     /// <summary>
@@ -114,7 +114,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var swapped = Submit(boundary, ChallengeActionKind.Select, wanted, held);
 
-        Assert.True(swapped.Verified, swapped.Reason);
+        Assert.True(swapped.Outcome.Verified, swapped.Outcome.Reason);
         Assert.Equal(new[] { wanted }, ChallengeManager.instance.preferredChallenges.value);
     }
 
@@ -132,8 +132,8 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var refused = Submit(boundary, ChallengeActionKind.Select, wanted);
 
-        Assert.Equal(ChallengePreflight.SelectionFull, refused.Preflight);
-        Assert.Contains("the caller's choice", refused.Reason, StringComparison.Ordinal);
+        Assert.Equal(ChallengeActionResultCodes.SelectionFull, refused.Outcome.Code);
+        Assert.Contains("the caller's choice", refused.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, ChallengeManager.instance.preferredChallenges.ToggleCalls);
     }
 
@@ -151,11 +151,11 @@ public sealed class ChallengeGameActionTests : IDisposable
         target.state = ChallengeSO.ChallengeState.CurrentlyActive;
         var abandoned = Submit(boundary, ChallengeActionKind.Abandon, target);
 
-        Assert.True(queued.Verified, queued.Reason);
+        Assert.True(queued.Outcome.Verified, queued.Outcome.Reason);
         Assert.Equal(ChallengeSO.ChallengeState.QueuedStart, queuedState);
-        Assert.True(idle.Verified, idle.Reason);
-        Assert.Equal(ChallengePreflight.InvalidState, refusedAbandon.Preflight);
-        Assert.True(abandoned.Verified, abandoned.Reason);
+        Assert.True(idle.Outcome.Verified, idle.Outcome.Reason);
+        Assert.Equal(ChallengeActionResultCodes.InvalidState, refusedAbandon.Outcome.Code);
+        Assert.True(abandoned.Outcome.Verified, abandoned.Outcome.Reason);
         Assert.Equal(ChallengeSO.ChallengeState.Failed, target.state);
     }
 
@@ -170,7 +170,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var result = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(PersistentResetManager.instance.hasFetchedChallenges.value);
         Assert.Equal(2, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
         Assert.Equal(new[] { first, second }, ChallengeManager.instance.activeChallenges.value);
@@ -190,7 +190,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var result = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
         Assert.Equal(new[] { first, second }, ChallengeManager.instance.activeChallenges.value);
     }
@@ -205,7 +205,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var result = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(new[] { target }, ChallengeManager.instance.activeChallenges.value);
         Assert.NotEqual(ChallengeSO.ChallengeState.QueuedStart, target.state);
     }
@@ -226,7 +226,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var result = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, PersistentResetManager.instance.challengeRerollsLeft.AsInt());
         Assert.Equal(new[] { target }, ChallengeManager.instance.activeChallenges.value);
         Assert.Equal(1, ChallengeManager.instance.FetchCalls);
@@ -248,7 +248,7 @@ public sealed class ChallengeGameActionTests : IDisposable
 
         var result = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.Equal(ChallengePreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(ChallengeActionResultCodes.PostCommitFault, result.Outcome.Code);
         Assert.Equal(2, result.RerollsLeft);
         Assert.Equal(2, result.RerollsLeftAfter);
         Assert.Equal(0, ChallengeManager.instance.FetchCalls);
@@ -265,9 +265,9 @@ public sealed class ChallengeGameActionTests : IDisposable
         PersistentResetManager.instance.hasCompleteWorldCycle.value = false;
         var incomplete = Submit(boundary, ChallengeActionKind.Reroll);
 
-        Assert.Equal(ChallengePreflight.NoRerolls, noRerolls.Preflight);
+        Assert.Equal(ChallengeActionResultCodes.NoRerolls, noRerolls.Outcome.Code);
         Assert.Equal(0, noRerolls.RerollsLeft);
-        Assert.Equal(ChallengePreflight.FetchUnavailable, incomplete.Preflight);
+        Assert.Equal(ChallengeActionResultCodes.FetchUnavailable, incomplete.Outcome.Code);
         Assert.Equal(-1, incomplete.RerollsLeft);
         Assert.Equal(0, ChallengeManager.instance.FetchCalls);
     }
@@ -288,9 +288,9 @@ public sealed class ChallengeGameActionTests : IDisposable
         using var committedBoundary = Boundary();
         var committed = Submit(committedBoundary, ChallengeActionKind.Queue, target);
 
-        Assert.Equal(ChallengePreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(ChallengePreflight.VerificationFailed, retry.Preflight);
-        Assert.True(committed.Verified, committed.Reason);
+        Assert.Equal(ChallengeActionResultCodes.VerificationFailed, failed.Outcome.Code);
+        Assert.Equal(ChallengeActionResultCodes.VerificationFailed, retry.Outcome.Code);
+        Assert.True(committed.Outcome.Verified, committed.Outcome.Reason);
     }
 
     [Fact]
@@ -300,7 +300,7 @@ public sealed class ChallengeGameActionTests : IDisposable
         ChallengeManager.instance.activeChallenges.value.Add(target);
         using var boundary = Boundary();
         var wrongThread = ForeignThread.Run(() => Submit(boundary, ChallengeActionKind.Queue, target));
-        Assert.Equal(ChallengePreflight.WrongThread, wrongThread.Preflight);
+        Assert.Equal(ChallengeActionResultCodes.WrongThread, wrongThread.Outcome.Code);
 
         foreach (var missing in ChallengeNativeBindings.ContractIds)
         {

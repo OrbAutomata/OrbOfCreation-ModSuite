@@ -17,11 +17,9 @@ public sealed class MentorCycleActionAdapterTests
     [Fact]
     public void CommittedNativeGrantCarriesMutationEvidence()
     {
-        var native = new NativePort(new MentorNativeGrant(
-            MentorNativeGrantStatus.Committed,
-            string.Empty,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1)));
+        var native = new NativePort(NativeActionOutcome.Commit(
+            new NativeMutationCallOutcome(1, 1, 1),
+            string.Empty));
 
         var result = Execute(native);
 
@@ -45,11 +43,11 @@ public sealed class MentorCycleActionAdapterTests
     [Fact]
     public void NativePostconditionFailureFaultsTheService()
     {
-        var native = new NativePort(new MentorNativeGrant(
-            MentorNativeGrantStatus.PostconditionFailed,
-            "no delta",
+        var native = new NativePort(NativeActionOutcome.Fault(
+            CommonActionResultCodes.AdapterFault,
             NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0)));
+            new NativeMutationCallOutcome(1, 1, 0),
+            "no delta"));
 
         var result = Execute(native);
 
@@ -64,8 +62,8 @@ public sealed class MentorCycleActionAdapterTests
     [Fact]
     public void AnUnavailableContractLogsWhyTheGrantFailed()
     {
-        var native = new NativePort(new MentorNativeGrant(
-            MentorNativeGrantStatus.ContractUnavailable,
+        var native = new NativePort(NativeActionOutcome.FaultBeforeCall(
+            CommonActionResultCodes.AdapterFault,
             "native SpellRecipeSO type is unavailable"));
         var warnings = new List<string>();
 
@@ -100,12 +98,12 @@ public sealed class MentorCycleActionAdapterTests
 
     private sealed class NativePort : IMentorNativePort
     {
-        private readonly MentorNativeGrant _result;
+        private readonly NativeActionOutcome _result;
 
-        internal NativePort(MentorNativeGrant result) => _result = result;
+        internal NativePort(NativeActionOutcome result) => _result = result;
         internal int Calls { get; private set; }
 
-        public MentorNativeGrant Grant(in MentorCycleAction action)
+        public NativeActionOutcome Grant(in MentorCycleAction action)
         {
             Calls++;
             return _result;

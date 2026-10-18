@@ -130,13 +130,11 @@ public sealed class GameMcpTargetingTests
     [Fact]
     public void CommittedSubmitReturnsNamedTargetAndCompleteNextRequestOnly()
     {
-        var submission = new TargetingSubmission(TargetingPreflight.Proceeded,
-            TargetingNativeStage.Verification, NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1), First, "verified");
-        var mapped = TargetingActionResultMapper.Map(in submission);
+        var submission = new TargetingSubmission(
+            NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), "verified"), First);
+        var mapped = submission.Outcome.ToResult();
         var command = Command("submit", First);
-        var terminal = GameMcpCommandResult.FromAction(in mapped, command.Kind, 9, 3,
-            submission.Reason, GameMcpTargetingProjection.Project(in submission));
+        var terminal = GameMcpCommandResult.FromAction(in mapped, command.Kind, 9, 3, GameMcpTargetingProjection.Project(in submission));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectTargetingPostState(
             GameMcpTestHarness.Context(World()),
             GameMcpTargetingProjection.SubmittedTarget(terminal.Details)));
@@ -156,9 +154,10 @@ public sealed class GameMcpTargetingTests
     [Fact]
     public void FailureNamesTheMissingSettlementWithoutPersistentState()
     {
-        var submission = new TargetingSubmission(TargetingPreflight.VerificationFailed,
-            TargetingNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0), Guid.Empty, "failed");
+        var submission = new TargetingSubmission(
+            NativeActionOutcome.Fault(TargetingActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0), "failed"), Guid.Empty);
         var failure = GameMcpTestHarness.Json(GameMcpTargetingProjection.Project(in submission));
         Assert.Equal("target request settlement", (string?)failure["missingOutcome"]);
         Assert.Single(failure.Properties());

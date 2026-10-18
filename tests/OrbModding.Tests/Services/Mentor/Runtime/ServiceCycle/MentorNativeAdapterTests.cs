@@ -1,6 +1,7 @@
 using System;
 using OrbMentor;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
@@ -32,7 +33,7 @@ public sealed class MentorNativeAdapterTests : IDisposable
 
         var result = adapter.Grant(in action);
 
-        Assert.Equal(MentorNativeGrantStatus.Committed, result.Status);
+        Assert.True(result.Verified);
         Assert.Equal(new BigDouble(5), spell.masteryExperience);
         Assert.Equal(1, result.CallOutcome.MutationsCommitted);
     }
@@ -53,7 +54,10 @@ public sealed class MentorNativeAdapterTests : IDisposable
 
         var result = adapter.Grant(in action);
 
-        Assert.Equal(MentorNativeGrantStatus.RecipientIneligible, result.Status);
+        Assert.Equal(CommonActionResultCodes.NativeRejected, result.Code);
+        Assert.Equal(
+            "recipient is no longer available below the source mastery ceiling",
+            result.Reason);
         Assert.Equal(0, spell.MasteryGrantCalls);
     }
 
@@ -69,7 +73,7 @@ public sealed class MentorNativeAdapterTests : IDisposable
 
         var result = adapter.Grant(in action);
 
-        Assert.Equal(MentorNativeGrantStatus.Committed, result.Status);
+        Assert.True(result.Verified);
         Assert.Equal(new BigDouble(5), equipment.masteryXp);
         Assert.Equal(new BigDouble(5), equipment.GetExperienceElement().GetExperience());
         Assert.Equal(2, equipment.masteryLevel);

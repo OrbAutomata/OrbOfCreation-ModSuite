@@ -35,9 +35,9 @@ public sealed class PlotLifecycleGameActionTests
         var decremented = Submit(boundary, PlotLifecycleActionKind.Remove, plot, action);
         var canceled = Submit(boundary, PlotLifecycleActionKind.Remove, plot, action);
 
-        Assert.True(added.Verified, added.Reason);
-        Assert.True(decremented.Verified, decremented.Reason);
-        Assert.True(canceled.Verified, canceled.Reason);
+        Assert.True(added.Outcome.Verified, added.Outcome.Reason);
+        Assert.True(decremented.Outcome.Verified, decremented.Outcome.Reason);
+        Assert.True(canceled.Outcome.Verified, canceled.Outcome.Reason);
         Assert.Equal(0, added.BeforeQuantity);
         Assert.Equal(2, added.AfterQuantity);
         Assert.Equal(2, decremented.BeforeQuantity);
@@ -58,12 +58,12 @@ public sealed class PlotLifecycleGameActionTests
         Register(action);
         using var boundary = Boundary();
 
-        Assert.True(Submit(boundary, PlotLifecycleActionKind.Add, plot, action, amount: 4).Verified);
+        Assert.True(Submit(boundary, PlotLifecycleActionKind.Add, plot, action, amount: 4).Outcome.Verified);
         var refused = Submit(boundary, PlotLifecycleActionKind.Remove, plot, action, amount: 10);
         var active = Assert.Single(_actions.value);
 
-        Assert.Equal(PlotLifecyclePreflight.QuantityUnavailable, refused.Preflight);
-        Assert.Contains("only 4 active instances", refused.Reason, StringComparison.Ordinal);
+        Assert.Equal(PlotLifecycleActionResultCodes.QuantityUnavailable, refused.Outcome.Code);
+        Assert.Contains("only 4 active instances", refused.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(4, active.GetActualQuantity());
     }
 
@@ -84,10 +84,10 @@ public sealed class PlotLifecycleGameActionTests
 
         var result = Submit(boundary, PlotLifecycleActionKind.Add, plot, action);
 
-        Assert.Equal(PlotLifecyclePreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(PlotLifecycleActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
         Assert.Equal(ServiceActionDisposition.Faulted,
-            PlotLifecycleActionResultMapper.Map(in result).Disposition);
+            result.Outcome.ToResult().Disposition);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class PlotLifecycleGameActionTests
 
         var result = Submit(boundary, PlotLifecycleActionKind.Add, plot, action);
 
-        Assert.Equal(PlotLifecyclePreflight.ActionUnavailable, result.Preflight);
+        Assert.Equal(PlotLifecycleActionResultCodes.ActionUnavailable, result.Outcome.Code);
         Assert.Empty(_actions.value);
     }
 
@@ -120,8 +120,8 @@ public sealed class PlotLifecycleGameActionTests
         plot.visible = false;
         var hidden = Submit(boundary, PlotLifecycleActionKind.Add, plot, action);
 
-        Assert.Equal(PlotLifecyclePreflight.QuantityUnavailable, insufficient.Preflight);
-        Assert.Equal(PlotLifecyclePreflight.PlotUnavailable, hidden.Preflight);
+        Assert.Equal(PlotLifecycleActionResultCodes.QuantityUnavailable, insufficient.Outcome.Code);
+        Assert.Equal(PlotLifecycleActionResultCodes.PlotUnavailable, hidden.Outcome.Code);
         Assert.Empty(_actions.value);
     }
 
@@ -138,7 +138,7 @@ public sealed class PlotLifecycleGameActionTests
 
         var result = Submit(boundary, PlotLifecycleActionKind.Add, plot, action);
 
-        Assert.Equal(PlotLifecyclePreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(PlotLifecycleActionResultCodes.VerificationFailed, result.Outcome.Code);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public sealed class PlotLifecycleGameActionTests
         var result = ForeignThread.Run(() =>
             Submit(boundary, PlotLifecycleActionKind.Add, plot, action));
 
-        Assert.Equal(PlotLifecyclePreflight.WrongThread, result.Preflight);
+        Assert.Equal(PlotLifecycleActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Empty(_actions.value);
     }
 

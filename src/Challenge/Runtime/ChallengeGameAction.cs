@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -42,20 +43,20 @@ internal sealed class ChallengeGameAction : IDisposable
     internal ChallengeSubmission Submit(in ChallengeAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return ChallengeSubmission.Reject(ChallengePreflight.WrongThread,
+            return ChallengeSubmission.Reject(ChallengeActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
+            return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Time > Challenges", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
+            return ChallengeSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Time > Challenges", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
+            return ChallengeSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
@@ -65,7 +66,7 @@ internal sealed class ChallengeGameAction : IDisposable
             {
                 var resolution = _registry.Resolve(action.TargetId, native.ChallengeType);
                 if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                    return ChallengeSubmission.Reject(ChallengePreflight.IdentityUnavailable,
+                    return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
                         resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
                 target = resolution.Value!;
             }
@@ -75,28 +76,28 @@ internal sealed class ChallengeGameAction : IDisposable
             {
                 var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
                 if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                    return ChallengeSubmission.Reject(ChallengePreflight.IdentityUnavailable,
+                    return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
                         resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
                 replaced = resolution.Value!;
             }
 
             if (!TryContext(native, out var context, out var contextFailure))
-                return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable, contextFailure);
+                return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable, contextFailure);
             var before = CaptureAdmission(native, in context, target);
             var preflight = Preflight(
                 action.Kind, native, in context, target, replaced, in before, out var reason);
-            if (preflight != ChallengePreflight.Proceeded)
-                return preflight == ChallengePreflight.NoRerolls
+            if (preflight != CommonActionResultCodes.Committed)
+                return preflight == ChallengeActionResultCodes.NoRerolls
                     ? ChallengeSubmission.RerollsExhausted(reason, before.RerollsLeft)
                     : ChallengeSubmission.Reject(preflight, reason);
             if (!_tryCaptureMutationPermit())
-                return ChallengeSubmission.Reject(ChallengePreflight.MutationPermitUnavailable,
+                return ChallengeSubmission.Reject(ChallengeActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             return Execute(in action, native, in context, target, replaced, in before);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
+            return ChallengeSubmission.Reject(ChallengeActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Time > Challenges", exception));
         }
     }
@@ -118,7 +119,7 @@ internal sealed class ChallengeGameAction : IDisposable
         in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before)
     {
-        var stage = ChallengeNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             switch (action.Kind)
@@ -135,12 +136,12 @@ internal sealed class ChallengeGameAction : IDisposable
                         // screen performs — so it is asked here, and a no puts the row back.
                         if (!before.Selected && native.Restricted(context.Preferred, target!))
                         {
-                            stage = ChallengeNativeStage.Verification;
+                            stage = "Verification";
                             native.Toggle(context.Preferred, replaced);
                             return native.Contains(context.Preferred, replaced)
                                 ? ChallengeSubmission.Reject(
-                                    ChallengePreflight.SelectionRestricted, RestrictedReason)
-                                : Fault(in action, ChallengePreflight.PostCommitFault, stage,
+                                    ChallengeActionResultCodes.SelectionRestricted, RestrictedReason)
+                                : Fault(in action, ChallengeActionResultCodes.PostCommitFault, stage,
                                     NativeMutationOutcome.PostconditionFailed,
                                     "The row given up to make room was not restored after the " +
                                     "type conflict refused the swap.",
@@ -156,21 +157,21 @@ internal sealed class ChallengeGameAction : IDisposable
                     native.Abandon(target!);
                     break;
                 case ChallengeActionKind.Reroll:
-                    stage = ChallengeNativeStage.DecisionCommit;
+                    stage = "DecisionCommit";
                     if (before.ChallengesFetched)
                         native.SetInt(context.RerollsLeft, checked(before.RerollsLeft - 1));
                     else
                         native.SetBool(context.Fetched, true);
-                    stage = ChallengeNativeStage.NativeCallback;
+                    stage = "NativeCallback";
                     native.Reroll(context.ChallengeManager);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action.Kind));
             }
-            stage = ChallengeNativeStage.Verification;
+            stage = "Verification";
             return OutcomeLanded(action.Kind, native, in context, target, replaced, in before)
                 ? Verified()
-                : Fault(in action, ChallengePreflight.VerificationFailed, stage,
+                : Fault(in action, ChallengeActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Time > Challenges"),
                     SettledBudget(action.Kind, native, in context, in before));
@@ -179,7 +180,7 @@ internal sealed class ChallengeGameAction : IDisposable
         {
             if (OutcomeLandedBestEffort(action.Kind, native, in context, target, replaced, in before))
                 return Verified();
-            return Fault(in action, ChallengePreflight.PostCommitFault, stage,
+            return Fault(in action, ChallengeActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Time > Challenges", exception),
                 SettledBudget(action.Kind, native, in context, in before));
@@ -203,7 +204,7 @@ internal sealed class ChallengeGameAction : IDisposable
         }
     }
 
-    private static ChallengePreflight Preflight(ChallengeActionKind kind,
+    private static ServiceActionResultCode Preflight(ChallengeActionKind kind,
         ChallengeNativeBindings native, in NativeContext context, object? target, object? replaced,
         in ChallengeAdmissionState before, out string reason)
     {
@@ -211,7 +212,7 @@ internal sealed class ChallengeGameAction : IDisposable
         if (kind == ChallengeActionKind.Select)
         {
             if (!before.Selected && !before.InTimeOffers && !before.InPrestigeOffers)
-            { reason = "The challenge is not in either current offer list."; return ChallengePreflight.OfferUnavailable; }
+            { reason = "The challenge is not in either current offer list."; return ChallengeActionResultCodes.OfferUnavailable; }
             if (!before.Selected && !native.HasEmptySpot(context.Preferred))
             {
                 if (replaced is null)
@@ -219,12 +220,12 @@ internal sealed class ChallengeGameAction : IDisposable
                     reason = "Every selection this cycle allows is taken, and more than one is " +
                         "held, so which one to give up is the caller's choice: select one of them " +
                         "to give it up, then select this one.";
-                    return ChallengePreflight.SelectionFull;
+                    return ChallengeActionResultCodes.SelectionFull;
                 }
                 if (!native.Contains(context.Preferred, replaced))
                 {
                     reason = "The selection this one would have replaced is no longer held.";
-                    return ChallengePreflight.SelectionFull;
+                    return ChallengeActionResultCodes.SelectionFull;
                 }
             }
             // A swap's conflict cannot be settled here: the game reads it off the selection as it
@@ -232,16 +233,16 @@ internal sealed class ChallengeGameAction : IDisposable
             // press leaves behind.
             if (!before.Selected && replaced is null &&
                 native.Restricted(context.Preferred, target!))
-            { reason = RestrictedReason; return ChallengePreflight.SelectionRestricted; }
-            return ChallengePreflight.Proceeded;
+            { reason = RestrictedReason; return ChallengeActionResultCodes.SelectionRestricted; }
+            return CommonActionResultCodes.Committed;
         }
         if (kind == ChallengeActionKind.Queue)
         {
             if (!before.InTimeOffers && !before.InPrestigeOffers)
-            { reason = "The challenge is not in either current offer list."; return ChallengePreflight.OfferUnavailable; }
+            { reason = "The challenge is not in either current offer list."; return ChallengeActionResultCodes.OfferUnavailable; }
             if (before.TargetState is not (0 or 1))
-            { reason = "A challenge that has already run cannot be queued again until the next reset."; return ChallengePreflight.InvalidState; }
-            return ChallengePreflight.Proceeded;
+            { reason = "A challenge that has already run cannot be queued again until the next reset."; return ChallengeActionResultCodes.InvalidState; }
+            return CommonActionResultCodes.Committed;
         }
         if (kind == ChallengeActionKind.Abandon)
         {
@@ -253,15 +254,15 @@ internal sealed class ChallengeGameAction : IDisposable
                       "instead if you do not want it."
                     : "Only a challenge the reset started can be abandoned. This one is not " +
                       "running: queue it, reset, and it will be.";
-                return ChallengePreflight.InvalidState;
+                return ChallengeActionResultCodes.InvalidState;
             }
-            return ChallengePreflight.Proceeded;
+            return CommonActionResultCodes.Committed;
         }
         if (!before.WorldCycleComplete)
-        { reason = "Challenge fetching is unavailable until a world cycle is complete."; return ChallengePreflight.FetchUnavailable; }
+        { reason = "Challenge fetching is unavailable until a world cycle is complete."; return ChallengeActionResultCodes.FetchUnavailable; }
         if (before.ChallengesFetched && before.RerollsLeft <= 0)
-        { reason = "No challenge rerolls remain."; return ChallengePreflight.NoRerolls; }
-        return ChallengePreflight.Proceeded;
+        { reason = "No challenge rerolls remain."; return ChallengeActionResultCodes.NoRerolls; }
+        return CommonActionResultCodes.Committed;
     }
 
     private static ChallengeAdmissionState CaptureAdmission(
@@ -312,18 +313,17 @@ internal sealed class ChallengeGameAction : IDisposable
     }
 
     private static ChallengeSubmission Verified() =>
-        new(ChallengePreflight.Proceeded, ChallengeNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The requested challenge transition is visible.");
+        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
+            "The requested challenge transition is visible."));
 
     private static ChallengeSubmission Fault(in ChallengeAction action,
-        ChallengePreflight preflight, ChallengeNativeStage stage, NativeMutationOutcome outcome,
+        ServiceActionResultCode code, string stage, NativeMutationOutcome outcome,
         string reason, ChallengeBudget budget)
     {
         var target = action.HasTarget ? EntityIdentityFormatter.PlayerName(action.TargetId) : action.Kind.ToString();
         var exactReason = "Challenge action " + stage + " failed on " + target + ": " + reason;
-        return new ChallengeSubmission(preflight, stage, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason, budget.Before, budget.After);
+        return new ChallengeSubmission(NativeActionOutcome.Fault(code, outcome,
+            new NativeMutationCallOutcome(1, 1, 0), exactReason), budget.Before, budget.After);
     }
 
     private static bool TryContext(ChallengeNativeBindings native, out NativeContext context, out string reason)

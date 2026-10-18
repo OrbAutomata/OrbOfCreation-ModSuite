@@ -297,12 +297,11 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         LastSubmission = withheldBySuite > 0
             ? submission.WithSuiteWithheld(withheldBySuite)
             : submission;
-        if (!submission.Verified)
+        if (!submission.Outcome.Verified)
             Narrate(action.Kind, action.Uuid, submission);
-        if (requireAutomationPolicy &&
-            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
+        if (requireAutomationPolicy && AutoBuyPurchaseNarration.IsAdmissionRefusal(in submission))
             ReportRefusal(in action, levels, in submission, in context);
-        var result = Map(submission);
+        var result = submission.Outcome.ToResult();
         if (result.Disposition == ServiceActionDisposition.Committed)
         {
             var liveCosts = submission.LiveCosts;
@@ -526,60 +525,4 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         return epoch > 0 && epoch == plannedEpoch;
     }
 
-    private static ServiceActionResult Map(in AutoBuyPurchaseSubmission submission)
-    {
-        switch (submission.Preflight)
-        {
-            case AutoBuyPurchasePreflight.CandidateUnavailable:
-                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
-            case AutoBuyPurchasePreflight.AffordabilityUnavailable:
-                return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
-            case AutoBuyPurchasePreflight.NotAdmissible:
-                return submission.Diagnosis.Classification ==
-                    AutoBuyRefusalClassification.AffordabilityChanged
-                    ? ServiceActionResult.Skipped(CommonActionResultCodes.Skipped)
-                    : ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected);
-            case AutoBuyPurchasePreflight.SingleBuyUnavailable:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
-            case AutoBuyPurchasePreflight.ActionQueueFull:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.ActionQueueFull);
-            case AutoBuyPurchasePreflight.OwningViewUnavailable:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewUnavailable);
-            case AutoBuyPurchasePreflight.OwningViewRelationMissing:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationMissing);
-            case AutoBuyPurchasePreflight.OwningViewRelationUnreadable:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationUnreadable);
-            case AutoBuyPurchasePreflight.OwningViewTopologyUnbound:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewTopologyUnbound);
-            case AutoBuyPurchasePreflight.OwningViewTopologyUncaptured:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.OwningViewTopologyUncaptured);
-            case AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled);
-            case AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable);
-            case AutoBuyPurchasePreflight.OwningViewRelationContradictory:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.OwningViewRelationContradictory);
-            case AutoBuyPurchasePreflight.StructureUnavailable:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.StructureUnavailable);
-            case AutoBuyPurchasePreflight.DestinationCapacityFull:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.DestinationCapacityFull);
-            case AutoBuyPurchasePreflight.DestinationCapacityLocked:
-                return ServiceActionResult.Rejected(AutoBuyActionResultCodes.DestinationCapacityLocked);
-            case AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.DestinationCapacityContractUnavailable);
-            case AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch:
-                return ServiceActionResult.Rejected(
-                    AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch);
-        }
-
-        var evidence = ServiceNativeMutationEvidence.Observed(submission.Outcome, submission.CallOutcome);
-        if (submission.Verified)
-            return ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence);
-        return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
-    }
 }

@@ -55,42 +55,42 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
     internal string PlayerBindingFailure => _playerBindingFailure;
     internal string QuarantineReason => _quarantineReason;
 
-    internal AutoItemsSubmission Submit(in AutoItemsCycleAction action)
+    internal NativeActionOutcome Submit(in AutoItemsCycleAction action)
     {
         if (_temporaryQuarantine.TryGetValue(action.ItemId, out var exactQuarantineReason))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.Quarantined,
+            return NativeActionOutcome.FaultBeforeCall(
+                AutoItemsActionResultCodes.Quarantined,
                 exactQuarantineReason);
         if (_quarantineReason.Length != 0)
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.Quarantined,
+            return NativeActionOutcome.FaultBeforeCall(
+                AutoItemsActionResultCodes.Quarantined,
                 _quarantineReason);
         if (_bindings is not { } native)
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.ContractUnavailable,
+            return NativeActionOutcome.FaultBeforeCall(
+                AutoItemsActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Inventory", _bindingFailure));
         if (InvokeBool(native.IsTargeting, null))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.TargetingInProgress,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.TargetingInProgress,
                 "TargetingManager.IsTargeting() reported an active native targeting interaction.");
 
         var resolution = _registryResolver.Resolve(action.ItemId, native.ConsumableType);
         if (!resolution.IsResolved)
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.ItemUnavailable,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.ItemUnavailable,
                 resolution.Format());
         var item = resolution.Value!;
         if (!HasExpectedFamily(item, action.Family, native, out var reason))
-            return AutoItemsSubmission.Reject(AutoItemsPreflight.FamilyChanged, reason);
+            return NativeActionOutcome.Reject(AutoItemsActionResultCodes.FamilyChanged, reason);
         if (!InvokeBool(native.IsVisible, item))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.NotVisible,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.NotVisible,
                 $"The game is not showing {EntityIdentityFormatter.PlayerName(action.ItemId)} yet.");
         if (action.Family == AutoItemsConsumableFamily.Scroll &&
             native.CanBeRandomized.GetValue(item) is not true)
         {
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.RandomizationUnavailable,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.RandomizationUnavailable,
                 $"{EntityIdentityFormatter.PlayerName(action.ItemId)} can no longer be randomized.");
         }
         if (action.Family == AutoItemsConsumableFamily.Scroll &&
@@ -100,49 +100,51 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 native,
                 out reason))
         {
-            return AutoItemsSubmission.Reject(AutoItemsPreflight.TargetUnavailable, reason);
+            return NativeActionOutcome.Reject(AutoItemsActionResultCodes.TargetUnavailable, reason);
         }
 
         var temporary = AutoItemsConsumableFamilies.IsTemporary(action.Family);
         if (temporary &&
             !TryHasFinitePositiveDuration(item, action.ItemId, native, out reason))
         {
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.TemporaryDurationChanged,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.TemporaryDurationChanged,
                 reason);
         }
         if (temporary &&
             !TryHasSafeTemporaryCosts(item, action.ItemId, native, out reason))
         {
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.TemporaryCostChanged,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.TemporaryCostChanged,
                 reason);
         }
         if (temporary)
         {
             if (!TryAnyTemporaryUsage(native, out var temporaryUsagePresent, out reason))
-                return AutoItemsSubmission.Reject(
-                    AutoItemsPreflight.ContractUnavailable,
+                return NativeActionOutcome.FaultBeforeCall(
+                    AutoItemsActionResultCodes.ContractUnavailable,
                     reason);
             if (temporaryUsagePresent)
-                return AutoItemsSubmission.Reject(
-                    AutoItemsPreflight.TemporaryEffectPresent,
+                return NativeActionOutcome.Reject(
+                    AutoItemsActionResultCodes.TemporaryEffectPresent,
                     reason);
         }
         if (!InvokeBool(native.CanUseConsumable, null))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.NativeBusy,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.NativeBusy,
                 "Inventory.CanUseConsumable() refused because native consumable preparation is busy.");
         if (!InvokeBool(native.CanFire, item))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.CanFireRefused,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.CanFireRefused,
                 $"The game refuses to use {EntityIdentityFormatter.PlayerName(action.ItemId)} right now.");
         if (!TryCaptureMutationPermit(out reason))
-            return AutoItemsSubmission.Reject(
-                AutoItemsPreflight.MutationPermitUnavailable,
+            return NativeActionOutcome.Reject(
+                AutoItemsActionResultCodes.MutationPermitUnavailable,
                 reason);
         if (!NativeMultiBuyScope.TryEnterOne(out var multiBuy, out reason))
-            return AutoItemsSubmission.Reject(AutoItemsPreflight.MultiBuyUnavailable, reason);
+            return NativeActionOutcome.FaultBeforeCall(
+                AutoItemsActionResultCodes.MultiBuyUnavailable,
+                reason);
 
         var itemId = action.ItemId;
         var family = action.Family;
@@ -164,10 +166,13 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 : 0,
             evidence.MutationWasAttempted ? 1 : 0,
             evidence.IsVerified ? 1 : 0);
-        var preflight = AutoItemsPreflight.Proceeded;
-        var failureReason = string.Empty;
-        if (evidence.MutationWasAttempted && !evidence.IsVerified)
+        if (evidence.IsVerified)
+            return NativeActionOutcome.Commit(
+                callOutcome,
+                $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} entered native preparation.");
+        if (evidence.MutationWasAttempted)
         {
+            string failureReason;
             if (temporary)
             {
                 failureReason =
@@ -182,22 +187,16 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                     $"mutation on {EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}";
                 failureReason = _quarantineReason;
             }
-            preflight = AutoItemsPreflight.Quarantined;
+            return NativeActionOutcome.Fault(
+                AutoItemsActionResultCodes.Quarantined,
+                evidence.Outcome,
+                callOutcome,
+                failureReason);
         }
-        else if (!evidence.IsVerified)
-        {
-            preflight = AutoItemsPreflight.ContractUnavailable;
-            failureReason =
-                "Auto Items could not read the consumable preparation queue for " +
-                $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}";
-        }
-        return new AutoItemsSubmission(
-            preflight,
-            evidence.Outcome,
-            callOutcome,
-            evidence.IsVerified
-                ? $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} entered native preparation."
-                : failureReason);
+        return NativeActionOutcome.FaultBeforeCall(
+            AutoItemsActionResultCodes.ContractUnavailable,
+            "Auto Items could not read the consumable preparation queue for " +
+            $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}");
     }
 
     internal void InvalidateLifecycle()

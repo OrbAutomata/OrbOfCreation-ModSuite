@@ -54,7 +54,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         if (!NativeEpochMatches(action.CollectedAtEpoch))
             return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
 
-        AutoItemsSubmission submission;
+        NativeActionOutcome submission;
         try
         {
             submission = _gameAction.Submit(in action);
@@ -64,85 +64,16 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
             var reason =
                 "Auto Items failed at the native boundary: " +
                 ex.GetBaseException().Message;
-            submission = AutoItemsSubmission.Reject(
-                AutoItemsPreflight.ContractUnavailable,
+            submission = NativeActionOutcome.FaultBeforeCall(
+                AutoItemsActionResultCodes.ContractUnavailable,
                 reason);
         }
 
         _health.Observe(in submission);
         if (!submission.Verified)
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Items {submission.Preflight}: {submission.Reason}");
-        return Map(in submission);
+            Plugin.Log?.LogAutomataWarning($"Auto Items: {submission.Reason}");
+        return submission.ToResult();
     }
-
-    internal static ServiceActionResult Map(in AutoItemsSubmission submission)
-    {
-        var code = submission.Preflight switch
-        {
-            AutoItemsPreflight.ItemUnavailable => AutoItemsActionResultCodes.ItemUnavailable,
-            AutoItemsPreflight.FamilyChanged => AutoItemsActionResultCodes.FamilyChanged,
-            AutoItemsPreflight.NativeBusy => AutoItemsActionResultCodes.NativeBusy,
-            AutoItemsPreflight.NotVisible => AutoItemsActionResultCodes.NotVisible,
-            AutoItemsPreflight.CanFireRefused => AutoItemsActionResultCodes.CanFireRefused,
-            AutoItemsPreflight.RandomizationUnavailable =>
-                AutoItemsActionResultCodes.RandomizationUnavailable,
-            AutoItemsPreflight.TargetUnavailable =>
-                AutoItemsActionResultCodes.TargetUnavailable,
-            AutoItemsPreflight.MutationPermitUnavailable =>
-                AutoItemsActionResultCodes.MutationPermitUnavailable,
-            AutoItemsPreflight.ContractUnavailable =>
-                AutoItemsActionResultCodes.ContractUnavailable,
-            AutoItemsPreflight.MultiBuyUnavailable =>
-                AutoItemsActionResultCodes.MultiBuyUnavailable,
-            AutoItemsPreflight.Quarantined =>
-                AutoItemsActionResultCodes.Quarantined,
-            AutoItemsPreflight.TemporaryDurationChanged =>
-                AutoItemsActionResultCodes.TemporaryDurationChanged,
-            AutoItemsPreflight.TemporaryCostChanged =>
-                AutoItemsActionResultCodes.TemporaryCostChanged,
-            AutoItemsPreflight.TemporaryEffectPresent =>
-                AutoItemsActionResultCodes.TemporaryEffectPresent,
-            AutoItemsPreflight.TargetingInProgress =>
-                AutoItemsActionResultCodes.TargetingInProgress,
-            AutoItemsPreflight.Proceeded => CommonActionResultCodes.Committed,
-            _ => CommonActionResultCodes.AdapterFault,
-        };
-        if (submission.Preflight != AutoItemsPreflight.Proceeded)
-        {
-            if (submission.CallOutcome.MutationAttempts > 0)
-            {
-                var rejectedEvidence = ServiceNativeMutationEvidence.Observed(
-                    submission.Outcome,
-                    submission.CallOutcome);
-                return ServiceActionResult.Faulted(code, rejectedEvidence);
-            }
-            return IsExpectedRejection(submission.Preflight)
-                ? ServiceActionResult.Rejected(code)
-                : ServiceActionResult.Faulted(code);
-        }
-
-        var evidence = ServiceNativeMutationEvidence.Observed(
-            submission.Outcome,
-            submission.CallOutcome);
-        return submission.Verified
-            ? ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence)
-            : ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, evidence);
-    }
-
-    private static bool IsExpectedRejection(AutoItemsPreflight preflight) =>
-        preflight is AutoItemsPreflight.ItemUnavailable or
-            AutoItemsPreflight.FamilyChanged or
-            AutoItemsPreflight.NativeBusy or
-            AutoItemsPreflight.NotVisible or
-            AutoItemsPreflight.CanFireRefused or
-            AutoItemsPreflight.RandomizationUnavailable or
-            AutoItemsPreflight.MutationPermitUnavailable or
-            AutoItemsPreflight.TargetUnavailable or
-            AutoItemsPreflight.TemporaryDurationChanged or
-            AutoItemsPreflight.TemporaryCostChanged or
-            AutoItemsPreflight.TemporaryEffectPresent or
-            AutoItemsPreflight.TargetingInProgress;
 
     private bool Owns()
     {

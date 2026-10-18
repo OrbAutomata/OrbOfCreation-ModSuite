@@ -68,8 +68,7 @@ public sealed class GameMcpReturnToMenuTests
                 NativeMutationOutcome.Verified,
                 new NativeMutationCallOutcome(1, 1, 1)));
         var result = GameMcpCommandResult.FromAction(
-            in action, command.Kind, 12, 34,
-            "The game accepted the return to its Start screen.",
+            action.WithReason("The game accepted the return to its Start screen."), command.Kind, 12, 34,
             new GameMcpObjectBuilder { ["scene"] = "Start" }.Freeze());
 
         var json = GameMcpTestHarness.Json(result.Project(command));

@@ -12,27 +12,26 @@ public sealed class AutoBuyPurchaseNarrationTests
     [Fact]
     public void DescribeWarning_CandidateUnavailable_IsActionable()
     {
-        var submission = AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.CandidateUnavailable);
+        var submission = AutoBuyPurchaseSubmission.CandidateUnavailable();
 
         var warning = AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Structure, CandidateId, in submission);
 
         Assert.Equal(
-            $"Auto Buy failed to purchase Structure {CandidateId:D}: candidate could not be resolved.",
+            $"Auto Buy failed to purchase Structure {CandidateId:D}: The candidate could not be resolved.",
             warning);
     }
 
     [Fact]
     public void DescribeWarning_AffordabilityUnavailable_IsActionable()
     {
-        var submission = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyPurchasePreflight.AffordabilityUnavailable);
+        var submission = AutoBuyPurchaseSubmission.AffordabilityUnavailable(default);
 
         var warning = AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Structure, CandidateId, in submission);
 
         Assert.Equal(
-            $"Auto Buy failed to purchase Structure {CandidateId:D}: live affordability could not be read.",
+            $"Auto Buy failed to purchase Structure {CandidateId:D}: Live affordability could not be read.",
             warning);
     }
 
@@ -40,8 +39,7 @@ public sealed class AutoBuyPurchaseNarrationTests
     public void DescribeWarning_SuccessAndOrdinaryRefusalsAreSilent()
     {
         var verified = Attempted(before: 4, delta: 3, requested: 3);
-        var refusalOwnedByResponder = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyPurchasePreflight.NotAdmissible);
+        var refusalOwnedByResponder = AutoBuyPurchaseSubmission.NotAdmissible(default);
 
         Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
             AutoBuyCandidateKind.Upgrade, CandidateId, in verified));
@@ -58,7 +56,7 @@ public sealed class AutoBuyPurchaseNarrationTests
     public void DescribeWarning_SingleBuyUnavailable_CarriesThePinsOwnReason()
     {
         var submission = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyPurchasePreflight.SingleBuyUnavailable,
+            AutoBuyActionResultCodes.SingleBuyUnavailable,
             "The suite could not set the game's multi-buy multiplier to 5, so no purchase was " +
             "attempted: global multi-buy mutation is quarantined: restore failed.");
 
@@ -81,7 +79,7 @@ public sealed class AutoBuyPurchaseNarrationTests
             AutoBuyCandidateKind.Upgrade, CandidateId, in unverified);
 
         Assert.Equal(
-            $"Auto Buy failed to purchase 3 levels for Upgrade {CandidateId:D}: native mutation did not apply.",
+            $"Auto Buy failed to purchase Upgrade {CandidateId:D}: The native purchase of 3 levels did not apply.",
             warning);
     }
 

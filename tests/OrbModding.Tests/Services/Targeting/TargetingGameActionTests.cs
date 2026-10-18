@@ -23,7 +23,7 @@ public sealed class TargetingGameActionTests : IDisposable
 
         var result = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
 
-        Assert.True(result.Verified);
+        Assert.True(result.Outcome.Verified);
         Assert.Same(target, Assert.Single(TargetingManager.SubmittedTargets));
         Assert.False(TargetingManager.IsTargeting());
     }
@@ -37,7 +37,7 @@ public sealed class TargetingGameActionTests : IDisposable
 
         var result = action.Submit(new TargetingAction(TargetingActionKind.Randomize, Guid.Empty, Epoch));
 
-        Assert.True(result.Verified);
+        Assert.True(result.Outcome.Verified);
         Assert.Same(target, Assert.Single(TargetingManager.SubmittedTargets));
     }
 
@@ -49,7 +49,7 @@ public sealed class TargetingGameActionTests : IDisposable
 
         var result = action.Submit(new TargetingAction(TargetingActionKind.Cancel, Guid.Empty, Epoch));
 
-        Assert.True(result.Verified);
+        Assert.True(result.Outcome.Verified);
         Assert.False(TargetingManager.IsTargeting());
         Assert.Empty(TargetingManager.SubmittedTargets);
     }
@@ -63,7 +63,7 @@ public sealed class TargetingGameActionTests : IDisposable
 
         var result = action.Submit(new TargetingAction(TargetingActionKind.Submit, Guid.NewGuid(), Epoch));
 
-        Assert.Equal(TargetingPreflight.TargetUnavailable, result.Preflight);
+        Assert.Equal(TargetingActionResultCodes.TargetUnavailable, result.Outcome.Code);
         Assert.Equal(0, permits);
         Assert.True(TargetingManager.IsTargeting());
     }
@@ -72,18 +72,18 @@ public sealed class TargetingGameActionTests : IDisposable
     public void MissingRequestLifecycleAndOwnershipAllRefuseBeforeNativeMutation()
     {
         using var noRequest = Action();
-        Assert.Equal(TargetingPreflight.NoPendingRequest,
-            noRequest.Submit(new TargetingAction(TargetingActionKind.Cancel, Guid.Empty, Epoch)).Preflight);
+        Assert.Equal(TargetingActionResultCodes.NoPendingRequest,
+            noRequest.Submit(new TargetingAction(TargetingActionKind.Cancel, Guid.Empty, Epoch)).Outcome.Code);
 
         var target = Target();
         Open(target);
         using var stale = Action(epoch: Epoch + 1);
-        Assert.Equal(TargetingPreflight.LifecycleReplaced,
-            stale.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)).Preflight);
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced,
+            stale.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)).Outcome.Code);
 
         using var unowned = Action(permit: () => false);
-        Assert.Equal(TargetingPreflight.MutationPermitUnavailable,
-            unowned.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)).Preflight);
+        Assert.Equal(TargetingActionResultCodes.MutationPermitUnavailable,
+            unowned.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)).Outcome.Code);
         Assert.Empty(TargetingManager.SubmittedTargets);
     }
 
@@ -95,7 +95,7 @@ public sealed class TargetingGameActionTests : IDisposable
         using var action = Action();
         var result = ForeignThread.Run(() => action.Submit(
             new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)));
-        Assert.Equal(TargetingPreflight.WrongThread, result.Preflight);
+        Assert.Equal(TargetingActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.True(TargetingManager.IsTargeting());
     }
 
@@ -106,7 +106,7 @@ public sealed class TargetingGameActionTests : IDisposable
         {
             using var action = Action(include: id => id != missing);
             var result = action.Submit(new TargetingAction(TargetingActionKind.Cancel, Guid.Empty, Epoch));
-            Assert.Equal(TargetingPreflight.ContractUnavailable, result.Preflight);
+            Assert.Equal(TargetingActionResultCodes.ContractUnavailable, result.Outcome.Code);
         }
     }
 
@@ -121,8 +121,8 @@ public sealed class TargetingGameActionTests : IDisposable
         var failed = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
         var retry = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
 
-        Assert.Equal(TargetingPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(TargetingPreflight.VerificationFailed, retry.Preflight);
+        Assert.Equal(TargetingActionResultCodes.VerificationFailed, failed.Outcome.Code);
+        Assert.Equal(TargetingActionResultCodes.VerificationFailed, retry.Outcome.Code);
     }
 
     [Fact]
@@ -133,14 +133,14 @@ public sealed class TargetingGameActionTests : IDisposable
         TargetingManager.ThrowAfterSubmit = true;
         using var action = Action();
         var submit = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
-        Assert.True(submit.Verified);
+        Assert.True(submit.Outcome.Verified);
 
         TargetingManager.Reset();
         Open(Target());
         EffectResultInfo.ThrowAfterCancel = true;
         using var cancelAction = Action();
         var cancel = cancelAction.Submit(new TargetingAction(TargetingActionKind.Cancel, Guid.Empty, Epoch));
-        Assert.True(cancel.Verified);
+        Assert.True(cancel.Outcome.Verified);
     }
 
     [Fact]
@@ -159,10 +159,11 @@ public sealed class TargetingGameActionTests : IDisposable
     [Fact]
     public void ResultMapperPreservesFaultDisposition()
     {
-        var submission = new TargetingSubmission(TargetingPreflight.VerificationFailed,
-            TargetingNativeStage.Verification, NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(1, 1, 0), Guid.Empty, "failed");
-        var mapped = TargetingActionResultMapper.Map(in submission);
+        var submission = new TargetingSubmission(
+            NativeActionOutcome.Fault(TargetingActionResultCodes.VerificationFailed,
+                NativeMutationOutcome.PostconditionFailed,
+                new NativeMutationCallOutcome(1, 1, 0), "failed"), Guid.Empty);
+        var mapped = submission.Outcome.ToResult();
         Assert.Equal(ServiceActionDisposition.Faulted, mapped.Disposition);
         Assert.Equal(TargetingActionResultCodes.VerificationFailed, mapped.Code);
         Assert.True(mapped.HasNativeEvidence);

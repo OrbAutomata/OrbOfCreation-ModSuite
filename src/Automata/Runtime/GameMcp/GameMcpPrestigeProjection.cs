@@ -1,9 +1,11 @@
 #if SERVICE_CYCLE_PROFILE
+using OrbModding.Common;
+
 namespace OrbAutomata.GameMcp;
 
 internal static class GameMcpPrestigeProjection
 {
-    internal static GameMcpValue Project(in PrestigeSubmission submission)
+    internal static GameMcpValue Project(in NativeActionOutcome submission)
     {
         if (submission.Verified) return new GameMcpObjectBuilder().Freeze();
         var result = new GameMcpObjectBuilder();

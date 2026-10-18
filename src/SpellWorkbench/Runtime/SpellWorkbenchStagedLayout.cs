@@ -1,36 +1,37 @@
 using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 internal readonly struct SpellWorkbenchStagedLayout
 {
     private SpellWorkbenchStagedLayout(
-        SpellWorkbenchPreflight preflight,
+        ServiceActionResultCode code,
         SpellWorkbenchGlyphStack[] core,
         SpellWorkbenchGlyphStack[] augments,
         string reason)
     {
-        Preflight = preflight;
+        Code = code;
         Core = Copy(core);
         Augments = Copy(augments);
         Reason = reason ?? string.Empty;
     }
 
-    internal SpellWorkbenchPreflight Preflight { get; }
+    internal ServiceActionResultCode Code { get; }
     internal SpellWorkbenchGlyphStack[] Core { get; }
     internal SpellWorkbenchGlyphStack[] Augments { get; }
     internal string Reason { get; }
-    internal bool Available => Preflight == SpellWorkbenchPreflight.Proceeded;
+    internal bool Available => Code == CommonActionResultCodes.Committed;
 
     internal static SpellWorkbenchStagedLayout Captured(
         SpellWorkbenchGlyphStack[] core,
         SpellWorkbenchGlyphStack[] augments) =>
-        new(SpellWorkbenchPreflight.Proceeded, core, augments, string.Empty);
+        new(CommonActionResultCodes.Committed, core, augments, string.Empty);
 
     internal static SpellWorkbenchStagedLayout Unavailable(
-        SpellWorkbenchPreflight preflight,
+        ServiceActionResultCode code,
         string reason) =>
-        new(preflight, Array.Empty<SpellWorkbenchGlyphStack>(),
+        new(code, Array.Empty<SpellWorkbenchGlyphStack>(),
             Array.Empty<SpellWorkbenchGlyphStack>(), reason);
 
     private static SpellWorkbenchGlyphStack[] Copy(SpellWorkbenchGlyphStack[] source)

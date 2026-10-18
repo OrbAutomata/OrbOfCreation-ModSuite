@@ -277,7 +277,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
 
-        Assert.Equal(AutoBuyPurchasePreflight.NotAdmissible, submission.Preflight);
+        Assert.Equal(CommonActionResultCodes.Skipped, submission.Outcome.Code);
         Assert.Equal(AutoBuyAdmissionTerm.Passed, submission.Diagnosis.IsAvailable);
         Assert.Equal(AutoBuyAdmissionTerm.Refused, submission.Diagnosis.HasEnough);
         Assert.Equal("GetPurchaseCost().HasEnough()", submission.Diagnosis.RefusingTerm);
@@ -319,8 +319,8 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
 
-        Assert.Equal(AutoBuyPurchasePreflight.NotAdmissible, submission.Preflight);
-        Assert.False(submission.HasEvidence);
+        Assert.Equal(CommonActionResultCodes.Skipped, submission.Outcome.Code);
+        Assert.False(submission.Outcome.ToResult().HasNativeEvidence);
         Assert.Equal(AutoBuyAdmissionTerm.Refused, submission.Diagnosis.HasEnough);
         Assert.Equal(AutoBuyRefusalClassification.AffordabilityChanged, submission.Diagnosis.Classification);
         Assert.Equal(0, structure.queuedQuantity);
@@ -461,7 +461,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
 
-        Assert.Equal(AutoBuyPurchasePreflight.StructureUnavailable, submission.Preflight);
+        Assert.Equal(AutoBuyActionResultCodes.StructureUnavailable, submission.Outcome.Code);
         Assert.Equal(0, structure.queuedQuantity);
     }
 
@@ -492,10 +492,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             count: 1,
             lifecycleEpoch: 9);
 
-        Assert.Equal(AutoBuyPurchasePreflight.OwningViewTopologyUncaptured, submission.Preflight);
-        Assert.Contains("epoch 3", submission.Reason);
-        Assert.Contains("epoch 9", submission.Reason);
-        Assert.Contains("1 row(s)", submission.Reason);
+        Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, submission.Outcome.Code);
+        Assert.Contains("epoch 3", submission.Outcome.Reason);
+        Assert.Contains("epoch 9", submission.Outcome.Reason);
+        Assert.Contains("1 row(s)", submission.Outcome.Reason);
         Assert.Equal(0, structure.queuedQuantity);
     }
 
@@ -753,7 +753,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
 
-        Assert.Equal(AutoBuyPurchasePreflight.NotAdmissible, submission.Preflight);
+        Assert.Equal(CommonActionResultCodes.NativeRejected, submission.Outcome.Code);
         Assert.Equal(AutoBuyAdmissionTerm.Passed, submission.Diagnosis.IsMaxLevel);
         Assert.Equal(AutoBuyAdmissionTerm.Refused, submission.Diagnosis.IsMaxQueuedLevel);
         Assert.Equal("IsMaxQueuedLevel()", submission.Diagnosis.RefusingTerm);
@@ -778,7 +778,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
 
-        Assert.Equal(AutoBuyPurchasePreflight.NotAdmissible, submission.Preflight);
+        Assert.Equal(CommonActionResultCodes.NativeRejected, submission.Outcome.Code);
         Assert.Equal(string.Empty, submission.Diagnosis.RefusingTerm);
         Assert.True(submission.Diagnosis.WasAsked);
         Assert.Equal(
@@ -963,7 +963,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(3, submission.RequestedLevels);
         Assert.Equal(3, submission.CommittedLevels);
         Assert.Equal(3, upgrade.GetQueuedPurchaseLevel());
@@ -987,7 +987,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(3, submission.RequestedLevels);
         Assert.Equal(2, submission.CommittedLevels);
         Assert.Equal(2, upgrade.GetQueuedPurchaseLevel());
@@ -1009,7 +1009,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(1, submission.RequestedLevels);
         Assert.Equal(1, submission.CommittedLevels);
         Assert.Equal(5, upgrade.GetQueuedPurchaseLevel());
@@ -1039,7 +1039,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 5);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(5, submission.RequestedLevels);
         Assert.Equal(5, submission.CommittedLevels);
         Assert.Equal(7, structure.queuedQuantity);
@@ -1060,7 +1060,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(1, submission.RequestedLevels);
         Assert.Equal(1, submission.CommittedLevels);
         Assert.Equal(3, structure.queuedQuantity);
@@ -1091,7 +1091,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 6);
 
-        Assert.True(submission.Verified);
+        Assert.True(submission.Outcome.Verified);
         Assert.Equal(6, submission.RequestedLevels);
         Assert.Equal(3, submission.CommittedLevels);
         Assert.Equal(3, structure.queuedQuantity);
@@ -1113,8 +1113,8 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var submission = NativeAdapter()
             .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count);
 
-        Assert.False(submission.Verified);
-        Assert.Equal(AutoBuyPurchasePreflight.CandidateUnavailable, submission.Preflight);
+        Assert.False(submission.Outcome.Verified);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);
         Assert.Equal(0, upgrade.GetQueuedPurchaseLevel());
     }
 
@@ -1575,7 +1575,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         var purchases = new ReconciliationPurchasePort(
             resource,
             firstActualCost: new BigDouble(10),
-            secondPreflight: AutoBuyPurchasePreflight.OwningViewUnavailable);
+            secondRefusal: AutoBuyActionResultCodes.OwningViewUnavailable);
         var adapter = new AutoBuyCycleActionAdapter(
             purchases,
             new FakeQueueRoom(64, readable: true),
@@ -1622,16 +1622,16 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     {
         private readonly Guid _resource;
         private readonly BigDouble _firstActualCost;
-        private readonly AutoBuyPurchasePreflight _secondPreflight;
+        private readonly ServiceActionResultCode? _secondRefusal;
 
         internal ReconciliationPurchasePort(
             Guid resource,
             BigDouble firstActualCost,
-            AutoBuyPurchasePreflight secondPreflight = AutoBuyPurchasePreflight.Proceeded)
+            ServiceActionResultCode? secondRefusal = null)
         {
             _resource = resource;
             _firstActualCost = firstActualCost;
-            _secondPreflight = secondPreflight;
+            _secondRefusal = secondRefusal;
         }
 
         internal int Submissions { get; private set; }
@@ -1643,8 +1643,8 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             long lifecycleEpoch)
         {
             Submissions++;
-            if (Submissions == 2 && _secondPreflight != AutoBuyPurchasePreflight.Proceeded)
-                return AutoBuyPurchaseSubmission.Rejected(_secondPreflight);
+            if (Submissions == 2 && _secondRefusal is { } refusal)
+                return AutoBuyPurchaseSubmission.Rejected(refusal);
 
             var queued = 0;
             var evidence = NativeMutationVerifier.Execute(
@@ -1673,7 +1673,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             long lifecycleEpoch)
         {
             LastCount = count;
-            return AutoBuyPurchaseSubmission.Rejected(AutoBuyPurchasePreflight.CandidateUnavailable);
+            return AutoBuyPurchaseSubmission.CandidateUnavailable();
         }
     }
 

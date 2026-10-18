@@ -18,9 +18,9 @@ internal static class GameMcpGenericLevelProjection
     internal static GameMcpValue Project(in GenericLevelSubmission submission, GameWorldState world)
     {
         var result = new GameMcpObjectBuilder();
-        if (!submission.Verified)
+        if (!submission.Outcome.Verified)
         {
-            if (submission.CallOutcome.MutationAttempts > 0)
+            if (submission.Outcome.CallOutcome.MutationAttempts > 0)
                 result["missingOutcome"] = "requested level increase";
             return result.Freeze();
         }

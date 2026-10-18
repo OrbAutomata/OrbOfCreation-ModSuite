@@ -53,11 +53,11 @@ internal sealed class SpellCompositionGameAction : IDisposable
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.WrongThread,
+                SpellCompositionActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.ContractUnavailable,
+                SpellCompositionActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached(Screen(action.Dial), _bindingFailure));
 
         long currentEpoch;
@@ -65,19 +65,19 @@ internal sealed class SpellCompositionGameAction : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.LifecycleReplaced,
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead(Screen(action.Dial), ex));
         }
         if (currentEpoch != action.LifecycleEpoch)
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.LifecycleReplaced,
+                CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try { return SetDial(in action, native); }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.ContractUnavailable,
+                SpellCompositionActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead(Screen(action.Dial), ex));
         }
     }
@@ -105,7 +105,7 @@ internal sealed class SpellCompositionGameAction : IDisposable
         var variable = player is null ? null : ReadVariable(native, player, action.Dial);
         if (player is null || variable is null)
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.ContractUnavailable,
+                SpellCompositionActionResultCodes.ContractUnavailable,
                 "The game has not set up " + Name(action.Dial) + " yet.");
         var current = native.ReadInt(variable);
         var maximum = native.ReadInt(ReadMaximumVariable(native, player, action.Dial));
@@ -118,11 +118,11 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 maximum);
         if (current == action.Value)
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.AlreadyInRequestedState,
+                SpellCompositionActionResultCodes.AlreadyInRequestedState,
                 "The " + Name(action.Dial) + " is already " + current + ".");
         if (!TryCapturePermit(out var reason))
             return SpellCompositionSubmission.Reject(
-                SpellCompositionPreflight.MutationPermitUnavailable,
+                SpellCompositionActionResultCodes.MutationPermitUnavailable,
                 reason);
 
         try
@@ -133,8 +133,8 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 ? Verified(
                     "The " + Name(action.Dial) + " is now " + action.Value + ".")
                 : Fault(
-                    SpellCompositionPreflight.VerificationFailed,
-                    SpellCompositionNativeStage.Verification,
+                    SpellCompositionActionResultCodes.VerificationFailed,
+                    "Verification",
                     NativeMutationOutcome.PostconditionFailed,
                     "Expected " + action.Value + ", observed " + observed + ".");
         }
@@ -144,8 +144,8 @@ internal sealed class SpellCompositionGameAction : IDisposable
                 return Verified(
                     "The " + Name(action.Dial) + " setter threw after the requested value became observable.");
             return Fault(
-                SpellCompositionPreflight.PostCommitFault,
-                SpellCompositionNativeStage.Dial,
+                SpellCompositionActionResultCodes.PostCommitFault,
+                "Dial",
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored(Screen(action.Dial), ex));
         }
@@ -164,25 +164,21 @@ internal sealed class SpellCompositionGameAction : IDisposable
         string reason)
     {
         return new SpellCompositionSubmission(
-            SpellCompositionPreflight.Proceeded,
-            SpellCompositionNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            reason);
+            NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), reason));
     }
 
     private static SpellCompositionSubmission Fault(
-        SpellCompositionPreflight preflight,
-        SpellCompositionNativeStage stage,
+        ServiceActionResultCode code,
+        string stage,
         NativeMutationOutcome outcome,
         string reason)
     {
         return new SpellCompositionSubmission(
-            preflight,
-            stage,
-            outcome,
-            new NativeMutationCallOutcome(1, 1, 0),
-            "Level dial faulted after " + stage + ": " + reason);
+            NativeActionOutcome.Fault(
+                code,
+                outcome,
+                new NativeMutationCallOutcome(1, 1, 0),
+                "Level dial faulted after " + stage + ": " + reason));
     }
 
     private bool TryCapturePermit(out string reason)
@@ -218,10 +214,10 @@ internal sealed class SpellCompositionGameAction : IDisposable
     private bool TryAdmitControl(
         SpellCompositionNativeBindings native,
         LevelDial dial,
-        out SpellCompositionPreflight refusal,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
-        refusal = SpellCompositionPreflight.Proceeded;
+        refusal = CommonActionResultCodes.Committed;
         reason = string.Empty;
         var (viewId, unlock) = dial switch
         {
@@ -234,13 +230,13 @@ internal sealed class SpellCompositionGameAction : IDisposable
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             resolution.Value is not { } view)
         {
-            refusal = SpellCompositionPreflight.ContractUnavailable;
+            refusal = SpellCompositionActionResultCodes.ContractUnavailable;
             reason = "The game's " + Name(dial) + " adjuster could not be read, so whether " +
                 Screen(dial) + " draws it at all is unknown.";
             return false;
         }
         if (native.IsViewAvailable(view)) return true;
-        refusal = SpellCompositionPreflight.ControlLocked;
+        refusal = SpellCompositionActionResultCodes.ControlLocked;
         reason = Name(dial) + " is locked: " + Screen(dial) + " draws no " + Name(dial) +
             " adjuster until " + unlock + " is bought.";
         return false;

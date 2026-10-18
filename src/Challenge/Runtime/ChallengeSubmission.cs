@@ -1,33 +1,8 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
-
-internal enum ChallengePreflight
-{
-    Proceeded = 0,
-    WrongThread = 1,
-    LifecycleReplaced = 2,
-    ContractUnavailable = 3,
-    IdentityUnavailable = 5,
-    OfferUnavailable = 6,
-    SelectionFull = 7,
-    SelectionRestricted = 8,
-    InvalidState = 9,
-    FetchUnavailable = 10,
-    NoRerolls = 11,
-    MutationPermitUnavailable = 12,
-    PostCommitFault = 13,
-    VerificationFailed = 14,
-}
-
-internal enum ChallengeNativeStage
-{
-    None = 0,
-    DecisionCommit = 1,
-    NativeCallback = 2,
-    Verification = 3,
-}
 
 internal readonly struct ChallengeAdmissionState
 {
@@ -73,24 +48,15 @@ internal readonly struct ChallengeBudget
 
 internal readonly struct ChallengeSubmission
 {
-    internal ChallengeSubmission(ChallengePreflight preflight, ChallengeNativeStage stage,
-        NativeMutationOutcome outcome, NativeMutationCallOutcome callOutcome,
-        string reason, int rerollsLeft = -1, int rerollsLeftAfter = -1)
+    internal ChallengeSubmission(NativeActionOutcome outcome, int rerollsLeft = -1,
+        int rerollsLeftAfter = -1)
     {
-        Preflight = preflight;
-        Stage = stage;
         Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
         RerollsLeft = rerollsLeft;
         RerollsLeftAfter = rerollsLeftAfter;
     }
 
-    internal ChallengePreflight Preflight { get; }
-    internal ChallengeNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
-    internal string Reason { get; }
+    internal NativeActionOutcome Outcome { get; }
 
     /// <summary>
     /// The reroll budget the refusal's sentence was written from, or the budget an attempted press
@@ -103,14 +69,10 @@ internal readonly struct ChallengeSubmission
     /// press was attempted or the reading could not be taken.
     /// </summary>
     internal int RerollsLeftAfter { get; }
-    internal bool Verified => Preflight == ChallengePreflight.Proceeded &&
-        Outcome == NativeMutationOutcome.Verified;
 
-    internal static ChallengeSubmission Reject(ChallengePreflight preflight, string reason) =>
-        new(preflight, ChallengeNativeStage.None, NativeMutationOutcome.BeforeCaptureFailed,
-            default, reason);
+    internal static ChallengeSubmission Reject(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Reject(code, reason));
 
     internal static ChallengeSubmission RerollsExhausted(string reason, int rerollsLeft) =>
-        new(ChallengePreflight.NoRerolls, ChallengeNativeStage.None,
-            NativeMutationOutcome.BeforeCaptureFailed, default, reason, rerollsLeft);
+        new(NativeActionOutcome.Reject(ChallengeActionResultCodes.NoRerolls, reason), rerollsLeft);
 }

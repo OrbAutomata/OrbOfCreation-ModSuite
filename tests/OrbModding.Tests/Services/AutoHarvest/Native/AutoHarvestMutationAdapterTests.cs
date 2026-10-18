@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
@@ -16,10 +17,13 @@ public sealed class AutoHarvestMutationAdapterTests
 
         var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
-        Assert.True(result.HasNativeMutationOutcome);
-        Assert.Equal(NativeMutationOutcome.BeforeCaptureFailed, result.NativeMutationOutcome);
-        Assert.False(result.MutationAttempted);
-        Assert.Equal(AutoHarvestSubmissionFailureCode.None, result.FailureCode);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(NativeMutationOutcome.BeforeCaptureFailed, result.Mutation);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        var mapped = result.ToResult();
+        Assert.Equal(ServiceActionDisposition.Faulted, mapped.Disposition);
+        Assert.True(mapped.HasNativeEvidence);
+        Assert.Equal(NativeMutationOutcome.BeforeCaptureFailed, mapped.NativeEvidence.Outcome);
     }
 
     /// <summary>
@@ -42,10 +46,10 @@ public sealed class AutoHarvestMutationAdapterTests
             ReadyFacts(readiness: AutoHarvestEvidenceState.Rejected),
             Preserving);
 
-        Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
         Assert.Equal(0, state.PrototypeCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -62,12 +66,12 @@ public sealed class AutoHarvestMutationAdapterTests
             Preserving);
 
         Assert.Equal(
-            AutoHarvestSubmissionFailureCode.NativePrerequisitesCurrentlyUnmet,
-            result.FailureCode);
+            AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet,
+            result.Code);
         Assert.Equal(1, action.prerequisites.CheckCalls);
         Assert.Equal(0, state.CaptureCount);
         Assert.Equal(0, state.PrototypeCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -85,9 +89,9 @@ public sealed class AutoHarvestMutationAdapterTests
                 readiness: AutoHarvestEvidenceState.Rejected),
             Preserving);
 
-        Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, action.prerequisites.CheckCalls);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -100,11 +104,11 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving);
 
         Assert.Equal(
-            AutoHarvestSubmissionFailureCode.NativePrerequisiteValidationUnavailable,
-            result.FailureCode);
-        Assert.False(result.HasNativeMutationOutcome);
+            AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable,
+            result.Code);
+        Assert.False(result.ToResult().HasNativeEvidence);
         Assert.Equal(0, state.CaptureCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     /// <summary>
@@ -122,8 +126,8 @@ public sealed class AutoHarvestMutationAdapterTests
 
         var result = adapter.Submit(ResolvedPair(), default, Preserving);
 
-        Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     /// <summary>
@@ -138,10 +142,10 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(
-            AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused,
-            result.FailureCode);
+            AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused,
+            result.Code);
         Assert.Equal(1, state.PrototypeCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     /// <summary>
@@ -161,29 +165,29 @@ public sealed class AutoHarvestMutationAdapterTests
 
         var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
-        Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Theory]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativePlotVisibilityRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeActionRowVisibilityRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeHasEnoughForOneInstanceRefused)]
-    [InlineData((int)AutoHarvestSubmissionFailureCode.NativeMaximumRemainingInstancesRefused)]
+    [InlineData(1031)]
+    [InlineData(1032)]
+    [InlineData(1033)]
+    [InlineData(1034)]
+    [InlineData(1035)]
     public void AClickTermMovingAfterPlanningRefusesWithItsExactNamedCode(int failure)
     {
-        var expected = (AutoHarvestSubmissionFailureCode)failure;
+        var expected = new ServiceActionResultCode(failure);
         var state = new RecordingStatePort(admissionFailure: expected);
         var adapter = new AutoHarvestMutationAdapter(state);
 
         var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
-        Assert.Equal(expected, result.FailureCode);
+        Assert.Equal(expected, result.Code);
         Assert.Equal(1, state.CaptureCount);
         Assert.Equal(1, state.PrototypeCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -195,11 +199,11 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(
-            AutoHarvestSubmissionFailureCode.NativePairIdentityRevalidationRefused,
-            result.FailureCode);
+            AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused,
+            result.Code);
         Assert.Equal(0, state.CaptureCount);
         Assert.Equal(0, state.PrototypeCount);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Fact]
@@ -239,21 +243,21 @@ public sealed class AutoHarvestMutationAdapterTests
             ReadyFacts(),
             (AutoHarvestActionSafetyState)safetyValue);
 
-        Assert.Equal(AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected, result.FailureCode);
-        Assert.False(result.MutationAttempted);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
     [Theory]
-    [InlineData(false, 1, true, 0, 0, (int)AutoHarvestSubmissionFailureCode.RuntimeReadFailed)]
-    [InlineData(true, 0, false, 0, 0, (int)AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected)]
-    [InlineData(true, 1, true, 1, 1, (int)AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected)]
+    [InlineData(false, 1, true, 0, 0, false)]
+    [InlineData(true, 0, false, 0, 0, true)]
+    [InlineData(true, 1, true, 1, 1, true)]
     public void FinalInvalidFullOrDuplicateStateDoesNotInvokeNativeMutation(
         bool valid,
         int empty,
         bool nativeHasEmptyEntry,
         int supported,
         int matches,
-        int expectedFailure)
+        bool policyRejected)
     {
         var executed = false;
         var afterCaptured = false;
@@ -279,8 +283,72 @@ public sealed class AutoHarvestMutationAdapterTests
 
         Assert.False(executed);
         Assert.False(afterCaptured);
-        Assert.False(result.MutationAttempted);
-        Assert.Equal((AutoHarvestSubmissionFailureCode)expectedFailure, result.FailureCode);
+        Assert.Equal(0, result.CallOutcome.MutationAttempts);
+        Assert.Equal(
+            policyRejected
+                ? CommonActionResultCodes.PolicyRejected
+                : CommonActionResultCodes.AdapterFault,
+            result.Code);
+    }
+
+    [Theory]
+    [InlineData(NativeMutationOutcome.Verified, 1, 1, 1, ServiceActionDisposition.Committed)]
+    [InlineData(NativeMutationOutcome.BeforeCaptureFailed, 0, 0, 0, ServiceActionDisposition.Faulted)]
+    [InlineData(NativeMutationOutcome.ExecutionThrew, 1, 1, 0, ServiceActionDisposition.Faulted)]
+    [InlineData(NativeMutationOutcome.AfterCaptureFailed, 1, 1, 0, ServiceActionDisposition.Faulted)]
+    [InlineData(NativeMutationOutcome.PostconditionFailed, 1, 1, 0, ServiceActionDisposition.Faulted)]
+    public void FrozenLegacyNativeEvidenceMatrixMatchesServiceCycle(
+        NativeMutationOutcome outcome,
+        int calls,
+        int attempts,
+        int commits,
+        ServiceActionDisposition expectedDisposition)
+    {
+        var result = AutoHarvestMutationAdapter.FromVerifier(
+            outcome,
+            new NativeMutationCallOutcome(calls, attempts, commits)).ToResult();
+
+        Assert.Equal(expectedDisposition, result.Disposition);
+        Assert.True(result.HasNativeEvidence);
+        Assert.Equal(outcome, result.NativeEvidence.Outcome);
+        Assert.Equal(calls, result.NativeCallOutcome.NativeCallsAttempted);
+        Assert.Equal(attempts, result.NativeCallOutcome.MutationAttempts);
+        Assert.Equal(commits, result.NativeCallOutcome.MutationsCommitted);
+    }
+
+    [Theory]
+    [InlineData(1028)]
+    [InlineData(1029)]
+    [InlineData(1030)]
+    [InlineData(1031)]
+    [InlineData(1032)]
+    [InlineData(1033)]
+    [InlineData(1034)]
+    [InlineData(1035)]
+    public void AdmissionRefusalsArePenaltyFreeAndKeepTheirExactCode(int expectedCode)
+    {
+        var expected = new ServiceActionResultCode(expectedCode);
+        PlotNodeActionSO? action = null;
+        if (expected == AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet)
+        {
+            action = new PlotNodeActionSO();
+            action.prerequisites.NativeCheckResult = false;
+        }
+        else if (expected == AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable)
+        {
+            action = new PlotNodeActionSO { prerequisites = null! };
+        }
+        var state = new RecordingStatePort(
+            admissionFailure: expectedCode >= 1031 ? expected : null,
+            resolvesCurrentPair:
+                expected != AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused);
+        var adapter = new AutoHarvestMutationAdapter(state);
+
+        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving).ToResult();
+
+        Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
+        Assert.Equal(expected, result.Code);
+        Assert.False(result.HasNativeEvidence);
     }
 
     private static AutoHarvestPairFacts ReadyFacts(
@@ -395,7 +463,7 @@ public sealed class AutoHarvestMutationAdapterTests
         public object? ReadPrototype(in ResolvedAutoHarvestPair resolved) =>
             throw new NotSupportedException();
 
-        public AutoHarvestSubmissionFailureCode ValidateClickAdmission(
+        public ServiceActionResultCode ValidateClickAdmission(
             in ResolvedAutoHarvestPair resolved,
             out object? prototype) => throw new NotSupportedException();
     }
@@ -403,19 +471,19 @@ public sealed class AutoHarvestMutationAdapterTests
     private sealed class RecordingStatePort : IAutoHarvestSubmissionStatePort
     {
         private readonly object? _prototype;
-        private readonly AutoHarvestSubmissionFailureCode _admissionFailure;
+        private readonly ServiceActionResultCode _admissionFailure;
         private readonly bool _resolvesCurrentPair;
         private readonly TestActiveActions? _activeActions;
 
         internal RecordingStatePort(
             int supported = 0,
             bool resolvesPrototype = true,
-            AutoHarvestSubmissionFailureCode admissionFailure = AutoHarvestSubmissionFailureCode.None,
+            ServiceActionResultCode? admissionFailure = null,
             bool resolvesCurrentPair = true,
             TestActiveActions? activeActions = null)
         {
             _prototype = resolvesPrototype ? new object() : null;
-            _admissionFailure = admissionFailure;
+            _admissionFailure = admissionFailure ?? CommonActionResultCodes.Committed;
             _resolvesCurrentPair = resolvesCurrentPair;
             _activeActions = activeActions;
             Captured = State(
@@ -466,16 +534,16 @@ public sealed class AutoHarvestMutationAdapterTests
             return _prototype;
         }
 
-        public AutoHarvestSubmissionFailureCode ValidateClickAdmission(
+        public ServiceActionResultCode ValidateClickAdmission(
             in ResolvedAutoHarvestPair resolved,
             out object? prototype)
         {
             prototype = ReadPrototype(resolved);
-            return _admissionFailure != AutoHarvestSubmissionFailureCode.None
+            return _admissionFailure != CommonActionResultCodes.Committed
                 ? _admissionFailure
                 : prototype is null
-                    ? AutoHarvestSubmissionFailureCode.NativeOfferedInstanceMembershipRefused
-                    : AutoHarvestSubmissionFailureCode.None;
+                    ? AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused
+                    : CommonActionResultCodes.Committed;
         }
     }
 

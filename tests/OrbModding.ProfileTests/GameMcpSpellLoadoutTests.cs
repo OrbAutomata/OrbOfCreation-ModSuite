@@ -509,13 +509,10 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void CommittedMutationNamesBothHalvesOfASwap()
     {
-        var submission = new SpellLoadoutSubmission(
-            SpellLoadoutPreflight.Proceeded,
-            SpellLoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        var submission = NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(2, 1, 1),
             "the exact requested swap is observable");
-        var mapped = SpellLoadoutActionResultMapper.Map(in submission);
+        var mapped = submission.ToResult();
         var command = Command(
             "move",
             destinationSlot: 1,
@@ -525,7 +522,6 @@ public sealed class GameMcpSpellLoadoutTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpSpellLoadoutProjection.Project(in submission));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(moved: true)), command, terminal));
@@ -566,20 +562,16 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void CommittedRemovalAnswersWithBothBudgetsItFreedAndNamesTheOneWayDoor()
     {
-        var submission = new SpellLoadoutSubmission(
-            SpellLoadoutPreflight.Proceeded,
-            SpellLoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        var submission = NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1),
             "the exact runtime spell is absent from the loadout");
-        var mapped = SpellLoadoutActionResultMapper.Map(in submission);
+        var mapped = submission.ToResult();
         var command = Command("remove", frameContext: GameMcpTestHarness.Context(World()));
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpSpellLoadoutProjection.Project(in submission));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(removed: true)), command, terminal));
@@ -619,9 +611,8 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void FailureNamesTheMissingOutcomeWithoutPersistentState()
     {
-        var submission = new SpellLoadoutSubmission(
-            SpellLoadoutPreflight.VerificationFailed,
-            SpellLoadoutNativeStage.Verification,
+        var submission = NativeActionOutcome.Fault(
+            SpellLoadoutActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(2, 1, 0),
             "the requested swap was not observable");

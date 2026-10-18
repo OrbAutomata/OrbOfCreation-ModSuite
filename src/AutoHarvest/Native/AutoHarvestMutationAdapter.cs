@@ -1,8 +1,8 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.Runtime.ServiceCycle.Profile;
-using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 #endif
 
@@ -29,7 +29,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 #endif
     }
 
-    public AutoHarvestSubmissionResult Submit(
+    public NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
         AutoHarvestActionSafetyState safety
@@ -40,13 +40,13 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
     {
         if (!_stateReader.TryResolveCurrentPair(resolved, out var current))
         {
-            return new AutoHarvestSubmissionResult(
-                AutoHarvestSubmissionFailureCode.NativePairIdentityRevalidationRefused);
+            return NativeActionOutcome.Reject(
+                AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused, string.Empty);
         }
 
         var prerequisiteFailure = ValidatePrerequisites(current);
-        if (prerequisiteFailure != AutoHarvestSubmissionFailureCode.None)
-            return new AutoHarvestSubmissionResult(prerequisiteFailure);
+        if (prerequisiteFailure != CommonActionResultCodes.Committed)
+            return NativeActionOutcome.Reject(prerequisiteFailure, string.Empty);
 
         AutoHarvestSubmissionState before;
 #if SERVICE_CYCLE_PROFILE
@@ -61,9 +61,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return new AutoHarvestSubmissionResult(
-                NativeMutationOutcome.BeforeCaptureFailed,
-                default);
+            return FromVerifier(NativeMutationOutcome.BeforeCaptureFailed, default);
         }
 #if SERVICE_CYCLE_PROFILE
         finally { beforeSnapshot.Complete(); }
@@ -76,8 +74,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             before);
         if (!decision.ShouldSubmit)
         {
-            return new AutoHarvestSubmissionResult(
-                AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected);
+            return NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty);
         }
 
         object? prototype;
@@ -92,16 +89,12 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             var admissionFailure = _stateReader.ValidateClickAdmission(
                 current,
                 out prototype);
-            if (admissionFailure != AutoHarvestSubmissionFailureCode.None)
-            {
-                return new AutoHarvestSubmissionResult(
-                    admissionFailure);
-            }
+            if (admissionFailure != CommonActionResultCodes.Committed)
+                return NativeActionOutcome.Reject(admissionFailure, string.Empty);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return new AutoHarvestSubmissionResult(
-                AutoHarvestSubmissionFailureCode.RuntimeReadFailed);
+            return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, string.Empty);
         }
 #if SERVICE_CYCLE_PROFILE
         finally { revalidation.Complete(); }
@@ -144,7 +137,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             );
     }
 
-    internal static AutoHarvestSubmissionResult SubmitCaptured(
+    internal static NativeActionOutcome SubmitCaptured(
         string actionUuid,
         in AutoHarvestSubmissionState before,
         Func<bool> observeAfter,
@@ -152,10 +145,9 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
     {
         if (!CanSubmit(before))
         {
-            return new AutoHarvestSubmissionResult(
-                before.IsValid
-                    ? AutoHarvestSubmissionFailureCode.PolicyRevalidationRejected
-                    : AutoHarvestSubmissionFailureCode.RuntimeReadFailed);
+            return before.IsValid
+                ? NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty)
+                : NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, string.Empty);
         }
 
         return SubmitAdmitted(
@@ -164,7 +156,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             execute);
     }
 
-    private static AutoHarvestSubmissionResult SubmitAdmitted(
+    private static NativeActionOutcome SubmitAdmitted(
         string actionUuid,
         Func<bool> observeAfter,
         Action execute)
@@ -177,16 +169,33 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             observeAfter,
             execute,
             static (_, after) => after);
-        return new AutoHarvestSubmissionResult(
-            evidence.Outcome,
-            NativeMutationCallOutcome.FromEvidence(evidence));
+        return FromVerifier(evidence.Outcome, NativeMutationCallOutcome.FromEvidence(evidence));
+    }
+
+    /// <summary>
+    /// An attempted-but-unverified mutation is the one outcome that must never be retried this
+    /// lifecycle, so it alone is named a pair fault, which the action boundary quarantines on.
+    /// </summary>
+    internal static NativeActionOutcome FromVerifier(
+        NativeMutationOutcome outcome,
+        NativeMutationCallOutcome calls)
+    {
+        if (outcome == NativeMutationOutcome.Verified)
+            return NativeActionOutcome.Commit(calls, string.Empty);
+        return NativeActionOutcome.Fault(
+            calls.MutationAttempts != 0
+                ? AutoHarvestActionResultCodes.PairFaulted
+                : CommonActionResultCodes.AdapterFault,
+            outcome,
+            calls,
+            string.Empty);
     }
 
     /// <summary>
     /// Calls the parameterless domain validator exactly once on the UUID/type-resolved current
     /// action. Its result is the admission decision; cached latches are not reread as evidence.
     /// </summary>
-    private static AutoHarvestSubmissionFailureCode ValidatePrerequisites(
+    private static ServiceActionResultCode ValidatePrerequisites(
         in ResolvedAutoHarvestPair resolved)
     {
         bool result;
@@ -203,12 +212,12 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return AutoHarvestSubmissionFailureCode.NativePrerequisiteValidationUnavailable;
+            return AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable;
         }
 
         return result
-            ? AutoHarvestSubmissionFailureCode.None
-            : AutoHarvestSubmissionFailureCode.NativePrerequisitesCurrentlyUnmet;
+            ? CommonActionResultCodes.Committed
+            : AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet;
     }
 
 #if SERVICE_CYCLE_PROFILE

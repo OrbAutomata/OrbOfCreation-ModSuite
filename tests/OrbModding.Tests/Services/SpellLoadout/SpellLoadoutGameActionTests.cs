@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
 
@@ -73,7 +74,7 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         var result = action.Submit(Remove(spell));
 
-        Assert.Equal(SpellLoadoutPreflight.SpellRecharging, result.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.SpellRecharging, result.Code);
         Assert.Equal(
             recipe.GetGuid().ToString("D") + " is still recharging: it holds 2 of 3 charges, " +
             "next in 4.50s. The game only removes a spell at full charges — \"Cannot remove a " +
@@ -95,7 +96,7 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         var result = action.Submit(Remove(spell));
 
-        Assert.Equal(SpellLoadoutPreflight.CastInProgress, result.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.CastInProgress, result.Code);
         Assert.Equal(
             recipe.GetGuid().ToString("D") + " is still recharging: it is mid-cast, and the game " +
             "answers a removal now with \"Cannot remove a spell that is still recharging.\" " +
@@ -122,12 +123,12 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         var removal = action.Submit(Remove(first));
         var move = action.Submit(Move(first, 1));
 
-        Assert.Equal(SpellLoadoutPreflight.ScreenLocked, removal.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.ScreenLocked, removal.Code);
         Assert.Equal(
             "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no loadout bar " +
             "to change. Buy the Spellbook Loadout upgrade first.",
             removal.Reason);
-        Assert.Equal(SpellLoadoutPreflight.ScreenLocked, move.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.ScreenLocked, move.Code);
         Assert.Equal(removal.Reason, move.Reason);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
         Assert.Equal(0, SpellManager.instance.activeSpells.SwapCalls);
@@ -193,8 +194,8 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         var failed = action.Submit(Remove(spell));
         var retry = action.Submit(Remove(spell));
 
-        Assert.Equal(SpellLoadoutPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(SpellLoadoutPreflight.VerificationFailed, retry.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.VerificationFailed, failed.Code);
+        Assert.Equal(SpellLoadoutActionResultCodes.VerificationFailed, retry.Code);
         Assert.Contains(spell, SpellManager.instance.activeSpells.value);
     }
 
@@ -262,8 +263,8 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         var failed = action.Submit(Move(first, 1));
         var retry = action.Submit(Move(first, 1));
 
-        Assert.Equal(SpellLoadoutPreflight.VerificationFailed, failed.Preflight);
-        Assert.Equal(SpellLoadoutPreflight.VerificationFailed, retry.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.VerificationFailed, failed.Code);
+        Assert.Equal(SpellLoadoutActionResultCodes.VerificationFailed, retry.Code);
         Assert.Equal(new[] { first, second }, list.value);
     }
 
@@ -280,9 +281,9 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         var outOfRange = action.Submit(Move(spell, 4));
         var noOp = action.Submit(Move(spell, 0));
 
-        Assert.Equal(SpellLoadoutPreflight.IdentityUnavailable, missing.Preflight);
-        Assert.Equal(SpellLoadoutPreflight.DestinationOutOfRange, outOfRange.Preflight);
-        Assert.Equal(SpellLoadoutPreflight.AlreadyInRequestedState, noOp.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.IdentityUnavailable, missing.Code);
+        Assert.Equal(SpellLoadoutActionResultCodes.DestinationOutOfRange, outOfRange.Code);
+        Assert.Equal(SpellLoadoutActionResultCodes.AlreadyInRequestedState, noOp.Code);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
         Assert.Equal(0, list.SwapCalls);
     }
@@ -296,7 +297,7 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         var result = ForeignThread.Run(() => action.Submit(Remove(spell)));
 
-        Assert.Equal(SpellLoadoutPreflight.WrongThread, result.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.WrongThread, result.Code);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
     }
 
@@ -309,8 +310,8 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         {
             using var action = Action(include: id => id != missing);
             Assert.Equal(
-                SpellLoadoutPreflight.ContractUnavailable,
-                action.Submit(Remove(spell)).Preflight);
+                SpellLoadoutActionResultCodes.ContractUnavailable,
+                action.Submit(Remove(spell)).Code);
         }
     }
 
@@ -322,8 +323,8 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
         using var stale = Action(epoch: Epoch + 1);
         using var unowned = Action(permit: () => false);
 
-        Assert.Equal(SpellLoadoutPreflight.LifecycleReplaced, stale.Submit(Remove(spell)).Preflight);
-        Assert.Equal(SpellLoadoutPreflight.MutationPermitUnavailable, unowned.Submit(Remove(spell)).Preflight);
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced, stale.Submit(Remove(spell)).Code);
+        Assert.Equal(SpellLoadoutActionResultCodes.MutationPermitUnavailable, unowned.Submit(Remove(spell)).Code);
         Assert.Equal(0, SpellManager.instance.RemoveCalls);
     }
 
@@ -345,7 +346,7 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
         var result = action.Submit(Remove(spell));
 
-        Assert.Equal(SpellLoadoutPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(SpellLoadoutActionResultCodes.PostCommitFault, result.Code);
         var references = Regex.Matches(result.Reason, "MCP-[0-9A-F]{8}")
             .Select(match => match.Value).ToList();
         var reference = Assert.Single(references);

@@ -1,19 +1,7 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
-
-internal enum ResearchPreflight
-{
-    Proceeded = 0, WrongThread = 1, LifecycleReplaced = 2, ContractUnavailable = 3,
-    IdentityUnavailable = 5, DevelopUnavailable = 6,
-    MultiBuyUnavailable = 7, InvalidMode = 8, InvalidState = 9,
-    BonusUnavailable = 10, MutationPermitUnavailable = 11, PostCommitFault = 12,
-    VerificationFailed = 13, AmountUnavailable = 14,
-    AlreadyMaxed = 15, Unaffordable = 16, RequirementsUnmet = 17, LeewayExhausted = 18,
-    AlreadyDeveloping = 19, Locked = 20,
-}
-
-internal enum ResearchNativeStage { None = 0, NativeCallback = 1, Verification = 2 }
 
 /// <summary>
 /// The live capture a develop is admitted against. <c>Complete</c> through
@@ -31,20 +19,13 @@ internal readonly record struct ResearchAdmissionState(
 
 internal readonly struct ResearchSubmission
 {
-    internal ResearchSubmission(ResearchPreflight preflight, ResearchNativeStage stage,
-        NativeMutationOutcome outcome, NativeMutationCallOutcome callOutcome,
-        string reason, int maximumAmount = -1)
+    internal ResearchSubmission(NativeActionOutcome outcome, int maximumAmount = -1)
     {
-        Preflight = preflight; Stage = stage; Outcome = outcome; CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
+        Outcome = outcome;
         MaximumAmount = maximumAmount;
     }
 
-    internal ResearchPreflight Preflight { get; }
-    internal ResearchNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
-    internal string Reason { get; }
+    internal NativeActionOutcome Outcome { get; }
 
     /// <summary>
     /// The ceiling the refusal prose names, or <c>-1</c> when the prose names none. It is read from
@@ -53,11 +34,7 @@ internal readonly struct ResearchSubmission
     /// </summary>
     internal int MaximumAmount { get; }
 
-    internal bool Verified => Preflight == ResearchPreflight.Proceeded &&
-        Outcome == NativeMutationOutcome.Verified;
-
     internal static ResearchSubmission Reject(
-        ResearchPreflight preflight, string reason, int maximumAmount = -1) =>
-        new(preflight, ResearchNativeStage.None, NativeMutationOutcome.BeforeCaptureFailed,
-            default, reason, maximumAmount);
+        ServiceActionResultCode code, string reason, int maximumAmount = -1) =>
+        new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 }

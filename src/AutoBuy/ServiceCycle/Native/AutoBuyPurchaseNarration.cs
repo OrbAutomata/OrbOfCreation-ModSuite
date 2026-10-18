@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -52,55 +53,40 @@ internal static class AutoBuyPurchaseNarration
         Guid uuid,
         in AutoBuyPurchaseSubmission submission)
     {
-        if (submission.Verified ||
-            submission.Preflight == AutoBuyPurchasePreflight.NotAdmissible)
-        {
+        if (submission.Outcome.Verified || IsAdmissionRefusal(in submission))
             return null;
-        }
 
         var candidate = $"{kind} {EntityIdentityFormatter.Format(uuid)}";
-        return submission.Preflight switch
-        {
-            // The multiplier pin is the suite's own step, and which part of it failed is only ever
-            // written here: the trace used to drop this outcome entirely, so the sentence the pin
-            // composed was lost on the wire and in the log at once.
-            AutoBuyPurchasePreflight.SingleBuyUnavailable =>
-                $"Auto Buy failed to purchase {candidate}: {submission.Reason}",
-            AutoBuyPurchasePreflight.CandidateUnavailable =>
-                $"Auto Buy failed to purchase {candidate}: candidate could not be resolved.",
-            AutoBuyPurchasePreflight.AffordabilityUnavailable =>
-                $"Auto Buy failed to purchase {candidate}: live affordability could not be read.",
-            AutoBuyPurchasePreflight.OwningViewUnavailable =>
-                Refusal(candidate, "owning view unavailable"),
-            AutoBuyPurchasePreflight.OwningViewRelationMissing =>
-                Refusal(candidate, "owning view relation missing"),
-            AutoBuyPurchasePreflight.OwningViewRelationUnreadable =>
-                Refusal(candidate, "owning view relation unreadable"),
-            AutoBuyPurchasePreflight.OwningViewTopologyUnbound =>
-                Refusal(candidate, "the owning view topology contract never bound"),
-            AutoBuyPurchasePreflight.OwningViewTopologyUncaptured =>
-                $"Auto Buy failed to purchase {candidate}: {submission.Reason}",
-            AutoBuyPurchasePreflight.OwningViewRelationStatusUnmodeled =>
-                Refusal(candidate, "the owning view relation carries an unmodelled status"),
-            AutoBuyPurchasePreflight.OwningViewAvailabilityUnreadable =>
-                Refusal(candidate, "live owning view availability could not be read"),
-            AutoBuyPurchasePreflight.OwningViewRelationContradictory =>
-                Refusal(candidate, "owning view relation contradictory"),
-            AutoBuyPurchasePreflight.StructureUnavailable =>
-                Refusal(candidate, "structure unavailable"),
-            AutoBuyPurchasePreflight.DestinationCapacityFull =>
-                Refusal(candidate, "destination capacity full"),
-            AutoBuyPurchasePreflight.DestinationCapacityLocked =>
-                Refusal(candidate, "no destination slot unlocked"),
-            AutoBuyPurchasePreflight.DestinationCapacityContractUnavailable =>
-                Refusal(candidate, "destination capacity contract unavailable"),
-            AutoBuyPurchasePreflight.DestinationCapacityIdentityMismatch =>
-                Refusal(candidate, "destination capacity identity mismatch"),
-            _ =>
-                $"Auto Buy failed to purchase {submission.RequestedLevels} levels for {candidate}: native mutation did not apply.",
-        };
+        var fragment = RefusalFragment(submission.Outcome.Code);
+        return fragment is null
+            ? $"Auto Buy failed to purchase {candidate}: {submission.Outcome.Reason}"
+            : $"Auto Buy failed to purchase {candidate}: {fragment}.";
     }
 
-    private static string Refusal(string candidate, string reason) =>
-        $"Auto Buy failed to purchase {candidate}: {reason}.";
+    private static string? RefusalFragment(ServiceActionResultCode code)
+    {
+        if (code == AutoBuyActionResultCodes.OwningViewUnavailable) return "owning view unavailable";
+        if (code == AutoBuyActionResultCodes.OwningViewRelationMissing) return "owning view relation missing";
+        if (code == AutoBuyActionResultCodes.OwningViewRelationUnreadable) return "owning view relation unreadable";
+        if (code == AutoBuyActionResultCodes.OwningViewTopologyUnbound)
+            return "the owning view topology contract never bound";
+        if (code == AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled)
+            return "the owning view relation carries an unmodelled status";
+        if (code == AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable)
+            return "live owning view availability could not be read";
+        if (code == AutoBuyActionResultCodes.OwningViewRelationContradictory)
+            return "owning view relation contradictory";
+        if (code == AutoBuyActionResultCodes.StructureUnavailable) return "structure unavailable";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityFull) return "destination capacity full";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityLocked) return "no destination slot unlocked";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
+            return "destination capacity contract unavailable";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
+            return "destination capacity identity mismatch";
+        return null;
+    }
+
+    public static bool IsAdmissionRefusal(in AutoBuyPurchaseSubmission submission) =>
+        submission.Outcome.Code == CommonActionResultCodes.Skipped ||
+        submission.Outcome.Code == CommonActionResultCodes.NativeRejected;
 }

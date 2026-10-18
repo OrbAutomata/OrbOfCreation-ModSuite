@@ -5,6 +5,7 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Tests.Services.SpellWorkbench;
 
@@ -72,7 +73,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
                 new SpellWorkbenchGlyphStack(augment.GetGuid(), 1),
             }));
 
-        Assert.Equal(SpellWorkbenchPreflight.GlyphUsagesExceeded, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.GlyphUsagesExceeded, result.Code);
         Assert.Equal(
             Name(augment) + " allows 2 uses per spell and this layout asks for 3 of 2. Ask for 2 " +
             "or fewer.",
@@ -121,7 +122,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 1) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.GlyphUnavailable, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.GlyphUnavailable, result.Code);
         Assert.Equal(
             Name(augment) + " is not available yet, so Magic > Spellbook > Loadout offers no copy " +
             "of it to socket. Discover it, or meet the requirements it names, first.",
@@ -161,9 +162,9 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.GlyphRequirementsUnavailable, glyphResult.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.GlyphRequirementsUnavailable, glyphResult.Code);
         Assert.Equal(
-            SpellWorkbenchPreflight.UsageRequirementsUnavailable, augmentedResult.Preflight);
+            SpellWorkbenchActionResultCodes.UsageRequirementsUnavailable, augmentedResult.Code);
         Assert.Equal(
             Name(recipe) + " has not met its usage requirements yet, and the game only lets that " +
             "pass while no augment is selected. Load it with no augments, or meet the " +
@@ -188,8 +189,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         SpellManager.instance!.activeSpells.value.Add(recipe.CreateEmpty(0));
         var unique = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, budget.Preflight);
-        Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, unique.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UsageUnaffordable, budget.Code);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UniqueSpellConflict, unique.Code);
     }
 
     /// <summary>
@@ -218,7 +219,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var refused = action.Submit(new SpellWorkbenchAction(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, refused.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UsageUnaffordable, refused.Code);
         Assert.Equal(
             "Loading " + Name(recipe) + " would push " + Name(capacity) + " past its allocation. " +
             "It weighs 12 " + Name(capacity) + " and 7 is free. Remove loaded spells weighing 5 " +
@@ -253,7 +254,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
                 new SpellWorkbenchGlyphStack(second.GetGuid(), 1),
             }));
 
-        Assert.Equal(SpellWorkbenchPreflight.AugmentSlotsExceeded, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.AugmentSlotsExceeded, result.Code);
         Assert.Equal(
             "This layout puts 2 different augments on " + Name(recipe) +
             " and the game allows 1 at once (Max Spell Augment Slots). Ask for 1 different " +
@@ -286,11 +287,11 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var uniqueAdd = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
         Assert.False(budgetPreview.Available);
-        Assert.Equal(budgetAdd.Preflight, budgetPreview.Preflight);
-        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, budgetPreview.Preflight);
+        Assert.Equal(budgetAdd.Code, budgetPreview.Code);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UsageUnaffordable, budgetPreview.Code);
         Assert.False(uniquePreview.Available);
-        Assert.Equal(uniqueAdd.Preflight, uniquePreview.Preflight);
-        Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, uniquePreview.Preflight);
+        Assert.Equal(uniqueAdd.Code, uniquePreview.Code);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UniqueSpellConflict, uniquePreview.Code);
     }
 
     /// <summary>
@@ -340,7 +341,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         Assert.True(preview.Available, preview.Reason);
         Assert.Equal(Name(recipe) + " in slot 2 — remove it, then add", preview.Replaces);
         Assert.Equal(new BigDouble(3), Assert.Single(preview.Usage).Amount);
-        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, add.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.LoadoutFull, add.Code);
         Assert.Equal(3, active.value.Count);
         Assert.Empty(SpellManager.instance.selectedAugmentGlyphs.value);
     }
@@ -369,7 +370,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         Assert.True(same.Available, same.Reason);
         Assert.Equal(Name(recipe) + " in slot 1 — remove it, then add", same.Replaces);
-        Assert.Equal(SpellWorkbenchPreflight.UsageUnaffordable, heavier.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UsageUnaffordable, heavier.Code);
         Assert.Equal(
             Name(recipe) + " in place of its copy in slot 1 would push " + Name(capacity) +
             " past its allocation, counting that copy's weight as free. It weighs 5 " +
@@ -400,10 +401,10 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var add = action.Submit(new SpellWorkbenchAction(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.UniqueSpellConflict, freeSlot.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.UniqueSpellConflict, freeSlot.Code);
         Assert.True(fullBar.Available, fullBar.Reason);
         Assert.Equal(Name(recipe) + " in slot 1 — remove it, then add", fullBar.Replaces);
-        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, add.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.LoadoutFull, add.Code);
     }
 
     private static ResourceSO Capacity(int maximum, int used) => new()
@@ -425,7 +426,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
         var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.VerificationFailed, result.Code);
         Assert.Empty(SpellManager.instance.activeSpells.value);
         Assert.Equal(new[] { stagedCore }, SpellManager.instance.selectedCoreGlyphs.value);
         Assert.Equal(new[] { stagedAugment }, SpellManager.instance.selectedAugmentGlyphs.value);
@@ -526,7 +527,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var layout = action.ReadStagedLayout();
 
         Assert.False(layout.Available);
-        Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, layout.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ContractUnavailable, layout.Code);
         Assert.Equal(
             "The suite could not attach to Magic > Spellbook in this run, so it will refuse " +
             "every press there until the run restarts.",
@@ -545,7 +546,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = ForeignThread.Run(() => action.Submit(new SpellWorkbenchAction(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())));
 
-        Assert.Equal(SpellWorkbenchPreflight.WrongThread, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.WrongThread, result.Code);
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }
 
@@ -569,7 +570,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.StagedWriteFailed, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.StagedWriteFailed, result.Code);
         Assert.Equal(
             "Staging the chosen augments into the game's augment selection did not land: 2x " +
             Name(augment) + " was written and no glyphs came back.",
@@ -600,7 +601,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = action.Submit(new SpellWorkbenchAction(recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.PostCommitFault, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.PostCommitFault, result.Code);
         Assert.EndsWith(
             "The spell was loaded but the player's own augment selection could not be restored. " +
             "Putting it back: Staging the chosen augments into the game's augment selection did " +
@@ -623,7 +624,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.LoadoutFull, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.LoadoutFull, result.Code);
         Assert.Equal(
             "All 2 loadout slots hold a spell, so there is nowhere to put " + Name(recipe) +
             ". Remove a loaded spell first; nothing was staged and nothing was spent.",
@@ -650,7 +651,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = action.Submit(new SpellWorkbenchAction( recipe.GetGuid(), Epoch,
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
-        Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ContractUnavailable, result.Code);
         Assert.Equal(
             "The live augment selection exposes no stack for the game to bake a spell from, so " +
             "no augment layout can be staged or read back.",
@@ -720,7 +721,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             using var action = Action(include: id => id != missing);
             var result = action.Submit(new SpellWorkbenchAction(
                 recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
-            Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
+            Assert.Equal(SpellWorkbenchActionResultCodes.ContractUnavailable, result.Code);
         }
     }
 
@@ -734,7 +735,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var result = action.Submit(new SpellWorkbenchAction(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.ContractUnavailable, result.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ContractUnavailable, result.Code);
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }
 
@@ -757,12 +758,12 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         using var stale = Action(epoch: Epoch + 1);
         using var unowned = Action(permit: false);
 
-        Assert.Equal(SpellWorkbenchPreflight.LifecycleReplaced,
+        Assert.Equal(CommonActionResultCodes.LifecycleReplaced,
             stale.Submit(new SpellWorkbenchAction(
-                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
-        Assert.Equal(SpellWorkbenchPreflight.MutationPermitUnavailable,
+                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Code);
+        Assert.Equal(SpellWorkbenchActionResultCodes.MutationPermitUnavailable,
             unowned.Submit(new SpellWorkbenchAction(
-                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Preflight);
+                recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>())).Code);
         Assert.Empty(SpellManager.instance!.selectedCoreGlyphs.value);
     }
 
@@ -834,12 +835,12 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
         var preview = action.Preview(new SpellWorkbenchLoadPreviewRequest(
             recipe.GetGuid(), Epoch, Array.Empty<SpellWorkbenchGlyphStack>()));
 
-        Assert.Equal(SpellWorkbenchPreflight.ScreenLocked, add.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ScreenLocked, add.Code);
         Assert.Equal(
             "Magic > Spellbook > Loadout is not unlocked yet, so the game draws no row to load. " +
             "Buy the Spellbook Loadout upgrade first.",
             add.Reason);
-        Assert.Equal(SpellWorkbenchPreflight.ScreenLocked, preview.Preflight);
+        Assert.Equal(SpellWorkbenchActionResultCodes.ScreenLocked, preview.Code);
         Assert.Equal(add.Reason, preview.Reason);
         Assert.Empty(SpellManager.instance!.activeSpells.value);
     }

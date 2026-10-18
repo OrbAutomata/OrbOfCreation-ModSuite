@@ -109,12 +109,10 @@ public sealed class GameMcpLevelDialTests
     public void ACommittedDruidryLevelReturnsItsOwnDialDelta()
     {
         var submission = new SpellCompositionSubmission(
-            SpellCompositionPreflight.Proceeded,
-            SpellCompositionNativeStage.Verification,
-            NativeMutationOutcome.Verified,
-            new NativeMutationCallOutcome(1, 1, 1),
-            "The Druidry Lv is now 1.");
-        var mapped = SpellCompositionActionResultMapper.Map(in submission);
+            NativeActionOutcome.Commit(
+                new NativeMutationCallOutcome(1, 1, 1),
+                "The Druidry Lv is now 1."));
+        var mapped = submission.Outcome.ToResult();
         var command = new GameMcpCommand(
             1,
             GameMcpCommandKind.SpellComposition,
@@ -134,7 +132,6 @@ public sealed class GameMcpLevelDialTests
             command.Kind,
             9,
             3,
-            submission.Reason,
             GameMcpSpellCompositionProjection.Project(in submission, "druidry"));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(unlocked: true, druidryLevel: 1)), command, terminal));

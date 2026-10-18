@@ -166,16 +166,12 @@ public sealed class GameMcpConsumableTests
     [Fact]
     public void FaultNamesTheMissingOutcomeWhileSuccessIsEmptyForPostStateReplacement()
     {
-        var fault = new ConsumablePlayerSubmission(
-            ConsumablePlayerPreflight.VerificationFailed,
-            ConsumablePlayerNativeStage.Verification,
+        var fault = NativeActionOutcome.Fault(
+            ConsumablePlayerActionResultCodes.VerificationFailed,
             NativeMutationOutcome.PostconditionFailed,
             new NativeMutationCallOutcome(2, 1, 0),
             "order did not change");
-        var committed = new ConsumablePlayerSubmission(
-            ConsumablePlayerPreflight.Proceeded,
-            ConsumablePlayerNativeStage.Verification,
-            NativeMutationOutcome.Verified,
+        var committed = NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(2, 1, 1),
             "order changed");
 

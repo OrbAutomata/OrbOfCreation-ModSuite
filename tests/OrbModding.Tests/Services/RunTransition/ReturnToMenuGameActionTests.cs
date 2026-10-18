@@ -24,10 +24,9 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, _button.manualSave.RaiseCalls);
         Assert.True(UIScreenFlash.instance.ActiveForTests);
-        Assert.Equal(ReturnToMenuNativeStage.Verification, result.Stage);
         Assert.Equal("Back to Menu", result.PressedControl);
         Assert.Equal(string.Empty, result.OpenedPanel);
     }
@@ -36,18 +35,18 @@ public sealed class ReturnToMenuGameActionTests
     public void MutableAdmissionRefusesWrongSceneActiveTransitionMissingControlAndRevokedPermit()
     {
         using var wrongScene = Boundary(scene: "Start");
-        Assert.Equal(ReturnToMenuPreflight.WrongScene, Submit(wrongScene).Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.WrongScene, Submit(wrongScene).Outcome.Code);
 
         UIScreenFlash.instance.FadeIn(0f, 0f);
         using var active = Boundary();
-        Assert.Equal(ReturnToMenuPreflight.TransitionInProgress, Submit(active).Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.TransitionInProgress, Submit(active).Outcome.Code);
         UIScreenFlash.ResetForTests();
 
         using var missing = Boundary(buttons: Array.Empty<object>());
-        Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, Submit(missing).Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, Submit(missing).Outcome.Code);
 
         using var revoked = Boundary(permit: false);
-        Assert.Equal(ReturnToMenuPreflight.MutationPermitUnavailable, Submit(revoked).Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.MutationPermitUnavailable, Submit(revoked).Outcome.Code);
         Assert.Equal(0, _button.manualSave.RaiseCalls);
     }
 
@@ -60,15 +59,15 @@ public sealed class ReturnToMenuGameActionTests
 
         var accepted = Submit(oneLive);
 
-        Assert.True(accepted.Verified, accepted.Reason);
+        Assert.True(accepted.Outcome.Verified, accepted.Outcome.Reason);
 
         UIScreenFlash.ResetForTests();
         var second = new UIBackToMenuButton { name = "Second live control" };
         using var ambiguous = Boundary(buttons: new object[] { _button, second });
         var refused = Submit(ambiguous);
-        Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, refused.Preflight);
-        Assert.Contains("Back to Main Menu", refused.Reason, StringComparison.Ordinal);
-        Assert.Contains("Second live control", refused.Reason, StringComparison.Ordinal);
+        Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, refused.Outcome.Code);
+        Assert.Contains("Back to Main Menu", refused.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Contains("Second live control", refused.Outcome.Reason, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -86,7 +85,7 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.True(panel.IsOpen());
         Assert.Equal(1, control.manualSave.RaiseCalls);
         Assert.True(UIScreenFlash.instance.ActiveForTests);
@@ -111,10 +110,10 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, result.Preflight);
-        Assert.Contains("did not open", result.Reason, StringComparison.Ordinal);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
-        Assert.Equal(ServiceActionDisposition.Faulted, ReturnToMenuActionResultMapper.Map(in result).Disposition);
+        Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, result.Outcome.Code);
+        Assert.Contains("did not open", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Outcome.ToResult().Disposition);
         Assert.Equal(0, control.manualSave.RaiseCalls);
     }
 
@@ -131,9 +130,9 @@ public sealed class ReturnToMenuGameActionTests
         var result = Submit(boundary);
 
         Assert.True(panel.IsOpen());
-        Assert.Contains("now open", result.Reason, StringComparison.Ordinal);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
-        Assert.Equal(ServiceActionDisposition.Faulted, ReturnToMenuActionResultMapper.Map(in result).Disposition);
+        Assert.Contains("now open", result.Outcome.Reason, StringComparison.Ordinal);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Outcome.ToResult().Disposition);
     }
 
     [Fact]
@@ -147,9 +146,9 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.Equal(ReturnToMenuPreflight.PostCommitFault, result.Preflight);
-        Assert.Equal(1, result.CallOutcome.MutationAttempts);
-        Assert.DoesNotContain("Nothing was sent", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ReturnToMenuActionResultCodes.PostCommitFault, result.Outcome.Code);
+        Assert.Equal(1, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.DoesNotContain("Nothing was sent", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.Equal(0, control.manualSave.RaiseCalls);
     }
 
@@ -165,8 +164,8 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, result.Preflight);
-        Assert.Contains("no closed panel", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, result.Outcome.Code);
+        Assert.Contains("no closed panel", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.False(panel.IsOpen());
     }
 
@@ -185,8 +184,8 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.Equal(ReturnToMenuPreflight.ControlUnavailable, result.Preflight);
-        Assert.Contains("no closed panel", result.Reason, StringComparison.Ordinal);
+        Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, result.Outcome.Code);
+        Assert.Contains("no closed panel", result.Outcome.Reason, StringComparison.Ordinal);
         Assert.False(unrelated.IsOpen());
     }
 
@@ -198,7 +197,7 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = Submit(boundary);
 
-        Assert.Equal(ReturnToMenuPreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(1, _button.manualSave.RaiseCalls);
         Assert.False(UIScreenFlash.instance.ActiveForTests);
     }
@@ -210,7 +209,7 @@ public sealed class ReturnToMenuGameActionTests
 
         var result = ForeignThread.Run(() => Submit(boundary));
 
-        Assert.Equal(ReturnToMenuPreflight.WrongThread, result.Preflight);
+        Assert.Equal(ReturnToMenuActionResultCodes.WrongThread, result.Outcome.Code);
         Assert.Equal(0, _button.manualSave.RaiseCalls);
     }
 

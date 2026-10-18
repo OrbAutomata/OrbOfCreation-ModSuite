@@ -27,7 +27,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, nativeType, GenericLevelActionKind.Purchase);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, TotalLevel(target));
         Assert.Equal(new BigDouble(10), resource.quantity);
         Assert.Equal(0, PaidCost(target).PerformCalls);
@@ -47,7 +47,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, nativeType, GenericLevelActionKind.Bonus);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, BonusLevels(target));
         Assert.Equal(0, cost.PerformCalls);
     }
@@ -73,7 +73,7 @@ public sealed class GenericLevelGameActionTests
             GenericLevelActionKind.Purchase, target.GetGuid(), "TimeRuneSO", 5, Epoch);
         var result = boundary.Submit(in action);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(5, TotalLevel(target));
         Assert.Equal(5, result.LevelsCharged);
         Assert.False(result.ChargedNothing);
@@ -93,7 +93,7 @@ public sealed class GenericLevelGameActionTests
             GenericLevelActionKind.Purchase, target.GetGuid(), "TimeRuneSO", 5, Epoch);
         var result = boundary.Submit(in action);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(5, result.LevelsCharged);
         Assert.True(result.ChargedNothing);
         Assert.Empty(result.Charges.ToArray());
@@ -108,7 +108,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "TimeRuneSO", GenericLevelActionKind.Bonus);
 
-        Assert.Equal(GenericLevelPreflight.BonusUnavailable, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.BonusUnavailable, result.Outcome.Code);
     }
 
     [Fact]
@@ -122,9 +122,9 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "EquipmentTypeSO", GenericLevelActionKind.Purchase);
 
-        Assert.Equal(GenericLevelPreflight.Unaffordable, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.Unaffordable, result.Outcome.Code);
         Assert.Equal(0, target.LevelCost.PerformCalls);
-        Assert.Contains(resource.GetGuid().ToString("D"), result.Reason, StringComparison.Ordinal);
+        Assert.Contains(resource.GetGuid().ToString("D"), result.Outcome.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "EquipmentTypeSO", GenericLevelActionKind.Purchase);
 
-        Assert.Equal(GenericLevelPreflight.VerificationFailed, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(0, target.GetLevel());
     }
 
@@ -152,7 +152,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "GlyphSO", GenericLevelActionKind.Purchase);
 
-        Assert.True(result.Verified, result.Reason);
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(1, target.GetLevel());
     }
 
@@ -167,7 +167,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "GlyphSO", GenericLevelActionKind.Purchase);
 
-        Assert.Equal(GenericLevelPreflight.Unavailable, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.Unavailable, result.Outcome.Code);
         Assert.Equal(0, target.GetLevel());
     }
 
@@ -181,7 +181,7 @@ public sealed class GenericLevelGameActionTests
 
         var result = Submit(boundary, target, "ResourceTypeSO", GenericLevelActionKind.Purchase);
 
-        Assert.Equal(GenericLevelPreflight.Hidden, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.Hidden, result.Outcome.Code);
         Assert.Equal(0, target.GetLevel());
     }
 
@@ -195,7 +195,7 @@ public sealed class GenericLevelGameActionTests
         var result = ForeignThread.Run(() =>
             Submit(boundary, target, "GlyphSO", GenericLevelActionKind.Purchase));
 
-        Assert.Equal(GenericLevelPreflight.WrongThread, result.Preflight);
+        Assert.Equal(GenericLevelActionResultCodes.WrongThread, result.Outcome.Code);
     }
 
     [Fact]

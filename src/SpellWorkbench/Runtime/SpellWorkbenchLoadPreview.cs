@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -52,20 +53,20 @@ internal readonly struct SpellWorkbenchUsageAllocation
 internal readonly struct SpellWorkbenchLoadPreview
 {
     private SpellWorkbenchLoadPreview(
-        SpellWorkbenchPreflight preflight,
+        ServiceActionResultCode code,
         Guid recipeId,
         SpellWorkbenchUsageAllocation[] usage,
         string replaces,
         string reason)
     {
-        Preflight = preflight;
+        Code = code;
         RecipeId = recipeId;
         Usage = usage ?? throw new ArgumentNullException(nameof(usage));
         Replaces = replaces ?? string.Empty;
         Reason = reason ?? string.Empty;
     }
 
-    internal SpellWorkbenchPreflight Preflight { get; }
+    internal ServiceActionResultCode Code { get; }
     internal Guid RecipeId { get; }
     internal SpellWorkbenchUsageAllocation[] Usage { get; }
 
@@ -75,16 +76,16 @@ internal readonly struct SpellWorkbenchLoadPreview
     /// </summary>
     internal string Replaces { get; }
     internal string Reason { get; }
-    internal bool Available => Preflight == SpellWorkbenchPreflight.Proceeded;
+    internal bool Available => Code == CommonActionResultCodes.Committed;
 
     internal static SpellWorkbenchLoadPreview Admitted(
         Guid recipeId,
         SpellWorkbenchUsageAllocation[] usage,
         string replaces = "") =>
-        new(SpellWorkbenchPreflight.Proceeded, recipeId, usage, replaces, string.Empty);
+        new(CommonActionResultCodes.Committed, recipeId, usage, replaces, string.Empty);
 
     internal static SpellWorkbenchLoadPreview Refused(
-        SpellWorkbenchPreflight preflight,
+        ServiceActionResultCode code,
         string reason) =>
-        new(preflight, Guid.Empty, Array.Empty<SpellWorkbenchUsageAllocation>(), string.Empty, reason);
+        new(code, Guid.Empty, Array.Empty<SpellWorkbenchUsageAllocation>(), string.Empty, reason);
 }

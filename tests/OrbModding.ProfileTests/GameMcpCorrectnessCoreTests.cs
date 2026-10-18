@@ -321,7 +321,7 @@ public sealed class GameMcpCorrectnessCoreTests
         var result = ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
 
         var answer = GameMcpCommandResult.FromAction(
-            in result, GameMcpCommandKind.Purchase, 1, 1, pinned);
+            result.WithReason(pinned), GameMcpCommandKind.Purchase, 1, 1);
 
         Assert.Equal("single_buy_unavailable", answer.Code);
         Assert.Equal("failed", answer.Status);

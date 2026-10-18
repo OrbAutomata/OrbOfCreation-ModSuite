@@ -24,34 +24,16 @@ internal readonly struct TargetingAction
     internal long LifecycleEpoch { get; }
 }
 
-internal enum TargetingPreflight
-{
-    Proceeded = 0, LifecycleReplaced = 1, ContractUnavailable = 2,
-    WrongThread = 4, NoPendingRequest = 5, TargetUnavailable = 6,
-    NativeTargetRefused = 7, CancelUnavailable = 8, MutationPermitUnavailable = 9,
-    PostCommitFault = 10, VerificationFailed = 11,
-}
-
-internal enum TargetingNativeStage { None = 0, SelectRandom = 1, Submit = 2, Cancel = 3, Verification = 4 }
-
 internal readonly struct TargetingSubmission
 {
-    internal TargetingSubmission(TargetingPreflight preflight, TargetingNativeStage stage,
-        NativeMutationOutcome outcome, NativeMutationCallOutcome callOutcome,
-        Guid submittedTarget, string reason)
+    internal TargetingSubmission(NativeActionOutcome outcome, Guid submittedTarget)
     {
-        Preflight = preflight; Stage = stage; Outcome = outcome; CallOutcome = callOutcome;
-        SubmittedTarget = submittedTarget; Reason = reason ?? string.Empty;
+        Outcome = outcome; SubmittedTarget = submittedTarget;
     }
-    internal TargetingPreflight Preflight { get; }
-    internal TargetingNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
+    internal NativeActionOutcome Outcome { get; }
     internal Guid SubmittedTarget { get; }
-    internal string Reason { get; }
-    internal bool Verified => Preflight == TargetingPreflight.Proceeded && Outcome == NativeMutationOutcome.Verified;
-    internal static TargetingSubmission Reject(TargetingPreflight preflight, string reason) =>
-        new(preflight, TargetingNativeStage.None, default, default, Guid.Empty, reason);
+    internal static TargetingSubmission Reject(ServiceActionResultCode code, string reason) =>
+        new(NativeActionOutcome.Reject(code, reason), Guid.Empty);
 }
 
 internal static class TargetingActionResultCodes

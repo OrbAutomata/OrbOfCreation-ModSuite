@@ -24,33 +24,6 @@ internal readonly struct CraftingPlayerAction
     internal bool Max { get; }
 }
 
-internal enum CraftingPlayerPreflight
-{
-    Proceeded = 0,
-    LifecycleReplaced = 1,
-    ContractUnavailable = 2,
-    WrongThread = 4,
-    RecipeUnavailable = 5,
-    NotVisible = 6,
-    PageRelationAmbiguous = 7,
-    QueueFull = 9,
-    Unaffordable = 10,
-    MutationPermitUnavailable = 11,
-    PostCommitFault = 12,
-    VerificationFailed = 13,
-}
-
-internal enum CraftingPlayerNativeStage
-{
-    None = 0,
-    DirectExecute = 1,
-    Payment = 2,
-    Construction = 3,
-    Initiation = 4,
-    Admission = 5,
-    Verification = 6,
-}
-
 internal enum CraftingPlayerPostcondition
 {
     None = 0,
@@ -63,48 +36,27 @@ internal enum CraftingPlayerPostcondition
 internal readonly struct CraftingPlayerSubmission
 {
     internal CraftingPlayerSubmission(
+        NativeActionOutcome outcome,
         Guid recipeId,
-        CraftingPlayerPreflight preflight,
-        CraftingPlayerNativeStage stage,
-        NativeMutationOutcome outcome,
-        NativeMutationCallOutcome callOutcome,
-        string reason,
         CraftingPlayerPostcondition postcondition = CraftingPlayerPostcondition.None,
         BigDouble crafted = default)
     {
-        RecipeId = recipeId;
-        Preflight = preflight;
-        Stage = stage;
         Outcome = outcome;
-        CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
+        RecipeId = recipeId;
         Postcondition = postcondition;
         Crafted = crafted;
     }
 
+    internal NativeActionOutcome Outcome { get; }
     internal Guid RecipeId { get; }
-    internal CraftingPlayerPreflight Preflight { get; }
-    internal CraftingPlayerNativeStage Stage { get; }
-    internal NativeMutationOutcome Outcome { get; }
-    internal NativeMutationCallOutcome CallOutcome { get; }
-    internal string Reason { get; }
     internal CraftingPlayerPostcondition Postcondition { get; }
     internal BigDouble Crafted { get; }
-    internal bool Verified =>
-        Preflight == CraftingPlayerPreflight.Proceeded &&
-        Outcome == NativeMutationOutcome.Verified;
 
     internal static CraftingPlayerSubmission Reject(
         in CraftingPlayerAction action,
-        CraftingPlayerPreflight preflight,
+        ServiceActionResultCode code,
         string reason) =>
-        new(
-            action.RecipeId,
-            preflight,
-            CraftingPlayerNativeStage.None,
-            default,
-            default,
-            reason);
+        new(NativeActionOutcome.Reject(code, reason), action.RecipeId);
 }
 
 internal static class CraftingPlayerActionResultCodes

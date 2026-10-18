@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -37,51 +38,51 @@ internal sealed class ResearchGameAction : IDisposable
     internal ResearchSubmission Submit(in ResearchAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return ResearchSubmission.Reject(ResearchPreflight.WrongThread,
+            return ResearchSubmission.Reject(ResearchActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
+            return ResearchSubmission.Reject(ResearchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Scholar > Research", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,
+            return ResearchSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Scholar > Research", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,
+            return ResearchSubmission.Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
         try
         {
             var resolution = _registry.Resolve(action.TargetId, native.ResearchType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return ResearchSubmission.Reject(ResearchPreflight.IdentityUnavailable,
+                return ResearchSubmission.Reject(ResearchActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Reason);
             var target = resolution.Value!;
             var before = Capture(native, target, action.Amount);
             var preflight = Preflight(action.Kind, in before, out var reason);
-            if (preflight != ResearchPreflight.Proceeded)
+            if (preflight != CommonActionResultCodes.Committed)
                 return ResearchSubmission.Reject(
                     preflight,
                     reason,
-                    preflight == ResearchPreflight.AmountUnavailable
+                    preflight == ResearchActionResultCodes.AmountUnavailable
                         ? before.LevelsAvailable
                         : -1);
             if (!_tryCaptureMutationPermit())
-                return ResearchSubmission.Reject(ResearchPreflight.MutationPermitUnavailable,
+                return ResearchSubmission.Reject(ResearchActionResultCodes.MutationPermitUnavailable,
                     _readOwnershipFailure());
             if (action.Kind != ResearchActionKind.Develop)
                 return Execute(in action, native, target, in before);
             if (!NativeMultiBuyScope.TryEnter(action.Amount, out var scope, out var scopeReason))
-                return ResearchSubmission.Reject(ResearchPreflight.MultiBuyUnavailable,
+                return ResearchSubmission.Reject(ResearchActionResultCodes.MultiBuyUnavailable,
                     "The requested research amount could not be applied: " + scopeReason);
             using (scope)
                 return Execute(in action, native, target, in before);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
+            return ResearchSubmission.Reject(ResearchActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Scholar > Research", exception));
         }
     }
@@ -95,14 +96,14 @@ internal sealed class ResearchGameAction : IDisposable
     private ResearchSubmission Execute(in ResearchAction action, ResearchNativeBindings native,
         object target, in ResearchAdmissionState before)
     {
-        var stage = ResearchNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             Invoke(action.Kind, native, target);
-            stage = ResearchNativeStage.Verification;
+            stage = "Verification";
             return OutcomeLanded(action.Kind, native, target, in before)
                 ? Verified()
-                : Fault(in action, ResearchPreflight.VerificationFailed, stage,
+                : Fault(in action, ResearchActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     "The exact research target did not make the requested state transition.");
         }
@@ -110,7 +111,7 @@ internal sealed class ResearchGameAction : IDisposable
         {
             if (OutcomeLandedBestEffort(action.Kind, native, target, in before))
                 return Verified();
-            return Fault(in action, ResearchPreflight.PostCommitFault, stage,
+            return Fault(in action, ResearchActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Scholar > Research", exception));
         }
@@ -124,16 +125,16 @@ internal sealed class ResearchGameAction : IDisposable
     /// <c>CanDevelop()</c> adds <c>!IsDeveloping()</c> on top of that whole expression.
     /// Returns <c>Proceeded</c> when every gate is open and the zero came from somewhere else.
     /// </summary>
-    private static ResearchPreflight DevelopBlocker(
+    private static ServiceActionResultCode DevelopBlocker(
         in ResearchAdmissionState state, out string reason)
     {
         reason = string.Empty;
         if (state.Complete)
-        { reason = "This research is already maxed."; return ResearchPreflight.AlreadyMaxed; }
+        { reason = "This research is already maxed."; return ResearchActionResultCodes.AlreadyMaxed; }
         if (!state.CostAffordable)
-        { reason = "The next research level costs more than is held."; return ResearchPreflight.Unaffordable; }
+        { reason = "The next research level costs more than is held."; return ResearchActionResultCodes.Unaffordable; }
         if (!state.MeetsLevelRequirements)
-        { reason = "This research does not meet its level requirements yet."; return ResearchPreflight.RequirementsUnmet; }
+        { reason = "This research does not meet its level requirements yet."; return ResearchActionResultCodes.RequirementsUnmet; }
         // Leeway alone does not close the gate: native accepts leeway OR both caps being open, so
         // this is one gate with one code, and the sentence names the cap that also ran out.
         if (!state.StillHasLeeway &&
@@ -141,21 +142,21 @@ internal sealed class ResearchGameAction : IDisposable
         {
             reason = "This research has no leeway left and is at its " +
                 (state.BelowArtificialMaxLevel ? "investment" : "level") + " cap.";
-            return ResearchPreflight.LeewayExhausted;
+            return ResearchActionResultCodes.LeewayExhausted;
         }
         if (state.IsDeveloping && !state.QueueMode)
-        { reason = "A development is already running on this research."; return ResearchPreflight.AlreadyDeveloping; }
-        return ResearchPreflight.Proceeded;
+        { reason = "A development is already running on this research."; return ResearchActionResultCodes.AlreadyDeveloping; }
+        return CommonActionResultCodes.Committed;
     }
 
-    private static ResearchPreflight Preflight(ResearchActionKind kind,
+    private static ServiceActionResultCode Preflight(ResearchActionKind kind,
         in ResearchAdmissionState state, out string reason)
     {
         reason = string.Empty;
         if ((kind is ResearchActionKind.Develop or ResearchActionKind.Bonus) && !state.Visible)
         {
             reason = "This research is locked, so the Research grid draws no tile for it.";
-            return ResearchPreflight.Locked;
+            return ResearchActionResultCodes.Locked;
         }
         switch (kind)
         {
@@ -167,7 +168,7 @@ internal sealed class ResearchGameAction : IDisposable
                 if (state.LevelsAvailable <= 0)
                 {
                     var blocked = DevelopBlocker(in state, out reason);
-                    if (blocked != ResearchPreflight.Proceeded) return blocked;
+                    if (blocked != CommonActionResultCodes.Committed) return blocked;
                 }
                 if (state.MultiBuy > state.LevelsAvailable)
                 {
@@ -185,26 +186,26 @@ internal sealed class ResearchGameAction : IDisposable
                             "affordable then."
                         : "Research Queue Mode is off, so one develop starts one level and this " +
                             "call takes at most " + levels + ".";
-                    return ResearchPreflight.AmountUnavailable;
+                    return ResearchActionResultCodes.AmountUnavailable;
                 }
                 if (state.QueueMode)
                 {
                     if (state.MultiBuy <= 0)
-                    { reason = "The native multi-buy setting permits no queued research level."; return ResearchPreflight.MultiBuyUnavailable; }
+                    { reason = "The native multi-buy setting permits no queued research level."; return ResearchActionResultCodes.MultiBuyUnavailable; }
                     if (state.MaxLevel > 0 && state.Level + state.QueuedLevels >= state.MaxLevel)
-                    { reason = "The research queue has no room below its authored maximum level."; return ResearchPreflight.DevelopUnavailable; }
+                    { reason = "The research queue has no room below its authored maximum level."; return ResearchActionResultCodes.DevelopUnavailable; }
                     if (state.LevelsAvailable <= 0)
-                    { reason = "No queued research level is currently available."; return ResearchPreflight.DevelopUnavailable; }
+                    { reason = "No queued research level is currently available."; return ResearchActionResultCodes.DevelopUnavailable; }
                 }
                 else if (!state.CanDevelop || !state.CostAffordable)
-                { reason = "The next research level is unavailable or unaffordable."; return ResearchPreflight.DevelopUnavailable; }
-                return ResearchPreflight.Proceeded;
+                { reason = "The next research level is unavailable or unaffordable."; return ResearchActionResultCodes.DevelopUnavailable; }
+                return CommonActionResultCodes.Committed;
             case ResearchActionKind.Pause:
             case ResearchActionKind.Resume:
                 // Nothing is wrong with the mode the caller named; the game's own queue setting is
                 // what closes the two controls, and turning it off reopens them.
                 if (state.QueueMode)
-                { reason = "Pause and resume are UI-reachable only when Research Queue Mode is disabled."; return ResearchPreflight.InvalidState; }
+                { reason = "Pause and resume are UI-reachable only when Research Queue Mode is disabled."; return ResearchActionResultCodes.InvalidState; }
                 if (!state.IsDeveloping || (kind == ResearchActionKind.Pause ? !state.IsActive : state.IsActive))
                 {
                     var observed = !state.IsDeveloping
@@ -214,23 +215,23 @@ internal sealed class ResearchGameAction : IDisposable
                     reason = "Research is " + observed + "; " +
                         (kind == ResearchActionKind.Pause ? "pause" : "resume") +
                         " requires " + required + " development.";
-                    return ResearchPreflight.InvalidState;
+                    return ResearchActionResultCodes.InvalidState;
                 }
-                return ResearchPreflight.Proceeded;
+                return CommonActionResultCodes.Committed;
             case ResearchActionKind.Cancel:
                 if (!state.IsDeveloping)
-                { reason = "The research has no active development to cancel."; return ResearchPreflight.InvalidState; }
-                return ResearchPreflight.Proceeded;
+                { reason = "The research has no active development to cancel."; return ResearchActionResultCodes.InvalidState; }
+                return CommonActionResultCodes.Committed;
             case ResearchActionKind.Bonus:
                 if (state.IsDeveloping)
-                { reason = "The game hides bonus-level submission while research is developing."; return ResearchPreflight.InvalidState; }
+                { reason = "The game hides bonus-level submission while research is developing."; return ResearchActionResultCodes.InvalidState; }
                 if (!state.CanApplyBonusLevel || state.FreeBonusLevels <= 0)
-                { reason = "No associated research type has a free bonus level available."; return ResearchPreflight.BonusUnavailable; }
-                return ResearchPreflight.Proceeded;
+                { reason = "No associated research type has a free bonus level available."; return ResearchActionResultCodes.BonusUnavailable; }
+                return CommonActionResultCodes.Committed;
             default:
                 reason =
                     "The suite sent a control this screen has no button for; nothing was applied.";
-                return ResearchPreflight.InvalidMode;
+                return ResearchActionResultCodes.InvalidMode;
         }
     }
 
@@ -316,18 +317,17 @@ internal sealed class ResearchGameAction : IDisposable
     }
 
     private static ResearchSubmission Verified() =>
-        new(ResearchPreflight.Proceeded, ResearchNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The requested research transition is visible.");
+        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
+            "The requested research transition is visible."));
 
-    private static ResearchSubmission Fault(in ResearchAction action, ResearchPreflight preflight,
-        ResearchNativeStage stage, NativeMutationOutcome outcome,
+    private static ResearchSubmission Fault(in ResearchAction action, ServiceActionResultCode code,
+        string stage, NativeMutationOutcome outcome,
         string reason)
     {
         var exactReason = "Research " + stage + " failed on " +
             EntityIdentityFormatter.PlayerName(action.TargetId) + ": " + reason;
-        return new ResearchSubmission(preflight, stage, outcome,
-            new NativeMutationCallOutcome(1, 1, 0), exactReason);
+        return new ResearchSubmission(NativeActionOutcome.Fault(code, outcome,
+            new NativeMutationCallOutcome(1, 1, 0), exactReason));
     }
 
     private void BindLifecycle()

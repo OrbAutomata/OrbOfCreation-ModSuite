@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Reflection;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -112,44 +113,44 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     internal AlchemyLoadoutSubmission Submit(in AlchemyLoadoutAction action)
     {
         if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return Reject(AlchemyLoadoutPreflight.WrongThread,
+            return Reject(AlchemyLoadoutActionResultCodes.WrongThread,
                 GameActionAnswer.SuiteStopped());
         if (_bindings is not { } native)
-            return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+            return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.NotAttached("Alchemy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Alchemy", exception));
         }
         if (action.LifecycleEpoch != epoch)
-            return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
+            return Reject(CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
 
         try
         {
             if (!_classifier.TryInitialize(out var classifierReason))
-                return Reject(AlchemyLoadoutPreflight.ContractUnavailable, classifierReason);
+                return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable, classifierReason);
             var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
-                return Reject(AlchemyLoadoutPreflight.IdentityUnavailable,
+                return Reject(AlchemyLoadoutActionResultCodes.IdentityUnavailable,
                     resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Reason);
             var recipe = resolution.Value!;
             var classification = _classifier.ClassifyRecipe(recipe);
             if (!classification.IsMutationGrade ||
                 classification.Domain != AlchemyGameplayDomain.OrdinaryAlchemy)
-                return Reject(AlchemyLoadoutPreflight.WrongDomain,
+                return Reject(AlchemyLoadoutActionResultCodes.WrongDomain,
                     "This recipe is not part of the ordinary Alchemy loadout.");
             var manager = native.Manager();
             if (manager is null || manager.GetType() != native.ManagerType)
-                return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+                return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable,
                     "The ordinary Alchemy manager is not available in this scene.");
             var list = native.ActiveList(manager);
             var values = list is null ? null : native.Values(list);
             if (list is null || values is null)
-                return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+                return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable,
                     "The ordinary Alchemy loadout is not available in this scene.");
             var beforeIndex = FindIndex(native, values, recipe);
             var beforeTarget = beforeIndex < 0 ? 0 : Math.Max(native.Queued(values[beforeIndex]!), 0);
@@ -157,14 +158,14 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             if (action.Kind == AlchemyLoadoutActionKind.Add)
             {
                 if (!native.Discovered(recipe))
-                    return Reject(AlchemyLoadoutPreflight.NotDiscovered,
+                    return Reject(AlchemyLoadoutActionResultCodes.NotDiscovered,
                         EntityIdentityFormatter.PlayerName(action.RecipeId) + " has not been discovered.");
                 if (!native.CanAdd(list, recipe))
-                    return Reject(AlchemyLoadoutPreflight.LoadoutFull,
+                    return Reject(AlchemyLoadoutActionResultCodes.LoadoutFull,
                         "The Alchemy loadout has no compatible open slot for this recipe.");
                 var cost = native.UsageCost(recipe);
                 if (cost is null)
-                    return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+                    return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable,
                         "The recipe's live usage decision is unavailable.");
                 var free = beforeIndex < 0 ? native.FreeUses(recipe) : native.RemainingFree(values[beforeIndex]!);
                 var remaining = beforeIndex < 0 ? native.MaximumUses(recipe) : native.RemainingMaximum(values[beforeIndex]!);
@@ -173,7 +174,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                     : Math.Max((native.MaximumTimes(cost) + new BigDouble(Math.Max(free, 0))).ToInt(), 0);
                 var maximumAdditional = Math.Min(Math.Max(remaining, 0), maximumByCost);
                 if (action.Amount <= 0 || action.Amount > maximumAdditional)
-                    return Reject(AlchemyLoadoutPreflight.UsageUnavailable,
+                    return Reject(AlchemyLoadoutActionResultCodes.UsageUnavailable,
                         "This recipe can add at most " + maximumAdditional +
                         " uses with the current capacity and resources.",
                         maximumAdditional);
@@ -181,20 +182,20 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             else
             {
                 if (beforeIndex < 0 || beforeTarget <= 0)
-                    return Reject(AlchemyLoadoutPreflight.AlreadyInRequestedState,
+                    return Reject(AlchemyLoadoutActionResultCodes.AlreadyInRequestedState,
                         "The recipe is not active in the Alchemy loadout.");
                 if (action.Amount <= 0 || action.Amount > beforeTarget)
-                    return Reject(AlchemyLoadoutPreflight.UsageUnavailable,
+                    return Reject(AlchemyLoadoutActionResultCodes.UsageUnavailable,
                         "This recipe has only " + beforeTarget + " active uses to remove.");
             }
 
             if (!_tryCaptureMutationPermit())
-                return Reject(AlchemyLoadoutPreflight.MutationPermitUnavailable, _readOwnershipFailure());
+                return Reject(AlchemyLoadoutActionResultCodes.MutationPermitUnavailable, _readOwnershipFailure());
             return Execute(in action, native, list, recipe, beforeTarget);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
+            return Reject(AlchemyLoadoutActionResultCodes.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Alchemy", exception));
         }
     }
@@ -217,17 +218,17 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     private static AlchemyLoadoutSubmission Execute(in AlchemyLoadoutAction action,
         AlchemyLoadoutNativeBindings native, object list, object recipe, int beforeTarget)
     {
-        var stage = AlchemyLoadoutNativeStage.NativeCallback;
+        var stage = "NativeCallback";
         try
         {
             if (action.Kind == AlchemyLoadoutActionKind.Add)
                 native.AddInstances(list, recipe, action.Amount);
             else
                 native.RemoveInstances(list, recipe, action.Amount);
-            stage = AlchemyLoadoutNativeStage.Verification;
+            stage = "Verification";
             return OutcomeObserved(in action, native, list, recipe, beforeTarget)
                 ? Verified()
-                : Fault(in action, AlchemyLoadoutPreflight.VerificationFailed, stage,
+                : Fault(in action, AlchemyLoadoutActionResultCodes.VerificationFailed, stage,
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Alchemy"));
         }
@@ -237,7 +238,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, list, recipe, beforeTarget), out var observed) && observed)
                 return Verified();
-            return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
+            return Fault(in action, AlchemyLoadoutActionResultCodes.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Alchemy", exception));
         }
@@ -269,20 +270,19 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
     }
 
     private static AlchemyLoadoutSubmission Reject(
-        AlchemyLoadoutPreflight preflight, string reason, int maximumAmount = -1) =>
-        AlchemyLoadoutSubmission.Reject(preflight, reason, maximumAmount);
+        ServiceActionResultCode code, string reason, int maximumAmount = -1) =>
+        AlchemyLoadoutSubmission.Reject(code, reason, maximumAmount);
 
     private static AlchemyLoadoutSubmission Verified() =>
-        new(AlchemyLoadoutPreflight.Proceeded, AlchemyLoadoutNativeStage.Verification,
-            NativeMutationOutcome.Verified, new NativeMutationCallOutcome(1, 1, 1),
-            "The requested Alchemy loadout transition is visible.");
+        new(NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1),
+            "The requested Alchemy loadout transition is visible."));
 
     private static AlchemyLoadoutSubmission Fault(in AlchemyLoadoutAction action,
-        AlchemyLoadoutPreflight preflight, AlchemyLoadoutNativeStage stage,
+        ServiceActionResultCode code, string stage,
         NativeMutationOutcome outcome, string reason) =>
-        new(preflight, stage, outcome, new NativeMutationCallOutcome(1, 1, 0),
+        new(NativeActionOutcome.Fault(code, outcome, new NativeMutationCallOutcome(1, 1, 0),
             "Alchemy loadout " + stage + " failed on " +
-            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason);
+            EntityIdentityFormatter.PlayerName(action.RecipeId) + ": " + reason));
 
     private void BindLifecycle()
     {
