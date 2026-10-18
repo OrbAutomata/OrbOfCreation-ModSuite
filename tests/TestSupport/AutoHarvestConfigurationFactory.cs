@@ -1,6 +1,7 @@
+using OrbAutomata;
 using OrbModding.Common.Runtime.Configuration;
 
-namespace OrbAutomata;
+namespace OrbModding.TestSupport;
 
 internal static class AutoHarvestConfigurationFactory
 {
