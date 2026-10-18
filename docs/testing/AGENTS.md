@@ -1,7 +1,3 @@
-# testing charter
+# Testing docs
 
-Gates and per-feature risk contracts. `README.md` is the hub and the only owner of the lane
-table; per-feature files state what can break and which tests cover it, as prose plus a test
-directory — no duplicated lane blocks, no per-file ownership tables.
-
-Only report a gate as passing if it ran against the current working tree.
+Gates and per-feature risk contracts. [README.md](README.md) is the hub and the only owner of the lane table. A per-feature file states what can break and which tests cover it, as prose plus a test directory, with no copied lane blocks or per-file ownership tables.

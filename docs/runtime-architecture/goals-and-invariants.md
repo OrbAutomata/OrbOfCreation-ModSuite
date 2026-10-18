@@ -34,10 +34,12 @@ Fewer than four is the silent reproduction the rule above forbids.
 
 - It was transcribed from the decompiled game assembly rather than inferred from observed behaviour,
   and the transcription records which assembly it came from.
-- That assembly is covered by a hash baseline in `data/native-contracts.json`, and the suite refuses
-  to load at all on a build matching no baseline. There is no fallback path, deliberately: a mismatch
-  invalidates the reflection contracts exactly as much as the ported arithmetic, so falling back to
-  "ask the game" would read members by name from an equally unverified assembly.
+- That assembly is covered by a hash baseline in `data/native-contracts.json`. On a complete pair
+  matching no baseline, gameplay stays quarantined until the player accepts that exact pair; an
+  incomplete installation refuses completely ([native contracts](../testing/native-contracts.md)).
+  There is no "ask the game" fallback, deliberately: a mismatch invalidates the reflection contracts
+  exactly as much as the ported arithmetic, so falling back would read members by name from an
+  equally unverified assembly.
 - It is differentially tested against the game's own result for real entities in a live session, and
   disagreement is a failure rather than a tolerance. Offline tests cannot establish this on their
   own, because they assert against values derived by hand from the same decompiled source — a
@@ -45,11 +47,11 @@ Fewer than four is the silent reproduction the rule above forbids.
 - Native revalidation at the action boundary stays authoritative regardless. Owning the arithmetic
   changes what the suite may compute off-thread, never what it may trust when mutating.
 
-The accepted cost is that any game patch disables the whole suite until re-audited; `script/re-audit`
-makes that cheap, which is the mitigation rather than softening the gate. Stale suite values may remain
-useful; stale native references may not. Every action is advisory until the main thread re-resolves
-stable identity and performs current validation, and temporary native global-state changes stay
-adapter-owned with `try/finally` restoration on every path.
+The accepted cost is that any game patch quarantines gameplay until re-audited or accepted;
+`script/re-audit` makes the re-audit cheap, which is the mitigation rather than softening the gate.
+Stale suite values may remain useful; stale native references may not. Every action is advisory until
+the main thread re-resolves stable identity and performs current validation, and temporary native
+global-state changes stay adapter-owned with `try/finally` restoration on every path.
 
 ## Evidence grades
 
