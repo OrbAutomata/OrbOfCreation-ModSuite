@@ -15,9 +15,7 @@ internal static class GameMcpSpellWorkbenchProjection
             return new JObject
             {
                 ["status"] = "unavailable",
-                ["reasonCode"] = GameMcpActionResultCodeNames.Name(
-                    layout.Code,
-                    GameMcpCommandKind.SpellWorkbench),
+                ["reasonCode"] = layout.Code.Name,
                 ["reason"] = layout.Reason,
             }.Freeze();
         }
@@ -45,9 +43,7 @@ internal static class GameMcpSpellWorkbenchProjection
             return new JObject
             {
                 ["status"] = "refused",
-                ["reasonCode"] = GameMcpActionResultCodeNames.Name(
-                    preview.Code,
-                    GameMcpCommandKind.SpellWorkbench),
+                ["reasonCode"] = preview.Code.Name,
                 ["reason"] = preview.Reason,
             }.Freeze();
         }

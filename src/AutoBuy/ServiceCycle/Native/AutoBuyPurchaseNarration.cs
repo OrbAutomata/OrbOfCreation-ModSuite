@@ -27,6 +27,23 @@ internal static class AutoBuyPurchaseNarration
         "candidate(s) admitted.";
 
     /// <summary>
+    /// Why an upgrade's destination could not take it, for the refusals whose wire name is shared
+    /// with other features and so cannot carry this upgrade-specific fact on its own.
+    /// </summary>
+    public static string DestinationCapacityRefusal(ServiceActionResultCode code)
+    {
+        if (code == AutoBuyActionResultCodes.DestinationCapacityLocked)
+            return "No World > Aspects pedestal is unlocked yet, so there is no slot for this " +
+                "upgrade to fill.";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityContractUnavailable)
+            return "The upgrade's destination-capacity contract was unreadable, so no purchase was " +
+                "attempted.";
+        if (code == AutoBuyActionResultCodes.DestinationCapacityIdentityMismatch)
+            return "The upgrade's destination list is not the one the suite has audited.";
+        return string.Empty;
+    }
+
+    /// <summary>
     /// Why a purchase found no captured purchase-screen entry to be admitted against.
     /// </summary>
     /// <remarks>

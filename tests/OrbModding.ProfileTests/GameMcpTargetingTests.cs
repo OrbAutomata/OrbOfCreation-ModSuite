@@ -134,7 +134,7 @@ public sealed class GameMcpTargetingTests
             NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), "verified"), First);
         var mapped = submission.Outcome.ToResult();
         var command = Command("submit", First);
-        var terminal = GameMcpCommandResult.FromAction(in mapped, command.Kind, 9, 3, GameMcpTargetingProjection.Project(in submission));
+        var terminal = GameMcpCommandResult.FromAction(in mapped, 9, 3, GameMcpTargetingProjection.Project(in submission));
         terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectTargetingPostState(
             GameMcpTestHarness.Context(World()),
             GameMcpTargetingProjection.SubmittedTarget(terminal.Details)));

@@ -10,16 +10,16 @@ internal static class AutoCastActionResultCodes
     /// A rejection rather than a fault: standing down for a plugin that owns the family is the
     /// arbitration working, and the lease can come back at any time.
     /// </remarks>
-    public static ServiceActionResultCode ActionFamilyUnavailable => new(3072);
+    public static ServiceActionResultCode ActionFamilyUnavailable => new(3072, "action_family_unavailable");
 
     /// <summary>The player cast something by hand, so the service is standing down for a moment.</summary>
-    public static ServiceActionResultCode ManualPause => new(3073);
+    public static ServiceActionResultCode ManualPause => new(3073, "manual_pause");
 
     /// <summary>A target request is already open, so no cast can be submitted into it.</summary>
-    public static ServiceActionResultCode TargetingInProgress => new(3074);
+    public static ServiceActionResultCode TargetingInProgress => new(3074, "targeting_in_progress");
 
     /// <summary>The game says the caster is not free right now; ordinary snapshot staleness.</summary>
-    public static ServiceActionResultCode NativeCasterBusy => new(3075);
+    public static ServiceActionResultCode NativeCasterBusy => new(3075, "native_caster_busy");
 
     /// <summary>
     /// The position no longer holds the spell the plan named, or holds nothing at all.
@@ -29,31 +29,31 @@ internal static class AutoCastActionResultCodes
     /// planner working from a snapshot, and casting the wrong spell is the one outcome worth refusing
     /// every plan to avoid.
     /// </remarks>
-    public static ServiceActionResultCode SlotIdentityChanged => new(3076);
+    public static ServiceActionResultCode SlotIdentityChanged => new(3076, "slot_identity_changed");
 
     /// <summary>The spell became unready after publication; ordinary snapshot staleness.</summary>
-    public static ServiceActionResultCode SpellNotReady => new(3077);
+    public static ServiceActionResultCode SpellNotReady => new(3077, "spell_not_ready");
 
     /// <summary>
     /// The spell has nothing to aim at. A live answer by necessity: the preflight walks the recipe's
     /// effect graph, which is main-thread work no snapshot can carry (W60).
     /// </summary>
-    public static ServiceActionResultCode NoValidTarget => new(3078);
+    public static ServiceActionResultCode NoValidTarget => new(3078, "no_valid_target");
 
     /// <summary>A full-charge hold could not be established, so the cast was not submitted.</summary>
-    public static ServiceActionResultCode ChargeHoldRefused => new(3079);
+    public static ServiceActionResultCode ChargeHoldRefused => new(3079, "charge_hold_refused");
 
     /// <summary>The requested equipped spell does not use the toggle lifecycle.</summary>
-    public static ServiceActionResultCode SpellNotToggleable => new(3080);
+    public static ServiceActionResultCode SpellNotToggleable => new(3080, "spell_not_toggleable");
 
     /// <summary>The requested toggle spell is already inactive.</summary>
-    public static ServiceActionResultCode SpellAlreadyInactive => new(3081);
+    public static ServiceActionResultCode SpellAlreadyInactive => new(3081, "spell_already_inactive");
 
     /// <summary>The native Cancellable Spells setting disables turning active toggles off.</summary>
-    public static ServiceActionResultCode CancellationDisabled => new(3082);
+    public static ServiceActionResultCode CancellationDisabled => new(3082, "cancellable_spells_disabled");
 
     /// <summary>The spell was already running, so the fire press would have started no cast.</summary>
-    public static ServiceActionResultCode SpellAlreadyCasting => new(3083);
+    public static ServiceActionResultCode SpellAlreadyCasting => new(3083, "spell_already_casting");
 
     /// <summary>The game says the spell in the named position has no charged cast to hold.</summary>
     /// <remarks>
@@ -61,8 +61,8 @@ internal static class AutoCastActionResultCodes
     /// the caller named. A position that moved or emptied answers <see cref="SlotIdentityChanged"/>
     /// instead, because a caller told a spell cannot be charged believes that durably.
     /// </remarks>
-    public static ServiceActionResultCode SpellNotChargeable => new(3084);
+    public static ServiceActionResultCode SpellNotChargeable => new(3084, "spell_not_chargeable");
 
     /// <summary>A ritual battle started or ended after the cast was planned for the other case.</summary>
-    public static ServiceActionResultCode RitualChanged => new(3085);
+    public static ServiceActionResultCode RitualChanged => new(3085, "native_rejected");
 }

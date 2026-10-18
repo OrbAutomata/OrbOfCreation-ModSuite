@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using OrbAutomata;
@@ -91,7 +92,7 @@ public sealed class GameMcpDecisionReasonTests
 
     private static string Word(ServiceActionResult result) =>
         GameMcpCommandResult.FromAction(
-            in result, GameMcpCommandKind.SpellWorkbench, 1, 1).Status;
+            in result, 1, 1).Status;
 
     [Fact]
     public void No_decision_ships_a_code_without_the_sentence_that_reads_it()
@@ -427,7 +428,7 @@ public sealed class GameMcpDecisionReasonTests
     }
 
     /// <summary>
-    /// The four tables that make up the wire's vocabulary agree about every code in them.
+    /// Every row of the wire's vocabulary is coherent on its own terms.
     /// </summary>
     /// <remarks>
     /// A check that answered yes carries no class and no sentence — the encoder drops its code
@@ -438,25 +439,45 @@ public sealed class GameMcpDecisionReasonTests
     /// beside a class that means the game refused.
     /// </remarks>
     [Fact]
-    public void The_vocabulary_tables_agree_about_every_code_they_name()
+    public void Every_row_of_the_vocabulary_is_coherent()
     {
-        var source = File.ReadAllText(Path.Combine(
-            RepositoryRoot(), "src", "Automata", "Runtime", "GameMcp", "GameMcpDecisionReason.cs"));
-        var passing = Codes(source, "internal static bool IsPassing", "_ => false,");
-        var suiteDefects = Codes(source, "internal static bool IsSuiteDefect", "_ => false,");
-        var classified = Codes(
-            source, "internal static string Class(string reasonCode)", "_ => ClassRefused,");
-        var authored = Codes(
-            source, "private static string? Authored(string reasonCode)", "_ => null,");
+        var passing = GameMcpDecisionReason.Codes.Where(GameMcpDecisionReason.IsPassing).ToArray();
+        var suiteDefects =
+            GameMcpDecisionReason.Codes.Where(GameMcpDecisionReason.IsSuiteDefect).ToArray();
 
         Assert.NotEmpty(passing);
         Assert.NotEmpty(suiteDefects);
         Assert.All(passing, code => Assert.False(
             GameMcpDecisionReason.Knows(code),
             code + " answers yes, so its sentence can never reach a caller"));
-        Assert.All(passing, code => Assert.DoesNotContain(code, classified));
-        Assert.All(passing, code => Assert.DoesNotContain(code, authored));
-        Assert.All(suiteDefects, code => Assert.Contains(code, classified));
+        Assert.All(passing, code => Assert.False(GameMcpDecisionReason.IsSuiteDefect(code)));
+        Assert.All(suiteDefects, code => Assert.NotEqual(
+            GameMcpDecisionReason.ClassRefused, GameMcpDecisionReason.Class(code)));
+    }
+
+    /// <summary>
+    /// Every result code a GameAction can return has a row, so none reaches the wire as a word the
+    /// vocabulary has never classified.
+    /// </summary>
+    [Fact]
+    public void Every_action_result_code_has_a_row()
+    {
+        const BindingFlags members = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var codes = typeof(GameMcpDecisionReason).Assembly.GetTypes()
+            .Where(type => type.Name.EndsWith("ActionResultCodes", StringComparison.Ordinal))
+            .SelectMany(type => type.GetFields(members)
+                .Where(field => field.FieldType == typeof(ServiceActionResultCode))
+                .Select(field => (type.Name + "." + field.Name, field.GetValue(null)))
+                .Concat(type.GetProperties(members)
+                    .Where(property => property.PropertyType == typeof(ServiceActionResultCode))
+                    .Select(property => (type.Name + "." + property.Name, property.GetValue(null)))))
+            .Select(member => (Member: member.Item1, Code: (ServiceActionResultCode)member.Item2!))
+            .ToArray();
+
+        Assert.True(codes.Length > 300, "found only " + codes.Length + " result codes");
+        Assert.All(codes, member => Assert.True(
+            GameMcpDecisionReason.Codes.Contains(member.Code.Name),
+            member.Member + " answers " + member.Code.Name + ", which has no row"));
     }
 
     /// <summary>
@@ -565,17 +586,6 @@ public sealed class GameMcpDecisionReasonTests
     private static int[] Ordinals<TEnum>() where TEnum : struct, Enum =>
         Enum.GetValues<TEnum>().Select(value => Convert.ToInt32(value)).Distinct().ToArray();
 
-    private static IReadOnlyCollection<string> Codes(string source, string from, string to)
-    {
-        var start = source.IndexOf(from, StringComparison.Ordinal);
-        Assert.True(start >= 0, "could not find " + from);
-        var end = source.IndexOf(to, start, StringComparison.Ordinal);
-        Assert.True(end > start, "could not find " + to);
-        return new SortedSet<string>(
-            Regex.Matches(source.Substring(start, end - start), "\"([a-z][a-z0-9_]*)\"")
-                .Select(match => match.Groups[1].Value));
-    }
-
     /// <summary>
     /// A stop no producer accounted for is the suite failing to say anything, not the game saying
     /// no — and where the read side already has the sentence, both halves say the same thing.
@@ -592,7 +602,6 @@ public sealed class GameMcpDecisionReasonTests
     {
         var shared = GameMcpCommandResult.FromAction(
             ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.LoadoutFull),
-            GameMcpCommandKind.SpellWorkbench,
             1,
             1);
 
@@ -601,12 +610,11 @@ public sealed class GameMcpDecisionReasonTests
 
         var unaccounted = GameMcpCommandResult.FromAction(
             ServiceActionResult.Rejected(SpellWorkbenchActionResultCodes.CompositionUnsupported),
-            GameMcpCommandKind.SpellWorkbench,
             1,
             1);
 
         Assert.Equal("failed", unaccounted.Status);
-        Assert.Equal(GameMcpActionResultCodeNames.NoAccount, unaccounted.Reason);
+        Assert.Equal(GameMcpDecisionReason.NoAccount, unaccounted.Reason);
         Assert.DoesNotContain("boundary", unaccounted.Reason, StringComparison.OrdinalIgnoreCase);
     }
 

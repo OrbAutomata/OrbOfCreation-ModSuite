@@ -51,7 +51,7 @@ public sealed class GameMcpSemanticCodeTests
         foreach (var (kind, code, expected) in cases)
         {
             var action = ServiceActionResult.Rejected(code);
-            var result = GameMcpCommandResult.FromAction(in action, kind, 1, 1);
+            var result = GameMcpCommandResult.FromAction(in action, 1, 1);
 
             Assert.Equal(expected, result.Code);
             Assert.DoesNotContain("feature_", result.Code, System.StringComparison.Ordinal);

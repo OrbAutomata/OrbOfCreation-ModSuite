@@ -294,8 +294,7 @@ public sealed class GameMcpGenericLevelTests
             new ResourceCharge(CostResourceId, new BigDouble(1)),
         });
         var committed = GameMcpCommandResult.FromAction(
-            submission.Outcome.ToResult(),
-            GameMcpCommandKind.GenericLevel, 9, 3,
+            submission.Outcome.ToResult(), 9, 3,
             GameMcpGenericLevelProjection.Project(in submission, before));
 
         var wire = Json(

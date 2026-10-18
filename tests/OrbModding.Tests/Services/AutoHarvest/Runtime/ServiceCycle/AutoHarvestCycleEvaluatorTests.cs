@@ -291,7 +291,7 @@ public sealed class AutoHarvestCycleEvaluatorTests
             ReadyFrame(),
             Configuration(),
             first.State,
-            Context(2, FaultedReceipt(firstContext, new ServiceActionResultCode(code))));
+            Context(2, FaultedReceipt(firstContext, new ServiceActionResultCode(code, "expected"))));
 
         Assert.Equal((AutoHarvestPairHealthKind)expectedHealth, second.State.FruitHealth.Kind);
         Assert.Equal(featureScoped, second.State.FruitHealth.FeatureScoped);

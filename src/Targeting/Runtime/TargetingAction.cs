@@ -38,13 +38,13 @@ internal readonly struct TargetingSubmission
 
 internal static class TargetingActionResultCodes
 {
-    internal static readonly ServiceActionResultCode ContractUnavailable = new(7501);
-    internal static readonly ServiceActionResultCode WrongThread = new(7503);
-    internal static readonly ServiceActionResultCode NoPendingRequest = new(7504);
-    internal static readonly ServiceActionResultCode TargetUnavailable = new(7505);
-    internal static readonly ServiceActionResultCode NativeTargetRefused = new(7506);
-    internal static readonly ServiceActionResultCode CancelUnavailable = new(7507);
-    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7508);
-    internal static readonly ServiceActionResultCode PostCommitFault = new(7509);
-    internal static readonly ServiceActionResultCode VerificationFailed = new(7510);
+    internal static readonly ServiceActionResultCode ContractUnavailable = new(7501, "contract_unavailable");
+    internal static readonly ServiceActionResultCode WrongThread = new(7503, "wrong_thread");
+    internal static readonly ServiceActionResultCode NoPendingRequest = new(7504, "no_pending_request");
+    internal static readonly ServiceActionResultCode TargetUnavailable = new(7505, "target_unavailable");
+    internal static readonly ServiceActionResultCode NativeTargetRefused = new(7506, "native_target_refused");
+    internal static readonly ServiceActionResultCode CancelUnavailable = new(7507, "cancel_unavailable");
+    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7508, "action_family_unavailable");
+    internal static readonly ServiceActionResultCode PostCommitFault = new(7509, "post_commit_fault");
+    internal static readonly ServiceActionResultCode VerificationFailed = new(7510, "verification_failed");
 }

@@ -91,7 +91,7 @@ public sealed class AutoHarvestNativeStateReaderTests
     [InlineData(1035)]
     public void EachLiveClickTermReturnsItsOwnNamedRefusal(int failure)
     {
-        var expected = new ServiceActionResultCode(failure);
+        var expected = new ServiceActionResultCode(failure, "expected");
         var world = PrototypeWorld.Create();
         var instance = world.AddInstance(world.Plot, world.Action);
         if (expected == AutoHarvestActionResultCodes.NativePlotVisibilityRefused)

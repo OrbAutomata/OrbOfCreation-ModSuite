@@ -61,14 +61,14 @@ internal readonly struct CraftingPlayerSubmission
 
 internal static class CraftingPlayerActionResultCodes
 {
-    internal static readonly ServiceActionResultCode ContractUnavailable = new(7701);
-    internal static readonly ServiceActionResultCode WrongThread = new(7703);
-    internal static readonly ServiceActionResultCode RecipeUnavailable = new(7704);
-    internal static readonly ServiceActionResultCode NotVisible = new(7705);
-    internal static readonly ServiceActionResultCode PageRelationAmbiguous = new(7706);
-    internal static readonly ServiceActionResultCode QueueFull = new(7708);
-    internal static readonly ServiceActionResultCode Unaffordable = new(7709);
-    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7710);
-    internal static readonly ServiceActionResultCode PostCommitFault = new(7711);
-    internal static readonly ServiceActionResultCode VerificationFailed = new(7712);
+    internal static readonly ServiceActionResultCode ContractUnavailable = new(7701, "contract_unavailable");
+    internal static readonly ServiceActionResultCode WrongThread = new(7703, "wrong_thread");
+    internal static readonly ServiceActionResultCode RecipeUnavailable = new(7704, "recipe_unavailable");
+    internal static readonly ServiceActionResultCode NotVisible = new(7705, "not_visible");
+    internal static readonly ServiceActionResultCode PageRelationAmbiguous = new(7706, "page_relation_ambiguous");
+    internal static readonly ServiceActionResultCode QueueFull = new(7708, "queue_full");
+    internal static readonly ServiceActionResultCode Unaffordable = new(7709, "unaffordable");
+    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7710, "action_family_unavailable");
+    internal static readonly ServiceActionResultCode PostCommitFault = new(7711, "post_commit_fault");
+    internal static readonly ServiceActionResultCode VerificationFailed = new(7712, "verification_failed");
 }

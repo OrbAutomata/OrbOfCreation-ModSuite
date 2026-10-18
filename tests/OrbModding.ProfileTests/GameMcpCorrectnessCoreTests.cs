@@ -235,8 +235,8 @@ public sealed class GameMcpCorrectnessCoreTests
     /// A feature result number names no axis a caller can act on, and round 8 shipped it as prose
     /// nine separate ways — "the native action boundary returned Rejected with exact result code
     /// 2051" was the whole answer a caller got for a purchase that had stopped working. The sweep
-    /// covers the entire code space rather than the codes that leak today, because the leak was a
-    /// fallback: every code a producer forgets to map lands there next.
+    /// covers every row of the table rather than the codes that leak today, because every result
+    /// code answers through a row.
     /// </para>
     /// <para>
     /// Its scope is the channel it names and no more: the sentence a result <em>code</em> answers
@@ -249,30 +249,9 @@ public sealed class GameMcpCorrectnessCoreTests
     [Fact]
     public void No_result_code_sentence_prints_a_native_result_number()
     {
-        var reserved = new[]
-        {
-            CommonActionResultCodes.Committed,
-            CommonActionResultCodes.EmergencyStop,
-            CommonActionResultCodes.LifecycleReplaced,
-            CommonActionResultCodes.ServiceDisabled,
-            CommonActionResultCodes.NativeRejected,
-            CommonActionResultCodes.PolicyRejected,
-            CommonActionResultCodes.AdapterFault,
-            CommonActionResultCodes.Skipped,
-        };
-
-        foreach (GameMcpCommandKind kind in Enum.GetValues(typeof(GameMcpCommandKind)))
-        {
-            foreach (var code in reserved)
-                Assert.DoesNotContain(GameMcpActionResultCodeNames.Reason(code, kind), char.IsDigit);
-
-            for (var code = ServiceActionResultCode.FirstFeatureCode; code <= 4200; code++)
-            {
-                var reason = GameMcpActionResultCodeNames.Reason(
-                    new ServiceActionResultCode(code), kind);
-                Assert.DoesNotContain(reason, char.IsDigit);
-            }
-        }
+        Assert.DoesNotContain(GameMcpDecisionReason.NoAccount, char.IsDigit);
+        Assert.All(GameMcpDecisionReason.Codes, code =>
+            Assert.DoesNotContain(GameMcpDecisionReason.For(code), char.IsDigit));
     }
 
     /// <summary>
@@ -290,16 +269,77 @@ public sealed class GameMcpCorrectnessCoreTests
             AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable,
         };
 
-        var names = codes
-            .Select(code => GameMcpActionResultCodeNames.Name(code, GameMcpCommandKind.Purchase))
-            .ToArray();
+        var names = codes.Select(code => code.Name).ToArray();
         var reasons = codes
-            .Select(code => GameMcpActionResultCodeNames.Reason(code, GameMcpCommandKind.Purchase))
+            .Select(code => GameMcpCommandResult.FromAction(
+                ServiceActionResult.Rejected(code), 1, 1).Reason)
             .ToArray();
 
         Assert.Equal(codes.Length, names.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(codes.Length, reasons.Distinct(StringComparer.Ordinal).Count());
         Assert.DoesNotContain("native_rejected", names);
+    }
+
+    /// <summary>
+    /// The harvest and plot lifecycle refusals answer with the same names every other lifecycle
+    /// verb uses for the same stop, rather than as the game's own no.
+    /// </summary>
+    [Fact]
+    public void A_harvest_lifecycle_refusal_answers_with_its_own_name()
+    {
+        var expected = new (ServiceActionResultCode Code, GameMcpCommandKind Kind, string Name)[]
+        {
+            (HarvestLifecycleActionResultCodes.ContractUnavailable, GameMcpCommandKind.HarvestLifecycle, "contract_unavailable"),
+            (HarvestLifecycleActionResultCodes.WrongThread, GameMcpCommandKind.HarvestLifecycle, "wrong_thread"),
+            (HarvestLifecycleActionResultCodes.IdentityUnavailable, GameMcpCommandKind.HarvestLifecycle, "identity_unavailable"),
+            (HarvestLifecycleActionResultCodes.NotVisible, GameMcpCommandKind.HarvestLifecycle, "not_visible"),
+            (HarvestLifecycleActionResultCodes.ElementListFull, GameMcpCommandKind.HarvestLifecycle, "harvest_list_full"),
+            (HarvestLifecycleActionResultCodes.ActionListFull, GameMcpCommandKind.HarvestLifecycle, "plot_action_list_full"),
+            (HarvestLifecycleActionResultCodes.MutationPermitUnavailable, GameMcpCommandKind.HarvestLifecycle, "action_family_unavailable"),
+            (HarvestLifecycleActionResultCodes.PostCommitFault, GameMcpCommandKind.HarvestLifecycle, "post_commit_fault"),
+            (HarvestLifecycleActionResultCodes.VerificationFailed, GameMcpCommandKind.HarvestLifecycle, "verification_failed"),
+            (PlotLifecycleActionResultCodes.ContractUnavailable, GameMcpCommandKind.Harvest, "contract_unavailable"),
+            (PlotLifecycleActionResultCodes.WrongThread, GameMcpCommandKind.Harvest, "wrong_thread"),
+            (PlotLifecycleActionResultCodes.IdentityUnavailable, GameMcpCommandKind.Harvest, "identity_unavailable"),
+            (PlotLifecycleActionResultCodes.PlotUnavailable, GameMcpCommandKind.Harvest, "not_visible"),
+            (PlotLifecycleActionResultCodes.ActionListFull, GameMcpCommandKind.Harvest, "plot_action_list_full"),
+            (PlotLifecycleActionResultCodes.MutationPermitUnavailable, GameMcpCommandKind.Harvest, "action_family_unavailable"),
+            (PlotLifecycleActionResultCodes.PostCommitFault, GameMcpCommandKind.Harvest, "post_commit_fault"),
+            (PlotLifecycleActionResultCodes.VerificationFailed, GameMcpCommandKind.Harvest, "verification_failed"),
+        };
+
+        Assert.All(expected, row => Assert.Equal(
+            row.Name,
+            GameMcpCommandResult.FromAction(
+                ServiceActionResult.Rejected(row.Code, "x"), 1, 1).Code));
+    }
+
+    /// <summary>
+    /// Two features may share a result number, and neither answers with the other's sentence.
+    /// </summary>
+    [Fact]
+    public void A_result_number_two_features_share_never_borrows_the_other_features_sentence()
+    {
+        var pairs = new (ServiceActionResultCode Code, GameMcpCommandKind Kind,
+            ServiceActionResultCode Other, GameMcpCommandKind OtherKind)[]
+        {
+            (LoadoutActionResultCodes.SlotOutOfRange, GameMcpCommandKind.Loadout,
+                SpellLevelActionResultCodes.ProgressionLocked, GameMcpCommandKind.SpellLevel),
+            (LoadoutActionResultCodes.SlotEmpty, GameMcpCommandKind.Loadout,
+                SpellLevelActionResultCodes.LevelNotAffordable, GameMcpCommandKind.SpellLevel),
+            (LoadoutActionResultCodes.EntryUnavailable, GameMcpCommandKind.Loadout,
+                AutoCastActionResultCodes.ActionFamilyUnavailable, GameMcpCommandKind.Cast),
+            (AutoBuyActionResultCodes.OwningViewUnavailable, GameMcpCommandKind.Purchase,
+                SpellLevelActionResultCodes.ProgressionLocked, GameMcpCommandKind.SpellLevel),
+            (AutoBuyActionResultCodes.OwningViewRelationMissing, GameMcpCommandKind.Purchase,
+                SpellLevelActionResultCodes.LevelNotAffordable, GameMcpCommandKind.SpellLevel),
+        };
+
+        Assert.All(pairs, pair => Assert.NotEqual(
+            GameMcpCommandResult.FromAction(
+                ServiceActionResult.Rejected(pair.Other), 1, 1).Reason,
+            GameMcpCommandResult.FromAction(
+                ServiceActionResult.Rejected(pair.Code), 1, 1).Reason));
     }
 
     /// <summary>
@@ -321,7 +361,7 @@ public sealed class GameMcpCorrectnessCoreTests
         var result = ServiceActionResult.Rejected(AutoBuyActionResultCodes.SingleBuyUnavailable);
 
         var answer = GameMcpCommandResult.FromAction(
-            result.WithReason(pinned), GameMcpCommandKind.Purchase, 1, 1);
+            result.WithReason(pinned), 1, 1);
 
         Assert.Equal("single_buy_unavailable", answer.Code);
         Assert.Equal("failed", answer.Status);
@@ -427,8 +467,7 @@ public sealed class GameMcpCorrectnessCoreTests
             "the action queue.",
             GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 1)));
         Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class(
-            GameMcpActionResultCodeNames.Name(
-                SpellLevelActionResultCodes.LevelAllLocked, GameMcpCommandKind.SpellLevel)));
+            SpellLevelActionResultCodes.LevelAllLocked.Name));
     }
 
     /// <summary>
@@ -1050,8 +1089,7 @@ public sealed class GameMcpCorrectnessCoreTests
             "something in it settles.",
             GameMcpWorldQuery.ActionQueueFullReason(ActionQueueWorld(capacity: 10)));
 
-        var name = GameMcpActionResultCodeNames.Name(
-            AutoBuyActionResultCodes.ActionQueueFull, GameMcpCommandKind.Purchase);
+        var name = AutoBuyActionResultCodes.ActionQueueFull.Name;
         Assert.Equal("queue_full", name);
         Assert.Equal("ERR_LIMIT", GameMcpDecisionReason.Class(name));
     }

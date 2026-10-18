@@ -1187,7 +1187,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             string.Empty, string.Empty, false);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpDiscoveryTreeOfferProjection.Project(
@@ -1248,7 +1247,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             string.Empty, string.Empty, false);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpDiscoveryTreeOfferProjection.Project(

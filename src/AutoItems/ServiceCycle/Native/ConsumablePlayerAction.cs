@@ -65,22 +65,22 @@ internal readonly struct ConsumablePlayerAction
 
 internal static class ConsumablePlayerActionResultCodes
 {
-    internal static readonly ServiceActionResultCode ContractUnavailable = new(7601);
-    internal static readonly ServiceActionResultCode WrongThread = new(7603);
-    internal static readonly ServiceActionResultCode ItemUnavailable = new(7604);
-    internal static readonly ServiceActionResultCode NotVisible = new(7605);
-    internal static readonly ServiceActionResultCode TargetingInProgress = new(7606);
-    internal static readonly ServiceActionResultCode InventoryBusy = new(7607);
-    internal static readonly ServiceActionResultCode CanFireRefused = new(7608);
-    internal static readonly ServiceActionResultCode NoCancellableUsage = new(7609);
-    internal static readonly ServiceActionResultCode NothingToDiscard = new(7610);
-    internal static readonly ServiceActionResultCode RandomizationUnavailable = new(7611);
-    internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(7612);
-    internal static readonly ServiceActionResultCode ListUnavailable = new(7613);
-    internal static readonly ServiceActionResultCode SourceUnavailable = new(7614);
-    internal static readonly ServiceActionResultCode DestinationOutOfRange = new(7615);
-    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7616);
-    internal static readonly ServiceActionResultCode MultiBuyUnavailable = new(7617);
-    internal static readonly ServiceActionResultCode PostCommitFault = new(7618);
-    internal static readonly ServiceActionResultCode VerificationFailed = new(7619);
+    internal static readonly ServiceActionResultCode ContractUnavailable = new(7601, "contract_unavailable");
+    internal static readonly ServiceActionResultCode WrongThread = new(7603, "wrong_thread");
+    internal static readonly ServiceActionResultCode ItemUnavailable = new(7604, "item_unavailable");
+    internal static readonly ServiceActionResultCode NotVisible = new(7605, "not_visible");
+    internal static readonly ServiceActionResultCode TargetingInProgress = new(7606, "targeting_in_progress");
+    internal static readonly ServiceActionResultCode InventoryBusy = new(7607, "inventory_busy");
+    internal static readonly ServiceActionResultCode CanFireRefused = new(7608, "can_fire_refused");
+    internal static readonly ServiceActionResultCode NoCancellableUsage = new(7609, "no_cancellable_usage");
+    internal static readonly ServiceActionResultCode NothingToDiscard = new(7610, "nothing_to_discard");
+    internal static readonly ServiceActionResultCode RandomizationUnavailable = new(7611, "randomization_unavailable");
+    internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(7612, "already_in_requested_state");
+    internal static readonly ServiceActionResultCode ListUnavailable = new(7613, "list_unavailable");
+    internal static readonly ServiceActionResultCode SourceUnavailable = new(7614, "source_unavailable");
+    internal static readonly ServiceActionResultCode DestinationOutOfRange = new(7615, "destination_out_of_range");
+    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7616, "action_family_unavailable");
+    internal static readonly ServiceActionResultCode MultiBuyUnavailable = new(7617, "multi_buy_unavailable");
+    internal static readonly ServiceActionResultCode PostCommitFault = new(7618, "post_commit_fault");
+    internal static readonly ServiceActionResultCode VerificationFailed = new(7619, "verification_failed");
 }

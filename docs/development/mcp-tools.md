@@ -3154,9 +3154,11 @@ on it exactly as it branches on a press's.
 
 The set is fixed at eight. A private word per refusal is a dialect every caller has to learn before
 it can branch, and the sentence beside it already says more. Producers choose a precise internal
-code — that is what picks the sentence — and `GameMcpDecisionReason.Class` maps it to the class the
-wire says. That method is the whole map; the rows below name the codes each class is reached by
-most, so an old code's new class can be looked up here:
+code — that is what picks the sentence — and every action result code carries that code as its wire
+name. `GameMcpDecisionReason` holds one row per code with its class, its fallback sentence and
+whether it is the suite's own defect; that table is the whole map, and a result code without a row
+fails a test. The rows below name the codes each class is reached by most, so an old
+code's new class can be looked up here:
 
 | Class | Internal codes that reach it |
 | --- | --- |

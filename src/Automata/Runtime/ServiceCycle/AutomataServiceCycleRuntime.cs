@@ -404,7 +404,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             }
             return GameMcpCommandResult.FromAction(
                 result.WithReason(exactReason),
-                command.Kind,
                 lifecycle,
                 configuration.Generation.Value,
                 details);
@@ -490,7 +489,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             GameMcpSpellCompositionProjection.Project(in submission, command.PayloadKey));
@@ -532,7 +530,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             GameMcpSpellLoadoutProjection.Project(in submission));
@@ -561,7 +558,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var submission = _targeting.Submit(in action);
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
-            in result, command.Kind, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
+            in result, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
     }
 
     private GameMcpCommandResult ExecuteConsumable(
@@ -602,7 +599,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             GameMcpConsumableProjection.Project(in submission));
@@ -636,7 +632,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             var instanceResult = instanceSubmission.Outcome.ToResult();
             return GameMcpCommandResult.FromAction(
                 in instanceResult,
-                command.Kind,
                 lifecycle,
                 configurationGeneration,
                 GameMcpCraftingProjection.Project(in instanceSubmission));
@@ -677,7 +672,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration);
         var submission = _equipmentLoadout.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpEquipmentLoadoutProjection.Project(in submission));
     }
@@ -705,7 +700,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration);
         var submission = _challenges.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpChallengeProjection.Project(in submission));
     }
@@ -730,7 +725,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration);
         var submission = _alchemyLoadout.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpAlchemyLoadoutProjection.Project(in submission));
     }
@@ -747,7 +742,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var action = new PrestigeAction(command.ExpectedLifecycleGeneration);
         var submission = _prestige.Submit(in action);
         var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpPrestigeProjection.Project(in submission));
     }
@@ -777,7 +772,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.ExpectedLifecycleGeneration);
         var submission = _ritualLifecycle.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpRitualLifecycleProjection.Project(in submission));
     }
@@ -804,7 +799,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
         var submission = _harvestLifecycle.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpHarvestLifecycleProjection.Project(in submission));
     }
@@ -844,7 +839,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     ["maximumAmount"] = submission.MaximumAmount,
                 }.Freeze()
                 : null;
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration, details);
     }
 
@@ -868,7 +863,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             kind, command.TargetId, command.ExpectedLifecycleGeneration);
         var submission = _structureLifecycle.Submit(in action);
         var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpStructureLifecycleProjection.Project(in submission));
     }
@@ -892,7 +887,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             // it landed in is the whole answer.
             ? new GameMcpObjectBuilder { ["scene"] = "Start" }.Freeze()
             : new GameMcpObjectBuilder().Freeze();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration, details);
     }
 
@@ -917,7 +912,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             command.DerivedNativeType, command.Amount, command.ExpectedLifecycleGeneration);
         var submission = _genericLevel.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpGenericLevelProjection.Project(in submission, world));
     }
@@ -950,7 +945,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
             enabled, command.PayloadValue, command.ExpectedLifecycleGeneration);
         var submission = _loadouts.Submit(in action);
         var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpLoadoutProjection.Project(in submission));
     }
@@ -990,7 +985,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 : submission.Outcome.Code == ResearchActionResultCodes.Locked
                     ? GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId)
                     : submission.Outcome.Reason;
-        return GameMcpCommandResult.FromAction(result.WithReason(reason), command.Kind, lifecycle,
+        return GameMcpCommandResult.FromAction(result.WithReason(reason), lifecycle,
             configurationGeneration,
             GameMcpResearchProjection.Project(in submission));
     }
@@ -1020,7 +1015,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = submission.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             GameMcpSpellWorkbenchProjection.Project(in submission));
@@ -1055,7 +1049,6 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             GameMcpDiscoveryTreeOfferProjection.Project(kind, in submission));

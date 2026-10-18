@@ -68,12 +68,12 @@ internal readonly struct SpellCompositionSubmission
 
 internal static class SpellCompositionActionResultCodes
 {
-    internal static readonly ServiceActionResultCode ContractUnavailable = new(7301);
-    internal static readonly ServiceActionResultCode WrongThread = new(7303);
-    internal static readonly ServiceActionResultCode LevelOutOfRange = new(7305);
-    internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(7306);
-    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7314);
-    internal static readonly ServiceActionResultCode PostCommitFault = new(7315);
-    internal static readonly ServiceActionResultCode VerificationFailed = new(7316);
-    internal static readonly ServiceActionResultCode ControlLocked = new(7317);
+    internal static readonly ServiceActionResultCode ContractUnavailable = new(7301, "contract_unavailable");
+    internal static readonly ServiceActionResultCode WrongThread = new(7303, "wrong_thread");
+    internal static readonly ServiceActionResultCode LevelOutOfRange = new(7305, "level_out_of_range");
+    internal static readonly ServiceActionResultCode AlreadyInRequestedState = new(7306, "already_in_requested_state");
+    internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7314, "action_family_unavailable");
+    internal static readonly ServiceActionResultCode PostCommitFault = new(7315, "post_commit_fault");
+    internal static readonly ServiceActionResultCode VerificationFailed = new(7316, "verification_failed");
+    internal static readonly ServiceActionResultCode ControlLocked = new(7317, "screen_locked");
 }
