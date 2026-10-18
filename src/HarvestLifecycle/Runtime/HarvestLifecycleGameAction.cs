@@ -51,7 +51,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                 GameActionAnswer.NotAttached("World > Agromancy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(HarvestLifecyclePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
@@ -104,7 +104,7 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
             return Execute(in action, native, element!, elementList!, actionList!,
                 prototype, active, before);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(HarvestLifecyclePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
@@ -242,13 +242,12 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("World > Agromancy"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var request = action;
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, element, elementList, actionList,
-                        prototype, before),
-                    IsExpected, out var observed) && observed) return Verified();
+                        prototype, before), out var observed) && observed) return Verified();
             return Fault(in action, HarvestLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("World > Agromancy", exception));
@@ -353,7 +352,4 @@ internal sealed class HarvestLifecycleGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

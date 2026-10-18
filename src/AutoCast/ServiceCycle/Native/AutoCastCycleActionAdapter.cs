@@ -129,9 +129,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
                 _ => _casts.Fire(action.SlotIndex, action.SpellRecipeId, action.ChargeHold || serviceHold),
             };
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Plugin.Log?.LogAutomataWarning(
                 $"Auto Cast failed to cast the spell in slot {action.SlotIndex + 1}: adapter fault ({ex.GetBaseException().Message}).");
@@ -163,9 +161,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         {
             submission = _casts.ReleaseCharge(held.SlotIndex, held.SpellRecipeId);
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Plugin.Log?.LogAutomataWarning(
                 $"Auto Cast failed to release the charged spell in slot {held.SlotIndex + 1}: adapter fault ({ex.GetBaseException().Message}).");
@@ -212,7 +208,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         {
             return _ownsActionFamily();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -226,9 +222,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         {
             epoch = _readLifecycleEpoch();
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

@@ -76,7 +76,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     augmentReason);
             return SpellWorkbenchStagedLayout.Captured(core, augments);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return SpellWorkbenchStagedLayout.Unavailable(
                 SpellWorkbenchPreflight.ContractUnavailable,
@@ -286,7 +286,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         {
             return CreateWithLayout(in action, native, manager, recipe);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellWorkbenchSubmission.Reject(SpellWorkbenchPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Magic > Spellbook", ex));
@@ -329,7 +329,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                       (copy.Slot + 1) + " — remove it, then add"
                     : string.Empty);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellWorkbenchLoadPreview.Refused(
                 SpellWorkbenchPreflight.ContractUnavailable,
@@ -452,7 +452,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
                     "layout, so nothing is loaded and the player's own augment selection is " +
                     "back as it was. Read the loadout before calling again.");
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             var restored = RestoreAugments(native, manager, previous, ref nativeCalls, out var restoreFailure);
             if (restored && HasNewMatchingInstanceBestEffort(
@@ -1012,7 +1012,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             failure = "Putting it back: " + reason;
             return false;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             failure = "Putting it back errored in the game." +
                 GameActionFaultLog.Record(ex, "Magic > Spellbook");
@@ -1119,7 +1119,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         Guid[] before)
     {
         try { return HasNewMatchingInstance(native, manager, recipe, expectedLayout, before); }
-        catch (Exception ex) when (IsExpected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static Guid[] ReadIds(SpellWorkbenchNativeBindings native, IList values)
@@ -1231,7 +1231,7 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             preflight = SpellWorkbenchPreflight.ContractUnavailable;
             reason = GameActionAnswer.CouldNotRead("Magic > Spellbook", ex);
@@ -1295,6 +1295,4 @@ internal sealed class SpellWorkbenchGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception ex) =>
-        ex is InvalidOperationException or ArgumentException or TargetInvocationException or NullReferenceException;
 }

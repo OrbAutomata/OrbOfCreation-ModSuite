@@ -198,7 +198,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
             return SubmitSingle(uuid, recipe, cost);
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellLevelSubmission.Rejected(
                 SpellLevelPreflight.ContractUnavailable,
@@ -234,7 +234,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
             return true;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Block($"spell-level capability check failed: {ex.GetBaseException().Message}");
             return false;
@@ -474,7 +474,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (IsReflectionFailure(ex) || ex is FormatException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex) || ex is FormatException)
         {
             return Block($"spell-level contract initialization failed: {ex.GetBaseException().Message}", out reason);
         }
@@ -541,7 +541,4 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         return false;
     }
 
-    private static bool IsReflectionFailure(Exception ex) =>
-        ex is TargetInvocationException or ArgumentException or InvalidOperationException
-            or InvalidCastException or OverflowException;
 }

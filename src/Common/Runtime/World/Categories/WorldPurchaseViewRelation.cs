@@ -366,7 +366,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 candidates[index].Status = failure.Status;
             membershipFailure = "the authored view walk failed: " + failure.Message;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             for (var index = 0; index < candidates.Count; index++)
                 candidates[index].Status = WorldPurchaseViewRelationStatus.Unreadable;
@@ -484,7 +484,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                     memberships.Add(new WorldUpgradeListMembership(memberId, listId));
                 }
             }
-            catch (Exception ex) when (ex is RelationFailure || IsExpected(ex))
+            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 failure = "pinned upgrade list " + listId.ToString("D") + " was unreadable: " +
                     ex.GetBaseException().Message;
@@ -521,7 +521,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 }
                 candidates.Add(new ForwardCandidate(kind, id, value));
             }
-            catch (Exception ex) when (ex is RelationFailure || IsExpected(ex))
+            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
             }
@@ -554,7 +554,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                     categories.Add(category, members = new List<ForwardCandidate>());
                 members.Add(candidate);
             }
-            catch (Exception ex) when (ex is RelationFailure || IsExpected(ex))
+            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 candidate.Status = WorldPurchaseViewRelationStatus.Unreadable;
             }
@@ -583,7 +583,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                         candidate.Status = WorldPurchaseViewRelationStatus.Contradictory;
                 }
             }
-            catch (Exception ex) when (ex is RelationFailure || IsExpected(ex))
+            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 for (var index = 0; index < pair.Value.Count; index++)
                     pair.Value[index].Status = WorldPurchaseViewRelationStatus.Unreadable;
@@ -784,7 +784,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                         _native.ViewAvailable.Invoke(route.View, Array.Empty<object>()) is bool value)
                         available = value ? "true" : "false";
                 }
-                catch (Exception ex) when (IsExpected(ex))
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                 }
                 builder.Append(available).Append(')');
@@ -851,7 +851,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         {
             return Failed(kind, candidateId, categoryId, failure.Status);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Failed(kind, candidateId, categoryId, WorldPurchaseViewRelationStatus.Unreadable);
         }
@@ -928,7 +928,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             }
             return !unreadable;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -962,7 +962,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 var reads = default(NativePurchaseViewAdmissionReadCounts);
                 id = Identity(CandidateIdentity(kind), candidate, ref reads);
             }
-            catch (Exception ex) when (ex is RelationFailure || IsExpected(ex))
+            catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 continue;
@@ -1223,15 +1223,6 @@ internal sealed class NativePurchaseViewAdmissionResolver
     private static IList List(object? value, string contract) =>
         value as IList ??
         throw new RelationFailure(WorldPurchaseViewRelationStatus.Unreadable, contract);
-
-    private static bool IsExpected(Exception exception) => exception is
-        TargetInvocationException or
-        ArgumentException or
-        InvalidOperationException or
-        TargetException or
-        TargetParameterCountException or
-        MemberAccessException or
-        TypeLoadException;
 
     private sealed class RelationFailure : Exception
     {
@@ -1540,8 +1531,7 @@ internal sealed class WorldPurchaseViewRelationReader : IWorldCategoryReader
         // exception into a whole lifecycle of refused purchases. Nothing stale can slip through —
         // TryGetCaptured admits only under the epoch that stamped it — and the failed report keeps
         // the collector's structural gate open, so the next pass reads again.
-        catch (Exception ex) when (ex is TargetInvocationException or ArgumentException or
-                                   InvalidOperationException or TargetException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             frame.PurchaseViewRelations.Reset();
             frame.PurchaseViewRoutes.Reset();

@@ -69,7 +69,6 @@ public sealed class ServiceCycleProfilerBuildBoundaryTests
             typeof(AutoItemsConsumableUseGameAction),
             typeof(AutoItemsNativeBindings),
             typeof(AutoItemsScrollTargetPreflight),
-            typeof(AutoItemsReflectionAccess),
             typeof(global::OrbModding.Plugin),
         };
         var violations = new List<string>();

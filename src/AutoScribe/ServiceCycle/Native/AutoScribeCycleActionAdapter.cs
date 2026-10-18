@@ -107,7 +107,7 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
             var current = _readLifecycleEpoch();
             return current > 0 && current == planned;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

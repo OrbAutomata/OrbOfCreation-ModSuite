@@ -65,9 +65,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
                 requireAutomationPolicy ? AutoConceptResourceLimits.From(config.AutoConcept) : null);
             LastSubmission = submission;
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException or ArgumentException or InvalidOperationException or
-            TargetException or MemberAccessException or FormatException or OverflowException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Plugin.Log?.LogAutomataWarning(
                 $"Auto Concept action failed at the native boundary: {ex.GetBaseException().Message}.");
@@ -128,7 +126,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         {
             return _ownsActionFamily();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -141,9 +139,7 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
             var current = _readLifecycleEpoch();
             return current > 0 && current == plannedEpoch;
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException or ArgumentException or InvalidOperationException or
-            TargetException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

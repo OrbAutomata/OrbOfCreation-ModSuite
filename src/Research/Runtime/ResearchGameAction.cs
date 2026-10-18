@@ -44,7 +44,7 @@ internal sealed class ResearchGameAction : IDisposable
                 GameActionAnswer.NotAttached("Scholar > Research", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return ResearchSubmission.Reject(ResearchPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Scholar > Research", exception));
@@ -79,7 +79,7 @@ internal sealed class ResearchGameAction : IDisposable
             using (scope)
                 return Execute(in action, native, target, in before);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return ResearchSubmission.Reject(ResearchPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Scholar > Research", exception));
@@ -106,7 +106,7 @@ internal sealed class ResearchGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     "The exact research target did not make the requested state transition.");
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (OutcomeLandedBestEffort(action.Kind, native, target, in before))
                 return Verified();
@@ -312,7 +312,7 @@ internal sealed class ResearchGameAction : IDisposable
         ResearchNativeBindings native, object target, in ResearchAdmissionState before)
     {
         try { return OutcomeLanded(kind, native, target, in before); }
-        catch (Exception exception) when (IsExpected(exception)) { return false; }
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception)) { return false; }
     }
 
     private static ResearchSubmission Verified() =>
@@ -337,6 +337,4 @@ internal sealed class ResearchGameAction : IDisposable
         _bindings = null; _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) => exception is InvalidOperationException or
-        ArgumentException or TargetInvocationException or OverflowException;
 }

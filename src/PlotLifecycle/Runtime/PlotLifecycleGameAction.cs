@@ -50,7 +50,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
                 GameActionAnswer.NotAttached("World > Agromancy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(PlotLifecyclePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
@@ -87,7 +87,7 @@ internal sealed class PlotLifecycleGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, list!, prototype, current, before);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(PlotLifecyclePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("World > Agromancy", exception));
@@ -180,11 +180,10 @@ internal sealed class PlotLifecycleGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("World > Agromancy"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (NativeMutationVerifier.TryReadAfterCall(
-                    () => Quantity(native, native.FindInstance(list, prototype)),
-                    IsExpected, out var after) &&
+                    () => Quantity(native, native.FindInstance(list, prototype)), out var after) &&
                 OutcomeObserved(in action, before, after)) return Verified(before, after);
             return Fault(in action, PlotLifecyclePreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -272,7 +271,4 @@ internal sealed class PlotLifecycleGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

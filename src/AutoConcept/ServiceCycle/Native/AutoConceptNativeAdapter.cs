@@ -186,7 +186,7 @@ internal sealed class AutoConceptNativeAdapter :
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException || ex is FormatException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Fail($"concept contract initialization failed: {ex.GetBaseException().Message}", out reason);
         }
@@ -230,7 +230,7 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "the planned recipe is no longer in ConceptRecipes";
             return false;
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException || ex is FormatException || ex is OverflowException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = ex.GetBaseException().Message;
             return false;

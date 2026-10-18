@@ -19,7 +19,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
 
         long liveLifecycle;
         try { liveLifecycle = _readLifecycleEpoch(); }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.LifecycleReplaced,
@@ -50,7 +50,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
                     "Unknown consumable action mode."),
             };
         }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return ConsumablePlayerSubmission.Reject(
                 in action, ConsumablePlayerPreflight.ContractUnavailable,
@@ -266,7 +266,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
                     NativeMutationOutcome.PostconditionFailed, calls,
                     "The requested transition did not become observable.");
         }
-        catch (Exception ex) when (Expected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (LandedBestEffort(landed))
                 return Verified(calls,
@@ -307,7 +307,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction
     private static bool LandedBestEffort(Func<bool> landed)
     {
         try { return landed(); }
-        catch (Exception ex) when (Expected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static ConsumablePlayerSubmission Verified(int calls, string reason) =>
@@ -329,6 +329,4 @@ internal sealed partial class AutoItemsConsumableUseGameAction
             "Consumable " + action.Kind +
             " could not prove the requested outcome: " + reason);
 
-    private static bool Expected(Exception ex) =>
-        ex is not StackOverflowException and not OutOfMemoryException and not AccessViolationException;
 }

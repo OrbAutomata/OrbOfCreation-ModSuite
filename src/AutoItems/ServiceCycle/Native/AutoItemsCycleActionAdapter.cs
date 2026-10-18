@@ -59,7 +59,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         {
             submission = _gameAction.Submit(in action);
         }
-        catch (Exception ex) when (AutoItemsReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             var reason =
                 "Auto Items failed at the native boundary: " +
@@ -150,7 +150,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         {
             return _ownsActionFamily();
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -165,7 +165,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
                 ? "Auto Items does not own ConsumableUse and NativeMultiBuyOverride."
                 : reason;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return "Auto Items ownership evidence failed: " + ex.GetBaseException().Message;
         }
@@ -178,7 +178,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
             var current = _readLifecycleEpoch();
             return current > 0 && current == plannedEpoch;
         }
-        catch (Exception ex) when (AutoItemsReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

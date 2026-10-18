@@ -157,6 +157,18 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
+    public void UnexpectedExceptionFromANativeReadEscapesInsteadOfReadingAsUnavailable()
+    {
+        var target = Spell("Target");
+        target.CastingReadFailure = new MemberAccessException("injected casting read failure");
+        SpellManager.instance!.activeSpells.value.Add(target);
+        using var action = Action();
+
+        Assert.Throws<MemberAccessException>(() => action.Submit(Remove(target)));
+        Assert.Equal(new[] { target }, SpellManager.instance.activeSpells.value);
+    }
+
+    [Fact]
     public void RemoveThrowAfterExactOutcomeStillCommits()
     {
         var spell = Spell("Transient");

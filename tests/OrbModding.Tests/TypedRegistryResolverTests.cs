@@ -287,6 +287,26 @@ public sealed class TypedRegistryResolverTests
         Assert.NotEqual(TypedRegistryMembership.Excluded, nullEntry.Membership);
     }
 
+    [Fact]
+    public void AnUnexpectedExceptionFromTheMembershipReadEscapesInsteadOfReadingAsUnavailable()
+    {
+        var entityId = Guid.NewGuid();
+        var registryId = Guid.NewGuid();
+        var lookup = new Hashtable
+        {
+            [entityId] = new Entity(entityId),
+            [registryId] = new MembershipRegistry(registryId),
+        };
+        var resolver = Resolver(Ready(lookup));
+
+        Assert.Throws<NotSupportedException>(() => resolver.ResolveMember(
+            entityId,
+            typeof(Entity),
+            registryId,
+            typeof(MembershipRegistry),
+            _ => throw new NotSupportedException("injected membership read failure")));
+    }
+
     private static TypedRegistryResolver Resolver(
         Func<TypedRegistrySourceSnapshot> readRegistry,
         Func<long>? readGeneration = null) =>

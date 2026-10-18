@@ -60,7 +60,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
         {
             liveLifecycle = _readLifecycleEpoch();
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
@@ -148,7 +148,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 craftLevel,
                 level);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoScribeSubmission.Reject(
                 AutoScribePreflight.ContractUnavailable,
@@ -234,7 +234,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
                 "The exact crafted work reached its native destination.");
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             var landed = WorkObservedBestEffort(
                 native,
@@ -734,7 +734,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 native.InstanceListValue.GetValue(activeQueue),
                 "ActiveScribeInstances.value"), instance);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -754,7 +754,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
                 reason = "Auto Scribe no longer owns CraftingQueueSubmission.";
             return false;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = GameActionAnswer.CouldNotRead("Scholar > Scribe", ex);
             return false;
@@ -849,18 +849,5 @@ internal sealed partial class AutoScribeOneShotCraftGameAction : IDisposable
             throw new InvalidOperationException("CraftingInstance quantity was not a valid level.");
         return (int)Math.Floor(scalar);
     }
-
-    private static bool IsExpected(Exception exception) => exception is
-        TargetInvocationException or
-        ArgumentException or
-        InvalidOperationException or
-        InvalidCastException or
-        FormatException or
-        OverflowException or
-        NullReferenceException or
-        TargetException or
-        TargetParameterCountException or
-        MemberAccessException or
-        TypeLoadException;
 
 }

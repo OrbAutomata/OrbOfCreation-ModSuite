@@ -2020,6 +2020,7 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
     public bool throwAfterConfirmReset;
     public bool throwAfterReroll;
     public bool throwAfterSelectionClear;
+    public bool throwOnVisibilityRead;
     public bool driftInitiateEvidence;
     public bool driftSelectEvidence;
     public bool driftConfirmEvidence;
@@ -2029,7 +2030,8 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
     public int confirmCalls;
     public int rerollCalls;
 
-    public bool IsVisible() => visible;
+    public bool IsVisible() =>
+        throwOnVisibilityRead ? throw new NullReferenceException("injected visibility read failure") : visible;
     public bool IsInIdleMode() => actionMode == DiscoveryTreeModes.Idle;
     public bool IsInCraftingMode() => actionMode == DiscoveryTreeModes.Crafting;
     public bool IsInChoiceMode() => actionMode == DiscoveryTreeModes.Choice;

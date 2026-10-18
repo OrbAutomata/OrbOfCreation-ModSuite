@@ -62,7 +62,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.LifecycleReplaced,
@@ -84,7 +84,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                     "Unknown spell loadout action kind " + (int)action.Kind + "."),
             };
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellLoadoutSubmission.Reject(
                 SpellLoadoutPreflight.ContractUnavailable,
@@ -135,7 +135,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                     new NativeMutationCallOutcome(1, 1, 0),
                     "The requested runtime spell remains equipped.");
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (TargetAbsentBestEffort(native, action.SpellInstanceId))
                 return Verified(
@@ -295,7 +295,7 @@ internal sealed class SpellLoadoutGameAction : IDisposable
                     new NativeMutationCallOutcome(2, 1, 0),
                     "The requested runtime spell is not in the destination slot.");
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (TargetAtSlotBestEffort(native, action.SpellInstanceId, action.DestinationSlot))
                 return Verified(
@@ -412,14 +412,14 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         SpellLoadoutNativeBindings native, Guid targetId)
     {
         try { return TargetAbsent(native, targetId); }
-        catch (Exception ex) when (IsExpected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static bool TargetAtSlotBestEffort(
         SpellLoadoutNativeBindings native, Guid targetId, int destination)
     {
         try { return TargetAtSlot(native, targetId, destination); }
-        catch (Exception ex) when (IsExpected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static SpellLoadoutSubmission Verified(
@@ -477,7 +477,4 @@ internal sealed class SpellLoadoutGameAction : IDisposable
             _bindings = null;
     }
 
-    private static bool IsExpected(Exception ex) =>
-        ex is ArgumentException or InvalidOperationException or OverflowException or
-            TargetInvocationException or MemberAccessException;
 }

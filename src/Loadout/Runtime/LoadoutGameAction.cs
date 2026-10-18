@@ -51,7 +51,7 @@ internal sealed class LoadoutGameAction : IDisposable
                 GameActionAnswer.NotAttached("Workshop > Artifacts and Alchemy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(LoadoutPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
@@ -138,7 +138,7 @@ internal sealed class LoadoutGameAction : IDisposable
                 return Reject(LoadoutPreflight.MutationPermitUnavailable, _readOwnershipFailure());
             return Execute(in action, native, manager, target!, snapshotIsAlchemy, expectedIndex);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(LoadoutPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Workshop > Artifacts and Alchemy", exception));
@@ -253,13 +253,12 @@ internal sealed class LoadoutGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Workshop > Artifacts and Alchemy"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var request = action;
             if (NativeMutationVerifier.TryReadAfterCall(
                     () => OutcomeObserved(in request, native, manager, target,
-                        alchemySnapshot, expectedIndex),
-                    IsExpected, out var observed) && observed) return Verified();
+                        alchemySnapshot, expectedIndex), out var observed) && observed) return Verified();
             return Fault(in action, LoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
                 GameActionAnswer.GameErrored("Workshop > Artifacts and Alchemy", exception));
@@ -596,7 +595,4 @@ internal sealed class LoadoutGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) =>
-        exception is InvalidOperationException or ArgumentException or
-            TargetInvocationException or OverflowException;
 }

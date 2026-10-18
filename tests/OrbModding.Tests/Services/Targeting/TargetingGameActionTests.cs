@@ -144,6 +144,19 @@ public sealed class TargetingGameActionTests : IDisposable
     }
 
     [Fact]
+    public void UnexpectedExceptionFromANativeReadEscapesInsteadOfReadingAsUnavailable()
+    {
+        var target = Target();
+        Open(target);
+        TargetingManager.ThrowOnIsTargeting = true;
+        using var action = Action();
+
+        Assert.Throws<NullReferenceException>(() =>
+            action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch)));
+        Assert.Empty(TargetingManager.SubmittedTargets);
+    }
+
+    [Fact]
     public void ResultMapperPreservesFaultDisposition()
     {
         var submission = new TargetingSubmission(TargetingPreflight.VerificationFailed,

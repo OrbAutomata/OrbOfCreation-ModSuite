@@ -287,9 +287,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 #endif
                 );
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Plugin.Log?.LogAutomataWarning(
                 $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
@@ -520,9 +518,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         {
             epoch = _readLifecycleEpoch();
         }
-        catch (Exception ex) when (
-            ex is TargetInvocationException || ex is ArgumentException ||
-            ex is InvalidOperationException || ex is TargetException || ex is MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

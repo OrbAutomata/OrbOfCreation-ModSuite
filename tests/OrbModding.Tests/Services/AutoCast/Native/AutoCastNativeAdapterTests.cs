@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using OrbAutomata;
 using Xunit;
 
@@ -38,6 +39,26 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
         Assert.Equal(
             "the spell is still starting its cast, so the press would start no cast",
             submission.Reason);
+    }
+
+    [Fact]
+    public void An_unexpected_exception_from_a_native_read_escapes_the_fire()
+    {
+        var recipe = new SpellRecipeSO();
+        recipe.SetGuid(RecipeId);
+        var block = new InstantEffectBlock();
+        block.effectScripts.Add(new UnreadableEffectScript());
+        recipe.onCastEffects.Add(block);
+        SpellManager.instance!.activeSpells.value.Add(new Spell(recipe));
+        using var adapter = new AutoCastNativeAdapter();
+
+        Assert.Throws<InvalidCastException>(() => adapter.Fire(0, RecipeId, holdFullCharge: false));
+    }
+
+    private sealed class UnreadableEffectScript : IInstantEffectScript, IEnumerable
+    {
+        public IEnumerator GetEnumerator() =>
+            throw new InvalidCastException("injected effect graph read failure");
     }
 
     public void Dispose()

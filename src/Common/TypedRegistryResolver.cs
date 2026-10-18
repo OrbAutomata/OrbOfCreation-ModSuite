@@ -163,7 +163,7 @@ public sealed class TypedRegistryResolver
         {
             members = readMembers(registry.Value!);
         }
-        catch (Exception ex) when (IsExpectedReadFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Result(
                 uuid,
@@ -267,7 +267,7 @@ public sealed class TypedRegistryResolver
                 }
             }
         }
-        catch (Exception ex) when (IsExpectedReadFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Result(
                 uuid,
@@ -313,7 +313,7 @@ public sealed class TypedRegistryResolver
         {
             source = _readRegistry();
         }
-        catch (Exception ex) when (IsExpectedReadFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Result(
                 uuid,
@@ -358,7 +358,7 @@ public sealed class TypedRegistryResolver
             }
             value = source.Registry[uuid];
         }
-        catch (Exception ex) when (IsExpectedReadFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Result(
                 uuid,
@@ -401,7 +401,7 @@ public sealed class TypedRegistryResolver
         {
             resolvedUuid = _readStableUuid(value);
         }
-        catch (Exception ex) when (IsExpectedReadFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Result(
                 uuid,
@@ -493,17 +493,5 @@ public sealed class TypedRegistryResolver
             source.Read,
             source.ReadStableUuid);
     }
-
-    private static bool IsExpectedReadFailure(Exception exception) =>
-        exception is InvalidOperationException or
-        ArgumentException or
-        NotSupportedException or
-        TargetException or
-        TargetInvocationException or
-        TargetParameterCountException or
-        MethodAccessException or
-        FieldAccessException or
-        MissingMemberException or
-        TypeLoadException;
 
 }

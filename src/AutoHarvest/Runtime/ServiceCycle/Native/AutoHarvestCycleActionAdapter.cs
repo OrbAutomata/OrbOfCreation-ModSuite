@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.Configuration;
 #if SERVICE_CYCLE_PROFILE
@@ -101,7 +102,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
             if (_profileBindings.TryComplete(temperature)) bindingStage.Complete();
 #endif
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }

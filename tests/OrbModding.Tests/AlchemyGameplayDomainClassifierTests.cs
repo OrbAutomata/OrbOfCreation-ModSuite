@@ -182,6 +182,19 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromTheNativeIdentityReadEscapesInitialization()
+    {
+        RegisterConceptRecipes(Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid)));
+        var resolver = new TypedRegistryResolver(
+            () => 1,
+            () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup),
+            _ => throw new System.Reflection.TargetException("injected identity read failure"));
+        using var classifier = new AlchemyGameplayDomainClassifier(resolver);
+
+        Assert.Throws<System.Reflection.TargetException>(() => classifier.TryInitialize(out _));
+    }
+
+    [Fact]
     public void SameUuidDifferentNativeReferenceFailsClosedWithinLifecycle()
     {
         var uuid = Guid.NewGuid();

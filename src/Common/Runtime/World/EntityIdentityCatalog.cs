@@ -191,7 +191,7 @@ internal sealed class EntityIdentityCatalog
         {
             source = _binding.Read();
         }
-        catch (Exception exception) when (IsExpectedReadFailure(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Fail(expectedGeneration,
                 "runtime identity registry binding failed: " +
@@ -227,7 +227,7 @@ internal sealed class EntityIdentityCatalog
                     uuid, runtimeType, displayName, assetName));
             }
         }
-        catch (Exception exception) when (IsExpectedReadFailure(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             // A registry mutation normally invalidates IDictionary enumeration. Treat the whole
             // candidate as transient and retry on the next capture; no partial table is published.
@@ -240,7 +240,7 @@ internal sealed class EntityIdentityCatalog
         {
             countAfter = registry.Count;
         }
-        catch (Exception exception) when (IsExpectedReadFailure(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return _snapshot;
         }
@@ -293,15 +293,4 @@ internal sealed class EntityIdentityCatalog
     private static string ReadAssetName(object value) =>
         value is UnityEngine.Object asset ? asset.name ?? string.Empty : string.Empty;
 
-    private static bool IsExpectedReadFailure(Exception exception) =>
-        exception is InvalidOperationException or
-        ArgumentException or
-        NotSupportedException or
-        TargetException or
-        TargetInvocationException or
-        TargetParameterCountException or
-        MethodAccessException or
-        FieldAccessException or
-        MissingMemberException or
-        TypeLoadException;
 }

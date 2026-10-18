@@ -286,6 +286,10 @@ as its explanation; if the outcome is absent or the target ambiguous after a mut
 closed. Admission checks still prevent unaffordable or otherwise ineligible attempts — this rule
 defines what a postcondition is, not preflight authority.
 
+`NativeFailureClassifier.IsExpected` is the one list of exceptions that count as a failed native
+read or call, for every GameAction, adapter and reader. Any other exception is a suite defect and
+escapes to the boundary that reports it as a fault.
+
 ## MCP responses: worked, or why not
 
 A success says the action worked and, when the settlement window delivers it, what changed — the

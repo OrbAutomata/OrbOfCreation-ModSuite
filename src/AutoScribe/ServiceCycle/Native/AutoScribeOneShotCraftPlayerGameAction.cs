@@ -26,7 +26,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             liveLifecycle = _readLifecycleEpoch();
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return CraftingPlayerSubmission.Reject(
                 in action,
@@ -68,7 +68,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
             using (scope)
                 return SubmitDirect(in action, native, recipe);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return CraftingPlayerSubmission.Reject(
                 in action,
@@ -106,7 +106,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             native.RecipeExecute(recipe);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (RecipeEffectAdvancedBestEffort(native, recipe, revisionBefore))
                 return Verified(
@@ -128,7 +128,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             revisionAfter = native.RecipeEffectRevision(recipe);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return PlayerCraftingFault(
                 in action,
@@ -264,7 +264,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
                 calls,
                 crafted);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             var landed = existing is not null
                 ? InstanceQuantityBestEffort(native, existing) > previousInstanceQuantity
@@ -468,7 +468,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             return ContainsExactInstance(native, queue, instance);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -482,7 +482,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             return native.InstanceQuantity(instance);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return BigDouble.NaN;
         }
@@ -496,7 +496,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             return native.InstanceExpired(instance);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }
@@ -511,7 +511,7 @@ internal sealed partial class AutoScribeOneShotCraftGameAction
         {
             return native.RecipeEffectRevision(recipe) > before;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return false;
         }

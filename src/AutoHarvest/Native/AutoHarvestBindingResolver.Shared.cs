@@ -56,7 +56,7 @@ internal sealed partial class AutoHarvestBindingResolver
                 AutoHarvestRuntimeFailureScope.Feature);
             return false;
         }
-        catch (Exception ex) when (AutoHarvestReflectionAccess.IsExpectedFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             var kind = AutoHarvestReflectionAccess.ClassifyExpectedFailure(ex);
             failure = AutoHarvestNativeFailure.Create(

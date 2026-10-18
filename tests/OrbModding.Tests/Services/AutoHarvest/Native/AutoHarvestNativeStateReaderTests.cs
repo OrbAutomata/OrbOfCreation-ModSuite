@@ -122,6 +122,17 @@ public sealed class AutoHarvestNativeStateReaderTests
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromANativeReadEscapesClickAdmission()
+    {
+        var world = PrototypeWorld.Create();
+        world.AddInstance(world.Plot, world.Action);
+        world.Plot.InstancesUnreadable = true;
+
+        Assert.Throws<NullReferenceException>(() =>
+            new AutoHarvestNativeStateReader().ValidateClickAdmission(world.Resolved, out _));
+    }
+
+    [Fact]
     public void CurrentPairResolutionReReadsStableUuidAndExactNativeType()
     {
         var world = PrototypeWorld.Create();
@@ -352,9 +363,17 @@ public sealed class AutoHarvestNativeStateReaderTests
     {
         public readonly List<object> instances = new();
         public bool Visible { get; set; } = true;
+        public bool InstancesUnreadable { get; set; }
 
         public bool IsVisible() => Visible;
-        public List<object> GetActionInstances() => instances;
+        public IList GetActionInstances() =>
+            InstancesUnreadable ? new UnreadableInstanceList() : instances;
+    }
+
+    private sealed class UnreadableInstanceList : ArrayList
+    {
+        public override IEnumerator GetEnumerator() =>
+            throw new NullReferenceException("injected instance list read failure");
     }
 
     private sealed class StubAction : IdScriptableObject

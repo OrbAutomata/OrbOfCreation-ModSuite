@@ -240,7 +240,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
                 ? "Auto Scribe does not own CraftingQueueSubmission."
                 : reason;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return "Auto Scribe ownership evidence failed: " + ex.GetBaseException().Message;
         }

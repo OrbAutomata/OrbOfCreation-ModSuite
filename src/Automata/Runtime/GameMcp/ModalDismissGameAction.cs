@@ -118,8 +118,7 @@ internal sealed class ModalDismissGameAction : IDisposable
             _pendingEpoch = _readLifecycleEpoch();
             return new ModalDismissSubmission(true, "committed", string.Empty, title);
         }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Refused("contract_unavailable",
                 "The modal close control failed." +
@@ -149,8 +148,7 @@ internal sealed class ModalDismissGameAction : IDisposable
             if (dismissed) _pendingModal = null;
             return true;
         }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             reason = "The modal settled state could not be read." +
                 GameActionFaultLog.Record(exception, "the open modal");
@@ -188,8 +186,7 @@ internal sealed class ModalDismissGameAction : IDisposable
             titles = open.ToArray();
             return true;
         }
-        catch (Exception exception) when (exception is InvalidOperationException or
-            ArgumentException or TargetInvocationException)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             reason = "The open modal titles could not be read." +
                 GameActionFaultLog.Record(exception, "the open modal");

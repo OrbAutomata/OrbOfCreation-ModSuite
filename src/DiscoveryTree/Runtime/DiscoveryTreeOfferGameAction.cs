@@ -52,7 +52,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
 
         long currentEpoch;
         try { currentEpoch = _readLifecycleEpoch(); }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.LifecycleReplaced,
@@ -84,7 +84,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                     $"Unknown Discovery Tree offer action kind {(int)action.Kind}."),
             };
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return DiscoveryTreeOfferSubmission.Reject(
                 DiscoveryTreeOfferPreflight.ContractUnavailable,
@@ -143,7 +143,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
             nativeCalls++;
             return CompleteModeTransition(in action, native, tree, nativeCalls);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (IsCraftingBestEffort(native, tree))
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
@@ -240,13 +240,13 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                 native.Select(tree, Guid.Empty);
                 nativeCalls++;
             }
-            catch (Exception ex) when (IsExpected(ex))
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 nativeCalls++;
             }
             return CompleteModeTransition(in action, native, tree, nativeCalls);
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (IsCraftingBestEffort(native, tree))
                 return Verified(nativeCalls, "The tree entered Crafting mode before the native exception.");
@@ -285,7 +285,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed, 1,
                     GameActionAnswer.ChangeNotSeen("the screen this tree is drawn on"));
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             if (LandedBestEffort(landed))
                 return Verified(1, $"The requested {action.Kind} transition landed before the native exception.");
@@ -400,7 +400,7 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
                     "again in a moment.";
             return false;
         }
-        catch (Exception ex) when (IsExpected(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = GameActionAnswer.CouldNotRead("the screen this tree is drawn on", ex);
             return false;
@@ -423,15 +423,13 @@ internal sealed class DiscoveryTreeOfferGameAction : IDisposable
     private static bool IsCraftingBestEffort(DiscoveryTreeOfferNativeBindings native, object tree)
     {
         try { return native.IsCrafting(tree); }
-        catch (Exception ex) when (IsExpected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
     private static bool LandedBestEffort(Func<bool> landed)
     {
         try { return landed(); }
-        catch (Exception ex) when (IsExpected(ex)) { return false; }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex)) { return false; }
     }
 
-    private static bool IsExpected(Exception exception) => exception is not
-        StackOverflowException and not OutOfMemoryException and not AccessViolationException;
 }

@@ -119,7 +119,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                 GameActionAnswer.NotAttached("Alchemy", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(AlchemyLoadoutPreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Alchemy", exception));
@@ -192,7 +192,7 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                 return Reject(AlchemyLoadoutPreflight.MutationPermitUnavailable, _readOwnershipFailure());
             return Execute(in action, native, list, recipe, beforeTarget);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Reject(AlchemyLoadoutPreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Alchemy", exception));
@@ -231,12 +231,11 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
                     NativeMutationOutcome.PostconditionFailed,
                     GameActionAnswer.ChangeNotSeen("Alchemy"));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var request = action;
             if (NativeMutationVerifier.TryReadAfterCall(
-                    () => OutcomeObserved(in request, native, list, recipe, beforeTarget),
-                    IsExpected, out var observed) && observed)
+                    () => OutcomeObserved(in request, native, list, recipe, beforeTarget), out var observed) && observed)
                 return Verified();
             return Fault(in action, AlchemyLoadoutPreflight.PostCommitFault, stage,
                 NativeMutationOutcome.ExecutionThrew,
@@ -298,6 +297,4 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) => exception is InvalidOperationException or
-        ArgumentException or TargetInvocationException or OverflowException;
 }

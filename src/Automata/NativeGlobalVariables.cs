@@ -101,7 +101,7 @@ internal sealed class NativeIntVariableContract
                 return true;
             }
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             value = 0;
             reason = DescribeException(ex);
@@ -199,7 +199,7 @@ internal static class NativeGlobalVariableAccess
         {
             variable = getMultiBuy.Invoke(null, Array.Empty<object>())!;
         }
-        catch (Exception ex) when (ex is TargetInvocationException || ex is ArgumentException || ex is InvalidOperationException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = ex is TargetInvocationException { InnerException: not null } target
                 ? target.InnerException.Message

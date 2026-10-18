@@ -223,16 +223,15 @@ public static class NativeMutationVerifier
     /// its own outcome. An unreadable after-state comes back unread instead of thrown, so a change
     /// that may have landed is classified as a fault and never escapes as a refusal.
     /// </summary>
-    public static bool TryReadAfterCall<T>(Func<T> read, Func<Exception, bool> isExpected, out T value)
+    public static bool TryReadAfterCall<T>(Func<T> read, out T value)
     {
         if (read is null) throw new ArgumentNullException(nameof(read));
-        if (isExpected is null) throw new ArgumentNullException(nameof(isExpected));
         try
         {
             value = read();
             return true;
         }
-        catch (Exception exception) when (isExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             value = default!;
             return false;

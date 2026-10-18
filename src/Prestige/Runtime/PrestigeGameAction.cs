@@ -42,7 +42,7 @@ internal sealed class PrestigeGameAction : IDisposable
                 GameActionAnswer.NotAttached("Time > Reset", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return PrestigeSubmission.Reject(PrestigePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Time > Reset", exception));
@@ -71,7 +71,7 @@ internal sealed class PrestigeGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(native, manager, in before);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return PrestigeSubmission.Reject(PrestigePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Time > Reset", exception));
@@ -111,7 +111,7 @@ internal sealed class PrestigeGameAction : IDisposable
                 "Expected lifecycle " + checked(before.LifecycleEpoch + 1) +
                 ", observed " + observedEpoch + ".");
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var observedEpoch = ReadEpochBestEffort(before.LifecycleEpoch);
             if (observedEpoch == checked(before.LifecycleEpoch + 1))
@@ -155,7 +155,7 @@ internal sealed class PrestigeGameAction : IDisposable
     private long ReadEpochBestEffort(long fallback)
     {
         try { return _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception)) { return fallback; }
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception)) { return fallback; }
     }
 
     private void BindLifecycle()
@@ -167,6 +167,4 @@ internal sealed class PrestigeGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private static bool IsExpected(Exception exception) => exception is InvalidOperationException or
-        ArgumentException or TargetInvocationException or OverflowException;
 }

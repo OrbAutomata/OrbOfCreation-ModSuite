@@ -49,7 +49,7 @@ internal sealed class ChallengeGameAction : IDisposable
                 GameActionAnswer.NotAttached("Time > Challenges", _bindingFailure));
         long epoch;
         try { epoch = _readLifecycleEpoch(); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return ChallengeSubmission.Reject(ChallengePreflight.LifecycleReplaced,
                 GameActionAnswer.CouldNotRead("Time > Challenges", exception));
@@ -94,7 +94,7 @@ internal sealed class ChallengeGameAction : IDisposable
                     _readOwnershipFailure());
             return Execute(in action, native, in context, target, replaced, in before);
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return ChallengeSubmission.Reject(ChallengePreflight.ContractUnavailable,
                 GameActionAnswer.CouldNotRead("Time > Challenges", exception));
@@ -175,7 +175,7 @@ internal sealed class ChallengeGameAction : IDisposable
                     GameActionAnswer.ChangeNotSeen("Time > Challenges"),
                     SettledBudget(action.Kind, native, in context, in before));
         }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             if (OutcomeLandedBestEffort(action.Kind, native, in context, target, replaced, in before))
                 return Verified();
@@ -197,7 +197,7 @@ internal sealed class ChallengeGameAction : IDisposable
     {
         if (kind != ChallengeActionKind.Reroll) return ChallengeBudget.NotTheAxis;
         try { return new ChallengeBudget(before.RerollsLeft, native.AsInt(context.RerollsLeft)); }
-        catch (Exception exception) when (IsExpected(exception))
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return new ChallengeBudget(before.RerollsLeft, -1);
         }
@@ -308,7 +308,7 @@ internal sealed class ChallengeGameAction : IDisposable
         in ChallengeAdmissionState before)
     {
         try { return OutcomeLanded(kind, native, in context, target, replaced, in before); }
-        catch (Exception exception) when (IsExpected(exception)) { return false; }
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception)) { return false; }
     }
 
     private static ChallengeSubmission Verified() =>
@@ -386,6 +386,4 @@ internal sealed class ChallengeGameAction : IDisposable
         internal object Fetched { get; }
     }
 
-    private static bool IsExpected(Exception exception) => exception is InvalidOperationException or
-        ArgumentException or TargetInvocationException or OverflowException;
 }

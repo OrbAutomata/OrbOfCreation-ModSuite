@@ -62,21 +62,6 @@ internal static class AutoHarvestReflectionAccess
     }
 #endif
 
-    public static bool IsExpectedFailure(Exception ex) => ex is
-        TargetInvocationException or
-        ArgumentException or
-        InvalidOperationException or
-        InvalidCastException or
-        FormatException or
-        OverflowException or
-        NullReferenceException or
-        TargetException or
-        TargetParameterCountException or
-        MemberAccessException or
-        AmbiguousMatchException or
-        TypeLoadException or
-        MissingMemberException;
-
     public static AutoHarvestRuntimeFailureKind ClassifyExpectedFailure(Exception ex) =>
         ex is TargetInvocationException
             ? AutoHarvestRuntimeFailureKind.Retryable

@@ -219,7 +219,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             reason = string.Empty;
             return true;
         }
-        catch (Exception ex) when (IsExpectedReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Block("native alchemy classifier initialization failed: " + ex.GetBaseException().Message, out reason);
         }
@@ -401,7 +401,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
                 return true;
             }
         }
-        catch (Exception ex) when (IsExpectedReflectionFailure(ex))
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
         }
         uuid = Guid.Empty;
@@ -534,14 +534,6 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         }
         return null;
     }
-
-    private static bool IsExpectedReflectionFailure(Exception ex) =>
-        ex is ArgumentException ||
-        ex is InvalidOperationException ||
-        ex is TargetInvocationException ||
-        ex is TargetException ||
-        ex is MethodAccessException ||
-        ex is FieldAccessException;
 
     private sealed class CachedRecipe
     {

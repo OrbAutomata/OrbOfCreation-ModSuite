@@ -267,7 +267,7 @@ internal sealed partial class AutoItemsConsumableUseGameAction : IDisposable
                 reason = "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride.";
             return false;
         }
-        catch (Exception ex) when (ex is InvalidOperationException or MemberAccessException)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason = GameActionAnswer.CouldNotRead("Inventory", ex);
             return false;
