@@ -13,7 +13,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
 {
     private readonly SuiteFramePumpTraceSession _traces;
     private readonly SuiteFramePumpJournalSession _journal;
-    private readonly ServiceActionFailureBuffer _actionFailures;
+    private readonly ServiceFailureBuffer _serviceFailures;
 #if SERVICE_CYCLE_PROFILE
     private readonly SuiteFramePumpEvidenceProfiler _profiler;
 #endif
@@ -21,7 +21,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
     internal SuiteFramePumpEvidenceEmitter(
         SuiteFramePumpTraceSession traces,
         SuiteFramePumpJournalSession journal,
-        ServiceActionFailureBuffer actionFailures
+        ServiceFailureBuffer serviceFailures
 #if SERVICE_CYCLE_PROFILE
         , SuiteFramePumpEvidenceProfiler profiler
 #endif
@@ -29,7 +29,7 @@ internal sealed class SuiteFramePumpEvidenceEmitter
     {
         _traces = traces;
         _journal = journal;
-        _actionFailures = actionFailures;
+        _serviceFailures = serviceFailures;
 #if SERVICE_CYCLE_PROFILE
         _profiler = profiler;
 #endif
@@ -126,9 +126,9 @@ internal sealed class SuiteFramePumpEvidenceEmitter
         }
         _journal.Observer?.ActionDispatched(ordinal, in dispatch, observedAt);
         if (dispatch.AttributionFailureReason is { } reason)
-            _actionFailures.Observe(ordinal, ServiceActionFailureSite.Attribution, reason);
+            _serviceFailures.Observe(ordinal, ServiceFailureSite.Attribution, reason);
         if (dispatch.ExecutionFailureReason is { } thrown)
-            _actionFailures.Observe(ordinal, ServiceActionFailureSite.Execution, thrown);
+            _serviceFailures.Observe(ordinal, ServiceFailureSite.Execution, thrown);
     }
 
     internal void StartAttemptObserved(
@@ -159,6 +159,15 @@ internal sealed class SuiteFramePumpEvidenceEmitter
 #endif
         }
         _journal.Observer?.StartAttemptObserved(ordinal, in start, observedAt);
+        // The first fault of a streak carries the cause; the retries behind it back off silently until
+        // the service recovers, so a read that keeps throwing names itself once, not every few seconds.
+        if (start.FailureReason is { } reason && start.Fault.OccurrenceCount == 1)
+            _serviceFailures.Observe(
+                ordinal,
+                start.Fault.Category == ServiceFaultCategory.Capture
+                    ? ServiceFailureSite.Capture
+                    : ServiceFailureSite.Start,
+                reason);
     }
 
     internal void PumpCompleted(

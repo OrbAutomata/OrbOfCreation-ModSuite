@@ -308,7 +308,9 @@ resets the episode and backoff.
 Ten fault categories are stable wire values: `Capture`, `Evaluation`, `StateProjection`,
 `ResponseValidation`, `StateFactory`, `ActionExecution`, `NativeContract`, `Storage`,
 `LifecycleConstruction`, `Start`. Capture and action-adapter faults use the same episode and debounce
-principles but never retry an already rejected action.
+principles but never retry an already rejected action. The first start or capture fault of a streak
+writes its cause (exception type, message and top frames) to the suite log; the retries behind it back
+off without logging until the service recovers. A process-fatal exception is never contained.
 
 ## Common frame pump
 
