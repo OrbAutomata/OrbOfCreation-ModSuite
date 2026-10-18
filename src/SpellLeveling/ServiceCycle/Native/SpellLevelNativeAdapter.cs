@@ -12,22 +12,32 @@ namespace OrbAutomata;
 /// </summary>
 internal readonly struct SpellLevelSubmission
 {
-    private SpellLevelSubmission(NativeActionOutcome outcome, ResourceCharge[]? charges = null)
+    private SpellLevelSubmission(
+        NativeActionOutcome outcome
+#if SERVICE_CYCLE_PROFILE
+        , ResourceCharge[]? charges = null
+#endif
+        )
     {
         Outcome = outcome;
+#if SERVICE_CYCLE_PROFILE
         _charges = charges;
+#endif
     }
-
-    private readonly ResourceCharge[]? _charges;
 
     public NativeActionOutcome Outcome { get; }
 
+#if SERVICE_CYCLE_PROFILE
+    private readonly ResourceCharge[]? _charges;
+
     /// <summary>
     /// The price the game named for a single level on the frame that paid it. A level-all press
-    /// is the game's own batch, which names no price to the suite, so it carries none.
+    /// is the game's own batch, which names no price to the suite, so it carries none. Only the
+    /// strategist's mastery press reports it, so only a profile build reads it.
     /// </summary>
     public ReadOnlySpan<ResourceCharge> Charges =>
         _charges is null ? default : _charges.AsSpan();
+#endif
 
     public static SpellLevelSubmission Rejected(ServiceActionResultCode code, string reason) =>
         new(NativeActionOutcome.Reject(code, reason));
@@ -36,16 +46,22 @@ internal readonly struct SpellLevelSubmission
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     public static SpellLevelSubmission Attempted<TState>(
-        NativeMutationEvidence<TState> evidence,
-        ResourceCharge[]? charges = null)
+        NativeMutationEvidence<TState> evidence
+#if SERVICE_CYCLE_PROFILE
+        , ResourceCharge[]? charges = null
+#endif
+        )
     {
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         return new(
             evidence.IsVerified
                 ? NativeActionOutcome.Commit(calls, string.Empty)
                 : NativeActionOutcome.Fault(
-                    CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()),
-            charges);
+                    CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format())
+#if SERVICE_CYCLE_PROFILE
+            , charges
+#endif
+            );
     }
 }
 
@@ -211,7 +227,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     private SpellLevelSubmission SubmitSingle(Guid uuid, object recipe, object cost)
     {
         var native = _bindings!;
+#if SERVICE_CYCLE_PROFILE
         var charges = ReadCharges(cost);
+#endif
         var evidence = NativeMutationVerifier.Execute(
             "Spell level single",
             uuid.ToString("D"),
@@ -224,9 +242,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             },
             (before, after) => after == before + 1,
             BlockAttempted);
-        return SpellLevelSubmission.Attempted(evidence, charges);
+        return SpellLevelSubmission.Attempted(
+            evidence
+#if SERVICE_CYCLE_PROFILE
+            , charges
+#endif
+            );
     }
 
+#if SERVICE_CYCLE_PROFILE
     private ResourceCharge[]? ReadCharges(object cost)
     {
         var native = _bindings!;
@@ -245,6 +269,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         Array.Resize(ref charges, count);
         return charges;
     }
+#endif
 
     private SpellLevelSubmission SubmitAll(Guid uuid)
     {
