@@ -134,3 +134,11 @@ a few minutes at each pace, switching it in Mods > General > **Automation pace**
 and pressing Apply. Quit the game normally so the session writes its manifest,
 then run `./script/trace --full "<game>/BepInEx/config/OrbOfCreation-ModSuite/trace" report.md`. Its Pace view gives one row per
 stretch with the collection rate, collection cost, frame rate, and pump cost.
+
+### Garbage-collection capture
+
+To see how much of the collector's work and the long hitches the suite causes, install the
+perf-debug build and play normally. Before quitting, press **Stop profile** on Mods > Runtime so the
+profile writes its manifest, then quit the game normally so the full trace writes its own. Run
+`./script/trace --full "<game>/BepInEx/config/OrbOfCreation-ModSuite/trace" report.md` and read its
+Garbage collection section. If it says the section is unavailable, the BepInEx log names why.
