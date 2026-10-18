@@ -1265,8 +1265,117 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     {
         global::ActionManager.RemainingRoom = -2;
 
-        Assert.True(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out var room));
+        Assert.True(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out var room, out _));
         Assert.Equal(-2, room);
+    }
+
+    /// <summary>
+    /// Before the first game loads, <c>ActionManager.instance</c> is null and the game's own
+    /// <c>GetRemainingRoom</c> would throw. The read answers that no game is loaded instead.
+    /// </summary>
+    [Fact]
+    public void ReadRemainingRoom_BeforeAnyGameLoaded_AnswersThatNoGameIsLoaded()
+    {
+        global::ActionManager.instance = null!;
+
+        Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+    }
+
+    /// <summary>
+    /// After leaving a game the manager is destroyed but still referenced, and the game's call would
+    /// answer the abandoned scene's room. That number is not a reading.
+    /// </summary>
+    [Fact]
+    public void ReadRemainingRoom_AfterLeavingTheGame_AnswersThatNoGameIsLoaded()
+    {
+        global::ActionManager.RemainingRoom = 5;
+        global::ActionManager.instance.destroyed = true;
+
+        Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+    }
+
+    /// <summary>
+    /// A throw the classifier does not expect is a suite defect, so it stays loud instead of reading
+    /// as a queue that could not answer.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowFromTheQueueRoomReadEscapes()
+    {
+        global::ActionManager.RemainingRoomFault = new NullReferenceException();
+
+        Assert.Throws<NullReferenceException>(
+            () => new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out _));
+    }
+
+    /// <summary>
+    /// An unexpected throw from the structure admission fold escapes to the batch boundary, never
+    /// becoming an unresolved candidate.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowFromAdmissionEscapes()
+    {
+        var structure = new global::StructureSO
+        {
+            uuid = Guid.NewGuid().ToString(),
+            available = true,
+            purchasable = true,
+            queuedQuantity = 3,
+        };
+        Publish(structure);
+        global::ActionManager.AdmissionFault = new NullReferenceException();
+
+        Assert.Throws<NullReferenceException>(() => Execute(
+            AutoBuyCandidateKind.Structure,
+            Guid.Parse(structure.uuid),
+            nativeEpoch: PlannedEpoch));
+        Assert.Equal(3, structure.queuedQuantity);
+    }
+
+    [Fact]
+    public void Every_missing_member_disables_the_complete_purchase_binding_set()
+    {
+        foreach (var missing in AutoBuyPurchaseNativeBindings.ContractIds)
+        {
+            ResetNativeState();
+            var structure = new global::StructureSO
+            {
+                uuid = Guid.NewGuid().ToString(),
+                available = true,
+                purchasable = true,
+                queuedQuantity = 3,
+            };
+            Publish(structure);
+
+            var submission = NativeAdapter(includeContract: id => id != missing)
+                .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+
+            Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);
+            Assert.False(submission.Outcome.ToResult().HasNativeEvidence);
+            Assert.Contains(missing, submission.Outcome.Reason, StringComparison.Ordinal);
+            Assert.Equal(3, structure.queuedQuantity);
+        }
+    }
+
+    /// <summary>
+    /// An unbound queue-room set disables the read, and the warning it produces names the contract
+    /// that did not bind.
+    /// </summary>
+    [Fact]
+    public void Every_missing_member_disables_the_queue_room_read_and_the_warning_names_it()
+    {
+        global::ActionManager.RemainingRoom = 5;
+        foreach (var missing in AutoBuyNativeQueueRoomAdapter.ContractIds)
+        {
+            Assert.False(new AutoBuyNativeQueueRoomAdapter(id => id != missing)
+                .TryReadRemainingRoom(out _, out var reason));
+            Assert.Contains(
+                missing,
+                AutoBuyPurchaseNarration.QueueRoomUnavailable(
+                    AutoBuyCandidateKind.Structure, Guid.NewGuid(), reason),
+                StringComparison.Ordinal);
+        }
     }
 
     /// <param name="nativeEpoch">What the live game says its epoch is when the action is submitted.</param>
@@ -1745,9 +1854,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             _readable = readable;
         }
 
-        public bool TryReadRemainingRoom(out int remainingRoom)
+        public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
         {
             remainingRoom = _readable ? _room : 0;
+            reason = _readable ? string.Empty : "the fake queue room is unreadable";
             return _readable;
         }
     }
@@ -1814,10 +1924,15 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         owningView.relevantLists.Add(upgrades);
         global::ViewSO.All.Add(owningView);
         global::GlobalVariables.MultiBuy = new global::IntVariable();
+        global::ActionManager.instance = new global::ActionManager();
+        global::ActionManager.RemainingRoomFault = null;
+        global::ActionManager.AdmissionFault = null;
         NativeMultiBuyScope.ResetQuarantineForTests();
     }
 
-    private static AutoBuyNativePurchaseAdapter NativeAdapter(long lifecycleEpoch = PlannedEpoch)
+    private static AutoBuyNativePurchaseAdapter NativeAdapter(
+        long lifecycleEpoch = PlannedEpoch,
+        Func<string, bool>? includeContract = null)
     {
         Assert.True(
             NativePurchaseViewAdmissionResolver.TryCreate(
@@ -1834,6 +1949,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             out _,
             out _,
             out _);
-        return new AutoBuyNativePurchaseAdapter(topology);
+        return new AutoBuyNativePurchaseAdapter(topology, includeContract);
     }
 }

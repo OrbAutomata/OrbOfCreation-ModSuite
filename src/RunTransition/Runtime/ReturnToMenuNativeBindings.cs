@@ -124,7 +124,7 @@ internal sealed class ReturnToMenuNativeBindings
                 activator,
                 set.Field<Func<object, bool>>(
                     "return-to-menu.activator-modal-created-action", activator, "modalCreated", typeof(bool)),
-                target => LiveUnityObject(createdModal(target)),
+                target => createdModal(target) is var created && NativeObjectLiveness.IsAlive(created) ? created : null,
                 set.Call<Func<object, bool>>("return-to-menu.modal-open-action", modal, "IsOpen", typeof(bool)),
                 LiveControl(
                     set.Field<Func<object, UnityEngine.UI.Button>>(
@@ -156,11 +156,4 @@ internal sealed class ReturnToMenuNativeBindings
                 activeInHierarchy(gameObject(button)) &&
                 interactable(button);
         };
-
-    /// <summary>
-    /// A destroyed Unity reference is not a live panel, and reading through one throws. The field
-    /// answers with the game's own object-lifetime rule instead of a plausible reference.
-    /// </summary>
-    private static object? LiveUnityObject(object? value) =>
-        value is UnityEngine.Object unityObject && unityObject != null ? unityObject : null;
 }

@@ -51,18 +51,10 @@ public sealed class AutoBuyProfileTests : IDisposable
                 item,
                 ServiceCycleProfileSpan.AutoBuyActionCandidateResolution,
                 stableIdReads: 1),
-            // Lifecycle bind already captured the authored category/list/view chain. The action
-            // boundary reads only current view availability and the thin StructureSO.CanPurchase()
-            // fold, so no topology fields or list entries appear on the warm action path.
-            item => AssertStage(
-                item,
-                ServiceCycleProfileSpan.AutoBuyActionAdmissionRevalidation,
-                methodCalls: 3),
-            item => AssertStage(
-                item,
-                ServiceCycleProfileSpan.AutoBuyActionNativeSubmission,
-                methodCalls: 3,
-                invocationArgumentArrays: 1));
+            // Lifecycle bind already captured the authored category/list/view chain, so no list
+            // entries appear on the warm action path.
+            item => AssertStage(item, ServiceCycleProfileSpan.AutoBuyActionAdmissionRevalidation),
+            item => AssertStage(item, ServiceCycleProfileSpan.AutoBuyActionNativeSubmission));
         Assert.Same(measurement, probe.Detach());
     }
 
@@ -491,21 +483,15 @@ public sealed class AutoBuyProfileTests : IDisposable
     private static void AssertStage(
         in CapturedMeasurement item,
         ServiceCycleProfileSpan span,
-        uint fieldReads = 0,
-        uint methodCalls = 0,
         uint stableIdReads = 0,
-        uint listEntries = 0,
-        uint invocationArgumentArrays = 0)
+        uint listEntries = 0)
     {
         Assert.Equal((int)span, item.Context.StageCode);
         Assert.Equal(1, item.Context.ServiceOrdinal);
         Assert.Equal((ulong)41, item.Context.Frame);
         Assert.Equal(ServiceCycleProfileTemperature.Warm, item.Context.Temperature);
-        Assert.Equal(fieldReads, item.Operations.ReflectedFieldReads);
-        Assert.Equal(methodCalls, item.Operations.ReflectedMethodCalls);
         Assert.Equal(stableIdReads, item.Operations.StableIdReads);
         Assert.Equal(listEntries, item.Operations.ListEntries);
-        Assert.Equal(invocationArgumentArrays, item.Operations.InvocationArgumentArrays);
         Assert.Equal((uint)0, item.Operations.RecordCopies);
     }
 

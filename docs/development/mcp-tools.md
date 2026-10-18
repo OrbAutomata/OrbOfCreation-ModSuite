@@ -4918,7 +4918,9 @@ the spans are independent: an absent writer still answers what the last pass cos
   published occupancy snapshot cannot guarantee. The game's own upgrade button queues every level it
   bought without consulting the queue, so the reading goes negative from ordinary play; that is a
   full queue rather than a broken contract, so `remainingRoom` answers `0` and
-  `entriesBeyondCapacity` names the overshoot beside it, appearing only when there is one; and
+  `entriesBeyondCapacity` names the overshoot beside it, appearing only when there is one. On the
+  menu, before the first game or after leaving one, no game is loaded and the probe refuses with
+  `native_probe_unavailable` saying so, instead of faulting or answering the last game's room; and
 - `navigation`: live tab and active-subtab counts, useful for diagnosing catalog availability.
 
 To add a probe, add one fixed name to the router schema and closed-world policy, implement its

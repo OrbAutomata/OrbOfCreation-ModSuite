@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OrbModding.Common;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -69,14 +70,14 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
 
     public bool IsAlive => ModConfigNativeNavigationPolicy.HostsAlive(
         !_disposed,
-        NativeViewAdapter.IsAlive(_buttonObject) &&
-            NativeViewAdapter.IsAlive(_buttonObject.transform.parent) &&
+        NativeObjectLiveness.IsAlive(_buttonObject) &&
+            NativeObjectLiveness.IsAlive(_buttonObject.transform.parent) &&
             ReferenceEquals(_buttonObject.transform.parent, _buttonParent),
         panelAlive: true,
-        NativeViewAdapter.IsAlive(_buttonParent) && NativeViewAdapter.IsAlive(PanelParent));
+        NativeObjectLiveness.IsAlive(_buttonParent) && NativeObjectLiveness.IsAlive(PanelParent));
 
     public bool HostsPanel(GameObject panel) =>
-        NativeViewAdapter.IsAlive(panel) && NativeViewAdapter.IsAlive(panel.transform.parent) &&
+        NativeObjectLiveness.IsAlive(panel) && NativeObjectLiveness.IsAlive(panel.transform.parent) &&
         ReferenceEquals(panel.transform.parent, PanelParent);
 
     public void Connect(Action modsSelected, Action nativeTabSelected, Action? hierarchyChanged)
@@ -106,7 +107,7 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
         PruneNativeReferences();
         _modsActive = false;
         ApplyButtonStyle(active: false);
-        if (restorePreviousNativeView && NativeViewAdapter.IsAlive(_previousNativeView) &&
+        if (restorePreviousNativeView && NativeObjectLiveness.IsAlive(_previousNativeView) &&
             !_nativeViews.Any(NativeViewAdapter.IsActive))
         {
             NativeViewAdapter.SetActive(_previousNativeView!, true);
@@ -118,11 +119,11 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
     public NativeNavigationRecovery RecoverAfterPanelFailure(bool restoreRequested)
     {
         PruneNativeReferences();
-        var fallback = _nativeViews.FirstOrDefault(NativeViewAdapter.IsAlive);
+        var fallback = _nativeViews.FirstOrDefault(NativeObjectLiveness.IsAlive);
         var recovery = ModConfigNativeNavigationPolicy.OpenFailureRecovery(
             restoreRequested,
-            NativeViewAdapter.IsAlive(_previousNativeView),
-            NativeViewAdapter.IsAlive(fallback),
+            NativeObjectLiveness.IsAlive(_previousNativeView),
+            NativeObjectLiveness.IsAlive(fallback),
             _nativeViews.Any(NativeViewAdapter.IsActive));
         var target = recovery.RestorePrevious ? _previousNativeView :
             recovery.RestoreFallback ? fallback : null;
@@ -151,7 +152,7 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
         {
             var label = component.GetComponentInChildren<TextMeshProUGUI>(includeInactive: true);
             var view = NativeViewAdapter.ReadView(component);
-            var alive = NativeViewAdapter.IsAlive(view);
+            var alive = NativeObjectLiveness.IsAlive(view);
             result.Add(new GameMcpNativeTab(
                 result.Count,
                 label?.text?.Trim() ?? string.Empty,
@@ -257,9 +258,9 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
 
     private void BindNativeButton(Component component)
     {
-        if (!NativeViewAdapter.IsAlive(component)) return;
+        if (!NativeObjectLiveness.IsAlive(component)) return;
         var view = NativeViewAdapter.ReadView(component);
-        if (NativeViewAdapter.IsAlive(view) && !_nativeViews.Any(existing => ReferenceEquals(existing, view)))
+        if (NativeObjectLiveness.IsAlive(view) && !_nativeViews.Any(existing => ReferenceEquals(existing, view)))
             _nativeViews.Add(view!);
         var button = component.GetComponent<Button>();
         if (button is null || _closeListeners.Any(binding => ReferenceEquals(binding.Button, button))) return;
@@ -284,18 +285,18 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
 
     private void PruneNativeReferences()
     {
-        ModConfigNativeNavigationPolicy.PruneDead(_nativeViews, NativeViewAdapter.IsAlive);
+        ModConfigNativeNavigationPolicy.PruneDead(_nativeViews, NativeObjectLiveness.IsAlive);
         ModConfigNativeNavigationPolicy.PruneDead(
             _closeListeners,
-            binding => NativeViewAdapter.IsAlive(binding.Button) &&
-                       NativeViewAdapter.IsAlive(binding.Button.gameObject),
+            binding => NativeObjectLiveness.IsAlive(binding.Button) &&
+                       NativeObjectLiveness.IsAlive(binding.Button.gameObject),
             binding => TryRemoveListener(binding.Button, binding.Listener));
-        if (!NativeViewAdapter.IsAlive(_previousNativeView)) _previousNativeView = null;
+        if (!NativeObjectLiveness.IsAlive(_previousNativeView)) _previousNativeView = null;
     }
 
     private void RestoreUsableNativeView(object? preferred)
     {
-        if (NativeViewAdapter.IsAlive(preferred))
+        if (NativeObjectLiveness.IsAlive(preferred))
         {
             NativeViewAdapter.SetActive(preferred!, true);
             if (NativeViewAdapter.IsActive(preferred!)) return;
@@ -303,7 +304,7 @@ internal sealed class ModConfigNativeNavigationHost : IDisposable
 
         foreach (var nativeView in _nativeViews)
         {
-            if (!NativeViewAdapter.IsAlive(nativeView) || ReferenceEquals(nativeView, preferred)) continue;
+            if (!NativeObjectLiveness.IsAlive(nativeView) || ReferenceEquals(nativeView, preferred)) continue;
             NativeViewAdapter.SetActive(nativeView, true);
             if (NativeViewAdapter.IsActive(nativeView)) return;
         }

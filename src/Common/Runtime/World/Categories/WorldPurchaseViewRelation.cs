@@ -220,15 +220,11 @@ internal readonly struct NativePurchaseViewResolution
     internal string CandidateName { get; }
 }
 
-/// <summary>Exact reflection/list work performed by one live owning-view resolution.</summary>
+/// <summary>List entries walked by one live owning-view resolution.</summary>
 internal struct NativePurchaseViewAdmissionReadCounts
 {
-    internal uint FieldReads { get; private set; }
-    internal uint MethodCalls { get; private set; }
     internal uint ListEntries { get; private set; }
 
-    internal void AddFieldRead() => FieldReads = checked(FieldReads + 1);
-    internal void AddMethodCall() => MethodCalls = checked(MethodCalls + 1);
     internal void AddListEntry() => ListEntries = checked(ListEntries + 1);
 }
 
@@ -819,19 +815,19 @@ internal sealed class NativePurchaseViewAdmissionResolver
             var expected = CandidateType(kind);
             if (candidateId == Guid.Empty || candidate is null || candidate.GetType() != expected)
                 return Failed(kind, candidateId, categoryId, WorldPurchaseViewRelationStatus.Contradictory);
-            if (Identity(CandidateIdentity(kind), candidate, ref reads) != candidateId)
+            if (CandidateIdentity(kind)(candidate) != candidateId)
                 return Failed(kind, candidateId, categoryId, WorldPurchaseViewRelationStatus.Contradictory);
 
             if (kind == WorldPurchaseCandidateKind.Structure)
             {
                 var category = Exact(
-                    ReadField(_native.StructureCategory, candidate, ref reads),
+                    _native.StructureCategory(candidate),
                     _native.StructureCategoryType,
                     "StructureSO.structureType");
-                categoryId = Identity(_native.StructureCategoryIdentity, category, ref reads);
+                categoryId = _native.StructureCategoryIdentity(category);
                 if (categoryId == Guid.Empty ||
                     CountExactMembership(
-                        List(ReadField(_native.StructureCategoryMembers, category, ref reads),
+                        List(_native.StructureCategoryMembers(category),
                             "StructureTypeSO.structures"),
                         _native.StructureType,
                         _native.StructureIdentity,
@@ -912,7 +908,6 @@ internal sealed class NativePurchaseViewAdmissionResolver
                         routeReadable = false;
                         continue;
                     }
-                    reads.AddMethodCall();
                     if (!_native.ViewAvailable(view)) routeAvailable = false;
                 }
 
@@ -939,14 +934,13 @@ internal sealed class NativePurchaseViewAdmissionResolver
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
         var routes = new List<NativePurchaseViewRoute>();
-        reads.AddFieldRead();
         var views = List(_native.ViewAll(), "ViewSO.All");
         var seenViews = new HashSet<Guid>();
         foreach (var value in views)
         {
             reads.AddListEntry();
             var view = Exact(value, _native.ViewType, "ViewSO");
-            var viewId = Identity(_native.ViewIdentity, view, ref reads);
+            var viewId = _native.ViewIdentity(view);
             if (viewId == Guid.Empty || !seenViews.Add(viewId))
                 throw new RelationFailure(WorldPurchaseViewRelationStatus.Contradictory);
             MatchLists(
@@ -1001,7 +995,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         List<NativePurchaseViewRoute> routes,
         ref NativePurchaseViewAdmissionReadCounts reads)
     {
-        var lists = List(ReadField(source, view, ref reads), sourceName);
+        var lists = List(source(view), sourceName);
         foreach (var value in lists)
         {
             reads.AddListEntry();
@@ -1021,11 +1015,11 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 continue;
             }
 
-            var listId = Identity(_native.ListIdentity, value, ref reads);
+            var listId = _native.ListIdentity(value);
             if (listId == Guid.Empty)
                 throw new RelationFailure(WorldPurchaseViewRelationStatus.Contradictory);
             var members = List(
-                ReadField(CandidateListMembers(kind), value, ref reads),
+                CandidateListMembers(kind)(value),
                 runtimeType.Name + ".value");
             var matches = CountExactMembership(
                 members,
@@ -1070,7 +1064,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         {
             reads.AddListEntry();
             var member = Exact(value, expectedType, expectedType.Name + " list member");
-            var memberId = Identity(identity, member, ref reads);
+            var memberId = identity(member);
             if (memberId == Guid.Empty)
                 throw new RelationFailure(WorldPurchaseViewRelationStatus.Contradictory);
             if (memberId != candidateId) continue;
@@ -1136,24 +1130,6 @@ internal sealed class NativePurchaseViewAdmissionResolver
         kind == WorldPurchaseCandidateKind.Structure
             ? _native.StructureListMembers
             : _native.UpgradeListMembers;
-
-    private static Guid Identity(
-        Func<object, Guid> identity,
-        object target,
-        ref NativePurchaseViewAdmissionReadCounts reads)
-    {
-        reads.AddMethodCall();
-        return identity(target);
-    }
-
-    private static T ReadField<T>(
-        Func<object, T> field,
-        object target,
-        ref NativePurchaseViewAdmissionReadCounts reads)
-    {
-        reads.AddFieldRead();
-        return field(target);
-    }
 
     private static object Exact(object? value, Type expected, string contract) =>
         value is not null && value.GetType() == expected

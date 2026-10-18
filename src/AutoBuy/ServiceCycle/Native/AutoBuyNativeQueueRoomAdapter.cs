@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -17,50 +16,65 @@ namespace OrbAutomata;
 /// consulting the queue, so a player pressing a multi-buy against a nearly full queue drives the
 /// room below zero; that is a full queue with entries stacked past its maximum, not a contract that
 /// failed to answer. The port hands the raw reading over and callers clamp it to "no free slots",
-/// keeping <c>false</c> for the one case it means: no reading could be taken at all.
+/// keeping <c>false</c> for the one case it means: no reading could be taken at all, and then
+/// <c>reason</c> says why.
 /// </remarks>
 internal interface IAutoBuyQueueRoomPort
 {
-    bool TryReadRemainingRoom(out int remainingRoom);
+    bool TryReadRemainingRoom(out int remainingRoom, out string reason);
 }
 
 internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
 {
-    private MethodInfo? _getRemainingRoom;
+    internal static readonly string[] ContractIds =
+    {
+        "auto-buy.action-manager.type-action",
+        "action-manager.instance",
+        "action-manager.get-remaining-room",
+    };
 
-    public bool TryReadRemainingRoom(out int remainingRoom)
+    private readonly Bindings? _bindings;
+    private readonly string _bindingFailure;
+
+    public AutoBuyNativeQueueRoomAdapter(Func<string, bool>? includeContract = null) =>
+        NativeBindingSet.TryBind("auto-buy queue room", ContractIds, null, includeContract, set =>
+        {
+            var actionManager = set.Type("auto-buy.action-manager.type-action", "ActionManager");
+            return new Bindings(
+                set.StaticField<Func<object?>>("action-manager.instance", actionManager, "instance", actionManager),
+                set.StaticCall<Func<int>>(
+                    "action-manager.get-remaining-room", actionManager, "GetRemainingRoom", typeof(int)));
+        }, out _bindings, out _bindingFailure);
+
+    /// <remarks>
+    /// The game sets <c>ActionManager.instance</c> once, when the <c>Main</c> scene loads, and never
+    /// clears it: before the first game it is null and <c>GetRemainingRoom</c> throws, and after
+    /// leaving a game it is destroyed and the call answers the abandoned scene's number. Neither is a
+    /// reading, so both answer that no game is loaded.
+    /// </remarks>
+    public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
     {
         remainingRoom = 0;
-        if (!TryResolveContract())
+        reason = _bindingFailure;
+        if (_bindings is not { } native)
             return false;
+        if (!NativeObjectLiveness.IsAlive(native.Instance()))
+        {
+            reason = "no game is loaded: ActionManager.instance is absent or destroyed";
+            return false;
+        }
 
         try
         {
-            if (_getRemainingRoom!.Invoke(null, Array.Empty<object>()) is int room)
-            {
-                remainingRoom = room;
-                return true;
-            }
+            remainingRoom = native.GetRemainingRoom();
+            return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-        }
-
-        return false;
-    }
-
-    private bool TryResolveContract()
-    {
-        if (_getRemainingRoom is not null)
-            return true;
-
-        var actionManagerType = ReflectionUtil.FindLoadedType("ActionManager");
-        var getRemainingRoom = actionManagerType?.GetMethod(
-            "GetRemainingRoom", BindingFlags.Static | BindingFlags.Public, null, Type.EmptyTypes, null);
-        if (getRemainingRoom is null || getRemainingRoom.ReturnType != typeof(int))
+            reason = ex.Message;
             return false;
-
-        _getRemainingRoom = getRemainingRoom;
-        return true;
+        }
     }
+
+    private sealed record Bindings(Func<object?> Instance, Func<int> GetRemainingRoom);
 }

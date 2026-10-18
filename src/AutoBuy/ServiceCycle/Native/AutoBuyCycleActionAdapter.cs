@@ -226,6 +226,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             : 0;
         bool queueRoomReadable;
         int remainingRoom;
+        string queueRoomFailure;
 #if SERVICE_CYCLE_PROFILE
         var queueRoomStage = _profileOperations.Begin(
             ServiceCycleProfileSpan.AutoBuyActionQueueRoomRead,
@@ -234,7 +235,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         try
         {
 #endif
-        queueRoomReadable = _queueRoom.TryReadRemainingRoom(out remainingRoom);
+        queueRoomReadable = _queueRoom.TryReadRemainingRoom(out remainingRoom, out queueRoomFailure);
 #if SERVICE_CYCLE_PROFILE
         }
         finally { queueRoomStage.Complete(); }
@@ -242,7 +243,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         if (!queueRoomReadable)
         {
             Plugin.Log?.LogAutomataWarning(
-                AutoBuyPurchaseNarration.QueueRoomUnavailable(action.Kind, action.Uuid));
+                AutoBuyPurchaseNarration.QueueRoomUnavailable(action.Kind, action.Uuid, queueRoomFailure));
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
 
