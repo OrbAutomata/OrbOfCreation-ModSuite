@@ -524,12 +524,10 @@ is required before any of it becomes a performance acceptance gate.
 
 ## In-game surfaces
 
-Common exposes one owner-thread rolling action-outcome projection for the Runtime page, consuming the
-same assembled evidence as the journal before storage coalescing, so it retains exact planned,
-committed, skipped, rejected, and faulted totals plus the latest real boundary reason per registered
-service. It adds no feature bookkeeping, native read, second service poll, storage path, or disk I/O,
-and remains available if journal storage cannot initialize. Its fixed 30-minute action timeline charts
-committed actions and fault presence only — planned, skipped, rejected, and waiting evidence never
-becomes charted work — and `Source` infrastructure is excluded by typed shape, never by a display-name
-match. The Runtime page reduces the pump-timing projection to one average/worst line; full performance
+Common exposes one owner-thread action timeline for the Runtime page, consuming the same assembled
+evidence as the journal before storage coalescing. It adds no feature bookkeeping, native read, second
+service poll, storage path, or disk I/O, and remains available if journal storage cannot initialize.
+Its fixed 30-minute buckets chart committed actions and fault presence only — planned, skipped,
+rejected, and waiting evidence never becomes charted work — and `Source` infrastructure is excluded by
+typed shape, never by a display-name match. The Runtime page reduces the pump-timing projection to one average/worst line; full performance
 analysis is the offline dashboard.

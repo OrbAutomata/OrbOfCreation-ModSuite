@@ -111,7 +111,7 @@ public sealed class AutomataServiceCycleGameActionsTests
             compose);
 
     private AutomataServiceCycleHostDependencies HostDependencies() =>
-        new(() => 1, () => _lifecycle, new ServiceActionOutcomeWindowRegistry());
+        new(() => 1, () => _lifecycle, new ServiceActionTimelineRegistry());
 
     private sealed class First { }
     private sealed class Second { }

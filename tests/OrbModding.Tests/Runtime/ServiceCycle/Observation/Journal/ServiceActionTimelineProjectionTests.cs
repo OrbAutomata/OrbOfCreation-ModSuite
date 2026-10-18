@@ -5,6 +5,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
+using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
@@ -22,7 +23,7 @@ public sealed class ServiceActionTimelineProjectionTests
         using var registry = Registry(2, out _);
         using var first = registry.Register(new SyntheticServiceDefinition("timeline.first"));
         using var second = registry.Register(new SyntheticServiceDefinition("timeline.second"));
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
+        var projection = ServiceActionTimelineProjection.Create(registry);
 
         ObserveCommitted(projection, 1, "timeline.first", cycle: 1, committed: 2, 4 * MinuteTicks + 7);
         ObserveCommitted(projection, 2, "timeline.second", cycle: 1, committed: 3, 4 * MinuteTicks + 9);
@@ -41,7 +42,7 @@ public sealed class ServiceActionTimelineProjectionTests
     {
         using var registry = Registry(1, out _);
         using var registration = registry.Register(new SyntheticServiceDefinition("timeline.retention"));
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
+        var projection = ServiceActionTimelineProjection.Create(registry);
         for (var minute = 1; minute <= 31; minute++)
             ObserveCommitted(
                 projection,
@@ -64,7 +65,7 @@ public sealed class ServiceActionTimelineProjectionTests
     {
         using var registry = Registry(1, out _);
         using var registration = registry.Register(new SyntheticServiceDefinition("timeline.stable"));
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
+        var projection = ServiceActionTimelineProjection.Create(registry);
         ObserveCommitted(projection, 1, "timeline.stable", cycle: 1, committed: 1, 5 * MinuteTicks + 1);
         var beforeRevision = projection.TimelineRevision;
         var before = Copy(projection);
@@ -109,7 +110,7 @@ public sealed class ServiceActionTimelineProjectionTests
     {
         using var registry = Registry(1, out _);
         using var registration = registry.Register(new SyntheticServiceDefinition("timeline.fault"));
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
+        var projection = ServiceActionTimelineProjection.Create(registry);
 
         ObserveFault(projection, 1, occurrence: 1, 8 * MinuteTicks + 1);
         var revision = projection.TimelineRevision;
@@ -127,7 +128,7 @@ public sealed class ServiceActionTimelineProjectionTests
     {
         using var registry = Registry(1, out _);
         using var registration = registry.Register(new SyntheticServiceDefinition("timeline.lifecycle"));
-        var projection = ServiceActionOutcomeWindowProjection.Create(registry);
+        var projection = ServiceActionTimelineProjection.Create(registry);
         ObserveCommitted(projection, 1, "timeline.lifecycle", cycle: 1, committed: 4, 9 * MinuteTicks);
         var priorRevision = projection.TimelineRevision;
         var transition = DecisionJournalRecord.Transition(
@@ -152,6 +153,67 @@ public sealed class ServiceActionTimelineProjectionTests
         Assert.Equal(priorRevision + 1, projection.TimelineRevision);
     }
 
+    [Fact]
+    public void RegisteredRosterIncludesEveryShapeAndNamesInfrastructureExplicitly()
+    {
+        using var registry = Registry(3, out _);
+        using var source = registry.RegisterSource(
+            new SourceServiceDefinition("looks.player.meaningful"));
+        using var first = registry.Register(
+            new SyntheticServiceDefinition("contains.world-collection.but-is-ordinary"));
+        using var second = registry.Register(
+            new SyntheticServiceDefinition("automation.second"));
+        var projection = ServiceActionTimelineProjection.Create(registry);
+        ObserveCommitted(projection, 3, "automation.second", cycle: 1, committed: 1, MinuteTicks);
+
+        var minute = Copy(projection).Where(cell => cell.MinuteKey == 1).ToArray();
+
+        Assert.Equal(
+            new[]
+            {
+                "looks.player.meaningful",
+                "contains.world-collection.but-is-ordinary",
+                "automation.second",
+            },
+            minute.Select(cell => cell.Service.Value));
+        Assert.Equal(ServiceShape.Source, minute[0].Shape);
+        Assert.All(minute.Skip(1), cell => Assert.Equal(ServiceShape.Ordinary, cell.Shape));
+    }
+
+    [Fact]
+    public void LiveTimelinePublishesWithoutAConfiguredDiskJournal()
+    {
+        using var registry = Registry(1, out _);
+        using var registration = registry.Register(new SyntheticServiceDefinition("live.service"));
+        registry.Seal();
+        var source = new ServiceActionTimelineRegistry();
+        using var pump = new SuiteFramePump(registry, null, source);
+
+        Assert.Equal(1, source.TimelineServiceCount);
+        Assert.Equal(ServiceActionTimelineProjection.TimelineBucketCount, source.TimelineCellCapacity);
+    }
+
+    [Fact]
+    public void ThePublishedRevisionNeverRunsBackwardWhenTheTimelineLeaves()
+    {
+        using var registry = Registry(1, out var clock);
+        using var registration = registry.Register(new SyntheticServiceDefinition("timeline.leaves"));
+        registry.Seal();
+        var source = new ServiceActionTimelineRegistry();
+        long whileRegistered;
+        using (var pump = new SuiteFramePump(registry, null, source))
+        {
+            for (var minute = 1; minute <= 3; minute++)
+            {
+                clock.AdvanceTo(new MonotonicTimestamp(minute * MinuteTicks));
+                pump.PumpFrame(minute);
+            }
+            whileRegistered = source.TimelineRevision;
+        }
+
+        Assert.True(source.TimelineRevision > whileRegistered);
+    }
+
     private static ServiceCycleRegistry Registry(int capacity, out ThreadSafeTestClock clock)
     {
         clock = new ThreadSafeTestClock(1);
@@ -159,7 +221,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void ObserveCommitted(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         string service,
         ulong cycle,
@@ -176,7 +238,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void ObserveWaiting(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         long observedAt)
     {
@@ -185,7 +247,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void ObserveRejected(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         string service,
         ulong cycle,
@@ -204,7 +266,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void ObserveSkipped(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         string service,
         ulong cycle,
@@ -222,7 +284,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void ObserveFault(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         int occurrence,
         long observedAt)
@@ -237,7 +299,7 @@ public sealed class ServiceActionTimelineProjectionTests
     }
 
     private static void Observe(
-        ServiceActionOutcomeWindowProjection projection,
+        ServiceActionTimelineProjection projection,
         ulong traceService,
         long observedAt,
         in BatchReceipt terminal,
@@ -272,7 +334,7 @@ public sealed class ServiceActionTimelineProjectionTests
         new CycleId(cycle));
 
     private static ServiceActionTimelineCellSnapshot[] Copy(
-        ServiceActionOutcomeWindowProjection projection)
+        ServiceActionTimelineProjection projection)
     {
         var cells = new ServiceActionTimelineCellSnapshot[projection.TimelineCellCapacity];
         var copied = projection.CopyTimelineTo(cells);

@@ -33,7 +33,7 @@ public sealed class AutomataServiceCycleCompositionTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => 1,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[] { new StrategistServiceCycleFeature() },
             log,
             compose);

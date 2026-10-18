@@ -43,7 +43,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         Func<long> readFrameIdentity,
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
-        ServiceActionOutcomeWindowRegistry? actionOutcomes,
+        ServiceActionTimelineRegistry? actionOutcomes,
         ServiceCycleProfileProbe profileProbe,
         Action<string>? serviceFailureLog = null)
 #else
@@ -52,7 +52,7 @@ internal sealed class AutomataServiceCycleHost : IDisposable
         Func<long> readFrameIdentity,
         IServiceCyclePumpTimingSink? pumpTiming,
         ServiceCycleSemanticRecorder? semanticTrace,
-        ServiceActionOutcomeWindowRegistry? actionOutcomes = null,
+        ServiceActionTimelineRegistry? actionOutcomes = null,
         Action<string>? serviceFailureLog = null)
 #endif
     {

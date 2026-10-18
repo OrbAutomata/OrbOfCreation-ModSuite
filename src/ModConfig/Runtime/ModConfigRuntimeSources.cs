@@ -17,7 +17,7 @@ internal sealed class ModConfigRuntimeSources
         IConfigurationSchemaStatusSource schemaStatuses,
         IFeatureStatusSource featureStatuses,
         IRuntimeDiagnosticsSource diagnostics,
-        IServiceActionOutcomeWindowSource actionOutcomes,
+        IServiceActionTimelineSource actionOutcomes,
         IServiceCyclePumpTimingSource pumpTiming,
         IDiagnosticsBundleControl diagnosticsBundle,
         IDifferentialVerificationControl differentialVerification,
@@ -44,7 +44,7 @@ internal sealed class ModConfigRuntimeSources
     public IConfigurationSchemaStatusSource SchemaStatuses { get; }
     public IFeatureStatusSource FeatureStatuses { get; }
     public IRuntimeDiagnosticsSource Diagnostics { get; }
-    public IServiceActionOutcomeWindowSource ActionOutcomes { get; }
+    public IServiceActionTimelineSource ActionOutcomes { get; }
     public IServiceCyclePumpTimingSource PumpTiming { get; }
     public IDiagnosticsBundleControl DiagnosticsBundle { get; }
     public IDifferentialVerificationControl DifferentialVerification { get; }

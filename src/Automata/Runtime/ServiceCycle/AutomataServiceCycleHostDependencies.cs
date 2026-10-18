@@ -16,7 +16,7 @@ internal sealed class AutomataServiceCycleHostDependencies
     public AutomataServiceCycleHostDependencies(
         Func<long> readFrameIdentity,
         Func<long> readLifecycleEpoch,
-        ServiceActionOutcomeWindowRegistry actionOutcomes,
+        ServiceActionTimelineRegistry actionOutcomes,
         IServiceCyclePumpTimingSink? pumpTiming = null,
         AutomataServiceCycleObservabilityOptions observability = default)
     {
@@ -30,6 +30,6 @@ internal sealed class AutomataServiceCycleHostDependencies
     public Func<long> ReadFrameIdentity { get; }
     public Func<long> ReadLifecycleEpoch { get; }
     public IServiceCyclePumpTimingSink? PumpTiming { get; }
-    public ServiceActionOutcomeWindowRegistry ActionOutcomes { get; }
+    public ServiceActionTimelineRegistry ActionOutcomes { get; }
     internal AutomataServiceCycleObservabilityOptions Observability { get; }
 }

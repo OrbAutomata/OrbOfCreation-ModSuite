@@ -33,7 +33,7 @@ public sealed class SuiteFramePump : IDisposable
     internal SuiteFramePump(
         ServiceCycleRegistry registry,
         ServiceCycleSemanticRecorder? semanticRecorder,
-        ServiceActionOutcomeWindowRegistry? outcomeWindows,
+        ServiceActionTimelineRegistry? actionTimeline,
         ServiceCycleProfileProbe profileProbe)
 #else
         : this(registry, semanticRecorder, null) { }
@@ -41,13 +41,13 @@ public sealed class SuiteFramePump : IDisposable
     internal SuiteFramePump(
         ServiceCycleRegistry registry,
         ServiceCycleSemanticRecorder? semanticRecorder,
-        ServiceActionOutcomeWindowRegistry? outcomeWindows)
+        ServiceActionTimelineRegistry? actionTimeline)
 #endif
     {
         _state = new SuiteFramePumpState(
             registry,
             semanticRecorder,
-            outcomeWindows
+            actionTimeline
 #if SERVICE_CYCLE_PROFILE
             , profileProbe
 #endif

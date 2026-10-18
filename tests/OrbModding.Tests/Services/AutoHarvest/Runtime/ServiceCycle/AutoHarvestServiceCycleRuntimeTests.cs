@@ -29,7 +29,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
         var hostDependencies = new AutomataServiceCycleHostDependencies(
             readFrameIdentity,
             readLifecycleEpoch,
-            new ServiceActionOutcomeWindowRegistry(),
+            new ServiceActionTimelineRegistry(),
             observability: observability);
         var feature = new AutoHarvestServiceCycleFeature(
             new AutoHarvestFeatureDependencies(

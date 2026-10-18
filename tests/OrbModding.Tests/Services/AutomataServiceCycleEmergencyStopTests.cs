@@ -27,7 +27,7 @@ public sealed class AutomataServiceCycleEmergencyStopTests
             new AutomataServiceCycleHostDependencies(
                 () => ++frame,
                 () => 1,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[] { feature },
             new ManualLogSource());
         var store = new AutomataConfigurationStore(

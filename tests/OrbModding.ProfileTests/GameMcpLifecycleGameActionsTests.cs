@@ -26,7 +26,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => lifecycle,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[]
             {
                 HarvestFeature(lifecycle),
@@ -53,7 +53,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => lifecycle,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             PlayerFeatures(lifecycle),
             new ManualLogSource());
         var command = new GameMcpCommand(
@@ -79,7 +79,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => lifecycle,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             PlayerFeatures(lifecycle),
             new ManualLogSource(),
             actions => actions.Add("game_research", new ResearchGameAction(
@@ -109,7 +109,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => lifecycle,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[] { HarvestFeature(lifecycle) },
             new ManualLogSource(),
             actions => actions.Add("game_research", new ResearchGameAction(
@@ -144,7 +144,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             new AutomataServiceCycleHostDependencies(
                 () => 1,
                 () => lifecycle,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             PlayerFeatures(lifecycle),
             log,
             actions =>

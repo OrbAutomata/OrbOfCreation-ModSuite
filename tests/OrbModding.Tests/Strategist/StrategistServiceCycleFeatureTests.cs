@@ -23,7 +23,7 @@ public sealed class StrategistServiceCycleFeatureTests
             new AutomataServiceCycleHostDependencies(
                 () => ++frame,
                 () => 1,
-                new ServiceActionOutcomeWindowRegistry()),
+                new ServiceActionTimelineRegistry()),
             new IAutomataServiceCycleFeature[] { new StrategistServiceCycleFeature() },
             log);
 
