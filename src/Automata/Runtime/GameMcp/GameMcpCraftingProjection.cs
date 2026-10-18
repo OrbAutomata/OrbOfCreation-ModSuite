@@ -41,7 +41,6 @@ internal static class GameMcpCraftingProjection
                             : GameMcpNumberFormatter.Format(landed) + " of " +
                               GameMcpNumberFormatter.Format(asked) + " asked went through " +
                               "before this craft. " + submission.Outcome.Reason),
-                        command.Kind,
                         lifecycle,
                         configurationGeneration,
                         Project(in submission));
@@ -57,7 +56,6 @@ internal static class GameMcpCraftingProjection
         }
         return GameMcpCommandResult.FromAction(
             in verified,
-            command.Kind,
             lifecycle,
             configurationGeneration,
             details: new JObject

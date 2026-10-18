@@ -472,7 +472,6 @@ public sealed class GameMcpInlineCompletionTests
         var native = ServiceActionResult.Committed(CommonActionResultCodes.Committed, evidence);
         var terminal = GameMcpCommandResult.FromAction(
             in native,
-            GameMcpCommandKind.Purchase,
             12,
             7).WithDetails(new GameMcpObjectBuilder
             {

@@ -533,7 +533,7 @@ internal static class GameMcpWorldQuery
         if (unlistable)
         {
             result[Unlistable] =
-                GameMcpDecisionReason.For("collector_not_listable");
+                GameMcpDecisionReason.CollectorNotListable;
         }
         result["categories"] = categories;
         return result;
@@ -7869,11 +7869,8 @@ internal static class GameMcpWorldQuery
             {
                 ["available"] = false,
                 ["reasonCode"] = "cast_in_progress",
-                ["reason"] = EntityIdentityFormatter.PlayerName(
-                        slot.SpellRecipeId, world.EntityIdentities) +
-                    " is still recharging: it is mid-cast, and the game answers a removal now " +
-                    "with \"Cannot remove a spell that is still recharging.\" Wait for the cast " +
-                    "to finish.",
+                ["reason"] = SpellRemovalRefusal.MidCast(EntityIdentityFormatter.PlayerName(
+                    slot.SpellRecipeId, world.EntityIdentities)),
             };
         }
         else if (slot.CurrentCharges < slot.MaximumCharges)
@@ -7882,10 +7879,11 @@ internal static class GameMcpWorldQuery
             {
                 ["available"] = false,
                 ["reasonCode"] = "spell_recharging",
-                ["reason"] = EntityIdentityFormatter.PlayerName(
-                        slot.SpellRecipeId, world.EntityIdentities) +
-                    " is still recharging: " + RechargeClause(in slot) +
-                    ". The game only removes a spell at full charges.",
+                ["reason"] = SpellRemovalRefusal.Recharging(
+                    EntityIdentityFormatter.PlayerName(slot.SpellRecipeId, world.EntityIdentities),
+                    slot.CurrentCharges,
+                    slot.MaximumCharges,
+                    slot.CooldownRemaining),
             };
             AddRechargeFacts(recharging, in slot);
             result["remove"] = recharging;
@@ -9613,12 +9611,6 @@ internal static class GameMcpWorldQuery
             "so the badge amount behind those repetitions is unknown",
     };
 
-    private static string AutomationRefusal(string reasonCode) => reasonCode switch
-    {
-        "hidden_or_undiscovered" => "This recipe is not discovered yet.",
-        _ => "Every automation slot on this queue is in use.",
-    };
-
     private static GameMcpValue ProjectCraftingRecipe(
         GameWorldState world,
         in WorldCraftingRecipe recipe)
@@ -9680,7 +9672,7 @@ internal static class GameMcpWorldQuery
                 if (!decision.CanAutomate)
                 {
                     automation["reasonCode"] = decision.AutomationReasonCode;
-                    automation["reason"] = AutomationRefusal(decision.AutomationReasonCode);
+                    automation["reason"] = GameMcpDecisionReason.For(decision.AutomationReasonCode);
                 }
                 result["automation"] = automation;
             }
@@ -9998,7 +9990,7 @@ internal static class GameMcpWorldQuery
                 "category_not_listable",
                 "'" + normalized + "' is a category the world collects, and world_categories gives " +
                 "it a row with its row count, but " +
-                GameMcpDecisionReason.For("collector_not_listable"));
+                GameMcpDecisionReason.CollectorNotListable);
         }
 
         return NotAvailable(publication, "unknown_category", unknownReason);

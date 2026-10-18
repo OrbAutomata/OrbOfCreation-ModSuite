@@ -212,7 +212,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
             frameContext: context);
         var terminal = GameMcpCommandResult.FromAction(
             mapped.WithReason(reason),
-            command.Kind,
             observedLifecycleGeneration: 9,
             observedConfigurationGeneration: 3,
             details: GameMcpDiscoveryTreeOfferProjection.Project(

@@ -713,7 +713,6 @@ public sealed class GameMcpSpellWorkbenchTests
         var command = Command("create", before: before);
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpSpellWorkbenchProjection.Project(in submission));
@@ -825,9 +824,7 @@ public sealed class GameMcpSpellWorkbenchTests
         Assert.False(ownership.TryCaptureSpellWorkbenchMutationPermit());
         Assert.Equal(
             "action_family_unavailable",
-            GameMcpActionResultCodeNames.Name(
-                SpellWorkbenchActionResultCodes.MutationPermitUnavailable,
-                GameMcpCommandKind.SpellWorkbench));
+            SpellWorkbenchActionResultCodes.MutationPermitUnavailable.Name);
     }
 
     private static GameWorldState Named(GameWorldState world) =>

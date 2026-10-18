@@ -279,10 +279,10 @@ public sealed class GameMcpCastTests
 
         Assert.Equal(
             "spell_not_chargeable",
-            GameMcpActionResultCodeNames.Name(code, GameMcpCommandKind.Cast));
+            code.Name);
         Assert.Equal(
             "The game offers this spell no charged cast, so it can only be fired outright.",
-            GameMcpActionResultCodeNames.Reason(code, GameMcpCommandKind.Cast));
+            GameMcpCommandResult.FromAction(ServiceActionResult.Rejected(code), 1, 1).Reason);
 
         var refusal = GameMcpTestHarness.Json(new GameMcpObjectBuilder
         {

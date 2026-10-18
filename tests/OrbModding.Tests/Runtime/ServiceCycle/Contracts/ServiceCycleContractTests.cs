@@ -71,15 +71,16 @@ public sealed class ServiceCycleContractTests
     public void ReservedCodeRangesCannotBeCollidedWithOrForgedAcrossOutcomes()
     {
         var featureDecision = new ServiceDecisionCode(ServiceDecisionCode.FirstFeatureCode);
-        var featureAction = new ServiceActionResultCode(ServiceActionResultCode.FirstFeatureCode);
+        var featureAction = new ServiceActionResultCode(ServiceActionResultCode.FirstFeatureCode, "feature_code");
         var verified = ServiceNativeMutationEvidence.Observed(
             NativeMutationOutcome.Verified,
             new NativeMutationCallOutcome(1, 1, 1));
 
         Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceDecisionCode(1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceDecisionCode(1023));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceActionResultCode(7));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceActionResultCode(1023));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceActionResultCode(7, "low"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ServiceActionResultCode(1023, "low"));
+        Assert.Throws<ArgumentException>(() => new ServiceActionResultCode(1024, " "));
 
         Assert.True(ServiceStartDecision.Ready(featureDecision).IsValid);
         Assert.True(ServiceActionResult.Committed(featureAction, verified).IsValid);

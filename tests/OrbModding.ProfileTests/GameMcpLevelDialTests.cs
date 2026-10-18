@@ -129,7 +129,6 @@ public sealed class GameMcpLevelDialTests
             frameContext: GameMcpTestHarness.Context(World(unlocked: true)));
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpSpellCompositionProjection.Project(in submission, "druidry"));

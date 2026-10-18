@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using System.Reflection;
 using OrbModding.Common;
-using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -201,21 +200,20 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         if (native.IsCasting(spell) || native.IsReadyingCast(spell))
         {
             refusal = SpellLoadoutActionResultCodes.CastInProgress;
-            reason = name + " is still recharging: it is mid-cast, and the game answers a " +
-                "removal now with \"Cannot remove a spell that is still recharging.\" " +
-                "Wait for the cast to finish." + AutoCastRoute(native.ReadMaximumCharges(spell));
+            reason = SpellRemovalRefusal.MidCast(name) +
+                AutoCastRoute(native.ReadMaximumCharges(spell));
             return false;
         }
         if (!native.IsAtMaxCharges(spell))
         {
             var maximum = native.ReadMaximumCharges(spell);
             refusal = SpellLoadoutActionResultCodes.SpellRecharging;
-            reason = name + " is still recharging: it holds " +
-                native.ReadCurrentCharges(spell) + " of " + maximum + " charges" +
-                NextChargeClause(native, spell) +
-                ". The game only removes a spell at full charges — \"Cannot remove a spell that " +
-                "is still recharging.\" — so remove it once it reads " + maximum +
-                " of " + maximum + "." + AutoCastRoute(maximum);
+            reason = SpellRemovalRefusal.Recharging(
+                    name,
+                    native.ReadCurrentCharges(spell),
+                    maximum,
+                    native.ReadCooldownRemaining(spell)) +
+                AutoCastRoute(maximum);
             return false;
         }
         refusal = CommonActionResultCodes.Committed;
@@ -241,14 +239,6 @@ internal sealed class SpellLoadoutGameAction : IDisposable
         return recipe is null
             ? "This spell"
             : EntityIdentityFormatter.PlayerName(native.ReadRecipeIdentity(recipe));
-    }
-
-    private static string NextChargeClause(SpellLoadoutNativeBindings native, object spell)
-    {
-        var remaining = native.ReadCooldownRemaining(spell);
-        return remaining > BigDouble.Zero
-            ? ", next in " + GameDurationText.Accurate(remaining)
-            : string.Empty;
     }
 
     private NativeActionOutcome Move(

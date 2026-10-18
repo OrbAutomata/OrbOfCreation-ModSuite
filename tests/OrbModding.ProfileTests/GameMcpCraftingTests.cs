@@ -191,7 +191,9 @@ public sealed class GameMcpCraftingTests
 
         Assert.False((bool)row["available"]!);
         Assert.Null(row["reasonCode"]);
-        Assert.Equal("This recipe is not discovered yet.", (string?)row["reason"]);
+        Assert.Equal(
+            GameMcpDecisionReason.For("hidden_or_undiscovered"),
+            (string?)row["reason"]);
     }
 
     [Fact]

@@ -468,7 +468,8 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(
             "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
             FirstRecipeId.ToString("D") + " is still recharging: it holds 2 of 3 charges, next " +
-            "in 4.50s. The game only removes a spell at full charges.\"," +
+            "in 4.50s. The game only removes a spell at full charges — \\\"Cannot remove a " +
+            "spell that is still recharging.\\\" — so remove it once it reads 3 of 3.\"," +
             "\"charges\":\"2 of 3\",\"nextChargeIn\":\"4.50s\"}",
             Remove(world, recharging));
     }
@@ -519,7 +520,6 @@ public sealed class GameMcpSpellLoadoutTests
             frameContext: GameMcpTestHarness.Context(World()));
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpSpellLoadoutProjection.Project(in submission));
@@ -569,7 +569,6 @@ public sealed class GameMcpSpellLoadoutTests
         var command = Command("remove", frameContext: GameMcpTestHarness.Context(World()));
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpSpellLoadoutProjection.Project(in submission));

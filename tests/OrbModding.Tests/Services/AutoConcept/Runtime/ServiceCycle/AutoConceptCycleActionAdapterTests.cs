@@ -136,10 +136,10 @@ public sealed class AutoConceptCycleActionAdapterTests
     public void LiveStateDriftIsRejectedWithoutFaulting(int expectedCode)
     {
         var result = Execute(AutoConceptSubmission.Rejected(
-            new ServiceActionResultCode(expectedCode), "changed"));
+            new ServiceActionResultCode(expectedCode, "expected"), "changed"));
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
-        Assert.Equal(new ServiceActionResultCode(expectedCode), result.Code);
+        Assert.Equal(new ServiceActionResultCode(expectedCode, "expected"), result.Code);
     }
 
     private static ServiceActionResult Execute(

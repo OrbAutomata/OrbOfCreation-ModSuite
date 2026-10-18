@@ -518,6 +518,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(AutoBuyActionResultCodes.OwningViewUnavailable, result.Code);
+        Assert.Equal("The screen this is bought from is not available yet.", result.Reason);
         Assert.Equal(0, structure.queuedQuantity);
     }
 
@@ -699,6 +700,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(AutoBuyActionResultCodes.DestinationCapacityLocked, result.Code);
+        Assert.Equal(
+            "No World > Aspects pedestal is unlocked yet, so there is no slot for this upgrade " +
+            "to fill.",
+            result.Reason);
         Assert.Equal(0, upgrade.queuedLevels);
         Assert.Equal(0, upgrade.purchaseCost.PerformCalls);
     }

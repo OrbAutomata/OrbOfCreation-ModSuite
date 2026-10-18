@@ -453,7 +453,9 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         {
             var capacity = accessors.ReadDestinationCapacity(source);
             if (capacity != CommonActionResultCodes.Committed)
-                return AutoBuyPurchaseSubmission.Rejected(capacity);
+                return AutoBuyPurchaseSubmission.Rejected(
+                    capacity,
+                    AutoBuyPurchaseNarration.DestinationCapacityRefusal(capacity));
         }
 
         // Preserve the resource identities and first-level terms before the native call spends them.
@@ -510,7 +512,11 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         try
         {
             if (_viewAdmission is null)
-                return Refuse(AutoBuyActionResultCodes.OwningViewTopologyUnbound, out refusal);
+                return Refuse(
+                    AutoBuyActionResultCodes.OwningViewTopologyUnbound,
+                    "The suite could not bind the purchase-screen topology this build needs, so no " +
+                    "purchase can be admitted.",
+                    out refusal);
 
             if (!_viewAdmission.TryGetCaptured(
                 kind == AutoBuyCandidateKind.Structure
@@ -531,7 +537,10 @@ internal sealed class AutoBuyNativePurchaseAdapter :
             switch (resolution.Relation.Status)
             {
                 case WorldPurchaseViewRelationStatus.Missing:
-                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationMissing, out refusal);
+                    return Refuse(
+                        AutoBuyActionResultCodes.OwningViewRelationMissing,
+                        "No purchase screen for this target is in this run's captured topology.",
+                        out refusal);
                 case WorldPurchaseViewRelationStatus.Unreadable:
                     return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, out refusal);
                 case WorldPurchaseViewRelationStatus.Contradictory:
@@ -548,7 +557,10 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     out var viewAvailable))
                 return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, out refusal);
             if (!viewAvailable)
-                return Refuse(AutoBuyActionResultCodes.OwningViewUnavailable, out refusal);
+                return Refuse(
+                    AutoBuyActionResultCodes.OwningViewUnavailable,
+                    "The screen this is bought from is not available yet.",
+                    out refusal);
 
             if (kind == AutoBuyCandidateKind.Structure)
             {
@@ -559,7 +571,10 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     return false;
                 }
                 if (!structureAvailable)
-                    return Refuse(AutoBuyActionResultCodes.StructureUnavailable, out refusal);
+                    return Refuse(
+                        AutoBuyActionResultCodes.StructureUnavailable,
+                        "The game has not unlocked this structure yet.",
+                        out refusal);
             }
 
             return true;
@@ -576,9 +591,15 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         }
     }
 
-    private static bool Refuse(ServiceActionResultCode code, out AutoBuyPurchaseSubmission refusal)
+    private static bool Refuse(ServiceActionResultCode code, out AutoBuyPurchaseSubmission refusal) =>
+        Refuse(code, string.Empty, out refusal);
+
+    private static bool Refuse(
+        ServiceActionResultCode code,
+        string reason,
+        out AutoBuyPurchaseSubmission refusal)
     {
-        refusal = AutoBuyPurchaseSubmission.Rejected(code);
+        refusal = AutoBuyPurchaseSubmission.Rejected(code, reason);
         return false;
     }
 

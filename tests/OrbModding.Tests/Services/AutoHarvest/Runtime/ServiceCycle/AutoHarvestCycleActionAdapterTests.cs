@@ -134,7 +134,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
         var result = fixture.Execute();
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Equal(new ServiceActionResultCode(expectedCode), result.Code);
+        Assert.Equal(new ServiceActionResultCode(expectedCode, "expected"), result.Code);
         Assert.Equal(0, fixture.Mutation.SubmitCount);
     }
 

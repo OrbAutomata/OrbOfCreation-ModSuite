@@ -104,16 +104,8 @@ internal static class GameMcpDecisionReason
     /// outside this list every satisfied leaf in <c>world_get</c> — the detail read's primary content —
     /// rendered as a refusal, which is the exact confusion this method exists to end.
     /// </remarks>
-    internal static bool IsPassing(string reasonCode) => reasonCode switch
-    {
-        "passed" or "committed" or
-        "queue_room_available" or "below_level_cap" or
-        "requirement_met" or "recipe_discovered" or "native_leeway_available" or
-        "native_develops_below_caps" or
-        "below_research_cap" or "visible" or "ready" or "can_buy" or
-        "drain_available" or "output_capacity_available" => true,
-        _ => false,
-    };
+    internal static bool IsPassing(string reasonCode) =>
+        Rows.TryGetValue(reasonCode, out var row) && row.Passing;
 
     /// <summary>
     /// Whether the suite's own machinery is what stopped the call, with the game never asked and
@@ -126,260 +118,16 @@ internal static class GameMcpDecisionReason
     /// designed — another service holds the family this instant — and it clears on its own, so it
     /// is a refusal with a reason rather than a defect to report.
     /// </remarks>
-    internal static bool IsSuiteDefect(string reasonCode) => reasonCode switch
-    {
-        // The binding set the boundary needs was never assembled, so nothing was submitted.
-        "contract_unavailable" or "feature_contract_unavailable" or
-        "pair_contract_unavailable" or
-        // The submission reached the boundary off Unity's thread and was stopped there.
-        "wrong_thread" or
-        // The suite staged a layout into the game's own selection lists and read back something
-        // else. Nothing the caller passed is wrong and nothing in the game refused.
-        "staged_write_failed" or
-        // The suite could not pin the game's multi-buy multiplier for the press, so the press was
-        // never made. This answered `native_rejected` — the game refusing — for a call the game
-        // never saw.
-        "single_buy_unavailable" or
-        // The suite asked for a control the screen has no button for. The router validates
-        // every mode before a boundary is reached, so arriving here is the suite contradicting
-        // its own router rather than the caller passing a bad word.
-        "unsupported_control" or
-        // The suite is not running, or could not attach to the game's tooltips or its Continue
-        // button. The game is never asked in any of the three.
-        "runtime_not_available" or "tooltip_contract_unavailable" or
-        "continue_contract_unavailable" or
-        // The router validates every screen and every probe name before a gadget is reached, so
-        // these two are the suite contradicting its own router rather than a caller's mistake.
-        "navigation_request_invalid" or "unsupported_probe" or
-        // The suite has no world and no identity catalog to answer from.
-        "world_not_published" or "entity_catalog_unavailable" or
-        // The caller's value was accepted and the suite's own publication of it did not happen.
-        // Nothing in the game was asked and no argument would have changed the outcome.
-        "configuration_write_unconfirmed" => true,
-        _ => false,
-    };
+    internal static bool IsSuiteDefect(string reasonCode) =>
+        Rows.TryGetValue(reasonCode, out var row) && row.SuiteDefect;
 
     /// <summary>
     /// The generic class for one producer code. The default is <see cref="ClassRefused"/>: a code
     /// this table has not met is a no the suite cannot classify further, which is exactly what
     /// "the game refused and the published world does not explain why" already meant.
     /// </summary>
-    internal static string Class(string reasonCode) => reasonCode switch
-    {
-        // The caller's own argument is what is wrong.
-        "invalid_uuid" or "invalid_offset" or "invalid_limit" or
-        "unknown_category" or "unknown_discovery_surface" or
-        // A configuration section nothing is filed under is the same kind of no as a world
-        // category nothing is filed under: the caller named a grouping word this surface has none
-        // of, and the sentence beside it names the ones it does have.
-        "unknown_section" or
-        "query_required" or "argument_validation_failed" or "filter_not_supported" or
-        // The word the caller passed is not one this filter takes. Named apart from
-        // `invalid_state`, which is the target being in the wrong state for a verb: one producer
-        // code cannot mean both, and while they shared a spelling this table answered the first
-        // arm it met, so every already-run challenge and every wrong-state research refused as
-        // though the caller's own argument had been malformed.
-        "invalid_state_filter" or
-        "category_not_searchable" or
-        // A name the world collects under but pages nothing under. It is the caller's argument that
-        // is wrong for this verb, exactly as an unsearchable category is, and saying
-        // `unknown_category` for it contradicted the world_categories page the name was read from.
-        "category_not_listable" or
-        "run_filter_out_of_scope" or
-        "discovered_filter_out_of_scope" or "keyword_not_worn" or "keyword_unknown" or
-        "unsupported_type" or "composition_unsupported" or
-        "wrong_mode" or "wrong_alchemy_surface" or "wrong_level_surface" or
-        "wrong_loadout_surface" or "wrong_selection" or "wrong_configuration_surface" or
-        "ambiguous_offer" or "ambiguous_handle" or "screen_match_failed" or "subtab_match_failed" or
-        "page_relation_ambiguous" or
-        // One entity drawn by several elements at once. The caller's uuid is a fine id and the
-        // screen is in a fine state; what is unanswerable is which of the buttons showing that
-        // entity they meant, which is the same kind of no an ambiguous handle is.
-        "ambiguous_element" or "ambiguous_modal" or
-        "level_out_of_range" or "slot_out_of_range" or "destination_out_of_range" or
-        "name_out_of_range" or
-        // A value outside the range its setting accepts is the same kind of no as a dial value
-        // outside the range the game allows. It used to answer a different class on each verb,
-        // which taught a caller that the class described the tool rather than the failure.
-        "configuration_write_rejected" or
-        // The caller quoted a page marker or a destination the screen catalog never printed.
-        "tooltip_offset_invalid" or "tile_destination_mismatch" or
-        "composite_identity_required" => ClassInput,
-
-        // The named thing is not there.
-        "unknown_uuid" or "not_world_projected" or
-        "offer_not_in_explainable_world" or "resource_not_published" or
-        "automation_entry_not_published" or "not_created" or "not_equipped" or
-        "spell_not_equipped" or "none_owned" or
-        "not_active" or "not_a_duration_ritual" or
-        "no_cancellable_usage" or "nothing_to_discard" or "no_pending_request" or
-        "no_pending_target" or "no_valid_target" or "no_open_modal" or "no_other_slot" or
-        "single_slot" or "no_discoveries" or "no_ritual_battle_active" or "slot_empty" or
-        "not_on_screen" or
-        "not_offered" or "offer_unavailable" or "item_unavailable" or "instance_unavailable" or
-        "target_unavailable" or "recipe_unavailable" or "element_unavailable" or
-        "source_unavailable" or
-        "no_current_offers" or
-        "active_section_empty" or "control_unavailable" or "list_unavailable" or
-        // The UI gadgets.
-        "tooltip_match_failed" or "tooltip_content_unavailable" or
-        "native_plot_not_resolved" or "native_spell_not_resolved" or "no_modal_named" or
-        "selection_unavailable" => ClassNotFound,
-
-        // The target exists and is in the wrong state for this verb.
-        "invalid_state" or "already_ran" or "no_active_duration_reward" or
-        "already_active" or "already_stopped" or "already_developing" or
-        "already_discovered" or "already_in_requested_state" or "already_maxed" or
-        "cooldown_active" or "inventory_busy" or "native_caster_busy" or
-        // The call named no argument at all: what blocks it is that the screen has two modals open
-        // right now, which is a state and moves on its own.
-        "multiple_modals_open" or
-        // A panel is already covering the board, which is the screen's state and moves the moment
-        // it is dismissed; nothing about the call was wrong.
-        "modal_already_open" or
-        "targeting_in_progress" or "transition_in_progress" or "manual_pause" or
-        // A discovery tree is holding this entity as the offer the player picked. The tree's own
-        // confirm press clears it, so it is the tree's state rather than a fact about the row.
-        "tree_holds_this_offer" or
-        // Continue exists only on the title screen; being in a run is a state, and it moves.
-        "continue_wrong_scene" or
-        "ritual_battle_active" or "wrong_active_ritual" or "wrong_scene" or
-        "spell_already_inactive" or "spell_already_casting" or
-        "spell_not_ready" or "spell_not_toggleable" or "spell_not_chargeable" or
-        "unique_spell_conflict" or "recipe_incomplete" or "slot_occupied" or
-        "recipe_identity_changed" or "slot_identity_changed" or
-        "ownership_changed" or "mastery_limit_changed" or "assignment_unsettled" or
-        "challenges_not_fetched" or "world_cycle_incomplete" or "level_locked" or
-        "cancellable_spells_disabled" or "service_disabled" or "emergency_stop" or
-        "modal_already_closing" or "modal_close_not_ready" or "requested_state_not_reached" or
-        "randomization_unavailable" or "cancel_unavailable" or "fetch_unavailable" or
-        "bonus_unavailable" or "develop_unavailable" or
-        "reroll_already_used" or
-        "switch_blocked" or "cast_in_progress" or "charge_unavailable" or
-        "spell_recharging" or
-        "batch_spend_drift" or
-        "resources_uncovered" or "attuning" => ClassState,
-
-        // A ceiling, a capacity, or a budget is reached; a smaller ask or a later call may work.
-        "amount_unavailable" or "loadout_full" or "automation_full" or "harvest_list_full" or
-        "plot_action_list_full" or "research_queue_full" or "queue_full" or
-        "equipment_type_full" or "maximum_stacks" or "selection_full" or "capacity_exhausted" or
-        // One glyph asked for more uses than its own GlyphSO.GetMaxUsages() allows. A ceiling on
-        // one row of a layout, which a smaller count on that row fixes.
-        "glyph_usages_exceeded" or
-        "no_rerolls" or "reroll_unavailable" or "element_capacity_unavailable" or
-        "plot_quantity_insufficient" or "resource_or_headroom_insufficient" or
-        "usage_budget_unavailable" or "multi_buy_unavailable" or
-        "augment_slots_exceeded" or
-        // Both resource axes of a recipe. Their rows already answer
-        // resource_or_headroom_insufficient one by one, and the axis that aggregates them says the
-        // same thing about the recipe as a whole.
-        "bandwidth_blocked" or "drain_blocked" or
-        "engagement_drain_limited" or "screenshot_budget_reached" or
-        "destination_full" or
-        "slot_unavailable" or "level_cap_reached" or
-        "artificial_research_cap_reached" or "research_investment_cap_reached" => ClassLimit,
-
-        // Named resources fall short.
-        "unaffordable" or "usage_unaffordable" or "level_not_affordable" or
-        "insufficient_quantity" or "insufficient_bandwidth" => ClassUnaffordable,
-
-        // Progression, visibility, or authored requirements are not reached yet.
-        "not_available" or "action_not_available" or "not_visible" or "hidden" or
-        "hidden_or_undiscovered" or "undiscovered" or "not_discovered" or "progression_locked" or
-        "level_all_locked" or
-        "requirements_unmet" or "usage_requirements_unmet" or
-        "native_prerequisites_currently_unmet" or "develop_range_refused" or
-        "native_not_discoverable" or "discovery_unavailable" or
-        // No screen discovers one thing; the tree's roll is the only way in, and its own row is
-        // where a caller acts.
-        "discovered_by_roll_only" or
-        "selection_restricted" or
-        "selection_hidden" or "cannot_level" or "resources_hidden" or
-        "recipe_not_discovered" or "prerequisites_unmet" or "not_discovered_or_offered" or
-        "native_hidden" or "hidden_discovery" or "requirement_unmet" or
-        // A tree with discoveries left that none of its gates has put in reach is locked, not empty:
-        // the caller's next move is to open a Recipe Book, which is a different move from giving up
-        // on the tree — and while both wore ERR_NOT_FOUND, nothing on the wire told them apart.
-        "no_discoveries_in_reach" or
-        // Every producer of this code has the tree in hand and finds `IsVisible(tree)` false — the
-        // read side off the published row, the action off its own preflight, which answers
-        // `identity_unavailable` when the tree genuinely is not there. A tree whose screen is shut
-        // is locked, and the sentence has always said so.
-        "tree_unavailable" or
-        "screen_locked" or "unlock_conditions_unmet" or "research_locked" or
-        // GlyphSO.IsAvailable() is false: undiscovered, or its prerequisites are not met. The glyph
-        // list draws no copy to socket, which is a gate rather than a missing entity — the suite
-        // resolved the glyph before it asked.
-        "glyph_unavailable" or
-        // ResourceSO.visible is false: the game does not count this resource in its own resource
-        // list yet. A gate the unlock container beside it names, not a thing that is missing and
-        // not a claim about what any screen draws.
-        "not_in_resource_list" or
-        "native_unavailable" or "research_leeway_exhausted" or "native_leeway_exhausted" => ClassLocked,
-
-        // The suite or the game could not read or serve the fact.
-        "contract_unavailable" or "feature_contract_unavailable" or "pair_contract_unavailable" or
-        "wrong_thread" or "identity_unavailable" or "entity_name_unavailable" or
-        "world_not_published" or "lifecycle_no_game" or "lifecycle_initializing" or
-        "lifecycle_resetting" or "lifecycle_scene_exit" or "lifecycle_not_available" or
-        "lifecycle_replaced" or "stale_configuration_generation" or
-        "post_state_timeout" or "post_state_not_published" or
-        "entity_data_incomplete" or "discovery_offer_read_incomplete" or
-        "unmodeled_requirement_leaf" or "unsupported_requirement_value" or
-        "requirement_class_unread" or "navigation_unavailable" or
-        "equipment_loadout_unavailable" or "equipment_manager_unavailable" or
-        "equipment_type_unavailable" or "equipment_stack_identity_inconsistent" or
-        "research_decision_unavailable" or "challenge_state_unavailable" or
-        "prestige_state_unavailable" or "loadout_unavailable" or
-        "glyph_requirements_unavailable" or "usage_requirements_unavailable" or
-        // The suite staged a layout into the game's own selection lists and read back something
-        // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
-        // suite performs did not land, which is the suite's defect to answer for.
-        "staged_write_failed" or "single_buy_unavailable" or "unsupported_control" or
-        // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
-        // or spell list or no queue-room reading, and the two guards the router already makes
-        // unreachable.
-        "native_navigation_unavailable" or "native_plot_navigation_unavailable" or
-        "native_plot_list_unavailable" or "native_spell_navigation_unavailable" or
-        "native_spell_list_unavailable" or
-        "native_probe_unavailable" or
-        "tooltip_contract_unavailable" or "tooltip_read_faulted" or
-        // The tooltip's graph goes further than the projector walks, so the read was abandoned
-        // rather than answered with the part of it that had been collected. Not a ceiling the
-        // caller can ask under — the tool takes no size — and not the game refusing: the fact is
-        // simply not one this suite will serve, which is what this class says. The same spelling as
-        // `requirement_depth_exceeded`, which is the same concept one graph over.
-        "tooltip_depth_exceeded" or
-        // A panel the suite will not press. Nothing about the call was wrong and the game refused
-        // nothing: opening it would run scene-wired handlers no read of the build can follow, and
-        // the three the game draws beside the player's own chrome are a world reset, an ending
-        // screen and a developer console.
-        "modal_not_offered" or
-        "navigation_request_invalid" or "unsupported_probe" or
-        "continue_contract_unavailable" or
-        "cost_unavailable" or "exact_cost_unavailable" or "usage_cost_unavailable" or
-        "action_family_unavailable" or "screenshot_budget_unavailable" or
-        "inline_screenshot_failed" or "request_canceled_before_claim" or
-        "operation_dispatch_fault" or "adapter_fault" or "pair_faulted" or "post_commit_fault" or
-        "verification_failed" or "prerequisite_unverified" or
-        "requirement_cycle" or "requirement_depth_exceeded" or "requirement_unevaluable" or
-        "tier_not_published" or
-        "threshold_scaling_unavailable" or "category_not_collected" or
-        "owning_screen_unknown" or "owning_screen_unreadable" or
-        "owning_screen_contradictory" or "topology_not_captured" or
-        "owning_screen_status_unmodelled" or "owning_screen_availability_unreadable" or
-        "configuration_unpublished" or "configuration_not_available" or
-        "configuration_write_unconfirmed" or
-        "runtime_not_available" or "price_unavailable" or
-        "affordability_unavailable" or "entity_catalog_unavailable" or
-        "queue_not_published" or "queue_reading_inconsistent" => ClassUnavailable,
-
-        // Everything else is a no the suite cannot classify further, which is what "the game
-        // refused and the published world does not account for it" already meant. In practice that
-        // is the native_*_refused family: the game's own gate said no and reported nothing else.
-        _ => ClassRefused,
-    };
+    internal static string Class(string reasonCode) =>
+        Rows.TryGetValue(reasonCode, out var row) ? row.Class : ClassRefused;
 
     /// <summary>
     /// The player sentence for one decision code. Unknown codes are rendered rather than dropped:
@@ -387,7 +135,9 @@ internal static class GameMcpDecisionReason
     /// an answer, where silence is the defect this exists to end.
     /// </summary>
     internal static string For(string reasonCode) =>
-        Authored(reasonCode) ?? Restate(reasonCode);
+        Rows.TryGetValue(reasonCode, out var row) && row.Sentence is not null
+            ? row.Sentence
+            : Restate(reasonCode);
 
     /// <summary>The locked-screen answer with the door named.</summary>
     /// <remarks>
@@ -430,260 +180,774 @@ internal static class GameMcpDecisionReason
     /// restating it. A caller that has somewhere better to go when the answer is "no" needs to be
     /// able to ask, rather than comparing against the fallback's own output.
     /// </summary>
-    internal static bool Knows(string reasonCode) => Authored(reasonCode) is not null;
+    internal static bool Knows(string reasonCode) =>
+        Rows.TryGetValue(reasonCode, out var row) && row.Sentence is not null;
 
-    private static string? Authored(string reasonCode) => reasonCode switch
+    /// <summary>
+    /// The answer for a stop no producer accounted for.
+    /// </summary>
+    /// <remarks>
+    /// Every boundary above answers with its own sentence; reaching here means one stopped a call
+    /// without supplying it, which is a defect in that producer rather than a kind of no. It used
+    /// to name the suite's own machinery — "the spell workbench boundary refused and gave no reason
+    /// of its own", in eleven spellings — and call it a refusal, which told a caller the game had
+    /// said no and sent them looking for a game state to change that does not exist. Nothing was
+    /// applied is the one thing the disposition does guarantee, so that is what it says.
+    /// </remarks>
+    internal const string NoAccount =
+        "Nothing was applied, and the suite has no account of what stopped it. This is a defect " +
+        "in the suite rather than a state you can change.";
+
+    /// <summary>
+    /// The sentence <c>world_categories</c> prints once under <c>unlistable:</c>, which the rows
+    /// that cannot be paged say back. Never a <c>reasonCode</c>, and so never a class.
+    /// </summary>
+    internal const string CollectorNotListable =
+        "this collector publishes no table of its own, so world_list cannot page it; its rows " +
+        "reach the wire inside the reads that carry them";
+
+    /// <summary>Every code this surface answers with, so tests can hold the whole table.</summary>
+    internal static IEnumerable<string> Codes => Rows.Keys;
+
+    private static readonly Row Affirmative = new(ClassRefused, passing: true);
+
+    /// <summary>
+    /// One row per code: its class, whether it is the suite's own failure, whether it answers yes,
+    /// and the sentence it reads as on its own. A code with no sentence is restated on the read
+    /// side and answers <see cref="NoAccount"/> on a mutation.
+    /// </summary>
+    private static readonly Dictionary<string, Row> Rows = new(StringComparer.Ordinal)
     {
-        // Nothing to act on yet
-        "not_available" => "The game has not unlocked this yet.",
-        // Not the same as unaffordable and not the same as full: the screen this action lives on
-        // is not unlocked, so the game draws no button at all.
-        "screen_locked" => "The screen this action lives on is not unlocked yet.",
-        // Not the same no as a locked screen: which screen this is drawn on could not be told at
-        // all, so whether it is unlocked was never asked. Restating the code said "Owning screen
-        // unknown." — the suite's own words for its own gap, in a sentence meant for a player.
-        "owning_screen_unknown" =>
-            "Which screen the game draws this on could not be told, so whether that screen is " +
-            "unlocked is unknown.",
-        "not_visible" => "The game is not showing this yet.",
-        "undiscovered" or "not_discovered" =>
-            "This has not been discovered yet.",
-        // ResourceSO.visible, in the one thing it actually governs. It used to answer "The game is
-        // not showing this yet", which the Scholar page contradicted while drawing a Scholar Xp bar
-        // of its own and pricing Mentality in Psi on the row above it.
-        "not_in_resource_list" =>
-            "The game does not count this in its resource list yet, so prices that name it print " +
-            "as an unknown resource; a page that owns a bar for it still draws one. What would " +
-            "add it is under \"unlocksWhen\".",
-        // Both of these used to fall through to the humanised code — "Hidden discovery." and
-        // "Not discovered or offered." — which named a mechanism and told a reader nothing about
-        // what would change it. One sentence, because they are one fact: the game draws this once
-        // it is discovered, and a discovery tree holding it as its current offer draws it early.
-        "hidden_discovery" or "not_discovered_or_offered" =>
-            "The game draws this once it is discovered, or while a discovery tree offers it.",
-        "discovered_by_roll_only" =>
-            "Only a discovery tree's roll gives this; no screen discovers it directly.",
-        "already_discovered" => "This is already discovered.",
-        "already_maxed" => "This is already at its maximum level.",
-        "hidden_or_undiscovered" =>
-            "This is not discovered, so the game offers no action on it.",
+        // A check that answered yes.
+        ["passed"] = Affirmative,
+        ["committed"] = Affirmative,
+        ["queue_room_available"] = Affirmative,
+        ["below_level_cap"] = Affirmative,
+        ["requirement_met"] = Affirmative,
+        ["recipe_discovered"] = Affirmative,
+        ["native_leeway_available"] = Affirmative,
+        ["native_develops_below_caps"] = Affirmative,
+        ["below_research_cap"] = Affirmative,
+        ["visible"] = Affirmative,
+        ["ready"] = Affirmative,
+        ["can_buy"] = Affirmative,
+        ["drain_available"] = Affirmative,
+        ["output_capacity_available"] = Affirmative,
 
-        // Price
-        "unaffordable" => "The named resources fall short of the price.",
-        "usage_unaffordable" => "The ongoing usage cost is more than is held.",
-        "cost_unavailable" =>
-            "The game does not publish a price for this, so affordability cannot be read.",
-        "resources_hidden" =>
-            "The resources this bonus is priced in are not visible yet.",
-        "exact_cost_unavailable" =>
-            "The game's exact price for this is still refreshing; open its screen and read again.",
-        "resource_or_headroom_insufficient" =>
-            "This resource falls short, or its capacity leaves no room for what the action adds.",
+        // The caller's own argument is what is wrong.
+        ["invalid_uuid"] = new(ClassInput),
+        ["invalid_offset"] = new(ClassInput),
+        ["invalid_limit"] = new(ClassInput),
+        ["unknown_category"] = new(ClassInput),
+        ["unknown_discovery_surface"] = new(ClassInput),
+        // A configuration section nothing is filed under is the same kind of no as a world
+        // category nothing is filed under: the caller named a grouping word this surface has none
+        // of, and the sentence beside it names the ones it does have.
+        ["unknown_section"] = new(ClassInput),
+        ["query_required"] = new(ClassInput),
+        ["argument_validation_failed"] = new(ClassInput),
+        ["filter_not_supported"] = new(ClassInput),
+        // The word the caller passed is not one this filter takes. Named apart from
+        // `invalid_state`, which is the target being in the wrong state for a verb: one producer
+        // code cannot mean both, and while they shared a spelling this table answered the first
+        // arm it met, so every already-run challenge and every wrong-state research refused as
+        // though the caller's own argument had been malformed.
+        ["invalid_state_filter"] = new(ClassInput),
+        ["category_not_searchable"] = new(ClassInput),
+        // A name the world collects under but pages nothing under. It is the caller's argument that
+        // is wrong for this verb, exactly as an unsearchable category is, and saying
+        // `unknown_category` for it contradicted the world_categories page the name was read from.
+        ["category_not_listable"] = new(ClassInput),
+        ["run_filter_out_of_scope"] = new(ClassInput),
+        ["discovered_filter_out_of_scope"] = new(ClassInput),
+        ["keyword_not_worn"] = new(ClassInput),
+        ["keyword_unknown"] = new(ClassInput),
+        ["unsupported_type"] = new(ClassInput),
+        ["composition_unsupported"] = new(ClassInput),
+        ["wrong_mode"] = new(ClassInput),
+        ["wrong_alchemy_surface"] = new(ClassInput),
+        ["wrong_level_surface"] = new(ClassInput),
+        ["wrong_loadout_surface"] = new(ClassInput),
+        ["wrong_selection"] = new(ClassInput),
+        // A feature had two doors onto one switch and a live round called both in one breath to be
+        // sure they agreed. The breaker is the door; the settings pen keeps publishing the value
+        // and stops writing it, so what is readable does not shrink and what is writable is one.
+        ["wrong_configuration_surface"] = new(
+            ClassInput,
+            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
+            "flips it; suite_configuration still reads its value."),
+        ["ambiguous_offer"] = new(
+            ClassInput,
+            "The game offers this action more than once, so the target is unclear."),
+        ["ambiguous_handle"] = new(ClassInput),
+        ["screen_match_failed"] = new(ClassInput),
+        ["subtab_match_failed"] = new(ClassInput),
+        ["page_relation_ambiguous"] = new(ClassInput),
+        // One entity drawn by several elements at once. The caller's uuid is a fine id and the
+        // screen is in a fine state; what is unanswerable is which of the buttons showing that
+        // entity they meant, which is the same kind of no an ambiguous handle is.
+        ["ambiguous_element"] = new(ClassInput),
+        ["ambiguous_modal"] = new(ClassInput),
+        ["level_out_of_range"] = new(ClassInput),
+        ["slot_out_of_range"] = new(ClassInput),
+        ["destination_out_of_range"] = new(ClassInput),
+        ["name_out_of_range"] = new(ClassInput),
+        // A value outside the range its setting accepts is the same kind of no as a dial value
+        // outside the range the game allows. It used to answer a different class on each verb,
+        // which taught a caller that the class described the tool rather than the failure.
+        ["configuration_write_rejected"] = new(ClassInput),
+        // The caller quoted a page marker or a destination the screen catalog never printed.
+        ["tooltip_offset_invalid"] = new(ClassInput),
+        ["tile_destination_mismatch"] = new(ClassInput),
+        ["composite_identity_required"] = new(ClassInput),
 
-        // Capacity and lists
-        "loadout_full" => "Every slot in this loadout is in use.",
-        "automation_full" => "Every automation slot on this queue is in use.",
-        "harvest_list_full" => "The harvest list has no empty slot.",
-        "plot_action_list_full" => "The plot-action list has no empty slot.",
-        "research_queue_full" => "The research queue has no room for another level.",
-        "capacity_exhausted" => "The element's capacity is already full.",
-        "amount_unavailable" =>
-            "The game's own headroom for this is below what the call asked for.",
-        "equipment_type_full" => "Every slot this artifact type may occupy is in use.",
-        "maximum_stacks" => "This artifact is already equipped to its stack limit.",
+        // The named thing is not there.
+        ["unknown_uuid"] = new(ClassNotFound),
+        ["not_world_projected"] = new(ClassNotFound),
+        // A glyph the game draws no Recipe Book for. It answered `world_not_published` — the suite
+        // having read nothing at all — for a perfectly healthy read of a published world.
+        ["offer_not_in_explainable_world"] = new(
+            ClassNotFound,
+            "This offer is on the screen but the world published no row for it, so nothing " +
+            "further can be said about it."),
+        ["resource_not_published"] = new(ClassNotFound),
+        ["automation_entry_not_published"] = new(ClassNotFound),
+        ["not_created"] = new(ClassNotFound, "This artifact has not been crafted yet."),
         // Two things are equipped in this game and they are equipped in different places, so the
         // sentence has to name which one it is talking about. One code covered both, and a live
         // round read "None of this artifact is equipped." off a spell recipe's `canUse` — the
         // artifact loadout is not where spells live, so the reader was sent to the wrong screen.
-        "not_equipped" => "None of this artifact is equipped.",
-        "spell_not_equipped" => "This spell is not in any spell slot.",
-        "not_created" => "This artifact has not been crafted yet.",
-        "single_slot" => "There is no other slot to move to.",
-        "no_other_slot" => "There is no other spell slot to move to.",
-        "not_active" => "This is not active, so there is nothing to act on.",
-        "none_owned" => "None of this is owned.",
+        ["not_equipped"] = new(ClassNotFound, "None of this artifact is equipped."),
+        ["spell_not_equipped"] = new(ClassNotFound, "This spell is not in any spell slot."),
+        ["none_owned"] = new(ClassNotFound, "None of this is owned."),
+        ["not_active"] = new(ClassNotFound, "This is not active, so there is nothing to act on."),
+        ["not_a_duration_ritual"] = new(
+            ClassNotFound,
+            "This ritual grants no duration reward to cancel."),
+        ["no_cancellable_usage"] = new(ClassNotFound, "Nothing is queued that could be cancelled."),
+        ["nothing_to_discard"] = new(ClassNotFound),
+        ["no_pending_request"] = new(ClassNotFound),
+        ["no_pending_target"] = new(ClassNotFound),
+        ["no_valid_target"] = new(
+            ClassNotFound,
+            "This spell has nothing valid to aim at right now."),
+        ["no_open_modal"] = new(ClassNotFound),
+        ["no_other_slot"] = new(ClassNotFound, "There is no other spell slot to move to."),
+        ["single_slot"] = new(ClassNotFound, "There is no other slot to move to."),
         // "Nothing left to discover" was printed beside `discoveredCount: 12` and
         // `discoverableCount: 65` on the same row, and only one of the two conditions the game folds
         // into this code makes it true. The read row now says which, with those numbers; this is the
         // sentence the verbs that have no row to point at say instead, and it claims neither.
-        "no_discoveries" =>
+        ["no_discoveries"] = new(
+            ClassNotFound,
             "Nothing in this tree can be discovered right now; its row says how many of its " +
-            "discoveries are made and how many are still out of reach.",
-        "no_discoveries_in_reach" =>
-            "The discoveries this tree has left are not in reach yet: a tree's pool is widened by " +
-            "its Recipe Books, and an item in the pool is offered only once the game shows it.",
-        "no_current_offers" => "This tree is showing no offers to reroll.",
-        "reroll_already_used" =>
-            "A reroll was already spent on this discovery, so no further reroll is offered.",
+            "discoveries are made and how many are still out of reach."),
+        ["no_ritual_battle_active"] = new(ClassNotFound),
+        ["slot_empty"] = new(ClassNotFound),
+        ["not_on_screen"] = new(ClassNotFound),
+        // Offers, challenges and prestige
+        ["not_offered"] = new(ClassNotFound, "This is not among the offers the game is showing."),
+        ["offer_unavailable"] = new(ClassNotFound, "Select an offer before confirming it."),
+        ["item_unavailable"] = new(ClassNotFound),
+        ["instance_unavailable"] = new(ClassNotFound),
+        ["target_unavailable"] = new(ClassNotFound),
+        ["recipe_unavailable"] = new(ClassNotFound),
+        ["element_unavailable"] = new(ClassNotFound, "The game is not offering this element."),
+        ["source_unavailable"] = new(ClassNotFound),
+        ["no_current_offers"] = new(ClassNotFound, "This tree is showing no offers to reroll."),
+        ["active_section_empty"] = new(ClassNotFound),
+        ["control_unavailable"] = new(ClassNotFound),
+        ["list_unavailable"] = new(ClassNotFound),
+        // The UI gadgets.
+        ["tooltip_match_failed"] = new(ClassNotFound),
+        ["tooltip_content_unavailable"] = new(ClassNotFound),
+        ["native_plot_not_resolved"] = new(ClassNotFound),
+        ["native_spell_not_resolved"] = new(ClassNotFound),
+        ["no_modal_named"] = new(ClassNotFound),
+        ["selection_unavailable"] = new(ClassNotFound),
 
-        // Progress and state
-        "already_active" => "This is already running.",
-        "spell_already_casting" =>
-            "This spell is already running, so a fire press starts no cast; " +
-            "toggle_off ends a running toggle spell.",
-        "spell_not_chargeable" =>
-            "The game offers this spell no charged cast, so it can only be fired outright.",
-        "already_stopped" => "This is already stopped.",
-        "already_developing" => "A development is already running on this research.",
-        "already_in_requested_state" => "This is already in the state the call asked for.",
-        "recipe_incomplete" => "The station has no complete recipe loaded.",
-        "cooldown_active" => "This is still on cooldown.",
-        "inventory_busy" => "The inventory is busy, so nothing can be used right now.",
-        "invalid_state" => "This is not in a state where that action does anything.",
+        // The target exists and is in the wrong state for this verb.
+        ["invalid_state"] = new(
+            ClassState,
+            "This is not in a state where that action does anything."),
         // The rule, not this press's effect. "Does nothing" reads as a shrug about the button the
         // caller just pressed, so a live round spent a second mutation finding out whether the
         // next row would behave the same way; the standing rule answers both at once.
-        "already_ran" =>
-            "A challenge that has already run cannot be queued again until the next reset.",
-        "no_cancellable_usage" => "Nothing is queued that could be cancelled.",
-        "level_locked" => "The game fixes this ritual's starting level, so it cannot be set.",
-        "ritual_battle_active" => "A ritual battle is running. " + RitualBattleGate,
-        "no_active_duration_reward" => "No duration reward from this ritual is running.",
-        "not_a_duration_ritual" => "This ritual grants no duration reward to cancel.",
-        "usage_requirements_unmet" => "This does not meet its usage requirements yet.",
-        "requirements_unmet" => "This does not meet its level requirements yet.",
-        "research_locked" =>
-            "This research is locked, so the Research grid draws no tile for it.",
-        "research_leeway_exhausted" =>
-            "This research has no leeway left and is at one of its caps.",
-        "develop_range_refused" =>
-            "The game's own develop gate is shut on this research.",
-        "cancellable_spells_disabled" =>
-            "Cancellable spells are switched off, so this cast cannot be toggled off.",
-        "progression_locked" => "The progression that unlocks this is not reached yet.",
+        ["already_ran"] = new(
+            ClassState,
+            "A challenge that has already run cannot be queued again until the next reset."),
+        ["no_active_duration_reward"] = new(
+            ClassState,
+            "No duration reward from this ritual is running."),
+        // Progress and state
+        ["already_active"] = new(ClassState, "This is already running."),
+        ["already_stopped"] = new(ClassState, "This is already stopped."),
+        ["already_developing"] = new(
+            ClassState,
+            "A development is already running on this research."),
+        ["already_discovered"] = new(ClassState, "This is already discovered."),
+        ["already_in_requested_state"] = new(
+            ClassState,
+            "This is already in the state the call asked for."),
+        ["already_maxed"] = new(ClassState, "This is already at its maximum level."),
+        ["cooldown_active"] = new(ClassState, "This is still on cooldown."),
+        ["inventory_busy"] = new(
+            ClassState,
+            "The inventory is busy, so nothing can be used right now."),
+        ["native_caster_busy"] = new(
+            ClassState,
+            "Another spell is still casting, and the game casts one spell at a time. This " +
+            "press started nothing; try it again once that cast ends."),
+        // The call named no argument at all: what blocks it is that the screen has two modals open
+        // right now, which is a state and moves on its own.
+        ["multiple_modals_open"] = new(ClassState),
+        // A panel is already covering the board, which is the screen's state and moves the moment
+        // it is dismissed; nothing about the call was wrong.
+        ["modal_already_open"] = new(ClassState),
+        ["targeting_in_progress"] = new(
+            ClassState,
+            "the spell slot is already in a native targeting interaction"),
+        ["transition_in_progress"] = new(ClassState),
+        ["manual_pause"] = new(
+            ClassState,
+            "the spell slot is under the player's manual-pause authority"),
+        // A discovery tree is holding this entity as the offer the player picked. The tree's own
+        // confirm press clears it, so it is the tree's state rather than a fact about the row.
+        ["tree_holds_this_offer"] = new(ClassState),
+        // Continue exists only on the title screen; being in a run is a state, and it moves.
+        ["continue_wrong_scene"] = new(ClassState),
+        ["ritual_battle_active"] = new(
+            ClassState,
+            "A ritual battle is running. " + RitualBattleGate),
+        ["wrong_active_ritual"] = new(ClassState),
+        ["wrong_scene"] = new(ClassState),
+        ["spell_already_inactive"] = new(ClassState, "This toggle spell is already off."),
+        ["spell_already_casting"] = new(
+            ClassState,
+            "This spell is already running, so a fire press starts no cast; " +
+            "toggle_off ends a running toggle spell."),
+        ["spell_not_ready"] = new(
+            ClassState,
+            "The game refused the cast on its own readiness terms."),
+        ["spell_not_toggleable"] = new(ClassState, "This equipped spell is not a toggle spell."),
+        ["spell_not_chargeable"] = new(
+            ClassState,
+            "The game offers this spell no charged cast, so it can only be fired outright."),
+        ["unique_spell_conflict"] = new(ClassState),
+        ["recipe_incomplete"] = new(ClassState, "The station has no complete recipe loaded."),
+        ["slot_occupied"] = new(ClassState),
+        ["recipe_identity_changed"] = new(ClassState),
+        ["slot_identity_changed"] = new(
+            ClassState,
+            "The spell slot no longer holds the spell this call named."),
+        ["ownership_changed"] = new(ClassState),
+        ["mastery_limit_changed"] = new(ClassState),
+        ["assignment_unsettled"] = new(ClassState),
+        ["challenges_not_fetched"] = new(
+            ClassState,
+            "The challenge offers for this cycle have not been fetched yet."),
+        ["world_cycle_incomplete"] = new(ClassState, "The world cycle is not complete yet."),
+        ["level_locked"] = new(
+            ClassState,
+            "The game fixes this ritual's starting level, so it cannot be set."),
+        ["cancellable_spells_disabled"] = new(
+            ClassState,
+            "Cancellable spells are switched off, so this cast cannot be toggled off."),
+        ["service_disabled"] = new(
+            ClassState,
+            "The suite feature that performs this is switched off."),
+        ["emergency_stop"] = new(
+            ClassState,
+            "The suite's emergency stop is on, so nothing was sent to the game."),
+        ["modal_already_closing"] = new(ClassState),
+        ["modal_close_not_ready"] = new(ClassState),
+        ["requested_state_not_reached"] = new(ClassState),
+        ["randomization_unavailable"] = new(ClassState),
+        ["cancel_unavailable"] = new(ClassState),
+        ["fetch_unavailable"] = new(ClassState),
+        ["bonus_unavailable"] = new(ClassState),
+        ["develop_unavailable"] = new(ClassState),
+        ["reroll_already_used"] = new(
+            ClassState,
+            "A reroll was already spent on this discovery, so no further reroll is offered."),
+        ["switch_blocked"] = new(ClassState, "The game refuses a loadout swap right now."),
+        ["cast_in_progress"] = new(
+            ClassState,
+            "This spell is mid-cast, so it cannot be removed until the cast finishes."),
+        ["charge_unavailable"] = new(ClassState),
+        // The game's own words for the one gate SpellManager.RemoveSpell applies to itself.
+        ["spell_recharging"] = new(
+            ClassState,
+            "The game only removes a spell at full charges, and this one is still recharging."),
+        ["batch_spend_drift"] = new(
+            ClassState,
+            "Earlier purchases in this batch spent the margin this one was planned against."),
+        ["resources_uncovered"] = new(ClassState),
+        ["attuning"] = new(ClassState),
 
-        // A feature had two doors onto one switch and a live round called both in one breath to be
-        // sure they agreed. The breaker is the door; the settings pen keeps publishing the value
-        // and stops writing it, so what is readable does not shrink and what is writable is one.
-        "wrong_configuration_surface" =>
-            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
-            "flips it; suite_configuration still reads its value.",
+        // A ceiling, a capacity, or a budget is reached; a smaller ask or a later call may work.
+        ["amount_unavailable"] = new(
+            ClassLimit,
+            "The game's own headroom for this is below what the call asked for."),
+        // Capacity and lists
+        ["loadout_full"] = new(ClassLimit, "Every slot in this loadout is in use."),
+        ["automation_full"] = new(ClassLimit, "Every automation slot on this queue is in use."),
+        ["harvest_list_full"] = new(ClassLimit, "The harvest list has no empty slot."),
+        ["plot_action_list_full"] = new(ClassLimit, "The plot-action list has no empty slot."),
+        ["research_queue_full"] = new(
+            ClassLimit,
+            "The research queue has no room for another level."),
+        ["queue_full"] = new(ClassLimit),
+        ["equipment_type_full"] = new(
+            ClassLimit,
+            "Every slot this artifact type may occupy is in use."),
+        ["maximum_stacks"] = new(
+            ClassLimit,
+            "This artifact is already equipped to its stack limit."),
+        ["selection_full"] = new(
+            ClassLimit,
+            "Every challenge selection this cycle allows is already taken."),
+        ["capacity_exhausted"] = new(ClassLimit, "The element's capacity is already full."),
+        // One glyph asked for more uses than its own GlyphSO.GetMaxUsages() allows. A ceiling on
+        // one row of a layout, which a smaller count on that row fixes.
+        ["glyph_usages_exceeded"] = new(ClassLimit),
+        ["no_rerolls"] = new(ClassLimit, "No rerolls are left this cycle."),
+        ["reroll_unavailable"] = new(ClassLimit, "No rerolls are left."),
+        ["element_capacity_unavailable"] = new(ClassLimit),
+        // Structural gaps the game itself declares
+        ["plot_quantity_insufficient"] = new(
+            ClassLimit,
+            "The plot has no room or not enough of what this action consumes."),
+        ["resource_or_headroom_insufficient"] = new(
+            ClassLimit,
+            "This resource falls short, or its capacity leaves no room for what the action adds."),
+        ["usage_budget_unavailable"] = new(ClassLimit),
+        ["multi_buy_unavailable"] = new(
+            ClassLimit,
+            "The global multi-buy target is zero, so a queued develop would take no levels."),
+        ["augment_slots_exceeded"] = new(ClassLimit),
+        // Both resource axes of a recipe. Their rows already answer
+        // resource_or_headroom_insufficient one by one, and the axis that aggregates them says the
+        // same thing about the recipe as a whole.
+        // The two resource axes a recipe can be held on. Their codes used to be built by
+        // concatenation, so no table had ever met either of them.
+        ["bandwidth_blocked"] = new(
+            ClassLimit,
+            "One of the resources this consumes has no bandwidth left."),
+        ["drain_blocked"] = new(
+            ClassLimit,
+            "One of the resources this drains is already at its limit."),
+        ["engagement_drain_limited"] = new(
+            ClassLimit,
+            "This recipe would drain a resource past what the game allows; the ratio it will " +
+            "allow is beside this."),
+        ["screenshot_budget_reached"] = new(ClassLimit),
+        ["destination_full"] = new(
+            ClassLimit,
+            "Every slot this upgrade would fill is already occupied."),
+        ["slot_unavailable"] = new(ClassLimit),
+        ["level_cap_reached"] = new(ClassLimit),
+        ["artificial_research_cap_reached"] = new(ClassLimit),
+        ["research_investment_cap_reached"] = new(ClassLimit),
 
-        // The only cause these two used to give was a pair of internal counters — "expected
-        // configuration generation 41 but the main thread now has generation 42" — which no read on
-        // this surface publishes, so a caller could neither look them up nor act on them. Said once
-        // here because two producers said it in two different sets of words.
-        "stale_configuration_generation" =>
-            "The suite's settings changed after this call was accepted and before the game ran it, " +
-            "so nothing was done; make the call again against the settings now in force.",
-        "configuration_not_available" =>
-            "The suite has not published its settings yet, so there is nothing to write against.",
+        // Named resources fall short.
+        // Price
+        ["unaffordable"] = new(ClassUnaffordable, "The named resources fall short of the price."),
+        ["usage_unaffordable"] = new(
+            ClassUnaffordable,
+            "The ongoing usage cost is more than is held."),
+        ["level_not_affordable"] = new(
+            ClassUnaffordable,
+            "No spell has a mastery level ready whose cost you can afford."),
+        ["insufficient_quantity"] = new(ClassUnaffordable),
+        ["insufficient_bandwidth"] = new(ClassUnaffordable),
 
-        // The half of a write only the suite owns. The value was accepted and then the suite's own
-        // publication of it did not happen, which shipped as `configuration_write_rejected` — the
-        // caller's own argument is what is wrong — for a call whose argument was fine. Whether the
-        // setting took is genuinely unknown from here, so the sentence says that and names the one
-        // move that settles it.
-        "configuration_write_unconfirmed" =>
-            "The setting was accepted but the suite could not confirm it took; read it back and, " +
-            "if it is unchanged, report this.",
-
-        // Never a `reasonCode`, and so never a class: it is the sentence `world_categories` prints
-        // once under `unlistable:`, and the rows that cannot be paged say that one word back.
-        "collector_not_listable" =>
-            "this collector publishes no table of its own, so world_list cannot page it; its rows " +
-            "reach the wire inside the reads that carry them",
-
+        // Progression, visibility, or authored requirements are not reached yet.
+        // Nothing to act on yet
+        ["not_available"] = new(ClassLocked, "The game has not unlocked this yet."),
+        ["action_not_available"] = new(ClassLocked),
+        ["not_visible"] = new(ClassLocked, "The game is not showing this yet."),
+        ["hidden"] = new(ClassLocked),
+        ["hidden_or_undiscovered"] = new(
+            ClassLocked,
+            "This is not discovered, so the game offers no action on it."),
+        ["undiscovered"] = new(ClassLocked, "This has not been discovered yet."),
+        ["not_discovered"] = new(ClassLocked, "This has not been discovered yet."),
+        ["progression_locked"] = new(
+            ClassLocked,
+            "The progression that unlocks this is not reached yet."),
+        ["level_all_locked"] = new(
+            ClassLocked,
+            "Level All Spells is locked until Unlock Level All Spells is bought."),
+        ["requirements_unmet"] = new(ClassLocked, "This does not meet its level requirements yet."),
+        ["usage_requirements_unmet"] = new(
+            ClassLocked,
+            "This does not meet its usage requirements yet."),
+        ["native_prerequisites_currently_unmet"] = new(
+            ClassLocked,
+            "native prerequisites are currently unmet according to one fresh action-boundary check"),
+        ["develop_range_refused"] = new(
+            ClassLocked,
+            "The game's own develop gate is shut on this research."),
+        ["native_not_discoverable"] = new(
+            ClassLocked,
+            "The game never offers a discovery action for this."),
+        ["discovery_unavailable"] = new(
+            ClassLocked,
+            "The game does not offer a discovery for this recipe."),
+        // No screen discovers one thing; the tree's roll is the only way in, and its own row is
+        // where a caller acts.
+        ["discovered_by_roll_only"] = new(
+            ClassLocked,
+            "Only a discovery tree's roll gives this; no screen discovers it directly."),
+        ["selection_restricted"] = new(
+            ClassLocked,
+            "This challenge cannot be selected in the offer set it came from."),
+        ["selection_hidden"] = new(ClassLocked),
+        ["cannot_level"] = new(ClassLocked),
+        ["resources_hidden"] = new(
+            ClassLocked,
+            "The resources this bonus is priced in are not visible yet."),
+        ["recipe_not_discovered"] = new(ClassLocked),
+        ["prerequisites_unmet"] = new(ClassLocked),
+        ["not_discovered_or_offered"] = new(
+            ClassLocked,
+            "The game draws this once it is discovered, or while a discovery tree offers it."),
+        ["native_hidden"] = new(ClassLocked),
+        // Both of these used to fall through to the humanised code — "Hidden discovery." and
+        // "Not discovered or offered." — which named a mechanism and told a reader nothing about
+        // what would change it. One sentence, because they are one fact: the game draws this once
+        // it is discovered, and a discovery tree holding it as its current offer draws it early.
+        ["hidden_discovery"] = new(
+            ClassLocked,
+            "The game draws this once it is discovered, or while a discovery tree offers it."),
+        ["requirement_unmet"] = new(ClassLocked),
+        // A tree with discoveries left that none of its gates has put in reach is locked, not empty:
+        // the caller's next move is to open a Recipe Book, which is a different move from giving up
+        // on the tree — and while both wore ERR_NOT_FOUND, nothing on the wire told them apart.
+        ["no_discoveries_in_reach"] = new(
+            ClassLocked,
+            "The discoveries this tree has left are not in reach yet: a tree's pool is widened by " +
+            "its Recipe Books, and an item in the pool is offered only once the game shows it."),
+        // Every producer of this code has the tree in hand and finds `IsVisible(tree)` false — the
+        // read side off the published row, the action off its own preflight, which answers
+        // `identity_unavailable` when the tree genuinely is not there. A tree whose screen is shut
+        // is locked, and the sentence has always said so.
+        ["tree_unavailable"] = new(ClassLocked, "The game is not showing this discovery tree."),
+        // Not the same as unaffordable and not the same as full: the screen this action lives on
+        // is not unlocked, so the game draws no button at all.
+        ["screen_locked"] = new(
+            ClassLocked,
+            "The screen this action lives on is not unlocked yet."),
+        // The lock and the next level's requirements are two different authored lists, and this
+        // block once carried only the second. Saying "met" of the rows below while the thing was
+        // shut read as a green light three rounds running; the sentence names which list answers
+        // which question so the caller stops looking for the lock among the wrong rows.
+        ["unlock_conditions_unmet"] = new(
+            ClassLocked,
+            "The game keeps this locked. What would unlock it is under \"unlocksWhen\"; the " +
+            "requirements beside it are what its next level needs, which is a separate list."),
+        ["research_locked"] = new(
+            ClassLocked,
+            "This research is locked, so the Research grid draws no tile for it."),
+        // GlyphSO.IsAvailable() is false: undiscovered, or its prerequisites are not met. The glyph
+        // list draws no copy to socket, which is a gate rather than a missing entity — the suite
+        // resolved the glyph before it asked.
+        ["glyph_unavailable"] = new(ClassLocked),
+        // ResourceSO.visible is false: the game does not count this resource in its own resource
+        // list yet. A gate the unlock container beside it names, not a thing that is missing and
+        // not a claim about what any screen draws.
+        // ResourceSO.visible, in the one thing it actually governs. It used to answer "The game is
+        // not showing this yet", which the Scholar page contradicted while drawing a Scholar Xp bar
+        // of its own and pricing Mentality in Psi on the row above it.
         // The lock the game states and does not explain. It is the honest floor under every other
         // sentence here: those name a condition because the world published one, and this one is
         // what is left to say when it published none. Restating the code produced "Native
         // unavailable." — the suite's own word for the reading, in a sentence meant for a player,
         // that named neither a gate nor a limit. Saying the limit out loud is the answer: a caller
         // learns there is nothing further to look up, which is a decision it can act on.
-        "native_unavailable" =>
-            "The game keeps this locked, and says nothing about what would unlock it.",
+        ["native_unavailable"] = new(
+            ClassLocked,
+            "The game keeps this locked, and says nothing about what would unlock it."),
+        ["research_leeway_exhausted"] = new(
+            ClassLocked,
+            "This research has no leeway left and is at one of its caps."),
+        ["native_leeway_exhausted"] = new(ClassLocked),
 
-        // The lock and the next level's requirements are two different authored lists, and this
-        // block once carried only the second. Saying "met" of the rows below while the thing was
-        // shut read as a green light three rounds running; the sentence names which list answers
-        // which question so the caller stops looking for the lock among the wrong rows.
-        "unlock_conditions_unmet" =>
-            "The game keeps this locked. What would unlock it is under \"unlocksWhen\"; the " +
-            "requirements beside it are what its next level needs, which is a separate list.",
-
-        // Offers, challenges and prestige
-        "not_offered" => "This is not among the offers the game is showing.",
-        "ambiguous_offer" => "The game offers this action more than once, so the target is unclear.",
-        "selection_full" => "Every challenge selection this cycle allows is already taken.",
-        "selection_restricted" => "This challenge cannot be selected in the offer set it came from.",
-        "world_cycle_incomplete" => "The world cycle is not complete yet.",
-        "challenges_not_fetched" => "The challenge offers for this cycle have not been fetched yet.",
-        "no_rerolls" => "No rerolls are left this cycle.",
-        "reroll_unavailable" => "No rerolls are left.",
-        "offer_unavailable" => "Select an offer before confirming it.",
-
-        // Structural gaps the game itself declares
-        "plot_quantity_insufficient" =>
-            "The plot has no room or not enough of what this action consumes.",
-        "element_unavailable" => "The game is not offering this element.",
-        "tree_unavailable" => "The game is not showing this discovery tree.",
-        "discovery_unavailable" => "The game does not offer a discovery for this recipe.",
-        "native_not_discoverable" => "The game never offers a discovery action for this.",
-        "native_discovery_refused" => "The game refuses to discover this right now.",
-        // The game's own words for the one gate SpellManager.RemoveSpell applies to itself.
-        "spell_recharging" =>
-            "The game only removes a spell at full charges, and this one is still recharging.",
-        "native_use_refused" => "The game refuses to use this right now.",
-        "native_level_refused" => "The game refuses to level this right now.",
-        "native_develop_refused" => "The game refuses to develop this right now.",
-        "native_rejected" =>
-            "The game refused, and nothing it reports explains why.",
-        "multi_buy_unavailable" =>
-            "The global multi-buy target is zero, so a queued develop would take no levels.",
-        "research_decision_unavailable" =>
-            "The game's research state was not readable in this world, so no develop decision was formed.",
-        "challenge_state_unavailable" => "The game's challenge state was not readable in this world.",
-        "prestige_state_unavailable" => "The game's prestige state was not readable in this world.",
-        "loadout_unavailable" => "The game's equipment loadout was not readable in this world.",
-        "switch_blocked" => "The game refuses a loadout swap right now.",
-        "projection_refused" => "The suite's own resource-rate policy refuses this assignment.",
-
+        // The suite or the game could not read or serve the fact.
+        // The binding set the boundary needs was never assembled, so nothing was submitted.
+        ["contract_unavailable"] = new(ClassUnavailable, suiteDefect: true),
+        ["feature_contract_unavailable"] = new(
+            ClassUnavailable,
+            "the native harvest feature contract is unavailable",
+            suiteDefect: true),
+        ["pair_contract_unavailable"] = new(
+            ClassUnavailable,
+            "The current plot and harvest action cannot be matched safely.",
+            suiteDefect: true),
+        // The submission reached the boundary off Unity's thread and was stopped there.
+        ["wrong_thread"] = new(ClassUnavailable, suiteDefect: true),
+        ["identity_unavailable"] = new(ClassUnavailable),
+        ["entity_name_unavailable"] = new(ClassUnavailable),
+        // The suite has no world and no identity catalog to answer from.
+        ["world_not_published"] = new(ClassUnavailable, suiteDefect: true),
+        ["lifecycle_no_game"] = new(ClassUnavailable),
+        ["lifecycle_initializing"] = new(ClassUnavailable),
+        ["lifecycle_resetting"] = new(ClassUnavailable),
+        ["lifecycle_scene_exit"] = new(ClassUnavailable),
+        ["lifecycle_not_available"] = new(ClassUnavailable),
+        ["lifecycle_replaced"] = new(
+            ClassUnavailable,
+            "The run changed underneath this call — a save load, reset, or new game plus — " +
+            "so nothing was sent to the game."),
+        // The only cause these two used to give was a pair of internal counters — "expected
+        // configuration generation 41 but the main thread now has generation 42" — which no read on
+        // this surface publishes, so a caller could neither look them up nor act on them. Said once
+        // here because two producers said it in two different sets of words.
+        ["stale_configuration_generation"] = new(
+            ClassUnavailable,
+            "The suite's settings changed after this call was accepted and before the game ran it, " +
+            "so nothing was done; make the call again against the settings now in force."),
+        ["post_state_timeout"] = new(ClassUnavailable),
+        ["post_state_not_published"] = new(ClassUnavailable),
+        ["entity_data_incomplete"] = new(ClassUnavailable),
+        ["discovery_offer_read_incomplete"] = new(ClassUnavailable),
+        ["unmodeled_requirement_leaf"] = new(
+            ClassUnavailable,
+            "One of this entity's requirements uses a condition this build does not model, so " +
+            "its graph is incomplete."),
+        ["unsupported_requirement_value"] = new(
+            ClassUnavailable,
+            "This requirement compares something this build does not model; read it on the " +
+            "game's own tooltip."),
+        ["requirement_class_unread"] = new(ClassUnavailable),
+        ["navigation_unavailable"] = new(ClassUnavailable),
+        ["equipment_loadout_unavailable"] = new(ClassUnavailable),
+        ["equipment_manager_unavailable"] = new(ClassUnavailable),
+        ["equipment_type_unavailable"] = new(ClassUnavailable),
+        ["equipment_stack_identity_inconsistent"] = new(ClassUnavailable),
+        ["research_decision_unavailable"] = new(
+            ClassUnavailable,
+            "The game's research state was not readable in this world, so no develop decision was formed."),
+        ["challenge_state_unavailable"] = new(
+            ClassUnavailable,
+            "The game's challenge state was not readable in this world."),
+        ["prestige_state_unavailable"] = new(
+            ClassUnavailable,
+            "The game's prestige state was not readable in this world."),
+        ["loadout_unavailable"] = new(
+            ClassUnavailable,
+            "The game's equipment loadout was not readable in this world."),
+        ["glyph_requirements_unavailable"] = new(ClassUnavailable),
+        ["usage_requirements_unavailable"] = new(ClassUnavailable),
+        // The suite staged a layout into the game's own selection lists and read back something
+        // else. Nothing the caller passed is wrong and nothing in the game refused: the write the
+        // suite performs did not land, which is the suite's defect to answer for.
+        // The suite staged a layout into the game's own selection lists and read back something
+        // else. Nothing the caller passed is wrong and nothing in the game refused.
+        ["staged_write_failed"] = new(ClassUnavailable, suiteDefect: true),
+        // The suite could not pin the game's multi-buy multiplier for the press, so the press was
+        // never made. This answered `native_rejected` — the game refusing — for a call the game
+        // never saw.
+        ["single_buy_unavailable"] = new(
+            ClassUnavailable,
+            "The suite could not set the game's multi-buy multiplier, so no purchase was " +
+            "attempted.",
+            suiteDefect: true),
+        // The suite asked for a control the screen has no button for. The router validates
+        // every mode before a boundary is reached, so arriving here is the suite contradicting
+        // its own router rather than the caller passing a bad word.
+        ["unsupported_control"] = new(ClassUnavailable, suiteDefect: true),
+        // The UI gadgets again: a shell that is not drawing tabs, a build that exposes no plot
+        // or spell list or no queue-room reading, and the two guards the router already makes
+        // unreachable.
+        ["native_navigation_unavailable"] = new(ClassUnavailable),
+        ["native_plot_navigation_unavailable"] = new(ClassUnavailable),
+        ["native_plot_list_unavailable"] = new(ClassUnavailable),
+        ["native_spell_navigation_unavailable"] = new(ClassUnavailable),
+        ["native_spell_list_unavailable"] = new(ClassUnavailable),
+        ["native_probe_unavailable"] = new(ClassUnavailable),
+        ["tooltip_contract_unavailable"] = new(ClassUnavailable, suiteDefect: true),
+        ["tooltip_read_faulted"] = new(ClassUnavailable),
+        // The tooltip's graph goes further than the projector walks, so the read was abandoned
+        // rather than answered with the part of it that had been collected. Not a ceiling the
+        // caller can ask under — the tool takes no size — and not the game refusing: the fact is
+        // simply not one this suite will serve, which is what this class says. The same spelling as
+        // `requirement_depth_exceeded`, which is the same concept one graph over.
+        ["tooltip_depth_exceeded"] = new(ClassUnavailable),
+        // A panel the suite will not press. Nothing about the call was wrong and the game refused
+        // nothing: opening it would run scene-wired handlers no read of the build can follow, and
+        // the three the game draws beside the player's own chrome are a world reset, an ending
+        // screen and a developer console.
+        ["modal_not_offered"] = new(ClassUnavailable),
+        // The router validates every screen and every probe name before a gadget is reached, so
+        // these two are the suite contradicting its own router rather than a caller's mistake.
+        ["navigation_request_invalid"] = new(ClassUnavailable, suiteDefect: true),
+        ["unsupported_probe"] = new(ClassUnavailable, suiteDefect: true),
+        ["continue_contract_unavailable"] = new(ClassUnavailable, suiteDefect: true),
+        ["cost_unavailable"] = new(
+            ClassUnavailable,
+            "The game does not publish a price for this, so affordability cannot be read."),
+        ["exact_cost_unavailable"] = new(
+            ClassUnavailable,
+            "The game's exact price for this is still refreshing; open its screen and read again."),
+        ["usage_cost_unavailable"] = new(ClassUnavailable),
+        ["action_family_unavailable"] = new(
+            ClassUnavailable,
+            "the suite does not own the requested native action family"),
+        ["screenshot_budget_unavailable"] = new(ClassUnavailable),
+        ["inline_screenshot_failed"] = new(ClassUnavailable),
+        ["request_canceled_before_claim"] = new(ClassUnavailable),
+        ["operation_dispatch_fault"] = new(ClassUnavailable),
+        ["adapter_fault"] = new(
+            ClassUnavailable,
+            "The suite could not prove the game had taken this safely, so it stopped rather " +
+            "than report a change it had not seen."),
+        ["pair_faulted"] = new(
+            ClassUnavailable,
+            "the native harvest pair faulted before a verified mutation"),
+        ["post_commit_fault"] = new(ClassUnavailable),
+        ["verification_failed"] = new(ClassUnavailable),
+        ["prerequisite_unverified"] = new(ClassUnavailable),
+        ["requirement_cycle"] = new(ClassUnavailable),
+        ["requirement_depth_exceeded"] = new(ClassUnavailable),
+        ["requirement_unevaluable"] = new(
+            ClassUnavailable,
+            "The game's own answer for this requirement could not be read, so whether it is " +
+            "met is unknown."),
         // The requirement graph. Every leaf on it used to ship its code with the underscores taken
         // out — "Requirement unevaluable." — on the read whose whole job is explaining why a
         // verb is shut, which is the loop this table exists to end. The unmet leaf writes its own sentence
         // from the numbers already beside it and never reaches here.
-        "tier_not_published" =>
-            "The game publishes no such tier on this gate, so what it asks for could not be read.",
-        "requirement_unevaluable" =>
-            "The game's own answer for this requirement could not be read, so whether it is " +
-            "met is unknown.",
-        "threshold_scaling_unavailable" =>
+        ["tier_not_published"] = new(
+            ClassUnavailable,
+            "The game publishes no such tier on this gate, so what it asks for could not be read."),
+        ["threshold_scaling_unavailable"] = new(
+            ClassUnavailable,
             "This requirement's threshold changes with level and the game did not publish the " +
-            "scaled number, so it cannot be compared.",
-        "unsupported_requirement_value" =>
-            "This requirement compares something this build does not model; read it on the " +
-            "game's own tooltip.",
-        "unmodeled_requirement_leaf" =>
-            "One of this entity's requirements uses a condition this build does not model, so " +
-            "its graph is incomplete.",
-
-        // The two resource axes a recipe can be held on. Their codes used to be built by
-        // concatenation, so no table had ever met either of them.
-        "bandwidth_blocked" => "One of the resources this consumes has no bandwidth left.",
-        "drain_blocked" => "One of the resources this drains is already at its limit.",
-        "engagement_drain_limited" =>
-            "This recipe would drain a resource past what the game allows; the ratio it will " +
-            "allow is beside this.",
-
+            "scaled number, so it cannot be compared."),
+        ["category_not_collected"] = new(ClassUnavailable),
+        // Not the same no as a locked screen: which screen this is drawn on could not be told at
+        // all, so whether it is unlocked was never asked. Restating the code said "Owning screen
+        // unknown." — the suite's own words for its own gap, in a sentence meant for a player.
+        ["owning_screen_unknown"] = new(
+            ClassUnavailable,
+            "Which screen the game draws this on could not be told, so whether that screen is " +
+            "unlocked is unknown."),
+        ["owning_screen_unreadable"] = new(
+            ClassUnavailable,
+            "The game's purchase-screen chain for this target could not be read when this " +
+            "run's topology was captured."),
+        ["owning_screen_contradictory"] = new(
+            ClassUnavailable,
+            "This target's captured purchase-screen relation contradicts itself."),
+        ["topology_not_captured"] = new(
+            ClassUnavailable,
+            "The purchase-screen topology holds no admission evidence for this run."),
+        ["owning_screen_status_unmodelled"] = new(
+            ClassUnavailable,
+            "This target's captured purchase-screen relation carries a status this build " +
+            "does not model."),
+        ["owning_screen_availability_unreadable"] = new(
+            ClassUnavailable,
+            "The game did not answer whether this target's purchase screen is available " +
+            "right now."),
+        ["configuration_unpublished"] = new(ClassUnavailable),
+        ["configuration_not_available"] = new(
+            ClassUnavailable,
+            "The suite has not published its settings yet, so there is nothing to write against."),
+        // The caller's value was accepted and the suite's own publication of it did not happen.
+        // Nothing in the game was asked and no argument would have changed the outcome.
+        // The half of a write only the suite owns. The value was accepted and then the suite's own
+        // publication of it did not happen, which shipped as `configuration_write_rejected` — the
+        // caller's own argument is what is wrong — for a call whose argument was fine. Whether the
+        // setting took is genuinely unknown from here, so the sentence says that and names the one
+        // move that settles it.
+        ["configuration_write_unconfirmed"] = new(
+            ClassUnavailable,
+            "The setting was accepted but the suite could not confirm it took; read it back and, " +
+            "if it is unchanged, report this.",
+            suiteDefect: true),
+        // The suite is not running, or could not attach to the game's tooltips or its Continue
+        // button. The game is never asked in any of the three.
+        ["runtime_not_available"] = new(ClassUnavailable, suiteDefect: true),
         // Price and room, on the read side, where the mutation's own sentences do not reach.
-        "price_unavailable" =>
-            "The game has not published a price for this yet; open its screen and read again.",
-        "affordability_unavailable" =>
+        ["price_unavailable"] = new(
+            ClassUnavailable,
+            "The game has not published a price for this yet; open its screen and read again."),
+        ["affordability_unavailable"] = new(
+            ClassUnavailable,
             "The game published a price but not whether you can pay it; open its screen and read " +
-            "again.",
-        "queue_not_published" =>
-            "The action queue was not readable in this world, so queue room is unknown.",
+            "again."),
+        ["entity_catalog_unavailable"] = new(ClassUnavailable, suiteDefect: true),
+        ["queue_not_published"] = new(
+            ClassUnavailable,
+            "The action queue was not readable in this world, so queue room is unknown."),
+        ["queue_reading_inconsistent"] = new(ClassUnavailable),
 
-        // A glyph the game draws no Recipe Book for. It answered `world_not_published` — the suite
-        // having read nothing at all — for a perfectly healthy read of a published world.
-        "offer_not_in_explainable_world" =>
-            "This offer is on the screen but the world published no row for it, so nothing " +
-            "further can be said about it.",
-        "cast_in_progress" =>
-            "This spell is mid-cast, so it cannot be removed until the cast finishes.",
+        // A no the game gave and the suite cannot classify further.
+        ["native_discovery_refused"] = new(
+            ClassRefused,
+            "The game refuses to discover this right now."),
+        ["native_use_refused"] = new(ClassRefused, "The game refuses to use this right now."),
+        ["native_level_refused"] = new(ClassRefused, "The game refuses to level this right now."),
+        ["native_develop_refused"] = new(
+            ClassRefused,
+            "The game refuses to develop this right now."),
+        ["native_rejected"] = new(
+            ClassRefused,
+            "The game refused this at the moment it was asked, and gave no reason of its own."),
+        ["projection_refused"] = new(
+            ClassRefused,
+            "The suite's own resource-rate policy refuses this assignment."),
+        ["policy_rejected"] = new(
+            ClassRefused,
+            "The suite's own policy refused this before the game was asked."),
+        ["skipped"] = new(
+            ClassRefused,
+            "Nothing changed: by the time this was asked, there was nothing left for it to do."),
+        ["charge_hold_refused"] = new(
+            ClassRefused,
+            "A charged-cast hold could not be established, so no cast was submitted."),
+        ["native_prerequisite_validation_unavailable"] = new(
+            ClassRefused,
+            "the exact native harvest prerequisite validation was unreadable, so no quantity " +
+            "mutation was attempted"),
+        ["can_fire_refused"] = new(ClassRefused),
+        ["native_target_refused"] = new(ClassRefused),
+        ["saved_entry_unavailable"] = new(ClassRefused),
 
-        _ => null,
+        // Background automation stops, which no command answers with.
+        ["family_changed"] = new(ClassRefused),
+        ["native_busy"] = new(ClassRefused),
+        ["quarantined"] = new(ClassRefused),
+        ["temporary_duration_changed"] = new(ClassRefused),
+        ["temporary_cost_changed"] = new(ClassRefused),
+        ["temporary_effect_present"] = new(ClassRefused),
+        ["relationship_mismatch"] = new(ClassRefused),
+        ["competing_supply"] = new(ClassRefused),
+        ["post_payment_fault"] = new(ClassRefused),
     };
+
+    private readonly struct Row
+    {
+        internal Row(
+            string reasonClass,
+            string? sentence = null,
+            bool suiteDefect = false,
+            bool passing = false)
+        {
+            Class = reasonClass;
+            Sentence = sentence;
+            SuiteDefect = suiteDefect;
+            Passing = passing;
+        }
+
+        internal string Class { get; }
+        internal string? Sentence { get; }
+        internal bool SuiteDefect { get; }
+        internal bool Passing { get; }
+    }
 
     /// <summary>
     /// The world publishes a handful of reasons as its own free text rather than as a code from a

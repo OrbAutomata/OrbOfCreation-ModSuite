@@ -15,19 +15,36 @@ public readonly struct ServiceActionResultCode : IEquatable<ServiceActionResultC
 {
     public const int FirstFeatureCode = 1024;
 
-    public ServiceActionResultCode(int value)
+    /// <summary>A feature code and the one wire name every surface answers it with.</summary>
+    /// <remarks>
+    /// Feature numbers are namespaced per feature and reused across features, so the number alone
+    /// cannot say which refusal it is. The name travels on the code instead of in a table keyed by
+    /// number, so two features sharing a number can never answer with each other's name.
+    /// Equality stays by number.
+    /// </remarks>
+    public ServiceActionResultCode(int value, string name)
     {
         if (value < FirstFeatureCode)
             throw new ArgumentOutOfRangeException(nameof(value), "Feature action-result codes must use the feature-reserved range.");
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Every action-result code carries its wire name.", nameof(name));
         Value = value;
+        _name = name;
     }
 
-    private ServiceActionResultCode(int value, bool reserved) => Value = value;
+    private ServiceActionResultCode(int value, string name, bool reserved)
+    {
+        Value = value;
+        _name = name;
+    }
+
+    private readonly string? _name;
 
     public int Value { get; }
+    public string Name => _name ?? string.Empty;
     public bool IsValid => Value is >= 1 and <= 8 || Value >= FirstFeatureCode;
     internal bool IsFeatureCode => Value >= FirstFeatureCode;
-    internal static ServiceActionResultCode Reserved(int value) => new(value, true);
+    internal static ServiceActionResultCode Reserved(int value, string name) => new(value, name, true);
     public bool Equals(ServiceActionResultCode other) => Value == other.Value;
     public override bool Equals(object? obj) => obj is ServiceActionResultCode other && Equals(other);
     public override int GetHashCode() => Value;
@@ -38,14 +55,14 @@ public readonly struct ServiceActionResultCode : IEquatable<ServiceActionResultC
 
 public static class CommonActionResultCodes
 {
-    public static ServiceActionResultCode Committed => ServiceActionResultCode.Reserved(1);
-    public static ServiceActionResultCode EmergencyStop => ServiceActionResultCode.Reserved(2);
-    public static ServiceActionResultCode LifecycleReplaced => ServiceActionResultCode.Reserved(3);
-    public static ServiceActionResultCode ServiceDisabled => ServiceActionResultCode.Reserved(4);
-    public static ServiceActionResultCode NativeRejected => ServiceActionResultCode.Reserved(5);
-    public static ServiceActionResultCode PolicyRejected => ServiceActionResultCode.Reserved(6);
-    public static ServiceActionResultCode AdapterFault => ServiceActionResultCode.Reserved(7);
-    public static ServiceActionResultCode Skipped => ServiceActionResultCode.Reserved(8);
+    public static ServiceActionResultCode Committed => ServiceActionResultCode.Reserved(1, "committed");
+    public static ServiceActionResultCode EmergencyStop => ServiceActionResultCode.Reserved(2, "emergency_stop");
+    public static ServiceActionResultCode LifecycleReplaced => ServiceActionResultCode.Reserved(3, "lifecycle_replaced");
+    public static ServiceActionResultCode ServiceDisabled => ServiceActionResultCode.Reserved(4, "service_disabled");
+    public static ServiceActionResultCode NativeRejected => ServiceActionResultCode.Reserved(5, "native_rejected");
+    public static ServiceActionResultCode PolicyRejected => ServiceActionResultCode.Reserved(6, "policy_rejected");
+    public static ServiceActionResultCode AdapterFault => ServiceActionResultCode.Reserved(7, "adapter_fault");
+    public static ServiceActionResultCode Skipped => ServiceActionResultCode.Reserved(8, "skipped");
 }
 
 internal static class NativeMutationCallOutcomeValidation

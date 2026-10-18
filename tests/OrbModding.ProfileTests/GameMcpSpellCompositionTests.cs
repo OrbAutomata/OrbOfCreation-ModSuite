@@ -163,7 +163,6 @@ public sealed class GameMcpSpellCompositionTests
             GameMcpTestHarness.Context(World(outputLevel: 4)));
         var terminal = GameMcpCommandResult.FromAction(
             in mapped,
-            command.Kind,
             9,
             3,
             GameMcpSpellCompositionProjection.Project(in submission, "output"));

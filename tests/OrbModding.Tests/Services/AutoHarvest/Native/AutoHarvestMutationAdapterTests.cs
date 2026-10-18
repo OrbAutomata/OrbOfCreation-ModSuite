@@ -178,7 +178,7 @@ public sealed class AutoHarvestMutationAdapterTests
     [InlineData(1035)]
     public void AClickTermMovingAfterPlanningRefusesWithItsExactNamedCode(int failure)
     {
-        var expected = new ServiceActionResultCode(failure);
+        var expected = new ServiceActionResultCode(failure, "expected");
         var state = new RecordingStatePort(admissionFailure: expected);
         var adapter = new AutoHarvestMutationAdapter(state);
 
@@ -327,7 +327,7 @@ public sealed class AutoHarvestMutationAdapterTests
     [InlineData(1035)]
     public void AdmissionRefusalsArePenaltyFreeAndKeepTheirExactCode(int expectedCode)
     {
-        var expected = new ServiceActionResultCode(expectedCode);
+        var expected = new ServiceActionResultCode(expectedCode, "expected");
         PlotNodeActionSO? action = null;
         if (expected == AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet)
         {
