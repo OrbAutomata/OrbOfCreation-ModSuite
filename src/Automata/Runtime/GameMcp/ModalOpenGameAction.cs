@@ -23,15 +23,23 @@ internal readonly struct ModalActivator
 
 internal readonly struct ModalOpenSubmission
 {
-    internal ModalOpenSubmission(bool committed, string code, string reason, string title = "")
+    internal ModalOpenSubmission(
+        bool committed, string code, string reason, string title = "", bool faulted = false)
     {
         Committed = committed;
         Code = code ?? string.Empty;
         Reason = reason ?? string.Empty;
         Title = title ?? string.Empty;
+        Faulted = faulted;
     }
 
     internal bool Committed { get; }
+
+    /// <summary>
+    /// The control was pressed and the panel did not read back as open, so whether it landed is
+    /// unknown.
+    /// </summary>
+    internal bool Faulted { get; }
     internal string Code { get; }
     internal string Reason { get; }
 
@@ -60,15 +68,18 @@ internal readonly struct ModalOpenSubmission
 internal sealed class ModalOpenGameAction : IDisposable
 {
     /// <summary>
-    /// The activator type, its prepared flag and its open control are the same members the Back to
-    /// Main Menu action already binds, so they are the same contracts; only the authored title is
-    /// new here.
+    /// The activator type, its prepared flag, its open control, its prepared panel and the panel's
+    /// open flag are the same members the Back to Main Menu action already binds, so they are the
+    /// same contracts; only the authored title is new here.
     /// </summary>
     internal static readonly string[] ContractIds =
     {
         "return-to-menu.modal-activator.type-action",
         "return-to-menu.activator-modal-created-action",
         "return-to-menu.activator-open-action",
+        "return-to-menu.modal.type-action",
+        "return-to-menu.activator-created-modal-action",
+        "return-to-menu.modal-open-action",
         "modal-open.activator-title-action",
     };
 
@@ -170,7 +181,7 @@ internal sealed class ModalOpenGameAction : IDisposable
 
     /// <summary>
     /// Press the one control that opens the named panel. The press is the player's own, and the
-    /// panel being up afterwards is the whole of the answer.
+    /// control's own panel reading open afterwards is the whole of the answer.
     /// </summary>
     internal ModalOpenSubmission Submit(string title, IReadOnlyList<ModalActivator> activators)
     {
@@ -203,17 +214,31 @@ internal sealed class ModalOpenGameAction : IDisposable
                 matches.Count + " controls on this screen open a panel called '" + title +
                 "', so which one was meant is unclear.");
         }
+        var control = matches[0].Control;
+        var panel = "the " + title + " panel";
+        object? modal;
         try
         {
-            native.Open(matches[0].Control);
-            return new ModalOpenSubmission(true, "committed", string.Empty, matches[0].Title);
+            modal = native.CreatedModal(control);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return new ModalOpenSubmission(false, "contract_unavailable",
-                "The chrome panel control failed." +
-                GameActionFaultLog.Record(exception, "the chrome panel controls"));
+                GameActionAnswer.CouldNotRead(panel, exception));
         }
+        if (modal is null)
+            return new ModalOpenSubmission(false, "contract_unavailable", GameActionAnswer.CouldNotRead(panel));
+
+        var evidence = NativeMutationVerifier.ExecuteAfterCapture(
+            "Panel open", panel, "the panel is open", false,
+            () => native.IsOpen(modal), () => native.Open(control), (_, open) => open);
+        if (evidence.IsVerified)
+            return new ModalOpenSubmission(true, "committed", string.Empty, title);
+        return evidence.Exception is { } failure
+            ? new ModalOpenSubmission(false, "post_commit_fault",
+                GameActionAnswer.GameErrored(panel, failure), faulted: true)
+            : new ModalOpenSubmission(false, "verification_failed",
+                GameActionAnswer.ChangeNotSeen(panel), faulted: true);
     }
 
     private static bool IsOfferable(string title) =>
@@ -228,7 +253,11 @@ internal sealed class ModalOpenGameAction : IDisposable
         return "; this screen offers " + string.Join(", ", names);
     }
 
-    public void Dispose() => _bindings = null;
+    public void Dispose()
+    {
+        _bindings = null;
+        _bindingFailure = string.Empty;
+    }
 
     internal void InvalidateLifecycle()
     {
@@ -242,15 +271,22 @@ internal sealed class ModalOpenGameAction : IDisposable
         NativeBindingSet.TryBind<Bindings>("panel open", ContractIds, _resolveType, _includeContract, set =>
         {
             var activator = set.Type("return-to-menu.modal-activator.type-action", "UIModalActivator");
+            var modal = set.Type("return-to-menu.modal.type-action", "UIModal");
             var title = set.Field<Func<object, string?>>(
                 "modal-open.activator-title-action", activator, "modalTitle", typeof(string));
+            var createdModal = set.Field<Func<object, object?>>(
+                "return-to-menu.activator-created-modal-action", activator, "createdModal", modal);
             return new Bindings(
                 activator,
                 set.Field<Func<object, bool>>(
                     "return-to-menu.activator-modal-created-action", activator, "modalCreated", typeof(bool)),
                 instance => title(instance) ?? string.Empty,
                 set.Call<Action<object>>(
-                    "return-to-menu.activator-open-action", activator, "OpenModal", typeof(void)));
+                    "return-to-menu.activator-open-action", activator, "OpenModal", typeof(void)),
+                instance => createdModal(instance) is var created && NativeObjectLiveness.IsAlive(created)
+                    ? created
+                    : null,
+                set.Call<Func<object, bool>>("return-to-menu.modal-open-action", modal, "IsOpen", typeof(bool)));
         }, out _bindings, out _bindingFailure);
     }
 
@@ -260,18 +296,24 @@ internal sealed class ModalOpenGameAction : IDisposable
             Type activatorType,
             Func<object, bool> prepared,
             Func<object, string> title,
-            Action<object> open)
+            Action<object> open,
+            Func<object, object?> createdModal,
+            Func<object, bool> isOpen)
         {
             ActivatorType = activatorType;
             Prepared = prepared;
             Title = title;
             Open = open;
+            CreatedModal = createdModal;
+            IsOpen = isOpen;
         }
 
         internal Type ActivatorType { get; }
         internal Func<object, bool> Prepared { get; }
         internal Func<object, string> Title { get; }
         internal Action<object> Open { get; }
+        internal Func<object, object?> CreatedModal { get; }
+        internal Func<object, bool> IsOpen { get; }
     }
 }
 #endif

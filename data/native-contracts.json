@@ -30123,11 +30123,11 @@
     },
     {
       "id": "return-to-menu.modal.type-action", "assembly": "assembly-csharp", "type": "UIModal", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.modal-open-action", "assembly": "assembly-csharp", "type": "UIModal", "typeVisibility": "public", "kind": "method", "member": "IsOpen",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.modal-activator.type-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "type",
@@ -30135,7 +30135,7 @@
     },
     {
       "id": "return-to-menu.activator-created-modal-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "createdModal",
-      "visibility": "private", "static": false, "valueType": "UIModal", "owners": ["Automata return-to-menu GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "private", "static": false, "valueType": "UIModal", "owners": ["Automata return-to-menu GameAction", "Automata modal open GameAction"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "return-to-menu.activator-modal-created-action", "assembly": "assembly-csharp", "type": "UIModalActivator", "typeVisibility": "public", "kind": "field", "member": "modalCreated",

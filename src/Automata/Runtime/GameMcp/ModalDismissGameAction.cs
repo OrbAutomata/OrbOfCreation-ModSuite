@@ -8,15 +8,22 @@ namespace OrbAutomata.GameMcp;
 
 internal readonly struct ModalDismissSubmission
 {
-    internal ModalDismissSubmission(bool committed, string code, string reason, string title = "")
+    internal ModalDismissSubmission(
+        bool committed, string code, string reason, string title = "", bool faulted = false)
     {
         Committed = committed;
         Code = code ?? string.Empty;
         Reason = reason ?? string.Empty;
         Title = title ?? string.Empty;
+        Faulted = faulted;
     }
 
     internal bool Committed { get; }
+
+    /// <summary>
+    /// The close was pressed and did not read back as closing, so whether it landed is unknown.
+    /// </summary>
+    internal bool Faulted { get; }
     internal string Code { get; }
     internal string Reason { get; }
 
@@ -106,19 +113,26 @@ internal sealed class ModalDismissGameAction : IDisposable
             if (native.GraceTime(candidate!) > 0f)
                 return Refused("modal_close_not_ready", "The modal close control is not ready yet.");
 
-            var title = native.Title(candidate!);
-            native.Close(candidate!);
-            if (!native.IsClosing(candidate!))
-                return Refused("requested_state_not_reached", "The modal did not begin closing.");
-            _pendingModal = candidate;
-            _pendingEpoch = _readLifecycleEpoch();
+            var target = candidate!;
+            var title = native.Title(target);
+            var epoch = _readLifecycleEpoch();
+            var panel = Panel(title);
+            var evidence = NativeMutationVerifier.ExecuteAfterCapture(
+                "Modal close", panel, "the modal is closing", false,
+                () => native.IsClosing(target), () => native.Close(target), (_, closing) => closing);
+            if (!evidence.IsVerified)
+            {
+                return evidence.Exception is { } exception
+                    ? Faulted("post_commit_fault", GameActionAnswer.GameErrored(panel, exception))
+                    : Faulted("verification_failed", GameActionAnswer.ChangeNotSeen(panel));
+            }
+            _pendingModal = target;
+            _pendingEpoch = epoch;
             return new ModalDismissSubmission(true, "committed", string.Empty, title);
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            return Refused("contract_unavailable",
-                "The modal close control failed." +
-                GameActionFaultLog.Record(exception, "the open modal"));
+            return Refused("contract_unavailable", GameActionAnswer.CouldNotRead(OpenPanel, exception));
         }
     }
 
@@ -126,14 +140,18 @@ internal sealed class ModalDismissGameAction : IDisposable
     {
         dismissed = false;
         reason = string.Empty;
-        if (Environment.CurrentManagedThreadId != _mainThreadId || _bindings is not { } native ||
-            _readLifecycleEpoch() != _pendingEpoch)
+        if (Environment.CurrentManagedThreadId != _mainThreadId || _bindings is not { } native)
         {
             reason = "The modal lifecycle changed before dismissal settled.";
             return false;
         }
         try
         {
+            if (_readLifecycleEpoch() != _pendingEpoch)
+            {
+                reason = "The modal lifecycle changed before dismissal settled.";
+                return false;
+            }
             var target = _pendingModal;
             if (target is null || target.GetType() != native.ModalType)
             {
@@ -228,6 +246,14 @@ internal sealed class ModalDismissGameAction : IDisposable
         }, out _bindings, out _bindingFailure);
 
     private static ModalDismissSubmission Refused(string code, string reason) => new(false, code, reason);
+
+    private static ModalDismissSubmission Faulted(string code, string reason) =>
+        new(false, code, reason, faulted: true);
+
+    private const string OpenPanel = "the open panel";
+
+    private static string Panel(string title) =>
+        title.Length == 0 ? OpenPanel : "the " + title + " panel";
 
     private sealed class Bindings
     {
