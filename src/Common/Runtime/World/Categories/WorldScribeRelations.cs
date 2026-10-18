@@ -125,6 +125,7 @@ internal sealed class WorldRelationBuffer<TRow> where TRow : struct
     internal int Count { get; private set; }
     internal ref readonly TRow this[int index] => ref _rows[index];
     internal void Reset() => Count = 0;
+    internal void Truncate(int count) => Count = count;
 
     internal void Append(in TRow row)
     {
@@ -226,12 +227,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
-        frame.ScribeRecipes.Reset();
-        frame.ScribeQueues.Reset();
-        frame.ScribeWork.Reset();
-        frame.StructureEnchantments.Reset();
-        frame.ScrollTargets.Reset();
-        frame.ScrollTargetEvidence.Reset();
+        ResetRows(frame);
         if (_native is not { } native)
             return WorldCategoryReport.Missing(Category, _unavailable);
 
@@ -255,10 +251,21 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         // transient native throw out into the pass.
         catch (Exception ex)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(
                 Category,
                 ex.GetBaseException().Message);
         }
+    }
+
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.ScribeRecipes.Reset();
+        frame.ScribeQueues.Reset();
+        frame.ScribeWork.Reset();
+        frame.StructureEnchantments.Reset();
+        frame.ScrollTargets.Reset();
+        frame.ScrollTargetEvidence.Reset();
     }
 
     private static int ReadRecipes(BindingSet native, GameWorldCycleFrame frame)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using OrbModding.Common.Runtime.GameMath;
 
@@ -99,6 +100,7 @@ internal sealed class WorldFrameGlobalsReader
     private readonly Func<object?>? _attributeQualityBonus;
     private readonly Func<object, object?>? _variableValue;
     private readonly NativeModifierRecordAccess? _record;
+    private readonly string _unbound = "the frame globals did not bind: the Player type was not found";
 
     internal WorldFrameGlobalsReader(Func<string, Type?> resolveType)
     {
@@ -124,16 +126,20 @@ internal sealed class WorldFrameGlobalsReader
         _attributeQualityBonus = NativeAccessorBinder.CallStaticValue(
             StaticNoArg(player, "GetAttributeQualityBonus"));
         _variableValue = NativeAccessorBinder.ReadValue(variableValue);
+
+        var missing = new List<string>();
+        if (_resourceOverflow is null) missing.Add("Player.GetResourceOverflow");
+        if (_resourceOverflowLoss is null) missing.Add("Player.GetResourceOverflowLoss");
+        if (_resetTimePassed is null) missing.Add("Player.GetResetTimePassed");
+        if (_structureCost is null) missing.Add("Player.GetStructureCost");
+        if (_attributeQualityBonus is null) missing.Add("Player.GetAttributeQualityBonus");
+        if (_variableValue is null || _record is null) missing.Add("the DoubleVariable value record");
+        _unbound = missing.Count == 0
+            ? string.Empty
+            : "the frame globals did not bind " + string.Join(", ", missing);
     }
 
-    internal bool IsAvailable =>
-        _resourceOverflow is not null &&
-        _resourceOverflowLoss is not null &&
-        _resetTimePassed is not null &&
-        _structureCost is not null &&
-        _attributeQualityBonus is not null &&
-        _variableValue is not null &&
-        _record is not null;
+    internal bool IsAvailable => _unbound.Length == 0;
 
     /// <summary>
     /// Reads the globals. An unavailable reader yields the neutral value for each rather than
@@ -171,10 +177,11 @@ internal sealed class WorldFrameGlobalsReader
     }
 
     /// <summary>
-    /// Empty when the fold bound every input exactly, otherwise what it had to reconstruct. Carried
-    /// up so a collection report says it before a number does.
+    /// Empty when every global bound and the fold bound every input exactly, otherwise what is
+    /// missing or what the fold had to reconstruct. Carried up so a collection report says it before
+    /// a number does.
     /// </summary>
-    internal string Degradation => _record?.Degradation ?? string.Empty;
+    internal string Degradation => _unbound.Length != 0 ? _unbound : _record!.Degradation;
 
     private static MethodInfo? StaticNoArg(Type type, string name) =>
         type.GetMethod(name, Statics, null, Type.EmptyTypes, null);

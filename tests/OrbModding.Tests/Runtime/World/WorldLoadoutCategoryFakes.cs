@@ -58,7 +58,9 @@ internal sealed class FakePlayerLoadout : FakeIdRegistry
     public bool IsSelected() => isSelected;
     public bool HasEquipment() => saveEquipment;
     public bool HasAlchemy() => saveAlchemy;
-    public List<FakeSpell> GetSpells() => spells;
+    public bool throwsOnSpells;
+    public List<FakeSpell> GetSpells() =>
+        throwsOnSpells ? throw new InvalidOperationException("GetSpells failed") : spells;
     public LoadoutLabel GetLabel() => _label;
     public void SetSaveEquipment(bool value) => saveEquipment = value;
     public void SetSaveAlchemy(bool value) => saveAlchemy = value;

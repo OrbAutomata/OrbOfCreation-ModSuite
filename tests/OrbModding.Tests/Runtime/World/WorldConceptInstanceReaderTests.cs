@@ -225,6 +225,28 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
     }
 
     /// <summary>
+    /// A throw after earlier recipes were read withdraws their rows too: an unavailable category
+    /// publishes nothing, so no Concept reads as the whole of the player's loadout.
+    /// </summary>
+    [Fact]
+    public void AThrowPartWayThroughWithdrawsTheRowsAlreadyRead()
+    {
+        Seed();
+        var recipes = Registered<global::AlchemyRecipeListVariable>(KnownEntities.ConceptRecipes.Uuid);
+        var active = Registered<global::AlchemyInstanceListVariable>(KnownEntities.ActiveConcepts.Uuid);
+        active.ThrowOnCanAddFor = recipes.value[1];
+
+        var frame = new GameWorldCycleFrame();
+        var report = Reader().Collect(new HashSet<Guid>(), frame);
+
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
+        Assert.Equal(0, frame.ConceptRecipes.Count);
+        Assert.Equal(0, frame.AlchemyInstances.Count);
+        Assert.Equal(0, frame.AlchemyCosts.Count);
+        Assert.Equal(0, frame.ConceptDrainBasis.Count);
+    }
+
+    /// <summary>
     /// A member the build does not expose leaves the category unavailable and says so, and an
     /// unavailable reader still resets what it would have filled.
     /// </summary>

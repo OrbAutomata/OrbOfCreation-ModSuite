@@ -139,6 +139,8 @@ internal sealed class WorldSpellCostBuffer
 
     internal void Reset() => _count = 0;
 
+    internal void Truncate(int count) => _count = count;
+
     internal void Append(in WorldSpellCost sample)
     {
         if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);

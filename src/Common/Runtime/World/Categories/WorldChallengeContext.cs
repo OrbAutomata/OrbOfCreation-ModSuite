@@ -433,7 +433,7 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
     private WorldCategoryReport Collected(string typeFailure, int skipped, string reason) =>
         new(Category, WorldCategoryOutcome.Collected, 1,
             skipped + (typeFailure.Length == 0 ? 0 : 1),
-            reason.Length != 0 ? reason : typeFailure);
+            typeFailure.Length != 0 ? typeFailure : reason);
 
     /// <summary>
     /// The draft's buckets and their members, read beside the decision state rather than as a

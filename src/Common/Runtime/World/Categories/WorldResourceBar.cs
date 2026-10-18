@@ -149,11 +149,6 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         string reason)
     {
         buffer.Reset();
-        return new WorldCategoryReport(
-            Category,
-            WorldCategoryOutcome.Collected,
-            sampled: 0,
-            skipped: 0,
-            "the resource panel's membership was withheld: " + reason);
+        return WorldCategoryReport.Missing(Category, "the resource panel's membership was withheld: " + reason);
     }
 }

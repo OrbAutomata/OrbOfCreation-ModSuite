@@ -122,11 +122,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
-        frame.PlayerLoadouts.Reset();
-        frame.PlayerLoadoutEntries.Reset();
-        frame.SnapshotLoadouts.Reset();
-        frame.SnapshotSlots.Reset();
-        frame.SnapshotEntries.Reset();
+        ResetRows(frame);
         if (_bindings is not { } native)
             return WorldCategoryReport.Missing(Category, _unavailable);
         try
@@ -175,7 +171,8 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                     native.PlayerName(player), selected, native.EquipmentEnabled(player),
                     native.AlchemyEnabled(player), native.LabelIcon(label),
                     native.LabelColor(label), !selected && canSwap));
-                AppendPlayerEntries(native, player, id, frame.PlayerLoadoutEntries);
+                AppendPlayerEntries(native, player, id, frame.PlayerLoadoutEntries,
+                    ref skipped, ref firstFailure);
                 sampled++;
             }
             sampled += AppendSnapshotList(native, native.AlchemySnapshots(manager), true,
@@ -188,51 +185,90 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         catch (Exception exception) when (exception is TargetInvocationException or
             ArgumentException or InvalidOperationException or OverflowException)
         {
+            ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
                 "reading loadouts threw: " + exception.GetBaseException().Message);
         }
     }
 
+    private static void ResetRows(GameWorldCycleFrame frame)
+    {
+        frame.PlayerLoadouts.Reset();
+        frame.PlayerLoadoutEntries.Reset();
+        frame.SnapshotLoadouts.Reset();
+        frame.SnapshotSlots.Reset();
+        frame.SnapshotEntries.Reset();
+    }
+
     private static void AppendPlayerEntries(LoadoutNativeBindings native, object player,
-        Guid ownerId, WorldRelationBuffer<WorldLoadoutEntry> destination)
+        Guid ownerId, WorldRelationBuffer<WorldLoadoutEntry> destination,
+        ref int skipped, ref string firstFailure)
     {
         var spells = native.PlayerSpells(player);
         for (var index = 0; index < (spells?.Count ?? 0); index++)
         {
             var spell = spells![index];
-            if (spell is null || spell.GetType() != native.SpellType || native.SpellEmpty(spell)) continue;
+            if (spell is null) continue;
+            if (spell.GetType() != native.SpellType)
+            {
+                Skip(ref skipped, ref firstFailure,
+                    "a loadout's spell entry had an unexpected native type");
+                continue;
+            }
+            if (native.SpellEmpty(spell)) continue;
             var reference = native.SpellReference(spell);
-            if (reference is null) continue;
             var spellId = native.SpellId(spell);
-            var recipeId = native.Identity(reference);
-            if (spellId != Guid.Empty && recipeId != Guid.Empty)
-                destination.Append(new WorldLoadoutEntry(ownerId,
-                    WorldLoadoutEntryKind.Spell, spellId, recipeId, 1));
+            var recipeId = reference is null ? Guid.Empty : native.Identity(reference);
+            if (spellId == Guid.Empty || recipeId == Guid.Empty)
+            {
+                Skip(ref skipped, ref firstFailure,
+                    "a loadout's spell entry had an empty identity");
+                continue;
+            }
+            destination.Append(new WorldLoadoutEntry(ownerId,
+                WorldLoadoutEntryKind.Spell, spellId, recipeId, 1));
         }
         AppendRecord(native, native.PlayerEquipmentRecord(player), ownerId,
-            WorldLoadoutEntryKind.Equipment, destination);
+            WorldLoadoutEntryKind.Equipment, destination, ref skipped, ref firstFailure);
         AppendRecord(native, native.PlayerAlchemyRecord(player), ownerId,
-            WorldLoadoutEntryKind.Alchemy, destination);
+            WorldLoadoutEntryKind.Alchemy, destination, ref skipped, ref firstFailure);
     }
 
     private static void AppendRecord(LoadoutNativeBindings native, object? record,
         Guid ownerId, WorldLoadoutEntryKind kind,
-        WorldRelationBuffer<WorldLoadoutEntry> destination)
+        WorldRelationBuffer<WorldLoadoutEntry> destination,
+        ref int skipped, ref string firstFailure)
     {
-        var entries = kind == WorldLoadoutEntryKind.Equipment
-            ? record is null ? null : native.EquipmentRecordEntries(record)
-            : record is null ? null : native.AlchemyRecordEntries(record);
+        var alchemy = kind == WorldLoadoutEntryKind.Alchemy;
+        var entries = record is null
+            ? null
+            : alchemy ? native.AlchemyRecordEntries(record) : native.EquipmentRecordEntries(record);
         for (var index = 0; index < (entries?.Count ?? 0); index++)
         {
-            var entry = entries![index]!;
-            var expectedType = kind == WorldLoadoutEntryKind.Equipment
-                ? native.EquipmentType : native.AlchemyRecipeType;
-            if (!LoadoutNativeBindings.TryReadEntry(entry, expectedType,
-                    out var item, out var quantity) || item is null) continue;
-            var id = native.Identity(item);
-            if (id != Guid.Empty && quantity > 0)
+            if (TryReadEntry(native, entries![index], alchemy, out var id, out var quantity,
+                    ref skipped, ref firstFailure))
                 destination.Append(new WorldLoadoutEntry(ownerId, kind, id, Guid.Empty, quantity));
         }
+    }
+
+    private static bool TryReadEntry(LoadoutNativeBindings native, object? entry, bool alchemy,
+        out Guid id, out int quantity, ref int skipped, ref string firstFailure)
+    {
+        id = Guid.Empty;
+        var kind = alchemy ? "alchemy" : "equipment";
+        if (entry is null || !LoadoutNativeBindings.TryReadEntry(entry,
+                alchemy ? native.AlchemyRecipeType : native.EquipmentType,
+                out var item, out quantity))
+        {
+            quantity = 0;
+            Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry could not be read");
+            return false;
+        }
+        if (quantity <= 0) return false;
+        id = native.Identity(item!);
+        if (id != Guid.Empty) return true;
+        Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry had an empty identity");
+        return false;
     }
 
     private static int AppendSnapshotList(LoadoutNativeBindings native, object? owner,
@@ -280,12 +316,8 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                 : record is null ? null : native.EquipmentRecordEntries(record);
             for (var index = 0; index < (entries?.Count ?? 0); index++)
             {
-                var entry = entries![index]!;
-                var expectedType = alchemy ? native.AlchemyRecipeType : native.EquipmentType;
-                if (!LoadoutNativeBindings.TryReadEntry(entry, expectedType,
-                        out var item, out var quantity) || item is null) continue;
-                var entryId = native.Identity(item);
-                if (entryId != Guid.Empty && quantity > 0)
+                if (TryReadEntry(native, entries![index], alchemy, out var entryId,
+                        out var quantity, ref skipped, ref firstFailure))
                     frame.SnapshotEntries.Append(new WorldSnapshotEntry(
                         id, slot, entryId, quantity));
             }

@@ -242,6 +242,13 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         buffer.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
+        var report = Read(buffer);
+        if (report.Outcome == WorldCategoryOutcome.Unavailable) buffer.Reset();
+        return report;
+    }
+
+    private WorldCategoryReport Read(WorldSpellWorkbenchBuffer buffer)
+    {
         try
         {
             var manager = _manager!();

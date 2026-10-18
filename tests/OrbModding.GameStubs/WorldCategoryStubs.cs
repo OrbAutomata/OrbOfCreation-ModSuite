@@ -1992,7 +1992,7 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
     public IntVariable overrideDiscoveryChoices;
 
     /// <summary>The books this tree's pool draws from, and the tiles its page renders.</summary>
-    public RecipeBookListVariable availableRecipeBooks;
+    public RecipeBookListVariable availableRecipeBooks = new RecipeBookListVariable();
 
     public int additionalDiscoveryChoices;
     public int discoveryBonusLevelCost;

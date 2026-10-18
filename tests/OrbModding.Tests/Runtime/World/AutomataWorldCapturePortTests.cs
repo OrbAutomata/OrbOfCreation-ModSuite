@@ -139,6 +139,9 @@ public sealed class AutomataWorldCapturePortTests
             new global::HarvestElementListVariable());
         Register(HarvestLifecycleNativeBindings.ActiveActionsId,
             new global::HarvestActionInstanceListVariable());
+        Register(KnownEntities.Mana.Uuid, new global::ResourceSO());
+        Register(KnownEntities.ResourceBarCore.Uuid, new global::ResourceListVariable());
+        Register(KnownEntities.ResourceBarMaterials.Uuid, new global::ResourceListVariable());
 
         foreach (var (scrollId, enchantmentId) in new[]
                  {

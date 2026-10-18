@@ -155,12 +155,23 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
                     return Withheld(buffer, "a discovery tree had no usable identity");
 
                 var list = _bookList!(tree);
-                if (list is null) continue;
+                if (list is null)
+                {
+                    return Withheld(
+                        buffer, "discovery tree " + treeId.ToString("D") + " had no book list");
+                }
 
                 var members = _members!(list);
-                for (var member = 0; member < (members?.Count ?? 0); member++)
+                if (members is null)
                 {
-                    var entry = members![member];
+                    return Withheld(
+                        buffer,
+                        "discovery tree " + treeId.ToString("D") + "'s book list had no members list");
+                }
+
+                for (var member = 0; member < members.Count; member++)
+                {
+                    var entry = members[member];
                     if (entry is null || entry.GetType() != _bookType)
                     {
                         return Withheld(
@@ -199,11 +210,6 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
         string reason)
     {
         buffer.Reset();
-        return new WorldCategoryReport(
-            Category,
-            WorldCategoryOutcome.Collected,
-            sampled: 0,
-            skipped: 0,
-            "the authored tree-to-book link was withheld: " + reason);
+        return WorldCategoryReport.Missing(Category, "the authored tree-to-book link was withheld: " + reason);
     }
 }

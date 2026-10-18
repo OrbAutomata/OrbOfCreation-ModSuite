@@ -35,7 +35,10 @@ public sealed class WorldResourceBarReaderTests : IDisposable
             Members(frame));
     }
 
-    /// <summary>A panel missing one of its lists is withheld rather than published short.</summary>
+    /// <summary>
+    /// A panel missing one of its lists is withheld rather than published short, and a withheld
+    /// panel is a failed read, never a clean one.
+    /// </summary>
     [Fact]
     public void AnUnresolvedListWithholdsThePanelWhole()
     {
@@ -46,6 +49,8 @@ public sealed class WorldResourceBarReaderTests : IDisposable
         var report = new WorldResourceBarReader(Resolve).Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(0, frame.ResourceBar.Count);
+        Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
+        Assert.False(report.IsClean);
         Assert.StartsWith("the resource panel's membership was withheld: ", report.FirstFailure);
     }
 
