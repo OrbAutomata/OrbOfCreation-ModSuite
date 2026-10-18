@@ -41,9 +41,7 @@ internal enum AutoHarvestRejectionReason
     DestructiveAction,
     ResourceDrainPresent,
     UnsafeCompletionEffects,
-    DuplicateStateUnknown,
     AlreadyQueuedOrRunning,
-    ActionSlotStateUnknown,
     NoActionSlot,
 }
 

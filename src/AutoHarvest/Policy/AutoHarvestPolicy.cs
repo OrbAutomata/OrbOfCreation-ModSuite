@@ -54,21 +54,11 @@ internal static class AutoHarvestPolicy
         if (rejection != AutoHarvestRejectionReason.None)
             return new AutoHarvestPairDecision(false, rejection);
 
-        rejection = EvaluateEvidence(
-            AutoHarvestWorldFacts.ProjectNoDuplicate(queue),
-            AutoHarvestRejectionReason.DuplicateStateUnknown,
-            AutoHarvestRejectionReason.AlreadyQueuedOrRunning);
-        if (rejection == AutoHarvestRejectionReason.None)
-        {
-            rejection = EvaluateEvidence(
-                AutoHarvestWorldFacts.ProjectActionSlotAvailability(queue),
-                AutoHarvestRejectionReason.ActionSlotStateUnknown,
-                AutoHarvestRejectionReason.NoActionSlot);
-        }
-
-        return new AutoHarvestPairDecision(
-            rejection == AutoHarvestRejectionReason.None,
-            rejection);
+        if (AutoHarvestWorldFacts.IsQueuedOrRunning(queue))
+            return new AutoHarvestPairDecision(false, AutoHarvestRejectionReason.AlreadyQueuedOrRunning);
+        if (!AutoHarvestWorldFacts.HasActionSlot(queue))
+            return new AutoHarvestPairDecision(false, AutoHarvestRejectionReason.NoActionSlot);
+        return new AutoHarvestPairDecision(true, AutoHarvestRejectionReason.None);
     }
 
     private static AutoHarvestRejectionReason EvaluateFacts(
