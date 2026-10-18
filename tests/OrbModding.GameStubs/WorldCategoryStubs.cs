@@ -2267,7 +2267,11 @@ public sealed class PlotNodeSO : IdScriptableObject
 
     public int GetRemainingTotalQuantity() => RemainingTotalQuantityAnswer;
 
-    public List<PlotNodeActionInstance> GetActionInstances() => actionInstances;
+    /// <summary>What the game throws from inside <see cref="GetActionInstances"/>, when set.</summary>
+    public Exception? ActionInstancesFailure { get; set; }
+
+    public List<PlotNodeActionInstance> GetActionInstances() =>
+        ActionInstancesFailure is { } failure ? throw failure : actionInstances;
 
     public PlotNodeActionInstance AddAction(PlotNodeActionSO action)
     {

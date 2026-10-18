@@ -125,7 +125,8 @@
         "Automata Auto Cast",
         "Automata Auto Concept",
         "Automata spell leveling",
-        "Automata crafting-instance GameAction"
+        "Automata crafting-instance GameAction",
+        "Automata Auto Harvest slots"
       ],
       "usages": [
         "reflection"
@@ -2329,7 +2330,6 @@
       "valueType": "Prerequisites+Container",
       "owners": [
         "Automata Auto Harvest admission",
-        "Automata Auto Harvest action-boundary prerequisite validation",
         "Automata world collection",
         "Common world collection"
       ],
@@ -2340,13 +2340,15 @@
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field Prerequisites+Container"}
     },
     {
+      "id": "auto-harvest.action.prerequisites-action", "assembly": "assembly-csharp", "type": "PlotNodeActionSO", "typeVisibility": "public", "kind": "field", "member": "prerequisites", "visibility": "public", "static": false, "valueType": "Prerequisites+Container", "owners": ["Automata Auto Harvest action-boundary prerequisite validation"], "usages": ["reflection"], "place": "action"
+    },
+    {
       "id": "auto-harvest.action.type",
       "assembly": "assembly-csharp",
       "type": "PlotNodeActionSO",
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Harvest",
         "Common world collection"
       ],
       "usages": [
@@ -2449,7 +2451,7 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest slots"
+        "Automata spell workbench world publication"
       ],
       "usages": [
         "reflection"
@@ -2464,7 +2466,6 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Harvest queue",
         "Common world collection"
       ],
       "usages": [
@@ -2485,13 +2486,16 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest slots"
+        "Automata spell workbench world publication"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "auto-harvest.active-list.used-spots-action", "assembly": "assembly-csharp", "type": "EmptyTypeListVariable`1", "typeVisibility": "public", "kind": "method", "member": "GetUsedSpots", "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata Auto Harvest slots"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.active-list.value",
@@ -2504,7 +2508,6 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<!0>",
       "owners": [
-        "Automata Auto Harvest slots",
         "Common world collection"
       ],
       "usages": [
@@ -2662,7 +2665,6 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest verification",
         "Common world collection"
       ],
       "usages": [
@@ -2683,7 +2685,6 @@
       "returnType": "PlotNodeActionSO",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest identity",
         "Common world collection"
       ],
       "usages": [
@@ -2704,7 +2705,6 @@
       "returnType": "PlotNodeSO",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest identity",
         "Common world collection"
       ],
       "usages": [
@@ -2744,7 +2744,6 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest slots",
         "Common world collection"
       ],
       "usages": [
@@ -2752,6 +2751,9 @@
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "auto-harvest.instance.is-empty-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEmpty", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata Auto Harvest slots"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.instance.is-engaged",
@@ -2765,7 +2767,6 @@
       "returnType": "System.Boolean",
       "parameters": [],
       "owners": [
-        "Automata Auto Harvest verification",
         "Common world collection"
       ],
       "usages": [
@@ -2773,6 +2774,9 @@
       ],
       "place": "capture",
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
+    },
+    {
+      "id": "auto-harvest.instance.is-engaged-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEngaged", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata Auto Harvest verification"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.instance.is-visible",
@@ -2819,7 +2823,6 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Harvest",
         "Common world collection"
       ],
       "usages": [
@@ -3127,7 +3130,6 @@
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata Auto Harvest",
         "Common world collection"
       ],
       "usages": [
@@ -3135,6 +3137,12 @@
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
+    },
+    {
+      "id": "auto-harvest.scaling-weight.type-action", "assembly": "assembly-csharp", "type": "ScalingWeightSO", "typeVisibility": "public", "kind": "type", "owners": ["Automata Auto Harvest"], "usages": ["reflection"], "place": "action"
+    },
+    {
+      "id": "auto-harvest.reward-pool.type-action", "assembly": "assembly-csharp", "type": "TreasurePoolSO", "typeVisibility": "public", "kind": "type", "owners": ["Automata Auto Harvest"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.prerequisite-values",
@@ -6860,7 +6868,7 @@
       "returnType": "IntVariable",
       "parameters": [],
       "owners": [
-        "Automata Auto Buy mutation"
+        "Common multi-buy scope"
       ],
       "usages": [
         "reflection"
@@ -8160,7 +8168,8 @@
         "Common Alchemy classifier",
         "Automata Auto Concept action boundary",
         "Mentor mastery observation",
-        "Automata spell leveling"
+        "Automata spell leveling",
+        "Automata Auto Harvest identity"
       ],
       "usages": [
         "reflection"
@@ -8220,8 +8229,8 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata Auto Buy mutation",
-        "Automata Auto Buy destination-capacity admission"
+        "Automata Auto Buy destination-capacity admission",
+        "Common multi-buy scope"
       ],
       "usages": [
         "reflection"
@@ -8242,7 +8251,7 @@
         "System.Int32"
       ],
       "owners": [
-        "Automata Auto Buy mutation"
+        "Common multi-buy scope"
       ],
       "usages": [
         "reflection"
@@ -10192,7 +10201,6 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata Auto Harvest action-boundary prerequisite validation",
         "Automata world collection"
       ],
       "usages": [
@@ -10223,7 +10231,7 @@
       "place": "action"
     },
     {
-      "id": "spell-level.prerequisites.type-action", "assembly": "assembly-csharp", "type": "Prerequisites+Container", "typeVisibility": "public", "kind": "type", "owners": ["Automata spell leveling"], "usages": ["reflection"], "place": "action"
+      "id": "spell-level.prerequisites.type-action", "assembly": "assembly-csharp", "type": "Prerequisites+Container", "typeVisibility": "public", "kind": "type", "owners": ["Automata spell leveling", "Automata Auto Harvest action-boundary prerequisite validation"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "prerequisites.check-at-level",
@@ -27043,7 +27051,7 @@
     {
       "id": "challenge.int-variable.type-action", "assembly": "assembly-csharp",
       "type": "IntVariable", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata challenge GameAction", "Common challenge world collection", "Automata spell composition GameAction", "Automata one-shot crafting action boundary", "Automata Auto Buy destination-capacity admission"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata challenge GameAction", "Common challenge world collection", "Automata spell composition GameAction", "Automata one-shot crafting action boundary", "Automata Auto Buy destination-capacity admission", "Common multi-buy scope"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "challenge.bool-variable.type-action", "assembly": "assembly-csharp",
@@ -29303,7 +29311,7 @@
     },
     {
       "id": "loadout.global-variables.type-action", "assembly": "assembly-csharp", "type": "GlobalVariables",
-      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction"], "usages": ["reflection"], "place": "action"
+      "typeVisibility": "public", "kind": "type", "owners": ["Automata player loadout GameAction", "Common multi-buy scope"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "loadout.identity.type-action", "assembly": "assembly-csharp", "type": "IdScriptableObject",
@@ -29927,19 +29935,19 @@
     },
     {
       "id": "plot-lifecycle.plot.type-action", "assembly": "assembly-csharp", "type": "PlotNodeSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.action.type-action", "assembly": "assembly-csharp", "type": "PlotNodeActionSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance.type-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.list.type-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstanceListVariable", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest queue"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.plot-visible-action", "assembly": "assembly-csharp", "type": "PlotNodeSO", "typeVisibility": "public", "kind": "method", "member": "IsVisible",
@@ -29951,11 +29959,11 @@
     },
     {
       "id": "plot-lifecycle.instance-action-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetAction",
-      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Game MCP tooltip explorer"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Game MCP tooltip explorer", "Automata Auto Harvest identity"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-plot-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetElement",
-      "visibility": "public", "static": false, "returnType": "PlotNodeSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "PlotNodeSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest identity"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-visible-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsVisible",
@@ -29975,7 +29983,7 @@
     },
     {
       "id": "plot-lifecycle.instance-quantity-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetActualQuantity",
-      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Int32", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest verification"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-at-minimum-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsAtMinimumQuantity",
@@ -29991,7 +29999,7 @@
     },
     {
       "id": "plot-lifecycle.list-room-action", "assembly": "assembly-csharp", "type": "EmptyTypeListVariable`1", "typeVisibility": "public", "kind": "method", "member": "HasEmptySpot",
-      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata plot lifecycle GameAction"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Automata Auto Harvest slots"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.list-add-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstanceListVariable", "typeVisibility": "public", "kind": "method", "member": "AddInstance",

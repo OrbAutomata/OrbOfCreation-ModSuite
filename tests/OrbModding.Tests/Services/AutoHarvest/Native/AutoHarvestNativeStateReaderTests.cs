@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
@@ -74,11 +73,11 @@ public sealed class AutoHarvestNativeStateReaderTests
     }
 
     [Fact]
-    public void AnInstanceOfTheWrongNativeTypeRefusesTheWholeList()
+    public void AnEmptyEntryInTheInstanceListRefusesTheWholeList()
     {
         var world = PrototypeWorld.Create();
         world.AddInstance(world.Plot, world.Action);
-        world.Instances.Add("not an instance");
+        world.Instances.Add(null!);
 
         Assert.Null(new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
     }
@@ -95,11 +94,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         var world = PrototypeWorld.Create();
         var instance = world.AddInstance(world.Plot, world.Action);
         if (expected == AutoHarvestActionResultCodes.NativePlotVisibilityRefused)
-            world.Plot.Visible = false;
+            world.Plot.visible = false;
         else if (expected == AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused)
             world.Instances.Clear();
         else if (expected == AutoHarvestActionResultCodes.NativeActionRowVisibilityRefused)
-            instance.RowVisible = false;
+            world.Action.prerequisites.available = false;
         else if (expected == AutoHarvestActionResultCodes.NativeHasEnoughForOneInstanceRefused)
             instance.EnoughForOneInstance = false;
         else if (expected == AutoHarvestActionResultCodes.NativeMaximumRemainingInstancesRefused)
@@ -114,14 +113,30 @@ public sealed class AutoHarvestNativeStateReaderTests
         Assert.Equal(expected, actual);
     }
 
+    /// <summary>
+    /// The game's own exception arrives as itself, so only a failure the classifier expects is a
+    /// named refusal; anything else is a defect and escapes the click gate.
+    /// </summary>
     [Fact]
-    public void AnUnexpectedExceptionFromANativeReadEscapesClickAdmission()
+    public void AnUnexpectedExceptionThrownInsideANativeReadEscapesClickAdmission()
     {
         var world = PrototypeWorld.Create();
         world.AddInstance(world.Plot, world.Action);
-        world.Plot.InstancesUnreadable = true;
+        world.Plot.ActionInstancesFailure = new NullReferenceException("injected instance list read failure");
 
         Assert.Throws<NullReferenceException>(() =>
+            new AutoHarvestNativeStateReader().ValidateClickAdmission(world.Resolved, out _));
+    }
+
+    [Fact]
+    public void AnExpectedExceptionThrownInsideANativeReadIsTheTermsNamedRefusal()
+    {
+        var world = PrototypeWorld.Create();
+        world.AddInstance(world.Plot, world.Action);
+        world.Plot.ActionInstancesFailure = new InvalidOperationException("injected instance list read failure");
+
+        Assert.Equal(
+            AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused,
             new AutoHarvestNativeStateReader().ValidateClickAdmission(world.Resolved, out _));
     }
 
@@ -129,9 +144,9 @@ public sealed class AutoHarvestNativeStateReaderTests
     public void CurrentPairResolutionReReadsStableUuidAndExactNativeType()
     {
         var world = PrototypeWorld.Create();
-        var currentPlot = new StubPlot();
+        var currentPlot = new PlotNodeSO();
         currentPlot.SetGuid(world.Plot.GetGuid());
-        var currentAction = new StubAction();
+        var currentAction = new PlotNodeActionSO();
         currentAction.SetGuid(world.Action.GetGuid());
         var registry = new Dictionary<Guid, object>
         {
@@ -247,151 +262,60 @@ public sealed class AutoHarvestNativeStateReaderTests
             pairEngaged: false);
 
     /// <summary>
-    /// A fruit-tree pair bound to stub natives, with the plot's instance list under test control.
-    /// The contract is the production one, filled by reflection the way the binder fills it.
+    /// A fruit-tree pair on the game's plot types, bound through the shipping binding set, with the
+    /// plot's instance list under test control.
     /// </summary>
     private sealed class PrototypeWorld
     {
         private PrototypeWorld(
-            StubPlot plot,
-            StubAction action,
-            StubPlot otherPlot,
-            StubAction otherAction,
+            PlotNodeSO plot,
+            PlotNodeActionSO action,
             in ResolvedAutoHarvestPair resolved)
         {
             Plot = plot;
             Action = action;
-            OtherPlot = otherPlot;
-            OtherAction = otherAction;
             Resolved = resolved;
         }
 
-        internal StubPlot Plot { get; }
-        internal StubAction Action { get; }
-        internal StubPlot OtherPlot { get; }
-        internal StubAction OtherAction { get; }
+        internal PlotNodeSO Plot { get; }
+        internal PlotNodeActionSO Action { get; }
+        internal PlotNodeSO OtherPlot { get; } = new() { visible = true };
+        internal PlotNodeActionSO OtherAction { get; } = new();
         internal ResolvedAutoHarvestPair Resolved { get; }
-        internal List<object> Instances => Plot.instances;
+        internal List<PlotNodeActionInstance> Instances => Plot.GetActionInstances();
 
         internal static PrototypeWorld Create()
         {
-            var plot = new StubPlot();
-            var action = new StubAction();
-            var types = Types();
+            var plot = new PlotNodeSO { visible = true };
+            var action = new PlotNodeActionSO();
+            action.prerequisites.available = true;
+            Assert.True(AutoHarvestNativeBindings.TryCreate(out var bindings, out var reason), reason);
             var binding = new AutoHarvestPairBinding(
                 AutoHarvestPair.FruitTree,
                 plot,
                 action,
                 plot.GetGuid().ToString("D"),
                 action.GetGuid().ToString("D"),
-                new object(),
+                new TreasurePoolSO(),
                 null!,
                 null!,
                 null!);
-            var shared = new AutoHarvestSharedBinding(new object(), null!, null!, 1);
+            var shared = new AutoHarvestSharedBinding(new PlotNodeActionInstanceListVariable(), null!, null!, 1);
             return new PrototypeWorld(
                 plot,
                 action,
-                new StubPlot(),
-                new StubAction(),
-                new ResolvedAutoHarvestPair(Contract(types), shared, binding, binding, null));
+                new ResolvedAutoHarvestPair(bindings!, shared, binding, binding, null));
         }
 
         /// <summary>
         /// Adds one instance to the pair's plot. The instance may name any plot and action — a plot
         /// holding an instance of something it does not offer is a shape the game produces.
         /// </summary>
-        internal StubInstance AddInstance(StubPlot plot, StubAction action)
+        internal PlotNodeActionInstance AddInstance(PlotNodeSO plot, PlotNodeActionSO action)
         {
-            var instance = new StubInstance(plot, action);
-            Plot.instances.Add(instance);
+            var instance = new PlotNodeActionInstance(plot, action);
+            Instances.Add(instance);
             return instance;
         }
-
-        private static AutoHarvestReflectionTypes Types()
-        {
-            var types = (AutoHarvestReflectionTypes)Activator.CreateInstance(
-                typeof(AutoHarvestReflectionTypes),
-                nonPublic: true)!;
-            Set(types, nameof(AutoHarvestReflectionTypes.Plot), typeof(StubPlot));
-            Set(types, nameof(AutoHarvestReflectionTypes.Action), typeof(StubAction));
-            Set(types, nameof(AutoHarvestReflectionTypes.Instance), typeof(StubInstance));
-            return types;
-        }
-
-        private static AutoHarvestReflectionContract Contract(AutoHarvestReflectionTypes types)
-        {
-            var constructor = typeof(AutoHarvestReflectionContract).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                new[] { typeof(AutoHarvestReflectionTypes) },
-                modifiers: null)!;
-            var contract = (AutoHarvestReflectionContract)constructor.Invoke(new object[] { types });
-            Set(contract, nameof(AutoHarvestReflectionContract.PlotStableId),
-                AutoHarvestStableIdAccessor.Bind(typeof(StubPlot)));
-            Set(contract, nameof(AutoHarvestReflectionContract.ActionStableId),
-                AutoHarvestStableIdAccessor.Bind(typeof(StubAction)));
-            Set(contract, nameof(AutoHarvestReflectionContract.PlotIsVisible),
-                typeof(StubPlot).GetMethod(nameof(StubPlot.IsVisible))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.PlotGetActionInstances),
-                typeof(StubPlot).GetMethod(nameof(StubPlot.GetActionInstances))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.InstanceGetElement),
-                typeof(StubInstance).GetMethod(nameof(StubInstance.GetElement))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.InstanceGetAction),
-                typeof(StubInstance).GetMethod(nameof(StubInstance.GetAction))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.InstanceIsVisible),
-                typeof(StubInstance).GetMethod(nameof(StubInstance.IsVisible))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.InstanceHasEnoughForOneInstance),
-                typeof(StubInstance).GetMethod(nameof(StubInstance.HasEnoughForOneInstance))!);
-            Set(contract, nameof(AutoHarvestReflectionContract.InstanceGetMaximumRemInstances),
-                typeof(StubInstance).GetMethod(nameof(StubInstance.GetMaximumRemInstances))!);
-            return contract;
-        }
-
-        private static void Set(object target, string property, object value) =>
-            target.GetType().GetProperty(property)!.SetValue(target, value);
-    }
-
-    private sealed class StubPlot : IdScriptableObject
-    {
-        public readonly List<object> instances = new();
-        public bool Visible { get; set; } = true;
-        public bool InstancesUnreadable { get; set; }
-
-        public bool IsVisible() => Visible;
-        public IList GetActionInstances() =>
-            InstancesUnreadable ? new UnreadableInstanceList() : instances;
-    }
-
-    private sealed class UnreadableInstanceList : ArrayList
-    {
-        public override IEnumerator GetEnumerator() =>
-            throw new NullReferenceException("injected instance list read failure");
-    }
-
-    private sealed class StubAction : IdScriptableObject
-    {
-    }
-
-    private sealed class StubInstance
-    {
-        private readonly StubPlot _plot;
-        private readonly StubAction _action;
-
-        internal StubInstance(StubPlot plot, StubAction action)
-        {
-            _plot = plot;
-            _action = action;
-        }
-
-        internal bool RowVisible { get; set; } = true;
-        internal bool EnoughForOneInstance { get; set; } = true;
-        internal int MaximumRemainingInstances { get; set; } = 1;
-
-        public StubPlot GetElement() => _plot;
-        public StubAction GetAction() => _action;
-        public bool IsVisible() => RowVisible;
-        public bool HasEnoughForOneInstance() => EnoughForOneInstance;
-        public int GetMaximumRemInstances() => MaximumRemainingInstances;
     }
 }

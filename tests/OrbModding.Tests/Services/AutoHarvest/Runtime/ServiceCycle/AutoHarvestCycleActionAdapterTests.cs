@@ -153,6 +153,36 @@ public sealed class AutoHarvestCycleActionAdapterTests
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
     }
 
+    public static IEnumerable<object[]> ContractIds()
+    {
+        foreach (var id in AutoHarvestNativeBindings.ContractIds) yield return new object[] { id };
+    }
+
+    /// <summary>
+    /// The shipping resolver over a build missing one member: the whole feature refuses with the
+    /// member's id, before any registry read or native call.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ContractIds))]
+    public void EveryMissingMemberDisablesTheCompleteSet(string missing)
+    {
+        using var fixture = new Fixture(circuit => new AutoHarvestBindingResolver(
+            new TypedRegistryResolver(
+                () => throw new InvalidOperationException("the registry was read"),
+                () => throw new InvalidOperationException("the registry was read"),
+                _ => throw new InvalidOperationException("the registry was read")),
+            circuit,
+            includeContract: id => id != missing));
+
+        var result = fixture.Execute();
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(AutoHarvestActionResultCodes.FeatureContractUnavailable, result.Code);
+        Assert.Contains("auto-harvest binding set is unavailable", result.Reason, StringComparison.Ordinal);
+        Assert.Contains(missing, result.Reason, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.Mutation.SubmitCount);
+    }
+
     private static void AssertOrdered(IReadOnlyList<string> events, params string[] expected)
     {
         var previous = -1;
@@ -178,7 +208,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
         private ulong _nativeLifecycle = 7;
         private readonly AutoHarvestCycleActionAdapter _adapter;
 
-        public Fixture()
+        public Fixture(Func<AutoHarvestContractCircuit, IAutoHarvestBindingPort>? createBindings = null)
         {
             Events = new List<string>();
             Bindings = new BindingPort(Events, () => _nativeLifecycle);
@@ -186,7 +216,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
             Gates = new GatePort();
             ContractCircuit = new AutoHarvestContractCircuit();
             _adapter = new AutoHarvestCycleActionAdapter(
-                Bindings,
+                createBindings?.Invoke(ContractCircuit) ?? Bindings,
                 Mutation,
                 Gates,
                 ContractCircuit,

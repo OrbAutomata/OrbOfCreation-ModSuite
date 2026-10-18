@@ -1,4 +1,3 @@
-using System;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -31,71 +30,52 @@ internal sealed partial class AutoHarvestBindingResolver
         if (pair == AutoHarvestPair.FruitTree) _fruit = null;
         else _treasure = null;
 
-        try
-        {
-            var plot = Resolve(
+        if (!TryResolve(
                 specification.Plot.Uuid,
-                _types!.Plot,
-                EntityIdentityFormatter.Format(specification.Plot.Uuid),
-                out var plotResolution);
-            var action = Resolve(
+                _bindings!.PlotType,
+                AutoHarvestRuntimeFailureScope.Pair,
+                out var plotResolution,
+                out failure) ||
+            !TryResolve(
                 specification.Action.Uuid,
-                _types.Action,
-                EntityIdentityFormatter.Format(specification.Action.Uuid),
-                out var actionResolution);
-            var reward = Resolve(
+                _bindings.ActionType,
+                AutoHarvestRuntimeFailureScope.Pair,
+                out var actionResolution,
+                out failure) ||
+            !TryResolve(
                 specification.RewardPool.Uuid,
-                _types.RewardPool,
-                EntityIdentityFormatter.Format(specification.RewardPool.Uuid),
-                out var rewardResolution);
-            RequireCurrentGeneration(
-                _shared!.LifecycleGeneration,
-                plotResolution,
-                actionResolution,
-                rewardResolution);
-
-            current = new AutoHarvestPairBinding(
-                pair,
-                plot,
-                action,
-                specification.PlotUuid,
-                specification.ActionUuid,
-                reward,
-                plotResolution,
-                actionResolution,
-                rewardResolution);
-            if (pair == AutoHarvestPair.FruitTree) _fruit = current;
-            else _treasure = current;
-            failure = default;
-            return true;
-        }
-        catch (AutoHarvestRegistryNotReadyException)
+                _bindings.RewardPoolType,
+                AutoHarvestRuntimeFailureScope.Pair,
+                out var rewardResolution,
+                out failure))
         {
-            failure = AutoHarvestNativeFailure.Create(
-                AutoHarvestRuntimeFailureKind.Retryable,
-                AutoHarvestRuntimeFailureScope.Pair);
-            return false;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            var kind = AutoHarvestReflectionAccess.ClassifyExpectedFailure(ex);
-            failure = AutoHarvestNativeFailure.Create(
-                kind,
-                AutoHarvestRuntimeFailureScope.Pair);
-            if (kind == AutoHarvestRuntimeFailureKind.Contract)
+            if (failure.Kind == AutoHarvestRuntimeFailureKind.Contract)
                 _contractCircuit.Block(pair, AutoHarvestRuntimeFailureScope.Pair);
             return false;
         }
-    }
 
-    private static void RequireCurrentGeneration(
-        long expectedGeneration,
-        TypedRegistryResolution first,
-        TypedRegistryResolution second,
-        TypedRegistryResolution third)
-    {
-        RequireCurrentGeneration(expectedGeneration, first);
-        RequireCurrentGeneration(expectedGeneration, second);
-        RequireCurrentGeneration(expectedGeneration, third);
+        var generation = _shared!.LifecycleGeneration;
+        if (plotResolution.LifecycleGeneration != generation ||
+            actionResolution.LifecycleGeneration != generation ||
+            rewardResolution.LifecycleGeneration != generation)
+        {
+            failure = CrossedGenerations(AutoHarvestRuntimeFailureScope.Pair);
+            return false;
+        }
+
+        current = new AutoHarvestPairBinding(
+            pair,
+            plotResolution.Value!,
+            actionResolution.Value!,
+            specification.PlotUuid,
+            specification.ActionUuid,
+            rewardResolution.Value!,
+            plotResolution,
+            actionResolution,
+            rewardResolution);
+        if (pair == AutoHarvestPair.FruitTree) _fruit = current;
+        else _treasure = current;
+        failure = default;
+        return true;
     }
 }

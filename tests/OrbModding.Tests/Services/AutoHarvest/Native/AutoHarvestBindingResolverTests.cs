@@ -37,16 +37,6 @@ public sealed class AutoHarvestBindingResolverTests
     }
 
     [Fact]
-    public void MissingOrdinaryTypeUsesRetryableDiscoverySignal()
-    {
-        var exception = Assert.Throws<AutoHarvestRegistryNotReadyException>(
-            () => AutoHarvestReflectionTypes.RequireLoadedType(
-                "OrbModding.Tests.MissingAutoHarvestNativeType"));
-
-        Assert.Contains("is not registered yet", exception.Message);
-    }
-
-    [Fact]
     public void PairSetReturnsBothBindingsInEachResolvedSnapshot()
     {
         var shared = new AutoHarvestSharedBinding(

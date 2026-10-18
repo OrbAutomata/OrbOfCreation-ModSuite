@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -209,15 +208,53 @@ public sealed class AutoHarvestMutationAdapterTests
     [Fact]
     public void EveryLiveClickTermHoldingCommitsTheExistingExactTransition()
     {
-        var active = new TestActiveActions();
+        var active = new PlotNodeActionInstanceListVariable();
         var state = new RecordingStatePort(activeActions: active);
         var adapter = new AutoHarvestMutationAdapter(state);
 
         var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
 
         Assert.True(result.Verified);
-        Assert.Equal(1, active.AddCalls);
+        var added = Assert.Single(active.value);
+        Assert.Same(state.Prototype, added);
+        Assert.Equal(1, added.GetActualQuantity());
         Assert.Equal(1, state.PrototypeCount);
+    }
+
+    /// <summary>
+    /// The game throwing after its add landed is still the add the player would have made.
+    /// </summary>
+    [Fact]
+    public void AnAddThatLandsBeforeTheGameThrowsCommits()
+    {
+        var active = new PlotNodeActionInstanceListVariable { BreakAfterMutation = true };
+        var state = new RecordingStatePort(activeActions: active);
+        var adapter = new AutoHarvestMutationAdapter(state);
+
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+
+        Assert.True(result.Verified);
+        Assert.Same(state.Prototype, Assert.Single(active.value));
+    }
+
+    /// <summary>
+    /// A throw from the add that leaves nothing visible may still have moved the game, so the pair
+    /// is faulted for the lifecycle rather than refused in a way the next cycle would retry.
+    /// </summary>
+    [Fact]
+    public void AnAddThatThrowsWithoutLandingFaultsThePair()
+    {
+        var active = new PlotNodeActionInstanceListVariable { SuppressMutation = true, BreakAfterMutation = true };
+        var state = new RecordingStatePort(activeActions: active);
+        var adapter = new AutoHarvestMutationAdapter(state);
+
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+
+        Assert.Equal(AutoHarvestActionResultCodes.PairFaulted, result.Code);
+        Assert.Equal(NativeMutationOutcome.ExecutionThrew, result.Mutation);
+        Assert.Equal(1, result.CallOutcome.MutationAttempts);
+        Assert.Equal(ServiceActionDisposition.Faulted, result.ToResult().Disposition);
+        Assert.Empty(active.value);
     }
 
     /// <summary>
@@ -385,64 +422,28 @@ public sealed class AutoHarvestMutationAdapterTests
 
     private static ResolvedAutoHarvestPair ResolvedPair(
         PlotNodeActionSO? action = null,
-        TestActiveActions? activeActions = null)
+        PlotNodeActionInstanceListVariable? activeActions = null)
     {
         if (action is null)
         {
             action = new PlotNodeActionSO();
             action.prerequisites.available = true;
         }
-        var contract = PrerequisiteContract();
-        if (activeActions is not null)
-        {
-            Set(
-                contract,
-                nameof(AutoHarvestReflectionContract.ActiveAddInstance),
-                typeof(TestActiveActions).GetMethod(nameof(TestActiveActions.AddInstance))!);
-        }
+        Assert.True(AutoHarvestNativeBindings.TryCreate(out var bindings, out var reason), reason);
         var target = new AutoHarvestPairBinding(
             AutoHarvestPair.FruitTree,
             new PlotNodeSO(),
             action,
             AutoHarvestKnownIds.FruitTreePlot,
             AutoHarvestKnownIds.FruitTreeCollect,
-            new object(),
+            new TreasurePoolSO(),
             null!,
             null!,
             null!);
-        var shared = new AutoHarvestSharedBinding(activeActions ?? new object(), null!, null!, 1);
-        return new ResolvedAutoHarvestPair(contract, shared, target, target, null);
+        var shared = new AutoHarvestSharedBinding(
+            activeActions ?? new PlotNodeActionInstanceListVariable(), null!, null!, 1);
+        return new ResolvedAutoHarvestPair(bindings!, shared, target, target, null);
     }
-
-    private static AutoHarvestReflectionContract PrerequisiteContract()
-    {
-        var types = (AutoHarvestReflectionTypes)Activator.CreateInstance(
-            typeof(AutoHarvestReflectionTypes),
-            nonPublic: true)!;
-        Set(types, nameof(AutoHarvestReflectionTypes.Action), typeof(PlotNodeActionSO));
-        var constructor = typeof(AutoHarvestReflectionContract).GetConstructor(
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            binder: null,
-            new[] { typeof(AutoHarvestReflectionTypes) },
-            modifiers: null)!;
-        var contract = (AutoHarvestReflectionContract)constructor.Invoke(new object[] { types });
-        Set(
-            contract,
-            nameof(AutoHarvestReflectionContract.ActionPrerequisites),
-            (Func<object, object?>)(source => ((PlotNodeActionSO)source).prerequisites));
-        Set(
-            contract,
-            nameof(AutoHarvestReflectionContract.PrerequisitesAvailable),
-            (Func<object, bool>)(source => ((Prerequisites.Container)source).available));
-        Set(
-            contract,
-            nameof(AutoHarvestReflectionContract.PrerequisitesCheck),
-            (Func<object, bool>)(source => ((Prerequisites.Container)source).Check()));
-        return contract;
-    }
-
-    private static void Set(object target, string property, object value) =>
-        target.GetType().GetProperty(property)!.SetValue(target, value);
 
     private sealed class ThrowingStatePort : IAutoHarvestSubmissionStatePort
     {
@@ -470,19 +471,19 @@ public sealed class AutoHarvestMutationAdapterTests
 
     private sealed class RecordingStatePort : IAutoHarvestSubmissionStatePort
     {
-        private readonly object? _prototype;
+        private readonly PlotNodeActionInstance? _prototype;
         private readonly ServiceActionResultCode _admissionFailure;
         private readonly bool _resolvesCurrentPair;
-        private readonly TestActiveActions? _activeActions;
+        private readonly PlotNodeActionInstanceListVariable? _activeActions;
 
         internal RecordingStatePort(
             int supported = 0,
             bool resolvesPrototype = true,
             ServiceActionResultCode? admissionFailure = null,
             bool resolvesCurrentPair = true,
-            TestActiveActions? activeActions = null)
+            PlotNodeActionInstanceListVariable? activeActions = null)
         {
-            _prototype = resolvesPrototype ? new object() : null;
+            _prototype = resolvesPrototype ? new PlotNodeActionInstance(new PlotNodeSO(), new PlotNodeActionSO()) : null;
             _admissionFailure = admissionFailure ?? CommonActionResultCodes.Committed;
             _resolvesCurrentPair = resolvesCurrentPair;
             _activeActions = activeActions;
@@ -497,6 +498,7 @@ public sealed class AutoHarvestMutationAdapterTests
         }
 
         public AutoHarvestSubmissionState Captured { get; }
+        public PlotNodeActionInstance? Prototype => _prototype;
 
         public int CaptureCount { get; private set; }
         public int PrototypeCount { get; private set; }
@@ -513,7 +515,7 @@ public sealed class AutoHarvestMutationAdapterTests
             in ResolvedAutoHarvestPair resolved)
         {
             CaptureCount++;
-            return _activeActions?.AddCalls > 0
+            return Landed
                 ? State(
                     used: 3,
                     empty: 0,
@@ -525,8 +527,9 @@ public sealed class AutoHarvestMutationAdapterTests
                 : Captured;
         }
 
-        public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved) =>
-            _activeActions?.AddCalls > 0;
+        public bool IsPairEngaged(in ResolvedAutoHarvestPair resolved) => Landed;
+
+        private bool Landed => _activeActions?.value.Exists(instance => instance.IsEngaged()) == true;
 
         public object? ReadPrototype(in ResolvedAutoHarvestPair resolved)
         {
@@ -544,18 +547,6 @@ public sealed class AutoHarvestMutationAdapterTests
                 : prototype is null
                     ? AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused
                     : CommonActionResultCodes.Committed;
-        }
-    }
-
-    private sealed class TestActiveActions
-    {
-        public int AddCalls { get; private set; }
-
-        public void AddInstance(object prototype, int quantity)
-        {
-            Assert.NotNull(prototype);
-            Assert.Equal(1, quantity);
-            AddCalls++;
         }
     }
 }

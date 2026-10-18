@@ -60,20 +60,20 @@ internal sealed class AutoHarvestPairBinding
 internal readonly struct ResolvedAutoHarvestPair
 {
     public ResolvedAutoHarvestPair(
-        AutoHarvestReflectionContract contract,
+        AutoHarvestNativeBindings bindings,
         AutoHarvestSharedBinding shared,
         AutoHarvestPairBinding target,
         AutoHarvestPairBinding? fruit,
         AutoHarvestPairBinding? treasure)
     {
-        Contract = contract;
+        Bindings = bindings;
         Shared = shared;
         Target = target;
         Fruit = fruit;
         Treasure = treasure;
     }
 
-    public AutoHarvestReflectionContract Contract { get; }
+    public AutoHarvestNativeBindings Bindings { get; }
     public AutoHarvestSharedBinding Shared { get; }
     public AutoHarvestPairBinding Target { get; }
     public AutoHarvestPairBinding? Fruit { get; }
@@ -122,7 +122,7 @@ internal readonly struct AutoHarvestResolvedPairSet
     public AutoHarvestPairResolution Treasure { get; }
 
     public static AutoHarvestResolvedPairSet Create(
-        AutoHarvestReflectionContract contract,
+        AutoHarvestNativeBindings bindings,
         AutoHarvestSharedBinding shared,
         AutoHarvestPairBinding? fruit,
         in AutoHarvestNativeFailure fruitFailure,
@@ -132,11 +132,11 @@ internal readonly struct AutoHarvestResolvedPairSet
         var fruitResolution = fruit is null
             ? AutoHarvestPairResolution.Failed(fruitFailure)
             : AutoHarvestPairResolution.Success(
-                new ResolvedAutoHarvestPair(contract, shared, fruit, fruit, treasure));
+                new ResolvedAutoHarvestPair(bindings, shared, fruit, fruit, treasure));
         var treasureResolution = treasure is null
             ? AutoHarvestPairResolution.Failed(treasureFailure)
             : AutoHarvestPairResolution.Success(
-                new ResolvedAutoHarvestPair(contract, shared, treasure, fruit, treasure));
+                new ResolvedAutoHarvestPair(bindings, shared, treasure, fruit, treasure));
         return new AutoHarvestResolvedPairSet(fruitResolution, treasureResolution);
     }
 

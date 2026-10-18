@@ -80,7 +80,9 @@ live. The published prerequisite latch is evidence rather than a refusal: true m
 latched success, while false means the exact current action needs one validation at the action boundary. A
 missing or unsafe pair therefore cannot starve a healthy sibling; transient
 live-state gaps use bounded retry, static pair-contract failures remain process-bound, and partial availability
-is reported as degraded.
+is reported as degraded. The native members themselves bind once per process as one strict set with exact
+owner, parameter, field and return types; a missing or differently shaped member disables Auto Harvest with a
+reason naming that member's contract, before any registry read or native call.
 
 Every evaluation resolves the exact plot, action, active-list, scaling-weight, and reward-pool identities through the lifecycle-stamped typed registry. It then verifies native plot visibility, exact action membership, empty prerequisites, positive remaining quantity, native one-instance readiness, the reusable `Idle` to `Resting` phase contract, empty resource drain and persistent effects, and the exact `EarnTreasure` completion graph. Unknown or changed evidence rejects the action.
 
@@ -94,7 +96,7 @@ may inspect configuration, quarantine, and family ownership to avoid reserving u
 action callback checks them again to produce the authoritative terminal result.
 
 After configuration, UUID/type, and lifecycle checks, submission calls the exact current action's
-parameterless `Prerequisites.Container.Check()` once through its lifecycle-bound compiled contract. A fresh
+parameterless `Prerequisites.Container.Check()` once through the binding set's compiled contract. A fresh
 false result is the penalty-free refusal “native prerequisites currently unmet”; unreadable evidence refuses
 under its own code. Both paths perform no quantity mutation. A true result continues the unchanged queue,
 capacity, cost, and mutation path. Submission always requests quantity one through
@@ -190,7 +192,7 @@ Reserves are an optional second policy. After each level, Auto Buy requires enou
 
 Auto Buy always plans the complete ranked candidate list and lets the native boundary continue until only `LeaveQueueSlots` remain. Structures prefer the live Bulk Development count and reduce it when the remaining batch ledger cannot fund that complete exact group; Upgrades always request one level. Exact rising grouped costs are reserved in the batch ledger, missing exact group sums are never approximated, and every emitted group is capped again to usable queue room.
 
-Upgrade submission temporarily forces the native global multi-buy value to one and verifies that the captured value is restored afterward, including when the setter or purchase throws. If restoration cannot be confirmed through the native getter, further automated Upgrade mutations are quarantined for the process and removed from admission, cached ranking, and pending batches. Structure purchases do not use that global and remain independently eligible.
+Upgrade submission temporarily forces the native global multi-buy value to one and verifies that the captured value is restored afterward, including when the setter or purchase throws. A setter or getter failure the game is expected to raise refuses the press after restoring; any other throw is restored first and then escapes as a fault. If restoration cannot be confirmed through the native getter, further automated Upgrade mutations are quarantined for the process and removed from admission, cached ranking, and pending batches. Structure purchases do not use that global and remain independently eligible.
 
 Continuation is always active: after each candidate's group, Auto Buy advances through the remaining prepared ranking while live queue room permits. The prepared next candidate does not require a catalog rescan. Native availability, current cost, affordability, reserves, maximum level, and queue admission are re-read before every level.
 
@@ -228,7 +230,7 @@ Routine active and locked-content lifecycle probes run on a fixed 250 ms cadence
 
 Structures must pass native availability before Auto Buy reads costs or calls the purchase contract. The supported native `UpgradeSO.CanPurchase()` contract combines affordability with lifecycle, requirements, and queue admission, so Auto Buy calls it first and then decodes the exact current cost before classifying a false result. A proven reserve or affordability failure remains subscribed to its resource dependencies; a cost-safe false result is parked outside high-frequency quantity updates for bounded lifecycle or completion retry. Native bandwidth costs are explicitly identified through `ResourceSO.IsBandwidthResource()` and remain tracked because their admission uses missing usage rather than ordinary quantity.
 
-Repeated native mutation failures are rate-limited per candidate while aggregate attempt/failure totals remain visible. Reflection metadata for queue room, queued-level verification, and the global multi-buy contract is cached only after exact signature validation. The live multi-buy variable itself is fetched again for every Upgrade level so save or lifecycle replacement cannot leave a stale native reference.
+Repeated native mutation failures are rate-limited per candidate while aggregate attempt/failure totals remain visible. Reflection metadata for queue room and queued-level verification is cached only after exact signature validation; the global multi-buy accessor and the integer variable's read and write bind once per process as one strict set. The live multi-buy variable itself is fetched again for every Upgrade level so save or lifecycle replacement cannot leave a stale native reference.
 
 During a prepared ranked pass, each candidate refreshes its own cost immediately before its level. Shared resource-dependent invalidation is coalesced while later candidates are still live-revalidated against current resources and native state. A failed admission skips that candidate for the current pass; an ambiguous native mutation failure ends the pass so dirty state can settle safely. If the queue fills, the next ranked candidate remains prepared across the wait and is live-revalidated when a slot reopens.
 

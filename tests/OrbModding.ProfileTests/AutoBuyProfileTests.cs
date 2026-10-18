@@ -1,5 +1,6 @@
 using System;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbAutomata.Runtime.ServiceCycle.Profile;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;

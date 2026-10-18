@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 #if SERVICE_CYCLE_PROFILE
@@ -43,9 +41,9 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             !Guid.TryParse(resolved.Target.ActionUuid, out var actionUuid))
             return false;
 
-        var contract = resolved.Contract;
-        var plotResolution = _registryResolver.Resolve(plotUuid, contract.Types.Plot);
-        var actionResolution = _registryResolver.Resolve(actionUuid, contract.Types.Action);
+        var bindings = resolved.Bindings;
+        var plotResolution = _registryResolver.Resolve(plotUuid, bindings.PlotType);
+        var actionResolution = _registryResolver.Resolve(actionUuid, bindings.ActionType);
 #if SERVICE_CYCLE_PROFILE
         if (plotResolution.IsResolved) _profileOperations.AddStableIdRead();
         if (actionResolution.IsResolved) _profileOperations.AddStableIdRead();
@@ -69,13 +67,13 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             target.RewardResolution);
         current = target.Pair == AutoHarvestPair.FruitTree
             ? new ResolvedAutoHarvestPair(
-                contract,
+                bindings,
                 resolved.Shared,
                 refreshed,
                 refreshed,
                 resolved.Treasure)
             : new ResolvedAutoHarvestPair(
-                contract,
+                bindings,
                 resolved.Shared,
                 refreshed,
                 resolved.Fruit,
@@ -88,9 +86,10 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
         out object? prototype)
     {
         prototype = null;
+        var bindings = resolved.Bindings;
         try
         {
-            if (!InvokeBool(resolved.Contract.PlotIsVisible, resolved.Target.Plot))
+            if (!bindings.PlotIsVisible(resolved.Target.Plot))
                 return AutoHarvestActionResultCodes.NativePlotVisibilityRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -111,7 +110,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
 
         try
         {
-            if (!InvokeBool(resolved.Contract.InstanceIsVisible, prototype))
+            if (!bindings.InstanceIsVisible(prototype))
                 return AutoHarvestActionResultCodes.NativeActionRowVisibilityRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -121,7 +120,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
 
         try
         {
-            if (!InvokeBool(resolved.Contract.InstanceHasEnoughForOneInstance, prototype))
+            if (!bindings.InstanceHasEnoughForOne(prototype))
                 return AutoHarvestActionResultCodes.NativeHasEnoughForOneInstanceRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -131,7 +130,7 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
 
         try
         {
-            if (InvokeInt(resolved.Contract.InstanceGetMaximumRemInstances, prototype) <= 0)
+            if (bindings.InstanceMaximumRemaining(prototype) <= 0)
                 return AutoHarvestActionResultCodes.NativeMaximumRemainingInstancesRefused;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -151,19 +150,19 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
     /// </remarks>
     public object? ReadPrototype(in ResolvedAutoHarvestPair resolved)
     {
-        var contract = resolved.Contract;
+        var bindings = resolved.Bindings;
         var binding = resolved.Target;
-        if (Invoke(contract.PlotGetActionInstances, binding.Plot, Array.Empty<object>()) is not IList instances)
-            return null;
+        var instances = bindings.PlotActionInstances(binding.Plot);
+        if (instances is null) return null;
         object? match = null;
         foreach (var instance in instances)
         {
 #if SERVICE_CYCLE_PROFILE
             _profileOperations.AddListEntry();
 #endif
-            if (instance is null || instance.GetType() != contract.Types.Instance) return null;
-            var plot = Invoke(contract.InstanceGetElement, instance, Array.Empty<object>());
-            var action = Invoke(contract.InstanceGetAction, instance, Array.Empty<object>());
+            if (instance is null || instance.GetType() != bindings.InstanceType) return null;
+            var plot = bindings.InstancePlot(instance);
+            var action = bindings.InstanceAction(instance);
             var observed = ClassifyPair(resolved, plot, action);
             if (observed == AutoHarvestObservedPair.Contradictory) return null;
             var expected = binding.Pair == AutoHarvestPair.FruitTree
@@ -182,8 +181,9 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
         object? action)
     {
         if (plot is null || action is null) return AutoHarvestObservedPair.Contradictory;
-        if (plot.GetType() != resolved.Contract.Types.Plot ||
-            action.GetType() != resolved.Contract.Types.Action)
+        var bindings = resolved.Bindings;
+        if (plot.GetType() != bindings.PlotType ||
+            action.GetType() != bindings.ActionType)
             return AutoHarvestObservedPair.Contradictory;
         var exactFruit = resolved.Fruit is not null &&
             ReferenceEquals(plot, resolved.Fruit.Plot) &&
@@ -195,47 +195,18 @@ internal sealed partial class AutoHarvestNativeStateReader : IAutoHarvestSubmiss
             resolved.Fruit is not null && ReferenceEquals(action, resolved.Fruit.Action) ||
             resolved.Treasure is not null && ReferenceEquals(action, resolved.Treasure.Action);
         return AutoHarvestIdentityPolicy.Classify(
-            TryRead(resolved.Contract.PlotStableId, plot, out var plotUuid) ? plotUuid : default,
-            TryRead(resolved.Contract.ActionStableId, action, out var actionUuid) ? actionUuid : default,
+            ReadUuid(bindings.PlotUuid, plot),
+            ReadUuid(bindings.ActionUuid, action),
             exactFruit,
             exactTreasure,
             supportedActionReference);
     }
 
+    private Guid ReadUuid(Func<object, Guid> read, object value)
+    {
 #if SERVICE_CYCLE_PROFILE
-    private object? GetValue(FieldInfo field, object owner) =>
-        AutoHarvestReflectionAccess.GetValue(field, owner, _profileOperations);
-
-    private object? Invoke(MethodInfo method, object owner, object[] arguments) =>
-        AutoHarvestReflectionAccess.Invoke(method, owner, arguments, _profileOperations);
-
-    private bool InvokeBool(MethodInfo method, object owner) =>
-        AutoHarvestReflectionAccess.InvokeBool(method, owner, _profileOperations);
-
-    private int InvokeInt(MethodInfo method, object owner, params object[] arguments) =>
-        AutoHarvestReflectionAccess.InvokeInt(method, owner, _profileOperations, arguments);
-
-    private bool TryRead(
-        AutoHarvestStableIdAccessor accessor,
-        object value,
-        out Guid identity) => accessor.TryRead(value, out identity, _profileOperations);
-#else
-    private static object? GetValue(FieldInfo field, object owner) => field.GetValue(owner);
-
-    private static object? Invoke(MethodInfo method, object owner, object[] arguments) =>
-        method.Invoke(owner, arguments);
-
-    private static bool InvokeBool(MethodInfo method, object owner) =>
-        (bool)(method.Invoke(owner, Array.Empty<object>()) ??
-            throw new InvalidOperationException($"{method.DeclaringType?.FullName}.{method.Name} returned null"));
-
-    private static int InvokeInt(MethodInfo method, object owner, params object[] arguments) =>
-        (int)(method.Invoke(owner, arguments) ??
-            throw new InvalidOperationException($"{method.DeclaringType?.FullName}.{method.Name} returned null"));
-
-    private static bool TryRead(
-        AutoHarvestStableIdAccessor accessor,
-        object value,
-        out Guid identity) => accessor.TryRead(value, out identity);
+        _profileOperations.AddStableIdRead();
 #endif
+        return read(value);
+    }
 }

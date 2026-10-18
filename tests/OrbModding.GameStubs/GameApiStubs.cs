@@ -41,22 +41,31 @@ public sealed class IntVariable
 
     public int? ThrowAfterWriteFor { get; set; }
 
+    /// <summary>What the setter throws for <see cref="ThrowBeforeWriteFor"/> and <see cref="ThrowAfterWriteFor"/>.</summary>
+    public Func<string, Exception> SetFailure { get; set; } = message => new InvalidOperationException(message);
+
     public Exception? ReadFailure { get; set; }
 
-    public int AsInt() => ReadFailure is { } failure ? throw failure : Value;
+    /// <summary>Limits <see cref="ReadFailure"/> to reads taken while the variable holds this value.</summary>
+    public int? ReadFailureWhileValueIs { get; set; }
+
+    public int AsInt() =>
+        ReadFailure is { } failure && (ReadFailureWhileValueIs is null || ReadFailureWhileValueIs == Value)
+            ? throw failure
+            : Value;
 
     public void SetValue(int value)
     {
         SetCalls++;
         if (ThrowBeforeWriteFor == value)
         {
-            throw new InvalidOperationException($"setter rejected {value} before write");
+            throw SetFailure($"setter rejected {value} before write");
         }
 
         Value = value;
         if (ThrowAfterWriteFor == value)
         {
-            throw new InvalidOperationException($"setter rejected {value} after write");
+            throw SetFailure($"setter rejected {value} after write");
         }
     }
 
