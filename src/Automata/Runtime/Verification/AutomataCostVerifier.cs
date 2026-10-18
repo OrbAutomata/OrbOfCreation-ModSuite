@@ -19,9 +19,10 @@ namespace OrbAutomata;
 /// </para>
 /// <para>
 /// <b>Scope.</b> It verifies the chain that was ported, not the sub-values feeding it. The
-/// per-resource attribute modifier and <c>GetNextCostMod()</c> are read from the game and supplied
-/// as inputs, because those were not transcribed; what is under test is whether the same inputs
-/// run through the same sequence produce the same result.
+/// per-resource attribute modifier is read from the game and supplied as an input, because it was not
+/// transcribed. <c>GetNextCostMod()</c> is ported, compared in its own right, and then fed to the
+/// chain; what is under test is whether the same inputs run through the same sequence produce the
+/// same result.
 /// </para>
 /// <para>
 /// <b>Not a hot path.</b> This runs on demand for a bounded number of entities, so it reads through
@@ -108,12 +109,14 @@ internal sealed class AutomataCostVerifier
 
         // The multiplier is compared in its own right and then used, so the end-to-end cost below is
         // the one the suite actually publishes rather than one propped up by the game's answer.
-        var nextCostMod = contract.ReadNextCostModPercent(structure);
-        if (contract.ComputeNextCostMod(structure, in modifier) is { } ourNextCostMod)
+        if (contract.ComputeNextCostMod(structure, in modifier) is not { } ourNextCostMod)
         {
-            run.Compare(entityId, "next-cost-mod", ourNextCostMod, contract.ReadNextCostMod(structure));
-            nextCostMod = OrbGameMath.AsPercent(ourNextCostMod);
+            failure = "The player's structure cost multiplier could not be read.";
+            return false;
         }
+
+        run.Compare(entityId, "next-cost-mod", ourNextCostMod, contract.ReadNextCostMod(structure));
+        var nextCostMod = OrbGameMath.AsPercent(ourNextCostMod);
 
         // Timed around the arithmetic only. Reading the inputs is excluded because the collector
         // will grab those once for every consumer, whereas the game recomputes on every ask —
@@ -197,8 +200,8 @@ internal sealed class AutomataCostVerifier
             FieldInfo passiveCostMod,
             FieldInfo activeCostMod,
             MethodInfo recordValue,
-            MethodInfo? playerStructureCost,
-            MethodInfo? variableAsPercent)
+            MethodInfo playerStructureCost,
+            MethodInfo variableAsPercent)
         {
             StructureType = structureType;
             _baseCost = baseCost;
@@ -251,8 +254,8 @@ internal sealed class AutomataCostVerifier
         private readonly FieldInfo _passiveCostMod;
         private readonly FieldInfo _activeCostMod;
         private readonly MethodInfo _recordValue;
-        private readonly MethodInfo? _playerStructureCost;
-        private readonly MethodInfo? _variableAsPercent;
+        private readonly MethodInfo _playerStructureCost;
+        private readonly MethodInfo _variableAsPercent;
 
         internal static StructureCostContract? TryResolve(Type? structureType)
         {
@@ -311,6 +314,7 @@ internal sealed class AutomataCostVerifier
             var variableAsPercent = playerStructureCost is null
                 ? null
                 : FindNoArg(playerStructureCost.ReturnType, "AsPercent");
+            if (playerStructureCost is null || variableAsPercent is null) return null;
 
             return new StructureCostContract(
                 structureType, baseCost, costPerQuantity, costScalingMod, quantity, queuedQuantity,
@@ -326,25 +330,16 @@ internal sealed class AutomataCostVerifier
         internal BigDouble ReadCostScalingPercent(object structure) =>
             ToBigDouble(_recordAsPercent.Invoke(_costScalingMod.GetValue(structure), null));
 
-        internal BigDouble ReadNextCostModPercent(object structure)
-        {
-            var raw = _getNextCostMod.Invoke(structure, null);
-            return ToBigDouble(_asPercent.Invoke(raw, null));
-        }
-
         /// <summary>The game's own next-cost multiplier, unscaled — what the port must reproduce.</summary>
         internal BigDouble ReadNextCostMod(object structure) =>
             ToBigDouble(_getNextCostMod.Invoke(structure, null));
 
         /// <summary>
         /// The same multiplier computed by the port, from inputs read one by one. Null when the
-        /// player global could not be reached, which makes the comparison unavailable rather than
-        /// wrong.
+        /// player global is not there to read, which leaves the structure unverified.
         /// </summary>
         internal BigDouble? ComputeNextCostMod(object structure, in GameValueModifier costPerQuantity)
         {
-            if (_playerStructureCost is null || _variableAsPercent is null) return null;
-
             var global = _playerStructureCost.Invoke(null, null);
             if (global is null) return null;
 

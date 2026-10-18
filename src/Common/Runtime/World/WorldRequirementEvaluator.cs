@@ -315,6 +315,19 @@ internal static class WorldRequirementEvaluator
         if (world is null) throw new ArgumentNullException(nameof(world));
         var verdict = Evaluate(world, in row, level);
         var baseThreshold = new BigDouble(row.BaseValue);
+        if (row.Kind == WorldRequirementConditionKind.Literal)
+        {
+            var met = verdict == WorldRequirementVerdict.Met;
+            return new WorldRequirementLeafEvaluation(
+                verdict,
+                reasonCode: met ? "requirement_met" : "requirement_unmet",
+                "literal",
+                met ? BigDouble.One : BigDouble.Zero,
+                BigDouble.One,
+                baseThreshold,
+                BigDouble.One,
+                BigDouble.One);
+        }
         if (!TryThreshold(in row, level, out var scaledThreshold))
         {
             return new WorldRequirementLeafEvaluation(

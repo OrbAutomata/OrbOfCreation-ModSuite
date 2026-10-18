@@ -382,6 +382,8 @@ public sealed class DoubleVariable
     public bool isTimeVariable;
     public bool isTimeAccurateVariable;
 
+    public BigDouble AsPercent() => value.AsPercent();
+
     public Guid GetGuid() => uuid;
 }
 
@@ -1198,6 +1200,7 @@ public class StructureSO : UpgradeableObject, Targeting.ITargetable, IActionable
         GetPurchaseCostCalls++;
         return purchaseCost;
     }
+    public BigDouble GetNextCostMod() => new BigDouble(1.0, 2);
     public int GetPurchaseLevel() => quantity;
     public int GetQueuedQuantity() => queuedQuantity;
     public void ToggleDisabled()
@@ -2639,6 +2642,8 @@ public sealed class ValueModifierRecord
 
     /// <summary>The whole-number reading, which the game defines as <c>GetValue().ToInt()</c>.</summary>
     public int AsInt() => GetValue().ToInt();
+
+    public BigDouble AsPercent() => GetValue().AsPercent();
 
     public bool HasActiveElements() => activeModifiers.Count > 0;
 }

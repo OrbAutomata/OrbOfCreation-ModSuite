@@ -74,12 +74,24 @@ internal static class WorldUpgradeScreenLists
     };
 
     /// <summary>
-    /// Whether the screen this upgrade is drawn on is still locked. While its view is unavailable the
-    /// game draws neither the screen nor the panel, so an upgrade whose own prerequisites hold is
-    /// still not offered.
+    /// Whether the game draws this upgrade's row: its own prerequisites hold and the screen it is
+    /// drawn on is unlocked. While a screen's view is unavailable the game draws neither the screen
+    /// nor the panel, so an upgrade whose prerequisites hold is still not offered, and a row whose
+    /// screen could not be read is not offered either, because nobody asked whether it is unlocked.
     /// </summary>
-    internal static bool IsOnLockedScreen(GameWorldState world, Guid upgradeId)
+    internal static bool IsOffered(GameWorldState world, in WorldUpgrade upgrade) =>
+        upgrade.Reading.Available &&
+        TryReadScreenGate(world, upgrade.EntityId, out var viewId) &&
+        (viewId == Guid.Empty || IsUnlocked(world, viewId));
+
+    /// <summary>
+    /// The view that gates the one screen this upgrade is drawn on, or <see cref="Guid.Empty"/> for
+    /// a row on no screen panel. False when the membership cannot say: withheld, naming a list the
+    /// build does not pin, or claimed by two screen panels.
+    /// </summary>
+    internal static bool TryReadScreenGate(GameWorldState world, Guid upgradeId, out Guid viewId)
     {
+        viewId = Guid.Empty;
         if (!WorldUpgradeListMembershipLookup.TryFindRange(
                 world.UpgradeListMemberships, upgradeId, out var start, out var count))
         {
@@ -89,19 +101,25 @@ internal static class WorldUpgradeScreenLists
         for (var index = 0; index < count; index++)
         {
             var listId = world.UpgradeListMemberships[start + index].ListId;
-            for (var gate = 0; gate < ScreenGates.Length; gate++)
+            if (listId == KnownEntities.UpgradesAll.Uuid) continue;
+            var gate = Guid.Empty;
+            for (var candidate = 0; candidate < ScreenGates.Length; candidate++)
             {
-                if (ScreenGates[gate].ListId != listId) continue;
-                if (!WorldLookup.TryFind(world.Views, ScreenGates[gate].ViewId, out var view) ||
-                    !view.Available)
-                {
-                    return true;
-                }
+                if (ScreenGates[candidate].ListId == listId) gate = ScreenGates[candidate].ViewId;
             }
+            if (gate == Guid.Empty || (viewId != Guid.Empty && viewId != gate))
+            {
+                viewId = Guid.Empty;
+                return false;
+            }
+            viewId = gate;
         }
 
-        return false;
+        return true;
     }
+
+    internal static bool IsUnlocked(GameWorldState world, Guid viewId) =>
+        WorldLookup.TryFind(world.Views, viewId, out var view) && view.Available;
 }
 
 internal static class WorldUpgradeListMembershipDeriver

@@ -1250,6 +1250,7 @@ public sealed class GameMcpCorrectnessCoreTests
                 Upgrade(unboundedId, level: 7, maxLevel: -1),
                 Upgrade(exhaustedId, level: 10, maxLevel: 10),
             }),
+            UpgradeListMemberships = GameMcpTestHarness.OnTheUpgradesList(unboundedId, exhaustedId),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
                 new WorldCollectionCategoryStatus(

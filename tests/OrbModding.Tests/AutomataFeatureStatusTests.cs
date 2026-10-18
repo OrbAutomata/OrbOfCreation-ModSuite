@@ -152,10 +152,11 @@ public sealed class AutomataFeatureStatusTests
             FeatureStatusReasonCode.ConfigurationDisabled,
             statuses.AutoBuy.Current.Reason.Code);
 
-        Assert.False(statuses.AutoBuy.ObserveRuntime(
+        Assert.False(statuses.AutoBuy.ObserveRuntimeLifecycle(
             FeatureStatusState.Operational,
             FeatureStatusReasonCode.None,
             string.Empty,
+            4,
             generation));
 
         Assert.True(statuses.AutoBuy.Current.ConfiguredEnabled);
@@ -163,6 +164,35 @@ public sealed class AutomataFeatureStatusTests
         Assert.Equal(
             FeatureStatusReasonCode.ConfigurationDisabled,
             statuses.AutoBuy.Current.Reason.Code);
+    }
+
+    /// <summary>
+    /// Auto Scribe writes the scrolls Auto Items reads, so with Scrolls off it waits on Auto Items.
+    /// Whichever projection ran last, the reason names that switch, never Auto Buy or Automata.
+    /// </summary>
+    [Fact]
+    public void AutoScribeWaitingOnScrollsSaysSoInEveryProjection()
+    {
+        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        config.SetAutoScribeMode(AutoScribeOperationMode.Active);
+        config.SetAutoItemsMode(AutoItemsOperationMode.Active);
+        config.AutoItemsUseScrolls.Value = false;
+        config.AutoItemsUseRelics.Value = true;
+        const string reason = "Auto Scribe needs Auto Items running with Scrolls on.";
+        using var statuses = new AutomataFeatureStatuses(config.Current, 1, new FeatureStatusRegistry());
+
+        Assert.Equal(FeatureStatusReasonCode.ParentFeatureDisabled, statuses.AutoScribe.Current.Reason.Code);
+        Assert.Equal(reason, statuses.AutoScribe.Current.Reason.Summary);
+
+        statuses.ObserveLifecycleNotReady(config.Current, 2, statuses.AutoBuy.ConfigurationGeneration);
+        Assert.Equal(reason, statuses.AutoScribe.Current.Reason.Summary);
+
+        statuses.ObserveContractUnavailable(
+            config.Current, 3, "Assembly contract mismatch.", statuses.AutoBuy.ConfigurationGeneration);
+        Assert.Equal(reason, statuses.AutoScribe.Current.Reason.Summary);
+
+        statuses.ObserveServiceCycleUnavailable(config.Current, statuses.AutoBuy.ConfigurationGeneration);
+        Assert.Equal(reason, statuses.AutoScribe.Current.Reason.Summary);
     }
 
     [Fact]

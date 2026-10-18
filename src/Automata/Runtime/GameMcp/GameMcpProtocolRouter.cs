@@ -1378,16 +1378,13 @@ internal sealed class GameMcpProtocolRouter
         if (!ToolSchemas.TryGetValue(name, out var schema)) return;
 
         var properties = schema["properties"] as JObject ?? new JObject();
-        var errors = new JArray();
+        var errors = new List<string>();
         if (schema["required"] is JArray required)
         {
             foreach (var field in required.Values<string>())
             {
                 if (field is not null && !arguments.ContainsKey(field))
-                    errors.Add(ValidationError(
-                        "missing_required",
-                        field,
-                        "required field '" + field + "' is missing"));
+                    errors.Add("required field '" + field + "' is missing");
             }
         }
 
@@ -1396,15 +1393,9 @@ internal sealed class GameMcpProtocolRouter
             var hasBatch = arguments.ContainsKey("uuids");
             var hasSingle = arguments.ContainsKey("uuid");
             if (!hasBatch && !hasSingle)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "uuids",
-                    "world_get requires uuids (array) or uuid (singular alias)"));
+                errors.Add("world_get requires uuids (array) or uuid (singular alias)");
             else if (hasBatch && hasSingle)
-                errors.Add(ValidationError(
-                    "mutually_exclusive",
-                    "uuid",
-                    "world_get accepts uuid or uuids, not both"));
+                errors.Add("world_get accepts uuid or uuids, not both");
         }
 
         // Two address forms, exactly one per call. A path names a place on the screen and a uuid
@@ -1415,306 +1406,48 @@ internal sealed class GameMcpProtocolRouter
             var hasPath = arguments.ContainsKey("path");
             var hasEntity = arguments.ContainsKey("uuid");
             if (!hasPath && !hasEntity)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "path",
-                    "game_tooltip requires path (a screen address) or uuid (a published entity)"));
+                errors.Add("game_tooltip requires path (a screen address) or uuid (a published entity)");
             else if (hasPath && hasEntity)
-                errors.Add(ValidationError(
-                    "mutually_exclusive",
-                    "path",
-                    "game_tooltip accepts path or uuid, not both"));
+                errors.Add("game_tooltip accepts path or uuid, not both");
         }
 
         foreach (var supplied in arguments.Properties())
         {
             if (properties.ContainsKey(supplied.Name)) continue;
-            errors.Add(ValidationError(
-                "unexpected_field",
-                supplied.Name,
-                "field '" + supplied.Name + "' is not accepted by " + name));
+            errors.Add("field '" + supplied.Name + "' is not accepted by " + name);
         }
 
-        if (string.Equals(name, "game_discover", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var hasOffer = arguments.ContainsKey("offerUuid");
-            if (mode is "offer_select" or "offer_confirm" && !hasOffer)
-                errors.Add(ValidationError("missing_required", "offerUuid",
-                    "required field 'offerUuid' is missing for mode '" + mode + "'"));
-            if (mode is "offer_initiate" or "offer_reroll" && hasOffer)
-                errors.Add(ValidationError("unexpected_for_mode", "offerUuid",
-                    "field 'offerUuid' is not accepted for mode '" + mode + "'"));
-        }
-
-        if (string.Equals(name, "time_challenge", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var hasUuid = arguments.ContainsKey("uuid");
-            if (mode is "select" or "queue" or "abandon" && !hasUuid)
-                errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode '" + mode + "'"));
-            else if (mode is "reroll" or "state" && hasUuid)
-                errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is not accepted for mode '" + mode + "'"));
-        }
-
-        if (string.Equals(name, "suite_breakers", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var hasFeature = arguments.ContainsKey("feature");
-            var hasOn = arguments.ContainsKey("on");
-            if (mode == "set")
-            {
-                if (!hasFeature) errors.Add(ValidationError("missing_required", "feature",
-                    "required field 'feature' is missing for mode 'set'"));
-                if (!hasOn) errors.Add(ValidationError("missing_required", "on",
-                    "required field 'on' is missing for mode 'set'"));
-            }
-            else
-            {
-                if (hasFeature) errors.Add(ValidationError("unexpected_for_mode", "feature",
-                    "field 'feature' is accepted only for mode 'set'"));
-                if (hasOn) errors.Add(ValidationError("unexpected_for_mode", "on",
-                    "field 'on' is accepted only for mode 'set'"));
-            }
-        }
-
-        if (string.Equals(name, "game_ritual", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var level = arguments.ContainsKey("level");
-            if (mode == "set_level" && !level)
-                errors.Add(ValidationError("missing_required", "level",
-                    "required field 'level' is missing for mode 'set_level'"));
-            else if (mode != "set_level" && level)
-                errors.Add(ValidationError("unexpected_for_mode", "level",
-                    "field 'level' is accepted only for mode 'set_level'"));
-        }
-
-        if (string.Equals(name, "game_loadout", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var section = arguments.ContainsKey("section");
-            var enabled = arguments.ContainsKey("enabled");
-            var label = arguments.ContainsKey("name");
-            var slot = arguments.ContainsKey("slot");
-            var loadout = arguments.ContainsKey("loadout");
-            var snapshot = mode is "snapshot_save" or "snapshot_load" or "snapshot_clear";
-            if (snapshot && !section)
-                errors.Add(ValidationError("missing_required", "section",
-                    "required field 'section' is missing for mode '" + mode + "'"));
-            if (mode == "set_section" && !section)
-                errors.Add(ValidationError("missing_required", "section",
-                    "required field 'section' is missing for mode 'set_section'"));
-            if (mode == "set_section" && !enabled)
-                errors.Add(ValidationError("missing_required", "enabled",
-                    "required field 'enabled' is missing for mode 'set_section'"));
-            if (mode != "set_section" && !snapshot && section)
-                errors.Add(ValidationError("unexpected_for_mode", "section",
-                    "field 'section' is accepted only for mode 'set_section' and snapshot modes"));
-            if (mode != "set_section" && enabled)
-                errors.Add(ValidationError("unexpected_for_mode", "enabled",
-                    "field 'enabled' is accepted only for mode 'set_section'"));
-            if (mode == "rename" && !label)
-                errors.Add(ValidationError("missing_required", "name",
-                    "required field 'name' is missing for mode 'rename'"));
-            if (mode != "rename" && label)
-                errors.Add(ValidationError("unexpected_for_mode", "name",
-                    "field 'name' is accepted only for mode 'rename'"));
-            if (snapshot && !slot)
-                errors.Add(ValidationError("missing_required", "slot",
-                    "required field 'slot' is missing for mode '" + mode + "'"));
-            if (!snapshot && slot)
-                errors.Add(ValidationError("unexpected_for_mode", "slot",
-                    "field 'slot' is accepted only for snapshot modes"));
-            if (!snapshot && !loadout)
-                errors.Add(ValidationError("missing_required", "loadout",
-                    "required field 'loadout' is missing for mode '" + mode + "'"));
-            if (snapshot && loadout)
-                errors.Add(ValidationError("unexpected_for_mode", "loadout",
-                    "field 'loadout' is not accepted for snapshot modes"));
-        }
-
-        if (string.Equals(name, "game_agromancy", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var action = arguments.ContainsKey("actionUuid");
-            if (mode is "add_plot_action" or "remove_plot_action" or
-                "add_element_action" or "remove_element_action" && !action)
-                errors.Add(ValidationError("missing_required", "actionUuid",
-                    "required field 'actionUuid' is missing for mode '" + mode + "'"));
-            else if (mode is "add_element" or "remove_element" or "set_druidry_level" && action)
-                errors.Add(ValidationError("unexpected_for_mode", "actionUuid",
-                    "field 'actionUuid' is accepted only for action modes"));
-            AddLevelModeErrors(errors, arguments, mode, "set_druidry_level",
-                requiredOtherwise: new[] { "uuid" },
-                forbiddenForLevel: new[] { "uuid", "amount" });
-        }
-
-        if (string.Equals(name, "game_alchemy", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-            AddLevelModeErrors(errors, arguments, (string?)arguments["mode"], "set_alchemy_level",
-                requiredOtherwise: new[] { "uuid", "amount" },
-                forbiddenForLevel: new[] { "uuid", "amount" });
-
-        if (string.Equals(name, "game_spell_mastery", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var hasRecipe = arguments.ContainsKey("uuid");
-            if (mode == "single" && !hasRecipe)
-                errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode 'single'"));
-            if (mode == "all" && hasRecipe)
-                errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is not accepted for mode 'all'"));
-        }
-
-        if (string.Equals(name, "game_spell_loadout", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var subject = arguments.ContainsKey("uuid");
-            var glyphs = arguments.ContainsKey("glyphs");
-            var slot = arguments.ContainsKey("slot");
-            var destination = arguments.ContainsKey("destination");
-            if (mode is "preview" or "add")
-            {
-                if (!subject) errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode '" + mode + "'"));
-                if (!glyphs) errors.Add(ValidationError("missing_required", "glyphs",
-                    "required field 'glyphs' is missing for mode '" + mode + "'; " +
-                    GlyphLayoutShape));
-            }
-            else
-            {
-                if (subject) errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is accepted only for modes 'preview' and 'add'"));
-                if (glyphs) errors.Add(ValidationError("unexpected_for_mode", "glyphs",
-                    "field 'glyphs' is accepted only for modes 'preview' and 'add'"));
-            }
-            var slotted = mode is "remove" or "move";
-            if (slotted && !slot)
-                errors.Add(ValidationError("missing_required", "slot",
-                    "required field 'slot' is missing for mode '" + mode + "'"));
-            else if (!slotted && slot)
-                errors.Add(ValidationError("unexpected_for_mode", "slot",
-                    "field 'slot' is accepted only for modes 'remove' and 'move'"));
-            if (mode == "move" && !destination)
-                errors.Add(ValidationError("missing_required", "destination",
-                    "required field 'destination' is missing for mode 'move'"));
-            else if (mode != "move" && destination)
-                errors.Add(ValidationError("unexpected_for_mode", "destination",
-                    "field 'destination' is accepted only for mode 'move'"));
-        }
-
-        if (string.Equals(name, "game_targeting", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var target = arguments.ContainsKey("uuid");
-            if (mode == "submit" && !target)
-                errors.Add(ValidationError("missing_required", "uuid",
-                    "required field 'uuid' is missing for mode 'submit'"));
-            else if (mode == "randomize" && target)
-                errors.Add(ValidationError("unexpected_for_mode", "uuid",
-                    "field 'uuid' is not accepted for mode '" + mode + "'"));
-        }
-
-        if (string.Equals(name, "game_consumable", StringComparison.Ordinal) &&
-            arguments["mode"]?.Type == JTokenType.String)
-        {
-            var mode = (string?)arguments["mode"];
-            var amount = arguments.ContainsKey("amount");
-            var enabled = arguments.ContainsKey("enabled");
-            var list = arguments.ContainsKey("list");
-            var destination = arguments.ContainsKey("destination");
-            if (mode == "discard" && !amount)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "amount",
-                    "required field 'amount' is missing for mode 'discard'"));
-            if (mode == "set_randomization" && !enabled)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "enabled",
-                    "required field 'enabled' is missing for mode 'set_randomization'"));
-            if (mode == "move" && !list)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "list",
-                    "required field 'list' is missing for mode 'move'"));
-            if (mode == "move" && !destination)
-                errors.Add(ValidationError(
-                    "missing_required",
-                    "destination",
-                    "required field 'destination' is missing for mode 'move'"));
-            if (mode != "discard" && amount)
-                errors.Add(ValidationError(
-                    "unexpected_for_mode",
-                    "amount",
-                    "field 'amount' is accepted only for mode 'discard'"));
-            if (mode != "set_randomization" && enabled)
-                errors.Add(ValidationError(
-                    "unexpected_for_mode",
-                    "enabled",
-                    "field 'enabled' is accepted only for mode 'set_randomization'"));
-            if (mode != "move" && list)
-                errors.Add(ValidationError(
-                    "unexpected_for_mode",
-                    "list",
-                    "field 'list' is accepted only for mode 'move'"));
-            if (mode != "move" && destination)
-                errors.Add(ValidationError(
-                    "unexpected_for_mode",
-                    "destination",
-                    "field 'destination' is accepted only for mode 'move'"));
-        }
+        AddModeRuleErrors(errors, schema, arguments);
 
         if (errors.Count > 0) throw GameMcpInvalidParamsException.Validation(errors);
     }
 
-    private static JObject ValidationError(string code, string field, string message) => new()
+    /// <summary>
+    /// Enforces the per-mode rules the tool publishes in its schema, so the contract a caller reads
+    /// is the one the server holds it to. A field the mode forbids is refused rather than dropped.
+    /// </summary>
+    private static void AddModeRuleErrors(List<string> errors, JObject schema, JObject arguments)
     {
-        ["code"] = code,
-        ["field"] = field,
-        ["message"] = message,
-    };
-
-    private static void AddLevelModeErrors(
-        JArray errors,
-        JObject arguments,
-        string? mode,
-        string levelMode,
-        string[] requiredOtherwise,
-        string[] forbiddenForLevel)
-    {
-        var level = arguments.ContainsKey("level");
-        if (mode != levelMode)
+        if (schema["allOf"] is not JArray rules || arguments["mode"]?.Type != JTokenType.String) return;
+        var mode = (string)arguments["mode"]!;
+        var topLevel = schema["required"] as JArray;
+        foreach (var rule in rules)
         {
-            foreach (var field in requiredOtherwise)
-                if (!arguments.ContainsKey(field))
-                    errors.Add(ValidationError("missing_required", field,
-                        "required field '" + field + "' is missing"));
-            if (level)
-                errors.Add(ValidationError("unexpected_for_mode", "level",
-                    "field 'level' is accepted only for mode '" + levelMode + "'"));
-            return;
+            if ((string?)rule["if"]?["properties"]?["mode"]?["const"] != mode) continue;
+            var then = rule["then"]!;
+            foreach (var field in then["required"]?.Values<string>() ?? Enumerable.Empty<string>())
+            {
+                if (field is null || arguments.ContainsKey(field)) continue;
+                if (topLevel?.Values<string>().Contains(field) == true) continue;
+                errors.Add("required field '" + field + "' is missing for mode '" + mode + "'");
+            }
+            foreach (var any in then["not"]?["anyOf"] ?? new JArray())
+            {
+                var field = (string?)any["required"]?[0];
+                if (field is not null && arguments.ContainsKey(field))
+                    errors.Add("field '" + field + "' is not accepted for mode '" + mode + "'");
+            }
         }
-        if (!level)
-            errors.Add(ValidationError("missing_required", "level",
-                "required field 'level' is missing for mode '" + levelMode + "'"));
-        foreach (var field in forbiddenForLevel)
-            if (arguments.ContainsKey(field))
-                errors.Add(ValidationError("unexpected_for_mode", field,
-                    "field '" + field + "' is not accepted for mode '" + levelMode + "'"));
     }
 
     private static JObject ModeSchema(JObject schema, params JObject[] rules)
@@ -2322,24 +2055,7 @@ internal sealed class GameMcpInvalidParamsException : Exception
 
     internal string Code { get; }
 
-    internal static GameMcpInvalidParamsException Validation(JArray errors) =>
-        new(Sentence(errors));
-
-    // The sentence names every offending field, which is the whole of what a parallel array of
-    // {code, field, message} rows said — the same facts once more in a machine shape, on a surface
-    // whose one representation is the page a caller reads.
-    private static string Sentence(JArray errors)
-    {
-        var text = new System.Text.StringBuilder("tool arguments failed schema validation");
-        var written = 0;
-        foreach (var error in errors.OfType<JObject>())
-        {
-            var message = (string?)error["message"];
-            if (string.IsNullOrEmpty(message)) continue;
-            text.Append(written == 0 ? ": " : "; ").Append(message);
-            written++;
-        }
-        return text.ToString();
-    }
+    internal static GameMcpInvalidParamsException Validation(IReadOnlyList<string> errors) =>
+        new("tool arguments failed schema validation: " + string.Join("; ", errors));
 }
 #endif

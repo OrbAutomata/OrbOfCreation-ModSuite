@@ -345,7 +345,7 @@ internal static class StrategistFactsProjection
             upgrade.EntityId,
             EntityIdentityFormatter.PlayerName(upgrade.EntityId, world.EntityIdentities),
             StrategistNodeKind.Upgrade,
-            upgrade.Reading.Available && !WorldUpgradeScreenLists.IsOnLockedScreen(world, upgrade.EntityId),
+            WorldUpgradeScreenLists.IsOffered(world, in upgrade),
             upgrade.IsBounded && upgrade.CommittedLevel >= upgrade.Reading.MaxLevel,
             upgrade.Reading.MaxLevel == 1);
 

@@ -801,7 +801,9 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public UnityEngine.Color GetColor() => default;
     public bool IsColoredIcon() => false;
     public bool HasAltTooltips() => false;
-    public string GetDescription() => Description;
+    public bool ThrowOnGetDescription { get; set; }
+    public string GetDescription() =>
+        ThrowOnGetDescription ? throw new InvalidOperationException("GetDescription failed") : Description;
     public List<TooltipNode> GetTooltipNodes() => new List<TooltipNode>();
     public List<TooltipNode> GetAltTooltipNodes() => new List<TooltipNode>();
 }

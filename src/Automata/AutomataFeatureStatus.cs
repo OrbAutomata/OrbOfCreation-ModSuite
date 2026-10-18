@@ -56,46 +56,14 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
         FeatureStatusState state,
         FeatureStatusReasonCode reasonCode,
         string summary,
-        ConfigGeneration configurationGeneration)
-    {
-        if (configurationGeneration.Value < ConfigurationGeneration.Value) return false;
-        ConfigurationGeneration = configurationGeneration;
-        ApplyEmergencyStop(configuredEnabled, ref state, ref reasonCode, ref summary);
-        if (Current.ConfiguredEnabled == configuredEnabled &&
-            Current.State == state &&
-            Current.Reason.Code == reasonCode)
-            return false;
-        var status = new FeatureStatusSnapshot(
-            Key,
-            DisplayName,
+        ConfigGeneration configurationGeneration) =>
+        ObserveLifecycle(
             configuredEnabled,
-            state,
-            reasonCode == FeatureStatusReasonCode.None
-                ? default
-                : new FeatureStatusReason(reasonCode, summary),
-            Current.LifecycleGeneration);
-        var prior = Current;
-        Current = status;
-        if (_registration.Update(status)) return true;
-        Current = prior;
-        return false;
-    }
-
-    internal bool ObserveRuntime(
-        FeatureStatusState state,
-        FeatureStatusReasonCode reasonCode,
-        string summary,
-        ConfigGeneration configurationGeneration)
-    {
-        if (!RuntimeHealthMayReplaceCurrent(state))
-            return false;
-        return Observe(
-            true,
             state,
             reasonCode,
             summary,
+            Current.LifecycleGeneration,
             configurationGeneration);
-    }
 
     public bool ObserveLifecycle(
         bool configuredEnabled,
@@ -213,6 +181,20 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     internal const string AutoScribeFeatureId = "AutoScribe";
     internal const string MentorFeatureId = "Mentor";
 
+    private static readonly (string Id, string DisplayName)[] Features =
+    {
+        (AutoBuyFeatureId, "Auto Buy"),
+        (AutoCastFeatureId, "Auto Cast"),
+        (AutoConceptFeatureId, "Auto Concept"),
+        (SpellLevelFeatureId, "Spell Leveling"),
+        (AutoHarvestFeatureId, "Auto Harvest"),
+        (AutoItemsFeatureId, "Auto Items"),
+        (AutoScribeFeatureId, "Auto Scribe"),
+        (MentorFeatureId, "Orb Mentor"),
+    };
+
+    private readonly AutomataFeatureStatusReporter[] _all;
+
     public AutomataFeatureStatuses(
         SuiteRuntimeConfiguration config,
         long lifecycleGeneration,
@@ -221,65 +203,30 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     {
         var initialGeneration = configurationGeneration ?? new ConfigGeneration(1);
         var target = registry ?? FeatureStatusRegistry.Shared;
-        AutomataFeatureStatusReporter? autoBuy = null;
-        AutomataFeatureStatusReporter? autoCast = null;
-        AutomataFeatureStatusReporter? autoConcept = null;
-        AutomataFeatureStatusReporter? spellLevel = null;
-        AutomataFeatureStatusReporter? autoHarvest = null;
-        AutomataFeatureStatusReporter? autoItems = null;
-        AutomataFeatureStatusReporter? autoScribe = null;
-        AutomataFeatureStatusReporter? mentor = null;
+        var reporters = new AutomataFeatureStatusReporter?[Features.Length];
         try
         {
-            autoBuy = CreateInitialReporter(
-                target, AutoBuyFeatureId, "Auto Buy", config.General.Enabled,
-                config.AutoBuy.Mode == AutoBuyOperationMode.Active, true, lifecycleGeneration, initialGeneration);
-            autoCast = CreateInitialReporter(
-                target, AutoCastFeatureId, "Auto Cast", config.General.Enabled,
-                config.AutoCast.Mode == AutoCastOperationMode.Active, true, lifecycleGeneration, initialGeneration);
-            autoConcept = CreateInitialReporter(
-                target, AutoConceptFeatureId, "Auto Concept", config.General.Enabled,
-                config.AutoConcept.Mode == AutoConceptOperationMode.Active, true, lifecycleGeneration, initialGeneration);
-            spellLevel = CreateInitialReporter(
-                target, SpellLevelFeatureId, "Spell Leveling", config.General.Enabled,
-                config.AutoBuy.AutoLevelSpells,
-                config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-                lifecycleGeneration,
-                initialGeneration);
-            autoHarvest = CreateInitialReporter(
-                target, AutoHarvestFeatureId, "Auto Harvest", config.General.Enabled,
-                IsAutoHarvestConfigured(config), true, lifecycleGeneration, initialGeneration);
-            autoItems = CreateInitialReporter(
-                target, AutoItemsFeatureId, "Auto Items", config.General.Enabled,
-                IsAutoItemsConfigured(config), true, lifecycleGeneration, initialGeneration);
-            autoScribe = CreateInitialReporter(
-                target, AutoScribeFeatureId, "Auto Scribe", config.General.Enabled,
-                IsAutoScribeConfigured(config), IsAutoItemsScrollsConfigured(config),
-                lifecycleGeneration, initialGeneration);
-            mentor = CreateInitialReporter(
-                target, MentorFeatureId, "Orb Mentor", config.General.Enabled,
-                config.Mentor.Mode == MentorOperationMode.Active, true, lifecycleGeneration, initialGeneration);
+            for (var index = 0; index < Features.Length; index++)
+            {
+                reporters[index] = CreateInitialReporter(
+                    target, Features[index].Id, Features[index].DisplayName, config,
+                    lifecycleGeneration, initialGeneration);
+            }
         }
         catch
         {
-            mentor?.Dispose();
-            autoScribe?.Dispose();
-            autoItems?.Dispose();
-            autoHarvest?.Dispose();
-            spellLevel?.Dispose();
-            autoConcept?.Dispose();
-            autoCast?.Dispose();
-            autoBuy?.Dispose();
+            for (var index = reporters.Length - 1; index >= 0; index--) reporters[index]?.Dispose();
             throw;
         }
-        AutoBuy = autoBuy!;
-        AutoCast = autoCast!;
-        AutoConcept = autoConcept!;
-        SpellLevel = spellLevel!;
-        AutoHarvest = autoHarvest!;
-        AutoItems = autoItems!;
-        AutoScribe = autoScribe!;
-        Mentor = mentor!;
+        _all = reporters!;
+        AutoBuy = _all[0];
+        AutoCast = _all[1];
+        AutoConcept = _all[2];
+        SpellLevel = _all[3];
+        AutoHarvest = _all[4];
+        AutoItems = _all[5];
+        AutoScribe = _all[6];
+        Mentor = _all[7];
         ObserveConfiguration(config, initialGeneration);
     }
 
@@ -297,62 +244,10 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         ConfigGeneration configurationGeneration)
     {
         if (config is null) throw new ArgumentNullException(nameof(config));
-        SetEmergencyStop(config.Safety.EmergencyDisable, configurationGeneration);
-        ObserveConfiguredIntent(
-            AutoBuy,
-            config.General.Enabled,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            parentEnabled: true,
-            configurationGeneration,
-            config.AutoBuy.IncludeStructures || config.AutoBuy.IncludeUpgrades
-                ? null
-                : "Auto Buy has neither structures nor upgrades selected to buy.");
-        ObserveConfiguredIntent(
-            AutoCast,
-            config.General.Enabled,
-            config.AutoCast.Mode == AutoCastOperationMode.Active,
-            parentEnabled: true,
-            configurationGeneration);
-        ObserveConfiguredIntent(
-            AutoConcept,
-            config.General.Enabled,
-            config.AutoConcept.Mode == AutoConceptOperationMode.Active,
-            parentEnabled: true,
-            configurationGeneration);
-        ObserveConfiguredIntent(
-            SpellLevel,
-            config.General.Enabled,
-            config.AutoBuy.AutoLevelSpells,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            configurationGeneration);
-        ObserveConfiguredIntent(
-            AutoHarvest,
-            config.General.Enabled,
-            IsAutoHarvestConfigured(config),
-            parentEnabled: true,
-            configurationGeneration);
-        ObserveConfiguredIntent(
-            AutoItems,
-            config.General.Enabled,
-            IsAutoItemsConfigured(config),
-            parentEnabled: true,
-            configurationGeneration,
-            AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems)
-                ? null
-                : "Auto Items has neither Scrolls nor Relics selected.");
-        ObserveConfiguredIntent(
-            AutoScribe,
-            config.General.Enabled,
-            IsAutoScribeConfigured(config),
-            IsAutoItemsScrollsConfigured(config),
-            configurationGeneration,
-            AutoScribeRoleSelection.ConfigurationProblem(config.AutoScribe.Roles));
-        ObserveConfiguredIntent(
-            Mentor,
-            config.General.Enabled,
-            config.Mentor.Mode == MentorOperationMode.Active,
-            parentEnabled: true,
-            configurationGeneration);
+        foreach (var reporter in _all)
+            reporter.SetEmergencyStop(config.Safety.EmergencyDisable, configurationGeneration);
+        foreach (var reporter in _all)
+            ObserveConfiguredIntent(reporter, config, configurationGeneration);
     }
 
     internal bool ObserveAutoBuyInvariantStandDown(
@@ -369,46 +264,6 @@ internal sealed class AutomataFeatureStatuses : IDisposable
             configurationGeneration);
     }
 
-    private void SetEmergencyStop(
-        bool active,
-        ConfigGeneration configurationGeneration)
-    {
-        AutoBuy.SetEmergencyStop(active, configurationGeneration);
-        AutoCast.SetEmergencyStop(active, configurationGeneration);
-        AutoConcept.SetEmergencyStop(active, configurationGeneration);
-        SpellLevel.SetEmergencyStop(active, configurationGeneration);
-        AutoHarvest.SetEmergencyStop(active, configurationGeneration);
-        AutoItems.SetEmergencyStop(active, configurationGeneration);
-        AutoScribe.SetEmergencyStop(active, configurationGeneration);
-        Mentor.SetEmergencyStop(active, configurationGeneration);
-    }
-
-    private void ProjectContractUnavailable(
-        SuiteRuntimeConfiguration config,
-        long lifecycleGeneration,
-        string summary)
-    {
-        ObserveContractFeature(AutoBuy, config.General.Enabled,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active, true, lifecycleGeneration, summary);
-        ObserveContractFeature(AutoCast, config.General.Enabled,
-            config.AutoCast.Mode == AutoCastOperationMode.Active, true, lifecycleGeneration, summary);
-        ObserveContractFeature(AutoConcept, config.General.Enabled,
-            config.AutoConcept.Mode == AutoConceptOperationMode.Active, true, lifecycleGeneration, summary);
-        ObserveContractFeature(SpellLevel, config.General.Enabled,
-            config.AutoBuy.AutoLevelSpells,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            lifecycleGeneration, summary);
-        ObserveContractFeature(AutoHarvest, config.General.Enabled,
-            IsAutoHarvestConfigured(config), true, lifecycleGeneration, summary);
-        ObserveContractFeature(AutoItems, config.General.Enabled,
-            IsAutoItemsConfigured(config), true, lifecycleGeneration, summary);
-        ObserveContractFeature(AutoScribe, config.General.Enabled,
-            IsAutoScribeConfigured(config), IsAutoItemsScrollsConfigured(config),
-            lifecycleGeneration, summary);
-        ObserveContractFeature(Mentor, config.General.Enabled,
-            config.Mentor.Mode == MentorOperationMode.Active, true, lifecycleGeneration, summary);
-    }
-
     internal void ObserveContractUnavailable(
         SuiteRuntimeConfiguration config,
         long lifecycleGeneration,
@@ -417,61 +272,16 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     {
         if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
-        ProjectContractUnavailable(config, lifecycleGeneration, summary);
-    }
-
-    private void ProjectServiceCycleUnavailable(SuiteRuntimeConfiguration config)
-    {
-        if (config is null) throw new ArgumentNullException(nameof(config));
-        const string summary = "The shared Automata ServiceCycle host is unavailable.";
-        ObserveUnavailableFeature(
-            AutoBuy,
-            config.General.Enabled,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            parentEnabled: true,
-            summary);
-        ObserveUnavailableFeature(
-            AutoCast,
-            config.General.Enabled,
-            config.AutoCast.Mode == AutoCastOperationMode.Active,
-            parentEnabled: true,
-            summary);
-        ObserveUnavailableFeature(
-            AutoConcept,
-            config.General.Enabled,
-            config.AutoConcept.Mode == AutoConceptOperationMode.Active,
-            parentEnabled: true,
-            summary);
-        ObserveUnavailableFeature(
-            SpellLevel,
-            config.General.Enabled,
-            config.AutoBuy.AutoLevelSpells,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            summary);
-        ObserveUnavailableFeature(
-            AutoHarvest,
-            config.General.Enabled,
-            IsAutoHarvestConfigured(config),
-            parentEnabled: true,
-            summary);
-        ObserveUnavailableFeature(
-            AutoItems,
-            config.General.Enabled,
-            IsAutoItemsConfigured(config),
-            parentEnabled: true,
-            summary);
-        ObserveUnavailableFeature(
-            AutoScribe,
-            config.General.Enabled,
-            IsAutoScribeConfigured(config),
-            IsAutoItemsScrollsConfigured(config),
-            summary);
-        ObserveUnavailableFeature(
-            Mentor,
-            config.General.Enabled,
-            config.Mentor.Mode == MentorOperationMode.Active,
-            parentEnabled: true,
-            summary);
+        foreach (var reporter in _all)
+        {
+            if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration)) continue;
+            reporter.ObserveLifecycle(
+                true,
+                FeatureStatusState.ContractUnavailable,
+                FeatureStatusReasonCode.ContractUnavailable,
+                summary,
+                lifecycleGeneration);
+        }
     }
 
     internal void ObserveServiceCycleUnavailable(
@@ -480,67 +290,16 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     {
         if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
-        ProjectServiceCycleUnavailable(config);
-    }
-
-    private void ProjectLifecycleNotReady(
-        SuiteRuntimeConfiguration config,
-        long lifecycleGeneration)
-    {
-        ObserveLifecycleFeature(
-            AutoBuy,
-            config.General.Enabled,
-            config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            AutoCast,
-            config.General.Enabled,
-            config.AutoCast.Mode == AutoCastOperationMode.Active,
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            AutoConcept,
-            config.General.Enabled,
-            config.AutoConcept.Mode == AutoConceptOperationMode.Active,
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            AutoHarvest,
-            config.General.Enabled,
-            IsAutoHarvestConfigured(config),
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            AutoItems,
-            config.General.Enabled,
-            IsAutoItemsConfigured(config),
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            AutoScribe,
-            config.General.Enabled && IsAutoItemsScrollsConfigured(config),
-            IsAutoScribeConfigured(config),
-            lifecycleGeneration);
-        ObserveLifecycleFeature(
-            Mentor,
-            config.General.Enabled,
-            config.Mentor.Mode == MentorOperationMode.Active,
-            lifecycleGeneration);
-
-        if (!config.AutoBuy.AutoLevelSpells)
+        foreach (var reporter in _all)
         {
-            ObserveConfigurationDisabled(SpellLevel, lifecycleGeneration);
-        }
-        else if (!config.General.Enabled || config.AutoBuy.Mode == AutoBuyOperationMode.Disabled)
-        {
-            SpellLevel.ObserveLifecycle(
+            var lifecycleGeneration = reporter.Current.LifecycleGeneration;
+            if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration)) continue;
+            reporter.ObserveLifecycle(
                 true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ParentFeatureDisabled,
-                !config.General.Enabled
-                    ? "Automata is disabled by configuration."
-                    : "Auto Buy is disabled by configuration.",
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.RuntimeFailure,
+                "The shared Automata ServiceCycle host is unavailable.",
                 lifecycleGeneration);
-        }
-        else
-        {
-            ObserveGameplayNotReady(SpellLevel, lifecycleGeneration);
         }
     }
 
@@ -551,64 +310,48 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     {
         if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
-        ProjectLifecycleNotReady(config, lifecycleGeneration);
+        foreach (var reporter in _all)
+        {
+            if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration)) continue;
+            ObserveGameplayNotReady(reporter, lifecycleGeneration);
+        }
     }
 
-    private static void ObserveLifecycleFeature(
+    /// <summary>
+    /// Shows a feature switched off, or switched on and waiting on a switch above it, and says
+    /// whether it did. Every projection asks this first, so the reasons cannot drift apart.
+    /// </summary>
+    private static bool ObserveOffOrBlocked(
         AutomataFeatureStatusReporter reporter,
-        bool pluginEnabled,
-        bool featureEnabled,
-        long lifecycleGeneration)
+        SuiteRuntimeConfiguration config,
+        long lifecycleGeneration,
+        ConfigGeneration? configurationGeneration = null)
     {
-        if (!featureEnabled)
+        var featureId = reporter.Key.FeatureId;
+        if (!IsConfigured(featureId, config))
         {
-            ObserveConfigurationDisabled(reporter, lifecycleGeneration);
-            return;
+            ObserveConfigurationDisabled(reporter, lifecycleGeneration, configurationGeneration);
+            return true;
         }
-        if (!pluginEnabled)
-        {
-            reporter.ObserveLifecycle(
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ParentFeatureDisabled,
-                "Automata is disabled by configuration.",
-                lifecycleGeneration);
-            return;
-        }
-        ObserveGameplayNotReady(reporter, lifecycleGeneration);
+        if (BlockedBy(featureId, config) is not { } blockedBy) return false;
+        reporter.ObserveLifecycle(
+            true,
+            FeatureStatusState.TemporarilyBlocked,
+            FeatureStatusReasonCode.ParentFeatureDisabled,
+            blockedBy,
+            lifecycleGeneration,
+            configurationGeneration ?? reporter.ConfigurationGeneration);
+        return true;
     }
 
     private static void ObserveConfiguredIntent(
         AutomataFeatureStatusReporter reporter,
-        bool pluginEnabled,
-        bool featureEnabled,
-        bool parentEnabled,
-        ConfigGeneration configurationGeneration,
-        string? configuredConstraint = null)
+        SuiteRuntimeConfiguration config,
+        ConfigGeneration configurationGeneration)
     {
         var lifecycleGeneration = reporter.Current.LifecycleGeneration;
-        if (!featureEnabled)
-        {
-            ObserveConfigurationDisabled(
-                reporter,
-                lifecycleGeneration,
-                configurationGeneration);
-            return;
-        }
-        if (!pluginEnabled || !parentEnabled)
-        {
-            reporter.ObserveLifecycle(
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ParentFeatureDisabled,
-                !pluginEnabled
-                    ? "Automata is disabled by configuration."
-                    : "Auto Buy is disabled by configuration.",
-                lifecycleGeneration,
-                configurationGeneration);
-            return;
-        }
-        if (configuredConstraint is not null)
+        if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration, configurationGeneration)) return;
+        if (ConfiguredConstraint(reporter.Key.FeatureId, config) is { } configuredConstraint)
         {
             reporter.ObserveLifecycle(
                 true,
@@ -637,86 +380,46 @@ internal sealed class AutomataFeatureStatuses : IDisposable
                 configurationGeneration);
     }
 
-    private static void ObserveContractFeature(
-        AutomataFeatureStatusReporter reporter,
-        bool pluginEnabled,
-        bool featureEnabled,
-        bool parentEnabled,
-        long lifecycleGeneration,
-        string summary)
+    private static bool IsConfigured(string featureId, SuiteRuntimeConfiguration config) => featureId switch
     {
-        if (!featureEnabled)
+        AutoBuyFeatureId => config.AutoBuy.Mode == AutoBuyOperationMode.Active,
+        AutoCastFeatureId => config.AutoCast.Mode == AutoCastOperationMode.Active,
+        AutoConceptFeatureId => config.AutoConcept.Mode == AutoConceptOperationMode.Active,
+        SpellLevelFeatureId => config.AutoBuy.AutoLevelSpells,
+        AutoHarvestFeatureId => config.AutoHarvest.Mode == AutoHarvestOperationMode.Active &&
+            (config.AutoHarvest.CollectFruitTrees || config.AutoHarvest.CollectTreasureTrees),
+        AutoItemsFeatureId => config.AutoItems.Mode == AutoItemsOperationMode.Active &&
+            AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems),
+        AutoScribeFeatureId => config.AutoScribe.Mode == AutoScribeOperationMode.Active,
+        MentorFeatureId => config.Mentor.Mode == MentorOperationMode.Active,
+        _ => throw new ArgumentOutOfRangeException(nameof(featureId), featureId, null),
+    };
+
+    /// <summary>The switch above a switched-on feature that holds it, or null when none does.</summary>
+    private static string? BlockedBy(string featureId, SuiteRuntimeConfiguration config)
+    {
+        if (!config.General.Enabled) return "Automata is disabled by configuration.";
+        return featureId switch
         {
-            ObserveConfigurationDisabled(reporter, lifecycleGeneration);
-            return;
-        }
-        if (!pluginEnabled || !parentEnabled)
-        {
-            reporter.ObserveLifecycle(
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ParentFeatureDisabled,
-                !pluginEnabled
-                    ? "Automata is disabled by configuration."
-                    : "The parent automation feature is disabled by configuration.",
-                lifecycleGeneration);
-            return;
-        }
-        reporter.ObserveLifecycle(
-            true,
-            FeatureStatusState.ContractUnavailable,
-            FeatureStatusReasonCode.ContractUnavailable,
-            summary,
-            lifecycleGeneration);
+            SpellLevelFeatureId when config.AutoBuy.Mode != AutoBuyOperationMode.Active =>
+                "Auto Buy is disabled by configuration.",
+            AutoScribeFeatureId when config.AutoItems.Mode != AutoItemsOperationMode.Active ||
+                                     !config.AutoItems.UseScrolls =>
+                "Auto Scribe needs Auto Items running with Scrolls on.",
+            _ => null,
+        };
     }
 
-    private static void ObserveUnavailableFeature(
-        AutomataFeatureStatusReporter reporter,
-        bool pluginEnabled,
-        bool featureEnabled,
-        bool parentEnabled,
-        string summary)
-    {
-        var lifecycleGeneration = reporter.Current.LifecycleGeneration;
-        if (!featureEnabled)
+    private static string? ConfiguredConstraint(string featureId, SuiteRuntimeConfiguration config) =>
+        featureId switch
         {
-            ObserveConfigurationDisabled(reporter, lifecycleGeneration);
-            return;
-        }
-        if (!pluginEnabled || !parentEnabled)
-        {
-            reporter.ObserveLifecycle(
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ParentFeatureDisabled,
-                !pluginEnabled
-                    ? "Automata is disabled by configuration."
-                    : "The parent automation feature is disabled by configuration.",
-                lifecycleGeneration);
-            return;
-        }
-        reporter.ObserveLifecycle(
-            true,
-            FeatureStatusState.Faulted,
-            FeatureStatusReasonCode.RuntimeFailure,
-            summary,
-            lifecycleGeneration);
-    }
-
-    private static bool IsAutoHarvestConfigured(SuiteRuntimeConfiguration config) =>
-        config.AutoHarvest.Mode == AutoHarvestOperationMode.Active &&
-        (config.AutoHarvest.CollectFruitTrees || config.AutoHarvest.CollectTreasureTrees);
-
-    private static bool IsAutoItemsConfigured(SuiteRuntimeConfiguration config) =>
-        config.AutoItems.Mode == AutoItemsOperationMode.Active &&
-        AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems);
-
-    private static bool IsAutoItemsScrollsConfigured(SuiteRuntimeConfiguration config) =>
-        config.AutoItems.Mode == AutoItemsOperationMode.Active &&
-        config.AutoItems.UseScrolls;
-
-    private static bool IsAutoScribeConfigured(SuiteRuntimeConfiguration config) =>
-        config.AutoScribe.Mode == AutoScribeOperationMode.Active;
+            AutoBuyFeatureId when !config.AutoBuy.IncludeStructures && !config.AutoBuy.IncludeUpgrades =>
+                "Auto Buy has neither structures nor upgrades selected to buy.",
+            AutoItemsFeatureId when !AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems) =>
+                "Auto Items has neither Scrolls nor Relics selected.",
+            AutoScribeFeatureId => AutoScribeRoleSelection.ConfigurationProblem(config.AutoScribe.Roles),
+            _ => null,
+        };
 
     private static void ObserveConfigurationDisabled(
         AutomataFeatureStatusReporter reporter,
@@ -746,17 +449,13 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         FeatureStatusRegistry registry,
         string featureId,
         string displayName,
-        bool pluginEnabled,
-        bool featureEnabled,
-        bool parentEnabled,
+        SuiteRuntimeConfiguration config,
         long lifecycleGeneration,
         ConfigGeneration configurationGeneration)
     {
         var key = new FeatureStatusKey(PluginIds.SuiteGuid, featureId);
-        FeatureStatusSnapshot status;
-        if (!featureEnabled)
-        {
-            status = new FeatureStatusSnapshot(
+        var status = !IsConfigured(featureId, config)
+            ? new FeatureStatusSnapshot(
                 key,
                 displayName,
                 false,
@@ -764,47 +463,30 @@ internal sealed class AutomataFeatureStatuses : IDisposable
                 new FeatureStatusReason(
                     FeatureStatusReasonCode.ConfigurationDisabled,
                     $"{displayName} is disabled by configuration."),
-                lifecycleGeneration);
-        }
-        else if (!pluginEnabled || !parentEnabled)
-        {
-            status = new FeatureStatusSnapshot(
-                key,
-                displayName,
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                new FeatureStatusReason(
-                    FeatureStatusReasonCode.ParentFeatureDisabled,
-                    !pluginEnabled
-                        ? "Automata is disabled by configuration."
-                        : "Auto Buy is disabled by configuration."),
-                lifecycleGeneration);
-        }
-        else
-        {
-            status = new FeatureStatusSnapshot(
-                key,
-                displayName,
-                true,
-                FeatureStatusState.NotReady,
-                new FeatureStatusReason(
-                    FeatureStatusReasonCode.GameplayNotReady,
-                    "Gameplay lifecycle is not ready."),
-                lifecycleGeneration);
-        }
+                lifecycleGeneration)
+            : BlockedBy(featureId, config) is { } blockedBy
+                ? new FeatureStatusSnapshot(
+                    key,
+                    displayName,
+                    true,
+                    FeatureStatusState.TemporarilyBlocked,
+                    new FeatureStatusReason(FeatureStatusReasonCode.ParentFeatureDisabled, blockedBy),
+                    lifecycleGeneration)
+                : new FeatureStatusSnapshot(
+                    key,
+                    displayName,
+                    true,
+                    FeatureStatusState.NotReady,
+                    new FeatureStatusReason(
+                        FeatureStatusReasonCode.GameplayNotReady,
+                        "Gameplay lifecycle is not ready."),
+                    lifecycleGeneration);
         return new AutomataFeatureStatusReporter(registry, status, configurationGeneration);
     }
 
     public void Dispose()
     {
-        Mentor.Dispose();
-        AutoScribe.Dispose();
-        AutoItems.Dispose();
-        AutoHarvest.Dispose();
-        SpellLevel.Dispose();
-        AutoConcept.Dispose();
-        AutoCast.Dispose();
-        AutoBuy.Dispose();
+        for (var index = _all.Length - 1; index >= 0; index--) _all[index].Dispose();
     }
 }
 

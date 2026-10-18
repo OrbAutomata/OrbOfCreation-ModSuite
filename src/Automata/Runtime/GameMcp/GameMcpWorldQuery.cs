@@ -1768,7 +1768,9 @@ internal static class GameMcpWorldQuery
     private static string UpgradeState(GameWorldState world, in WorldUpgrade upgrade) =>
         upgrade.IsExhausted ? GameMcpListColumns.Completed :
         IsUpgradeOffered(world, in upgrade) ? GameMcpListColumns.Available :
-        GameMcpListColumns.Locked;
+        upgrade.Reading.Available && !WorldUpgradeScreenLists.TryReadScreenGate(world, upgrade.EntityId, out _)
+            ? GameMcpListColumns.Unreadable
+            : GameMcpListColumns.Locked;
 
     /// <summary>
     /// Whether the game draws this upgrade's row: its own prerequisites hold and the screen its
@@ -1782,26 +1784,17 @@ internal static class GameMcpWorldQuery
     /// verdict cannot disagree about one row.
     /// </remarks>
     internal static bool IsUpgradeOffered(GameWorldState world, in WorldUpgrade upgrade) =>
-        upgrade.Reading.Available && !IsUpgradeScreenLocked(world, upgrade.EntityId, out _);
+        WorldUpgradeScreenLists.IsOffered(world, in upgrade);
 
     /// <summary>
     /// Whether the screen this upgrade is drawn on is still locked, and which view gates it. A row
     /// on no screen panel, or one whose membership could not be read, has no screen gate to ask:
     /// its <c>screen</c> cell already says which of the two it is.
     /// </summary>
-    internal static bool IsUpgradeScreenLocked(GameWorldState world, Guid upgradeId, out Guid viewId)
-    {
-        var screen = UpgradeScreen(world, upgradeId);
-        for (var index = 0; index < GameMcpListColumns.Screens.Length; index++)
-        {
-            if (!string.Equals(GameMcpListColumns.Screens[index].Word, screen, StringComparison.Ordinal))
-                continue;
-            viewId = GameMcpListColumns.Screens[index].ViewId;
-            return !IsScreenUnlocked(world, viewId);
-        }
-        viewId = Guid.Empty;
-        return false;
-    }
+    internal static bool IsUpgradeScreenLocked(GameWorldState world, Guid upgradeId, out Guid viewId) =>
+        WorldUpgradeScreenLists.TryReadScreenGate(world, upgradeId, out viewId) &&
+        viewId != Guid.Empty &&
+        !IsScreenUnlocked(world, viewId);
 
     /// <summary>
     /// The same lifecycle for research, off the same kind of captured members:
@@ -6323,13 +6316,15 @@ internal static class GameMcpWorldQuery
             available = false;
             reason = "plot_quantity_insufficient";
         }
-        else if (active == 0 &&
-                 (!WorldLookup.TryFind(world.ActionQueues,
-                      KnownEntities.ActivePlotNodeActions.Uuid, out var queue) ||
-                  !queue.Consistent || !queue.HasEmptySlot))
+        else if (active == 0)
         {
-            available = false;
-            reason = "plot_action_list_full";
+            reason = !WorldLookup.TryFind(world.ActionQueues,
+                    KnownEntities.ActivePlotNodeActions.Uuid, out var queue)
+                ? "queue_not_published"
+                : !queue.Consistent
+                    ? "queue_reading_inconsistent"
+                    : !queue.HasEmptySlot ? "plot_action_list_full" : string.Empty;
+            available = reason.Length == 0;
         }
         result["available"] = available;
         if (!available)

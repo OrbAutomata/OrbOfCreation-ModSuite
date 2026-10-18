@@ -474,6 +474,8 @@ public sealed class GameMcpSearchTests
                 Upgrade(Refinement, exhausted: true, locked: false),
                 Upgrade(Insightful, exhausted: false, locked: false),
             }),
+            UpgradeListMemberships = GameMcpTestHarness.OnTheUpgradesList(
+                Insight, Mastery, Refinement, Insightful),
             Structures = PublicationTable<WorldStructure>.Create(new[]
             {
                 Structure(Lab, unlocked: true),

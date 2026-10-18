@@ -94,7 +94,7 @@ public sealed class GameMcpSpellLoadoutTests
             "field 'destination' is missing for mode 'move'", GameMcpTestHarness.Page(missing));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +
-            "'destination' is accepted only for mode 'move'", GameMcpTestHarness.Page(unexpected));
+            "'destination' is not accepted for mode 'remove'", GameMcpTestHarness.Page(unexpected));
     }
 
     [Theory]
@@ -202,8 +202,8 @@ public sealed class GameMcpSpellLoadoutTests
             }));
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: field " +
-            "'uuid' is accepted only for modes 'preview' and 'add'; field 'glyphs' is " +
-            "accepted only for modes 'preview' and 'add'", GameMcpTestHarness.Page(rejected));
+            "'uuid' is not accepted for mode 'staged'; field 'glyphs' is " +
+            "not accepted for mode 'staged'", GameMcpTestHarness.Page(rejected));
     }
 
     [Fact]

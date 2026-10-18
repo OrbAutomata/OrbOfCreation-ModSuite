@@ -926,6 +926,7 @@ internal sealed class AutomataWorldCollectionCheck
         var worstEntityId = Guid.Empty;
         var worstResource = Guid.Empty;
         var missingEntities = 0;
+        var unreadEntities = 0;
         var countMismatches = 0;
 
         var eligibilityCompared = 0;
@@ -963,7 +964,11 @@ internal sealed class AutomataWorldCollectionCheck
                     world.PurchaseCosts, entityId, out var start, out var count);
                 if (!priced) missingEntities++;
 
-                if (!costs.TryRead(entity, out var theirs, out var theirEnough)) continue;
+                if (!costs.TryRead(entity, out var theirs, out var theirEnough))
+                {
+                    unreadEntities++;
+                    continue;
+                }
 
                 // Asked of every entity, priced or not: an entity we refuse to price is an entity we
                 // refuse to buy, and whether the game would have sold it is exactly the question.
@@ -1071,10 +1076,13 @@ internal sealed class AutomataWorldCollectionCheck
         }
         else
         {
-            Add(missingEntities == 0
+            var gaps = new List<string>();
+            if (missingEntities > 0) gaps.Add($"{missingEntities} entities were unpriced");
+            if (unreadEntities > 0)
+                gaps.Add($"{unreadEntities} entities had a game price this check could not read");
+            Add(gaps.Count == 0
                 ? VerificationFinding.Agree("Published cost", compared)
-                : VerificationFinding.Incomplete(
-                    "Published cost", compared, $"{missingEntities} entities were unpriced"));
+                : VerificationFinding.Incomplete("Published cost", compared, string.Join(", ", gaps)));
         }
 
         if (eligibilityCompared == 0)

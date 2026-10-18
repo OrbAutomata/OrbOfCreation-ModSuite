@@ -8,9 +8,13 @@ namespace OrbAutomata;
 
 /// <summary>
 /// Live differential oracle for the usage-prerequisite programs published on Concept recipes.
-/// This is deliberately perf-debug-only: the native no-argument check may refresh its container's
-/// memo, so normal capture never calls it.
 /// </summary>
+/// <remarks>
+/// It asks through the parameterised <c>Check</c> at level zero. The no-argument overload latches
+/// <c>available</c> and stamps a frame, so it would turn this read into a mutation, and once latched
+/// it would keep answering for conditions that no longer hold. The game authors no adjustment on a
+/// usage container, so level zero is the question the no-argument overload asks.
+/// </remarks>
 internal sealed class AutomataUsagePrerequisiteVerifier
 {
     private const BindingFlags Instance =
@@ -18,18 +22,20 @@ internal sealed class AutomataUsagePrerequisiteVerifier
 
     private readonly FieldInfo? _container;
     private readonly MethodInfo? _check;
+    private readonly ConstructorInfo? _conditionInfo;
     private readonly MethodInfo? _getGuid;
 
     internal AutomataUsagePrerequisiteVerifier(Type ownerType)
     {
         _container = ownerType?.GetField("usagePrerequisites", Instance);
         _getGuid = ownerType?.GetMethod("GetGuid", Instance, null, Type.EmptyTypes, null);
-        _check = _container?.FieldType.GetMethod("Check", Instance, null, Type.EmptyTypes, null);
-        if (_check?.ReturnType != typeof(bool)) _check = null;
+        _check = _container is null ? null : AutomataRequirementVerifier.FindParameterisedCheck(_container.FieldType);
+        _conditionInfo = _check?.GetParameters()[0].ParameterType.GetConstructor(new[] { typeof(long) });
         if (_getGuid?.ReturnType != typeof(Guid)) _getGuid = null;
     }
 
-    internal bool IsAvailable => _container is not null && _check is not null && _getGuid is not null;
+    internal bool IsAvailable =>
+        _container is not null && _check is not null && _conditionInfo is not null && _getGuid is not null;
 
     internal bool TryVerify(object entity, GameWorldState world, DifferentialRun run, out string failure)
     {
@@ -56,7 +62,8 @@ internal sealed class AutomataUsagePrerequisiteVerifier
             var ours = WorldRequirementEvaluator.Evaluate(
                 world, entityId, level: 0, WorldRequirementProgramKind.Usage);
             var container = _container!.GetValue(entity);
-            var theirs = container is null || (bool)_check!.Invoke(container, null)!;
+            var theirs = container is null ||
+                (bool)_check!.Invoke(container, new[] { _conditionInfo!.Invoke(new object[] { 0L }) })!;
             run.Compare(
                 entityId,
                 "usage-prerequisites",
