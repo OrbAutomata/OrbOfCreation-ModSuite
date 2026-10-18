@@ -99,8 +99,9 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
     private readonly Func<object, Guid>? _entryResource;
     private readonly Func<object, BigDouble>? _entryValue;
 
+    private readonly Func<IList?>? _upgrades;
     private readonly Func<object, object?>? _costModPerLevel;
-    private readonly MethodInfo? _resolveList;
+    private readonly Func<object, object?>? _resolveList;
     private readonly Func<object, IList?>? _listModifiers;
     private readonly Func<object, IList?>? _listExponents;
     private readonly Func<object, int>? _modifierType;
@@ -118,9 +119,9 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
             return;
         }
 
+        _upgrades = NativeAccessorBinder.StaticListAccessor(upgradeType, "All");
         _upgradeId = NativeAccessorBinder.Call<Guid>(upgradeType, "GetGuid");
         _resourceCost = NativeAccessorBinder.Reference(upgradeType, "resourceCost");
-
         var costListType = upgradeType.GetField("resourceCost", Instance)?.FieldType;
         var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");
         _entries = NativeAccessorBinder.CollectionField(costListType, "costs");
@@ -129,9 +130,8 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
 
         _costModPerLevel = NativeAccessorBinder.Reference(upgradeType, "resourceCostModPerLevel");
         var refType = upgradeType.GetField("resourceCostModPerLevel", Instance)?.FieldType;
-        _resolveList = refType?.GetMethod("GetValue", Instance, null, Type.EmptyTypes, null);
-
-        var listType = _resolveList?.ReturnType;
+        var listType = refType?.GetMethod("GetValue", Instance, null, Type.EmptyTypes, null)?.ReturnType;
+        _resolveList = NativeAccessorBinder.CallObject(refType, "GetValue", listType);
         _listModifiers = NativeAccessorBinder.CollectionField(listType, "modifiers");
         _listExponents = NativeAccessorBinder.CollectionField(listType, "exponents");
 
@@ -156,7 +156,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
         modifiers.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var upgrades = NativeAccessorBinder.StaticList(_upgradeType, "All");
+        var upgrades = _upgrades?.Invoke();
         if (upgrades is null)
             return WorldCategoryReport.Missing(Category, "the UpgradeSO registry was unreadable");
 
@@ -224,7 +224,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
         var reference = _costModPerLevel!(upgrade);
         if (reference is null) return;
 
-        var list = _resolveList!.Invoke(reference, null);
+        var list = _resolveList!(reference);
         if (list is null) return;
 
         Append(_listModifiers!(list), entityId, isExponent: false, modifiers);

@@ -1,8 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -348,7 +346,6 @@ internal readonly struct RawResearchModifiers
 /// </remarks>
 internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
 {
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
     private readonly Func<string, Type?> _resolveType;
     private Func<object, Guid>? _id;
     private Func<object, int>? _level;
@@ -481,8 +478,8 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         var fillType = _resolveType("ResourceFillList");
         var fillEntryType = _resolveType("ResourceFillList+ResourceFillEntry");
         var researchType = _resolveType("ResearchTypeSO");
-        _queueMode = StaticCall<bool>(settings, "IsResearchQueueMode");
-        _multiBuy = StaticObjectCall(globals, "GetMultiBuy", integer);
+        _queueMode = NativeAccessorBinder.StaticCall<bool>(settings, "IsResearchQueueMode");
+        _multiBuy = NativeAccessorBinder.StaticCallObject(globals, "GetMultiBuy", integer);
         _asInt = NativeAccessorBinder.Call<int>(integer, "AsInt");
         _queuedIncludingActive = bind.Call<int>("GetQueuedLevels");
         _currentInvestmentLevel = bind.Call<int>("GetCurrentInvestmentLevel");
@@ -492,11 +489,11 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         _canApplyBonusLevel = bind.Call<bool>("CanApplyBonusLevels");
         _freeBonusLevels = bind.Call<int>("GetFreeBonusLevelsLeft");
         _developmentCost = bind.CallObject("GetDevelopmentCost", costType);
-        _developmentCostAtLevel = InstanceIntObjectCall(type, "GetDevelopmentCostAtLevel", costType);
-        _withinDevelopRangeAt = InstanceIntCall<bool>(type, "IsWithinDevelopRangeAt");
+        _developmentCostAtLevel = NativeAccessorBinder.CallObject<int>(type, "GetDevelopmentCostAtLevel", costType);
+        _withinDevelopRangeAt = NativeAccessorBinder.Call<int, bool>(type, "IsWithinDevelopRangeAt");
         _hasMaxLevel = bind.Call<bool>("HasMaxLevel");
         _costAffordable = NativeAccessorBinder.Call<bool>(costType, "HasEnough");
-        _addCost = InstanceObjectCall(costType, "Add", costType, costType);
+        _addCost = NativeAccessorBinder.CallObject(costType, "Add", costType, costType);
         _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.Reference(tupleType, "resource", resourceType);
         _costValue = NativeAccessorBinder.Call<BigDouble>(tupleType, "GetValue");
@@ -698,76 +695,6 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         return PublicationTable<WorldResearchTypeDecision>.Create(rows);
     }
 
-    private static Func<TResult>? StaticCall<TResult>(Type? owner, string name)
-    {
-        var method = owner?.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || !method.IsStatic || method.ReturnType != typeof(TResult)) return null;
-        try { return Expression.Lambda<Func<TResult>>(Expression.Call(method)).Compile(); }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object?>? StaticObjectCall(Type? owner, string name, Type? result)
-    {
-        var method = owner?.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || !method.IsStatic || result is null || method.ReturnType != result) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object, int, TResult>? InstanceIntCall<TResult>(Type? owner, string name)
-    {
-        var method = owner?.GetMethod(name, BindingFlags.Instance | BindingFlags.Public |
-            BindingFlags.NonPublic, null, new[] { typeof(int) }, null);
-        if (method is null || method.IsStatic || method.ReturnType != typeof(TResult)) return null;
-        try
-        {
-            var target = Expression.Parameter(typeof(object), "target");
-            var value = Expression.Parameter(typeof(int), "value");
-            return Expression.Lambda<Func<object, int, TResult>>(
-                Expression.Call(Expression.Convert(target, owner!), method, value), target, value).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object, int, object?>? InstanceIntObjectCall(
-        Type? owner, string name, Type? result)
-    {
-        if (result is null) return null;
-        var method = owner?.GetMethod(name, BindingFlags.Instance | BindingFlags.Public |
-            BindingFlags.NonPublic, null, new[] { typeof(int) }, null);
-        if (method is null || method.IsStatic || method.ReturnType != result) return null;
-        try
-        {
-            var target = Expression.Parameter(typeof(object), "target");
-            var value = Expression.Parameter(typeof(int), "value");
-            return Expression.Lambda<Func<object, int, object?>>(
-                Expression.Convert(Expression.Call(Expression.Convert(target, owner!), method, value), typeof(object)),
-                target, value).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object, object, object?>? InstanceObjectCall(
-        Type? owner, string name, Type? parameter, Type? result)
-    {
-        if (owner is null || parameter is null || result is null) return null;
-        var method = owner.GetMethod(name, BindingFlags.Instance | BindingFlags.Public |
-            BindingFlags.NonPublic, null, new[] { parameter }, null);
-        if (method is null || method.IsStatic || method.ReturnType != result) return null;
-        try
-        {
-            var target = Expression.Parameter(typeof(object), "target");
-            var value = Expression.Parameter(typeof(object), "value");
-            return Expression.Lambda<Func<object, object, object?>>(
-                Expression.Convert(Expression.Call(Expression.Convert(target, owner), method,
-                    Expression.Convert(value, parameter)), typeof(object)), target, value).Compile();
-        }
-        catch (Exception) { return null; }
-    }
 }
 
 /// <summary>One modifier contributing directly to a research requirement-level adjustment.</summary>

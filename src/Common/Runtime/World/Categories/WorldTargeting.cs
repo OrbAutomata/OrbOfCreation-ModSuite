@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -132,8 +131,8 @@ internal sealed class WorldTargetingReader : IWorldCategoryReader
         var selectionType = resolveType("Targeting.BaseTargetSelection");
         var resultInfoType = resolveType("EffectResultInfo");
         _structureType = resolveType("StructureSO");
-        _isTargeting = StaticCall<bool>(managerType, "IsTargeting");
-        _getLink = StaticObjectCall(managerType, "GetTargetingLink", _linkType);
+        _isTargeting = NativeAccessorBinder.StaticCall<bool>(managerType, "IsTargeting");
+        _getLink = NativeAccessorBinder.StaticCallObject(managerType, "GetTargetingLink", _linkType);
         _getAllTargets = NativeAccessorBinder.CallList(
             _linkType, "GetAllTargets", tooltipableType);
         _getOwner = NativeAccessorBinder.CallObject(_linkType, "GetOwner", tooltipableType);
@@ -218,27 +217,4 @@ internal sealed class WorldTargetingReader : IWorldCategoryReader
         }
     }
 
-    private static Func<T>? StaticCall<T>(Type? type, string name)
-    {
-        var method = type?.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || method.ReturnType != typeof(T)) return null;
-        try { return Expression.Lambda<Func<T>>(Expression.Call(method)).Compile(); }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object?>? StaticObjectCall(
-        Type? type,
-        string name,
-        Type? returnType)
-    {
-        if (type is null || returnType is null) return null;
-        var method = type.GetMethod(name, Static, null, Type.EmptyTypes, null);
-        if (method is null || method.ReturnType != returnType) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
-    }
 }

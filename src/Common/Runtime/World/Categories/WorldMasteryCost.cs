@@ -12,12 +12,10 @@ namespace OrbModding.Common.Runtime.World;
 /// </summary>
 internal sealed class WorldMasteryCostReader : IWorldCategoryReader
 {
-    private const BindingFlags Static =
-        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     private readonly Type? _spellType;
+    private readonly Func<IList?>? _spells;
     private readonly Func<object, Guid>? _spellId;
-    private readonly FieldInfo? _globalsInstance;
+    private readonly Func<object?>? _globalsInstance;
     private readonly Func<object, object?>? _baseCost;
     private readonly Func<object, IList?>? _costs;
     private readonly Func<object, Guid>? _resourceId;
@@ -37,6 +35,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         var listType = resolveType("ValueModifierList");
         var recordType = resolveType("ValueModifierRecord");
 
+        _spells = NativeAccessorBinder.StaticListAccessor(_spellType, "All");
         _spellId = NativeAccessorBinder.Call<Guid>(_spellType, "GetGuid");
         _baseCost = NativeAccessorBinder.Reference(_spellType, "baseLevelingCost");
         var costType = _spellType?.GetField(
@@ -47,7 +46,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         _resourceId = NativeAccessorBinder.ReferenceGuid(entryType, "resource");
         _amount = NativeAccessorBinder.Field<BigDouble>(entryType, "valueBig");
 
-        _globalsInstance = globalsType?.GetField("instance", Static);
+        _globalsInstance = NativeAccessorBinder.StaticReference(globalsType, "instance", globalsType);
         _standard = NativeAccessorBinder.Reference(globalsType, "spellLevelingStandard");
         _standardId = NativeAccessorBinder.Call<Guid>(variableType, "GetGuid");
         _standardValue = NativeAccessorBinder.Reference(variableType, "value");
@@ -70,7 +69,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
         frame.SpellTypeXpPerMastery = 0d;
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var globals = _globalsInstance!.GetValue(null);
+        var globals = _globalsInstance!();
         var standard = globals is null ? null : _standard!(globals);
         var list = standard is null ? null : _standardValue!(standard);
         if (standard is null || list is null)
@@ -87,7 +86,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
             frame.ModifierPrograms,
             frame.ModifierProgramEntries);
 
-        var spells = NativeAccessorBinder.StaticList(_spellType, "All");
+        var spells = _spells?.Invoke();
         if (spells is null)
             return WorldCategoryReport.Missing(Category, "the SpellRecipeSO registry was unreadable");
 

@@ -606,6 +606,7 @@ internal sealed class WorldPlotActionDeriver
 internal sealed class WorldPlotActionReader : IWorldCategoryReader
 {
     private readonly Type? _plotType;
+    private readonly Func<IList?>? _plots;
     private readonly string _unavailable;
 
     private readonly Func<object, Guid>? _plotId;
@@ -631,6 +632,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
         _plotType = plotType;
+        _plots = NativeAccessorBinder.StaticListAccessor(plotType, "All");
         if (plotType is null)
         {
             _unavailable = "the PlotNodeSO type was not found on this build";
@@ -686,7 +688,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         drains.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var plots = NativeAccessorBinder.StaticList(_plotType, "All");
+        var plots = _plots?.Invoke();
         if (plots is null)
             return WorldCategoryReport.Missing(Category, "the PlotNodeSO registry was unreadable");
 

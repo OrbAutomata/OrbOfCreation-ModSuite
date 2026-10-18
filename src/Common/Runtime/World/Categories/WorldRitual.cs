@@ -1,7 +1,5 @@
 using System;
 using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -646,13 +644,7 @@ internal sealed class WorldRitualCompletionFormulaBinding
         _baseCost = NativeAccessorBinder.Reference(ritualType, "completionCost", costType);
         _perLevel = NativeAccessorBinder.Reference(ritualType, "completionCostPerLevel", modifierRefType);
         _perLevelValue = NativeAccessorBinder.CallObject(modifierRefType, "GetValue", modifierListType);
-        var entriesMethod = costType.GetMethod("GetEntries", BindingFlags.Instance |
-            BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
-        var entriesType = entriesMethod?.ReturnType;
-        var exactTuple = entriesType is { IsGenericType: true }
-            ? entriesType.GetGenericArguments()[0]
-            : null;
-        _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", exactTuple);
+        _costEntries = NativeAccessorBinder.CallList(costType, "GetEntries", tupleType);
         _costResource = NativeAccessorBinder.Reference(tupleType, "resource", resourceType);
         _costValue = NativeAccessorBinder.Call<BigDouble>(tupleType, "GetValue");
         _resourceId = NativeAccessorBinder.Call<Guid>(resourceType, "GetGuid");
@@ -724,9 +716,6 @@ internal sealed class WorldRitualCompletionFormulaBinding
 /// <summary>Reads only the selected ritual's level and activation price.</summary>
 internal sealed class WorldRitualDecisionBinding
 {
-    private const BindingFlags Instance = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
     private readonly Type? _managerType;
     private readonly Func<object?>? _manager;
     private readonly Func<object, object?>? _selectedVariable;
@@ -754,9 +743,9 @@ internal sealed class WorldRitualDecisionBinding
             return;
         }
 
-        _manager = StaticReference(_managerType, "instance", _managerType);
-        _selectedVariable = Reference(_managerType, "selectedRitual", variableType);
-        _isSelected = CallWithReference<bool>(variableType, "IsItem", ritualType);
+        _manager = NativeAccessorBinder.StaticReference(_managerType, "instance", _managerType);
+        _selectedVariable = NativeAccessorBinder.Reference(_managerType, "selectedRitual", variableType);
+        _isSelected = NativeAccessorBinder.CallWithObjectArgument<bool>(variableType, "IsItem", ritualType);
         var ritual = new WorldMemberBinding(ritualType, "RitualSO");
         _maximumStartingLevel = ritual.Call<int>("GetMaxSelectedLevel");
         _usageRequirementsMet = ritual.Call<bool>("HasMetUsageRequirements");
@@ -764,12 +753,7 @@ internal sealed class WorldRitualDecisionBinding
 
         var cost = new WorldMemberBinding(costType, "ResourceCostList");
         _hasEnough = cost.Call<bool>("HasEnough");
-        var entriesMethod = costType.GetMethod("GetEntries", Instance, null, Type.EmptyTypes, null);
-        var entriesType = entriesMethod?.ReturnType;
-        var exactTuple = entriesType is { IsGenericType: true }
-            ? entriesType.GetGenericArguments()[0]
-            : null;
-        _costEntries = cost.CallList("GetEntries", exactTuple);
+        _costEntries = cost.CallList("GetEntries", tupleType);
         var tuple = new WorldMemberBinding(tupleType, "ResourceTuple");
         _costResource = tuple.Reference("resource", resourceType);
         _costValue = tuple.Call<BigDouble>("GetValue");
@@ -831,56 +815,6 @@ internal sealed class WorldRitualDecisionBinding
                 _resourceId!(resource), _costValue!(entry));
         }
         return PublicationTable<WorldRitualCost>.Create(rows);
-    }
-
-    private static Func<object?>? StaticReference(Type owner, string name, Type exactType)
-    {
-        var field = owner.GetField(name, Static);
-        if (field is null || !field.IsStatic || field.FieldType != exactType) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object, object?>? Reference(Type owner, string name, Type exactType)
-    {
-        var field = owner.GetField(name, Instance);
-        if (field is null || field.IsStatic || field.FieldType != exactType) return null;
-        try
-        {
-            var target = Expression.Parameter(typeof(object), "target");
-            return Expression.Lambda<Func<object, object?>>(
-                Expression.Convert(
-                    Expression.Field(Expression.Convert(target, owner), field),
-                    typeof(object)),
-                target).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object, object, T>? CallWithReference<T>(
-        Type owner,
-        string name,
-        Type argumentType)
-    {
-        var method = owner.GetMethod(name, Instance, null, new[] { argumentType }, null);
-        if (method is null || method.ReturnType != typeof(T)) return null;
-        try
-        {
-            var target = Expression.Parameter(typeof(object), "target");
-            var argument = Expression.Parameter(typeof(object), "argument");
-            return Expression.Lambda<Func<object, object, T>>(
-                Expression.Call(
-                    Expression.Convert(target, owner),
-                    method,
-                    Expression.Convert(argument, argumentType)),
-                target,
-                argument).Compile();
-        }
-        catch (Exception) { return null; }
     }
 
     private static string Join(params string[] values)

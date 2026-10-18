@@ -1,7 +1,5 @@
 using System;
 using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -101,7 +99,7 @@ internal sealed class WorldEquipmentDecisionBinding
         var entry = resolve("ResourceTuple");
         var resource = resolve("ResourceSO");
 
-        _manager = BindStaticReference(_managerType, "instance", _managerType);
+        _manager = NativeAccessorBinder.StaticReference(_managerType, "instance", _managerType);
         _equipped = NativeAccessorBinder.Reference(_managerType, "equippedEquipment", _listType);
         _values = NativeAccessorBinder.CollectionField(_listType, "value");
         _maximum = NativeAccessorBinder.Call<int>(_listType, "GetMax");
@@ -207,33 +205,4 @@ internal sealed class WorldEquipmentDecisionBinding
         new(false, reason, Guid.Empty, 0, 0, 0, 0, 0, 0, 0, 0, false,
             PublicationTable<WorldEquipmentUsageCost>.Empty);
 
-    private static Func<object?>? BindStaticReference(Type? owner, string name, Type? exactType)
-    {
-        var field = owner?.GetField(
-            name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-        if (field is null || field.FieldType != exactType || exactType is null) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
-    }
-
-    private static Func<object?>? BindStaticObjectCall(Type? owner, string name, Type? exactType)
-    {
-        var method = owner?.GetMethod(
-            name,
-            BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic,
-            null,
-            Type.EmptyTypes,
-            null);
-        if (method is null || method.ReturnType != exactType || exactType is null) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
-        }
-        catch (Exception) { return null; }
-    }
 }

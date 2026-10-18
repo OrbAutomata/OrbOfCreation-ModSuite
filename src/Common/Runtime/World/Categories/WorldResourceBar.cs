@@ -48,7 +48,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         KnownEntities.ResourceBarMaterials.Uuid,
     };
 
-    private readonly Type? _identityType;
+    private readonly Func<IDictionary?>? _registry;
     private readonly Type? _resourceType;
     private readonly Type? _listType;
     private readonly Func<object, Guid>? _resourceIdentity;
@@ -58,10 +58,11 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
     internal WorldResourceBarReader(Func<string, Type?> resolveType)
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
-        _identityType = resolveType("IdScriptableObject");
+        var identityType = resolveType("IdScriptableObject");
+        _registry = NativeAccessorBinder.StaticDictionaryAccessor(identityType, "RuntimeLookup");
         _resourceType = resolveType("ResourceSO");
         _listType = resolveType("ResourceListVariable");
-        if (_identityType is null || _resourceType is null || _listType is null)
+        if (identityType is null || _resourceType is null || _listType is null)
         {
             _unavailable = "the IdScriptableObject, ResourceSO or ResourceListVariable type was " +
                 "not found on this build";
@@ -87,7 +88,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         buffer.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var registry = NativeAccessorBinder.StaticDictionary(_identityType, "RuntimeLookup");
+        var registry = _registry?.Invoke();
         if (registry is null) return Withheld(buffer, "the native identity registry was unreadable");
 
         try

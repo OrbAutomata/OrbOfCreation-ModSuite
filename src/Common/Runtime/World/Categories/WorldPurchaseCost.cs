@@ -1088,6 +1088,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _structureType;
+    private readonly Func<IList?>? _structures;
     private readonly string _unavailable;
 
     private readonly Func<object, object?>? _baseCost;
@@ -1101,6 +1102,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
         _structureType = structureType;
+        _structures = NativeAccessorBinder.StaticListAccessor(structureType, "All");
         if (structureType is null)
         {
             _unavailable = "the StructureSO type was not found on this build";
@@ -1136,7 +1138,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
         var buffer = frame.PurchaseCosts;
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var structures = NativeAccessorBinder.StaticList(_structureType, "All");
+        var structures = _structures?.Invoke();
         if (structures is null)
             return WorldCategoryReport.Missing(Category, "the StructureSO registry was unreadable");
 

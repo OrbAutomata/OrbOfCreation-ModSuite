@@ -110,6 +110,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
     private readonly Type? _spellType;
+    private readonly Func<IList?>? _spells;
     private readonly Func<object, int>? _castType;
     private readonly Func<object, double>? _rechargeDuration;
     private readonly Func<object, double>? _rechargeMultiplier;
@@ -139,6 +140,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
             return;
         }
 
+        _spells = NativeAccessorBinder.StaticListAccessor(spellType, "All");
         _castType = NativeAccessorBinder.EnumField(spellType, "castType");
         _rechargeDuration = NativeAccessorBinder.NestedField<double>(spellType, "baseRecharge", "duration");
         _rechargeMultiplier = NativeAccessorBinder.NestedField<double>(spellType, "baseRecharge", "mult");
@@ -199,7 +201,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
         frame.SpellRelations.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
 
-        var spells = NativeAccessorBinder.StaticList(_spellType, "All");
+        var spells = _spells?.Invoke();
         if (spells is null)
             return WorldCategoryReport.Missing(Category, "the SpellRecipeSO registry was unreadable");
 

@@ -20,7 +20,8 @@ namespace OrbModding.Common.Runtime.World;
 /// <para>
 /// Every binder returns <see langword="null"/> rather than throwing when a member is absent or has an
 /// unexpected type. A collector that cannot bind an accessor must degrade that category with evidence,
-/// which it can only do if binding failure is a value it can inspect.
+/// which it can only do if binding failure is a value it can inspect. A member that matched but could
+/// not be compiled is not drift, so that exception reaches the caller with its own message.
 /// </para>
 /// <para>
 /// Return types are matched exactly rather than converted. An implicit widening would let a member
@@ -58,14 +59,7 @@ internal static class NativeAccessorBinder
         var field = owner.GetField(name, Static);
         if (field is null || field.FieldType != typeof(TValue)) return null;
 
-        try
-        {
-            return Expression.Lambda<Func<TValue>>(Expression.Field(null, field)).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<TValue>>(Expression.Field(null, field)).Compile();
     }
 
     /// <summary>Binds a no-argument instance method.</summary>
@@ -98,14 +92,7 @@ internal static class NativeAccessorBinder
         var call = Expression.Convert(
             Expression.Call(Expression.Convert(source, owner), method),
             typeof(object));
-        try
-        {
-            return Expression.Lambda<Func<object, object?>>(call, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object?>>(call, source).Compile();
     }
 
     /// <summary>Binds an exact generic-list-returning method as an <see cref="IList"/>.</summary>
@@ -123,14 +110,7 @@ internal static class NativeAccessorBinder
         var call = Expression.Convert(
             Expression.Call(Expression.Convert(source, owner), method),
             typeof(IList));
-        try
-        {
-            return Expression.Lambda<Func<object, IList?>>(call, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, IList?>>(call, source).Compile();
     }
 
     /// <summary>Binds a one-argument instance method with exact argument and return types.</summary>
@@ -146,17 +126,10 @@ internal static class NativeAccessorBinder
         var source = Expression.Parameter(typeof(object), "source");
         var argument = Expression.Parameter(typeof(TArgument), "argument");
         var call = Expression.Call(Expression.Convert(source, owner), method, argument);
-        try
-        {
-            return Expression.Lambda<Func<object, TArgument, TValue>>(
-                call,
-                source,
-                argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, TArgument, TValue>>(
+            call,
+            source,
+            argument).Compile();
     }
 
     /// <summary>Binds a two-argument instance evaluator with exact managed argument types.</summary>
@@ -176,15 +149,8 @@ internal static class NativeAccessorBinder
         var first = Expression.Parameter(typeof(TFirst), "first");
         var second = Expression.Parameter(typeof(TSecond), "second");
         var call = Expression.Call(Expression.Convert(source, owner), method, first, second);
-        try
-        {
-            return Expression.Lambda<Func<object, TFirst, TSecond, TValue>>(
-                call, source, first, second).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, TFirst, TSecond, TValue>>(
+            call, source, first, second).Compile();
     }
 
     /// <summary>Binds a one-argument evaluator returning an exact runtime reference type.</summary>
@@ -206,15 +172,8 @@ internal static class NativeAccessorBinder
         var call = Expression.Convert(
             Expression.Call(Expression.Convert(source, owner), method, argument),
             typeof(object));
-        try
-        {
-            return Expression.Lambda<Func<object, TArgument, object?>>(
-                call, source, argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, TArgument, object?>>(
+            call, source, argument).Compile();
     }
 
     /// <summary>Binds a two-argument evaluator returning an exact runtime reference type.</summary>
@@ -237,15 +196,33 @@ internal static class NativeAccessorBinder
         var call = Expression.Convert(
             Expression.Call(Expression.Convert(source, owner), method, first, second),
             typeof(object));
-        try
-        {
-            return Expression.Lambda<Func<object, TFirst, TSecond, object?>>(
-                call, source, first, second).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, TFirst, TSecond, object?>>(
+            call, source, first, second).Compile();
+    }
+
+    /// <summary>
+    /// Binds a one-argument evaluator whose argument and exact reference return type are both game
+    /// types known only at runtime.
+    /// </summary>
+    internal static Func<object, object, object?>? CallObject(
+        Type? owner,
+        string name,
+        Type? argumentType,
+        Type? exactReturnType)
+    {
+        if (owner is null || argumentType is null || exactReturnType is null ||
+            exactReturnType.IsValueType) return null;
+        var method = owner.GetMethod(name, Instance, null, new[] { argumentType }, null);
+        if (method is null || method.ReturnType != exactReturnType) return null;
+        var source = Expression.Parameter(typeof(object), "source");
+        var argument = Expression.Parameter(typeof(object), "argument");
+        var call = Expression.Convert(
+            Expression.Call(
+                Expression.Convert(source, owner),
+                method,
+                Expression.Convert(argument, argumentType)),
+            typeof(object));
+        return Expression.Lambda<Func<object, object, object?>>(call, source, argument).Compile();
     }
 
     /// <summary>Binds a method whose exact game-object argument type is known only at runtime.</summary>
@@ -263,15 +240,8 @@ internal static class NativeAccessorBinder
             Expression.Convert(source, owner),
             method,
             Expression.Convert(argument, argumentType));
-        try
-        {
-            return Expression.Lambda<Func<object, object, TValue>>(
-                call, source, argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object, TValue>>(
+            call, source, argument).Compile();
     }
 
     /// <summary>
@@ -461,14 +431,7 @@ internal static class NativeAccessorBinder
         var read = Expression.Convert(
             Expression.Field(Expression.Convert(source, owner), field), typeof(IList));
 
-        try
-        {
-            return Expression.Lambda<Func<object, IList?>>(read, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, IList?>>(read, source).Compile();
     }
 
     /// <summary>
@@ -531,14 +494,7 @@ internal static class NativeAccessorBinder
         var read = Expression.Convert(
             Expression.Field(Expression.Convert(source, owner), field), typeof(object));
 
-        try
-        {
-            return Expression.Lambda<Func<object, object?>>(read, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object?>>(read, source).Compile();
     }
 
     /// <summary>Binds an exact reference-typed field as a collection-pass-only object.</summary>
@@ -556,14 +512,7 @@ internal static class NativeAccessorBinder
             Expression.Field(Expression.Convert(source, owner), field),
             typeof(object));
 
-        try
-        {
-            return Expression.Lambda<Func<object, object?>>(read, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object?>>(read, source).Compile();
     }
 
     /// <summary>Binds a value-typed native field and boxes only at this infrequent structural seam.</summary>
@@ -575,14 +524,7 @@ internal static class NativeAccessorBinder
         var source = Expression.Parameter(typeof(object), "source");
         var read = Expression.Convert(
             Expression.Field(Expression.Convert(source, owner), field), typeof(object));
-        try
-        {
-            return Expression.Lambda<Func<object, object?>>(read, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object?>>(read, source).Compile();
     }
 
     /// <summary>
@@ -710,19 +652,6 @@ internal static class NativeAccessorBinder
     }
 
     /// <summary>
-    /// Reads a public static list member — the per-type <c>All</c> registry every category exposes,
-    /// and the same discovery mechanism Auto Buy already uses for candidate enumeration.
-    /// </summary>
-    internal static IList? StaticList(Type? owner, string name)
-    {
-        if (owner is null) return null;
-
-        var value = owner.GetField(name, Static)?.GetValue(null) ??
-            owner.GetProperty(name, Static)?.GetValue(null, null);
-        return value as IList;
-    }
-
-    /// <summary>
     /// Resolves a static list once and returns only the warm-path value read. This is the lifecycle-
     /// bound form for readers that must not rediscover the member on every collection.
     /// </summary>
@@ -732,32 +661,25 @@ internal static class NativeAccessorBinder
         var field = owner.GetField(name, Static);
         if (field is null || !typeof(IList).IsAssignableFrom(field.FieldType)) return null;
         var read = Expression.Convert(Expression.Field(null, field), typeof(IList));
-        try
-        {
-            return Expression.Lambda<Func<IList?>>(read).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<IList?>>(read).Compile();
     }
 
     /// <summary>
-    /// Reads a static dictionary member — the game's identity registry, which is how an entity that
-    /// belongs to no per-type <c>All</c> list is reached.
+    /// Resolves a static dictionary once — the game's identity registry, which is how an entity that
+    /// belongs to no per-type <c>All</c> list is reached — and returns only the warm-path value read.
     /// </summary>
     /// <remarks>
     /// The list variables holding the action queues are such entities: their <c>All</c> is declared on
     /// the generic base rather than on the concrete type, so it is not a registry of queues at all.
     /// Looking one up by its stable uuid is the path the rest of the suite already takes to them.
     /// </remarks>
-    internal static IDictionary? StaticDictionary(Type? owner, string name)
+    internal static Func<IDictionary?>? StaticDictionaryAccessor(Type? owner, string name)
     {
         if (owner is null) return null;
-
-        var value = owner.GetField(name, Static)?.GetValue(null) ??
-            owner.GetProperty(name, Static)?.GetValue(null, null);
-        return value as IDictionary;
+        var field = owner.GetField(name, Static);
+        if (field is null || !typeof(IDictionary).IsAssignableFrom(field.FieldType)) return null;
+        return Expression.Lambda<Func<IDictionary?>>(
+            Expression.Convert(Expression.Field(null, field), typeof(IDictionary))).Compile();
     }
 
     /// <summary>Compiles an already-audited instance field as an unboxed typed read.</summary>
@@ -821,15 +743,8 @@ internal static class NativeAccessorBinder
     {
         if (field is null || !field.IsStatic ||
             !typeof(IEnumerable).IsAssignableFrom(field.FieldType)) return null;
-        try
-        {
-            return Expression.Lambda<Func<IEnumerable?>>(
-                Expression.Convert(Expression.Field(null, field), typeof(IEnumerable))).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<IEnumerable?>>(
+            Expression.Convert(Expression.Field(null, field), typeof(IEnumerable))).Compile();
     }
 
     /// <summary>Compiles an already-audited no-argument instance method as an unboxed typed call.</summary>
@@ -866,15 +781,8 @@ internal static class NativeAccessorBinder
             Expression.Convert(source, method.DeclaringType!),
             method,
             Expression.Convert(argument, method.GetParameters()[0].ParameterType));
-        try
-        {
-            return Expression.Lambda<Func<object, object, IEnumerable?>>(
-                Expression.Convert(call, typeof(IEnumerable)), source, argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object, IEnumerable?>>(
+            Expression.Convert(call, typeof(IEnumerable)), source, argument).Compile();
     }
 
     /// <summary>
@@ -893,15 +801,8 @@ internal static class NativeAccessorBinder
             Expression.Convert(source, method.DeclaringType!),
             method,
             Expression.Convert(argument, method.GetParameters()[0].ParameterType));
-        try
-        {
-            return Expression.Lambda<Func<object, object, TValue>>(
-                call, source, argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object, TValue>>(
+            call, source, argument).Compile();
     }
 
     /// <summary>
@@ -918,30 +819,45 @@ internal static class NativeAccessorBinder
         if (owner is null) return null;
         var field = owner.GetField(name, Static);
         if (field is null || field.FieldType.IsValueType) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object?>>(
+            Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
+    }
+
+    /// <summary>Binds a static field whose type is exactly <paramref name="exactFieldType"/>.</summary>
+    internal static Func<object?>? StaticReference(Type? owner, string name, Type? exactFieldType)
+    {
+        if (owner is null || exactFieldType is null || exactFieldType.IsValueType) return null;
+        var field = owner.GetField(name, Static);
+        if (field is null || field.FieldType != exactFieldType) return null;
+        return Expression.Lambda<Func<object?>>(
+            Expression.Convert(Expression.Field(null, field), typeof(object))).Compile();
+    }
+
+    /// <summary>Binds a no-argument static method with an exact managed return type.</summary>
+    internal static Func<TValue>? StaticCall<TValue>(Type? owner, string name)
+    {
+        if (owner is null) return null;
+        var method = owner.GetMethod(name, Static, null, Type.EmptyTypes, null);
+        if (method is null || method.ReturnType != typeof(TValue)) return null;
+        return Expression.Lambda<Func<TValue>>(Expression.Call(method)).Compile();
+    }
+
+    /// <summary>Binds a no-argument static method returning an exact runtime reference type.</summary>
+    internal static Func<object?>? StaticCallObject(Type? owner, string name, Type? exactReturnType)
+    {
+        if (owner is null || exactReturnType is null || exactReturnType.IsValueType) return null;
+        var method = owner.GetMethod(name, Static, null, Type.EmptyTypes, null);
+        if (method is null || method.ReturnType != exactReturnType) return null;
+        return Expression.Lambda<Func<object?>>(
+            Expression.Convert(Expression.Call(method), typeof(object))).Compile();
     }
 
     /// <summary>Compiles an already-audited no-argument static method as the value it answers.</summary>
     internal static Func<object?>? CallStaticValue(MethodInfo? method)
     {
         if (method is null || !method.IsStatic || method.GetParameters().Length != 0) return null;
-        try
-        {
-            return Expression.Lambda<Func<object?>>(
-                Expression.Convert(Expression.Call(method), typeof(object))).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object?>>(
+            Expression.Convert(Expression.Call(method), typeof(object))).Compile();
     }
 
     /// <summary>Compiles an already-audited one-argument static method as the value it answers.</summary>
@@ -951,16 +867,9 @@ internal static class NativeAccessorBinder
         if (method is null || !method.IsStatic || parameters!.Length != 1 ||
             parameters[0].ParameterType != typeof(TArgument)) return null;
         var argument = Expression.Parameter(typeof(TArgument), "argument");
-        try
-        {
-            return Expression.Lambda<Func<TArgument, object?>>(
-                Expression.Convert(Expression.Call(method, argument), typeof(object)),
-                argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<TArgument, object?>>(
+            Expression.Convert(Expression.Call(method, argument), typeof(object)),
+            argument).Compile();
     }
 
     /// <summary>
@@ -973,18 +882,11 @@ internal static class NativeAccessorBinder
         var parameters = method?.GetParameters();
         if (method is null || !method.IsStatic || parameters!.Length != 1) return null;
         var argument = Expression.Parameter(typeof(object), "argument");
-        try
-        {
-            return Expression.Lambda<Func<object, object?>>(
-                Expression.Convert(
-                    Expression.Call(method, Expression.Convert(argument, parameters[0].ParameterType)),
-                    typeof(object)),
-                argument).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, object?>>(
+            Expression.Convert(
+                Expression.Call(method, Expression.Convert(argument, parameters[0].ParameterType)),
+                typeof(object)),
+            argument).Compile();
     }
 
     private static bool IsInstanceCall(MethodInfo? method, int argumentCount) =>
@@ -997,17 +899,6 @@ internal static class NativeAccessorBinder
     private static Expression CallOn(MethodInfo method, ParameterExpression source) =>
         Expression.Call(Expression.Convert(source, method.DeclaringType!), method);
 
-    private static Func<object, TValue>? Compile<TValue>(Expression body, ParameterExpression source)
-    {
-        try
-        {
-            return Expression.Lambda<Func<object, TValue>>(body, source).Compile();
-        }
-        catch (Exception)
-        {
-            // Compilation can fail on a runtime without dynamic code generation. Treating that as an
-            // unbound accessor keeps the failure on the one path callers already handle.
-            return null;
-        }
-    }
+    private static Func<object, TValue> Compile<TValue>(Expression body, ParameterExpression source) =>
+        Expression.Lambda<Func<object, TValue>>(body, source).Compile();
 }

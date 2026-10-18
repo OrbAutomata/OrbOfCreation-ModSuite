@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.GameMath;
@@ -367,7 +366,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(structureType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(structureType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no structures were available. Load a save first.";
@@ -427,7 +426,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(upgradeType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(upgradeType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no upgrades were available. Load a save first.";
@@ -480,7 +479,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(plotNodeType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(plotNodeType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no plot nodes were available. Load a save first.";
@@ -532,7 +531,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(resourceType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(resourceType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no resources were available. Load a save first.";
@@ -583,7 +582,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "this build does not expose the expected Concept drain oracle.";
                 return false;
             }
-            var all = ReadStaticList(recipeType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(recipeType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no Concept recipes were available. Load a save first.";
@@ -641,7 +640,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 failure = "this build does not expose the expected spell level oracle.";
                 return false;
             }
-            var all = ReadStaticList(spellType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(spellType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no spell recipes were available. Load a save first.";
@@ -831,7 +830,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(ownerType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(ownerType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = $"no {_typeName} entities were available. Load a save first.";
@@ -888,7 +887,7 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
                 return false;
             }
 
-            var all = ReadStaticList(ownerType, "All");
+            var all = NativeAccessorBinder.StaticListAccessor(ownerType, "All")?.Invoke();
             if (all is null || all.Count == 0)
             {
                 failure = "no AlchemyRecipeSO entities were available. Load a save first.";
@@ -939,17 +938,5 @@ internal sealed class AutomataDifferentialVerificationControl : IDifferentialVer
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Reads a public static list member, the same discovery mechanism Auto Buy already uses for
-    /// candidate enumeration.
-    /// </summary>
-    private static IList? ReadStaticList(Type type, string memberName)
-    {
-        const BindingFlags Static = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        var value = type.GetField(memberName, Static)?.GetValue(null) ??
-            type.GetProperty(memberName, Static)?.GetValue(null, null);
-        return value as IList;
     }
 }

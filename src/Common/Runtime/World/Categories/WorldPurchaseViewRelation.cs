@@ -256,6 +256,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
 {
     private static NativePurchaseViewAdmissionResolver? _production;
     private readonly BindingSet _native;
+    private readonly Func<IDictionary?>? _identityRegistry;
     private Dictionary<CandidateKey, NativePurchaseViewResolution> _snapshot = new();
     private long _snapshotEpoch;
     internal long CapturedEpoch => _snapshotEpoch;
@@ -265,7 +266,11 @@ internal sealed class NativePurchaseViewAdmissionResolver
     /// stories and the row count is what separates them.</summary>
     internal int CapturedCount => _snapshot.Count;
 
-    private NativePurchaseViewAdmissionResolver(BindingSet native) => _native = native;
+    private NativePurchaseViewAdmissionResolver(BindingSet native)
+    {
+        _native = native;
+        _identityRegistry = NativeAccessorBinder.StaticDictionaryAccessor(native.IdentityType, "RuntimeLookup");
+    }
 
     internal static bool TryCreate(
         Func<string, Type?> resolve,
@@ -441,7 +446,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         out string failure)
     {
         failure = string.Empty;
-        var registry = NativeAccessorBinder.StaticDictionary(_native.IdentityType, "RuntimeLookup");
+        var registry = _identityRegistry?.Invoke();
         for (var index = 0; index < WorldUpgradeScreenLists.All.Length; index++)
         {
             var listId = WorldUpgradeScreenLists.All[index];
