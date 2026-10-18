@@ -1314,10 +1314,11 @@ public sealed class UIModal : UnityEngine.MonoBehaviour
         modalTitle.text = title;
     }
     public void FinishCloseForTest() => isOpen = false;
+    public bool ThrowAfterClose { get; set; }
     public void CloseModal()
     {
-        if (!isOpen || isClosing || graceTime > 0f || SuppressClose) return;
-        isClosing = true;
+        if (isOpen && !isClosing && !(graceTime > 0f) && !SuppressClose) isClosing = true;
+        if (ThrowAfterClose) throw new InvalidOperationException("injected failure after closing the modal");
     }
 
     /// <summary>The visible half of the game's open: the panel's own subtree becomes live.</summary>

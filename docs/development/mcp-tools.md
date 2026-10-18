@@ -4405,8 +4405,11 @@ the process remains able to deliver an MCP response. See
 `mode="open"` presses the one chrome control that puts up the panel `title` names — the controls
 `game_screen_elements` prints as `opens: modal`. The press is `UIModalActivator.OpenModal()` rather
 than the icon's own `ToggleModal`, so it has one outcome whatever the panel was doing, and the game
-sets the panel's open flag inside that call, so the post-state is read in the same frame and
-answers `opened: <panel>`. A different panel already covering the board refuses
+sets the panel's open flag inside that call, so the action reads the pressed control's own panel
+with `UIModal.IsOpen()` in the same frame and answers `opened: <panel>`. A press after which that
+panel does not read open faults `verification_failed`; a game error during the press commits when the
+panel reads open and faults `post_commit_fault` with a log reference when it does not. A different
+panel already covering the board refuses
 `modal_already_open`, because the chrome beneath a modal takes no presses; asking for the panel
 that is already up answers with the state it is in. A name no control on this screen opens refuses
 `no_modal_named` and names the panels it does offer; two controls answering to one name refuse
@@ -4431,9 +4434,13 @@ closing. The tool names no entity, so the
 caller submits no lifecycle: the boundary reads the live lifecycle itself and pins it for the settled
 read. The action invokes `UIModal.CloseModal()`, verifies
 the game-owned closing flag, then watches that exact modal for up to the shared one-second
-settlement bound. A completed close answers `dismissed: <modal title>`, read off the control before
-it shut, so the caller confirms which modal went away without a screenshot; an untitled modal
-publishes no `dismissed` rather than an empty string. Timeout remains committed, carries the same
+settlement bound. A close that leaves the flag unset faults `verification_failed` rather than
+refusing, because the only way to put a modal back is the game's own open, which reruns the panel's
+scene-wired open events; a game error during the close commits when the flag reads set and faults
+`post_commit_fault` with a log reference when it does not. A settled read the game cannot answer
+faults `modal_state_unavailable`. A completed close answers `dismissed: <modal title>`, read off the
+control before it shut, so the caller confirms which modal went away without a screenshot; an
+untitled modal publishes no `dismissed` rather than an empty string. Timeout remains committed, carries the same
 `dismissed`, and says the post-state is unavailable because the verified close already began. It
 does not click modal-specific confirm, purchase, reset, or destructive buttons.
 

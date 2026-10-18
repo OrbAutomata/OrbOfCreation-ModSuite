@@ -3036,6 +3036,11 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             }
             var submission = _modalDismissGameAction.Submit();
+            if (submission.Faulted)
+            {
+                result = GadgetFaulted(submission.Code, submission.Reason);
+                return true;
+            }
             if (!submission.Committed)
             {
                 result = GadgetRejected(submission.Code, submission.Reason);
@@ -3091,15 +3096,11 @@ public sealed class Plugin : BaseUnityPlugin
         if (!_modalOpenGameAction.TryReadActivators(out var activators, out var readFailure))
             return GadgetRejected("contract_unavailable", readFailure);
         var submission = _modalOpenGameAction.Submit(requested, activators);
+        if (submission.Faulted)
+            return GadgetFaulted(submission.Code, submission.Reason);
         if (!submission.Committed)
             return GadgetRejected(submission.Code, submission.Reason);
-        if (!TryReadOpenModalTitles(out var openAfter, out var settledFailure))
-            return GadgetFailed("modal_state_unavailable", settledFailure);
-        if (Array.IndexOf(openAfter, submission.Title) >= 0)
-            return GadgetCommitted("modal_opened", OpenedModal(submission.Title));
-        return GadgetFailed(
-            "requested_state_not_reached",
-            "The " + submission.Title + " control was pressed and no panel went up.");
+        return GadgetCommitted("modal_opened", OpenedModal(submission.Title));
     }
 
     /// <summary>The open's own post-state: the name of the panel now covering the board.</summary>
@@ -4613,6 +4614,14 @@ public sealed class Plugin : BaseUnityPlugin
 
     private GameMcpCommandResult GadgetFailed(string code, string reason) =>
         GameMcpCommandResult.Failed(
+            code,
+            reason,
+            observedLifecycleGeneration: _lifecycleGeneration,
+            observedConfigurationGeneration:
+                _configurationStore?.CurrentGeneration.Value ?? 0);
+
+    private GameMcpCommandResult GadgetFaulted(string code, string reason) =>
+        GameMcpCommandResult.Faulted(
             code,
             reason,
             observedLifecycleGeneration: _lifecycleGeneration,

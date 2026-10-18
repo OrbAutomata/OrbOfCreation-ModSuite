@@ -7,13 +7,23 @@ using Xunit;
 
 namespace OrbModding.ProfileTests;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class GameMcpModalTests : IDisposable
 {
     private const long Epoch = 41;
+    private readonly System.Collections.Generic.List<string> _faults = new();
 
-    public GameMcpModalTests() => UnityEngine.Resources.Objects.Clear();
+    public GameMcpModalTests()
+    {
+        UnityEngine.Resources.Objects.Clear();
+        GameActionFaultLog.ConfigureLog(_faults.Add);
+    }
 
-    public void Dispose() => UnityEngine.Resources.Objects.Clear();
+    public void Dispose()
+    {
+        UnityEngine.Resources.Objects.Clear();
+        GameActionFaultLog.ConfigureLog(null);
+    }
 
     [Fact]
     public void Tool_is_one_targetless_ui_state_control()
@@ -173,6 +183,78 @@ public sealed class GameMcpModalTests : IDisposable
             GameMcpDecisionReason.Class("modal_not_offered"));
     }
 
+    /// <summary>
+    /// The open flag is the game's own answer to whether the press landed, read off the panel the
+    /// pressed control prepared, so a press the game swallowed is never reported as a panel up.
+    /// </summary>
+    [Fact]
+    public void A_press_that_puts_no_panel_up_is_an_attempted_fault()
+    {
+        var player = new UIModal { SuppressOpen = true };
+        Activator(player, "PlayerStatsButton", "Player");
+        using var action = new ModalOpenGameAction();
+
+        Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
+        var submission = action.Submit("Player", activators);
+
+        Assert.False(submission.Committed);
+        Assert.Equal("verification_failed", submission.Code);
+        Assert.Equal(GameActionAnswer.ChangeNotSeen("the Player panel"), submission.Reason);
+        Assert.True(submission.Faulted);
+    }
+
+    [Fact]
+    public void A_throw_after_the_panel_went_up_still_commits()
+    {
+        var player = new UIModal();
+        Activator(player, "PlayerStatsButton", "Player").ThrowAfterOpen = true;
+        using var action = new ModalOpenGameAction();
+
+        Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
+        var submission = action.Submit("Player", activators);
+
+        Assert.True(submission.Committed, submission.Reason);
+        Assert.Equal("Player", submission.Title);
+        Assert.True(player.IsOpen());
+    }
+
+    [Fact]
+    public void A_throw_that_leaves_no_panel_up_is_a_fault_naming_the_log_reference()
+    {
+        var player = new UIModal { SuppressOpen = true };
+        Activator(player, "PlayerStatsButton", "Player").ThrowAfterOpen = true;
+        using var action = new ModalOpenGameAction();
+
+        Assert.True(action.TryReadActivators(out var activators, out var reason), reason);
+        var submission = action.Submit("Player", activators);
+
+        Assert.False(submission.Committed);
+        Assert.Equal("post_commit_fault", submission.Code);
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Player panel"), submission.Reason,
+            StringComparison.Ordinal);
+        Assert.Contains("Reference MCP-", submission.Reason, StringComparison.Ordinal);
+        Assert.Contains(_faults, fault =>
+            fault.Contains("injected failure after opening the panel", StringComparison.Ordinal));
+        Assert.True(submission.Faulted);
+    }
+
+    [Fact]
+    public void Dispose_forgets_the_binding_failure_on_both_halves()
+    {
+        var open = new ModalOpenGameAction(includeContract: id => id != ModalOpenGameAction.ContractIds[0]);
+        var dismiss = new ModalDismissGameAction(
+            () => Epoch,
+            includeContract: id => id != ModalDismissGameAction.ContractIds[0]);
+        Assert.NotEmpty(open.BindingFailure);
+        Assert.NotEmpty(dismiss.BindingFailure);
+
+        open.Dispose();
+        dismiss.Dispose();
+
+        Assert.Empty(open.BindingFailure);
+        Assert.Empty(dismiss.BindingFailure);
+    }
+
     [Fact]
     public void Every_missing_member_disables_the_complete_panel_open_binding_set()
     {
@@ -234,6 +316,87 @@ public sealed class GameMcpModalTests : IDisposable
         Assert.Equal("Ritual Results", result.Title);
     }
 
+    /// <summary>
+    /// The game's close sets its closing flag before anything else, and only when the modal is open,
+    /// not closing and out of its grace period — so a close that returns without it did nothing the
+    /// suite can see. The only way back is <c>UIModal.Open</c>, which runs the panel's scene-wired
+    /// open events again, so nothing can undo the press and the answer is a fault.
+    /// </summary>
+    [Fact]
+    public void A_close_the_game_does_not_begin_is_an_attempted_fault_not_a_refusal()
+    {
+        var modal = new UIModal { SuppressClose = true };
+        modal.OpenForTest(title: "Ritual Results");
+        UnityEngine.Resources.Objects.Add(modal);
+        using var action = new ModalDismissGameAction(() => Epoch);
+
+        var result = action.Submit();
+
+        Assert.False(result.Committed);
+        Assert.Equal("verification_failed", result.Code);
+        Assert.Equal(GameActionAnswer.ChangeNotSeen("the Ritual Results panel"), result.Reason);
+        Assert.True(result.Faulted);
+    }
+
+    [Fact]
+    public void A_throw_after_the_modal_began_closing_still_commits()
+    {
+        var modal = new UIModal { ThrowAfterClose = true };
+        modal.OpenForTest(title: "Ritual Results");
+        UnityEngine.Resources.Objects.Add(modal);
+        using var action = new ModalDismissGameAction(() => Epoch);
+
+        var result = action.Submit();
+        modal.FinishCloseForTest();
+
+        Assert.True(result.Committed, result.Reason);
+        Assert.Equal("Ritual Results", result.Title);
+        Assert.True(action.TryObserveDismissed(out var dismissed, out var reason), reason);
+        Assert.True(dismissed);
+    }
+
+    [Fact]
+    public void A_throw_that_leaves_the_modal_open_is_a_fault_naming_the_log_reference()
+    {
+        var modal = new UIModal { SuppressClose = true, ThrowAfterClose = true };
+        modal.OpenForTest(title: "Ritual Results");
+        UnityEngine.Resources.Objects.Add(modal);
+        using var action = new ModalDismissGameAction(() => Epoch);
+
+        var result = action.Submit();
+
+        Assert.False(result.Committed);
+        Assert.Equal("post_commit_fault", result.Code);
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Ritual Results panel"), result.Reason,
+            StringComparison.Ordinal);
+        Assert.Contains("Reference MCP-", result.Reason, StringComparison.Ordinal);
+        Assert.Contains(_faults, fault =>
+            fault.Contains("injected failure after closing the modal", StringComparison.Ordinal));
+        Assert.True(result.Faulted);
+    }
+
+    /// <summary>
+    /// A lifecycle the settled read cannot answer is a failed read. It is neither a dismissal nor a
+    /// modal still open, and it never escapes the watch that is waiting on it.
+    /// </summary>
+    [Fact]
+    public void An_unreadable_lifecycle_fails_the_settled_read()
+    {
+        var modal = new UIModal();
+        modal.OpenForTest();
+        UnityEngine.Resources.Objects.Add(modal);
+        var unreadable = false;
+        using var action = new ModalDismissGameAction(
+            () => unreadable ? throw new InvalidOperationException("lifecycle unreadable") : Epoch);
+        Assert.True(action.Submit().Committed);
+        modal.FinishCloseForTest();
+        unreadable = true;
+
+        Assert.False(action.TryObserveDismissed(out var dismissed, out var reason));
+        Assert.False(dismissed);
+        Assert.StartsWith("The modal settled state could not be read.", reason, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Dismiss_reads_the_live_lifecycle_the_caller_cannot_submit()
     {
@@ -284,7 +447,7 @@ public sealed class GameMcpModalTests : IDisposable
     }
 
     [Fact]
-    public void Dismiss_refuses_zero_multiple_grace_and_native_no_op_states()
+    public void Dismiss_refuses_zero_multiple_and_grace_states()
     {
         using var action = new ModalDismissGameAction(() => Epoch);
         Assert.Equal("no_open_modal", action.Submit().Code);
@@ -303,12 +466,6 @@ public sealed class GameMcpModalTests : IDisposable
         grace.OpenForTest(0.2f);
         UnityEngine.Resources.Objects.Add(grace);
         Assert.Equal("modal_close_not_ready", action.Submit().Code);
-
-        grace.FinishCloseForTest();
-        var noOp = new UIModal { SuppressClose = true };
-        noOp.OpenForTest();
-        UnityEngine.Resources.Objects.Add(noOp);
-        Assert.Equal("requested_state_not_reached", action.Submit().Code);
     }
 
     [Fact]

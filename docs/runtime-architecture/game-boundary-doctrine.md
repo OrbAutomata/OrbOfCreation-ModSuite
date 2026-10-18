@@ -250,7 +250,13 @@ stays the cause its log reference names, a throw from the put-back is logged in 
 the answer says so when the put-back does not read back. Zero attempts means no press was made. A
 press is a press of the player's controls: pinning the game's multi-buy multiplier around one is
 scaffolding, guarded by the scope's verified restore and its suite-wide quarantine, and counts no
-attempt. A GameAction not yet on the shell is migration debt.
+attempt. A GameAction not yet on the shell is migration debt, except the Modal pair
+(`ModalOpenGameAction`, `ModalDismissGameAction`): perf-debug UI chrome that stays outside the shell
+because putting a panel up or taking it down is no run-scoped transaction, the suite owns no permit
+family for it, and it has no lifecycle epoch to admit. The pair still touches the game only on the
+main thread, verifies its one outcome through `NativeMutationVerifier`, reads the after-state when
+the game throws after the press, and answers every unverified press as a fault. Its MCP command
+lives in `Plugin.cs`.
 
 Mutation entry points, in strict order of preference:
 
