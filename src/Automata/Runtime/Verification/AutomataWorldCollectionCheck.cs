@@ -250,11 +250,6 @@ internal sealed class AutomataWorldCollectionCheck
         // Sampled counts open requests, not targets: the reader returns zero the moment
         // TargetingManager.IsTargeting() is false, which is nearly every frame there is.
         "targeting" => "samples only while a native targeting request is open, and none was",
-
-        // Sampled counts station instances. Nothing on the pinned build ever creates one:
-        // CraftingStructureSO.CreateInstance has one caller, AddInstance.Create, which has no
-        // callers of its own and appears in no dumped asset.
-        "crafting stations" => "counts stations in play, and this build authors none it can reach",
         _ => string.Empty,
     };
 

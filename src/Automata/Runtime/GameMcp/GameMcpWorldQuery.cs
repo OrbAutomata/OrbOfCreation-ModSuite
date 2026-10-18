@@ -2632,7 +2632,6 @@ internal static class GameMcpWorldQuery
             GameMcpCommandKind.AlchemyLoadout => ProjectAlchemyLoadoutDelta(state, command),
             GameMcpCommandKind.RitualLifecycle => ProjectRitualLifecycleDelta(state, command),
             GameMcpCommandKind.GenericLevel => ProjectGenericLevelDelta(state, command),
-            GameMcpCommandKind.CraftingStation => ProjectCraftingStationDelta(state, command),
             GameMcpCommandKind.Loadout => ProjectLoadoutDelta(state, command),
             GameMcpCommandKind.HarvestLifecycle => ProjectHarvestLifecycleDelta(state, command),
             GameMcpCommandKind.StructureLifecycle => ProjectStructureLifecycleDelta(state, command),
@@ -3186,69 +3185,6 @@ internal static class GameMcpWorldQuery
                 ["before"] = hadGlyph ? priorGlyph.MaximumFreeUsages : (int?)null,
                 ["after"] = glyph.MaximumFreeUsages,
             };
-        }
-        return result.Freeze();
-    }
-
-    private static GameMcpValue ProjectCraftingStationDelta(
-        GameMcpFrameContext state,
-        GameMcpCommand command)
-    {
-        if (state.World is null)
-            return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
-        if (!WorldCraftingStationLookup.TryFind(
-                state.World.Snapshot.CraftingStations, command.TargetId, out var station))
-            return PostStateNotPublished("this Brewing Station");
-        var oldWorld = Before(command);
-        WorldCraftingStation previous = default;
-        var hadBefore = oldWorld is not null && WorldCraftingStationLookup.TryFind(
-            oldWorld.CraftingStations, command.TargetId, out previous);
-        var result = new JObject { ["uuid"] = command.TargetId.ToString("D") };
-        switch (command.Mode)
-        {
-            case "set_ingredient":
-                var oldIngredient = command.Amount == 1
-                    ? previous.FirstIngredientId
-                    : previous.SecondIngredientId;
-                var newIngredient = command.Amount == 1
-                    ? station.FirstIngredientId
-                    : station.SecondIngredientId;
-                result["ingredient"] = new JObject
-                {
-                    ["slot"] = command.Amount,
-                    ["before"] = hadBefore && oldIngredient != Guid.Empty
-                        ? oldIngredient.ToString("D")
-                        : null,
-                    ["after"] = newIngredient != Guid.Empty
-                        ? newIngredient.ToString("D")
-                        : null,
-                };
-                break;
-            case "set_output":
-                result["output"] = new JObject
-                {
-                    ["before"] = hadBefore && previous.OutputId != Guid.Empty
-                        ? previous.OutputId.ToString("D")
-                        : null,
-                    ["after"] = station.OutputId != Guid.Empty
-                        ? station.OutputId.ToString("D")
-                        : null,
-                };
-                break;
-            case "set_level":
-                result["level"] = new JObject
-                {
-                    ["before"] = hadBefore ? previous.Level : (int?)null,
-                    ["after"] = station.Level,
-                };
-                break;
-            default:
-                result["active"] = new JObject
-                {
-                    ["before"] = hadBefore && previous.Active,
-                    ["after"] = station.Active,
-                };
-                break;
         }
         return result.Freeze();
     }
@@ -4454,7 +4390,6 @@ internal static class GameMcpWorldQuery
             "TimeRuneSO" => "time-runes",
             _ => string.Empty,
         },
-        GameMcpCommandKind.CraftingStation => "crafting-stations",
         GameMcpCommandKind.Loadout => command.DerivedNativeType == "PlayerLoadout"
             ? "player-loadouts"
             : "snapshot-loadouts",

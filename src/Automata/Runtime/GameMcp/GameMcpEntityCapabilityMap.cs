@@ -176,8 +176,6 @@ internal static class GameMcpEntityCapabilityMap
                     "rituals", capability, out reason),
             GameMcpCommandKind.GenericLevel =>
                 TryResolveGenericLevelType(world, target, out _, out reason),
-            GameMcpCommandKind.CraftingStation =>
-                CraftingStationTarget(world, target, out reason),
             GameMcpCommandKind.Loadout =>
                 TryResolveLoadoutType(world, target, out _, out reason),
             GameMcpCommandKind.HarvestLifecycle =>
@@ -188,26 +186,6 @@ internal static class GameMcpEntityCapabilityMap
                     "attributes", capability, out reason),
             _ => Unsupported(out reason),
         };
-    }
-
-    private static bool CraftingStationTarget(
-        GameWorldState world,
-        Guid target,
-        out string reason)
-    {
-        if (!Supports("crafting-stations", GameMcpCommandKind.CraftingStation))
-        {
-            reason = "Brewing stations are not something these tools can change.";
-            return false;
-        }
-        if (WorldCraftingStationLookup.TryFind(world.CraftingStations, target, out _))
-        {
-            reason = string.Empty;
-            return true;
-        }
-        reason = EntityIdentityFormatter.PlayerName(target, world.EntityIdentities) +
-            " is not one of your brewing stations.";
-        return false;
     }
 
     internal static bool TryResolveLoadoutType(

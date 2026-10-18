@@ -39,7 +39,6 @@ Capabilities:
 - `AlchemyLoadout` — adds and removes alchemy recipes in the active loadout's alchemy slots.
 - `Challenge` — selects, queues, abandons, and rerolls challenges.
 - `CraftingLifecycle` — automates a crafting recipe or cancels a craft of it.
-- `CraftingStation` — sets a Brewing Station's ingredient, output, and level, and starts or stops brewing.
 - `DiscoveryTree` — opens a Discovery Tree offer, then selects, confirms, or rerolls the offered discoveries.
 - `EquipmentLoadout` — equips and unequips equipment in the active loadout.
 - `GenericLevel` — buys levels for a native level target.

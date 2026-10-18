@@ -227,7 +227,6 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldCraftingDecision> CraftingDecisions { get; } = new();
     internal WorldRelationBuffer<WorldCraftingDecisionCost> CraftingDecisionCosts { get; } = new();
     internal WorldRelationBuffer<WorldCraftingQueueEntry> CraftingQueueEntries { get; } = new();
-    internal WorldSampleBuffer<WorldCraftingStation, WorldCraftingStation> CraftingStations { get; } = new();
     internal WorldSampleBuffer<WorldPlayerLoadout, WorldPlayerLoadout> PlayerLoadouts { get; } = new();
     internal WorldRelationBuffer<WorldLoadoutEntry> PlayerLoadoutEntries { get; } = new();
     internal WorldSampleBuffer<WorldSnapshotLoadout, WorldSnapshotLoadout> SnapshotLoadouts { get; } = new();
@@ -588,8 +587,6 @@ internal static class GameWorldFrameDeriver
                     var queue = left.QueueId.CompareTo(right.QueueId);
                     return queue != 0 ? queue : left.Slot.CompareTo(right.Slot);
                 }),
-            CraftingStations = frame.CraftingStations.Build(
-                WorldIdentityDeriver<WorldCraftingStation>.Shared),
             PlayerLoadouts = frame.PlayerLoadouts.Build(
                 WorldIdentityDeriver<WorldPlayerLoadout>.Shared),
             PlayerLoadoutEntries = WorldLoadoutDeriver.BuildEntries(frame.PlayerLoadoutEntries),

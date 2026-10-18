@@ -651,14 +651,6 @@ public sealed class Plugin : BaseUnityPlugin
                         readOwnershipFailure: () =>
                             _automataActionFamilyOwnership!
                                 .GenericLevelOwnershipFailure)
-                    , createCraftingStations: () => new CraftingStationGameAction(
-                        readAutoHarvestLifecycleEpoch,
-                        tryCaptureMutationPermit: () =>
-                            _automataActionFamilyOwnership!
-                                .TryCaptureScribeMutationPermit(),
-                        readOwnershipFailure: () =>
-                            _automataActionFamilyOwnership!
-                                .ScribeOwnershipFailure)
                     , createCraftingInstances: () => new CraftingInstanceLifecycleGameAction(
                         readAutoHarvestLifecycleEpoch,
                         tryCaptureMutationPermit: () =>
@@ -2570,12 +2562,6 @@ public sealed class Plugin : BaseUnityPlugin
                          out nativeType, out var levelReason))
                 preparationFailure = GameMcpCommandResult.Rejected(
                     "level_target_unavailable", levelReason);
-        }
-        else if (kind == GameMcpCommandKind.CraftingStation)
-        {
-            nativeType = "CraftingStructure";
-            if (request.Mode == "set_ingredient") amount = request.SlotIndex;
-            else if (request.Mode == "set_level") amount = request.Amount;
         }
         else if (kind == GameMcpCommandKind.Loadout)
         {
