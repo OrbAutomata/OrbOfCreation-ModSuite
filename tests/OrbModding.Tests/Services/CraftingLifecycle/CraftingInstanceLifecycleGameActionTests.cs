@@ -156,6 +156,21 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
     }
 
     [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var (recipe, page) = Surface();
+        using var boundary = Boundary(recipe,
+            epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, recipe, CraftingInstanceLifecycleActionKind.Automate);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(CraftingInstanceLifecycleActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Null(page.craftingAutomationInstances.GetInstance(recipe));
+    }
+
+    [Fact]
     public void Unity_thread_is_refused_before_native_state()
     {
         var (recipe, _) = Surface();
@@ -233,14 +248,16 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
 
     private CraftingInstanceLifecycleGameAction Boundary(
         CraftingRecipeSO? recipe,
-        Func<string, bool>? includeContract = null)
+        Func<string, bool>? includeContract = null,
+        Func<long>? epoch = null)
     {
         if (recipe is not null) _registry.Add(recipe.GetGuid(), recipe);
-        var resolver = new TypedRegistryResolver(() => Epoch,
+        var readEpoch = epoch ?? (() => Epoch);
+        var resolver = new TypedRegistryResolver(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new CraftingInstanceLifecycleGameAction(
-            () => Epoch,
+            readEpoch,
             static () => true,
             static () => "Crafting ownership was revoked.",
             includeContract: includeContract,

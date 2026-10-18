@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Tests.Services.TestSupport;
@@ -7,6 +8,7 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.EquipmentLoadout;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class EquipmentLoadoutGameActionTests : IDisposable
 {
     private const long Epoch = 83;
@@ -23,6 +25,8 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
     {
         EquipmentManager.instance = new EquipmentManager();
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
+        GameActionFaultLog.ConfigureLog(null);
+        NativeMultiBuyScope.ResetQuarantineForTests();
     }
 
     [Fact]
@@ -163,6 +167,61 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Equal(0, EquipmentManager.instance.equippedEquipment.GetStacks(target));
+    }
+
+    [Fact]
+    public void A_landed_equip_whose_multi_buy_restore_throws_commits_and_quarantines_the_strip()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var target = Equipment();
+        Register(target);
+        GlobalVariables.MultiBuy.SetFailure = message => new NullReferenceException(message);
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 2;
+        using var boundary = Boundary();
+
+        var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip, amount: 1);
+        var next = Submit(boundary, target, EquipmentLoadoutActionKind.Equip, amount: 1);
+
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+        Assert.Equal(1, EquipmentManager.instance.equippedEquipment.GetStacks(target));
+        var line = Assert.Single(logged);
+        Assert.Matches("MCP-[0-9A-F]{8}", line);
+        Assert.Contains(typeof(NullReferenceException).FullName!, line);
+        Assert.True(NativeMultiBuyScope.IsMutationQuarantined);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.MultiBuyUnavailable, next.Outcome.Code);
+        Assert.Equal(1, EquipmentManager.instance.EquipCalls);
+    }
+
+    [Fact]
+    public void An_equip_that_did_not_land_lets_an_unexpected_throw_escape_with_the_strip_restored()
+    {
+        var target = Equipment();
+        Register(target);
+        EquipmentManager.instance.ThrowBeforeMutation = new NullReferenceException("injected defect before equip");
+        using var boundary = Boundary();
+
+        Assert.Throws<NullReferenceException>(() =>
+            Submit(boundary, target, EquipmentLoadoutActionKind.Equip, amount: 1));
+
+        Assert.Equal(0, EquipmentManager.instance.equippedEquipment.GetStacks(target));
+        Assert.Equal(2, GlobalVariables.MultiBuy.Value);
+        Assert.False(NativeMultiBuyScope.IsMutationQuarantined);
+    }
+
+    [Fact]
+    public void An_unreadable_lifecycle_epoch_faults_before_the_native_call()
+    {
+        var target = Equipment();
+        Register(target);
+        using var boundary = Boundary(epoch: () => throw new InvalidOperationException("lifecycle unavailable"));
+
+        var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
+
+        Assert.True(result.Outcome.IsFault);
+        Assert.Equal(EquipmentLoadoutActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, EquipmentManager.instance.EquipCalls);
     }
 
     [Fact]
