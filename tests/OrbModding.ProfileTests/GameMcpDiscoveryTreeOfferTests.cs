@@ -1351,7 +1351,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     new ServiceActionOutcomeWindowRegistry()),
                 new IAutomataServiceCycleFeature[] { feature },
                 new ManualLogSource(),
-                composeGameActions: actions => actions.Add(new DiscoveryTreeOfferGameAction(
+                composeGameActions: actions => actions.Add("game_discover", new DiscoveryTreeOfferGameAction(
                     () => lifecycle,
                     () => true,
                     () => string.Empty)));
@@ -1431,7 +1431,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     new ServiceActionOutcomeWindowRegistry()),
                 new IAutomataServiceCycleFeature[] { feature },
                 new ManualLogSource(),
-                composeGameActions: actions => actions.Add(new DiscoveryTreeOfferGameAction(
+                composeGameActions: actions => actions.Add("game_discover", new DiscoveryTreeOfferGameAction(
                     () => lifecycle,
                     () => true,
                     () => string.Empty)));

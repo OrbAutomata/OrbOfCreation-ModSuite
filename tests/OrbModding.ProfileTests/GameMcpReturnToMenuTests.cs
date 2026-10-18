@@ -124,7 +124,7 @@ public sealed class GameMcpReturnToMenuTests
                 new ServiceActionOutcomeWindowRegistry()),
             new IAutomataServiceCycleFeature[] { feature },
             new ManualLogSource(),
-            composeGameActions: actions => actions.Add(new ReturnToMenuGameAction(
+            composeGameActions: actions => actions.Add("game_return_to_menu", new ReturnToMenuGameAction(
                 () => lifecycle,
                 () => true,
                 () => string.Empty,

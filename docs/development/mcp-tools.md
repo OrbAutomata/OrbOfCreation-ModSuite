@@ -2883,10 +2883,14 @@ never authorizes a gameplay or save mutation.
 lines are the leading `available` verdict, the build and its twelve-hex-character DLL fingerprint,
 scene, lifecycle state with `lifecycleTransitions` and the save's `worldResets`, world publication,
 and emergency STOP. Everything else
-appears only when it is a problem: `runtime:`, `native contracts:`, `game_craft:` and `game_modal:`
-each cost a line exactly when they read `unavailable`, followed by the reason that names why —
-`game_modal:` answers for both halves of the verb, and its reason names whichever failed to bind —
-`agent settings:` costs a line exactly while the last load could not normalize the settings every
+appears only when it is a problem: `runtime:` and `native contracts:` each cost a line exactly when
+they read `unavailable`, and so does each verb whose GameAction binding set failed to resolve, named
+as its GameAction is registered (`game_research: unavailable`), each followed by the reason that
+names why — a verb two GameActions answer for, such as `game_modal`'s open and dismiss halves, is
+one line whose reason names whichever failed to bind first — a feature whose change landed although
+the game threw costs one line naming the verifier's feature word and its latest suite-log reference
+(`Research: committed, but the game threw; reference MCP-1A2B3C4D is in the suite log`), while the
+press itself answered a plain commit — `agent settings:` costs a line exactly while the last load could not normalize the settings every
 documented verb assumes, `<feature> reason:` costs a line for each feature the suite switched off itself
 (`invariant_violation`) and carries the sentence that stand-down logged — for Auto Buy, the
 candidate, the game's refusal, and the diagnostic bundle — and for each feature held
@@ -2906,9 +2910,12 @@ reports no MCP queue internals.
 Runtime availability is a fact about the session, not about the scene, and the report says so.
 The ServiceCycle runtime is created once, on the first frame the host admits it, and released only
 when the plugin is destroyed, so the same scene reports `runtime: unavailable` before that frame and
-stays silent about it ever after; the reason names the session, never a scene property. The same
-holds for the `game_craft` and `game_modal` lines, which state whether this build failed to resolve
-those bindings at all. Whether a game exists is the `lifecycle:` line — the same state and transition count
+stays silent about it ever after; the reason names the session, never a scene property. Its line
+speaks for every verb the runtime answers, so while it reads `unavailable` the only verb line is
+`game_modal`'s, which lives without the runtime. The verb lines state whether this build failed to
+resolve a verb's bindings at all. A committed-after-throw line stays for the session: the entry its
+reference names stays in the suite log, and the next such commit for that feature replaces it.
+Whether a game exists is the `lifecycle:` line — the same state and transition count
 `game_probe` reports — and whether a world is published is the `world:` line: the live publication's
 generation, or `not published`.
 

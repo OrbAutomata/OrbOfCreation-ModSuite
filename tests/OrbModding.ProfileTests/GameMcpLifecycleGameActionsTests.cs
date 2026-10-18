@@ -65,7 +65,67 @@ public sealed class GameMcpLifecycleGameActionsTests
 
         Assert.Equal("refused", consumable.Status);
         Assert.Equal("item_unavailable", consumable.Code);
-        Assert.True(facts.PlayerCraftingAvailable, facts.PlayerCraftingUnavailableReason);
+        Assert.Empty(facts.UnavailableGameActions);
+    }
+
+    [Fact]
+    public void Suite_health_names_each_verb_whose_bindings_failed_and_no_healthy_one()
+    {
+        var lifecycle = 7L;
+        var missing = ResearchNativeBindings.ContractIds[0];
+        using var runtime = AutomataServiceCycleComposition.Create(
+            Configuration(),
+            new ConfigGeneration(1),
+            new AutomataServiceCycleHostDependencies(
+                () => 1,
+                () => lifecycle,
+                new ServiceActionOutcomeWindowRegistry()),
+            PlayerFeatures(lifecycle),
+            new ManualLogSource(),
+            actions => actions.Add("game_research", new ResearchGameAction(
+                () => lifecycle, () => true, () => string.Empty,
+                includeContract: id => id != missing)));
+        var research = runtime.CaptureFrameFacts(includeServices: false);
+
+        var health = Plugin.ProjectGameMcpHealthText(Context(research, modalFailure: string.Empty));
+
+        Assert.Contains("\ngame_research: unavailable\n", health, StringComparison.Ordinal);
+        Assert.Matches(
+            "(?m)^game_research reason: .*" + System.Text.RegularExpressions.Regex.Escape(missing),
+            health);
+        Assert.DoesNotContain("game_craft", health, StringComparison.Ordinal);
+        Assert.DoesNotContain("game_consumable", health, StringComparison.Ordinal);
+        Assert.DoesNotContain("game_modal", health, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_panel_verb_reads_through_the_same_lines_as_the_runtime_verbs()
+    {
+        var lifecycle = 7L;
+        var missing = ResearchNativeBindings.ContractIds[0];
+        using var runtime = AutomataServiceCycleComposition.Create(
+            Configuration(),
+            new ConfigGeneration(1),
+            new AutomataServiceCycleHostDependencies(
+                () => 1,
+                () => lifecycle,
+                new ServiceActionOutcomeWindowRegistry()),
+            new IAutomataServiceCycleFeature[] { HarvestFeature(lifecycle) },
+            new ManualLogSource(),
+            actions => actions.Add("game_research", new ResearchGameAction(
+                () => lifecycle, () => true, () => string.Empty,
+                includeContract: id => id != missing)));
+        var research = runtime.CaptureFrameFacts(includeServices: false);
+
+        var health = Plugin.ProjectGameMcpHealthText(
+            Context(research, modalFailure: "the panel controls did not bind"));
+
+        Assert.Contains(
+            "\ngame_research: unavailable\ngame_modal: unavailable\n", health, StringComparison.Ordinal);
+        Assert.Matches(
+            "(?m)^game_research reason: .*\n" +
+            "game_modal reason: the panel controls did not bind$",
+            health);
     }
 
     [Theory]
@@ -90,10 +150,10 @@ public sealed class GameMcpLifecycleGameActionsTests
             actions =>
             {
                 if (consumable)
-                    actions.Add(new AutoItemsConsumablePlayerGameAction(
+                    actions.Add("game_consumable", new AutoItemsConsumablePlayerGameAction(
                         resolver, () => lifecycle, () => true, () => string.Empty));
                 else
-                    actions.Add(new AutoScribeOneShotCraftPlayerGameAction(
+                    actions.Add("game_craft", new AutoScribeOneShotCraftPlayerGameAction(
                         resolver, () => lifecycle, () => true, () => string.Empty));
             });
 
@@ -104,6 +164,21 @@ public sealed class GameMcpLifecycleGameActionsTests
                 : "A second AutoScribeOneShotCraftPlayerGameAction was composed",
             StringComparison.Ordinal));
     }
+
+    private static GameMcpFrameContext Context(AutomataRuntimeFrameFacts runtime, string modalFailure) =>
+        new(
+            runtime.World,
+            runtime,
+            runtime.Configuration,
+            lifecycleGeneration: 7,
+            sceneName: "Main",
+            nativeContractsAvailable: true,
+            Array.Empty<FeatureStatusSnapshot>(),
+            OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status.DecisionJournalStatus.Unavailable,
+            traceWriterRevision: 0,
+            Array.Empty<GameMcpWritableSettingDescriptor>(),
+            modalDismissAvailable: modalFailure.Length == 0,
+            modalDismissUnavailableReason: modalFailure);
 
     private static IAutomataServiceCycleFeature[] PlayerFeatures(long lifecycle)
     {

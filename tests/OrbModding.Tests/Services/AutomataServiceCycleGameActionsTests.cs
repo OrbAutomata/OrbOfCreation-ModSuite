@@ -22,9 +22,9 @@ public sealed class AutomataServiceCycleGameActionsTests
         var log = new List<string>();
         var runtime = Create(actions =>
         {
-            actions.Add(new RecordingAction<First>(log));
-            actions.Add(new RecordingAction<Second>(log));
-            actions.Add(new RecordingAction<Third>(log));
+            actions.Add("game_first", new RecordingAction<First>(log));
+            actions.Add("game_second", new RecordingAction<Second>(log));
+            actions.Add("game_third", new RecordingAction<Third>(log));
         });
         log.Clear();
 
@@ -57,8 +57,8 @@ public sealed class AutomataServiceCycleGameActionsTests
             startup,
             actions =>
             {
-                actions.Add(new RecordingAction<First>(log));
-                actions.Add(new RecordingAction<First>(log));
+                actions.Add("game_first", new RecordingAction<First>(log));
+                actions.Add("game_first", new RecordingAction<First>(log));
             });
 
         Assert.Null(runtime);
@@ -75,8 +75,8 @@ public sealed class AutomataServiceCycleGameActionsTests
 
         Assert.Throws<InvalidOperationException>(() => Create(actions =>
         {
-            actions.Add(new RecordingAction<First>(log));
-            actions.Add(new RecordingAction<Second>(log));
+            actions.Add("game_first", new RecordingAction<First>(log));
+            actions.Add("game_second", new RecordingAction<Second>(log));
             throw new InvalidOperationException("the third factory failed");
         }));
 
@@ -84,6 +84,21 @@ public sealed class AutomataServiceCycleGameActionsTests
         {
             "bind First", "bind Second", "invalidate Second", "invalidate First",
         }, log);
+    }
+
+    [Fact]
+    public void A_verb_two_actions_answer_for_reports_once_with_the_first_failure()
+    {
+        using var actions = new LifecycleGameActions();
+        actions.Add("game_first", new RecordingAction<First>(new List<string>()));
+        actions.Add("game_shared", new RecordingAction<Second>(new List<string>(), "second did not bind"));
+        actions.Add("game_shared", new RecordingAction<Third>(new List<string>(), "third did not bind"));
+
+        var unavailable = actions.Unavailable();
+
+        var row = Assert.Single(unavailable);
+        Assert.Equal("game_shared", row.Verb);
+        Assert.Equal("second did not bind", row.Reason);
     }
 
     private AutomataServiceCycleRuntime Create(Action<LifecycleGameActions> compose) =>
@@ -113,15 +128,15 @@ public sealed class AutomataServiceCycleGameActionsTests
 
         private readonly List<string> _log;
 
-        internal RecordingAction(List<string> log)
+        internal RecordingAction(List<string> log, string bindingFailure = "")
             : base(typeof(TName).Name, "Test", Codes, static () => 0, static () => true,
                 static () => string.Empty,
                 (out object? bindings, out string reason) =>
                 {
                     log.Add("bind " + typeof(TName).Name);
-                    bindings = new object();
-                    reason = string.Empty;
-                    return true;
+                    bindings = bindingFailure.Length == 0 ? new object() : null;
+                    reason = bindingFailure;
+                    return bindingFailure.Length == 0;
                 }) =>
             _log = log;
 

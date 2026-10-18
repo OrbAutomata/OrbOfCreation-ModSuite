@@ -25,13 +25,17 @@ internal static class GameActionFaultLog
 
     /// <summary>
     /// Names where the suite writes. <see langword="null"/> says this host has nowhere to write,
-    /// which is the state every host starts in and the one a test puts back when it is done.
+    /// which is the state every host starts in and the one a test puts back when it is done. The
+    /// committed-after-throw references name entries in the previous log, so they go.
     /// </summary>
     internal static void ConfigureLog(Action<string>? log)
     {
         lock (Sync)
         {
             _log = log;
+#if SERVICE_CYCLE_PROFILE
+            CommittedAfterThrow.Clear();
+#endif
         }
     }
 
@@ -42,9 +46,15 @@ internal static class GameActionFaultLog
     /// <paramref name="exception"/>, written into the same entry after the cause.
     /// </summary>
     internal static string Record(Exception? exception, string screen, Exception? putBack = null) =>
+        Sentence(RecordReference(exception, screen, putBack));
+
+    /// <summary>
+    /// The same, answering the bare reference, such as <c>MCP-1A2B3C4D</c>, for a caller that keeps it.
+    /// </summary>
+    internal static string RecordReference(Exception? exception, string screen, Exception? putBack = null) =>
         exception is null
             ? string.Empty
-            : RecordDetail(
+            : Write(
                 putBack is null
                     ? exception.ToString()
                     : exception + Environment.NewLine + "Putting the press back then threw: " + putBack,
@@ -54,7 +64,13 @@ internal static class GameActionFaultLog
     /// The same, for a maintainer's fact that never was an exception, such as which member of which
     /// type would not bind.
     /// </summary>
-    internal static string RecordDetail(string detail, string screen)
+    internal static string RecordDetail(string detail, string screen) => Sentence(Write(detail, screen));
+
+    /// <summary>The sentence fragment naming <paramref name="reference"/>, or empty for none.</summary>
+    internal static string Sentence(string reference) =>
+        reference.Length == 0 ? string.Empty : " Reference " + reference + " is in the suite log.";
+
+    private static string Write(string detail, string screen)
     {
         Action<string>? log;
         lock (Sync)
@@ -64,6 +80,6 @@ internal static class GameActionFaultLog
         if (detail.Length == 0 || log is null) return string.Empty;
         var reference = "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
         log("Game action fault " + reference + " on " + screen + ": " + detail);
-        return " Reference " + reference + " is in the suite log.";
+        return reference;
     }
 }

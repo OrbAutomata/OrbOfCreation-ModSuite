@@ -581,7 +581,7 @@ public sealed class Plugin : BaseUnityPlugin
 #if SERVICE_CYCLE_PROFILE
                     , composeGameActions: actions =>
                     {
-                        actions.Add(new DiscoveryTreeOfferGameAction(
+                        actions.Add("game_discover", new DiscoveryTreeOfferGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -589,7 +589,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .DiscoveryTreeOfferOwnershipFailure));
-                        actions.Add(new SpellWorkbenchGameAction(
+                        actions.Add("game_spell_loadout", new SpellWorkbenchGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -597,7 +597,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .SpellWorkbenchOwnershipFailure));
-                        actions.Add(new SpellCompositionGameAction(
+                        actions.Add("game_casting_dial", new SpellCompositionGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -605,7 +605,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .SpellCompositionOwnershipFailure));
-                        actions.Add(new SpellLoadoutGameAction(
+                        actions.Add("game_spell_loadout", new SpellLoadoutGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -615,7 +615,7 @@ public sealed class Plugin : BaseUnityPlugin
                                     .SpellLoadoutOwnershipFailure,
                             readAutoCastOn: () => AutoCastConfigurationPolicy.IsOperational(
                                 _configurationStore!.Current)));
-                        actions.Add(new TargetingGameAction(
+                        actions.Add("game_targeting", new TargetingGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -623,7 +623,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .TargetingOwnershipFailure));
-                        var equipment = actions.Add(new EquipmentLoadoutGameAction(
+                        var equipment = actions.Add("game_equipment", new EquipmentLoadoutGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -631,7 +631,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .EquipmentLoadoutOwnershipFailure));
-                        var alchemy = actions.Add(new AlchemyLoadoutGameAction(
+                        var alchemy = actions.Add("game_alchemy", new AlchemyLoadoutGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -639,7 +639,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .AlchemyLoadoutOwnershipFailure));
-                        actions.Add(new RitualLifecycleGameAction(
+                        actions.Add("game_ritual", new RitualLifecycleGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -647,7 +647,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .RitualLifecycleOwnershipFailure));
-                        actions.Add(new GenericLevelGameAction(
+                        actions.Add("game_level_up", new GenericLevelGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -655,7 +655,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .GenericLevelOwnershipFailure));
-                        actions.Add(new CraftingInstanceLifecycleGameAction(
+                        actions.Add("game_craft", new CraftingInstanceLifecycleGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -663,7 +663,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .ScribeOwnershipFailure));
-                        actions.Add(new LoadoutGameAction(
+                        actions.Add("game_loadout", new LoadoutGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -673,7 +673,7 @@ public sealed class Plugin : BaseUnityPlugin
                                     .PlayerLoadoutOwnershipFailure,
                             equipment,
                             alchemy));
-                        actions.Add(new HarvestLifecycleGameAction(
+                        actions.Add("game_agromancy", new HarvestLifecycleGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -681,7 +681,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .HarvestLifecycleOwnershipFailure));
-                        actions.Add(new PlotLifecycleGameAction(
+                        actions.Add("game_agromancy", new PlotLifecycleGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -689,7 +689,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .HarvestOwnershipFailure));
-                        actions.Add(new StructureLifecycleGameAction(
+                        actions.Add("game_structure", new StructureLifecycleGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -697,7 +697,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .StructureLifecycleOwnershipFailure));
-                        actions.Add(new ReturnToMenuGameAction(
+                        actions.Add("game_return_to_menu", new ReturnToMenuGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -709,7 +709,7 @@ public sealed class Plugin : BaseUnityPlugin
                             findLoadedObjects: type => Resources.FindObjectsOfTypeAll(type)
                                 .Cast<object>()
                                 .ToArray()));
-                        actions.Add(new ChallengeGameAction(
+                        actions.Add("time_challenge", new ChallengeGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -717,7 +717,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .ChallengeOwnershipFailure));
-                        actions.Add(new PrestigeGameAction(
+                        actions.Add("time_prestige", new PrestigeGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -725,7 +725,7 @@ public sealed class Plugin : BaseUnityPlugin
                             readOwnershipFailure: () =>
                                 _automataActionFamilyOwnership!
                                     .PrestigeOwnershipFailure));
-                        actions.Add(new ResearchGameAction(
+                        actions.Add("game_research", new ResearchGameAction(
                             readAutoHarvestLifecycleEpoch,
                             tryCaptureMutationPermit: () =>
                                 _automataActionFamilyOwnership!
@@ -2028,27 +2028,26 @@ public sealed class Plugin : BaseUnityPlugin
         // The page leads with "available", which is the standing answer for everything unlisted.
         if (!context.RuntimeAvailable) result.Append("runtime: unavailable").Append('\n');
         if (!context.NativeContractsAvailable) result.Append("native contracts: unavailable").Append('\n');
-        if (context.Runtime is not
-            { PlayerCraftingAvailable: true, CraftingInstancesAvailable: true })
-            result.Append("game_craft: unavailable").Append('\n');
-        if (!context.ModalDismissAvailable) result.Append("game_modal: unavailable").Append('\n');
+        var unavailableVerbs = (context.Runtime?.UnavailableGameActions ??
+            Array.Empty<UnavailableGameAction>()).ToList();
+        if (!context.ModalDismissAvailable)
+            unavailableVerbs.Add(
+                new UnavailableGameAction("game_modal", context.ModalDismissUnavailableReason));
+        foreach (var verb in unavailableVerbs)
+            result.Append(verb.Verb).Append(": unavailable").Append('\n');
         if (!context.RuntimeAvailable && context.RuntimeNotAvailableReason.Length > 0)
             result.Append("runtime reason: ").Append(
                 GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason)).Append('\n');
-        else if (context.Runtime is { } runtime)
+        foreach (var verb in unavailableVerbs)
         {
-            var craftingReason = !runtime.PlayerCraftingAvailable
-                ? runtime.PlayerCraftingUnavailableReason
-                : !runtime.CraftingInstancesAvailable
-                    ? runtime.CraftingInstancesUnavailableReason
-                    : string.Empty;
-            if (craftingReason.Length > 0)
-                result.Append("game_craft reason: ").Append(
-                    GameMcpTextFormatter.Plain(craftingReason)).Append('\n');
+            if (verb.Reason.Length == 0) continue;
+            result.Append(verb.Verb).Append(" reason: ").Append(
+                GameMcpTextFormatter.Plain(verb.Reason)).Append('\n');
         }
-        if (!context.ModalDismissAvailable && context.ModalDismissUnavailableReason.Length > 0)
-            result.Append("game_modal reason: ").Append(
-                GameMcpTextFormatter.Plain(context.ModalDismissUnavailableReason)).Append('\n');
+        foreach (var committed in CommittedAfterThrow.Latest)
+            result.Append(GameMcpTextFormatter.Plain(committed.Feature))
+                .Append(": committed, but the game threw; reference ").Append(committed.Reference)
+                .Append(" is in the suite log").Append('\n');
         // The load normalizes three settings the documented verbs assume, and a caller never asked
         // for them — so when one did not land, the develop queue and the spell cancel it silently
         // costs are refusals nothing else on the wire can explain.

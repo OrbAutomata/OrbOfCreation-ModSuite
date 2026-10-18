@@ -131,8 +131,9 @@ public static class NativeMutationVerifier
     /// decided and, when the call was attempted and did not verify, <paramref name="quarantine"/>
     /// runs. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
     /// suite defect stays loud and the caller's quarantine still holds for the next submission. A
-    /// change that landed before such a throw commits instead, and the throw is logged with a
-    /// reference.
+    /// change that landed before such a throw commits instead, the throw is logged with a
+    /// reference, and in a perf-debug build that reference becomes the feature's latest on
+    /// <c>suite_health</c>.
     /// <para>
     /// <paramref name="putBackOnThrow"/> runs only when <paramref name="execute"/> threw, before the
     /// after-state is read. The call's exception stays the cause; what the put-back throws is carried
@@ -245,6 +246,11 @@ public static class NativeMutationVerifier
             }
             if (holds)
             {
+                var reference = GameActionFaultLog.RecordReference(
+                    executionException, feature + " for " + identity, putBackException);
+#if SERVICE_CYCLE_PROFILE
+                CommittedAfterThrow.Record(feature, reference);
+#endif
                 return Evidence<TState>(
                     feature,
                     identity,
@@ -256,8 +262,7 @@ public static class NativeMutationVerifier
                     afterException,
                     "postcondition verified after the game threw " +
                     ExceptionDetail.Describe(executionException) + "." +
-                    GameActionFaultLog.Record(executionException, feature + " for " + identity,
-                        putBackException),
+                    GameActionFaultLog.Sentence(reference),
                     executionException,
                     putBackException);
             }

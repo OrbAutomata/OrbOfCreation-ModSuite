@@ -120,18 +120,11 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
     public AutomataRuntimeFrameFacts CaptureFrameFacts(bool includeServices)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(AutomataServiceCycleRuntime));
-        var playerCrafting = _gameActions.Find<AutoScribeOneShotCraftPlayerGameAction>();
-        var craftingInstances = _gameActions.Find<CraftingInstanceLifecycleGameAction>();
         return AutomataRuntimeFrameFacts.Capture(
             _host,
             _configurationPublication,
             includeServices,
-            playerCrafting?.BindingsAvailable == true,
-            playerCrafting?.BindingFailure ??
-                "the player crafting action boundary was not composed",
-            craftingInstances?.BindingsAvailable == true,
-            craftingInstances?.BindingFailure ??
-                "the crafting-instance action boundary was not composed");
+            _gameActions.Unavailable());
     }
 
     public GameMcpCommandResult ExecuteGameMcp(GameMcpCommand command)

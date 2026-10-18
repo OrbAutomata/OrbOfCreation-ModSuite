@@ -735,7 +735,9 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Matches(
             @"(?m)^features configuration_disabled: auto_buy; operational: mentor$",
             compact);
-        Assert.Contains("game_craft: unavailable", compact, StringComparison.Ordinal);
+        // With no runtime, its one line speaks for every verb the runtime answers.
+        Assert.Contains("runtime: unavailable", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("game_craft", compact, StringComparison.Ordinal);
         Assert.Contains("game_modal: unavailable", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("Orb Mentor", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("mailbox", compact, StringComparison.Ordinal);
