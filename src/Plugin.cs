@@ -429,16 +429,19 @@ public sealed class Plugin : BaseUnityPlugin
     {
         var featureStatuses = _featureStatuses!;
 
-        _automataActionFamilyOwnership = new AutomataActionFamilyOwnership();
+        var ownership = _automataActionFamilyOwnership = new AutomataActionFamilyOwnership();
+        var harvestFamily = ownership.Family(AutomataActionFamilyOwnership.Harvest);
+        var itemsFamily = ownership.Family(AutomataActionFamilyOwnership.Items);
+        var scribeFamily = ownership.Family(AutomataActionFamilyOwnership.Scribe);
         _mentorActionFamilyOwnership = new MentorActionFamilyOwnership();
         Log.LogAutomataWarning(
             "Action-family ownership is best-effort: exact known conflicts and cooperative suite owners are isolated, but unknown plugins that invoke native actions without registering cannot be proven absent and are not disabled.");
         _automataActionFamilyOwnership.RefreshLoadedPluginInventory(
             Chainloader.PluginInfos.Count,
             guid => Chainloader.PluginInfos.ContainsKey(guid));
-        Func<long> readAutoHarvestLifecycleEpoch =
+        Func<long> readLifecycleEpoch =
             () => GameLifecycleMonitor.Shared.Current.Generation;
-        var autoHarvestRegistryResolver = TypedRegistryResolver.Shared;
+        var registryResolver = TypedRegistryResolver.Shared;
         _serviceCycleActivation = new AutomataServiceCycleActivation(
             IsLifecycleReady,
             (configuration, configurationGeneration) =>
@@ -453,17 +456,13 @@ public sealed class Plugin : BaseUnityPlugin
                     scribeCatalog.TryGetProfile(_auditedBaselineId, out var scribeProfile)
                         ? new AutoScribeServiceCycleFeature(
                             new AutoScribeFeatureDependencies(
-                                autoHarvestRegistryResolver,
+                                registryResolver,
                                 scribeProfile,
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 ownsActionFamily: () =>
                                     _automataActionFamilyOwnership!.OwnsScribe,
-                                tryCaptureMutationPermit: () =>
-                                    _automataActionFamilyOwnership!
-                                        .TryCaptureScribeMutationPermit(),
-                                readOwnershipFailure: () =>
-                                    _automataActionFamilyOwnership!
-                                        .ScribeOwnershipFailure,
+                                tryCaptureMutationPermit: scribeFamily.TryCapture,
+                                readOwnershipFailure: scribeFamily.Failure,
                                 featureStatus: featureStatuses.AutoScribe))
                         : new AutoScribeUnavailableServiceCycleFeature(
                             featureStatuses.AutoScribe);
@@ -472,7 +471,7 @@ public sealed class Plugin : BaseUnityPlugin
                     configurationGeneration,
                     new AutomataServiceCycleHostDependencies(
                             readFrameIdentity,
-                            readAutoHarvestLifecycleEpoch,
+                            readLifecycleEpoch,
                             ServiceActionOutcomeWindowRegistry.Shared,
                             pumpTiming: ServiceCyclePumpTimingRegistry.Shared,
                             observability: new AutomataServiceCycleObservabilityOptions(
@@ -492,7 +491,7 @@ public sealed class Plugin : BaseUnityPlugin
                         // reading the empty snapshot for no reason.
                         new AutomataWorldCollectionFeature(
                             readFrameIdentity,
-                            readAutoHarvestLifecycleEpoch,
+                            readLifecycleEpoch,
                             _worldDemand,
                             static report =>
                             {
@@ -504,29 +503,24 @@ public sealed class Plugin : BaseUnityPlugin
                                 GameWorldCollector.ForSession(_mentorMasteryJournal)),
                         new AutoItemsServiceCycleFeature(
                             new AutoItemsFeatureDependencies(
-                                autoHarvestRegistryResolver,
-                                readAutoHarvestLifecycleEpoch,
+                                registryResolver,
+                                readLifecycleEpoch,
                                 ownsActionFamily: () =>
                                     _automataActionFamilyOwnership!.OwnsItems,
-                                tryCaptureMutationPermit: () =>
-                                    _automataActionFamilyOwnership!
-                                        .TryCaptureItemMutationPermit(),
-                                readOwnershipFailure: () =>
-                                    _automataActionFamilyOwnership!
-                                        .ItemsOwnershipFailure,
+                                tryCaptureMutationPermit: itemsFamily.TryCapture,
+                                readOwnershipFailure: itemsFamily.Failure,
                                 featureStatus: featureStatuses.AutoItems)),
                         autoScribeFeature,
                         new AutoHarvestServiceCycleFeature(
                             new AutoHarvestFeatureDependencies(
-                                autoHarvestRegistryResolver,
+                                registryResolver,
                                 ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsHarvest,
-                                tryCaptureMutationPermit: () =>
-                                    _automataActionFamilyOwnership!.TryCaptureHarvestMutationPermit(),
+                                tryCaptureMutationPermit: harvestFamily.TryCapture,
                                 runtimeDiagnostics: RuntimeDiagnosticsRegistry.Shared,
                                 featureStatus: featureStatuses.AutoHarvest)),
                         new AutoBuyServiceCycleFeature(
                             new AutoBuyFeatureDependencies(
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 ownershipMask: () =>
                                     _automataActionFamilyOwnership!.EffectiveAutoBuyOwnership(
                                         _configurationStore!.Current.AutoBuy),
@@ -548,24 +542,24 @@ public sealed class Plugin : BaseUnityPlugin
                                 )),
                         new SpellLevelServiceCycleFeature(
                             new SpellLevelFeatureDependencies(
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsSpellLevel,
                                 capability: _spellLevelCapability,
                                 featureStatus: featureStatuses.SpellLevel)),
                         new AutoCastServiceCycleFeature(
                             new AutoCastFeatureDependencies(
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsCast,
                                 _autoCastManualPause,
                                 featureStatus: featureStatuses.AutoCast)),
                         new AutoConceptServiceCycleFeature(
                             new AutoConceptFeatureDependencies(
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsConcept,
                                 featureStatus: featureStatuses.AutoConcept)),
                         new MentorServiceCycleFeature(
                             new MentorFeatureDependencies(
-                                readAutoHarvestLifecycleEpoch,
+                                readLifecycleEpoch,
                                 captureMutationPermit: domain =>
                                     _mentorActionFamilyOwnership!.TryCaptureMutationPermit(
                                         domain switch
@@ -581,158 +575,102 @@ public sealed class Plugin : BaseUnityPlugin
 #if SERVICE_CYCLE_PROFILE
                     , composeGameActions: actions =>
                     {
+                        var discoveryTreeOfferFamily = ownership.Family(GameMcpCommandKind.DiscoveryTreeOffer);
                         actions.Add("game_discover", new DiscoveryTreeOfferGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureDiscoveryTreeOfferMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .DiscoveryTreeOfferOwnershipFailure));
+                            readLifecycleEpoch,
+                            discoveryTreeOfferFamily.TryCapture,
+                            discoveryTreeOfferFamily.Failure));
+                        var spellWorkbenchFamily = ownership.Family(GameMcpCommandKind.SpellWorkbench);
                         actions.Add("game_spell_loadout", new SpellWorkbenchGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureSpellWorkbenchMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .SpellWorkbenchOwnershipFailure));
+                            readLifecycleEpoch,
+                            spellWorkbenchFamily.TryCapture,
+                            spellWorkbenchFamily.Failure));
+                        var spellCompositionFamily = ownership.Family(GameMcpCommandKind.SpellComposition);
                         actions.Add("game_casting_dial", new SpellCompositionGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureSpellCompositionMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .SpellCompositionOwnershipFailure));
+                            readLifecycleEpoch,
+                            spellCompositionFamily.TryCapture,
+                            spellCompositionFamily.Failure));
+                        var spellLoadoutFamily = ownership.Family(GameMcpCommandKind.SpellLoadout);
                         actions.Add("game_spell_loadout", new SpellLoadoutGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureSpellLoadoutMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .SpellLoadoutOwnershipFailure,
+                            readLifecycleEpoch,
+                            spellLoadoutFamily.TryCapture,
+                            spellLoadoutFamily.Failure,
                             readAutoCastOn: () => AutoCastConfigurationPolicy.IsOperational(
                                 _configurationStore!.Current)));
+                        var targetingFamily = ownership.Family(GameMcpCommandKind.Targeting);
                         actions.Add("game_targeting", new TargetingGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureTargetingMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .TargetingOwnershipFailure));
+                            readLifecycleEpoch,
+                            targetingFamily.TryCapture,
+                            targetingFamily.Failure));
+                        var equipmentLoadoutFamily = ownership.Family(GameMcpCommandKind.EquipmentLoadout);
                         var equipment = actions.Add("game_equipment", new EquipmentLoadoutGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureEquipmentLoadoutMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .EquipmentLoadoutOwnershipFailure));
+                            readLifecycleEpoch,
+                            equipmentLoadoutFamily.TryCapture,
+                            equipmentLoadoutFamily.Failure));
+                        var alchemyLoadoutFamily = ownership.Family(GameMcpCommandKind.AlchemyLoadout);
                         var alchemy = actions.Add("game_alchemy", new AlchemyLoadoutGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureAlchemyLoadoutMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .AlchemyLoadoutOwnershipFailure));
+                            readLifecycleEpoch,
+                            alchemyLoadoutFamily.TryCapture,
+                            alchemyLoadoutFamily.Failure));
+                        var ritualLifecycleFamily = ownership.Family(GameMcpCommandKind.RitualLifecycle);
                         actions.Add("game_ritual", new RitualLifecycleGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureRitualLifecycleMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .RitualLifecycleOwnershipFailure));
+                            readLifecycleEpoch,
+                            ritualLifecycleFamily.TryCapture,
+                            ritualLifecycleFamily.Failure));
+                        var genericLevelFamily = ownership.Family(GameMcpCommandKind.GenericLevel);
                         actions.Add("game_level_up", new GenericLevelGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureGenericLevelMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .GenericLevelOwnershipFailure));
+                            readLifecycleEpoch,
+                            genericLevelFamily.TryCapture,
+                            genericLevelFamily.Failure));
                         actions.Add("game_craft", new CraftingInstanceLifecycleGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureScribeMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .ScribeOwnershipFailure));
+                            readLifecycleEpoch,
+                            scribeFamily.TryCapture,
+                            scribeFamily.Failure));
+                        var loadoutFamily = ownership.Family(GameMcpCommandKind.Loadout);
                         actions.Add("game_loadout", new LoadoutGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCapturePlayerLoadoutMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .PlayerLoadoutOwnershipFailure,
+                            readLifecycleEpoch,
+                            loadoutFamily.TryCapture,
+                            loadoutFamily.Failure,
                             equipment,
                             alchemy));
+                        var harvestLifecycleFamily = ownership.Family(GameMcpCommandKind.HarvestLifecycle);
                         actions.Add("game_agromancy", new HarvestLifecycleGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureHarvestLifecycleMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .HarvestLifecycleOwnershipFailure));
+                            readLifecycleEpoch,
+                            harvestLifecycleFamily.TryCapture,
+                            harvestLifecycleFamily.Failure));
                         actions.Add("game_agromancy", new PlotLifecycleGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureHarvestMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .HarvestOwnershipFailure));
+                            readLifecycleEpoch,
+                            harvestFamily.TryCapture,
+                            harvestFamily.Failure));
+                        var structureLifecycleFamily = ownership.Family(GameMcpCommandKind.StructureLifecycle);
                         actions.Add("game_structure", new StructureLifecycleGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureStructureLifecycleMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .StructureLifecycleOwnershipFailure));
+                            readLifecycleEpoch,
+                            structureLifecycleFamily.TryCapture,
+                            structureLifecycleFamily.Failure));
+                        var returnToMenuFamily = ownership.Family(GameMcpCommandKind.ReturnToMenu);
                         actions.Add("game_return_to_menu", new ReturnToMenuGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureRunTransitionMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .RunTransitionOwnershipFailure,
+                            readLifecycleEpoch,
+                            returnToMenuFamily.TryCapture,
+                            returnToMenuFamily.Failure,
                             readScene: () => SceneManager.GetActiveScene().name,
                             findLoadedObjects: type => Resources.FindObjectsOfTypeAll(type)
                                 .Cast<object>()
                                 .ToArray()));
+                        var challengeFamily = ownership.Family(GameMcpCommandKind.Challenge);
                         actions.Add("time_challenge", new ChallengeGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureChallengeMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .ChallengeOwnershipFailure));
+                            readLifecycleEpoch,
+                            challengeFamily.TryCapture,
+                            challengeFamily.Failure));
+                        var prestigeFamily = ownership.Family(GameMcpCommandKind.Prestige);
                         actions.Add("time_prestige", new PrestigeGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCapturePrestigeMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .PrestigeOwnershipFailure));
+                            readLifecycleEpoch,
+                            prestigeFamily.TryCapture,
+                            prestigeFamily.Failure));
+                        var researchFamily = ownership.Family(GameMcpCommandKind.Research);
                         actions.Add("game_research", new ResearchGameAction(
-                            readAutoHarvestLifecycleEpoch,
-                            tryCaptureMutationPermit: () =>
-                                _automataActionFamilyOwnership!
-                                    .TryCaptureResearchMutationPermit(),
-                            readOwnershipFailure: () =>
-                                _automataActionFamilyOwnership!
-                                    .ResearchOwnershipFailure));
+                            readLifecycleEpoch,
+                            researchFamily.TryCapture,
+                            researchFamily.Failure));
                     }
 #endif
                     );

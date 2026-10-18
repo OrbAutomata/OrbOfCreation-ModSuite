@@ -812,7 +812,7 @@ public sealed class GameMcpSpellWorkbenchTests
         using var ownership = new AutomataActionFamilyOwnership(registry);
 
         ownership.Refresh(configuration, lifecycleReady: true);
-        Assert.False(ownership.TryCaptureSpellWorkbenchMutationPermit());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellWorkbench).TryCapture());
 
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.SpellWorkbench,
@@ -820,8 +820,8 @@ public sealed class GameMcpSpellWorkbenchTests
             out var scope,
             out var reason), reason);
         using (scope)
-            Assert.True(ownership.TryCaptureSpellWorkbenchMutationPermit());
-        Assert.False(ownership.TryCaptureSpellWorkbenchMutationPermit());
+            Assert.True(ownership.Family(GameMcpCommandKind.SpellWorkbench).TryCapture());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellWorkbench).TryCapture());
         Assert.Equal(
             "action_family_unavailable",
             SpellWorkbenchActionResultCodes.MutationPermitUnavailable.Name);

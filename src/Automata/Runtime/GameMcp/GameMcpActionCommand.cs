@@ -49,17 +49,7 @@ internal enum GameMcpCommandKind
 internal static class GameMcpCommandKinds
 {
     internal static bool IsGameplayAction(GameMcpCommandKind kind) =>
-        kind is >= GameMcpCommandKind.Purchase and <= GameMcpCommandKind.SpellLevel or
-            GameMcpCommandKind.DiscoveryTreeOffer or GameMcpCommandKind.SpellWorkbench or
-            GameMcpCommandKind.SpellComposition or GameMcpCommandKind.SpellLoadout or
-            GameMcpCommandKind.Targeting or GameMcpCommandKind.Consumable or
-            GameMcpCommandKind.Crafting or
-            GameMcpCommandKind.EquipmentLoadout or GameMcpCommandKind.Challenge or
-            GameMcpCommandKind.Prestige or GameMcpCommandKind.Research or
-            GameMcpCommandKind.AlchemyLoadout or GameMcpCommandKind.RitualLifecycle or
-            GameMcpCommandKind.GenericLevel or
-            GameMcpCommandKind.Loadout or GameMcpCommandKind.HarvestLifecycle or
-            GameMcpCommandKind.StructureLifecycle or GameMcpCommandKind.ReturnToMenu;
+        AutomataActionFamilyOwnership.NamesGameMcpKind(kind);
 
     internal static bool IsEntityGameplayAction(GameMcpCommandKind kind) =>
         IsGameplayAction(kind) && kind != GameMcpCommandKind.ReturnToMenu;

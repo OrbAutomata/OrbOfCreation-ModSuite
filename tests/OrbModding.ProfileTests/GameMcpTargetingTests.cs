@@ -178,8 +178,8 @@ public sealed class GameMcpTargetingTests
         ownership.Refresh(configuration, lifecycleReady: true);
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.Targeting, "submit", out var scope, out var reason), reason);
-        using (scope) Assert.True(ownership.TryCaptureTargetingMutationPermit());
-        Assert.False(ownership.TryCaptureTargetingMutationPermit());
+        using (scope) Assert.True(ownership.Family(GameMcpCommandKind.Targeting).TryCapture());
+        Assert.False(ownership.Family(GameMcpCommandKind.Targeting).TryCapture());
     }
 
     private static GameMcpProtocolResponse Call(

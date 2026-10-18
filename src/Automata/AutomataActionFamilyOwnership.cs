@@ -11,58 +11,53 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
 {
     internal const string KnownAutoBuyPluginGuid = "IngoH.OrbOfCreation.AutoBuyOrb";
 
-    private static readonly AutomationActionFamily[] StructureFamilies =
-        { AutomationActionFamily.StructurePurchase };
-    private static readonly AutomationActionFamily[] UpgradeFamilies =
-        { AutomationActionFamily.UpgradePurchase };
-    private static readonly AutomationActionFamily[] MultiBuyFamilies =
-        { AutomationActionFamily.NativeMultiBuyOverride };
-    private static readonly AutomationActionFamily[] CastFamilies =
-        { AutomationActionFamily.SpellCast };
-    private static readonly AutomationActionFamily[] ConceptFamilies =
-        { AutomationActionFamily.ConceptAssignment };
-    private static readonly AutomationActionFamily[] SpellLevelFamilies =
-        { AutomationActionFamily.SpellLevelPurchase };
-    private static readonly AutomationActionFamily[] HarvestFamilies =
-        { AutomationActionFamily.HarvestAction };
-    private static readonly AutomationActionFamily[] ItemFamilies =
-        { AutomationActionFamily.ConsumableUse };
-    private static readonly AutomationActionFamily[] ConsumableFamilies =
-        { AutomationActionFamily.ConsumableUse, AutomationActionFamily.NativeMultiBuyOverride };
-    private static readonly AutomationActionFamily[] ScribeFamilies =
-        { AutomationActionFamily.CraftingQueueSubmission };
-    private static readonly AutomationActionFamily[] DiscoveryTreeOfferFamilies =
-        { AutomationActionFamily.DiscoveryTreeOfferLifecycle };
-    private static readonly AutomationActionFamily[] SpellWorkbenchFamilies =
-        { AutomationActionFamily.SpellWorkbenchLifecycle };
-    private static readonly AutomationActionFamily[] SpellCompositionFamilies =
-        { AutomationActionFamily.SpellComposition };
-    private static readonly AutomationActionFamily[] SpellLoadoutFamilies =
-        { AutomationActionFamily.SpellLoadout };
-    private static readonly AutomationActionFamily[] TargetingFamilies =
-        { AutomationActionFamily.Targeting };
-    private static readonly AutomationActionFamily[] EquipmentLoadoutFamilies =
-        { AutomationActionFamily.EquipmentLoadout };
-    private static readonly AutomationActionFamily[] ChallengeFamilies =
-        { AutomationActionFamily.ChallengeLifecycle };
-    private static readonly AutomationActionFamily[] PrestigeFamilies =
-        { AutomationActionFamily.PrestigeLifecycle };
-    private static readonly AutomationActionFamily[] ResearchFamilies =
-        { AutomationActionFamily.ResearchLifecycle };
-    private static readonly AutomationActionFamily[] AlchemyLoadoutFamilies =
-        { AutomationActionFamily.AlchemyLoadout };
-    private static readonly AutomationActionFamily[] RitualLifecycleFamilies =
-        { AutomationActionFamily.RitualLifecycle };
-    private static readonly AutomationActionFamily[] GenericLevelFamilies =
-        { AutomationActionFamily.GenericLevel };
-    private static readonly AutomationActionFamily[] PlayerLoadoutFamilies =
-        { AutomationActionFamily.PlayerLoadout };
-    private static readonly AutomationActionFamily[] HarvestLifecycleFamilies =
-        { AutomationActionFamily.HarvestLifecycle };
-    private static readonly AutomationActionFamily[] StructureLifecycleFamilies =
-        { AutomationActionFamily.StructureLifecycle };
-    private static readonly AutomationActionFamily[] RunTransitionFamilies =
-        { AutomationActionFamily.RunTransition };
+    internal static readonly GameActionFamily Harvest =
+        new(GameActionFamily.McpOperation, AutomationActionFamily.HarvestAction);
+    internal static readonly GameActionFamily Items = new(
+        "Auto Items",
+        AutomationActionFamily.ConsumableUse,
+        AutomationActionFamily.NativeMultiBuyOverride);
+    internal static readonly GameActionFamily Scribe =
+        new("Auto Scribe", AutomationActionFamily.CraftingQueueSubmission);
+#if SERVICE_CYCLE_PROFILE
+    internal static readonly (GameMcpCommandKind Kind, string? Mode, GameActionFamily Family)[]
+        GameMcpFamilies =
+        {
+            (GameMcpCommandKind.Purchase, "structure", Mcp(AutomationActionFamily.StructurePurchase)),
+            (GameMcpCommandKind.Purchase, "upgrade", Mcp(
+                AutomationActionFamily.UpgradePurchase,
+                AutomationActionFamily.NativeMultiBuyOverride)),
+            (GameMcpCommandKind.Cast, null, Mcp(AutomationActionFamily.SpellCast)),
+            (GameMcpCommandKind.Concept, null, Mcp(AutomationActionFamily.ConceptAssignment)),
+            (GameMcpCommandKind.SpellLevel, null, Mcp(AutomationActionFamily.SpellLevelPurchase)),
+            (GameMcpCommandKind.Harvest, null, Harvest),
+            (GameMcpCommandKind.DiscoveryTreeOffer, null,
+                Mcp(AutomationActionFamily.DiscoveryTreeOfferLifecycle)),
+            (GameMcpCommandKind.SpellWorkbench, null,
+                Mcp(AutomationActionFamily.SpellWorkbenchLifecycle)),
+            (GameMcpCommandKind.SpellComposition, null, Mcp(AutomationActionFamily.SpellComposition)),
+            (GameMcpCommandKind.SpellLoadout, null, Mcp(AutomationActionFamily.SpellLoadout)),
+            (GameMcpCommandKind.Targeting, null, Mcp(AutomationActionFamily.Targeting)),
+            (GameMcpCommandKind.Consumable, null, Items),
+            (GameMcpCommandKind.Crafting, null, Scribe),
+            (GameMcpCommandKind.EquipmentLoadout, null, Mcp(AutomationActionFamily.EquipmentLoadout)),
+            (GameMcpCommandKind.Challenge, null, Mcp(AutomationActionFamily.ChallengeLifecycle)),
+            (GameMcpCommandKind.Prestige, null, Mcp(AutomationActionFamily.PrestigeLifecycle)),
+            (GameMcpCommandKind.Research, null, Mcp(AutomationActionFamily.ResearchLifecycle)),
+            (GameMcpCommandKind.AlchemyLoadout, null, Mcp(AutomationActionFamily.AlchemyLoadout)),
+            (GameMcpCommandKind.RitualLifecycle, null, Mcp(AutomationActionFamily.RitualLifecycle)),
+            (GameMcpCommandKind.GenericLevel, null, Mcp(AutomationActionFamily.GenericLevel)),
+            (GameMcpCommandKind.Loadout, null, Mcp(AutomationActionFamily.PlayerLoadout)),
+            (GameMcpCommandKind.HarvestLifecycle, null, Mcp(AutomationActionFamily.HarvestLifecycle)),
+            (GameMcpCommandKind.StructureLifecycle, null,
+                Mcp(AutomationActionFamily.StructureLifecycle)),
+            (GameMcpCommandKind.ReturnToMenu, null, Mcp(AutomationActionFamily.RunTransition)),
+        };
+
+    private static GameActionFamily Mcp(params AutomationActionFamily[] members) =>
+        new(GameActionFamily.McpOperation, members);
+#endif
+
     private static readonly AutomationActionFamily[] KnownExternalFamilies =
         { AutomationActionFamily.StructurePurchase, AutomationActionFamily.NativeMultiBuyOverride };
 
@@ -139,98 +134,44 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
     public bool OwnsScribe => _scribe?.IsHeld == true;
     public bool OwnsDiscoveryTreeOffers =>
         OwnsGameMcpOperationFamily(AutomationActionFamily.DiscoveryTreeOfferLifecycle);
-    public bool TryCaptureHarvestMutationPermit() =>
-        _harvest?.TryCaptureMutationPermit() == true ||
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.HarvestAction);
-    public bool TryCaptureItemMutationPermit() =>
-        TryCaptureFamilyPermit(AutomationActionFamily.ConsumableUse, _items) &&
-        TryCaptureFamilyPermit(AutomationActionFamily.NativeMultiBuyOverride, _multiBuy);
-    private bool TryCaptureFamilyPermit(
-        AutomationActionFamily family,
-        ActionFamilyLeaseSet? permanent)
+
+    internal GameActionFamilyHandle Family(GameActionFamily family) => new(this, family);
+
+#if SERVICE_CYCLE_PROFILE
+    internal GameActionFamilyHandle Family(GameMcpCommandKind kind)
     {
-        if (permanent?.TryCaptureMutationPermit() == true) return true;
-        return TryCaptureGameMcpOperationPermit(family);
+        foreach (var route in GameMcpFamilies)
+            if (route.Kind == kind && route.Mode is null) return new(this, route.Family);
+        throw new InvalidOperationException(
+            "command " + kind + " names no single gameplay action family");
     }
-    public bool TryCaptureScribeMutationPermit() =>
-        _scribe?.TryCaptureMutationPermit() == true ||
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.CraftingQueueSubmission);
-    public bool TryCaptureDiscoveryTreeOfferMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.DiscoveryTreeOfferLifecycle);
-    public bool TryCaptureSpellWorkbenchMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.SpellWorkbenchLifecycle);
-    public bool TryCaptureSpellCompositionMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.SpellComposition);
-    public bool TryCaptureSpellLoadoutMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.SpellLoadout);
-    public bool TryCaptureTargetingMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.Targeting);
-    public bool TryCaptureEquipmentLoadoutMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.EquipmentLoadout);
-    public bool TryCaptureChallengeMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.ChallengeLifecycle);
-    public bool TryCapturePrestigeMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.PrestigeLifecycle);
-    public bool TryCaptureResearchMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.ResearchLifecycle);
-    public bool TryCaptureAlchemyLoadoutMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.AlchemyLoadout);
-    public bool TryCaptureRitualLifecycleMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.RitualLifecycle);
-    public bool TryCaptureGenericLevelMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.GenericLevel);
-    public bool TryCapturePlayerLoadoutMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.PlayerLoadout);
-    public bool TryCaptureHarvestLifecycleMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.HarvestLifecycle);
-    public bool TryCaptureStructureLifecycleMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.StructureLifecycle);
-    public bool TryCaptureRunTransitionMutationPermit() =>
-        TryCaptureGameMcpOperationPermit(AutomationActionFamily.RunTransition);
-    public string ItemsOwnershipFailure =>
-        _itemsClaimFailure.Length != 0
-            ? _itemsClaimFailure
-            : _multiBuyClaimFailure.Length != 0
-                ? _multiBuyClaimFailure
-                : "Auto Items does not hold ConsumableUse and NativeMultiBuyOverride.";
-    public string ScribeOwnershipFailure =>
-        _scribeClaimFailure.Length != 0
-            ? _scribeClaimFailure
-            : "Auto Scribe does not hold CraftingQueueSubmission.";
-    public string DiscoveryTreeOfferOwnershipFailure =>
-        "The current MCP operation does not hold DiscoveryTreeOfferLifecycle.";
-    public string SpellWorkbenchOwnershipFailure =>
-        "The current MCP operation does not hold SpellWorkbenchLifecycle.";
-    public string SpellCompositionOwnershipFailure =>
-        "The current MCP operation does not hold SpellComposition.";
-    public string SpellLoadoutOwnershipFailure =>
-        "The current MCP operation does not hold SpellLoadout.";
-    public string TargetingOwnershipFailure =>
-        "The current MCP operation does not hold Targeting.";
-    public string EquipmentLoadoutOwnershipFailure =>
-        "The current MCP operation does not hold EquipmentLoadout.";
-    public string ChallengeOwnershipFailure =>
-        "The current MCP operation does not hold ChallengeLifecycle.";
-    public string PrestigeOwnershipFailure =>
-        "The current MCP operation does not hold PrestigeLifecycle.";
-    public string ResearchOwnershipFailure =>
-        "The current MCP operation does not hold ResearchLifecycle.";
-    public string AlchemyLoadoutOwnershipFailure =>
-        "The current MCP operation does not hold AlchemyLoadout.";
-    public string RitualLifecycleOwnershipFailure =>
-        "The current MCP operation does not hold RitualLifecycle.";
-    public string GenericLevelOwnershipFailure =>
-        "The current MCP operation does not hold GenericLevel.";
-    public string PlayerLoadoutOwnershipFailure =>
-        "The current MCP operation does not hold PlayerLoadout.";
-    public string HarvestOwnershipFailure =>
-        "The current MCP operation does not hold HarvestAction.";
-    public string HarvestLifecycleOwnershipFailure =>
-        "The current MCP operation does not hold HarvestLifecycle.";
-    public string StructureLifecycleOwnershipFailure =>
-        "The current MCP operation does not hold StructureLifecycle.";
-    public string RunTransitionOwnershipFailure =>
-        "The current MCP operation does not hold RunTransition.";
+
+    internal static bool NamesGameMcpKind(GameMcpCommandKind kind)
+    {
+        foreach (var route in GameMcpFamilies)
+            if (route.Kind == kind) return true;
+        return false;
+    }
+#endif
+
+    internal bool TryCapture(GameActionFamily family)
+    {
+        foreach (var member in family.Members)
+            if (PermanentLease(member)?.TryCaptureMutationPermit() != true &&
+                !TryCaptureGameMcpOperationPermit(member))
+                return false;
+        return true;
+    }
+
+    internal string Failure(GameActionFamily family)
+    {
+        foreach (var member in family.Members)
+        {
+            var claimFailure = ClaimFailure(member);
+            if (claimFailure.Length != 0) return claimFailure;
+        }
+        return family.NotHeld;
+    }
 
     public void RefreshLoadedPluginInventory(int pluginCount, Func<string, bool> isLoaded)
     {
@@ -267,7 +208,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         if (_gameMcpOperationLease is not null)
             throw new InvalidOperationException(
                 "MCP gameplay operation ownership cannot be nested");
-        var families = GameMcpFamilies(kind, mode);
+        var families = ClaimedFamilies(kind, mode);
         if (families.Length == 0)
         {
             scope = NoopGameMcpOperationScope.Instance;
@@ -312,10 +253,12 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         var suiteReady = lifecycleReady && config.General.Enabled;
         RefreshLease(ref _structures, ref _structuresRetryFrame, frame,
             suiteReady && config.CanStartAutoBuyActively && config.AutoBuy.IncludeStructures,
-            "AutoBuy.Structures", "Automata Auto Buy Structures", StructureFamilies);
+            "AutoBuy.Structures", "Automata Auto Buy Structures",
+            AutomationActionFamily.StructurePurchase);
         RefreshLease(ref _upgrades, ref _upgradesRetryFrame, frame,
             suiteReady && config.CanStartAutoBuyActively && config.AutoBuy.IncludeUpgrades,
-            "AutoBuy.Upgrades", "Automata Auto Buy Upgrades", UpgradeFamilies);
+            "AutoBuy.Upgrades", "Automata Auto Buy Upgrades",
+            AutomationActionFamily.UpgradePurchase);
         RefreshLeaseWithReason(
             ref _multiBuy,
             ref _multiBuyRetryFrame,
@@ -327,21 +270,24 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
              AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems)),
             "NativeMultiBuy",
             "Automata Native Multi-Buy Scope",
-            MultiBuyFamilies,
+            AutomationActionFamily.NativeMultiBuyOverride,
             "No enabled service currently requires NativeMultiBuyOverride.");
         RefreshLease(ref _cast, ref _castRetryFrame, frame,
             suiteReady && config.CanStartAutoCastActively,
-            "AutoCast", "Automata Auto Cast", CastFamilies);
+            "AutoCast", "Automata Auto Cast", AutomationActionFamily.SpellCast);
         RefreshLease(ref _concept, ref _conceptRetryFrame, frame,
             suiteReady && config.CanStartAutoConceptActively,
-            "AutoConcept", "Automata Auto Concept", ConceptFamilies);
+            "AutoConcept", "Automata Auto Concept",
+            AutomationActionFamily.ConceptAssignment);
         RefreshLease(ref _spellLevel, ref _spellLevelRetryFrame, frame,
             suiteReady && config.CanStartAutoBuyActively && config.AutoBuy.AutoLevelSpells,
-            "SpellLevel", "Automata Spell Leveling", SpellLevelFamilies);
+            "SpellLevel", "Automata Spell Leveling",
+            AutomationActionFamily.SpellLevelPurchase);
         RefreshLease(ref _harvest, ref _harvestRetryFrame, frame,
             suiteReady && config.CanStartAutoHarvestActively &&
                 (config.AutoHarvest.CollectFruitTrees || config.AutoHarvest.CollectTreasureTrees),
-            "AutoHarvest", "Automata Auto Harvest", HarvestFamilies);
+            "AutoHarvest", "Automata Auto Harvest",
+            AutomationActionFamily.HarvestAction);
         RefreshLeaseWithReason(
             ref _items,
             ref _itemsRetryFrame,
@@ -352,7 +298,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
             AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems),
             "AutoItems",
             "Automata Auto Items",
-            ItemFamilies,
+            AutomationActionFamily.ConsumableUse,
             "Committed configuration no longer enables Auto Items consumable use.");
         RefreshLeaseWithReason(
             ref _scribe,
@@ -363,7 +309,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
             AutoScribeConfigurationPolicy.IsOperational(config),
             "AutoScribe",
             "Automata Auto Scribe",
-            ScribeFamilies,
+            AutomationActionFamily.CraftingQueueSubmission,
             "Committed configuration no longer enables Auto Scribe production.");
     }
 
@@ -395,7 +341,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         bool shouldOwn,
         string featureId,
         string displayName,
-        AutomationActionFamily[] families)
+        AutomationActionFamily family)
     {
         if (lease is not null && !lease.IsHeld)
         {
@@ -412,7 +358,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         ClaimAttempts++;
         if (!_registry.TryClaimSet(
             new ActionFamilyOwner(new FeatureStatusKey(PluginIds.SuiteGuid, featureId), displayName),
-            families,
+            new[] { family },
             out lease,
             out _))
             nextRetryFrame = frame + 60;
@@ -428,7 +374,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         bool shouldOwn,
         string featureId,
         string displayName,
-        AutomationActionFamily[] families,
+        AutomationActionFamily family,
         string disabledReason)
     {
         if (lease is not null && !lease.IsHeld)
@@ -456,7 +402,7 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
                 new ActionFamilyOwner(
                     new FeatureStatusKey(PluginIds.SuiteGuid, featureId),
                     displayName),
-                families,
+                new[] { family },
                 out lease,
                 out var conflict))
         {
@@ -476,6 +422,28 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         lease?.Dispose();
         lease = null;
     }
+
+    private ActionFamilyLeaseSet? PermanentLease(AutomationActionFamily family) => family switch
+    {
+        AutomationActionFamily.StructurePurchase => _structures,
+        AutomationActionFamily.UpgradePurchase => _upgrades,
+        AutomationActionFamily.NativeMultiBuyOverride => _multiBuy,
+        AutomationActionFamily.SpellCast => _cast,
+        AutomationActionFamily.ConceptAssignment => _concept,
+        AutomationActionFamily.SpellLevelPurchase => _spellLevel,
+        AutomationActionFamily.HarvestAction => _harvest,
+        AutomationActionFamily.ConsumableUse => _items,
+        AutomationActionFamily.CraftingQueueSubmission => _scribe,
+        _ => null,
+    };
+
+    private string ClaimFailure(AutomationActionFamily family) => family switch
+    {
+        AutomationActionFamily.ConsumableUse => _itemsClaimFailure,
+        AutomationActionFamily.NativeMultiBuyOverride => _multiBuyClaimFailure,
+        AutomationActionFamily.CraftingQueueSubmission => _scribeClaimFailure,
+        _ => string.Empty,
+    };
 
     private bool OwnsGameMcpOperationFamily(AutomationActionFamily family)
     {
@@ -498,40 +466,13 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
     }
 
 #if SERVICE_CYCLE_PROFILE
-    private static AutomationActionFamily[] GameMcpFamilies(
-        GameMcpCommandKind kind,
-        string mode) => kind switch
+    private static AutomationActionFamily[] ClaimedFamilies(GameMcpCommandKind kind, string mode)
     {
-        GameMcpCommandKind.Purchase when mode == "structure" => StructureFamilies,
-        GameMcpCommandKind.Purchase when mode == "upgrade" => new[]
-        {
-            AutomationActionFamily.UpgradePurchase,
-            AutomationActionFamily.NativeMultiBuyOverride,
-        },
-        GameMcpCommandKind.Cast => CastFamilies,
-        GameMcpCommandKind.Concept => ConceptFamilies,
-        GameMcpCommandKind.SpellLevel => SpellLevelFamilies,
-        GameMcpCommandKind.Harvest => HarvestFamilies,
-        GameMcpCommandKind.DiscoveryTreeOffer => DiscoveryTreeOfferFamilies,
-        GameMcpCommandKind.SpellWorkbench => SpellWorkbenchFamilies,
-        GameMcpCommandKind.SpellComposition => SpellCompositionFamilies,
-        GameMcpCommandKind.SpellLoadout => SpellLoadoutFamilies,
-        GameMcpCommandKind.Targeting => TargetingFamilies,
-        GameMcpCommandKind.Consumable => ConsumableFamilies,
-        GameMcpCommandKind.Crafting => ScribeFamilies,
-        GameMcpCommandKind.EquipmentLoadout => EquipmentLoadoutFamilies,
-        GameMcpCommandKind.Challenge => ChallengeFamilies,
-        GameMcpCommandKind.Prestige => PrestigeFamilies,
-        GameMcpCommandKind.Research => ResearchFamilies,
-        GameMcpCommandKind.AlchemyLoadout => AlchemyLoadoutFamilies,
-        GameMcpCommandKind.RitualLifecycle => RitualLifecycleFamilies,
-        GameMcpCommandKind.GenericLevel => GenericLevelFamilies,
-        GameMcpCommandKind.Loadout => PlayerLoadoutFamilies,
-        GameMcpCommandKind.HarvestLifecycle => HarvestLifecycleFamilies,
-        GameMcpCommandKind.StructureLifecycle => StructureLifecycleFamilies,
-        GameMcpCommandKind.ReturnToMenu => RunTransitionFamilies,
-        _ => Array.Empty<AutomationActionFamily>(),
-    };
+        foreach (var route in GameMcpFamilies)
+            if (route.Kind == kind && (route.Mode is null || route.Mode == mode))
+                return route.Family.Members;
+        return Array.Empty<AutomationActionFamily>();
+    }
 
     private bool AlreadyOwns(AutomationActionFamily[] families)
     {
@@ -551,35 +492,8 @@ internal sealed class AutomataActionFamilyOwnership : IDisposable
         return missing;
     }
 
-    private bool PermanentlyOwns(AutomationActionFamily family) => family switch
-    {
-        AutomationActionFamily.StructurePurchase => _structures?.IsHeld == true,
-        AutomationActionFamily.UpgradePurchase => _upgrades?.IsHeld == true,
-        AutomationActionFamily.NativeMultiBuyOverride => _multiBuy?.IsHeld == true,
-        AutomationActionFamily.SpellCast => _cast?.IsHeld == true,
-        AutomationActionFamily.ConceptAssignment => _concept?.IsHeld == true,
-        AutomationActionFamily.SpellLevelPurchase => _spellLevel?.IsHeld == true,
-        AutomationActionFamily.HarvestAction => _harvest?.IsHeld == true,
-        AutomationActionFamily.ConsumableUse => _items?.IsHeld == true,
-        AutomationActionFamily.CraftingQueueSubmission => _scribe?.IsHeld == true,
-        AutomationActionFamily.DiscoveryTreeOfferLifecycle => false,
-        AutomationActionFamily.SpellWorkbenchLifecycle => false,
-        AutomationActionFamily.SpellComposition => false,
-        AutomationActionFamily.SpellLoadout => false,
-        AutomationActionFamily.Targeting => false,
-        AutomationActionFamily.EquipmentLoadout => false,
-        AutomationActionFamily.ChallengeLifecycle => false,
-        AutomationActionFamily.PrestigeLifecycle => false,
-        AutomationActionFamily.ResearchLifecycle => false,
-        AutomationActionFamily.AlchemyLoadout => false,
-        AutomationActionFamily.RitualLifecycle => false,
-        AutomationActionFamily.GenericLevel => false,
-        AutomationActionFamily.PlayerLoadout => false,
-        AutomationActionFamily.HarvestLifecycle => false,
-        AutomationActionFamily.StructureLifecycle => false,
-        AutomationActionFamily.RunTransition => false,
-        _ => false,
-    };
+    private bool PermanentlyOwns(AutomationActionFamily family) =>
+        PermanentLease(family)?.IsHeld == true;
 
     private void EndGameMcpOperation()
     {

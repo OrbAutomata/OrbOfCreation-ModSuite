@@ -244,15 +244,15 @@ public sealed class GameMcpSpellCompositionTests
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile()).Current;
         using var ownership = new AutomataActionFamilyOwnership(registry);
         ownership.Refresh(configuration, lifecycleReady: true);
-        Assert.False(ownership.TryCaptureSpellCompositionMutationPermit());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellComposition).TryCapture());
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.SpellComposition,
             "set_output_level",
             out var scope,
             out var reason), reason);
         using (scope)
-            Assert.True(ownership.TryCaptureSpellCompositionMutationPermit());
-        Assert.False(ownership.TryCaptureSpellCompositionMutationPermit());
+            Assert.True(ownership.Family(GameMcpCommandKind.SpellComposition).TryCapture());
+        Assert.False(ownership.Family(GameMcpCommandKind.SpellComposition).TryCapture());
     }
 
     private static GameMcpCommand Command(
