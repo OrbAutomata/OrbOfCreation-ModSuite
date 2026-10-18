@@ -800,7 +800,8 @@ internal sealed class AutoConceptNativeAdapter :
 
     private static string ResourceName(object resource)
     {
-        return RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(resource) is { } uuid && uuid != Guid.Empty
+        var uuid = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(resource);
+        return uuid != Guid.Empty
             ? EntityIdentityFormatter.Format(uuid)
             : "resource";
     }

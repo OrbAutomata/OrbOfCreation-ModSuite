@@ -269,7 +269,7 @@ public sealed class ResearchGameActionTests : IDisposable
         static long ReadEpoch() => Epoch;
         var resolver = new TypedRegistryResolver(ReadEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is ResearchSO research ? research.GetGuid() : null);
+            value => value is ResearchSO research ? research.GetGuid() : Guid.Empty);
         return new ResearchGameAction(ReadEpoch, permit ?? (() => true),
             static () => "ResearchLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

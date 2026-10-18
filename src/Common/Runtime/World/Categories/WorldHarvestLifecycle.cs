@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -85,13 +84,6 @@ internal readonly struct WorldHarvestLifecycleCost
 /// <summary>Reads the exact active harvest lists and every element/action choice they serve.</summary>
 internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
 {
-    private const BindingFlags Instance =
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-    private static readonly Guid ActiveElementsId =
-        new("5a9f8001-3ae2-4799-86b6-5198763e0fe2");
-    private static readonly Guid ActiveActionsId =
-        new("e4a9d4c3-61cc-4f94-bab9-7bc8e841cc32");
-
     private readonly RuntimeIdentityRegistryBinding _registry;
     private readonly Type? _elementType;
     private readonly Type? _actionType;
@@ -181,8 +173,8 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         var source = _registry.Read();
         if (!source.IsReady || source.Registry is null)
             return WorldCategoryReport.Missing(Category, source.Reason);
-        var elementList = source.Registry[ActiveElementsId];
-        var actionList = source.Registry[ActiveActionsId];
+        var elementList = source.Registry[KnownEntities.ActiveHarvestElements.Uuid];
+        var actionList = source.Registry[KnownEntities.ActiveHarvestActions.Uuid];
         if (elementList is null || actionList is null)
             return WorldCategoryReport.Missing(Category, "the active harvest lists are not ready");
         if (elementList.GetType() != _elementListType || actionList.GetType() != _actionListType)

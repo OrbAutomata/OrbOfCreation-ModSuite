@@ -215,7 +215,7 @@ internal sealed class EntityIdentityCatalog
                         "runtime identity registry contained an empty, non-Guid, or null entry");
 
                 var stableUuid = _binding.ReadStableUuid(entry.Value);
-                if (!stableUuid.HasValue || stableUuid.Value != uuid)
+                if (stableUuid != uuid)
                     return Fail(expectedGeneration,
                         "runtime identity registry key disagreed with IdScriptableObject.GetGuid() for " +
                         uuid.ToString("D"));

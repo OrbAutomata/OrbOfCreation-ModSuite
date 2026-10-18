@@ -661,7 +661,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var resolver = new TypedRegistryResolver(
             static () => 1,
             () => TypedRegistrySourceSnapshot.Ready(dictionary),
-            value => value is IdScriptableObject entity ? entity.GetGuid() : null);
+            value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty);
         return new AutoItemsConsumableUseGameAction(
             resolver,
             permit ?? (static () => true),

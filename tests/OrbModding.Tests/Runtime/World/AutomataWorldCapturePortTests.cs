@@ -135,9 +135,9 @@ public sealed class AutomataWorldCapturePortTests
         Register(
             KnownEntities.ScribeCrafting.Uuid,
             new global::CraftingRecipeTypeSO { maxStartingLevel = 1, isLevelType = true });
-        Register(HarvestLifecycleNativeBindings.ActiveElementsId,
+        Register(KnownEntities.ActiveHarvestElements.Uuid,
             new global::HarvestElementListVariable());
-        Register(HarvestLifecycleNativeBindings.ActiveActionsId,
+        Register(KnownEntities.ActiveHarvestActions.Uuid,
             new global::HarvestActionInstanceListVariable());
         Register(KnownEntities.Mana.Uuid, new global::ResourceSO());
         Register(KnownEntities.ResourceBarCore.Uuid, new global::ResourceListVariable());

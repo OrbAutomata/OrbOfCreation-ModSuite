@@ -172,7 +172,7 @@ public sealed class AutoItemsCycleActionAdapterTests
             new TypedRegistryResolver(
                 static () => 7,
                 () => TypedRegistrySourceSnapshot.Ready(registry),
-                static _ => null),
+                static _ => Guid.Empty),
             static () => true,
             static () => string.Empty);
     }

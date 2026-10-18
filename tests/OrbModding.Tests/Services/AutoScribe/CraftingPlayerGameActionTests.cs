@@ -345,7 +345,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         var resolver = new TypedRegistryResolver(
             () => _lifecycle,
             () => TypedRegistrySourceSnapshot.Ready(registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new AutoScribeOneShotCraftGameAction(
             resolver,
             AutoScribeIdentityCatalog.Audited,

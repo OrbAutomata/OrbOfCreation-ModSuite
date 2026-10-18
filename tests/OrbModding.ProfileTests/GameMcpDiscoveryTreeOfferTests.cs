@@ -1322,7 +1322,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var resolver = new TypedRegistryResolver(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
-            _ => null);
+            _ => Guid.Empty);
         var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
@@ -1402,7 +1402,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var resolver = new TypedRegistryResolver(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
-            _ => null);
+            _ => Guid.Empty);
         var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(

@@ -118,8 +118,7 @@ internal static class MentorMasteryPatchBridge
         eligible = false;
         try
         {
-            if (RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(source) is not { } stable) return false;
-            id = stable;
+            id = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(source);
             var masteryField = FindField(source.GetType(), "masteryLevel");
             if (masteryField is null) return false;
             mastery = Convert.ToInt32(masteryField.GetValue(source) ?? 0);

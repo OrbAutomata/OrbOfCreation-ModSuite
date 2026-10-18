@@ -114,7 +114,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
     }
 
     private static string Describe(object entity) =>
-        RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(entity)?.ToString() ?? "<unknown>";
+        RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(entity).ToString();
 
     private static NativeActionOutcome GrantArtifact(object equipment, MentorAmount amount)
     {

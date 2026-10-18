@@ -390,7 +390,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
     {
         try
         {
-            uuid = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(instance) ?? Guid.Empty;
+            uuid = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(instance);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {

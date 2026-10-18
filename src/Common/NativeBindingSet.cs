@@ -124,8 +124,7 @@ internal sealed class NativeBindingSet
     internal Func<object, Guid> StableUuid(string id, Type owner)
     {
         Require(id);
-        return Compile<Func<object, Guid>>(
-            RuntimeIdentityRegistryBinding.Shared.StableUuidMethod(owner) ?? throw Mismatch(id, owner, "GetGuid"));
+        return RuntimeIdentityRegistryBinding.Shared.StableUuid(owner) ?? throw Mismatch(id, owner, "GetGuid");
     }
 
     internal TDelegate Field<TDelegate>(string id, Type owner, string name, Type fieldType)

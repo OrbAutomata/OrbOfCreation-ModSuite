@@ -314,7 +314,7 @@ public sealed class ChallengeGameActionTests : IDisposable
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new ChallengeGameAction(() => Epoch, () => true,
             static () => "ChallengeLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

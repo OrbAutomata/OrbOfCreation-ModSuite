@@ -17,8 +17,8 @@ public sealed class HarvestLifecycleGameActionTests
 
     public HarvestLifecycleGameActionTests()
     {
-        _elements.SetGuid(HarvestLifecycleNativeBindings.ActiveElementsId);
-        _actions.SetGuid(HarvestLifecycleNativeBindings.ActiveActionsId);
+        _elements.SetGuid(KnownEntities.ActiveHarvestElements.Uuid);
+        _actions.SetGuid(KnownEntities.ActiveHarvestActions.Uuid);
         Register(_elements);
         Register(_actions);
     }
@@ -175,7 +175,7 @@ public sealed class HarvestLifecycleGameActionTests
     {
         var resolver = new TypedRegistryResolver(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : null);
+            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new HarvestLifecycleGameAction(() => Epoch, static () => true,
             static () => "HarvestLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

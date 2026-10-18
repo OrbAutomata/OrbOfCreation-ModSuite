@@ -135,10 +135,12 @@ into a member's is correct.
 ### Live entity identity catalog
 
 `RuntimeIdentityRegistryBinding` is the one Common-owned binding for
-`IdScriptableObject.RuntimeLookup` and `IdScriptableObject.GetGuid()`, and its `StableUuidMethod`
-lists the identity shapes a reflected reader accepts. Typed registry resolution, the identity
-catalog, reference edges and verifier oracles read identity through it; no feature, MCP surface,
-diagnostic, or log owns another registry or UUID-to-name reader.
+`IdScriptableObject.RuntimeLookup` and `IdScriptableObject.GetGuid()`, compiled once when it binds.
+Its `StableUuidMethod` lists the identity shapes a reader accepts, and `StableUuid` returns the
+compiled read for a type, the one bound `GetGuid()` delegate for every `IdScriptableObject`. Typed
+registry resolution, the identity catalog, reference edges and verifier oracles read identity
+through it; no feature, MCP surface, diagnostic, or log owns another registry or UUID-to-name
+reader.
 
 The first shared world capture after `RuntimeReady` in a Playing generation enumerates that registry
 once on Unity's main thread. The pass records lifecycle generation and registry count before and

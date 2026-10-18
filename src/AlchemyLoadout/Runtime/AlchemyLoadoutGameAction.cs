@@ -65,16 +65,16 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
             return false;
         }
         var id = RuntimeIdentityRegistryBinding.Shared.ReadStableUuid(candidate);
-        if (id is null || id == Guid.Empty)
+        if (id == Guid.Empty)
         {
             reason = "A saved Alchemy entry has no stable identity.";
             return false;
         }
-        var resolution = _registry.Resolve(id.Value, native.RecipeType);
+        var resolution = _registry.Resolve(id, native.RecipeType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution) ||
             !ReferenceEquals(resolution.Value, candidate))
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id) +
                 " is not the current Alchemy recipe instance.";
             return false;
         }
@@ -83,19 +83,19 @@ internal sealed class AlchemyLoadoutGameAction : IDisposable
         if (!classification.IsMutationGrade ||
             classification.Domain != AlchemyGameplayDomain.OrdinaryAlchemy)
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) +
+            reason = EntityIdentityFormatter.PlayerName(id) +
                 " is not an ordinary Alchemy loadout recipe.";
             return false;
         }
         if (!native.Discovered(candidate))
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) + " has not been discovered.";
+            reason = EntityIdentityFormatter.PlayerName(id) + " has not been discovered.";
             return false;
         }
         var maximum = Math.Max(native.MaximumUses(candidate), 0);
         if (quantity <= 0 || quantity > maximum)
         {
-            reason = EntityIdentityFormatter.PlayerName(id.Value) + " stores " + quantity +
+            reason = EntityIdentityFormatter.PlayerName(id) + " stores " + quantity +
                 " uses, but the live maximum is " + maximum + ".";
             return false;
         }
