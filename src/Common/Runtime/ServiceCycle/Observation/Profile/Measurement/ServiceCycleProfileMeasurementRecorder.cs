@@ -22,6 +22,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
 
     private readonly int _ownerThreadId;
     private int _fault;
+    private Exception? _faultException;
     private bool _sealed;
     private int _activeDepth;
     private ulong _nextTokenSequence;
@@ -53,6 +54,9 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
 
     internal ServiceCycleProfileMeasurementFault Fault =>
         (ServiceCycleProfileMeasurementFault)Volatile.Read(ref _fault);
+    /// <summary>What a clock, counter or the aggregator threw, when a throw is what faulted.</summary>
+    internal Exception? FaultException => Volatile.Read(ref _faultException);
+    internal ServiceCycleProfileAggregationFault AggregationFault => _aggregator.Fault;
     internal int GroupCount => _aggregator.GroupCount;
     internal int MaximumOutputRecords => _aggregator.MaximumOutputRecords;
 
@@ -159,7 +163,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
         }
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
-            return FailResult(ServiceCycleProfileMeasurementFault.AggregationFailed);
+            return FailResult(ServiceCycleProfileMeasurementFault.AggregationFailed, exception);
         }
     }
 
@@ -192,7 +196,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
         }
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
-            return Fail(ServiceCycleProfileMeasurementFault.AggregationFailed);
+            return Fail(ServiceCycleProfileMeasurementFault.AggregationFailed, exception);
         }
     }
 
@@ -224,7 +228,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
             value = 0;
-            return Fail(ServiceCycleProfileMeasurementFault.RawClockFailed);
+            return Fail(ServiceCycleProfileMeasurementFault.RawClockFailed, exception);
         }
     }
 
@@ -245,7 +249,7 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
             value = 0;
-            return Fail(ServiceCycleProfileMeasurementFault.AllocationCounterFailed);
+            return Fail(ServiceCycleProfileMeasurementFault.AllocationCounterFailed, exception);
         }
     }
 
@@ -257,15 +261,20 @@ internal sealed class ServiceCycleProfileMeasurementRecorder : IServiceCycleProf
             throw new InvalidOperationException("Faulted profile measurements cannot be published.");
     }
 
-    private bool Fail(ServiceCycleProfileMeasurementFault fault)
+    private bool Fail(ServiceCycleProfileMeasurementFault fault, Exception? exception = null)
     {
-        Interlocked.CompareExchange(ref _fault, (int)fault, (int)ServiceCycleProfileMeasurementFault.None);
+        if (Interlocked.CompareExchange(
+                ref _fault, (int)fault, (int)ServiceCycleProfileMeasurementFault.None) ==
+            (int)ServiceCycleProfileMeasurementFault.None && exception is not null)
+            Volatile.Write(ref _faultException, exception);
         return false;
     }
 
-    private ServiceCycleProfileMeasurementResult FailResult(ServiceCycleProfileMeasurementFault fault)
+    private ServiceCycleProfileMeasurementResult FailResult(
+        ServiceCycleProfileMeasurementFault fault,
+        Exception? exception = null)
     {
-        Fail(fault);
+        Fail(fault, exception);
         return ServiceCycleProfileMeasurementResult.Faulted;
     }
 

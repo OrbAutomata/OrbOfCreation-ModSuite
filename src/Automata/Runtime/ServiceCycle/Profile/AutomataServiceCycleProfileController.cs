@@ -245,7 +245,8 @@ internal sealed class AutomataServiceCycleProfileController : IDisposable
         }
         else
         {
-            _log.LogWarning($"ServiceCycle performance profile {_artifactName} ended with {result}.");
+            var cause = session.FailureCause.Length == 0 ? string.Empty : ": " + session.FailureCause;
+            _log.LogWarning($"ServiceCycle performance profile {_artifactName} ended with {result}{cause}.");
         }
     }
 

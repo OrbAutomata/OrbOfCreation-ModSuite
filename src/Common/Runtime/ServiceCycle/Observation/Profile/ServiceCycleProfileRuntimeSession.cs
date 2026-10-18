@@ -16,6 +16,7 @@ internal sealed class ServiceCycleProfileRuntimeSession : IDisposable
     private readonly ServiceCycleProfileMeasurementRecorder _recorder;
     private readonly BufferedServiceCycleProfileSink _sink;
     private bool _stopped;
+    private string _failureCause = string.Empty;
 
     internal ServiceCycleProfileRuntimeSession(
         ISegmentSessionStorage storage,
@@ -54,6 +55,12 @@ internal sealed class ServiceCycleProfileRuntimeSession : IDisposable
     internal bool ManifestCommitted => _sink.ManifestCommitted;
     internal ServiceCycleProfileTerminalReason TerminalReason => _sink.TerminalReason;
 
+    /// <summary>
+    /// Which check stopped the profile and what threw, when the probe or the sink did; empty
+    /// otherwise.
+    /// </summary>
+    internal string FailureCause => _failureCause;
+
     internal void Stop(ServiceCycleProfileTerminalReason reason)
     {
         if (_stopped) return;
@@ -61,6 +68,7 @@ internal sealed class ServiceCycleProfileRuntimeSession : IDisposable
         Probe.Detach();
         if (Probe.Fault != ServiceCycleProfileProbeFault.None || !_recorder.Seal())
         {
+            _failureCause = DescribeProbeFailure();
             _sink.Stop(ServiceCycleProfileTerminalReason.ProbeFailed);
             return;
         }
@@ -85,8 +93,30 @@ internal sealed class ServiceCycleProfileRuntimeSession : IDisposable
         var result = _sink.Append(in record);
         if (result == ServiceCycleProfileAppendResult.Accepted) return true;
         if (result == ServiceCycleProfileAppendResult.Unavailable)
+        {
+            _failureCause = "the profile sink stopped taking the measurements it was handed";
             _sink.Stop(ServiceCycleProfileTerminalReason.ProbeFailed);
+        }
         return false;
+    }
+
+    private string DescribeProbeFailure()
+    {
+        var probe = Probe.Fault == ServiceCycleProfileProbeFault.None
+            ? string.Empty
+            : "the probe saw " + Probe.Fault;
+        var recorder = _recorder.Fault == ServiceCycleProfileMeasurementFault.None
+            ? string.Empty
+            : "the recorder faulted with " + _recorder.Fault +
+                (_recorder.AggregationFault == ServiceCycleProfileAggregationFault.None
+                    ? string.Empty
+                    : " (" + _recorder.AggregationFault + ")");
+        var cause = probe.Length > 0 && recorder.Length > 0
+            ? probe + " after " + recorder
+            : probe + recorder;
+        return (Probe.FaultException ?? _recorder.FaultException) is { } thrown
+            ? cause + ": " + ExceptionDetail.Describe(thrown)
+            : cause;
     }
 }
 #endif

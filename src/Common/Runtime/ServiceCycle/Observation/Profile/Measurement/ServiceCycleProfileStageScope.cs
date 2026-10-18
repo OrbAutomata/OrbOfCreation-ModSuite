@@ -54,7 +54,7 @@ internal ref struct ServiceCycleProfileStageScope
         }
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
-            probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed);
+            probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
             return ServiceCycleProfileMeasurementResult.Faulted;
         }
     }
@@ -75,7 +75,7 @@ internal ref struct ServiceCycleProfileStageScope
         }
         catch (Exception exception) when (!IsProcessFatal(exception))
         {
-            probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed);
+            probe.Fail(ServiceCycleProfileProbeFault.MeasurementPortFailed, exception);
         }
     }
 

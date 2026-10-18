@@ -165,7 +165,7 @@ public sealed class BufferedServiceCycleProfileSinkTests
         return condition();
     }
 
-    private sealed class ProfileStorage : ISegmentSessionStorage, IDisposable
+    internal sealed class ProfileStorage : ISegmentSessionStorage, IDisposable
     {
         private readonly bool _blockFirstSegment;
         private readonly bool _failFirstSegment;
