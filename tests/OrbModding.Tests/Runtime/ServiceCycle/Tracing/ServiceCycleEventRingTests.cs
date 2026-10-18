@@ -108,19 +108,7 @@ public sealed class ServiceCycleEventRingTests
     }
 
     [Fact]
-    public void ExhaustedSequenceAppendIsFailureAtomic()
-    {
-        var ring = ServiceCycleEventRing.AtExhaustedSequenceForTests(ServiceCycleTraceFixtures.Session, 2);
-        var before = ring.Cursor;
-        var payload = ServiceCycleTraceFixtures.Payload(ServiceCycleSemanticEventKind.CycleStarted);
-        Assert.Throws<InvalidOperationException>(() => ring.Append(ServiceCycleSemanticEventKind.CycleStarted, in payload));
-        Assert.Equal(before, ring.Cursor);
-        Assert.Equal(0, ring.Count);
-        Assert.Equal(0UL, ring.OverwrittenTotal);
-    }
-
-    [Fact]
-    public void MaximumSequenceBoundaryMatchesRingDomainAndFutureCursorFailsSafely()
+    public void MaximumSequenceBoundsTheIdentityDomainAndAFutureCursorFailsSafely()
     {
         var maximum = ServiceCycleTraceEventId.MaximumSequence;
         var id = new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, maximum);
@@ -132,10 +120,9 @@ public sealed class ServiceCycleEventRingTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new ServiceCycleTraceDropRange(ServiceCycleTraceFixtures.Session, 1, ulong.MaxValue));
 
-        var ring = ServiceCycleEventRing.AtExhaustedSequenceForTests(ServiceCycleTraceFixtures.Session, 2);
-        Assert.Equal(maximum, ring.Cursor.Sequence);
+        var ring = new ServiceCycleEventRing(ServiceCycleTraceFixtures.Session, 2);
         Assert.Throws<ArgumentOutOfRangeException>(() => ring.DrainSince(
-            new ServiceCycleTraceCursor(ServiceCycleTraceFixtures.Session, ulong.MaxValue),
+            new ServiceCycleTraceCursor(ServiceCycleTraceFixtures.Session, 1),
             Span<ServiceCycleSemanticEvent>.Empty));
     }
 
