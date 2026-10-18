@@ -68,6 +68,9 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         finally { beforeSnapshot.Complete(); }
 #endif
 
+        if (!before.IsValid)
+            return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, string.Empty);
+
         var decision = AutoHarvestPolicy.EvaluateSubmission(
             current.Target.Pair,
             facts,
@@ -126,27 +129,6 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
                 current.Bindings.ActiveAddInstance(current.Shared.ActiveActions, prototype!, 1);
 #endif
             },
-            quarantine);
-    }
-
-    internal static NativeActionOutcome SubmitCaptured(
-        string actionUuid,
-        in AutoHarvestSubmissionState before,
-        Func<bool> observeAfter,
-        Action execute,
-        Action quarantine)
-    {
-        if (!CanSubmit(before))
-        {
-            return before.IsValid
-                ? NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty)
-                : NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, string.Empty);
-        }
-
-        return SubmitAdmitted(
-            actionUuid,
-            observeAfter,
-            execute,
             quarantine);
     }
 
@@ -241,18 +223,4 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
         finally { stage.Complete(); }
     }
 #endif
-
-    internal static bool CanSubmit(in AutoHarvestSubmissionState state) =>
-        state.IsValid &&
-        state.NativeHasEmptyEntry &&
-        state.EmptyEntryCount >= 1 &&
-        state.SupportedCollectCount == 0 &&
-        state.PairMatchCount == 0;
-
-    private static bool VerifyAdmittedTransition(
-        AutoHarvestSubmissionState before,
-        AutoHarvestSubmissionState after) =>
-        after.IsValid &&
-        after.PairMatchCount == 1 &&
-        after.PairEngaged;
 }

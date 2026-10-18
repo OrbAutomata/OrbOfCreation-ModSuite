@@ -287,6 +287,11 @@ public sealed class AutoHarvestMutationAdapterTests
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
     }
 
+    /// <summary>
+    /// The game never stores a null, foreign or half-built entry in the action queue, and counts its
+    /// used slots with the same emptiness the reader uses, so an unreadable queue is a broken game
+    /// contract and faults; a full or duplicate queue is an ordinary refusal.
+    /// </summary>
     [Theory]
     [InlineData(false, 1, true, 0, 0, false)]
     [InlineData(true, 0, false, 0, 0, true)]
@@ -299,31 +304,24 @@ public sealed class AutoHarvestMutationAdapterTests
         int matches,
         bool policyRejected)
     {
-        var executed = false;
-        var afterCaptured = false;
-        var before = new AutoHarvestSubmissionState(
-            valid,
-            usedEntryCount: 2,
-            empty,
-            nativeHasEmptyEntry,
-            supported,
-            matches,
-            pairQuantity: matches,
-            pairEngaged: matches != 0);
+        var active = new PlotNodeActionInstanceListVariable();
+        var state = new RecordingStatePort(
+            activeActions: active,
+            captured: new AutoHarvestSubmissionState(
+                valid,
+                usedEntryCount: 2,
+                empty,
+                nativeHasEmptyEntry,
+                supported,
+                matches,
+                pairQuantity: matches,
+                pairEngaged: matches != 0));
+        var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = AutoHarvestMutationAdapter.SubmitCaptured(
-            "test-action",
-            before,
-            () =>
-            {
-                afterCaptured = true;
-                return true;
-            },
-            () => executed = true,
-            NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving, NotQuarantined);
 
-        Assert.False(executed);
-        Assert.False(afterCaptured);
+        Assert.Empty(active.value);
+        Assert.Equal(0, state.PrototypeCount);
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
         Assert.Equal(
             policyRejected
@@ -487,13 +485,14 @@ public sealed class AutoHarvestMutationAdapterTests
             bool resolvesPrototype = true,
             ServiceActionResultCode? admissionFailure = null,
             bool resolvesCurrentPair = true,
-            PlotNodeActionInstanceListVariable? activeActions = null)
+            PlotNodeActionInstanceListVariable? activeActions = null,
+            AutoHarvestSubmissionState? captured = null)
         {
             _prototype = resolvesPrototype ? new PlotNodeActionInstance(new PlotNodeSO(), new PlotNodeActionSO()) : null;
             _admissionFailure = admissionFailure ?? CommonActionResultCodes.Committed;
             _resolvesCurrentPair = resolvesCurrentPair;
             _activeActions = activeActions;
-            Captured = State(
+            Captured = captured ?? State(
                 used: 2,
                 empty: 1,
                 nativeHasEmptyEntry: true,
