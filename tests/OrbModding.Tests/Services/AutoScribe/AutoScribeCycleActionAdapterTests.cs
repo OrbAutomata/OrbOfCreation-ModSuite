@@ -77,17 +77,17 @@ public sealed class AutoScribeCycleActionAdapterTests
         Assert.Equal(
             ServiceActionDisposition.Rejected,
             registryWait.Outcome.ToResult().Disposition);
-        Assert.False(health.Observe(in registryWait));
+        Assert.False(health.EntersFailure(in registryWait));
         Assert.Equal(
             ServiceActionDisposition.Rejected,
             permitWait.Outcome.ToResult().Disposition);
-        Assert.False(health.Observe(in permitWait));
+        Assert.False(health.EntersFailure(in permitWait));
         Assert.False(health.HasFailure);
 
         Assert.Equal(
             ServiceActionDisposition.Faulted,
             contradiction.Outcome.ToResult().Disposition);
-        Assert.True(health.Observe(in contradiction));
+        Assert.True(health.EntersFailure(in contradiction));
         Assert.True(health.HasFailure);
     }
 
@@ -105,9 +105,9 @@ public sealed class AutoScribeCycleActionAdapterTests
             reason);
         var health = new AutoScribeActionHealth();
 
-        Assert.True(health.Observe(in failure));
+        Assert.True(health.EntersFailure(in failure));
         var failureRevision = health.Revision;
-        Assert.False(health.Observe(in quarantine));
+        Assert.False(health.EntersFailure(in quarantine));
 
         Assert.Equal(failureRevision, health.Revision);
         Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, health.Code);
@@ -132,12 +132,12 @@ public sealed class AutoScribeCycleActionAdapterTests
             quarantineReason);
         var health = new AutoScribeActionHealth();
 
-        Assert.True(health.Observe(in root));
-        Assert.True(health.Observe(in unrelated));
-        Assert.True(health.Observe(in quarantine));
+        Assert.True(health.EntersFailure(in root));
+        Assert.True(health.EntersFailure(in unrelated));
+        Assert.True(health.EntersFailure(in quarantine));
         Assert.Equal(AutoScribeActionResultCodes.Quarantined, health.Code);
         Assert.Equal(quarantineReason, health.Reason);
-        Assert.False(health.Observe(in quarantine));
+        Assert.False(health.EntersFailure(in quarantine));
     }
 
     [Fact]
@@ -151,13 +151,13 @@ public sealed class AutoScribeCycleActionAdapterTests
             "The exact work was admitted."));
         var health = new AutoScribeActionHealth();
 
-        Assert.True(health.Observe(in failure));
-        Assert.False(health.Observe(in verified));
+        Assert.True(health.EntersFailure(in failure));
+        Assert.False(health.EntersFailure(in verified));
         Assert.False(health.HasFailure);
-        Assert.True(health.Observe(in failure));
+        Assert.True(health.EntersFailure(in failure));
 
         health.InvalidateLifecycle();
         Assert.False(health.HasFailure);
-        Assert.True(health.Observe(in failure));
+        Assert.True(health.EntersFailure(in failure));
     }
 }

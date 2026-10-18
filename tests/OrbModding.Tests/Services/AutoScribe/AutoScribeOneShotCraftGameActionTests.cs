@@ -374,7 +374,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(
             ServiceActionDisposition.Rejected,
             result.Outcome.ToResult().Disposition);
-        Assert.False(health.Observe(in result));
+        Assert.False(health.EntersFailure(in result));
         Assert.False(health.HasFailure);
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
@@ -398,8 +398,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(
             ServiceActionDisposition.Faulted,
             first.Outcome.ToResult().Disposition);
-        Assert.True(health.Observe(in first));
-        Assert.False(health.Observe(in repeated));
+        Assert.True(health.EntersFailure(in first));
+        Assert.False(health.EntersFailure(in repeated));
 
         var status = AutoScribeServiceCycleDiagnosticsBridge.ProjectStatus(
             _profile,
@@ -550,7 +550,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     private static AutoScribeActionHealth Observe(in AutoScribeSubmission submission)
     {
         var health = new AutoScribeActionHealth();
-        health.Observe(in submission);
+        health.EntersFailure(in submission);
         return health;
     }
 

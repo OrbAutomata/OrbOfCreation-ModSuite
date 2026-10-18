@@ -179,6 +179,19 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AnUnreadableLifecycleEpochFaultsWithoutTouchingTheGame()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+
+        var result = Execute(SpellLevelActionKind.Single, Id(spell), readEpoch: static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(1, spell.masteryLevel);
+        Assert.Equal(0, spell.GetLevelCost().PerformCalls);
+    }
+
+    [Fact]
     public void ALifecycleEpochDriftRejectsWithoutTouchingTheGame()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
@@ -372,11 +385,12 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         bool autoLevelSpells = true,
         SpellLevelNativeAdapter? levels = null,
         Action<AutoSpellLevelCapability>? observeCapability = null,
-        Action<SpellLevelSubmission>? observeBoundaryStatus = null)
+        Action<SpellLevelSubmission>? observeBoundaryStatus = null,
+        Func<long>? readEpoch = null)
     {
         var adapter = new SpellLevelCycleActionAdapter(
             levels ?? new SpellLevelNativeAdapter(),
-            () => nativeEpoch,
+            readEpoch ?? (() => nativeEpoch),
             () => ownsActionFamily,
             observeCapability,
             observeBoundaryStatus);

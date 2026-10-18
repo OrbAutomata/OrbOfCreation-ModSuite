@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -45,7 +46,7 @@ internal static class AutoScribeService
             return ServiceStartDecision.Wait(
                 CommonServiceDecisionCodes.NotReady,
                 WakePolicy.OnPublication);
-        if (!AutoScribeActionFamilyAccess.Owns(ownsActionFamily))
+        if (!AutomationCycleGuard.Owns(ownsActionFamily))
             return ServiceStartDecision.Wait(
                 AutoScribeServiceDecisionCodes.ActionFamilyUnavailable,
                 WakePolicy.OnPublication);

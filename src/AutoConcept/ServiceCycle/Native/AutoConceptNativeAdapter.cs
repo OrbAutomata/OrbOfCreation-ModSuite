@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using UnityEngine;
 
 namespace OrbAutomata;
@@ -195,46 +196,41 @@ internal sealed class AutoConceptNativeAdapter :
     private bool TryResolveCandidate(
         Guid recipeId,
         out NativeConceptCandidate? candidate,
+        out ServiceActionResultCode refusal,
         out string reason)
     {
         candidate = null;
+        refusal = AutoConceptActionResultCodes.RecipeIdentityChanged;
         if (!TryInitialize(out reason)) return false;
-        try
+        var active = ReadActiveByRecipe();
+        foreach (var recipe in _recipes)
         {
-            var active = ReadActiveByRecipe();
-            foreach (var recipe in _recipes)
+            var uuid = _recipeUuids[recipe];
+            if (!string.Equals(uuid, recipeId.ToString(), StringComparison.Ordinal)) continue;
+            if (!InvokeBoolean(_isDiscovered!, recipe))
             {
-                var uuid = _recipeUuids[recipe];
-                if (!string.Equals(uuid, recipeId.ToString(), StringComparison.Ordinal)) continue;
-                if (!InvokeBoolean(_isDiscovered!, recipe))
-                {
-                    reason = "the planned concept is no longer unlocked";
-                    return false;
-                }
-                var maximum = Math.Max(0, ReadInt(recipe, "GetMaxUsageSlots", "maxUsageSlots"));
-                active.TryGetValue(recipe, out var instance);
-                var quantity = instance is null ? 0 : Convert.ToInt32(_instanceQuantityField!.GetValue(instance) ?? 0);
-                var queued = instance is null ? 0 : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(instance) ?? 0);
-                var identity = EntityIdentityFormatter.Describe(recipeId);
-                candidate = new NativeConceptCandidate(
-                    uuid,
-                    identity.HasName ? identity.Name : uuid,
-                    recipe,
-                    maximum,
-                    instance,
-                    Math.Max(0, quantity),
-                    Math.Max(0, queued));
-                reason = string.Empty;
-                return true;
+                refusal = AutoConceptActionResultCodes.ConceptNotDiscovered;
+                reason = "the planned concept is no longer unlocked";
+                return false;
             }
-            reason = "the planned recipe is no longer in ConceptRecipes";
-            return false;
+            var maximum = Math.Max(0, ReadInt(recipe, "GetMaxUsageSlots", "maxUsageSlots"));
+            active.TryGetValue(recipe, out var instance);
+            var quantity = instance is null ? 0 : Convert.ToInt32(_instanceQuantityField!.GetValue(instance) ?? 0);
+            var queued = instance is null ? 0 : Convert.ToInt32(_instanceQueuedQuantityField!.GetValue(instance) ?? 0);
+            var identity = EntityIdentityFormatter.Describe(recipeId);
+            candidate = new NativeConceptCandidate(
+                uuid,
+                identity.HasName ? identity.Name : uuid,
+                recipe,
+                maximum,
+                instance,
+                Math.Max(0, quantity),
+                Math.Max(0, queued));
+            reason = string.Empty;
+            return true;
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            reason = ex.GetBaseException().Message;
-            return false;
-        }
+        reason = "the planned recipe is no longer in ConceptRecipes";
+        return false;
     }
 
     public bool CanAdd(NativeConceptCandidate candidate) =>
@@ -279,14 +275,14 @@ internal sealed class AutoConceptNativeAdapter :
     {
         _lastMutationEvidence = null;
         _lastNativeMutationOutcome = default;
-        if (!TryResolveCandidate(action.RecipeId, out var candidate, out var reason) ||
+        if (!TryResolveCandidate(action.RecipeId, out var candidate, out var refusal, out var reason) ||
             candidate is null)
         {
             var missing = string.IsNullOrWhiteSpace(reason)
                 ? "the planned recipe is no longer in ConceptRecipes"
                 : reason;
             return IsReady
-                ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.RecipeIdentityChanged, missing)
+                ? AutoConceptSubmission.Rejected(refusal, missing)
                 : AutoConceptSubmission.ContractUnavailable(missing);
         }
         if (!candidate.IsSettled)
@@ -391,7 +387,7 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "the rotation no longer names a replacement";
             return false;
         }
-        if (!TryResolveCandidate(replacementId, out var replacement, out reason))
+        if (!TryResolveCandidate(replacementId, out var replacement, out _, out reason))
             return false;
         if (replacement is null || !replacement.IsSettled || replacement.Quantity != 0 ||
             !CanReplaceAfterRemoval(active, replacement))

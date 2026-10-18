@@ -9,16 +9,15 @@ internal sealed class AutoScribeActionHealth
     internal string Reason { get; private set; } = string.Empty;
     internal long Revision { get; private set; }
 
-    /// <returns>True only when callers should emit a new failure warning.</returns>
-    internal bool Observe(in AutoScribeSubmission submission)
+    internal void Observe(in AutoScribeSubmission submission)
     {
         var outcome = submission.Outcome;
         if (outcome.Verified)
         {
             Clear();
-            return false;
+            return;
         }
-        if (!IsFailure(in submission)) return false;
+        if (!IsFailure(in submission)) return;
 
         // Quarantine is the persistent consequence of its root failure, not a new failure on every
         // publication. Suppress only that same root: a different intervening failure must not hide
@@ -29,16 +28,15 @@ internal sealed class AutoScribeActionHealth
                 Code == AutoScribeActionResultCodes.VerificationFailed ||
                 Code == AutoScribeActionResultCodes.Quarantined) &&
             string.Equals(Reason, outcome.Reason, System.StringComparison.Ordinal))
-            return false;
+            return;
         if (HasFailure &&
             Code == outcome.Code &&
             string.Equals(Reason, outcome.Reason, System.StringComparison.Ordinal))
-            return false;
+            return;
         HasFailure = true;
         Code = outcome.Code;
         Reason = outcome.Reason;
         Revision = checked(Revision + 1);
-        return true;
     }
 
     internal void Clear()

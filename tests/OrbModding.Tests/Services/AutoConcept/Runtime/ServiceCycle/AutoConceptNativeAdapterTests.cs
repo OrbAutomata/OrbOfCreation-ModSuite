@@ -446,6 +446,47 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AConceptThatIsNoLongerDiscoveredRefusesAsUndiscoveredNotAsAChangedIdentity()
+    {
+        var type = new AlchemyTypeSO(
+            AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid.ToString());
+        var recipe = RecipeWithType(RecipeId, "Locked", type);
+        recipe.discovered = false;
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+        var belief = new AutoConceptPlanBelief(0, 0, 1, Guid.Empty, 0);
+        var action = new AutoConceptCycleAction(
+            AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
+
+        var submission = runtime.Submit(in action, DefaultLimits);
+
+        Assert.Equal("not_discovered", submission.Outcome.Code.Name);
+        Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
+        Assert.Empty(active.value);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AThrownCandidateReadReachesTheCallerInsteadOfReadingAsAChangedIdentity()
+    {
+        var type = new AlchemyTypeSO(
+            AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid.ToString());
+        var recipe = RecipeWithType(RecipeId, "Unreadable", type);
+        recipe.DiscoveredReadFailure = new InvalidOperationException("injected discovery read failure");
+        var active = InstallNativeLists(recipe);
+        using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
+        var belief = new AutoConceptPlanBelief(0, 0, 1, Guid.Empty, 0);
+        var action = new AutoConceptCycleAction(
+            AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
+
+        var exception = Assert.ThrowsAny<Exception>(() => runtime.Submit(in action, DefaultLimits));
+
+        Assert.Contains("injected discovery read failure", exception.GetBaseException().Message);
+        Assert.Empty(active.value);
+    }
+
     private static AlchemyRecipeSO RecipeWithType(
         Guid id,
         string name,

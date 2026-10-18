@@ -191,6 +191,15 @@ and resolves one lifecycle-coherent binding set; the native submission boundary 
 identities and policy facts from one pre-mutation snapshot, and only the separate post-mutation
 snapshot proves the exact transition.
 
+Every automation feature callback admits through `AutomationCycleGuard` in Common, after its own policy
+gate: a lease the game cannot answer is not held, a plan from another or an unstamped lifecycle is
+`Rejected(LifecycleReplaced)`, and an epoch the game cannot answer or an expected throw from the
+submission is `Faulted(AdapterFault)`. Such a throw goes to the suite log whole through
+`GameActionFaultLog`, and the result's reason reads "{feature} faulted at the native boundary." plus the
+reference it was logged under, so the exception text stays off the result while its cause stays
+findable. The guard logs faults only, one line per fault until an action lands; refusal reasons travel
+on the result to the wire and the feature's health surface.
+
 ### Terminal outcomes
 
 - `Committed` — the native mutation was accepted and verified; advance the cursor.

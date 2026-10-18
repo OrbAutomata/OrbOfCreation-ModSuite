@@ -156,6 +156,18 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AnUnreadableLifecycleEpochFaultsWithoutTouchingTheGame()
+    {
+        var spell = Equip(Ember);
+
+        var result = Execute(Fire(0, Ember), readEpoch: static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(0, spell.FireCalls);
+    }
+
+    [Fact]
     public void ALifecycleEpochDriftRefusesWithoutTouchingTheGame()
     {
         var spell = Equip(Ember);
@@ -569,11 +581,12 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         bool fullCharge = false,
         AutoCastNativeAdapter? natives = null,
         AutoCastManualPauseState? manualPause = null,
-        Func<bool>? readOwnership = null)
+        Func<bool>? readOwnership = null,
+        Func<long>? readEpoch = null)
     {
         var adapter = new AutoCastCycleActionAdapter(
             natives ?? new AutoCastNativeAdapter(),
-            () => nativeEpoch,
+            readEpoch ?? (() => nativeEpoch),
             readOwnership ?? (() => ownsActionFamily),
             manualPause ?? new AutoCastManualPauseState());
         var config = new SuiteRuntimeConfiguration

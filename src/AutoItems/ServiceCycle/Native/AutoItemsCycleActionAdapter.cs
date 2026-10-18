@@ -13,6 +13,10 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly Func<string> _readOwnershipFailure;
     private readonly AutoItemsActionHealth _health;
+    private readonly AutomationCycleGuard<AutoItemsCycleAction> _guard = new(
+        "Auto Items",
+        static action => $"Auto Items failed to use {EntityIdentityFormatter.Format(action.ItemId)}",
+        static message => Plugin.Log?.LogAutomataWarning(message));
 
     internal AutoItemsCycleActionAdapter(
         AutoItemsConsumableUseGameAction gameAction,
@@ -44,15 +48,15 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
                 action.Family,
                 action.ItemId))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
-        if (!Owns())
+        if (!_guard.Owns(_ownsActionFamily))
         {
             var reason = ReadOwnershipFailure();
             _health.ObserveOwnership(reason);
             return ServiceActionResult.Rejected(
                 AutoItemsActionResultCodes.ActionFamilyUnavailable);
         }
-        if (!NativeEpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         NativeActionOutcome submission;
         try
@@ -61,30 +65,11 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            var reason =
-                "Auto Items failed at the native boundary: " +
-                ex.GetBaseException().Message;
-            submission = NativeActionOutcome.FaultBeforeCall(
-                AutoItemsActionResultCodes.ContractUnavailable,
-                reason);
+            submission = _guard.Fault(ex, in action);
         }
 
         _health.Observe(in submission);
-        if (!submission.Verified)
-            Plugin.Log?.LogAutomataWarning($"Auto Items: {submission.Reason}");
-        return submission.ToResult();
-    }
-
-    private bool Owns()
-    {
-        try
-        {
-            return _ownsActionFamily();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
+        return _guard.Finish(in submission, in action);
     }
 
     private string ReadOwnershipFailure()
@@ -99,19 +84,6 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return "Auto Items ownership evidence failed: " + ex.GetBaseException().Message;
-        }
-    }
-
-    private bool NativeEpochMatches(long plannedEpoch)
-    {
-        try
-        {
-            var current = _readLifecycleEpoch();
-            return current > 0 && current == plannedEpoch;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
         }
     }
 }

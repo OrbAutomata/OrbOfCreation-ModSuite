@@ -16,6 +16,13 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
     private readonly IAutoConceptNativePort _native;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
+    private readonly AutomationCycleGuard<AutoConceptCycleAction> _guard = new(
+        "Auto Concept",
+        static action => $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}" +
+            (action.ReplacementId == Guid.Empty
+                ? string.Empty
+                : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}"),
+        static message => Plugin.Log?.LogAutomataWarning(message));
 
     internal AutoConceptSubmission LastSubmission { get; private set; }
 
@@ -52,10 +59,10 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         LastSubmission = default;
         if (requireAutomationPolicy && !AutoConceptConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
-        if (!Owns())
+        if (!_guard.Owns(_ownsActionFamily))
             return ServiceActionResult.Rejected(AutoConceptActionResultCodes.ActionFamilyUnavailable);
-        if (!NativeEpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         AutoConceptSubmission submission;
         try
@@ -67,52 +74,9 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Concept action failed at the native boundary: {ex.GetBaseException().Message}.");
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return _guard.Fault(ex, in action).ToResult();
         }
 
-        Narrate(in action, in submission);
-        return submission.Outcome.ToResult();
-    }
-
-    private static void Narrate(
-        in AutoConceptCycleAction action,
-        in AutoConceptSubmission submission)
-    {
-        if (submission.Outcome.Verified ||
-            submission.Outcome.Code == AutoConceptActionResultCodes.AmountUnavailable) return;
-        var replacement = action.ReplacementId == Guid.Empty
-            ? string.Empty
-            : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}";
-        var message =
-            $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}{replacement}: " +
-            submission.Outcome.Reason;
-        Plugin.Log?.LogAutomataWarning(message);
-    }
-
-    private bool Owns()
-    {
-        try
-        {
-            return _ownsActionFamily();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    private bool NativeEpochMatches(long plannedEpoch)
-    {
-        try
-        {
-            var current = _readLifecycleEpoch();
-            return current > 0 && current == plannedEpoch;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
+        return _guard.Finish(submission.Outcome, in action);
     }
 }

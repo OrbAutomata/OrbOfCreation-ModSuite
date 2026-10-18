@@ -570,7 +570,8 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
         base.SetGuid(guid);
         uuid = guid.ToString();
     }
-    public bool IsDiscovered() => discovered;
+    public Exception? DiscoveredReadFailure { get; set; }
+    public bool IsDiscovered() => DiscoveredReadFailure is { } failure ? throw failure : discovered;
     public ResourceCostList GetDiscoverCost() => baseDiscoveryCost;
     public ResourceCostList GetUsageCost() => usageCost;
     public int GetFreeUsageSlots() => freeUsageSlots.GetValue().ToInt();
@@ -3563,6 +3564,7 @@ public static class TargetingManager
     public static bool SuppressSubmit { get; set; }
     public static bool ThrowAfterSubmit { get; set; }
     public static bool ThrowOnIsTargeting { get; set; }
+    public static Exception? IsTargetingFault { get; set; }
     private static TargetLink? currentLink;
 
     public static bool Targeting
@@ -3572,7 +3574,9 @@ public static class TargetingManager
     }
 
     public static bool IsTargeting() =>
-        ThrowOnIsTargeting ? throw new NullReferenceException("stub targeting read") : OpenRequests > 0;
+        IsTargetingFault is { } fault ? throw fault
+        : ThrowOnIsTargeting ? throw new NullReferenceException("stub targeting read")
+        : OpenRequests > 0;
 
     public static TargetLink? GetTargetingLink() =>
         !IsTargeting() || AvailableTarget is null
@@ -3606,6 +3610,7 @@ public static class TargetingManager
         SuppressSubmit = false;
         ThrowAfterSubmit = false;
         ThrowOnIsTargeting = false;
+        IsTargetingFault = null;
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
     }

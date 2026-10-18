@@ -33,6 +33,13 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly Action<AutoSpellLevelCapability>? _observeCapability;
     private readonly Action<SpellLevelSubmission>? _observeBoundaryStatus;
+    private readonly AutomationCycleGuard<SpellLevelCycleAction> _guard = new(
+        "Spell Leveling",
+        static action => "Spell Leveling failed to buy a mastery level for " +
+            (action.Kind == SpellLevelActionKind.All
+                ? "every ready spell"
+                : EntityIdentityFormatter.Format(action.Uuid)),
+        static message => Plugin.Log?.LogAutomataWarning(message));
 
     public SpellLevelCycleActionAdapter(
         ISpellLevelNativePort levels,
@@ -76,11 +83,11 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         if (requireAutomationPolicy && !SpellLevelConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
-        if (!Owns())
+        if (!_guard.Owns(_ownsActionFamily))
             return ServiceActionResult.Rejected(SpellLevelActionResultCodes.ActionFamilyUnavailable);
 
-        if (!NativeEpochMatches(action.CollectedAtEpoch))
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
 
         SpellLevelSubmission submission;
         try
@@ -89,18 +96,15 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Plugin.Log?.LogAutomataWarning(
-                $"Spell Leveling failed to buy a mastery level for {EntityIdentityFormatter.Format(action.Uuid)}: adapter fault ({ex.GetBaseException().Message}).");
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return _guard.Fault(ex, in action).ToResult();
         }
 
 #if SERVICE_CYCLE_PROFILE
         LastSubmission = submission;
 #endif
-        Narrate(in action, in submission);
         ObserveCapability(in action, in submission);
         _observeBoundaryStatus?.Invoke(submission);
-        return submission.Outcome.ToResult();
+        return _guard.Finish(submission.Outcome, in action);
     }
 
     /// <summary>
@@ -123,48 +127,5 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         {
             _observeCapability(AutoSpellLevelCapability.Single);
         }
-    }
-
-    private static void Narrate(in SpellLevelCycleAction action, in SpellLevelSubmission submission)
-    {
-        if (submission.Outcome.Verified ||
-            submission.Outcome.Code != CommonActionResultCodes.AdapterFault)
-            return;
-
-        var what = action.Kind == SpellLevelActionKind.All
-            ? "every ready spell"
-            : $"spell {EntityIdentityFormatter.Format(action.Uuid)}";
-        var message =
-            $"Spell Leveling did not level {what}: {submission.Outcome.Reason} " +
-            $"(planned at mastery {action.Belief.MasteryLevel} with {action.Belief.ReadySpellCount} ready).";
-        Plugin.Log?.LogAutomataWarning(message);
-    }
-
-    private bool Owns()
-    {
-        try
-        {
-            return _ownsActionFamily();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    /// <summary>Whether the game is still the run this level was planned for.</summary>
-    private bool NativeEpochMatches(long plannedEpoch)
-    {
-        long epoch;
-        try
-        {
-            epoch = _readLifecycleEpoch();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-
-        return epoch > 0 && epoch == plannedEpoch;
     }
 }

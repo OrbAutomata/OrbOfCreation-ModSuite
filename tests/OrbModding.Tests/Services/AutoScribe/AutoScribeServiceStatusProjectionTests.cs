@@ -80,7 +80,7 @@ public sealed class AutoScribeServiceStatusProjectionTests
             AutoScribeActionResultCodes.RelationshipMismatch,
             failureReason);
         var health = new AutoScribeActionHealth();
-        Assert.True(health.Observe(in failure));
+        health.Observe(in failure);
 
         var status = AutoScribeServiceCycleDiagnosticsBridge.ProjectStatus(
             AutoScribeIdentityCatalog.Audited,

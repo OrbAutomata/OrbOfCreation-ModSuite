@@ -70,6 +70,21 @@ public sealed class AutoConceptCycleActionAdapterTests
     }
 
     [Fact]
+    public void AnUnreadableLifecycleEpochFaultsBeforeNativePreflight()
+    {
+        var native = new FakeNativePort(AutoConceptSubmission.Attempted(
+            new NativeMutationCallOutcome(1, 1, 1),
+            NativeMutationOutcome.Verified,
+            string.Empty,
+            1));
+
+        var result = Execute(native, readEpoch: static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+    }
+
+    [Fact]
     public void LifecycleEpochDriftRefusesBeforeNativePreflight()
     {
         var native = new FakeNativePort(AutoConceptSubmission.Attempted(
@@ -157,10 +172,11 @@ public sealed class AutoConceptCycleActionAdapterTests
         IAutoConceptNativePort native,
         long nativeEpoch = PlannedEpoch,
         bool ownsActionFamily = true,
-        AutoConceptOperationMode mode = AutoConceptOperationMode.Active)
+        AutoConceptOperationMode mode = AutoConceptOperationMode.Active,
+        Func<long>? readEpoch = null)
     {
         var adapter = new AutoConceptCycleActionAdapter(
-            native, () => nativeEpoch, () => ownsActionFamily);
+            native, readEpoch ?? (() => nativeEpoch), () => ownsActionFamily);
         var config = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },

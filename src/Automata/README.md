@@ -50,8 +50,9 @@ Do not commit the referenced BepInEx, Unity, Harmony, or game DLLs.
 - Absolute and relative reserves default to zero; affordability modes provide the default spending margin.
 - Startup, warning, and error records remain enabled; explicit Runtime actions own deeper trace and journal evidence.
 - Routine per-action successes and ordinary no-ops do not enter the BepInEx log; the compact action
-  journal and Runtime outcome projection own them. Lifecycle, startup, shutdown, refusal, warning,
-  and error records remain. Suite automation logging emits the first retained state immediately. Further
+  journal and Runtime outcome projection own them, and an automation refusal reaches the result and
+  the feature's health surface instead. Lifecycle, startup, shutdown, fault, warning, and error records
+  remain. Suite automation logging emits the first retained state immediately. Further
   byte-identical occurrences collapse independently per severity: a changed message first emits the
   held count and span, then the new state, while an unchanged state emits a count-and-span heartbeat
   on the first occurrence at or beyond 60 seconds. Summaries repeat the exact original content for

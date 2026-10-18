@@ -10,80 +10,6 @@ public sealed class AutoBuyPurchaseNarrationTests
     private static readonly Guid CandidateId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
     [Fact]
-    public void DescribeWarning_CandidateUnavailable_IsActionable()
-    {
-        var submission = AutoBuyPurchaseSubmission.CandidateUnavailable();
-
-        var warning = AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Structure, CandidateId, in submission);
-
-        Assert.Equal(
-            $"Auto Buy failed to purchase Structure {CandidateId:D}: The candidate could not be resolved.",
-            warning);
-    }
-
-    [Fact]
-    public void DescribeWarning_AffordabilityUnavailable_IsActionable()
-    {
-        var submission = AutoBuyPurchaseSubmission.AffordabilityUnavailable(default);
-
-        var warning = AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Structure, CandidateId, in submission);
-
-        Assert.Equal(
-            $"Auto Buy failed to purchase Structure {CandidateId:D}: Live affordability could not be read.",
-            warning);
-    }
-
-    [Fact]
-    public void DescribeWarning_SuccessAndOrdinaryRefusalsAreSilent()
-    {
-        var verified = Attempted(before: 4, delta: 3, requested: 3);
-        var refusalOwnedByResponder = AutoBuyPurchaseSubmission.NotAdmissible(default);
-
-        Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in verified));
-        Assert.Null(AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in refusalOwnedByResponder));
-    }
-
-    /// <summary>
-    /// The multiplier pin composes the only sentence that says which of its steps refused. It used
-    /// to be dropped from the trace as an ordinary no-op, while the wire dropped it too, so the one
-    /// fact about the failure existed nowhere.
-    /// </summary>
-    [Fact]
-    public void DescribeWarning_SingleBuyUnavailable_CarriesThePinsOwnReason()
-    {
-        var submission = AutoBuyPurchaseSubmission.Rejected(
-            AutoBuyActionResultCodes.SingleBuyUnavailable,
-            "The suite could not set the game's multi-buy multiplier to 5, so no purchase was " +
-            "attempted: global multi-buy mutation is quarantined: restore failed.");
-
-        var warning = AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in submission);
-
-        Assert.Equal(
-            $"Auto Buy failed to purchase Upgrade {CandidateId:D}: The suite could not set the " +
-            "game's multi-buy multiplier to 5, so no purchase was attempted: global multi-buy " +
-            "mutation is quarantined: restore failed.",
-            warning);
-    }
-
-    [Fact]
-    public void DescribeWarning_UnverifiedPostcondition_IsActionable()
-    {
-        var unverified = Attempted(before: 4, delta: 0, requested: 3);
-
-        var warning = AutoBuyPurchaseNarration.DescribeWarning(
-            AutoBuyCandidateKind.Upgrade, CandidateId, in unverified);
-
-        Assert.Equal(
-            $"Auto Buy failed to purchase Upgrade {CandidateId:D}: The native purchase of 3 levels did not apply.",
-            warning);
-    }
-
-    [Fact]
     public void QueueRoomUnavailable_IsActionable()
     {
         var warning = AutoBuyPurchaseNarration.QueueRoomUnavailable(
@@ -110,16 +36,4 @@ public sealed class AutoBuyPurchaseNarrationTests
             AutoBuyPurchaseNarration.TopologyPublished(7, 42));
     }
 
-    private static AutoBuyPurchaseSubmission Attempted(int before, int delta, int requested)
-    {
-        var queued = before;
-        var evidence = NativeMutationVerifier.Execute(
-            "Auto Buy Upgrade",
-            CandidateId.ToString(),
-            $"delta in [1, {requested}]",
-            () => queued,
-            () => queued += delta,
-            (start, end) => end > start && end <= start + requested);
-        return AutoBuyPurchaseSubmission.Attempted(evidence, requested);
-    }
 }

@@ -11,7 +11,7 @@ internal sealed class MentorCycleActionAdapter : IMentorCycleActionPort
     private readonly IMentorNativePort _native;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<MasteryExperienceDomain, bool> _captureMutationPermit;
-    private readonly Action<string> _warn;
+    private readonly AutomationCycleGuard<MentorCycleAction> _guard;
 
     internal MentorCycleActionAdapter(
         IMentorNativePort native,
@@ -24,7 +24,10 @@ internal sealed class MentorCycleActionAdapter : IMentorCycleActionPort
                               throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _captureMutationPermit = captureMutationPermit ??
                                  throw new ArgumentNullException(nameof(captureMutationPermit));
-        _warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        _guard = new AutomationCycleGuard<MentorCycleAction>(
+            "Mentor",
+            static action => $"Mentor could not grant {action.Domain} mastery XP to {EntityIdentityFormatter.Format(action.RecipientId)}",
+            warn ?? throw new ArgumentNullException(nameof(warn)));
     }
 
     public ServiceActionResult TryExecute(
@@ -35,14 +38,12 @@ internal sealed class MentorCycleActionAdapter : IMentorCycleActionPort
         if (!MentorConfigurationPolicy.IsOperational(config) ||
             !MentorConfigurationPolicy.DomainEnabled(config, action.Domain))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
-        if (_readLifecycleEpoch() != action.CollectedAtEpoch)
-            return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
+        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
+            return refusal;
         if (!_captureMutationPermit(action.Domain))
             return ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected);
 
         var grant = _native.Grant(in action);
-        if (grant.Code == CommonActionResultCodes.AdapterFault)
-            _warn($"Mentor could not grant {action.Domain} mastery XP to {EntityIdentityFormatter.Format(action.RecipientId)}: {grant.Reason}");
-        return grant.ToResult();
+        return _guard.Finish(in grant, in action);
     }
 }
