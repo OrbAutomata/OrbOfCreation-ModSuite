@@ -215,7 +215,6 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     public void AnEmptyUsageProgramAgreesWithTheNativeOracle()
     {
         var recipe = new global::AlchemyRecipeSO();
-        recipe.usagePrerequisites.available = true;
         global::AlchemyRecipeSO.All.Add(recipe);
 
         var verifier = new AutomataUsagePrerequisiteVerifier(typeof(global::AlchemyRecipeSO));
@@ -226,7 +225,27 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         Assert.Empty(failure);
         Assert.Equal(1, run.Compared);
         Assert.True(run.Passed);
-        Assert.Equal(1, recipe.usagePrerequisites.CheckCalls);
+        Assert.Equal(1, recipe.usagePrerequisites.ParameterizedCheckCalls);
+    }
+
+    /// <summary>
+    /// The usage pass is reachable from the Runtime page in every build, so it must only read. The
+    /// no-argument <c>Check()</c> would latch the container's <c>available</c> as it answered.
+    /// </summary>
+    [Fact]
+    public void TheUsagePassLeavesTheContainersLatchWhereItFoundIt()
+    {
+        var recipe = new global::AlchemyRecipeSO();
+        recipe.usagePrerequisites.NativeCheckResult = true;
+        global::AlchemyRecipeSO.All.Add(recipe);
+
+        var verifier = new AutomataUsagePrerequisiteVerifier(typeof(global::AlchemyRecipeSO));
+
+        Assert.True(verifier.TryVerify(
+            recipe, Collect(), new DifferentialRun("Concept usage prerequisite"), out _));
+
+        Assert.False(recipe.usagePrerequisites.available);
+        Assert.Equal(0, recipe.usagePrerequisites.CheckCalls);
     }
 
     /// <summary>
@@ -260,6 +279,7 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     public void AUsageOracleDisagreementIsNamedAsADivergence()
     {
         var recipe = new global::AlchemyRecipeSO();
+        recipe.usagePrerequisites.ParameterizedCheckResult = false;
         global::AlchemyRecipeSO.All.Add(recipe);
         var verifier = new AutomataUsagePrerequisiteVerifier(typeof(global::AlchemyRecipeSO));
         var run = new DifferentialRun("Concept usage prerequisite");

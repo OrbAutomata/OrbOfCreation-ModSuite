@@ -61,6 +61,33 @@ public sealed class AutomataCostVerifierTests
         Assert.Throws<ArgumentNullException>(() => verifier.TryVerify(new object(), null!, out _));
     }
 
+    /// <summary>
+    /// The next-cost multiplier is part of the ported chain, so a structure whose multiplier the suite
+    /// could not compute was not verified. Running the chain on the game's own multiplier instead would
+    /// pass a port nobody checked.
+    /// </summary>
+    [Fact]
+    public void AStructureIsNotVerifiedWhenThePlayersStructureCostCannotBeRead()
+    {
+        var verifier = new AutomataCostVerifier(typeof(global::StructureSO));
+        var run = new DifferentialRun();
+        var original = global::Player.StructureCost;
+        global::Player.StructureCost = null!;
+        try
+        {
+            Assert.True(verifier.IsAvailable);
+
+            var verified = verifier.TryVerify(new global::StructureSO(), run, out var failure);
+
+            Assert.False(verified);
+            Assert.Equal("The player's structure cost multiplier could not be read.", failure);
+        }
+        finally
+        {
+            global::Player.StructureCost = original;
+        }
+    }
+
     /// <summary>Carries a couple of the required members and none of the rest.</summary>
     private sealed class PartialStructure
     {

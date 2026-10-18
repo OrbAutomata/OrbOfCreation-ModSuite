@@ -303,6 +303,24 @@ internal sealed class AutomataRequirementVerifier
     };
 
     /// <summary>
+    /// The one-argument <c>Check</c>. The no-argument overload of the same name latches and stamps,
+    /// so picking by name alone would turn a verifier into a mutation.
+    /// </summary>
+    internal static MethodInfo? FindParameterisedCheck(Type containerType)
+    {
+        foreach (var candidate in containerType.GetMethods(
+                     BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+        {
+            if (candidate.Name != "Check" || candidate.ReturnType != typeof(bool)) continue;
+
+            var parameters = candidate.GetParameters();
+            if (parameters.Length == 1 && parameters[0].ParameterType.IsValueType) return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The reflected members needed to ask the game its own answer, for one owner shape. Resolved
     /// once; a missing member makes the whole verifier unavailable rather than partial.
     /// </summary>
@@ -474,23 +492,6 @@ internal sealed class AutomataRequirementVerifier
                 shape, check, conditionInfo, getGuid,
                 container, tiers, tierContainer, level, queuedLevels, requirementLevel,
                 secondContainer, adjustValue, adjust);
-        }
-
-        /// <summary>
-        /// The one-argument <c>Check</c>. The no-argument overload of the same name latches and stamps,
-        /// so picking by name alone would turn this verifier into a mutation.
-        /// </summary>
-        private static MethodInfo? FindParameterisedCheck(Type containerType)
-        {
-            foreach (var candidate in containerType.GetMethods(Instance))
-            {
-                if (candidate.Name != "Check" || candidate.ReturnType != typeof(bool)) continue;
-
-                var parameters = candidate.GetParameters();
-                if (parameters.Length == 1 && parameters[0].ParameterType.IsValueType) return candidate;
-            }
-
-            return null;
         }
 
         internal Guid ReadGuid(object entity) => (Guid)_getGuid.Invoke(entity, null)!;
