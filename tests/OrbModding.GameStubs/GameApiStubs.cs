@@ -877,10 +877,15 @@ public class StackableListVariable<T> : GenericListVariable<T>
     /// </summary>
     public bool SuppressSetStack { get; set; }
 
+    public int? SuppressSetStackFromCall { get; set; }
+
+    private int _setStackCalls;
+
     /// <summary>Writes the stack and then the value list from it, the way the game does.</summary>
     public virtual void SetStack(Stacked.StackedIdRecord<T> record)
     {
-        if (SuppressSetStack) return;
+        _setStackCalls++;
+        if (SuppressSetStack || _setStackCalls >= SuppressSetStackFromCall) return;
         itemStack.ImportItems(record.ToList());
         SetValue(itemStack.GetItems());
     }
