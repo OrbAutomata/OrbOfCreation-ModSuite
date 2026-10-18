@@ -172,6 +172,6 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
     {
         lane.DiscardAll(out var blocks, out var pendingBlocks, out var records);
         if (blocks != 0 || pendingBlocks != 0)
-            _state.RecordDiscarded(blocks, pendingBlocks, records);
+            _state.RecordDiscarded(pendingBlocks, records);
     }
 }

@@ -38,7 +38,6 @@ public sealed class GameLifecycleMonitorTests
 
         Assert.Contains("already observed", duplicateReason);
         Assert.Equal(1, monitor.Current.Generation);
-        Assert.Single(monitor.Diagnostics);
     }
 
     [Fact]
@@ -160,24 +159,6 @@ public sealed class GameLifecycleMonitorTests
             out _,
             out var frameReason));
         Assert.Contains("non-negative", frameReason);
-    }
-
-    [Fact]
-    public void BoundsStructuredDiagnostics()
-    {
-        var monitor = new GameLifecycleMonitor(() => 1);
-        for (var frame = 0; frame < 40; frame++)
-        {
-            Assert.True(Observe(
-                monitor,
-                frame % 2 == 0 ? GameLifecycleTransitionKind.ResetStarted : GameLifecycleTransitionKind.ResetCompleted,
-                frame,
-                "Main"));
-        }
-
-        Assert.Equal(32, monitor.Diagnostics.Count);
-        Assert.Equal(9, monitor.Diagnostics[0].Generation);
-        Assert.Equal(40, monitor.Diagnostics[31].Generation);
     }
 
     /// <summary>

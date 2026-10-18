@@ -360,9 +360,7 @@ public sealed class AutomataDecisionJournalControllerTests
         writtenRecords: 1,
         discardedRecords: 0,
         bytesWritten: 512,
-        sealedBlocks: 1,
         writtenBlocks: 1,
-        discardedBlocks: 0,
         pendingBlocks: 0,
         peakPendingBlocks: 1,
         firstIncompleteSequence);

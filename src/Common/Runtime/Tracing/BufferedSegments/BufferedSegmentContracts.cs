@@ -108,9 +108,7 @@ internal readonly struct BufferedSegmentMetrics
         long writtenRecords,
         long discardedRecords,
         long bytesWritten,
-        long sealedBlocks,
         long writtenBlocks,
-        long discardedBlocks,
         int pendingBlocks,
         int peakPendingBlocks,
         long firstIncompleteSequence,
@@ -122,9 +120,7 @@ internal readonly struct BufferedSegmentMetrics
         WrittenRecords = writtenRecords;
         DiscardedRecords = discardedRecords;
         BytesWritten = bytesWritten;
-        SealedBlocks = sealedBlocks;
         WrittenBlocks = writtenBlocks;
-        DiscardedBlocks = discardedBlocks;
         PendingBlocks = pendingBlocks;
         PeakPendingBlocks = peakPendingBlocks;
         FirstIncompleteSequence = firstIncompleteSequence;
@@ -137,9 +133,7 @@ internal readonly struct BufferedSegmentMetrics
     internal long WrittenRecords { get; }
     internal long DiscardedRecords { get; }
     internal long BytesWritten { get; }
-    internal long SealedBlocks { get; }
     internal long WrittenBlocks { get; }
-    internal long DiscardedBlocks { get; }
     internal int PendingBlocks { get; }
     internal int PeakPendingBlocks { get; }
     internal long FirstIncompleteSequence { get; }
