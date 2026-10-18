@@ -113,7 +113,8 @@ internal readonly struct BufferedSegmentMetrics
         long discardedBlocks,
         int pendingBlocks,
         int peakPendingBlocks,
-        long firstIncompleteSequence)
+        long firstIncompleteSequence,
+        Exception? faultCause = null)
     {
         Status = status;
         FaultReason = faultReason;
@@ -127,6 +128,7 @@ internal readonly struct BufferedSegmentMetrics
         PendingBlocks = pendingBlocks;
         PeakPendingBlocks = peakPendingBlocks;
         FirstIncompleteSequence = firstIncompleteSequence;
+        FaultCause = faultCause;
     }
 
     internal BufferedSegmentStatus Status { get; }
@@ -141,6 +143,9 @@ internal readonly struct BufferedSegmentMetrics
     internal int PendingBlocks { get; }
     internal int PeakPendingBlocks { get; }
     internal long FirstIncompleteSequence { get; }
+
+    /// <summary>What the consumer threw, when a throw is what latched the fault.</summary>
+    internal Exception? FaultCause { get; }
 }
 
 internal interface IBufferedSegmentConsumer<TRecord> where TRecord : struct

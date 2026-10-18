@@ -100,6 +100,32 @@ public sealed class DecisionJournalSegmentConsumerTests
             consumer.Metrics.FaultReason);
     }
 
+    /// <summary>
+    /// A journal that could not prune keeps what the storage said, so its status names the cause
+    /// and not only that rolling retention failed.
+    /// </summary>
+    [Fact]
+    public void APruneFailureKeepsWhatTheStorageSaid()
+    {
+        var storage = new MemoryStorage(new TraceSegmentStorageRecovery(0, 1, 0, 0))
+        {
+            FailDelete = true,
+        };
+        var consumer = new DecisionJournalSegmentConsumer(
+            storage,
+            new DecisionJournalRunId(14),
+            maximumCommittedSegments: 1);
+        using var sink = CreateSink(consumer);
+        ForStatus(sink, BufferedSegmentStatus.Running);
+        var record = DecisionJournalRecord.Decision(CreateObservation(1, 10));
+
+        Assert.Equal(BufferedSegmentAppendResult.Accepted, sink.Append(in record));
+        sink.Stop();
+        ForStatus(sink, BufferedSegmentStatus.Faulted);
+
+        Assert.Equal("Injected prune failure.", consumer.Metrics.FaultException?.Message);
+    }
+
     [Fact]
     public void FileBackedRunsRetainNewestSegmentsAndRestartRecordSequence()
     {

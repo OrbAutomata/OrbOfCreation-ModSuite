@@ -340,7 +340,8 @@ internal sealed class FullTraceRuntimeSession : IDisposable
                 : _requestedReason ?? default,
             metrics.FaultReason,
             stores?.IsFaulted == true,
-            stores is null ? 0 : stores.ConfigurationCount + stores.StrategyCount);
+            stores is null ? 0 : stores.ConfigurationCount + stores.StrategyCount,
+            metrics.FaultCause is { } cause ? ExceptionDetail.Describe(cause) : string.Empty);
     }
 
     private void Finish(FullTraceRuntimeSessionState terminalState)

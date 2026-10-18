@@ -135,6 +135,7 @@ internal sealed class AutomataFullTraceController : IDisposable
             _log.LogAutomataError(
                 "Profiling full trace ended incomplete: " + _artifactName +
                 " | reason=" + snapshot.FaultReason +
+                (snapshot.FaultCause.Length == 0 ? string.Empty : " | cause=" + snapshot.FaultCause) +
                 " | records=" + snapshot.WrittenRecords + "/" + snapshot.AcceptedRecords +
                 " | first missing sequence=" + snapshot.FirstIncompleteSequence + ".");
             return;

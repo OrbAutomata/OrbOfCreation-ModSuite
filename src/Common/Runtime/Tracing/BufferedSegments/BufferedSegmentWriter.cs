@@ -82,7 +82,7 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
             var reason = _consumerInitialized
                 ? BufferedSegmentFaultReason.WriteFailed
                 : BufferedSegmentFaultReason.InitializationFailed;
-            _state.LatchFault(reason, _state.Metrics().WrittenRecords + 1);
+            _state.LatchFault(reason, _state.Metrics().WrittenRecords + 1, exception);
             _state.CloseAdmissionAndWait();
             if (lane is not null) Discard(lane);
             TryComplete(complete: false);
@@ -114,7 +114,7 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
             }
             catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
             {
-                _state.LatchFault(BufferedSegmentFaultReason.WriteFailed, block.FirstRecordSequence);
+                _state.LatchFault(BufferedSegmentFaultReason.WriteFailed, block.FirstRecordSequence, exception);
                 _state.CloseAdmissionAndWait();
                 Discard(lane);
                 TryComplete(complete: false);
@@ -162,7 +162,7 @@ internal sealed class BufferedSegmentWriter<TRecord> where TRecord : struct
         catch (Exception exception) when (!BufferedSegmentFailurePolicy.IsProcessFatal(exception))
         {
             var firstUnaccepted = _state.Metrics().WrittenRecords + 1;
-            _state.LatchFault(BufferedSegmentFaultReason.CompletionFailed, firstUnaccepted);
+            _state.LatchFault(BufferedSegmentFaultReason.CompletionFailed, firstUnaccepted, exception);
             _state.PublishFaulted();
             return false;
         }
