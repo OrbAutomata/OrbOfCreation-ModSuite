@@ -329,10 +329,7 @@ public sealed class InstalledGameContractTests
         AssertMethod(assembly, "ResourceSO", "GetTrueSpend", false, "BigDouble", "BigDouble");
         AssertMethod(assembly, "ResourceSO", "GetTrueRate", false, "BigDouble");
         AssertMethod(assembly, "ResourceSO", "GetModdedDrain", false, "BigDouble");
-        AssertMethod(assembly, "ResourceSO", "GetQuantity", false, "BigDouble");
         AssertMethod(assembly, "ResourceSO", "IsAtZero", false, "System.Boolean");
-        AssertMethod(assembly, "ResourceSO", "GetTrueSoftCap", false, "BigDouble");
-        AssertMethod(assembly, "ResourceSO", "HasMaxQuantity", false, "System.Boolean");
     }
 
     [GameAssemblyFact]

@@ -138,13 +138,8 @@ internal static class AutoConceptResourcePolicy
         return (trueRate - trueIncrement).CompareTo(reserve) < 0;
     }
 
-    public static bool TryAcceptPositiveDrain(object? nativeIsAtZero, out string reason)
+    public static bool TryAcceptPositiveDrain(bool atZero, out string reason)
     {
-        if (nativeIsAtZero is not bool atZero)
-        {
-            reason = "zero-quantity state is unavailable";
-            return false;
-        }
         if (atZero)
         {
             reason = "is at zero";
