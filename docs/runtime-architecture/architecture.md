@@ -134,12 +134,10 @@ exactly two physical runner positions for current and retiring lifecycle ownersh
 registry-wide identity ledger rejects live worker-definition or state aliases across every service and
 generation. No service scans assemblies or reaches through a global service locator.
 
-## Definition catalogs and changing values
+## Identity and changing values
 
-Lifecycle catalogs enumerate finite definitions after registries are ready, each retaining a stable
-UUID, its expected native type, a diagnostic name, a dense suite-local handle, and verified static
-relationships and provenance. Hot paths index dense arrays by handle; native boundaries continue
-resolving UUID plus expected type.
+Stable identity lives in the [live entity identity catalog](game-boundary-doctrine.md#live-entity-identity-catalog),
+built once per playable lifecycle; native boundaries resolve UUID plus expected type.
 
 The world publication carries the changing values — quantities, rates, capacities, costs, levels,
 availability, completion, queue state, active agriculture state and remaining durations, and the slots,

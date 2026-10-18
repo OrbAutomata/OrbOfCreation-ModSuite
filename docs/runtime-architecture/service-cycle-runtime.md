@@ -141,9 +141,8 @@ while the service waits or executes actions; the feature-owned capture adapter f
 publication transfers ownership to the worker, which derives the immutable snapshot from it; evaluation
 returns ownership with the response; and Common does not refill it until the batch is terminal and the
 next wake is eligible. It crosses threads once per cycle, in one direction, so no double buffer is
-required. It holds dense handles, primitives, immutable suite values, and feature-owned storage with
-read-only surfaces — never a cloned Unity graph — and updates only live values, since stable
-definitions live in lifecycle catalogs.
+required. It holds primitives, immutable suite values, and feature-owned storage with read-only
+surfaces — never a cloned Unity graph.
 
 Ordinary services own no such buffer. One that needs a projection across cycles keeps it in its
 `TState`, where the arrays underneath survive the lifecycle.
