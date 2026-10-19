@@ -71,7 +71,7 @@ The former runtime-probe, per-session purchase-limit, DryRun, expert-override, A
 
 ## Auto Harvest
 
-Auto Harvest is independent from Auto Buy. When `AutoHarvest.Mode=Active`, it considers only the exact audited fruit-tree and treasure-tree collect pairs selected by `CollectFruitTrees` and `CollectTreasureTrees`. It alternates eligible pairs after each successful submission and never queues more than one supported collect action at a time.
+Auto Harvest is independent from Auto Buy. When `AutoHarvest.Mode=Active`, it considers only the exact audited fruit-tree and treasure-tree collect pairs selected by `CollectFruitTrees` and `CollectTreasureTrees`. It alternates eligible pairs after each successful submission and after each one that faulted, and never queues more than one supported collect action at a time.
 
 Each pair-set capture admits both pair circuits once, resolves the shared active-list/scaling contract once,
 then resolves the fruit and treasure bindings independently and caches only their immutable serialized safety
@@ -81,8 +81,8 @@ latched success, while false means the exact current action needs one validation
 missing or unsafe pair therefore cannot starve a healthy sibling. A pair whose harvest did not start, or whose
 registry read only threw, backs off on its own waits (one second, doubling to ten) while its sibling keeps
 harvesting, and the status names that pair and why. A contract mismatch the game proved, such as the wrong
-type or contradictory identity under a pair's UUID, holds that pair until the next lifecycle, which probes it
-again. Partial availability is reported as degraded. The native members themselves bind once per process as one strict set with exact
+type or contradictory identity under a pair's UUID, is warned about once and holds that pair until the next
+lifecycle, which probes it again. Partial availability is reported as degraded. The native members themselves bind once per process as one strict set with exact
 owner, parameter, field and return types; a missing or differently shaped member disables Auto Harvest with a
 reason naming that member's contract, before any registry read or native call.
 
