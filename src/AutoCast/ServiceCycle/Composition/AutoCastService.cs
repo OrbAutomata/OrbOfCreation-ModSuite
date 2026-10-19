@@ -47,7 +47,9 @@ internal static class AutoCastService
             in SuiteRuntimeConfiguration config,
             in ServiceCycleStartContext context)
         {
-            if (!AutoCastConfigurationPolicy.IsOperational(config))
+            var operational = AutoCastConfigurationPolicy.IsOperational(config);
+            actions.ObserveOperational(operational);
+            if (!operational)
             {
                 return ServiceStartDecision.Wait(
                     CommonServiceDecisionCodes.NotReady,

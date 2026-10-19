@@ -90,7 +90,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
     {
         var owned = _dependencies.OwnsActionFamily();
         if (_actions.HoldsServiceCharge &&
-            (!owned || pump.IsEmergencyStopEngaged ||
+            (!owned || !_actions.Operational || pump.IsEmergencyStopEngaged ||
                 _dependencies.ManualPause.IsPaused(pump.DiagnosticsNow)))
             _actions.ReleaseServiceHold();
         _diagnostics?.Observe(pump, in report, owned);

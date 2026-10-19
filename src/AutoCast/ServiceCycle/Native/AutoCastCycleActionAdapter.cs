@@ -154,6 +154,11 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     /// <summary>Whether a full-charge hold this service took is still pressed down.</summary>
     internal bool HoldsServiceCharge => _serviceHold is not null;
 
+    /// <summary>Whether the configuration the start gate last read lets the service run.</summary>
+    internal bool Operational { get; private set; } = true;
+
+    public void ObserveOperational(bool operational) => Operational = operational;
+
     /// <summary>
     /// Lets go of the hold this service took, on the main thread, when the service may no longer
     /// hold it. A hold the player took through <c>game_cast</c> is theirs and is never touched.
