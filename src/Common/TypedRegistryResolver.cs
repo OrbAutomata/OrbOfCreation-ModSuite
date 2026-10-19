@@ -77,7 +77,6 @@ public sealed class TypedRegistryResolution
     public long LifecycleGeneration { get; }
     /// <summary>Why it did not resolve, with the suite-log reference of a read that threw kept apart.</summary>
     public GameActionReason Cause { get; }
-    public string Reason => Cause.Text;
     public bool IsResolved => Status == TypedRegistryResolutionStatus.Resolved && Value is not null;
 
     /// <summary>
@@ -95,8 +94,6 @@ public sealed class TypedRegistryResolution
 
     public bool IsCurrent(long lifecycleGeneration) =>
         lifecycleGeneration == LifecycleGeneration;
-
-    public string Format() => FormatCause().Text;
 
     /// <summary>The full diagnosis, its reference kept apart so a repeat compares the sentence alone.</summary>
     public GameActionReason FormatCause() => Cause.Around(
@@ -139,7 +136,7 @@ public sealed class TypedRegistryResolver
         Guid uuid,
         Type expectedType,
         [NotNullWhen(true)] out object? value,
-        out string reason)
+        out GameActionReason reason)
     {
         var resolution = Resolve(uuid, expectedType);
         if (resolution.IsResolved && IsCurrent(resolution))
@@ -151,7 +148,7 @@ public sealed class TypedRegistryResolver
         value = null;
         reason = resolution.IsResolved
             ? EntityIdentityFormatter.PlayerName(uuid) + " became stale."
-            : resolution.Reason;
+            : resolution.Cause;
         return false;
     }
 

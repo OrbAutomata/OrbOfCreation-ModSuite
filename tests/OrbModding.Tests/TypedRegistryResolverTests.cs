@@ -41,9 +41,9 @@ public sealed class TypedRegistryResolverTests
             var threw = resolver.Resolve(uuid, typeof(Entity));
             Assert.False(threw.IsResolved);
             Assert.True(threw.IsRetryable);
-            Assert.DoesNotContain("registry not loaded", threw.Format());
-            Assert.DoesNotContain("injected lookup outage", threw.Format());
-            Assert.DoesNotContain("guid unreadable", threw.Format());
+            Assert.DoesNotContain("registry not loaded", threw.FormatCause().Text);
+            Assert.DoesNotContain("injected lookup outage", threw.FormatCause().Text);
+            Assert.DoesNotContain("guid unreadable", threw.FormatCause().Text);
         }
         Assert.False(unbound.Resolve(uuid, typeof(Entity)).IsRetryable);
         Assert.False(wrongType.Resolve(uuid, typeof(Entity)).IsRetryable);
@@ -93,7 +93,7 @@ public sealed class TypedRegistryResolverTests
         Assert.Equal(TypedRegistryResolutionStatus.WrongType, result.Status);
         Assert.Null(result.Value);
         Assert.True(result.Evidence.IsContradictory);
-        Assert.Contains(typeof(Entity).FullName!, result.Reason, StringComparison.Ordinal);
+        Assert.Contains(typeof(Entity).FullName!, result.Cause.Text, StringComparison.Ordinal);
     }
 
     [Fact]

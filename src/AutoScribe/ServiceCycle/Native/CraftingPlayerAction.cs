@@ -55,7 +55,7 @@ internal readonly struct CraftingPlayerSubmission
     internal static CraftingPlayerSubmission Reject(
         in CraftingPlayerAction action,
         ServiceActionResultCode code,
-        string reason) =>
+        GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason), action.RecipeId);
 }
 

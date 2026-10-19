@@ -145,13 +145,13 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
                 out var augments,
                 out var augmentRefusal,
                 out var augmentReason))
-            return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason);
+            return SpellWorkbenchLoadPreview.Refused(augmentRefusal, augmentReason.Text);
         var replaced = native.HasEmpty(native.ReadActive(manager))
             ? null
             : FindLoadedCopy(native, manager, recipe);
         if (!TryAdmitLoad(native, manager, recipe, augments, replaced,
                 out preflight, out var admitReason))
-            return SpellWorkbenchLoadPreview.Refused(preflight, admitReason);
+            return SpellWorkbenchLoadPreview.Refused(preflight, admitReason.Text);
         var candidate = BuildCandidate(native, recipe, augments);
         return SpellWorkbenchLoadPreview.Admitted(
             request.SpellRecipeId,
@@ -281,7 +281,7 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
     private bool TryAdmitScreen(
         SpellWorkbenchNativeBindings native,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         var resolution = _registry.Resolve(
             KnownEntities.MagicSpellbookLoadout.Uuid, native.ViewType);
@@ -308,7 +308,7 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
         IList<object> augments,
         LoadedCopy? replaced,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         if (!TryAdmitScreen(native, out refusal, out reason)) return false;
         var recipeName = EntityIdentityFormatter.PlayerName(native.ReadIdentity(recipe));
@@ -423,9 +423,9 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
 
     private static bool Refuse(
         ServiceActionResultCode exact,
-        string exactReason,
+        GameActionReason exactReason,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         refusal = exact;
         reason = exactReason;
@@ -483,7 +483,7 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
         SpellWorkbenchNativeBindings native,
         out List<object> glyphs,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         glyphs = new List<object>();
         var resolved = new Dictionary<Guid, object>();
@@ -510,7 +510,7 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             {
                 return Refuse(SpellWorkbenchActionResultCodes.SelectionUnavailable,
-                    resolution.IsResolved ? GameActionAnswer.Replaced("glyph") : resolution.Reason,
+                    resolution.IsResolved ? GameActionAnswer.Replaced("glyph") : resolution.Cause,
                     out refusal, out reason);
             }
             var glyph = resolution.Value!;
@@ -555,7 +555,7 @@ internal sealed class SpellWorkbenchGameAction : NativeGameAction<SpellWorkbench
         Guid glyphId,
         bool expectAugment,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         if (glyph.GetType() != native.GlyphType)
         {

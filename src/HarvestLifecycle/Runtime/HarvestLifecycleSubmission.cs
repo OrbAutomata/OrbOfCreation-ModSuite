@@ -13,7 +13,7 @@ internal readonly struct HarvestLifecycleSubmission
 
     internal static HarvestLifecycleSubmission Refused(
         ServiceActionResultCode code,
-        string reason,
+        GameActionReason reason,
         int maximumAmount = -1) =>
         new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 

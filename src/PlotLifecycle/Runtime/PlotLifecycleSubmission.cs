@@ -19,7 +19,7 @@ internal readonly struct PlotLifecycleSubmission
 
     internal static PlotLifecycleSubmission Refused(
         ServiceActionResultCode code,
-        string reason,
+        GameActionReason reason,
         int maximumAmount = -1) =>
         new(NativeActionOutcome.Reject(code, reason), maximumAmount: maximumAmount);
 

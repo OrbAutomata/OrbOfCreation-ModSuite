@@ -121,7 +121,7 @@ internal sealed class AlchemyLoadoutGameAction : NativeGameAction<AlchemyLoadout
         var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return AlchemyLoadoutSubmission.Reject(AlchemyLoadoutActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Cause);
         var recipe = resolution.Value!;
         var classification = _classifier.ClassifyRecipe(recipe);
         if (!classification.IsMutationGrade ||

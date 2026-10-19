@@ -124,7 +124,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     private object? _availableRecipes;
     private object? _levelAllUpgrade;
     private TypedRegistryResolution? _levelAllResolution;
-    private string? _contractMismatch;
+    private GameActionReason? _contractMismatch;
 
     internal const string Feature = "Spell Leveling";
 
@@ -151,7 +151,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     public SpellLevelSubmission Submit(SpellLevelActionKind kind, Guid uuid)
     {
         if (!TryInitialize(out var reason, out var cause))
-            return SpellLevelSubmission.ContractUnavailable(GameActionFaultLog.Reason(reason, cause, Feature));
+            return SpellLevelSubmission.ContractUnavailable(
+                cause is null ? reason : GameActionFaultLog.Reason(reason.Sentence, cause, Feature));
         var native = _bindings!;
 
         try
@@ -210,7 +211,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     /// the worker derives it; this exists for the <c>Locked</c> half, which is not. A failure is a
     /// stable sentence, and what the game threw, if anything, is handed back unrecorded as its cause.
     /// </summary>
-    public bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure, out Exception? cause)
+    public bool TryReadCapability(
+        out AutoSpellLevelCapability capability,
+        out GameActionReason failure,
+        out Exception? cause)
     {
         capability = AutoSpellLevelCapability.Locked;
         if (!TryInitialize(out failure, out cause)) return false;
@@ -416,7 +420,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         return false;
     }
 
-    private bool TryInitialize(out string reason, out Exception? cause)
+    private bool TryInitialize(out GameActionReason reason, out Exception? cause)
     {
         cause = null;
         if (IsBound)
@@ -425,9 +429,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             return true;
         }
 
-        if (_contractMismatch is not null)
+        if (_contractMismatch is { } mismatch)
         {
-            reason = _contractMismatch;
+            reason = mismatch;
             return false;
         }
 
@@ -487,15 +491,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     private bool HandleRegistryFailure(
         string label,
         TypedRegistryResolution resolution,
-        out string reason)
+        out GameActionReason reason)
     {
-        var message = $"{label} resolution failed. {resolution.Format()}";
+        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
         if (!resolution.IsRetryable) _contractMismatch = message;
         reason = message;
         return false;
     }
 
-    private static bool Retry(string message, out string reason)
+    private static bool Retry(string message, out GameActionReason reason)
     {
         reason = message;
         return false;

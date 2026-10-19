@@ -51,7 +51,7 @@ internal sealed class GenericLevelGameAction : NativeGameAction<GenericLevelNati
         var resolution = _registry.Resolve(action.TargetId, binding.TargetType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return Reject(GenericLevelActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("level target") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("level target") : resolution.Cause);
         var target = resolution.Value!;
         if (Refusal(in action, native, binding, target) is { } refusal) return new(refusal);
         if (!TryPermit(out var permitRefusal)) return new(permitRefusal);
@@ -163,6 +163,6 @@ internal sealed class GenericLevelGameAction : NativeGameAction<GenericLevelNati
         NativeCostShortfall.Refuse(native, cost, label,
             GenericLevelActionResultCodes.Unaffordable, GenericLevelActionResultCodes.ContractUnavailable);
 
-    private static GenericLevelSubmission Reject(ServiceActionResultCode code, string reason) =>
+    private static GenericLevelSubmission Reject(ServiceActionResultCode code, GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 }

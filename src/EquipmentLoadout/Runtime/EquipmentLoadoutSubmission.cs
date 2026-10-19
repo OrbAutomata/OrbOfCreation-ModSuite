@@ -45,6 +45,6 @@ internal readonly struct EquipmentLoadoutSubmission
     internal int MaximumAmount { get; }
 
     internal static EquipmentLoadoutSubmission Reject(
-        ServiceActionResultCode code, string reason, int maximumAmount = -1) =>
+        ServiceActionResultCode code, GameActionReason reason, int maximumAmount = -1) =>
         new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 }

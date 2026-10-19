@@ -103,7 +103,7 @@ internal sealed class EquipmentLoadoutGameAction : NativeGameAction<EquipmentLoa
         var resolution = _registry.Resolve(action.TargetId, native.EquipmentType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return EquipmentLoadoutSubmission.Reject(EquipmentLoadoutActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("artifact") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("artifact") : resolution.Cause);
         var target = resolution.Value!;
         var name = EntityIdentityFormatter.PlayerName(action.TargetId);
         if (!native.IsCreated(target))

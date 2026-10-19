@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -31,5 +32,5 @@ internal interface ISpellLevelCycleActionPort
 /// </remarks>
 internal interface ISpellLevelCapabilityPort
 {
-    bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure, out Exception? cause);
+    bool TryReadCapability(out AutoSpellLevelCapability capability, out GameActionReason failure, out Exception? cause);
 }
