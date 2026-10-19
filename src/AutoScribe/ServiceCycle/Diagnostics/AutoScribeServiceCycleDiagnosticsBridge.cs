@@ -1,5 +1,7 @@
 using System;
+using OrbModding;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
@@ -11,6 +13,8 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     private readonly AutoScribeFeatureDependencies _dependencies;
     private readonly AutoScribeOneShotCraftGameAction _gameAction;
     private readonly AutoScribeActionHealth _health;
+    private readonly ServiceRetryEpisodeNarrator _retries =
+        new("Auto Scribe", static message => Plugin.Log?.LogAutomataWarning(message));
     private ServiceCycleServiceDiagnosticsSnapshot[] _services =
         new ServiceCycleServiceDiagnosticsSnapshot[8];
     private long _lifecycle;
@@ -41,9 +45,15 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     {
         var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ReadService(pump)
+            : null;
+        changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0 &&
+            service is { } observed &&
+            observed.LatestProjection.IsPresent &&
             TryReadProjection(
-                pump,
+                observed,
                 out var kind,
                 out var blockedRole,
                 out var blockedReason))
@@ -87,6 +97,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         _blockedReason = AutoScribeEvidenceReason.None;
         _health.InvalidateLifecycle();
         _healthRevision = _health.Revision;
+        _retries.InvalidateLifecycle();
         Publish();
     }
 
@@ -113,6 +124,8 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             _gameAction.BindingsAvailable,
             _gameAction.BindingFailure,
             _health,
+            _retries.Current,
+            _retries.ObservedAt,
             _cycleObserved,
             _decisionKind,
             _blockedRole,
@@ -127,6 +140,8 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         bool bindingsAvailable,
         string bindingFailure,
         AutoScribeActionHealth health,
+        ServiceRetryGateSnapshot retries,
+        MonotonicTimestamp now,
         bool cycleObserved,
         AutoScribeDecisionKind decisionKind,
         int blockedRole,
@@ -134,6 +149,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     {
         if (profile is null) throw new ArgumentNullException(nameof(profile));
         if (health is null) throw new ArgumentNullException(nameof(health));
+        if (retries is null) throw new ArgumentNullException(nameof(retries));
         // Player emergency control deliberately shadows retained health: its current stop command
         // is the status the player must act on first.
         if (emergencyDisabled)
@@ -159,6 +175,12 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         // that defect; quiet backpressure never enters action health in the first place.
         if (health.HasFailure)
             return FromActionHealth(health);
+        if (retries.TryGetLatestAnnounced(now, out var retry))
+            return new AutoScribeFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.NativeMutationFailed,
+                $"Auto Scribe is backing off {EntityIdentityFormatter.Format(retry.Target.Id)} after " +
+                $"{retry.ConsecutiveFailures} failed attempt(s) and retries it when due: {retry.Reason}");
         if (!cycleObserved)
             return new AutoScribeFeatureStatus(
                 FeatureStatusState.NotReady,
@@ -208,13 +230,6 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
                 FeatureStatusState.ContractUnavailable,
                 FeatureStatusReasonCode.IdentityMismatch,
                 summary);
-        if (code == AutoScribeActionResultCodes.PostPaymentFault ||
-            code == AutoScribeActionResultCodes.VerificationFailed ||
-            code == AutoScribeActionResultCodes.Quarantined)
-            return new AutoScribeFeatureStatus(
-                FeatureStatusState.Faulted,
-                FeatureStatusReasonCode.MutationQuarantined,
-                summary);
         if (code == AutoScribeActionResultCodes.RelationshipMismatch)
             return new AutoScribeFeatureStatus(
                 FeatureStatusState.ContractUnavailable,
@@ -244,11 +259,21 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         }
     }
 
-    private bool TryReadProjection(
-        SuiteFramePump pump,
+    private static bool TryReadProjection(
+        ServiceCycleServiceDiagnosticsSnapshot service,
         out AutoScribeDecisionKind kind,
         out int blockedRole,
         out AutoScribeEvidenceReason blockedReason)
+    {
+        var projection = service.LatestProjection.Snapshot;
+        return AutoScribeServiceProjection.TryRead(
+            in projection,
+            out kind,
+            out blockedRole,
+            out blockedReason);
+    }
+
+    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
     {
         var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
         if (copy.RequiredCount > _services.Length)
@@ -257,22 +282,9 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
         }
         for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            var service = _services[index];
-            if (!service.ServiceId.Equals(AutoScribeServicePolicies.ServiceId) ||
-                !service.LatestProjection.IsPresent)
-                continue;
-            var projection = service.LatestProjection.Snapshot;
-            return AutoScribeServiceProjection.TryRead(
-                in projection,
-                out kind,
-                out blockedRole,
-                out blockedReason);
-        }
-        kind = AutoScribeDecisionKind.Disabled;
-        blockedRole = -1;
-        blockedReason = AutoScribeEvidenceReason.None;
-        return false;
+            if (_services[index].ServiceId.Equals(AutoScribeServicePolicies.ServiceId))
+                return _services[index];
+        return null;
     }
 
     private static AutoScribeFeatureStatus Blocked(

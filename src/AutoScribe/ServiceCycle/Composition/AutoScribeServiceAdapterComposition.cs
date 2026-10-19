@@ -47,8 +47,7 @@ internal sealed class AutoScribeServiceAdapterComposition
             AutoScribeService.Define(
                 dependencies.Profile,
                 actionPort,
-                dependencies.OwnsActionFamily,
-                () => gameAction.IsQuarantined),
+                dependencies.OwnsActionFamily),
             gameAction,
             health);
     }

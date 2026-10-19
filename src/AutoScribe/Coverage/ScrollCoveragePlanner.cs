@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
@@ -139,12 +140,16 @@ internal sealed class ScrollCoveragePlan
 
     /// <summary>
     /// F4 fail-closed selection: an evidence-blocked enabled role blocks the whole publication
-    /// before cost rank can select a different, apparently healthy role.
+    /// before cost rank can select a different, apparently healthy role. A recipe still backing off
+    /// on the retry gate is passed over until its retry is due.
     /// </summary>
     internal ScrollCraftSelectionResult ChooseCraft(
         PublicationTable<ScrollRoleKey>? enabledRoles,
-        int afterCraftCostOrder)
+        int afterCraftCostOrder,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         for (var index = 0; index < Roles.Length; index++)
         {
             var candidate = Roles[index];
@@ -165,7 +170,8 @@ internal sealed class ScrollCoveragePlan
         {
             var candidate = Roles[index];
             if (!candidate.ShouldAttemptCraft ||
-                !AutoScribeRoleSelection.Contains(enabledRoles, candidate.Role))
+                !AutoScribeRoleSelection.Contains(enabledRoles, candidate.Role) ||
+                retryGate.IsWaiting(AutoScribeServicePolicies.RetryTarget(candidate.RecipeId), decisionAt))
                 continue;
             if (candidate.CraftCostOrder > afterCraftCostOrder &&
                 (!foundAfter ||

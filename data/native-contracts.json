@@ -28791,13 +28791,13 @@
     {
       "id": "generic-level.tuple.type-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling", "Automata Auto Scribe action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource.type-action", "assembly": "assembly-csharp",
       "type": "ResourceSO", "typeVisibility": "public", "kind": "type",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling"],
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell workbench GameAction", "Automata Auto Items action boundary", "Automata Auto Buy refusal diagnostics", "Automata Auto Concept action boundary", "Automata spell leveling", "Automata Auto Scribe action boundary"],
       "usages": ["reflection"], "place": "action"
     },
     {
@@ -28986,25 +28986,25 @@
       "id": "generic-level.cost-entries-action", "assembly": "assembly-csharp",
       "type": "ResourceCostList", "typeVisibility": "public", "kind": "method", "member": "GetEntries",
       "visibility": "public", "static": false, "returnType": "System.Collections.Generic.List`1<ResourceTuple>", "parameters": [],
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple-resource-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "field", "member": "resource",
       "visibility": "public", "static": false, "valueType": "ResourceSO",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple-value-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "method", "member": "GetValue",
       "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": [],
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource-guid-action", "assembly": "assembly-csharp",
       "type": "IdScriptableObject", "typeVisibility": "public", "kind": "method", "member": "GetGuid",
       "visibility": "public", "static": false, "returnType": "System.Guid", "parameters": [],
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling"], "usages": ["reflection"], "place": "action"
+      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource-has-amount-action", "assembly": "assembly-csharp",

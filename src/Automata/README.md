@@ -261,9 +261,9 @@ last irreversible risk.
 After payment, one sentinel proves either the exact queued recipe or an increase in the exact
 instant Scroll stock. Resource charges and `maxStartingLevel` are not recomputed as postconditions.
 A native exception at payment, construction, initiation, or admission rereads that same sentinel:
-the observable requested outcome commits, while an absent transition faults and quarantines the
-Scribe GameAction for the lifecycle. No rollback is attempted.
-Every outcome waits for a new world publication; Auto Scribe has no cadence or retry timer.
+the observable requested outcome commits, while an absent transition faults and backs that recipe off
+on the retry gate for one minute, doubling to thirty. No rollback is attempted.
+Every other outcome waits for a new world publication; Auto Scribe has no cadence timer.
 
 ## Auto Cast
 

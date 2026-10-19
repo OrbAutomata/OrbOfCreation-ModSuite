@@ -34,7 +34,6 @@ public enum FeatureStatusReasonCode
     ManualPause = 403,
     TargetingInProgress = 404,
     CapacityExceeded = 405,
-    MutationQuarantined = 406,
     ActionFamilyConflict = 407,
     ContractUnavailable = 500,
     ContractMismatch = 501,

@@ -44,6 +44,8 @@ internal class ExecutionServiceDefinition :
     internal int SkipWithoutNativeAtIndex { get; set; } = -1;
     internal bool RefusalsBackOff { get; set; }
     internal MonotonicDuration? RefusalBackoffCap { get; set; }
+    internal MonotonicDuration? RefusalInitialBackoff { get; set; }
+    internal bool FaultsBackOff { get; set; }
     internal NativeMutationCallOutcome CommittedNativeOutcome { get; set; } = new(1, 1, 1);
 
     /// <summary>When set, actions commit as publications instead of native mutations.</summary>
@@ -144,7 +146,10 @@ internal class ExecutionServiceDefinition :
         if (ThrowOnExecute is { } thrown) throw thrown;
         LastExecutedSetting = TestSuiteConfiguration.SettingOf(config);
         if (context.ActionIndex == FaultAtIndex)
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+        {
+            var fault = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return FaultsBackOff ? fault.BackingOffTarget(RefusalBackoffCap, initialBackoff: RefusalInitialBackoff) : fault;
+        }
         if (context.ActionIndex == RejectAtIndex)
             return Refusal(ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected));
         if (context.ActionIndex == SkipAtIndex)
@@ -168,5 +173,5 @@ internal class ExecutionServiceDefinition :
     }
 
     private ServiceActionResult Refusal(ServiceActionResult result) =>
-        RefusalsBackOff ? result.BackingOffTarget(RefusalBackoffCap) : result;
+        RefusalsBackOff ? result.BackingOffTarget(RefusalBackoffCap, initialBackoff: RefusalInitialBackoff) : result;
 }

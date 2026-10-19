@@ -792,6 +792,7 @@ public class GenericListVariable<T> : AbstractListVariable<T>
 {
     public bool SuppressAdd;
     public bool ThrowAfterAdd;
+    public Exception? AfterAddFault;
     public int AddCalls;
 
     public int GetUsedSpots()
@@ -848,6 +849,7 @@ public class GenericListVariable<T> : AbstractListVariable<T>
         else value.Add(element);
         UpdateObservable();
         if (ThrowAfterAdd) throw new InvalidOperationException("injected failure after admission");
+        if (AfterAddFault is { } fault) throw fault;
     }
 
     /// <summary>

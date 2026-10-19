@@ -50,6 +50,11 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
 
         var submission = _gameAction.Submit(in action);
         _health.Observe(in submission);
-        return _guard.Finish(submission.Outcome, in action);
+        var result = _guard.Finish(submission.Outcome, in action);
+        return AutoScribeServicePolicies.PaidWithoutWork(result.Code)
+            ? result.BackingOffTarget(
+                AutoScribeServicePolicies.PaidWithoutWorkBackoffCap,
+                initialBackoff: AutoScribeServicePolicies.PaidWithoutWorkFirstWait)
+            : result;
     }
 }

@@ -29,8 +29,7 @@ public sealed class AutoScribeCycleActionAdapterTests
         var decision = AutoScribeService.ShouldStart(
             in configuration,
             in context,
-            ownsActionFamily: static () => false,
-            isQuarantined: static () => false);
+            ownsActionFamily: static () => false);
 
         Assert.False(decision.ShouldStart);
         Assert.Equal(AutoScribeServiceDecisionCodes.ActionFamilyUnavailable, decision.Code);
@@ -52,8 +51,7 @@ public sealed class AutoScribeCycleActionAdapterTests
         var disabled = AutoScribeService.ShouldStart(
             in disabledConfiguration,
             in context,
-            ownsActionFamily: static () => false,
-            isQuarantined: static () => false);
+            ownsActionFamily: static () => false);
 
         Assert.False(disabled.ShouldStart);
         Assert.Equal(CommonServiceDecisionCodes.NotReady, disabled.Code);
@@ -89,55 +87,6 @@ public sealed class AutoScribeCycleActionAdapterTests
             contradiction.Outcome.ToResult().Disposition);
         Assert.True(health.EntersFailure(in contradiction));
         Assert.True(health.HasFailure);
-    }
-
-    [Fact]
-    public void PersistentQuarantineDoesNotReenterTheWarningState()
-    {
-        const string reason = "Exact queue admission was not observed after payment.";
-        var failure = new AutoScribeSubmission(NativeActionOutcome.Fault(
-            AutoScribeActionResultCodes.VerificationFailed,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(4, 1, 0),
-            reason));
-        var quarantine = AutoScribeSubmission.Fault(
-            AutoScribeActionResultCodes.Quarantined,
-            reason);
-        var health = new AutoScribeActionHealth();
-
-        Assert.True(health.EntersFailure(in failure));
-        var failureRevision = health.Revision;
-        Assert.False(health.EntersFailure(in quarantine));
-
-        Assert.Equal(failureRevision, health.Revision);
-        Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, health.Code);
-        Assert.Equal(ServiceActionDisposition.Faulted,
-            quarantine.Outcome.ToResult().Disposition);
-    }
-
-    [Fact]
-    public void QuarantineRepeatReplacesAnUnrelatedInterveningFailureBeforeDeduplicating()
-    {
-        const string quarantineReason = "Exact queue admission was not observed after payment.";
-        var root = new AutoScribeSubmission(NativeActionOutcome.Fault(
-            AutoScribeActionResultCodes.VerificationFailed,
-            NativeMutationOutcome.PostconditionFailed,
-            new NativeMutationCallOutcome(4, 1, 0),
-            quarantineReason));
-        var unrelated = AutoScribeSubmission.Fault(
-            AutoScribeActionResultCodes.WrongThread,
-            "Unity thread ownership changed.");
-        var quarantine = AutoScribeSubmission.Fault(
-            AutoScribeActionResultCodes.Quarantined,
-            quarantineReason);
-        var health = new AutoScribeActionHealth();
-
-        Assert.True(health.EntersFailure(in root));
-        Assert.True(health.EntersFailure(in unrelated));
-        Assert.True(health.EntersFailure(in quarantine));
-        Assert.Equal(AutoScribeActionResultCodes.Quarantined, health.Code);
-        Assert.Equal(quarantineReason, health.Reason);
-        Assert.False(health.EntersFailure(in quarantine));
     }
 
     [Fact]

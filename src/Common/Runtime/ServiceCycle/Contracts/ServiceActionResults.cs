@@ -192,7 +192,8 @@ public readonly struct ServiceActionResult
         string reason,
         bool backsOffTarget = false,
         MonotonicDuration? targetBackoffCap = null,
-        bool quietFirstFailure = false)
+        bool quietFirstFailure = false,
+        MonotonicDuration? targetInitialBackoff = null)
     {
         Disposition = disposition;
         Code = code;
@@ -204,6 +205,7 @@ public readonly struct ServiceActionResult
         BacksOffTarget = backsOffTarget;
         TargetBackoffCap = targetBackoffCap;
         QuietFirstFailure = quietFirstFailure;
+        TargetInitialBackoff = targetInitialBackoff;
     }
 
     private readonly string? _reason;
@@ -227,13 +229,16 @@ public readonly struct ServiceActionResult
     public bool HasPublicationEvidence => Effect == ServiceActionEffect.Publication;
 
     /// <summary>
-    /// The refusal backs its own target off, and the runner retries that target when due exactly as
-    /// it retries one whose action faulted.
+    /// The result backs its own target off with the waits it names, and the runner retries that
+    /// target when due exactly as it retries one whose action faulted.
     /// </summary>
     public bool BacksOffTarget { get; }
 
     /// <summary>The longest wait the doubling may reach for this target; the service's policy maximum when absent.</summary>
     public MonotonicDuration? TargetBackoffCap { get; }
+
+    /// <summary>The first wait the doubling starts from for this target; the service's initial backoff when absent.</summary>
+    public MonotonicDuration? TargetInitialBackoff { get; }
 
     /// <summary>
     /// The target's first refusal is one the game gives now and then, so it backs off without being
@@ -250,8 +255,8 @@ public readonly struct ServiceActionResult
         HasNativeEvidence ? NativeEvidence.CallOutcome : default;
 
     public bool IsValid => Code.IsValid && IsAllowedCode(Code, Disposition) &&
-        (!BacksOffTarget || Disposition is ServiceActionDisposition.Skipped or ServiceActionDisposition.Rejected) &&
-        (BacksOffTarget || TargetBackoffCap is null && !QuietFirstFailure) &&
+        (!BacksOffTarget || Disposition != ServiceActionDisposition.Committed) &&
+        (BacksOffTarget || TargetBackoffCap is null && TargetInitialBackoff is null && !QuietFirstFailure) &&
         Disposition switch
     {
         ServiceActionDisposition.Committed => Effect switch
@@ -332,21 +337,23 @@ public readonly struct ServiceActionResult
     public ServiceActionResult WithReason(string? reason) =>
         new(Disposition, Code, Effect, HasNativeEvidence, NativeEvidence, PublicationEvidence,
             Disposition == ServiceActionDisposition.Committed ? string.Empty : reason ?? string.Empty,
-            BacksOffTarget, TargetBackoffCap, QuietFirstFailure);
+            BacksOffTarget, TargetBackoffCap, QuietFirstFailure, TargetInitialBackoff);
 
     /// <summary>
-    /// The same refusal, backing its target off on the service's retry gate. A fault always backs its
-    /// target off; a refusal does so only when the service says the target, not the moment, is wrong.
+    /// The same result, backing its target off on the service's retry gate. A fault always backs its
+    /// target off, and the mark only names its waits; a refusal does so only when the service says the
+    /// target, not the moment, is wrong.
     /// </summary>
     public ServiceActionResult BackingOffTarget(
         MonotonicDuration? maximumBackoff = null,
-        bool quietFirstFailure = false)
+        bool quietFirstFailure = false,
+        MonotonicDuration? initialBackoff = null)
     {
-        if (Disposition is not (ServiceActionDisposition.Skipped or ServiceActionDisposition.Rejected))
-            throw new InvalidOperationException("Only a skipped or rejected action asks to back its target off.");
+        if (Disposition == ServiceActionDisposition.Committed)
+            throw new InvalidOperationException("A committed action has no target to back off.");
         return new ServiceActionResult(
             Disposition, Code, Effect, HasNativeEvidence, NativeEvidence, PublicationEvidence, Reason,
-            true, maximumBackoff, quietFirstFailure);
+            true, maximumBackoff, quietFirstFailure, initialBackoff);
     }
 
     private static ServiceActionResult Create(

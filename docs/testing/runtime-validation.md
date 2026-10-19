@@ -92,7 +92,8 @@ retries.
   cancelled temporary usage, and the pause and resume when the player eats an
   allowlisted item themselves.
 - **Auto Scribe:** role selection, cost rank, carry limit, payment-last ordering,
-  queue/instant completion, and lifecycle quarantine.
+  queue/instant completion, and the recipe back-off after a craft paid with no
+  work admitted.
 - **Mentor:** spells under both source-selection policies, artifacts, and
   ordinary alchemy independently; exact XP, recursion suppression, source
   ceiling, domain isolation, and persistence.

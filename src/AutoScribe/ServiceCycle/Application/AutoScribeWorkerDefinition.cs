@@ -38,6 +38,8 @@ internal sealed class AutoScribeWorkerDefinition :
             _profile,
             state.EnabledRoles,
             state.LastSelectedCraftCostOrder,
+            context.RetryGate,
+            context.DecisionAt,
             actions,
             out var decision);
         if (decision.SelectedCraftCostOrder >= 0)

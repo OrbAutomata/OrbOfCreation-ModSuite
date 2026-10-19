@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Text;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -19,7 +21,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
     private readonly int _mainThreadId;
     private AutoScribeNativeBindings? _bindings;
     private string _bindingFailure = string.Empty;
-    private string _quarantineReason = string.Empty;
 
     internal AutoScribeOneShotCraftGameAction(
         TypedRegistryResolver registry,
@@ -42,8 +43,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
 
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
-    internal bool IsQuarantined => _quarantineReason.Length != 0;
-    internal string QuarantineReason => _quarantineReason;
 
     internal AutoScribeSubmission Submit(in AutoScribeCycleAction action)
     {
@@ -66,10 +65,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             return AutoScribeSubmission.Reject(
                 CommonActionResultCodes.LifecycleReplaced,
                 GameActionAnswer.RunChanged());
-        if (_quarantineReason.Length != 0)
-            return AutoScribeSubmission.Fault(
-                AutoScribeActionResultCodes.Quarantined,
-                _quarantineReason);
         if (_bindings is not { } native)
             return AutoScribeSubmission.Fault(
                 AutoScribeActionResultCodes.ContractUnavailable,
@@ -145,6 +140,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 native,
                 recipe,
                 activeQueue,
+                totalCost,
                 craftLevel,
                 level);
         }
@@ -160,7 +156,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
     {
         _bindings = null;
         _bindingFailure = string.Empty;
-        _quarantineReason = string.Empty;
         BindLifecycle();
     }
 
@@ -168,7 +163,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
     {
         _bindings = null;
         _bindingFailure = string.Empty;
-        _quarantineReason = string.Empty;
     }
 
     private AutoScribeSubmission Execute(
@@ -176,6 +170,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         AutoScribeNativeBindings native,
         object recipe,
         object activeQueue,
+        object totalCost,
         int craftLevel,
         BigDouble level)
     {
@@ -215,8 +210,10 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                     native.InstanceListValue(activeQueue),
                     "ActiveScribeInstances.value"), instance);
             if (!verified)
-                return Quarantine(
+                return PaidWithoutWork(
                     in action,
+                    native,
+                    totalCost,
                     AutoScribeActionResultCodes.VerificationFailed,
                     stage,
                     NativeMutationOutcome.PostconditionFailed,
@@ -226,55 +223,65 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
                 "The exact crafted work reached its native destination."));
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
-            var landed = WorkObservedBestEffort(
-                native,
-                activeQueue,
-                instance,
-                admissionKnown,
-                instant);
-            if (landed)
+            var expected = NativeFailureClassifier.IsExpected(ex);
+            if (WorkObservedBestEffort(native, activeQueue, instance, admissionKnown, instant))
                 return new AutoScribeSubmission(NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "The exact crafted work was observable after native code threw."));
-            return Quarantine(
+                    "The exact crafted work was observable after native code threw." +
+                    (expected ? string.Empty : GameActionFaultLog.Record(ex, "Scholar > Scribe"))));
+            return PaidWithoutWork(
                 in action,
+                native,
+                totalCost,
                 AutoScribeActionResultCodes.PostPaymentFault,
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
                 GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-        }
-        catch (Exception ex)
-        {
-            Quarantine(
-                in action,
-                AutoScribeActionResultCodes.PostPaymentFault,
-                stage,
-                NativeMutationOutcome.ExecutionThrew,
-                nativeCalls,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-            throw;
         }
     }
 
-    private AutoScribeSubmission Quarantine(
+    private static AutoScribeSubmission PaidWithoutWork(
         in AutoScribeCycleAction action,
+        AutoScribeNativeBindings native,
+        object totalCost,
         ServiceActionResultCode code,
         string stage,
         NativeMutationOutcome outcome,
         int nativeCalls,
-        string reason)
-    {
-        _quarantineReason =
-            $"Auto Scribe is quarantined for this lifecycle after {stage} on " +
-            $"{EntityIdentityFormatter.PlayerName(action.RecipeId)}: {reason}";
-        return new AutoScribeSubmission(NativeActionOutcome.Fault(
+        string reason) =>
+        new(NativeActionOutcome.Fault(
             code,
             outcome,
             new NativeMutationCallOutcome(nativeCalls, 1, 0),
-            _quarantineReason));
+            $"Auto Scribe paid {Paid(native, totalCost)} for " +
+            $"{EntityIdentityFormatter.PlayerName(action.RecipeId)} and saw no work after {stage}: {reason}"));
+
+    private static string Paid(AutoScribeNativeBindings native, object totalCost)
+    {
+        try
+        {
+            if (native.CostEntries(totalCost) is not { Count: > 0 } rows) return "a price with no readable rows";
+            var paid = new StringBuilder();
+            for (var index = 0; index < rows.Count; index++)
+            {
+                if (rows[index] is not { } row || native.CostResource(row) is not { } resource) continue;
+                if (paid.Length != 0) paid.Append(", ");
+                paid.Append(GameScientificNumber.Beautify(native.CostValue(row)))
+                    .Append(' ')
+                    .Append(EntityIdentityFormatter.PlayerName(native.ResourceGuid(resource)));
+            }
+            return paid.Length == 0 ? "a price with no readable rows" : paid.ToString();
+        }
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
+        {
+            var reference = GameActionFaultLog.RecordReference(ex, "Scholar > Scribe price");
+            return reference.Length == 0
+                ? "a price the game could not read back"
+                : "a price the game could not read back (reference " + reference + " is in the suite log)";
+        }
     }
 
     private bool TryResolveRelation(

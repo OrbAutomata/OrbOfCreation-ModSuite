@@ -22,7 +22,8 @@ internal sealed class ServiceTargetRetryGate
 
     internal ServiceRetryGateSnapshot Snapshot { get; private set; } = ServiceRetryGateSnapshot.Empty;
 
-    internal bool AllowsCap(MonotonicDuration? maximumBackoff) => _policy.AllowsCap(maximumBackoff);
+    internal bool Allows(MonotonicDuration? initialBackoff, MonotonicDuration? maximumBackoff) =>
+        _policy.Allows(initialBackoff, maximumBackoff);
 
     /// <summary>
     /// A quiet first failure stays quiet while the target keeps failing on the world it first failed
@@ -36,7 +37,8 @@ internal sealed class ServiceTargetRetryGate
         bool awaitsObservation = false,
         MonotonicDuration? maximumBackoff = null,
         bool quietFirstFailure = false,
-        WorldGeneration plannedFrom = default)
+        WorldGeneration plannedFrom = default,
+        MonotonicDuration? initialBackoff = null)
     {
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("A backing-off target names why it failed.", nameof(reason));
@@ -53,7 +55,10 @@ internal sealed class ServiceTargetRetryGate
                 : previous.ConsecutiveFailures + 1;
             awaitsObservation |= previous.AwaitsObservation;
         }
-        var backoff = _policy.BackoffAfter(failures, maximumBackoff ?? _policy.MaximumBackoff);
+        var backoff = _policy.BackoffAfter(
+            failures,
+            initialBackoff ?? _policy.InitialBackoff,
+            maximumBackoff ?? _policy.MaximumBackoff);
         var entry = new ServiceRetryEntry(
             target,
             code,
@@ -175,7 +180,7 @@ internal sealed class ServiceRetryReportBuffer
 
     internal void Add(in ServiceRetryReport report)
     {
-        if (!_policy.AllowsCap(report.MaximumBackoff))
+        if (!_policy.Allows(null, report.MaximumBackoff))
             throw new ArgumentOutOfRangeException(
                 nameof(report),
                 "A retry cap cannot be shorter than the service's initial fault backoff.");

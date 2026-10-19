@@ -1,3 +1,4 @@
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -13,6 +14,8 @@ internal static class AutoScribeCycleEvaluator
         AutoScribeIdentityProfile profile,
         PublicationTable<ScrollRoleKey>? enabledRoles,
         int afterCraftCostOrder,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<AutoScribeCycleAction> actions,
         out AutoScribeDecisionMetrics metrics)
     {
@@ -42,7 +45,7 @@ internal static class AutoScribeCycleEvaluator
                 external++;
         }
 
-        var selection = plan.ChooseCraft(enabledRoles, afterCraftCostOrder);
+        var selection = plan.ChooseCraft(enabledRoles, afterCraftCostOrder, retryGate, decisionAt);
         if (selection.Kind == ScrollCraftSelectionKind.Selected)
         {
             var selected = selection.SelectedScroll;
