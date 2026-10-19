@@ -263,7 +263,7 @@ public sealed class GameMcpDiscoverableRowTests
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "confirm", SpellTreeId, SpellRecipeId,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 41));
-        return GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        return GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 42),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));

@@ -56,149 +56,10 @@ internal sealed class GameMcpCommandDispatcher
 
         try
         {
-            if (command.Kind == GameMcpCommandKind.DiscoveryTreeOffer)
-                return ExecuteDiscoveryTreeOffer(
-                    command,
-                    lifecycle,
-                    configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.SpellWorkbench)
-                return ExecuteSpellWorkbench(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.SpellComposition)
-                return ExecuteSpellComposition(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.SpellLoadout)
-                return ExecuteSpellLoadout(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Targeting)
-                return ExecuteTargeting(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Consumable)
-                return ExecuteConsumable(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Crafting)
-                return ExecuteCrafting(
-                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.EquipmentLoadout)
-                return ExecuteEquipmentLoadout(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.AlchemyLoadout)
-                return ExecuteAlchemyLoadout(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.RitualLifecycle)
-                return ExecuteRitualLifecycle(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.GenericLevel)
-                return ExecuteGenericLevel(
-                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Loadout)
-                return ExecuteLoadout(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.HarvestLifecycle)
-                return ExecuteHarvestLifecycle(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Harvest)
-                return ExecutePlotLifecycle(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.StructureLifecycle)
-                return ExecuteStructureLifecycle(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.ReturnToMenu)
-                return ExecuteReturnToMenu(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Challenge)
-                return ExecuteChallenge(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Prestige)
-                return ExecutePrestige(command, lifecycle, configuration.Generation.Value);
-            if (command.Kind == GameMcpCommandKind.Research)
-                return ExecuteResearch(
-                    command, world.Snapshot, lifecycle, configuration.Generation.Value);
-            var service = ServiceForGameMcp(command.Kind);
-            var context = CreateGameMcpContext(
-                registry,
-                service,
-                world.Generation,
-                out var ordinal);
-            var config = configuration.Snapshot;
-            var result = ExecuteFeature(
+            return GameMcpCommandCatalog.Shipping.Executor(command.Kind)(
                 command,
-                config,
-                world.Snapshot,
-                in context,
-                ordinal);
-            var purchaseRefusal = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
-                command, world.Snapshot, in result, lifecycle,
-                configuration.Generation.Value,
-                FindFeature(command.Kind) is AutoBuyFeatureRuntime bought
-                    ? bought.LastGameMcpSubmission.Diagnosis
-                    : default);
-            if (purchaseRefusal is not null) return purchaseRefusal;
-            var exactReason = GameMcpCastProjection.ExactGameMcpReason(command, world.Snapshot, in result);
-            GameMcpValue? details = null;
-            if (command.Kind == GameMcpCommandKind.Concept &&
-                FindFeature(command.Kind) is AutoConceptFeatureRuntime concepts)
-            {
-                var submission = concepts.LastGameMcpSubmission;
-                if (!submission.Outcome.Verified && !string.IsNullOrEmpty(submission.Outcome.Reason))
-                    exactReason = submission.Outcome.Reason;
-                if (submission.MaximumAmount >= 0 &&
-                    submission.Outcome.Code == AutoConceptActionResultCodes.AmountUnavailable)
-                {
-                    details = new GameMcpObjectBuilder
-                    {
-                        ["maximumAmount"] = submission.MaximumAmount,
-                    }.Freeze();
-                }
-            }
-
-            // The purchase and cast boundaries answer with a class the caller can branch on and a
-            // sentence carrying the fact the class cannot: which epoch the purchase topology is
-            // stamped at, or which spell now occupies the slot the plan named. Neither is derivable
-            // from the code, and a response that dropped them left a caller with a number.
-            if (command.Kind == GameMcpCommandKind.Purchase &&
-                FindFeature(command.Kind) is AutoBuyFeatureRuntime purchases)
-            {
-                var submission = purchases.LastGameMcpSubmission;
-                GameMcpPurchaseRefusal.ProjectPurchaseDetails(
-                    command, world.Snapshot, in submission, ref exactReason, ref details);
-            }
-            // One refusal stood for two gates — no level ready, and a level ready you cannot pay
-            // for — and a round could not tell which it had met. It spent a mastery listing, two
-            // navigations, a refused tooltip, a screenshot and a screen read finding out, while
-            // the research verb had answered the same shape of question in eighty-nine bytes two
-            // calls earlier. The boundary sees one verdict; the published world holds both halves,
-            // so the sentence separating them is composed here.
-            if (command.Kind == GameMcpCommandKind.SpellLevel &&
-                command.Mode != "all" &&
-                result.Code == SpellLevelActionResultCodes.LevelNotAffordable)
-            {
-                exactReason = GameMcpWorldQuery.MasteryRefusalReason(
-                    world.Snapshot, command.TargetId);
-            }
-            if (command.Kind == GameMcpCommandKind.SpellLevel &&
-                result.Code == SpellLevelActionResultCodes.LevelAllLocked)
-            {
-                exactReason = GameMcpWorldQuery.LevelAllLockedReason(world.Snapshot);
-            }
-            if (command.Kind == GameMcpCommandKind.SpellLevel &&
-                FindFeature(command.Kind) is SpellLevelFeatureRuntime levels)
-            {
-                details = GameMcpSpellLevelProjection.Project(
-                    levels.LastGameMcpSubmission, world.Snapshot);
-            }
-
-            if (command.Kind == GameMcpCommandKind.Cast &&
-                FindFeature(command.Kind) is AutoCastFeatureRuntime casts)
-            {
-                var submission = casts.LastGameMcpSubmission;
-                exactReason = GameMcpCastProjection.CastRefusalReason(
-                    command, world.Snapshot, in result,
-                    submission.Outcome.Verified, submission.Outcome.Reason);
-
-                // The spell holding the slot rides as an entity, not only inside the sentence. A
-                // caller acting on it had nowhere to read its id but a regular expression over
-                // prose, because the structured id beside it names the spell that was planned —
-                // the one thing this refusal has already established is not there.
-                if (submission.Occupant != Guid.Empty)
-                {
-                    details = new GameMcpObjectBuilder
-                    {
-                        ["occupant"] = submission.Occupant.ToString("D"),
-                    }.Freeze();
-                }
-            }
-            return GameMcpCommandResult.FromAction(
-                result.WithReason(exactReason),
-                lifecycle,
-                configuration.Generation.Value,
-                details);
+                new GameMcpCommandScope(
+                    this, _gameActions, registry, world, configuration, lifecycle));
         }
         catch (GameMcpActionUnavailableException exception)
         {
@@ -250,633 +111,116 @@ internal sealed class GameMcpCommandDispatcher
         return spellWorkbench.ReadStagedLayout();
     }
 
-    private GameMcpCommandResult ExecuteSpellComposition(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "IntVariable");
-        var spellComposition = _gameActions.Find<SpellCompositionGameAction>();
-        if (spellComposition is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared spell composition GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        var dial = command.Mode switch
-        {
-            "set_output_level" => LevelDial.Output,
-            "set_reserve_level" => LevelDial.Reserve,
-            "set_druidry_level" => LevelDial.Druidry,
-            "set_alchemy_level" => LevelDial.Alchemy,
-            _ => (LevelDial?)null,
-        };
-        if (dial is null)
-            return GameMcpCommandResult.Failed(
-                "unsupported_control",
-                "The suite sent a control this screen has no button for; nothing was applied.",
-                lifecycle,
-                configurationGeneration);
-        var action = new SpellCompositionAction(
-            dial.Value,
-            command.Amount,
-            command.ExpectedLifecycleGeneration);
-        var submission = spellComposition.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(
-            in result,
-            lifecycle,
-            configurationGeneration,
-            GameMcpSpellCompositionProjection.Project(in submission, command.PayloadKey));
-    }
+    internal static readonly GameMcpCommandExecutor FeatureExecutor =
+        static (command, scope) => scope.Dispatcher.ExecuteFeatureCommand(command, scope);
 
-    private GameMcpCommandResult ExecuteSpellLoadout(
+    private GameMcpCommandResult ExecuteFeatureCommand(
         GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
+        GameMcpCommandScope scope)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "Spell");
-        var spellLoadout = _gameActions.Find<SpellLoadoutGameAction>();
-        if (spellLoadout is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared spell loadout GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        return SubmitSpellLoadout(spellLoadout, command, lifecycle, configurationGeneration);
-    }
-
-    internal static GameMcpCommandResult SubmitSpellLoadout(
-        SpellLoadoutGameAction spellLoadout,
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var kind = command.Mode switch
-        {
-            "remove" => SpellLoadoutActionKind.Remove,
-            "move" => SpellLoadoutActionKind.Move,
-            _ => throw new ArgumentException("unsupported spell loadout mode " + command.Mode),
-        };
-        var action = new SpellLoadoutAction(
-            kind,
-            command.TargetId,
-            command.Amount - 1,
-            command.ExpectedLifecycleGeneration);
-        var submission = spellLoadout.Submit(in action);
-        var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(
-            in result,
-            lifecycle,
-            configurationGeneration,
-            GameMcpSpellLoadoutProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteTargeting(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(
+        var registry = scope.Registry;
+        var world = scope.World;
+        var configuration = scope.Configuration;
+        var lifecycle = scope.Lifecycle;
+        var service = ServiceForGameMcp(command.Kind);
+        var context = CreateGameMcpContext(
+            registry,
+            service,
+            world.Generation,
+            out var ordinal);
+        var config = configuration.Snapshot;
+        var result = ExecuteFeature(
             command,
-            command.Mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink");
-        var targeting = _gameActions.Find<TargetingGameAction>();
-        if (targeting is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable", "the shared targeting GameAction was not composed",
-                lifecycle, configurationGeneration);
-        var kind = command.Mode switch
+            config,
+            world.Snapshot,
+            in context,
+            ordinal);
+        var purchaseRefusal = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
+            command, world.Snapshot, in result, lifecycle,
+            configuration.Generation.Value,
+            FindFeature(command.Kind) is AutoBuyFeatureRuntime bought
+                ? bought.LastGameMcpSubmission.Diagnosis
+                : default);
+        if (purchaseRefusal is not null) return purchaseRefusal;
+        var exactReason = GameMcpCastProjection.ExactGameMcpReason(command, world.Snapshot, in result);
+        GameMcpValue? details = null;
+        if (command.Kind == GameMcpCommandKind.Concept &&
+            FindFeature(command.Kind) is AutoConceptFeatureRuntime concepts)
         {
-            "submit" => TargetingActionKind.Submit,
-            "randomize" => TargetingActionKind.Randomize,
-            "cancel" => TargetingActionKind.Cancel,
-            _ => throw new ArgumentException("unsupported targeting mode " + command.Mode),
-        };
-        var action = new TargetingAction(kind, command.TargetId, command.ExpectedLifecycleGeneration);
-        var submission = targeting.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(
-            in result, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteConsumable(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "ConsumableSO");
-        var consumables = _gameActions.Find<AutoItemsConsumablePlayerGameAction>();
-        if (consumables is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared consumable player GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        var kind = command.Mode switch
-        {
-            "use" => ConsumablePlayerActionKind.Use,
-            "cancel" => ConsumablePlayerActionKind.Cancel,
-            "discard" => ConsumablePlayerActionKind.Discard,
-            "set_randomization" => ConsumablePlayerActionKind.SetRandomization,
-            "move" => ConsumablePlayerActionKind.Move,
-            _ => throw new ArgumentException("unsupported consumable mode " + command.Mode),
-        };
-        var list = command.PayloadKey switch
-        {
-            "inventory" => ConsumablePlayerListKind.Inventory,
-            "hotbar" => ConsumablePlayerListKind.Hotbar,
-            _ => ConsumablePlayerListKind.None,
-        };
-        var randomized = string.Equals(
-            command.PayloadValue,
-            "true",
-            StringComparison.Ordinal);
-        var action = new ConsumablePlayerAction(
-            kind,
-            command.TargetId,
-            command.ExpectedLifecycleGeneration,
-            command.Amount,
-            randomized,
-            list,
-            kind == ConsumablePlayerActionKind.Move ? command.Amount - 1 : -1);
-        var submission = consumables.Submit(in action);
-        var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(
-            in result,
-            lifecycle,
-            configurationGeneration,
-            GameMcpConsumableProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteCrafting(
-        GameMcpCommand command,
-        GameWorldState world,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "CraftingRecipeSO");
-        if (command.Mode != "craft")
-        {
-            var craftingInstances = _gameActions.Find<CraftingInstanceLifecycleGameAction>();
-            if (craftingInstances is null)
-                return GameMcpCommandResult.Rejected(
-                    "contract_unavailable",
-                    "the shared crafting-instance GameAction was not composed",
-                    lifecycle,
-                    configurationGeneration);
-            var kind = command.Mode switch
+            var submission = concepts.LastGameMcpSubmission;
+            if (!submission.Outcome.Verified && !string.IsNullOrEmpty(submission.Outcome.Reason))
+                exactReason = submission.Outcome.Reason;
+            if (submission.MaximumAmount >= 0 &&
+                submission.Outcome.Code == AutoConceptActionResultCodes.AmountUnavailable)
             {
-                "automate" => CraftingInstanceLifecycleActionKind.Automate,
-                "cancel_manual" => CraftingInstanceLifecycleActionKind.CancelManual,
-                "cancel_automation" => CraftingInstanceLifecycleActionKind.CancelAutomation,
-                _ => throw new ArgumentException("unsupported crafting mode " + command.Mode),
-            };
-            var instanceAction = new CraftingInstanceLifecycleAction(
-                kind, command.TargetId, command.ExpectedLifecycleGeneration);
-            var instanceSubmission = craftingInstances.Submit(in instanceAction);
-            var instanceResult = instanceSubmission.Outcome.ToResult();
-            return GameMcpCommandResult.FromAction(
-                in instanceResult,
-                lifecycle,
-                configurationGeneration,
-                GameMcpCraftingProjection.Project(in instanceSubmission));
-        }
-        var crafting = _gameActions.Find<AutoScribeOneShotCraftPlayerGameAction>();
-        if (crafting is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared player crafting GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        var max = command.PayloadValue == "max";
-        return GameMcpCraftingProjection.Press(
-            command,
-            lifecycle,
-            configurationGeneration,
-            max,
-            () => GameMcpWorldQuery.CraftShortfallReason(world, command.TargetId),
-            remaining =>
-            {
-                var action = new CraftingPlayerAction(
-                    command.TargetId,
-                    command.ExpectedLifecycleGeneration,
-                    remaining,
-                    max);
-                return crafting.Submit(in action);
-            });
-    }
-
-    private GameMcpCommandResult ExecuteEquipmentLoadout(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var equipmentLoadout = _gameActions.Find<EquipmentLoadoutGameAction>();
-        if (equipmentLoadout is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared equipment loadout GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "EquipmentSO");
-        var kind = command.Mode == "equip"
-            ? EquipmentLoadoutActionKind.Equip
-            : EquipmentLoadoutActionKind.Unequip;
-        var action = new EquipmentLoadoutAction(kind, command.TargetId, command.Amount,
-            command.ExpectedLifecycleGeneration);
-        var submission = equipmentLoadout.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpEquipmentLoadoutProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteChallenge(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var challenges = _gameActions.Find<ChallengeGameAction>();
-        if (challenges is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared challenge GameAction was not composed", lifecycle,
-                configurationGeneration);
-        if (command.TargetId != Guid.Empty)
-            GameMcpNativeActionAdmission.AssertNativeType(command, "ChallengeSO");
-        var kind = command.Mode switch
-        {
-            "select" => ChallengeActionKind.Select,
-            "queue" => ChallengeActionKind.Queue,
-            "abandon" => ChallengeActionKind.Abandon,
-            "reroll" => ChallengeActionKind.Reroll,
-            _ => throw new ArgumentException("unsupported challenge mode " + command.Mode),
-        };
-        var action = new ChallengeAction(kind, command.TargetId, command.SecondaryId,
-            command.ExpectedLifecycleGeneration);
-        var submission = challenges.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpChallengeProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteAlchemyLoadout(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var alchemyLoadout = _gameActions.Find<AlchemyLoadoutGameAction>();
-        if (alchemyLoadout is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared ordinary Alchemy GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "AlchemyRecipeSO");
-        var kind = command.Mode switch
-        {
-            "add" => AlchemyLoadoutActionKind.Add,
-            "remove" => AlchemyLoadoutActionKind.Remove,
-            _ => throw new ArgumentException("unsupported Alchemy mode " + command.Mode),
-        };
-        var action = new AlchemyLoadoutAction(kind, command.TargetId, command.Amount,
-            command.ExpectedLifecycleGeneration);
-        var submission = alchemyLoadout.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpAlchemyLoadoutProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecutePrestige(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var prestige = _gameActions.Find<PrestigeGameAction>();
-        if (prestige is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared prestige GameAction was not composed", lifecycle,
-                configurationGeneration);
-        var action = new PrestigeAction(command.ExpectedLifecycleGeneration);
-        var submission = prestige.Submit(in action);
-        var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpPrestigeProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteRitualLifecycle(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var ritualLifecycle = _gameActions.Find<RitualLifecycleGameAction>();
-        if (ritualLifecycle is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared Ritual GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "RitualSO");
-        var kind = command.Mode switch
-        {
-            "select" => RitualLifecycleActionKind.Select,
-            "deselect" => RitualLifecycleActionKind.Deselect,
-            "set_level" => RitualLifecycleActionKind.SetLevel,
-            "activate" => RitualLifecycleActionKind.Activate,
-            "cancel_duration" => RitualLifecycleActionKind.CancelDuration,
-            "end" => RitualLifecycleActionKind.EndBattle,
-            _ => throw new ArgumentException("unsupported Ritual mode " + command.Mode),
-        };
-        var action = new RitualLifecycleAction(kind, command.TargetId,
-            kind == RitualLifecycleActionKind.SetLevel ? command.Amount - 1 : 0,
-            command.ExpectedLifecycleGeneration);
-        var submission = ritualLifecycle.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpRitualLifecycleProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteHarvestLifecycle(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var harvestLifecycle = _gameActions.Find<HarvestLifecycleGameAction>();
-        if (harvestLifecycle is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared harvest-list GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "HarvestElementSO");
-        var kind = command.Mode switch
-        {
-            "add_element" => HarvestLifecycleActionKind.AddElement,
-            "remove_element" => HarvestLifecycleActionKind.RemoveElement,
-            "add_element_action" => HarvestLifecycleActionKind.AddAction,
-            "remove_element_action" => HarvestLifecycleActionKind.RemoveAction,
-            _ => throw new ArgumentException("unsupported Agromancy element mode " + command.Mode),
-        };
-        var action = new HarvestLifecycleAction(kind, command.TargetId,
-            command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = harvestLifecycle.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpHarvestLifecycleProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecutePlotLifecycle(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var plotLifecycle = _gameActions.Find<PlotLifecycleGameAction>();
-        if (plotLifecycle is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared plot-action GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "PlotNodeSO");
-        var kind = command.Mode switch
-        {
-            "add_plot_action" => PlotLifecycleActionKind.Add,
-            "remove_plot_action" => PlotLifecycleActionKind.Remove,
-            _ => throw new ArgumentException("unsupported Agromancy plot mode " + command.Mode),
-        };
-        var action = new PlotLifecycleAction(kind, command.TargetId,
-            command.SecondaryId, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = plotLifecycle.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        GameMcpValue? details = submission.Outcome.Verified
-            ? new GameMcpObjectBuilder
-            {
-                ["active"] = new GameMcpObjectBuilder
-                {
-                    ["before"] = submission.BeforeQuantity,
-                    ["after"] = submission.AfterQuantity,
-                },
-            }.Freeze()
-            : submission.MaximumAmount >= 0
-                ? new GameMcpObjectBuilder
+                details = new GameMcpObjectBuilder
                 {
                     ["maximumAmount"] = submission.MaximumAmount,
-                }.Freeze()
-                : null;
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration, details);
-    }
+                }.Freeze();
+            }
+        }
 
-    private GameMcpCommandResult ExecuteStructureLifecycle(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var structureLifecycle = _gameActions.Find<StructureLifecycleGameAction>();
-        if (structureLifecycle is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared structure GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "StructureSO");
-        var kind = command.Mode switch
+        // The purchase and cast boundaries answer with a class the caller can branch on and a
+        // sentence carrying the fact the class cannot: which epoch the purchase topology is
+        // stamped at, or which spell now occupies the slot the plan named. Neither is derivable
+        // from the code, and a response that dropped them left a caller with a number.
+        if (command.Kind == GameMcpCommandKind.Purchase &&
+            FindFeature(command.Kind) is AutoBuyFeatureRuntime purchases)
         {
-            "enable" => StructureLifecycleActionKind.Enable,
-            "disable" => StructureLifecycleActionKind.Disable,
-            _ => throw new ArgumentException("unsupported structure mode " + command.Mode),
-        };
-        var action = new StructureLifecycleAction(
-            kind, command.TargetId, command.ExpectedLifecycleGeneration);
-        var submission = structureLifecycle.Submit(in action);
-        var result = submission.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpStructureLifecycleProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteReturnToMenu(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var returnToMenu = _gameActions.Find<ReturnToMenuGameAction>();
-        if (returnToMenu is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared Back to Menu GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "UIBackToMenuButton");
-        var action = new ReturnToMenuAction(command.ExpectedLifecycleGeneration);
-        var submission = returnToMenu.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        var details = submission.Outcome.Verified
-            // Which control the verb pressed, and whether it had to open a panel to reach it, are
-            // how the suite drove the UI. The caller asked to be back at the main menu; the scene
-            // it landed in is the whole answer.
-            ? new GameMcpObjectBuilder { ["scene"] = "Start" }.Freeze()
-            : new GameMcpObjectBuilder().Freeze();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration, details);
-    }
-
-    private GameMcpCommandResult ExecuteGenericLevel(
-        GameMcpCommand command,
-        GameWorldState world,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var genericLevel = _gameActions.Find<GenericLevelGameAction>();
-        if (genericLevel is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared level GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, command.DerivedNativeType);
-        var kind = command.Mode switch
+            var submission = purchases.LastGameMcpSubmission;
+            GameMcpPurchaseRefusal.ProjectPurchaseDetails(
+                command, world.Snapshot, in submission, ref exactReason, ref details);
+        }
+        // One refusal stood for two gates — no level ready, and a level ready you cannot pay
+        // for — and a round could not tell which it had met. It spent a mastery listing, two
+        // navigations, a refused tooltip, a screenshot and a screen read finding out, while
+        // the research verb had answered the same shape of question in eighty-nine bytes two
+        // calls earlier. The boundary sees one verdict; the published world holds both halves,
+        // so the sentence separating them is composed here.
+        if (command.Kind == GameMcpCommandKind.SpellLevel &&
+            command.Mode != "all" &&
+            result.Code == SpellLevelActionResultCodes.LevelNotAffordable)
         {
-            "purchase" => GenericLevelActionKind.Purchase,
-            "bonus" => GenericLevelActionKind.Bonus,
-            _ => throw new ArgumentException("unsupported level mode " + command.Mode),
-        };
-        var action = new GenericLevelAction(kind, command.TargetId,
-            command.DerivedNativeType, command.Amount, command.ExpectedLifecycleGeneration);
-        var submission = genericLevel.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpGenericLevelProjection.Project(in submission, world));
-    }
-
-    private GameMcpCommandResult ExecuteLoadout(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        var loadouts = _gameActions.Find<LoadoutGameAction>();
-        if (loadouts is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared player-loadout GameAction was not composed", lifecycle,
-                configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, command.DerivedNativeType);
-        var kind = command.Mode switch
+            exactReason = GameMcpWorldQuery.MasteryRefusalReason(
+                world.Snapshot, command.TargetId);
+        }
+        if (command.Kind == GameMcpCommandKind.SpellLevel &&
+            result.Code == SpellLevelActionResultCodes.LevelAllLocked)
         {
-            "select" => LoadoutActionKind.Select,
-            "set_equipment" => LoadoutActionKind.SetEquipmentSection,
-            "set_alchemy" => LoadoutActionKind.SetAlchemySection,
-            "rename" => LoadoutActionKind.Rename,
-            "next_icon" => LoadoutActionKind.NextIcon,
-            "next_color" => LoadoutActionKind.NextColor,
-            "snapshot_save" => LoadoutActionKind.SnapshotSave,
-            "snapshot_load" => LoadoutActionKind.SnapshotLoad,
-            "snapshot_clear" => LoadoutActionKind.SnapshotClear,
-            _ => throw new ArgumentException("unsupported loadout mode " + command.Mode),
-        };
-        var enabled = string.Equals(command.PayloadValue, "true", StringComparison.Ordinal);
-        var action = new LoadoutAction(kind, command.TargetId, command.Amount - 1,
-            enabled, command.PayloadValue, command.ExpectedLifecycleGeneration);
-        var submission = loadouts.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(in result, lifecycle,
-            configurationGeneration,
-            GameMcpLoadoutProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteResearch(
-        GameMcpCommand command,
-        GameWorldState world,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "ResearchSO");
-        var researchAction = _gameActions.Find<ResearchGameAction>();
-        if (researchAction is null)
-            return GameMcpCommandResult.Rejected("contract_unavailable",
-                "the shared research GameAction was not composed", lifecycle,
-                configurationGeneration);
-        var kind = command.Mode switch
+            exactReason = GameMcpWorldQuery.LevelAllLockedReason(world.Snapshot);
+        }
+        if (command.Kind == GameMcpCommandKind.SpellLevel &&
+            FindFeature(command.Kind) is SpellLevelFeatureRuntime levels)
         {
-            "develop" => ResearchActionKind.Develop,
-            "pause" => ResearchActionKind.Pause,
-            "resume" => ResearchActionKind.Resume,
-            "cancel" => ResearchActionKind.Cancel,
-            "bonus" => ResearchActionKind.Bonus,
-            _ => throw new ArgumentException("unsupported research mode " + command.Mode),
-        };
-        var action = new ResearchAction(kind, command.TargetId, command.Amount,
-            command.ExpectedLifecycleGeneration);
-        var submission = researchAction.Submit(in action);
-        var result = submission.Outcome.ToResult();
+            details = GameMcpSpellLevelProjection.Project(
+                levels.LastGameMcpSubmission, world.Snapshot);
+        }
 
-        // The read block and this refusal answer the same gate, so they say the same sentence.
-        // The GameAction sees an affordability verdict and no cost rows; the published world holds
-        // the rows, so the sentence naming them is composed here, where both surfaces reach it.
-        var reason =
-            submission.Outcome.Code == ResearchActionResultCodes.Unaffordable &&
-            WorldLookup.TryFind(world.Research, command.TargetId, out var research)
-                ? GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts)
-                : submission.Outcome.Code == ResearchActionResultCodes.Locked
-                    ? GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId)
-                    : submission.Outcome.Reason;
-        return GameMcpCommandResult.FromAction(result.WithReason(reason), lifecycle,
-            configurationGeneration,
-            GameMcpResearchProjection.Project(in submission));
-    }
+        if (command.Kind == GameMcpCommandKind.Cast &&
+            FindFeature(command.Kind) is AutoCastFeatureRuntime casts)
+        {
+            var submission = casts.LastGameMcpSubmission;
+            exactReason = GameMcpCastProjection.CastRefusalReason(
+                command, world.Snapshot, in result,
+                submission.Outcome.Verified, submission.Outcome.Reason);
 
-    private GameMcpCommandResult ExecuteSpellWorkbench(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "SpellRecipeSO");
-        var spellWorkbench = _gameActions.Find<SpellWorkbenchGameAction>();
-        if (spellWorkbench is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared spell workbench GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        var layout = new SpellWorkbenchGlyphStack[command.UuidCounts.Length];
-        for (var index = 0; index < layout.Length; index++)
-            layout[index] = new SpellWorkbenchGlyphStack(
-                command.UuidCounts[index].Uuid,
-                command.UuidCounts[index].Count);
-        var action = new SpellWorkbenchAction(
-            command.TargetId,
-            command.ExpectedLifecycleGeneration,
-            layout);
-        var submission = spellWorkbench.Submit(in action);
-        var result = submission.ToResult();
+            // The spell holding the slot rides as an entity, not only inside the sentence. A
+            // caller acting on it had nowhere to read its id but a regular expression over
+            // prose, because the structured id beside it names the spell that was planned —
+            // the one thing this refusal has already established is not there.
+            if (submission.Occupant != Guid.Empty)
+            {
+                details = new GameMcpObjectBuilder
+                {
+                    ["occupant"] = submission.Occupant.ToString("D"),
+                }.Freeze();
+            }
+        }
         return GameMcpCommandResult.FromAction(
-            in result,
+            result.WithReason(exactReason),
             lifecycle,
-            configurationGeneration,
-            GameMcpSpellWorkbenchProjection.Project(in submission));
-    }
-
-    private GameMcpCommandResult ExecuteDiscoveryTreeOffer(
-        GameMcpCommand command,
-        long lifecycle,
-        ulong configurationGeneration)
-    {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "DiscoveryTreeSO");
-        var discoveryTreeOffers = _gameActions.Find<DiscoveryTreeOfferGameAction>();
-        if (discoveryTreeOffers is null)
-            return GameMcpCommandResult.Rejected(
-                "contract_unavailable",
-                "the shared Discovery Tree offer GameAction was not composed",
-                lifecycle,
-                configurationGeneration);
-        var kind = command.Mode switch
-        {
-            "initiate" => DiscoveryTreeOfferActionKind.Initiate,
-            "select" => DiscoveryTreeOfferActionKind.Select,
-            "confirm" => DiscoveryTreeOfferActionKind.Confirm,
-            "reroll" => DiscoveryTreeOfferActionKind.Reroll,
-            _ => throw new ArgumentException("unsupported Discovery Tree offer mode " + command.Mode),
-        };
-        var action = new DiscoveryTreeOfferAction(
-            kind,
-            command.TargetId,
-            command.SecondaryId,
-            command.ExpectedLifecycleGeneration);
-        var submission = discoveryTreeOffers.Submit(in action);
-        var result = submission.Outcome.ToResult();
-        return GameMcpCommandResult.FromAction(
-            in result,
-            lifecycle,
-            configurationGeneration,
-            GameMcpDiscoveryTreeOfferProjection.Project(kind, in submission));
+            configuration.Generation.Value,
+            details);
     }
 
     private sealed class GameMcpActionUnavailableException : Exception

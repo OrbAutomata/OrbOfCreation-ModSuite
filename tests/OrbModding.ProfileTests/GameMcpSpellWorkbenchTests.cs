@@ -693,7 +693,7 @@ public sealed class GameMcpSpellWorkbenchTests
             9,
             3,
             GameMcpSpellWorkbenchProjection.Project(in submission));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));
@@ -749,7 +749,7 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true,
             equipped: true);
         var addCommand = Command("create", before: beforeAdd);
-        var added = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var added = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(afterAdd), addCommand, terminal));
 
         // An add moves the spell from no slot at all onto the bar, which is the pair a removal
@@ -862,7 +862,7 @@ public sealed class GameMcpSpellWorkbenchTests
             "committed", 9, 3, GameMcpSpellLevelProjection.Project(in submission, before));
 
         var wire = GameMcpTestHarness.Json(committed.WithSettledPostState(
-                GameMcpWorldQuery.ProjectGameplayPostState(
+                GameMcpPostStateSettlement.Project(
                     GameMcpTestHarness.Context(after, generation: 72), command, committed))
             .Project(command));
 

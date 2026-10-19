@@ -409,8 +409,9 @@ lifecycle quarantine; the next request revalidates live again. This does not rel
 policy, and MCP capability registration does not depend on whether the owning automation is enabled.
 
 All committed gameplay actions pass through one post-state settlement path. It waits up to one
-second for a shared world captured after the action completed, then delegates to one
-command-to-world delta projector. The successful response returns only what changed. If no such
+second for a shared world captured after the action completed, then delegates to the
+command-to-world delta projector the kind's command descriptor registers. The successful response
+returns only what changed. If no such
 publication arrives, the response stays `committed` and emits one exceptional
 `postStateUnavailable` fact with `reasonCode=post_state_timeout`; it never labels an older world as
 committed state and never adds a ceremonial lag explanation. A `game_cast` fire is the exception:

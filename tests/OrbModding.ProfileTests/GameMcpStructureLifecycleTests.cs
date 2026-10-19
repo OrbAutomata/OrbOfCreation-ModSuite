@@ -75,7 +75,7 @@ public sealed class GameMcpStructureLifecycleTests
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
         var afterContext = GameMcpTestHarness.Context(after, generation: 92);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             afterContext, command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 

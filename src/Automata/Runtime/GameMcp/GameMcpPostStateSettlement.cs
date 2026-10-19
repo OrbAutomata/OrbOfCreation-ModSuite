@@ -1,6 +1,4 @@
 #if SERVICE_CYCLE_PROFILE
-using OrbModding.Common.Runtime.World;
-
 namespace OrbAutomata.GameMcp;
 
 /// <summary>One bounded freshness rule shared by every MCP mutation projection.</summary>
@@ -16,8 +14,11 @@ internal static class GameMcpPostStateSettlement
     /// </summary>
     internal const float LifecycleWaitSeconds = 15f;
 
-    internal static float WaitSeconds(GameMcpCommand command) =>
-        command.Kind == GameMcpCommandKind.Prestige ? LifecycleWaitSeconds : MaximumWaitSeconds;
+    internal static bool Settles(GameMcpCommand command) => Rule(command).Settles;
+
+    internal static float WaitSeconds(GameMcpCommand command) => Rule(command).WaitSeconds;
+
+    internal static GameMcpFrameData Data(GameMcpCommand command) => Rule(command).Data;
 
     internal static bool IsStrictlyNewer(ulong candidate, ulong mutationWorld) =>
         candidate > mutationWorld;
@@ -32,8 +33,8 @@ internal static class GameMcpPostStateSettlement
 
     /// <summary>
     /// The single settlement predicate used by mutation response dispatch. Most actions settle
-    /// as soon as the next immutable world exists; discovery offers additionally require the
-    /// event-driven offer transition to be visible in that world.
+    /// as soon as the next immutable world exists; a kind whose post-state rule names the outcome
+    /// it waits for additionally requires that outcome to be visible in that world.
     /// </summary>
     internal static bool IsReady(
         GameMcpFrameContext? state,
@@ -41,235 +42,37 @@ internal static class GameMcpPostStateSettlement
         long actionCompletedAtUtcTicks,
         GameMcpCommand command) =>
         HasSettledWorld(state, mutationWorld, actionCompletedAtUtcTicks) &&
-        HasRequestedOutcome(state!, command) &&
-        (command.Kind != GameMcpCommandKind.DiscoveryTreeOffer ||
-         GameMcpWorldQuery.HasDiscoveryPostState(
-             state!,
-             command.TargetId,
-             command.Mode,
-             command.SecondaryId));
-
-    private static bool HasRequestedOutcome(
-        GameMcpFrameContext state,
-        GameMcpCommand command)
-    {
-        if (command.Kind == GameMcpCommandKind.Cast &&
-            string.Equals(command.Mode, "toggle_off", System.StringComparison.Ordinal))
-        {
-            return WorldSpellSlotLookup.TryFind(
-                    state.World!.Snapshot.SpellSlots,
-                    command.Amount - 1,
-                    out var slot) &&
-                slot.Occupied &&
-                slot.SpellRecipeId == command.TargetId &&
-                slot.Toggled &&
-                !slot.Casting;
-        }
-        if (command.Kind == GameMcpCommandKind.Cast &&
-            string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
-        {
-            return FireStarted(state, command);
-        }
-        if (command.Kind == GameMcpCommandKind.StructureLifecycle)
-        {
-            return WorldLookup.TryFind(
-                    state.World!.Snapshot.Structures,
-                    command.TargetId,
-                    out var structure) &&
-                structure.Reading.Disabled ==
-                    string.Equals(command.Mode, "disable", System.StringComparison.Ordinal);
-        }
-        if (command.Kind == GameMcpCommandKind.Concept)
-            return ConceptAmountReached(state, command);
-        if (command.Kind == GameMcpCommandKind.Research && command.Mode == "develop")
-            return ResearchAmountReached(state, command);
-        if (command.Kind != GameMcpCommandKind.SpellComposition) return true;
-        var workbench = state.World!.Snapshot.SpellWorkbench;
-        return command.Mode switch
-        {
-            "set_output_level" => workbench.OutputLevel == command.Amount,
-            "set_reserve_level" => workbench.ReserveLevel == command.Amount,
-            "set_druidry_level" => workbench.DruidryLevel == command.Amount,
-            "set_alchemy_level" => workbench.AlchemyLevel == command.Amount,
-            _ => false,
-        };
-    }
+        Rule(command).Reached(state!, command);
 
     /// <summary>
-    /// The cast this press started, seen in the settled world.
+    /// Projects the smallest changed fact after any gameplay mutation, through the post-state rule
+    /// its command descriptor registers. Transport code only waits and delegates here.
     /// </summary>
     /// <remarks>
-    /// A fire had no sentinel at all, so the first world one generation newer than the press was
-    /// accepted — and a live round's committed fire answered <c>active: no  castReady: yes</c> with
-    /// no recharge block, describing a world that had not yet seen the cast.
-    /// <para>
-    /// The game spends the charge at the END of the cast, not at the press:
-    /// <c>Spell.Cast()</c> loads a cooldown and sets the prep state, and only
-    /// <c>Spell.EndCasting</c>/<c>Spell.ExecuteSpell</c> call <c>Spell.ConsumeCharge()</c>. So a
-    /// spell slower than the world cadence is still readying when the next world lands and its
-    /// charge has not moved, while a spell faster than it has already finished and dropped one.
-    /// Those are the two faces of one fact — this press started a cast — and either proves it.
-    /// Waiting for both would time out half of all casts; waiting for neither is what shipped.
-    /// </para>
-    /// <para>
-    /// An instant spell with no recharge to wait out shows neither: it is over and its charge is
-    /// back before the next world. <c>Spell.ExecuteSpell()</c> counts the manual cast in
-    /// <c>numCasts</c>, so a risen count is the trace that cast leaves.
-    /// </para>
+    /// A committed answer used to carry what it charged and what the next level asks. Both were
+    /// wire-only bookkeeping: the paid rows priced the game's multi-buy variable rather than the
+    /// count the call committed, so a two-level buy reported one level's price as though it were the
+    /// whole charge, and the caller that most needed the number got the one running in the
+    /// dangerous direction. The world publication still holds every cost curve — Auto Buy plans off
+    /// it — and a refusal that cannot afford something still names what it needs and what is held.
+    /// A live caller gets the outcome.
     /// </remarks>
-    private static bool FireStarted(GameMcpFrameContext state, GameMcpCommand command)
-    {
-        if (!WorldSpellSlotLookup.TryFind(
-                state.World!.Snapshot.SpellSlots, command.Amount - 1, out var after) ||
-            !after.Occupied ||
-            after.SpellRecipeId != command.TargetId)
-        {
-            return false;
-        }
-        if (after.ReadyingCast || after.Casting) return true;
-        var before = command.FrameContext?.World?.Snapshot;
-        return before is not null &&
-            WorldSpellSlotLookup.TryFind(before.SpellSlots, command.Amount - 1, out var previous) &&
-            previous.Occupied &&
-            (after.CurrentCharges < previous.CurrentCharges ||
-             after.CastCount > previous.CastCount);
-    }
-
-    /// <summary>
-    /// The game writes an Alchemy queue decrease straight through but holds an increase for a
-    /// quarter second before submitting it, so the queued quantity moves a settlement ahead of the
-    /// active one. Waiting on the active quantity is what keeps the response in the same
-    /// coordinate the concept projection publishes.
-    /// </summary>
-    private static bool ConceptAmountReached(GameMcpFrameContext state, GameMcpCommand command)
-    {
-        var beforeWorld = command.FrameContext?.World?.Snapshot;
-        if (beforeWorld is null) return false;
-        var before = WorldAlchemyInstanceLookup.TryFind(
-            beforeWorld.AlchemyInstances, command.TargetId, out var previous)
-            ? previous.Quantity
-            : 0;
-        var after = WorldAlchemyInstanceLookup.TryFind(
-            state.World!.Snapshot.AlchemyInstances, command.TargetId, out var current)
-            ? current.Quantity
-            : 0;
-        return command.Mode switch
-        {
-            "add" => after == checked(before + command.Amount),
-            "remove" => after == checked(before - command.Amount),
-            "rotate_out" => after == 0,
-            _ => false,
-        };
-    }
-
-    private static bool ResearchAmountReached(GameMcpFrameContext state, GameMcpCommand command)
-    {
-        var beforeWorld = command.FrameContext?.World?.Snapshot;
-        return beforeWorld is not null &&
-            WorldLookup.TryFind(beforeWorld.Research, command.TargetId, out var before) &&
-            WorldLookup.TryFind(state.World!.Snapshot.Research, command.TargetId, out var after) &&
-            (before.Decision.QueueMode
-                ? PendingResearchLevels(after) == checked(PendingResearchLevels(before) + command.Amount)
-                : !before.IsDeveloping && after.IsDeveloping);
-    }
-
-    private static int PendingResearchLevels(in WorldResearch research) =>
-        checked(research.Level + research.QueuedLevels + (research.IsDeveloping ? 1 : 0));
+    internal static GameMcpValue Project(
+        GameMcpFrameContext state,
+        GameMcpCommand command,
+        GameMcpCommandResult committed) => Rule(command).Project(state, command, committed);
 
     internal static GameMcpValue TimedOut(
         GameMcpCommand command,
-        GameMcpFrameContext? latest)
-    {
-        if (command.Kind == GameMcpCommandKind.SpellComposition && latest?.World is not null)
-        {
-            var workbench = latest.World.Snapshot.SpellWorkbench;
-            var observed = GameMcpWorldQuery.DialLevel(workbench, command.Mode).Current;
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "the settled " + command.PayloadKey + " dial is " + observed +
-                ", not the requested " + command.Amount);
-        }
-        if (command.Kind == GameMcpCommandKind.Cast &&
-            string.Equals(command.Mode, "toggle_off", System.StringComparison.Ordinal))
-        {
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "the settled spell slot did not show the requested toggle as off");
-        }
-        if (command.Kind == GameMcpCommandKind.Cast &&
-            string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
-        {
-            return GameMcpWorldQuery.FireWithoutSettledWorld(command);
-        }
-        if (command.Kind == GameMcpCommandKind.StructureLifecycle)
-        {
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "the settled attribute did not show the requested enabled state");
-        }
-        if (command.Kind == GameMcpCommandKind.Research &&
-            string.Equals(command.Mode, "develop", System.StringComparison.Ordinal) &&
-            latest?.World is not null)
-        {
-            var beforeWorld = command.FrameContext?.World?.Snapshot;
-            var before = default(WorldResearch);
-            var hasBefore = beforeWorld is not null && WorldLookup.TryFind(
-                beforeWorld.Research, command.TargetId, out before);
-            var hasAfter = WorldLookup.TryFind(
-                latest.World.Snapshot.Research, command.TargetId, out var after);
-            var queueMode = hasBefore
-                ? before.Decision.QueueMode
-                : hasAfter && after.Decision.QueueMode;
-            if (queueMode)
-            {
-                var observed = hasAfter ? PendingResearchLevels(after).ToString() : "not published";
-                if (!hasBefore)
-                {
-                    return GameMcpWorldQuery.PostStateUnavailable(
-                        "requested_state_not_reached",
-                        "the research queue before state was not published; the settled queue has " +
-                        observed + " pending levels, so the requested increase cannot be verified");
-                }
-                var expected = checked(PendingResearchLevels(before) + command.Amount);
-                return GameMcpWorldQuery.PostStateUnavailable(
-                    "requested_state_not_reached",
-                    "the settled research queue has " + observed +
-                    " pending levels, not the requested " + expected);
-            }
-            var beforeState = hasBefore
-                ? before.IsDeveloping ? "developing" : "idle"
-                : "not published";
-            var afterState = hasAfter
-                ? after.IsDeveloping ? "developing" : "idle"
-                : "not published";
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "The develop press did not start this research: it was " + beforeState +
-                " before and it is " + afterState + " now. Check its price and its caps on the " +
-                "Research screen.");
-        }
-        if (command.Kind == GameMcpCommandKind.Concept && latest?.World is not null)
-        {
-            var observed = WorldAlchemyInstanceLookup.TryFind(
-                latest.World.Snapshot.AlchemyInstances, command.TargetId, out var concept)
-                ? concept.Quantity.ToString()
-                : "not published";
-            return GameMcpWorldQuery.PostStateUnavailable(
-                "requested_state_not_reached",
-                "the assigned concepts did not reach the requested amount; " + observed +
-                " are assigned now.");
-        }
-        if (command.Kind == GameMcpCommandKind.Prestige)
-        {
-            return GameMcpWorldQuery.PrestigeSettlementPending(
-                command.ExpectedLifecycleGeneration,
-                latest?.LifecycleGeneration,
-                latest?.SceneName);
-        }
-        return GameMcpWorldQuery.PostStateUnavailable(
+        GameMcpFrameContext? latest) => Rule(command).TimedOut(command, latest);
+
+    internal static GameMcpValue PostStateTimeout() =>
+        GameMcpWorldQuery.PostStateUnavailable(
             "post_state_timeout",
             "The press went through, but the game had not redrawn within a second, so this " +
             "answer cannot say what changed. Read the entity again.");
-    }
+
+    private static GameMcpPostStateRule Rule(GameMcpCommand command) =>
+        GameMcpCommandCatalog.Shipping.PostState(command.Kind);
 }
 #endif

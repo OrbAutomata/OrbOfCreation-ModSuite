@@ -132,7 +132,7 @@ public sealed class GameMcpLevelDialTests
             9,
             3,
             GameMcpSpellCompositionProjection.Project(in submission, "druidry"));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(World(unlocked: true, druidryLevel: 1)), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));

@@ -520,7 +520,7 @@ public sealed class GameMcpSpellLoadoutTests
             9,
             3,
             GameMcpSpellLoadoutProjection.Project(in submission));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(World(moved: true)), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));
@@ -569,7 +569,7 @@ public sealed class GameMcpSpellLoadoutTests
             9,
             3,
             GameMcpSpellLoadoutProjection.Project(in submission));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+        terminal = terminal.WithSettledPostState(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(World(removed: true)), command, terminal));
 
         var success = GameMcpTestHarness.Json(terminal.Project(command));

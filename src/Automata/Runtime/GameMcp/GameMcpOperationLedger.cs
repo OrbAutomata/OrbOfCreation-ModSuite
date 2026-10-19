@@ -52,7 +52,7 @@ internal static class GameMcpOperationLedger
         if (result is null) throw new ArgumentNullException(nameof(result));
         return Line(
             command.Sequence,
-            command.ToolName,
+            command.SourceOperation?.Request.ToolName ?? string.Empty,
             Arguments(command),
             result.Status,
             result.Code,

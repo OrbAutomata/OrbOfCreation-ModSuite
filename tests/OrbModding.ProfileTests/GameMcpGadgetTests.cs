@@ -33,13 +33,12 @@ public sealed class GameMcpGadgetTests
             (GameMcpCommandKind.Screenshot, GameMcpGadgetAccess.Framebuffer),
             (GameMcpCommandKind.Navigation, GameMcpGadgetAccess.Navigation),
             (GameMcpCommandKind.Probe, GameMcpGadgetAccess.Probe),
-            (GameMcpCommandKind.ScreenCatalog, GameMcpGadgetAccess.ScreenCatalog),
             (GameMcpCommandKind.TooltipCatalog, GameMcpGadgetAccess.TooltipCatalog),
             (GameMcpCommandKind.TooltipRead, GameMcpGadgetAccess.TooltipRead),
             (GameMcpCommandKind.ContinueRun, GameMcpGadgetAccess.ContinueRun),
         };
 
-        Assert.Equal(7, mappings.Select(mapping => mapping.Item2).Distinct().Count());
+        Assert.Equal(6, mappings.Select(mapping => mapping.Item2).Distinct().Count());
         Assert.All(mappings, mapping =>
             Assert.Equal(mapping.Item2, GameMcpGadgetPolicy.AccessFor(mapping.Item1)));
         Assert.Throws<System.ArgumentException>(() =>

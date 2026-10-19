@@ -94,7 +94,7 @@ public sealed class GameMcpPostStateSettlementTests
         Assert.True(GameMcpPostStateSettlement.IsReady(
             GameMcpTestHarness.Context(submitted, generation: 42), 41, completedAt, command));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(submitted, generation: 42),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -155,7 +155,7 @@ public sealed class GameMcpPostStateSettlementTests
             }),
         };
 
-        var active = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var active = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(activeWorld), command, committed));
         Assert.Equal(2, (int)active["active"]!["before"]!);
         Assert.Equal(3, (int)active["active"]!["after"]!);
@@ -176,7 +176,7 @@ public sealed class GameMcpPostStateSettlementTests
                 ["after"] = 1,
             }.Freeze(),
         }.Freeze();
-        var fastAction = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var fastAction = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(new GameWorldState
             {
                 PlotActions = activeWorld.PlotActions,
@@ -196,7 +196,7 @@ public sealed class GameMcpPostStateSettlementTests
         // other, so a caller correlating by uuid mis-filed half of its calls.
         var commitProjection = GameMcpTestHarness.Json(
             GameMcpCommandResult.Committed("committed", 9, 3)
-                .WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+                .WithSettledPostState(GameMcpPostStateSettlement.Project(
                     GameMcpTestHarness.Context(activeWorld), command, committed))
                 .Project(command));
         var refusalProjection = GameMcpTestHarness.Json(

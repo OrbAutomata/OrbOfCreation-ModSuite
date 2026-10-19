@@ -109,7 +109,7 @@ public sealed class GameMcpCraftingTests
             frameContext: Context(queuedAmount: 3.96e9));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(queuedAmount: 0), command, committed), Identities());
 
         Assert.Equal("3.96e9", (string?)postState["queued"]!["before"]);
@@ -256,7 +256,7 @@ public sealed class GameMcpCraftingTests
             "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: 3));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(automationRepetitions: 5, withQueueEntries: false), command, committed), Identities());
 
         Assert.Null(postState["amount"]);
@@ -343,7 +343,7 @@ public sealed class GameMcpCraftingTests
                 asks.Add(remaining);
                 return Landed(CraftingPlayerPostcondition.QueueAdmitted, remaining);
             });
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(queuedAmount: 0), CraftCommand(3), result), Identities());
 
         Assert.Equal(new[] { 3 }, asks);
@@ -398,7 +398,7 @@ public sealed class GameMcpCraftingTests
                 : Refused(
                     CraftingPlayerActionResultCodes.Unaffordable,
                     "The cost of another of this craft is not met."));
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(), CraftCommand(45), result), Identities());
 
         Assert.Equal(2, submissions);
@@ -482,7 +482,7 @@ public sealed class GameMcpCraftingTests
         var result = GameMcpCraftingProjection.Press(
             CraftCommand(2), 15, 8, false, NoShortfall,
             remaining => Landed(CraftingPlayerPostcondition.InstantCompleted, remaining));
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(queuedAmount: 0), CraftCommand(2), result), Identities());
 
         Assert.Equal("2", (string?)postState["completed"]);
@@ -505,7 +505,7 @@ public sealed class GameMcpCraftingTests
             "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: before));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var postState = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             Context(automationRepetitions: after), command, committed), Identities());
 
         Assert.Equal("Craft Sigils", (string?)postState["name"]);

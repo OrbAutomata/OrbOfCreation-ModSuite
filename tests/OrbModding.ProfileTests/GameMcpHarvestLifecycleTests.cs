@@ -136,7 +136,7 @@ public sealed class GameMcpHarvestLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 92), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -159,7 +159,7 @@ public sealed class GameMcpHarvestLifecycleTests
     [Fact]
     public void The_element_verb_and_the_action_verb_do_not_answer_the_same_line()
     {
-        var element = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var element = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(World(elementActive: 2, actionActive: 1), generation: 92),
             new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
                 9, 3, "add_element", ElementId, Guid.Empty, "HarvestElementSO",
@@ -168,7 +168,7 @@ public sealed class GameMcpHarvestLifecycleTests
                     World(elementActive: 1, actionActive: 1), generation: 91)),
             GameMcpCommandResult.Committed("committed", 9, 3)),
             World(elementActive: 2, actionActive: 1));
-        var action = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var action = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(World(elementActive: 1, actionActive: 2), generation: 92),
             new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
                 9, 3, "add_element_action", ElementId, ActionId, "HarvestElementSO",

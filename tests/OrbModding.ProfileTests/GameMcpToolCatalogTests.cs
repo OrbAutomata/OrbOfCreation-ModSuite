@@ -29,6 +29,7 @@ public sealed class GameMcpToolCatalogTests
         var server = GameMcpHttpServer.TryStart(
             new GameMcpFrameInbox(),
             new GameMcpToolCatalog(tools, shipping.Resources),
+            GameMcpCommandCatalog.Shipping,
             _ => { },
             errors.Add,
             GameMcpTestHarness.FreeLoopbackPort());

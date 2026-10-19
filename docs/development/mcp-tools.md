@@ -4977,5 +4977,12 @@ data, validation and route. Descriptors live in four family files (`GameMcpWorld
 `GameMcpSuiteTools`, `GameMcpGameplayTools`, `GameMcpScreenTools`), which `GameMcpToolCatalog`
 registers in one list; tools/list advertises the catalog in that order. The listener checks the
 catalog before it binds: no tool is registered twice, every tool has a route, a tool is `Gameplay`
-exactly when a GameAction family names its command, and no resource is registered twice. A malformed catalog logs `Game MCP server refuses to start because its
-tool catalog is malformed`, naming each problem, and the listener stays down while gameplay goes on.
+exactly when a GameAction family names its command, and no resource is registered twice.
+Every gameplay command kind is one descriptor too, in its own `GameMcp<Capability>Command` file:
+how it executes on the main thread and its post-state rule (the settled projection, the outcome
+settlement waits for, the timeout answer, or none for a verb that answers from its press).
+`GameMcpCommandCatalog` registers them once, keyed by kind, and the same start check requires every
+kind a GameAction family names to have an executor and a post-state rule, and no kind to be
+registered twice. A malformed catalog logs `Game MCP server refuses to start because its tool or
+command catalog is malformed`, naming each problem, and the listener stays down while gameplay goes
+on.

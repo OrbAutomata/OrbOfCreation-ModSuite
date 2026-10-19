@@ -127,7 +127,7 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.True(JToken.DeepEquals(
             drain, Assert.Single(page["row"]!["drainCostsPerSecond"]!.Values<JObject>())));
 
-        var added = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var added = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             context, PlotCommand("add_plot_action", DrainingWorld(active: 0)),
             GameMcpCommandResult.Committed("committed", 9, 3)), world);
         Assert.Equal(1, (int)added["active"]!["after"]!);
@@ -135,7 +135,7 @@ public sealed class GameMcpPlotLifecycleTests
             drain, Assert.Single(added["drainCostsPerSecond"]!.Values<JObject>())));
 
         var stopped = DrainingWorld(active: 0);
-        var removed = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var removed = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(stopped, generation: 917),
             PlotCommand("remove_plot_action", world),
             GameMcpCommandResult.Committed("committed", 9, 3)), stopped);

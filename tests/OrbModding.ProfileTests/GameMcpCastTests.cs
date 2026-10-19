@@ -120,7 +120,7 @@ public sealed class GameMcpCastTests
             actionCompletedAtUtcTicks: completedAt,
             command));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             settled,
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -166,7 +166,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -200,7 +200,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 59));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 60),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -227,7 +227,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 71));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 72),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -253,7 +253,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, "charge", false,
             frameContext: GameMcpTestHarness.Context(before, generation: 61));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 62),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -319,7 +319,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 53));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 54),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -338,7 +338,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 55));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 56),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -361,7 +361,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 57));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 58),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -392,7 +392,7 @@ public sealed class GameMcpCastTests
             "SpellRecipeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 63));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 64),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -609,7 +609,7 @@ public sealed class GameMcpCastTests
             spent, mutationWorld: 41, actionCompletedAtUtcTicks: completedAt, command));
 
         // And the recharge block the projector could never reach is on the answer.
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             spent, command, GameMcpCommandResult.Committed("committed", 9, 3)));
         Assert.Equal("2 of 3", (string?)delta["charges"]);
         Assert.Equal("41.0s", (string?)delta["nextChargeIn"]);

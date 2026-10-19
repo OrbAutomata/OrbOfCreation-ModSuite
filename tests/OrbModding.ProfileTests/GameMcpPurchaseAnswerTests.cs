@@ -62,8 +62,8 @@ public sealed class GameMcpPurchaseAnswerTests
     [Fact]
     public void APurchaseAnswersFromItsOwnSentinelAndNeverWaitsForASettledWorld()
     {
-        Assert.False(GameMcpCommandKinds.RequiresPostStateSettlement(
-            GameMcpCommandKind.Purchase));
+        Assert.False(GameMcpCommandCatalog.Shipping.PostState(
+            GameMcpCommandKind.Purchase).Settles);
 
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000d");
         var delta = GameMcpTestHarness.Json(

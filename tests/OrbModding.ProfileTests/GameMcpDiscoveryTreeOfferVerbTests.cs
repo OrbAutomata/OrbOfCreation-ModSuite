@@ -194,7 +194,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             1, GameMcpCommandKind.DiscoveryTreeOffer, 9, 3, "select", treeId, offerId,
             "DiscoveryTreeSO", 1, string.Empty, string.Empty, false);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(world, generation: 806),
             command,
             GameMcpCommandResult.Committed("committed", 9, 3)));
@@ -220,7 +220,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
             command,
@@ -276,7 +276,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(
                     treeId,
@@ -319,7 +319,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             out var command,
             out var failure), failure?.Reason);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
             command,
@@ -344,7 +344,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             frameContext: GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2), generation: 41));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 0, discoveredCount: 1), generation: 42),
             command,
@@ -371,7 +371,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
                 Tree(treeId, actionMode: 2, rerollsLeft: 2, offers: new[] { first }),
                 generation: 61));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { second }),
                 generation: 62),
@@ -402,7 +402,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
                 Tree(treeId, actionMode: 2, rerollsLeft: 1, offers: new[] { offer }),
                 generation: 63));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 2, rerollsLeft: 0, offers: new[] { offer }),
                 generation: 64),
@@ -466,7 +466,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
             actionCompletedAtUtcTicks: completedAt,
             command));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             rolling, command, GameMcpCommandResult.Committed("committed", 9, 3)));
         Assert.Equal("crafting", (string?)delta["mode"]);
         Assert.Equal("0.10s", (string?)delta["craftingFor"]);

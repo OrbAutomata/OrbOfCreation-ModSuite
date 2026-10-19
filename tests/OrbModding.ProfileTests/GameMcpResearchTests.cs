@@ -332,7 +332,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(queuedLevels: 4);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
@@ -358,7 +358,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(queuedLevels: 7);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
@@ -382,7 +382,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(isDeveloping: true, isActive: false, queueMode: false);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);

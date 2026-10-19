@@ -149,10 +149,10 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 91));
 
-        var selected = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var selected = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, 92),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
-        var cleared = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var cleared = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, 92),
             clear, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -235,7 +235,7 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 94));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, 95),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -261,7 +261,7 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 96));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, 97),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 

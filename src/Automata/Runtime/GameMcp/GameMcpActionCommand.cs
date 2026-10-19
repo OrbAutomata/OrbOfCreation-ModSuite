@@ -20,7 +20,6 @@ internal enum GameMcpCommandKind
     Screenshot = 8,
     Navigation = 9,
     Probe = 10,
-    ScreenCatalog = 11,
     TooltipCatalog = 12,
     TooltipRead = 13,
     ContinueRun = 14,
@@ -53,22 +52,6 @@ internal static class GameMcpCommandKinds
 
     internal static bool IsEntityGameplayAction(GameMcpCommandKind kind) =>
         IsGameplayAction(kind) && kind != GameMcpCommandKind.ReturnToMenu;
-
-    /// <summary>
-    /// Whether a committed mutation's answer needs a world captured after it, or already holds every
-    /// fact it is going to state.
-    /// </summary>
-    /// <remarks>
-    /// A purchase answers from the queued-level delta its own native verifier observed, so there is
-    /// nothing left for a settled world to add: it queues levels the game drains over the following
-    /// seconds, and every world after the press describes a queue already draining rather than the
-    /// press. Waiting for one could only turn a purchase that verifiably committed into a
-    /// <c>post_state_timeout</c>, which is the same lie in a slower costume.
-    /// </remarks>
-    internal static bool RequiresPostStateSettlement(GameMcpCommandKind kind) =>
-        IsGameplayAction(kind) &&
-        kind != GameMcpCommandKind.ReturnToMenu &&
-        kind != GameMcpCommandKind.Purchase;
 }
 
 /// <summary>
@@ -141,9 +124,6 @@ internal sealed class GameMcpCommand
     internal GameMcpFrameOperation? SourceOperation { get; }
     internal GameMcpFrameContext? FrameContext { get; }
     internal GameMcpUuidCount[] UuidCounts { get; }
-
-    /// <summary>The verb this command was asked for, empty when it carries no operation.</summary>
-    internal string ToolName => SourceOperation?.Request.ToolName ?? string.Empty;
 
     /// <summary>
     /// How long this command has been alive. A command that waits for post-state settlement spans
