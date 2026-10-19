@@ -617,7 +617,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 AppendCounts(id, counts!, frame.ConsumableCounts);
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 Skip(
                     ref skipped,

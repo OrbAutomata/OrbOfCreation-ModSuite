@@ -225,6 +225,24 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
     }
 
     /// <summary>
+    /// A throw that is not an expected native failure faults the world pass instead of costing the
+    /// category.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowFaultsTheWorldPass()
+    {
+        Seed();
+        var active = Registered<global::AlchemyInstanceListVariable>(KnownEntities.ActiveConcepts.Uuid);
+        var failure = new NullReferenceException("CanAddInstance failed");
+        active.ThrowOnCanAdd = true;
+        active.CanAddFailure = failure;
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
     /// A throw after earlier recipes were read withdraws their rows too: an unavailable category
     /// publishes nothing, so no Concept reads as the whole of the player's loadout.
     /// </summary>

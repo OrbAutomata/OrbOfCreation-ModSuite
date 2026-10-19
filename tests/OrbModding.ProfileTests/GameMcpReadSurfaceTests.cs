@@ -2062,11 +2062,6 @@ public sealed class GameMcpWorldEnvelopeTests
             useQuantityAsLevel: true,
             timeToComplete: 9.5d,
             outputWithinCapacity: false,
-            typeCount: 1,
-            authoredInputCount: 1,
-            generatedOutputCount: 0,
-            consumableOutputCount: 1,
-            engagementEffectCount: 1,
             completionEffectCount: 1);
         var recipe = new WorldCraftingRecipe(
             in reading,

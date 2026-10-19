@@ -150,11 +150,6 @@ internal readonly struct RawCraftingRecipeSample
         bool useQuantityAsLevel,
         double timeToComplete,
         bool outputWithinCapacity,
-        int typeCount,
-        int authoredInputCount,
-        int generatedOutputCount,
-        int consumableOutputCount,
-        int engagementEffectCount,
         int completionEffectCount)
     {
         RecipeId = recipeId;
@@ -164,11 +159,6 @@ internal readonly struct RawCraftingRecipeSample
         UseQuantityAsLevel = useQuantityAsLevel;
         TimeToComplete = timeToComplete;
         OutputWithinCapacity = outputWithinCapacity;
-        TypeCount = typeCount;
-        AuthoredInputCount = authoredInputCount;
-        GeneratedOutputCount = generatedOutputCount;
-        ConsumableOutputCount = consumableOutputCount;
-        EngagementEffectCount = engagementEffectCount;
         CompletionEffectCount = completionEffectCount;
     }
 
@@ -184,11 +174,6 @@ internal readonly struct RawCraftingRecipeSample
     internal bool OutputWithinCapacity { get; }
     internal string OutputCapacityReasonCode =>
         OutputWithinCapacity ? "output_capacity_available" : "output_capacity_blocked";
-    internal int TypeCount { get; }
-    internal int AuthoredInputCount { get; }
-    internal int GeneratedOutputCount { get; }
-    internal int ConsumableOutputCount { get; }
-    internal int EngagementEffectCount { get; }
     internal int CompletionEffectCount { get; }
 }
 
@@ -348,15 +333,10 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                     source.UseQuantityAsLevel,
                     source.TimeToComplete,
                     _outputWithinCapacity!(source.Entity),
-                    source.TypeCount,
-                    source.AuthoredInputCount,
-                    source.GeneratedOutputCount,
-                    source.ConsumableOutputCount,
-                    source.EngagementEffects.Length,
                     source.CompletionEffectCount));
                 sampled++;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 Skip(
                     ref skipped,
@@ -432,7 +412,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                     outputs,
                     frame.CraftingRecipeResources);
                 var cachedEngagementEffects = CaptureEngagementEffects(engagementEffects);
-                var consumableOutputCount = AppendConsumableOutputs(
+                AppendConsumableOutputs(
                     id,
                     completeEffects,
                     frame.CraftingRecipeConsumableOutputs);
@@ -442,15 +422,11 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                     id,
                     _useQuantityAsLevel!(entity),
                     _timeToComplete!(entity),
-                    types.Count,
-                    inputs.Count,
-                    outputs.Count,
-                    consumableOutputCount,
                     cachedEngagementEffects,
                     completeEffects.Count));
                 sampled++;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 Skip(
                     ref skipped,
@@ -542,12 +518,11 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
         }
     }
 
-    private int AppendConsumableOutputs(
+    private void AppendConsumableOutputs(
         Guid recipeId,
         IList blocks,
         WorldRelationBuffer<WorldCraftingRecipeConsumableOutput> destination)
     {
-        var count = 0;
         for (var blockIndex = 0; blockIndex < blocks.Count; blockIndex++)
         {
             var block = blocks[blockIndex];
@@ -568,10 +543,8 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                     blockIndex,
                     scriptIndex,
                     outputId));
-                count++;
             }
         }
-        return count;
     }
 
     private static IList RequireList(IList? value, string field) =>
@@ -593,10 +566,6 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             Guid recipeId,
             bool useQuantityAsLevel,
             double timeToComplete,
-            int typeCount,
-            int authoredInputCount,
-            int generatedOutputCount,
-            int consumableOutputCount,
             object[] engagementEffects,
             int completionEffectCount)
         {
@@ -604,10 +573,6 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             RecipeId = recipeId;
             UseQuantityAsLevel = useQuantityAsLevel;
             TimeToComplete = timeToComplete;
-            TypeCount = typeCount;
-            AuthoredInputCount = authoredInputCount;
-            GeneratedOutputCount = generatedOutputCount;
-            ConsumableOutputCount = consumableOutputCount;
             EngagementEffects = engagementEffects;
             CompletionEffectCount = completionEffectCount;
         }
@@ -616,10 +581,6 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
         internal Guid RecipeId { get; }
         internal bool UseQuantityAsLevel { get; }
         internal double TimeToComplete { get; }
-        internal int TypeCount { get; }
-        internal int AuthoredInputCount { get; }
-        internal int GeneratedOutputCount { get; }
-        internal int ConsumableOutputCount { get; }
         internal object[] EngagementEffects { get; }
         internal int CompletionEffectCount { get; }
     }

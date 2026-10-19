@@ -1846,11 +1846,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             useQuantityAsLevel: false,
             timeToComplete: 1,
             outputWithinCapacity: true,
-            typeCount: 0,
-            authoredInputCount: resources?.Count ?? 0,
-            generatedOutputCount: 0,
-            consumableOutputCount: 0,
-            engagementEffectCount: drains?.Count ?? 0,
             completionEffectCount: 0);
         return new WorldCraftingRecipe(
             in reading,

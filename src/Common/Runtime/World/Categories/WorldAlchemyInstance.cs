@@ -581,7 +581,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(

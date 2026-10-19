@@ -424,6 +424,48 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal("engagement_drain_limited", drain.ReasonCode);
     }
 
+    /// <summary>
+    /// A recipe whose authored read throws anything but an expected native failure faults the pass
+    /// instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ACraftingRecipeWhoseAuthoringThrowsUnexpectedlyFaultsThePass()
+    {
+        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var failure = new NullReferenceException("generated resource was destroyed");
+        var output = new FakeResource { GetGuidFailure = failure };
+        var recipe = new FakeScribeRecipe
+        {
+            generatedResources = new FakeCraftingResourceCostList().With(output, BigDouble.One),
+        };
+        recipe.craftingTypes.Add(type);
+        FakeCraftingRecipeType.All.Add(type);
+        FakeScribeRecipe.All.Add(recipe);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A recipe whose live read throws anything but an expected native failure faults the pass
+    /// instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ACraftingRecipeWhoseLiveStateThrowsUnexpectedlyFaultsThePass()
+    {
+        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var failure = new NullReferenceException("starting quantity was destroyed");
+        var recipe = new FakeScribeRecipe { StartingQuantityFailure = failure };
+        recipe.craftingTypes.Add(type);
+        FakeCraftingRecipeType.All.Add(type);
+        FakeScribeRecipe.All.Add(recipe);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
     [Fact]
     public void PersistentChallengeRequirementAdjustmentUsesTheNativeVerdictAndKeepsItsSource()
     {
@@ -3966,6 +4008,37 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(4, row.MaxCreatedLevel);
         Assert.Equal(12, row.MaximumCarryLoad);
         Assert.Equal(150d, row.Modifiers.PrepSpeed.ToDouble());
+    }
+
+    /// <summary>
+    /// A consumable whose read throws anything but an expected native failure faults the pass instead
+    /// of costing one consumable.
+    /// </summary>
+    [Fact]
+    public void AConsumableWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("consumable was destroyed");
+        FakeConsumable.All.Add(new FakeConsumable { GetGuidFailure = failure });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// An inventory slot whose read throws anything but an expected native failure faults the pass
+    /// instead of costing the inventory.
+    /// </summary>
+    [Fact]
+    public void AnInventorySlotWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("slot consumable was destroyed");
+        FakeConsumableInventory._instance.allConsumables.value.Add(
+            new FakeConsumable { GetGuidFailure = failure });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
     }
 
     [Fact]

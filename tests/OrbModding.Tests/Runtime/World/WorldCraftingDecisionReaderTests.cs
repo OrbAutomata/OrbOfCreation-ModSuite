@@ -242,6 +242,43 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(unaffected.GetGuid(), frame.CraftingDecisions[0].RecipeId);
     }
 
+    /// <summary>
+    /// A queue read that throws anything but an expected native failure faults the world pass instead
+    /// of costing the category.
+    /// </summary>
+    [Fact]
+    public void AQueueWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var recipe = Recipe();
+        CraftingRecipeSO.All.Add(recipe);
+        var failure = new NullReferenceException("crafting queue was destroyed");
+        Page(recipe, mode: 0, maximum: 2).craftingQueueInstances.GetGuidFailure = failure;
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A recipe whose decision read throws anything but an expected native failure faults the world
+    /// pass instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ARecipeWhoseDecisionThrowsUnexpectedlyFaultsThePass()
+    {
+        var wood = Resource(amount: 10);
+        var failure = new NullReferenceException("cost resource was destroyed");
+        wood.GetGuidFailure = failure;
+        var recipe = Recipe();
+        recipe.TotalCost.costs.Add(new ResourceTuple(wood, new BigDouble(4, 0)));
+        CraftingRecipeSO.All.Add(recipe);
+        Page(recipe, mode: 0, maximum: 2);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
     private static WorldCraftingDecisionReader Reader() =>
         new(name => typeof(CraftingRecipeSO).Assembly.GetType(name, throwOnError: false));
 

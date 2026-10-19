@@ -201,7 +201,7 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
                 0,
                 string.Empty);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             frame.ConsumableInventory.Reset();
             return WorldCategoryReport.Missing(
