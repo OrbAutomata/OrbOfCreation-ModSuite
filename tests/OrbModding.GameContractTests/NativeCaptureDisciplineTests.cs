@@ -120,8 +120,8 @@ public sealed class NativeCaptureDisciplineTests
     /// doing so unseen. The census improving is what growth of that kind means.
     /// </para>
     /// <para>
-    /// Seven more arrived the same way when the world categories' private accessor copies moved
-    /// onto the binder: Research's queue mode, multi-buy, development cost, develop range and cost
+    /// Six more arrived the same way when the world categories' private accessor copies moved
+    /// onto the binder: Research's queue mode, development cost, develop range and cost
     /// <c>Add</c>, and Ritual's <c>selectedRitual</c> and <c>IsItem</c> were read before, unseen.
     /// </para>
     /// </remarks>
@@ -131,7 +131,7 @@ public sealed class NativeCaptureDisciplineTests
         "CanLevel", "GetActionInstances", "GetActivationCost",
         "GetDevelopmentCost", "GetDevelopmentCostAtLevel", "GetFreeBonusLevelsLeft", "GetFreeLevelCost",
         "GetFreeLevels", "GetFreeUsageSlots", "GetLevelCost", "GetMaxLevel",
-        "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances", "GetMultiBuy",
+        "GetMaxSelectedLevel", "GetMaxTypeSlots", "GetMaximumInstances",
         "GetQueuedLevels", "GetRemainingFreeUsageSlots",
         "GetRemainingMaxUsageSlots", "GetStacks", "GetTypesEquipped",
         "GetUsageCost", "HasMaxLevel", "IsChallengeRestricted", "IsItem",
