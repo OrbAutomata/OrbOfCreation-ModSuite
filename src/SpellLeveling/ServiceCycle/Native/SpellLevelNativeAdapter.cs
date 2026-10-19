@@ -50,7 +50,7 @@ internal readonly struct SpellLevelSubmission
     public static SpellLevelSubmission Rejected(ServiceActionResultCode code, string reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 
-    public static SpellLevelSubmission ContractUnavailable(string reason) =>
+    public static SpellLevelSubmission ContractUnavailable(GameActionReason reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     public static SpellLevelSubmission Attempted<TState>(
@@ -63,7 +63,7 @@ internal readonly struct SpellLevelSubmission
                 CommonActionResultCodes.AdapterFault,
                 evidence.Outcome,
                 calls,
-                "spell-level read failed before the press." + Logged(evidence.Exception)));
+                Logged("spell-level read failed before the press.", evidence.Exception)));
         var reason = !evidence.HasAfter
             ? $"{pressed} and could not read mastery levels after the press."
             : evidence.Exception is null
@@ -71,7 +71,7 @@ internal readonly struct SpellLevelSubmission
                 : $"{pressed} {noRise} after the game threw.";
         return new(
             NativeActionOutcome.Fault(
-                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, reason + Logged(evidence.Exception)),
+                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, Logged(reason, evidence.Exception)),
             paidWithoutLevel: true);
     }
 
@@ -81,7 +81,7 @@ internal readonly struct SpellLevelSubmission
                 CommonActionResultCodes.AdapterFault,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
-                $"{pressed} and no rise was seen after the game threw." + Logged(exception)),
+                Logged($"{pressed} and no rise was seen after the game threw.", exception)),
             paidWithoutLevel: true);
 
 #if SERVICE_CYCLE_PROFILE
@@ -89,8 +89,8 @@ internal readonly struct SpellLevelSubmission
         new(Outcome, PaidWithoutLevel, charges);
 #endif
 
-    private static string Logged(Exception? exception) =>
-        GameActionFaultLog.Record(exception, SpellLevelNativeAdapter.Feature);
+    private static GameActionReason Logged(string sentence, Exception? exception) =>
+        GameActionFaultLog.Reason(sentence, exception, SpellLevelNativeAdapter.Feature);
 }
 
 /// <summary>
@@ -151,7 +151,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     public SpellLevelSubmission Submit(SpellLevelActionKind kind, Guid uuid)
     {
         if (!TryInitialize(out var reason, out var cause))
-            return SpellLevelSubmission.ContractUnavailable(reason + GameActionFaultLog.Record(cause, Feature));
+            return SpellLevelSubmission.ContractUnavailable(GameActionFaultLog.Reason(reason, cause, Feature));
         var native = _bindings!;
 
         try
@@ -201,7 +201,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellLevelSubmission.ContractUnavailable(
-                "spell-level mutation failed." + GameActionFaultLog.Record(ex, Feature));
+                GameActionFaultLog.Reason("spell-level mutation failed.", ex, Feature));
         }
     }
 

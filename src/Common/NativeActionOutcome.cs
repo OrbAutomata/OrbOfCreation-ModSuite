@@ -7,6 +7,10 @@ namespace OrbModding.Common;
 /// verifier observed, the native-call counts and the exact reason. Every submission carries one,
 /// and <see cref="ToResult"/> is the one mapping from it to a service-cycle result.
 /// </summary>
+/// <remarks>
+/// The reason keeps its authored <see cref="Sentence"/> apart from the suite-log reference behind
+/// it. <see cref="Reason"/> is the two together, for every surface a person reads.
+/// </remarks>
 public readonly struct NativeActionOutcome
 {
     private enum Kind
@@ -19,29 +23,31 @@ public readonly struct NativeActionOutcome
     }
 
     private readonly Kind _kind;
+    private readonly GameActionReason _reason;
 
     private NativeActionOutcome(
         Kind kind,
         ServiceActionResultCode code,
         NativeMutationOutcome mutation,
         NativeMutationCallOutcome callOutcome,
-        string reason)
+        GameActionReason reason)
     {
         _kind = kind;
         Code = code;
         Mutation = mutation;
         CallOutcome = callOutcome;
-        Reason = reason ?? string.Empty;
+        _reason = reason;
     }
 
     public ServiceActionResultCode Code { get; }
     public NativeMutationOutcome Mutation { get; }
     public NativeMutationCallOutcome CallOutcome { get; }
-    public string Reason { get; }
+    public string Sentence => _reason.Sentence;
+    public string Reason => _reason.Text;
     public bool Verified => _kind == Kind.Commit;
     public bool IsFault => _kind is Kind.Fault or Kind.FaultBeforeCall;
 
-    public static NativeActionOutcome Reject(ServiceActionResultCode code, string reason) =>
+    public static NativeActionOutcome Reject(ServiceActionResultCode code, GameActionReason reason) =>
         new(Kind.Reject, code, NativeMutationOutcome.BeforeCaptureFailed, default, reason);
 
     /// <summary>
@@ -51,17 +57,17 @@ public readonly struct NativeActionOutcome
     public static NativeActionOutcome RefusedAfterUndo(
         ServiceActionResultCode code,
         NativeMutationCallOutcome callOutcome,
-        string reason) =>
+        GameActionReason reason) =>
         new(Kind.Reject, code, NativeMutationOutcome.PostconditionFailed, callOutcome, reason);
 
     /// <summary>
     /// A stop that is ordinary staleness rather than a refusal: the plan raced the game, and the
     /// service tries again without a penalty.
     /// </summary>
-    public static NativeActionOutcome Skip(ServiceActionResultCode code, string reason) =>
+    public static NativeActionOutcome Skip(ServiceActionResultCode code, GameActionReason reason) =>
         new(Kind.Skip, code, NativeMutationOutcome.BeforeCaptureFailed, default, reason);
 
-    public static NativeActionOutcome Commit(NativeMutationCallOutcome callOutcome, string reason) =>
+    public static NativeActionOutcome Commit(NativeMutationCallOutcome callOutcome, GameActionReason reason) =>
         new(Kind.Commit, CommonActionResultCodes.Committed, NativeMutationOutcome.Verified,
             callOutcome, reason);
 
@@ -70,11 +76,11 @@ public readonly struct NativeActionOutcome
         ServiceActionResultCode code,
         NativeMutationOutcome mutation,
         NativeMutationCallOutcome callOutcome,
-        string reason) =>
+        GameActionReason reason) =>
         new(Kind.Fault, code, mutation, callOutcome, reason);
 
     /// <summary>A fault with no native evidence: the contract failed before any call was made.</summary>
-    public static NativeActionOutcome FaultBeforeCall(ServiceActionResultCode code, string reason) =>
+    public static NativeActionOutcome FaultBeforeCall(ServiceActionResultCode code, GameActionReason reason) =>
         new(Kind.FaultBeforeCall, code, NativeMutationOutcome.BeforeCaptureFailed, default, reason);
 
     public ServiceActionResult ToResult() => _kind switch

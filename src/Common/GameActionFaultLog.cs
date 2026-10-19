@@ -42,29 +42,49 @@ internal static class GameActionFaultLog
     /// <summary>
     /// Writes the whole exception to the suite log under a fresh reference and returns the sentence
     /// fragment naming that reference, or an empty string when there is nothing to record or
-    /// nowhere to record it. <paramref name="putBack"/> is what undoing the press threw after
-    /// <paramref name="exception"/>, written into the same entry after the cause.
+    /// nowhere to record it. It suits a one-off answer; an answer whose repeats something compares
+    /// keeps the reference apart through <see cref="Reason"/>.
     /// </summary>
-    internal static string Record(Exception? exception, string screen, Exception? putBack = null) =>
-        Sentence(RecordReference(exception, screen, putBack));
+    internal static string Record(Exception? exception, string screen) =>
+        Sentence(RecordReference(exception, screen));
 
     /// <summary>
-    /// The same, answering the bare reference, such as <c>MCP-1A2B3C4D</c>, for a caller that keeps it.
+    /// <paramref name="sentence"/>, with the reference <paramref name="exception"/> was written under
+    /// kept apart from it.
+    /// </summary>
+    internal static GameActionReason Reason(string sentence, Exception? exception, string screen) =>
+        new(sentence, RecordReference(exception, screen));
+
+    /// <summary>
+    /// Writes the exception and answers the bare reference, such as <c>MCP-1A2B3C4D</c>.
+    /// <paramref name="putBack"/> is what undoing the press threw after <paramref name="exception"/>,
+    /// written into the same entry after the cause.
     /// </summary>
     internal static string RecordReference(Exception? exception, string screen, Exception? putBack = null) =>
-        exception is null
-            ? string.Empty
-            : Write(
-                putBack is null
-                    ? exception.ToString()
-                    : exception + Environment.NewLine + "Putting the press back then threw: " + putBack,
-                screen);
+        RecordReference(exception, screen, "Putting the press back", putBack);
 
     /// <summary>
-    /// The same, for a maintainer's fact that never was an exception, such as which member of which
-    /// type would not bind.
+    /// The same, for a cause followed by what <paramref name="afterwards"/> then threw, both in one
+    /// entry. Either may be missing; with neither there is nothing to record.
     /// </summary>
-    internal static string RecordDetail(string detail, string screen) => Sentence(Write(detail, screen));
+    internal static string RecordReference(
+        Exception? exception,
+        string screen,
+        string afterwards,
+        Exception? afterwardsThrew)
+    {
+        var detail = exception?.ToString() ?? string.Empty;
+        if (afterwardsThrew is not null)
+            detail += (detail.Length == 0 ? string.Empty : Environment.NewLine) +
+                afterwards + " then threw: " + afterwardsThrew;
+        return Write(detail, screen);
+    }
+
+    /// <summary>
+    /// The bare reference for a maintainer's fact that never was an exception, such as which member
+    /// of which type would not bind.
+    /// </summary>
+    internal static string RecordDetail(string detail, string screen) => Write(detail, screen);
 
     /// <summary>The sentence fragment naming <paramref name="reference"/>, or empty for none.</summary>
     internal static string Sentence(string reference) =>

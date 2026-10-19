@@ -106,10 +106,10 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.CanFireRefused,
                 $"The game refuses to use {EntityIdentityFormatter.PlayerName(action.ItemId)} right now.");
-        if (!TryCaptureMutationPermit(out reason))
+        if (!TryCaptureMutationPermit(out var permitRefusal))
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.MutationPermitUnavailable,
-                reason);
+                permitRefusal);
         if (!NativeMultiBuyScope.TryEnterOne(out var multiBuy, out reason))
             return NativeActionOutcome.FaultBeforeCall(
                 AutoItemsActionResultCodes.MultiBuyUnavailable,
@@ -176,7 +176,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private bool TryCaptureMutationPermit(out string reason)
+    private bool TryCaptureMutationPermit(out GameActionReason reason)
     {
         try
         {
@@ -185,9 +185,10 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 reason = string.Empty;
                 return true;
             }
-            reason = _readMutationPermitFailure();
-            if (string.IsNullOrWhiteSpace(reason))
-                reason = "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride.";
+            var failure = _readMutationPermitFailure();
+            reason = string.IsNullOrWhiteSpace(failure)
+                ? "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride."
+                : failure;
             return false;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))

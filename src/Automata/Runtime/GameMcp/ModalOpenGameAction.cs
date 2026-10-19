@@ -24,11 +24,11 @@ internal readonly struct ModalActivator
 internal readonly struct ModalOpenSubmission
 {
     internal ModalOpenSubmission(
-        bool committed, string code, string reason, string title = "", bool faulted = false)
+        bool committed, string code, GameActionReason reason, string title = "", bool faulted = false)
     {
         Committed = committed;
         Code = code ?? string.Empty;
-        Reason = reason ?? string.Empty;
+        Reason = reason.Text;
         Title = title ?? string.Empty;
         Faulted = faulted;
     }

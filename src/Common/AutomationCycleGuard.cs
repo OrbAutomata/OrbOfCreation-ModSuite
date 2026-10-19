@@ -27,15 +27,16 @@ public static class AutomationCycleGuard
 /// <remarks>
 /// Only faults reach the log. Refusals are frequent and ordinary, so their reasons travel on the
 /// result to the wire and the health surface instead. A fault repeating with the same code and
-/// reason is logged once until an action lands.
+/// sentence is warned about once until an action lands, whatever reference each attempt's cause
+/// was logged under.
 /// </remarks>
 public sealed class AutomationCycleGuard<TAction>
 {
+    private const string EpochUnreadable = "the game's lifecycle epoch could not be read";
     private readonly string _feature;
     private readonly Func<TAction, string> _describe;
     private readonly Action<string> _warn;
-    private ServiceActionResultCode? _loggedFaultCode;
-    private string _loggedFaultReason = string.Empty;
+    private readonly RepeatedFailure _warned = new();
 
     public AutomationCycleGuard(string feature, Func<TAction, string> describe, Action<string> warn)
     {
@@ -63,8 +64,8 @@ public sealed class AutomationCycleGuard<TAction>
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            var reason = Record(ex, "the game's lifecycle epoch could not be read", in action);
-            refusal = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, reason);
+            var reason = Record(ex, EpochUnreadable, EpochUnreadable, in action);
+            refusal = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, reason.Text);
             return false;
         }
 
@@ -84,32 +85,31 @@ public sealed class AutomationCycleGuard<TAction>
     /// </summary>
     public NativeActionOutcome Fault(Exception exception, in TAction action)
     {
-        var reason = Record(exception, "adapter fault", in action);
-        _loggedFaultCode = CommonActionResultCodes.AdapterFault;
-        _loggedFaultReason = reason;
+        var reason = Record(exception, "adapter fault", FaultedSentence, in action);
         return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
     }
 
-    private string Record(Exception exception, string what, in TAction action)
+    private string FaultedSentence => _feature + " faulted at the native boundary.";
+
+    /// <param name="key">
+    /// What makes a repeat of this fault: the sentence it answers with, or, for an unreadable epoch,
+    /// which answers with that same sentence, what failed.
+    /// </param>
+    private GameActionReason Record(Exception exception, string what, string key, in TAction action)
     {
-        var reference = GameActionFaultLog.Record(exception, _feature);
-        _warn($"{_describe(action)}: {what} ({exception.GetBaseException().Message}).{reference}");
-        return _feature + " faulted at the native boundary." + reference;
+        var reason = GameActionFaultLog.Reason(FaultedSentence, exception, _feature);
+        if (!_warned.IsRepeat(key, CommonActionResultCodes.AdapterFault))
+            _warn($"{_describe(action)}: {what} ({exception.GetBaseException().Message})." +
+                GameActionFaultLog.Sentence(reason.Reference));
+        return reason;
     }
 
     public ServiceActionResult Finish(in NativeActionOutcome outcome, in TAction action)
     {
         if (outcome.Verified)
+            _warned.Clear();
+        else if (outcome.IsFault && !_warned.IsRepeat(in outcome))
         {
-            _loggedFaultCode = null;
-            _loggedFaultReason = string.Empty;
-        }
-        else if (outcome.IsFault &&
-            !(_loggedFaultCode == outcome.Code &&
-                string.Equals(_loggedFaultReason, outcome.Reason, StringComparison.Ordinal)))
-        {
-            _loggedFaultCode = outcome.Code;
-            _loggedFaultReason = outcome.Reason;
             _warn(outcome.Reason.Length == 0
                 ? $"{_describe(action)}."
                 : $"{_describe(action)}: {outcome.Reason}");

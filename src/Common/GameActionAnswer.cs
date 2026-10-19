@@ -19,6 +19,10 @@ namespace OrbModding.Common;
 /// <c>docs/game-systems/screens.md</c> spells it. It is the only per-feature part of these
 /// sentences, which is why it is a parameter and the prose is not.
 /// </para>
+/// <para>
+/// An answer that logs a cause hands back its sentence and the cause's reference apart, so a
+/// failure repeating under a fresh reference still reads as a repeat.
+/// </para>
 /// </remarks>
 internal static class GameActionAnswer
 {
@@ -28,9 +32,12 @@ internal static class GameActionAnswer
     /// field, and a caller could neither look it up nor act on it. Hand the exception in and it
     /// goes to the suite log instead, under a reference this sentence then ends with.
     /// </summary>
-    internal static string CouldNotRead(string screen, Exception? exception = null) =>
-        "Nothing was sent to the game: the suite could not read what this press needs. Open " +
-        screen + " and read it again." + GameActionFaultLog.Record(exception, screen);
+    internal static GameActionReason CouldNotRead(string screen, Exception? exception = null) =>
+        GameActionFaultLog.Reason(
+            "Nothing was sent to the game: the suite could not read what this press needs. Open " +
+            screen + " and read it again.",
+            exception,
+            screen);
 
     /// <summary>
     /// The suite never attached to the screen this verb presses, so it will keep refusing until the
@@ -42,9 +49,10 @@ internal static class GameActionAnswer
     /// not a player's, so it goes to the suite log under the reference the answer ends with, the way
     /// <see cref="CouldNotRead"/> keeps an exception's text.
     /// </remarks>
-    internal static string NotAttached(string screen, string bindingFailure) =>
-        "The suite could not attach to " + screen + " in this run, so it will refuse every press " +
-        "there until the run restarts." + GameActionFaultLog.RecordDetail(bindingFailure, screen);
+    internal static GameActionReason NotAttached(string screen, string bindingFailure) =>
+        new("The suite could not attach to " + screen + " in this run, so it will refuse every press " +
+            "there until the run restarts.",
+            GameActionFaultLog.RecordDetail(bindingFailure, screen));
 
     /// <summary>
     /// The suite stopped its own call before the game was asked, and holds nothing further to say
@@ -100,7 +108,8 @@ internal static class GameActionAnswer
     /// on, and it sat where the answer to "did this land" belonged. Hand the exception in and it
     /// goes to the suite log instead, under a reference this sentence then ends with.
     /// </summary>
-    internal static string GameErrored(string screen, Exception? exception = null, Exception? putBack = null) =>
-        "The game itself errored on this press, so nothing can be proven about whether it landed. " +
-        "Check " + screen + " before retrying." + GameActionFaultLog.Record(exception, screen, putBack);
+    internal static GameActionReason GameErrored(string screen, Exception? exception = null, Exception? putBack = null) =>
+        new("The game itself errored on this press, so nothing can be proven about whether it landed. " +
+            "Check " + screen + " before retrying.",
+            GameActionFaultLog.RecordReference(exception, screen, putBack));
 }

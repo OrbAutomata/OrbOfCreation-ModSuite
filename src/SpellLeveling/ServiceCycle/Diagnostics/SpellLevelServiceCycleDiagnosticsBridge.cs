@@ -42,7 +42,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
     private bool _cycleObserved;
     private bool _evaluationRefreshPending;
     private bool _capabilitySeeded;
-    private string _capabilityFailure = string.Empty;
+    private readonly RepeatedFailure _capabilityFailure = new();
 
     internal const string CapabilityScreen = "Spell Leveling capability";
     private AutoSpellLevelCapability _reportedCapability;
@@ -117,7 +117,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _capability.Reset();
         _boundaryStatus.Reset();
         _retries.InvalidateLifecycle();
-        _capabilityFailure = string.Empty;
+        _capabilityFailure.Clear();
         _cycleObserved = false;
         _capabilitySeeded = false;
         _evaluationRefreshPending = false;
@@ -136,11 +136,10 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         if (_capabilitySeeded)
         {
             _capability.Observe(capability);
-            _capabilityFailure = string.Empty;
+            _capabilityFailure.Clear();
             return;
         }
-        if (string.Equals(_capabilityFailure, failure, StringComparison.Ordinal)) return;
-        _capabilityFailure = failure;
+        if (_capabilityFailure.IsRepeat(failure)) return;
         var reference = GameActionFaultLog.Record(cause, CapabilityScreen);
         Plugin.Log?.LogAutomataWarning("Spell Leveling could not read what the game lets it do: " + failure + reference);
     }

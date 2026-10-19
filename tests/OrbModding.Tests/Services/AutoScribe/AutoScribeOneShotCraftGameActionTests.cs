@@ -9,6 +9,7 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.AutoScribe;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 {
     private readonly AutoScribeNativeFixture _native = new();
@@ -146,6 +147,37 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
             Assert.Contains(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
             Assert.Contains(" at ", log[0]);
             Assert.Equal(1, fixture.Recipe.PurchaseCalls);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
+    public void APriceThatWillNotReadBackAfterAPaidThrowIsLoggedInTheSameEntry()
+    {
+        var fixture = Fixture();
+        fixture.Recipe.AfterPurchaseFault = new InvalidOperationException("injected failure after purchase");
+        fixture.Recipe.TotalCost.EntriesFault = new InvalidOperationException("injected price read failure");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+
+            var failed = Submit(actionBoundary, fixture.Action);
+
+            var entry = Assert.Single(log);
+            Assert.Contains("injected failure after purchase", entry);
+            Assert.Contains("Reading the price back then threw: System.InvalidOperationException: " +
+                "injected price read failure", entry);
+            Assert.StartsWith(
+                "Auto Scribe paid a price the game could not read back for " +
+                $"{EntityIdentityFormatter.PlayerName(fixture.Action.RecipeId)} and saw no work after Payment:",
+                failed.Outcome.Reason);
+            Assert.EndsWith(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected", failed.Outcome.Reason);
         }
         finally
         {
@@ -438,6 +470,40 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(FeatureStatusReasonCode.IdentityMismatch, status.Reason);
         Assert.Contains("Status=WrongType", status.Summary);
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+    }
+
+    [Fact]
+    public void AFaultRepeatingUnderAFreshReferenceRevisesHealthOnceAndAChangedSentenceRevisesItAgain()
+    {
+        var fixture = Fixture();
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+            var health = new AutoScribeActionHealth();
+            _lifecycleFailure = new InvalidOperationException("injected lifecycle read failure");
+
+            var first = Submit(actionBoundary, fixture.Action);
+            var repeated = Submit(actionBoundary, fixture.Action);
+            _lifecycleFailure = null;
+            var wrongType = new ConsumableSO();
+            wrongType.SetGuid(fixture.Action.RecipeId);
+            _native.Registry[fixture.Action.RecipeId] = wrongType;
+            var changed = Submit(actionBoundary, fixture.Action);
+
+            Assert.Equal(2, log.Count);
+            Assert.NotEqual(first.Outcome.Reason, repeated.Outcome.Reason);
+            Assert.True(health.EntersFailure(in first));
+            Assert.False(health.EntersFailure(in repeated));
+            Assert.Equal(first.Outcome.Reason, health.Reason);
+            Assert.True(health.EntersFailure(in changed));
+            Assert.Equal(2, health.Revision);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     private AutoScribeOneShotCraftGameAction GameAction(

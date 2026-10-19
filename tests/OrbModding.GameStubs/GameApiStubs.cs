@@ -1954,7 +1954,8 @@ public class ResourceCostList
             if (!pair.Key.HasAmount(pair.Value)) return false;
         return true;
     }
-    public List<ResourceTuple> GetEntries() => costs;
+    public Exception? EntriesFault;
+    public List<ResourceTuple> GetEntries() => EntriesFault is { } fault ? throw fault : costs;
     public BigDouble MaximumCostTimes()
     {
         if (costs.Count == 0) return new BigDouble(int.MaxValue);
