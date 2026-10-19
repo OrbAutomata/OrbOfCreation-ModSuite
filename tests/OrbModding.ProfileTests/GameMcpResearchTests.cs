@@ -9,6 +9,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
+using static OrbModding.ProfileTests.GameMcpTestHarness;
 
 namespace OrbModding.ProfileTests;
 
@@ -602,6 +603,105 @@ public sealed class GameMcpResearchTests
             EntityIdentityCatalogSnapshot.Unbound(1)));
 
         Assert.Null(noCeiling["maximumAmount"]);
+    }
+
+    [Fact]
+    public void ResearchProjectionReportsPersistentChallengeRequirementAdjustmentAndSource()
+    {
+        var researchId = Guid.Parse("d8afa4f2-4326-49ce-a08c-743170abea75");
+        var challengeId = Guid.Parse("8331509a-56e8-4e42-9553-6170cf32349d");
+        var modifierId = Guid.Parse("85f0cbee-0710-40ad-8357-acdecb8f13cc");
+        var adjustment = new WorldResearchRequirementAdjustment(
+            modifierId,
+            challengeId,
+            modifierType: 0,
+            amount: new BigDouble(-5d),
+            order: 0,
+            passive: true);
+        var research = new WorldResearch(
+            researchId,
+            level: 10,
+            queuedLevels: 0,
+            researchStage: 0,
+            selfBonusLevels: 0,
+            maxLevel: 20,
+            researchTime: 60d,
+            isDeveloping: false,
+            isActive: false,
+            flagged: false,
+            available: true,
+            visible: true,
+            complete: false,
+            canDevelop: true,
+            withinDevelopRange: true,
+            meetsLevelRequirements: true,
+            stillHasLeeway: true,
+            belowArtificialMaxLevel: true,
+            belowMaxInvestmentLevel: true,
+            purchasedLevels: 10,
+            baseLevel: 10,
+            bonusLevel: 0,
+            totalLevel: 10,
+            artificialMaxLevel: 0,
+            hiddenLevel: false,
+            levelVisibilityRange: 2,
+            requiredStagesCached: 0,
+            requiredTimeCached: BigDouble.Zero,
+            baseRequirementLevel: 10,
+            effectiveRequirementLevel: 5,
+            requirementAdjustments: PublicationTable<WorldResearchRequirementAdjustment>.Create(
+                new[] { adjustment }),
+            modifiers: new RawResearchModifiers(
+                BigDouble.Zero,
+                BigDouble.Zero,
+                new BigDouble(100d),
+                BigDouble.Zero,
+                new BigDouble(5d)));
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(24, new[]
+            {
+                new EntityIdentityName(modifierId, "IntVariableSO", "Requirement Offset", "requirementOffset"),
+                new EntityIdentityName(challengeId, "ChallengeSO", "Improved Scribing", "improvedScribing"),
+            }.OrderBy(row => row.EntityId).ToArray()),
+            Research = PublicationTable<WorldResearch>.Create(new[] { research }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[] { Clean("research") }),
+            CollectedAtEpoch = 24,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var result = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world),
+                "research",
+                researchId.ToString("D")).Freeze(),
+            world.EntityIdentities));
+
+        var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
+            result.ToString(Newtonsoft.Json.Formatting.None));
+        // The budget is on the answer a caller really receives. It used to be measured against a
+        // singular read that carried the row and nothing else, while every caller of world_get was
+        // also sent the block's identity, its predicates, its requirement tree, its research
+        // thresholds and its blockers. Those are 1,327 bytes here, and the number a guard watches
+        // has to be the one that was always being paid.
+        Assert.True(
+            responseBytes < 1_328, "research world_get was " + responseBytes + " bytes");
+
+        Assert.Equal("available", (string?)result["status"]);
+        var row = (JObject)result["row"]!;
+        Assert.Equal(10, (int)row["baseRequirementLevel"]!);
+        Assert.Equal(5, (int)row["effectiveRequirementLevel"]!);
+        Assert.Equal(-5, (int)row["requirementLevelAdjustment"]!);
+        var projected = Assert.Single(row["requirementAdjustments"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(modifierId), (string?)projected["modifier"]!["uuid"]);
+        Assert.Equal("Requirement Offset", (string?)projected["modifier"]!["name"]);
+        Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)projected["source"]!["uuid"]);
+        Assert.Equal("Improved Scribing", (string?)projected["source"]!["name"]);
+        // The source's own C# class name sat beside a handle that already names the thing in the
+        // player's words, and nothing a caller does with `ChallengeSO` beats reading that name.
+        Assert.Null(projected["sourceNativeType"]);
+        Assert.Equal("-5", (string?)projected["amount"]);
+        Assert.True((bool)projected["passive"]!);
     }
 
     private static WorldResource Held(double quantity)
