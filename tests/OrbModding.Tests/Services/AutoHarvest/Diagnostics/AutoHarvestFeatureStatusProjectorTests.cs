@@ -23,7 +23,7 @@ public sealed class AutoHarvestFeatureStatusProjectorTests
 
     [Theory]
     [InlineData((int)AutoHarvestPairHealthKind.ContractUnavailable)]
-    [InlineData((int)AutoHarvestPairHealthKind.Faulted)]
+    [InlineData((int)AutoHarvestPairHealthKind.RegistryNotReady)]
     public void EligiblePairReportsPartialCapabilityWhenSiblingHasFailed(int siblingKind)
     {
         var fruit = AutoHarvestPairHealth.Eligible(AutoHarvestPair.FruitTree);
@@ -143,12 +143,12 @@ public sealed class AutoHarvestFeatureStatusProjectorTests
     {
         var fruit = Selected(
             AutoHarvestPair.FruitTree, AutoHarvestPairHealthKind.PrerequisitesNotConfirmed);
-        var treasure = Selected(AutoHarvestPair.TreasureTree, AutoHarvestPairHealthKind.Faulted);
+        var treasure = Selected(AutoHarvestPair.TreasureTree, AutoHarvestPairHealthKind.ContractUnavailable);
 
         var result = AutoHarvestFeatureStatusProjector.Project(fruit, treasure);
 
-        Assert.Equal(FeatureStatusState.Faulted, result.State);
-        Assert.Equal(FeatureStatusReasonCode.PostconditionFailed, result.Reason);
+        Assert.Equal(FeatureStatusState.ContractUnavailable, result.State);
+        Assert.Equal(FeatureStatusReasonCode.ContractUnavailable, result.Reason);
     }
 
     /// <summary>

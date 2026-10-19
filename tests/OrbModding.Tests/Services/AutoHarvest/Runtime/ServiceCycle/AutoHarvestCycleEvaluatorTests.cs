@@ -148,24 +148,20 @@ public sealed class AutoHarvestCycleEvaluatorTests
     }
 
     /// <summary>
-    /// A pair this service has already broken is not tried again, and its sibling still is.
+    /// A pair whose contract mismatch this service proved is not tried again, and its sibling still is.
     /// </summary>
-    [Theory]
-    [InlineData((int)AutoHarvestFaultKind.Faulted, (int)AutoHarvestPairHealthKind.Faulted)]
-    [InlineData(
-        (int)AutoHarvestFaultKind.ContractUnavailable,
-        (int)AutoHarvestPairHealthKind.ContractUnavailable)]
-    public void ARememberedPairFaultDoesNotBlockAnEligibleSibling(int fault, int expectedHealth)
+    [Fact]
+    public void ARememberedPairMismatchDoesNotBlockAnEligibleSibling()
     {
         var state = StateRemembering(
             new AutoHarvestFaultMemory(
-                AutoHarvestFaultKind.None, (AutoHarvestFaultKind)fault, AutoHarvestFaultKind.None));
+                AutoHarvestFaultKind.None, AutoHarvestFaultKind.ContractUnavailable, AutoHarvestFaultKind.None));
 
         var result = Evaluate(ReadyFrame(), Configuration(), state, Context(1));
 
         Assert.True(result.HasAction);
         Assert.Equal(AutoHarvestPair.TreasureTree, result.Action.Pair);
-        Assert.Equal((AutoHarvestPairHealthKind)expectedHealth, result.State.FruitHealth.Kind);
+        Assert.Equal(AutoHarvestPairHealthKind.ContractUnavailable, result.State.FruitHealth.Kind);
         Assert.False(result.State.FruitHealth.FeatureScoped);
         Assert.Equal(AutoHarvestPairHealthKind.Eligible, result.State.TreasureHealth.Kind);
     }
@@ -255,28 +251,29 @@ public sealed class AutoHarvestCycleEvaluatorTests
     }
 
     /// <summary>
-    /// A remembered fault outranks what the world says, which is the order the two main-thread flags
-    /// produced when capture consulted them before reading the world.
+    /// A remembered mismatch outranks what the world says: nothing in the world is evidence that the
+    /// build's contract changed.
     /// </summary>
     [Fact]
-    public void ARememberedFaultOutranksAReadyWorld()
+    public void ARememberedMismatchOutranksAReadyWorld()
     {
         var state = StateRemembering(
             new AutoHarvestFaultMemory(
                 AutoHarvestFaultKind.None,
-                AutoHarvestFaultKind.Faulted,
+                AutoHarvestFaultKind.ContractUnavailable,
                 AutoHarvestFaultKind.None));
 
         var result = Evaluate(ReadyFrame(), Configuration(), state, Context(1));
 
-        Assert.Equal(AutoHarvestPairHealthKind.Faulted, result.State.FruitHealth.Kind);
+        Assert.Equal(AutoHarvestPairHealthKind.ContractUnavailable, result.State.FruitHealth.Kind);
     }
 
     /// <summary>
-    /// A faulted batch is remembered against the pair the plan named, in the terms its code carries.
+    /// A faulted batch is remembered against the pair the plan named only when its code names a
+    /// proven mismatch; a pair fault is left to the retry gate.
     /// </summary>
     [Theory]
-    [InlineData(1027, (int)AutoHarvestPairHealthKind.Faulted, false)]
+    [InlineData(1027, (int)AutoHarvestPairHealthKind.Eligible, false)]
     [InlineData(1025, (int)AutoHarvestPairHealthKind.ContractUnavailable, false)]
     [InlineData(1026, (int)AutoHarvestPairHealthKind.ContractUnavailable, true)]
     public void AFaultedBatchIsRememberedAsTheFailureItsCodeNames(
@@ -304,10 +301,10 @@ public sealed class AutoHarvestCycleEvaluatorTests
     }
 
     /// <summary>
-    /// A remembered fault stays remembered for the lifecycle, even across a batch that says nothing.
+    /// A remembered mismatch stays remembered for the lifecycle, even across a batch that says nothing.
     /// </summary>
     [Fact]
-    public void ARememberedFaultSurvivesALaterCycleThatReportsNothing()
+    public void ARememberedMismatchSurvivesALaterCycleThatReportsNothing()
     {
         var firstContext = Context(1);
         var first = Evaluate(ReadyFrame(), Configuration(), InitialState(), firstContext);
@@ -315,11 +312,11 @@ public sealed class AutoHarvestCycleEvaluatorTests
             ReadyFrame(),
             Configuration(),
             first.State,
-            Context(2, FaultedReceipt(firstContext, AutoHarvestActionResultCodes.PairFaulted)));
+            Context(2, FaultedReceipt(firstContext, AutoHarvestActionResultCodes.PairContractUnavailable)));
 
         var third = Evaluate(ReadyFrame(), Configuration(), second.State, Context(3));
 
-        Assert.Equal(AutoHarvestPairHealthKind.Faulted, third.State.FruitHealth.Kind);
+        Assert.Equal(AutoHarvestPairHealthKind.ContractUnavailable, third.State.FruitHealth.Kind);
     }
 
     /// <summary>

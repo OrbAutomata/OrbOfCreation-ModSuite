@@ -71,16 +71,18 @@ The former runtime-probe, per-session purchase-limit, DryRun, expert-override, A
 
 ## Auto Harvest
 
-Auto Harvest is independent from Auto Buy. When `AutoHarvest.Mode=Active`, it considers only the exact audited fruit-tree and treasure-tree collect pairs selected by `CollectFruitTrees` and `CollectTreasureTrees`. It alternates eligible pairs after each successful submission and never queues more than one supported collect action at a time.
+Auto Harvest is independent from Auto Buy. When `AutoHarvest.Mode=Active`, it considers only the exact audited fruit-tree and treasure-tree collect pairs selected by `CollectFruitTrees` and `CollectTreasureTrees`. It alternates eligible pairs after each successful submission and after each one that faulted, and never queues more than one supported collect action at a time.
 
 Each pair-set capture admits both pair circuits once, resolves the shared active-list/scaling contract once,
 then resolves the fruit and treasure bindings independently and caches only their immutable serialized safety
 graphs. Visibility, readiness, duplicates, slot room, identity currency, and mutation postconditions remain
 live. The published prerequisite latch is evidence rather than a refusal: true means the native validator has
 latched success, while false means the exact current action needs one validation at the action boundary. A
-missing or unsafe pair therefore cannot starve a healthy sibling; transient
-live-state gaps use bounded retry, static pair-contract failures remain process-bound, and partial availability
-is reported as degraded. The native members themselves bind once per process as one strict set with exact
+missing or unsafe pair therefore cannot starve a healthy sibling. A pair whose harvest did not start, or whose
+registry read only threw, backs off on its own waits (one second, doubling to ten) while its sibling keeps
+harvesting, and the status names that pair and why. A contract mismatch the game proved, such as the wrong
+type or contradictory identity under a pair's UUID, is warned about once and holds that pair until the next
+lifecycle, which probes it again. Partial availability is reported as degraded. The native members themselves bind once per process as one strict set with exact
 owner, parameter, field and return types; a missing or differently shaped member disables Auto Harvest with a
 reason naming that member's contract, before any registry read or native call.
 
@@ -92,8 +94,8 @@ slot, and mutation-transition evidence for both pairs.
 
 The pair-set resolver performs the lifecycle-generation coherence check once. The following fact read verifies
 the plot and action stable UUIDs directly; it does not reread the same registry generation. Scheduler admission
-may inspect configuration, quarantine, and family ownership to avoid reserving unnecessary work, while the
-action callback checks them again to produce the authoritative terminal result.
+skips a pair that is backing off, and may inspect configuration and family ownership to avoid reserving
+unnecessary work, while the action callback checks them again to produce the authoritative terminal result.
 
 After configuration, UUID/type, and lifecycle checks, submission calls the exact current action's
 parameterless `Prerequisites.Container.Check()` once through the binding set's compiled contract. A fresh
@@ -104,8 +106,9 @@ capacity, cost, and mutation path. Submission always requests quantity one throu
 predicate and at least one enumerated empty action entry, and may consume the final free entry. The visible
 plot-space meter (for example `30/33`) is unrelated, and this action list is also separate from Auto Buy's
 global action queue. Auto Harvest uses the admitted current list to submit quantity one, then observes only
-that exactly one matching native action is engaged. If an attempted mutation
-cannot be verified, that tree pair remains blocked until a scene, save-load, reset, or NG+ lifecycle transition.
+that exactly one matching native action is engaged. An add the game threw on is judged by what it left: an
+engaged harvest commits, and one that is not running is a pair fault. A pair fault backs that pair off and is
+retried with a fresh world read; the back-off ends on a commit or when the pair stops being a candidate.
 
 Auto Harvest evaluates after each world or configuration publication. Disabled mode and `EmergencyDisable` perform no Auto Harvest scans or new submissions. Auto Harvest does not plant, replant, replace, enrich, force growth, destroy plots, modify saves, or coexist with another plot-action automation mod. Interactive behavior is covered by the [runtime validation guide](../../docs/testing/runtime-validation.md).
 

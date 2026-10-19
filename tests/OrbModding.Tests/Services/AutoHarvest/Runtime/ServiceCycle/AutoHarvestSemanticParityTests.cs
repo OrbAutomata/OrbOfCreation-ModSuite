@@ -140,8 +140,8 @@ public sealed class AutoHarvestSemanticParityTests
     /// </summary>
     /// <remarks>
     /// One scenario needs a state rather than a frame: a pair that is unavailable on its own is a
-    /// failure this service remembers about itself, not something the world reports, so it starts
-    /// from a remembered fault. See W45.
+    /// contract mismatch this service remembers about itself, not something the world reports, so it
+    /// starts from a remembered mismatch.
     /// </remarks>
     private static AutoHarvestCycleState InitialState(DecisionScenario scenario)
     {
@@ -154,7 +154,7 @@ public sealed class AutoHarvestSemanticParityTests
                 fresh.PlannedPair,
                 fresh.FruitHealth,
                 fresh.TreasureHealth,
-                fresh.Faults.With(AutoHarvestPair.FruitTree, AutoHarvestFaultKind.Faulted))
+                fresh.Faults.With(AutoHarvestPair.FruitTree, AutoHarvestFaultKind.ContractUnavailable))
             : fresh;
     }
 

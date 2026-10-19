@@ -13,6 +13,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
 
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly AutoHarvestRuntimeDiagnosticsPublisher? _runtime;
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private AutoHarvestPairHealth _fruit;
     private AutoHarvestPairHealth _treasure;
     private long _lifecycle;
@@ -26,9 +27,14 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         ConfigGeneration configurationGeneration,
         bool ownsActionFamily,
         RuntimeDiagnosticsRegistry? runtimeDiagnostics,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string>? warn = null)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _retries = new ServiceRetryEpisodeNarrator(
+            "Auto Harvest",
+            warn ?? AutoHarvestFeatureDependencies.LogWarning,
+            AutoHarvestServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _ownsActionFamily = ownsActionFamily;
@@ -55,18 +61,24 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
             _ownsActionFamily != ownsActionFamily;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _ownsActionFamily = ownsActionFamily;
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ReadService(pump)
+            : null;
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0) _projectionRefreshPending = true;
         if (!_projectionRefreshPending)
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
         }
-        if (!TryReadLatestProjection(pump, out var projection))
+        service ??= ReadService(pump);
+        if (service is not { LatestProjection.IsPresent: true })
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
         }
         _projectionRefreshPending = false;
+        var projection = service.Value.LatestProjection.Snapshot;
         if (!AutoHarvestServiceProjection.TryReadFruitHealth(in projection, out var fruit) ||
             !AutoHarvestServiceProjection.TryReadTreasureHealth(in projection, out var treasure))
         {
@@ -94,6 +106,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         _configurationGeneration = configurationGeneration;
         _ownsActionFamily = ownsActionFamily;
         _projectionRefreshPending = false;
+        _retries.InvalidateLifecycle();
         InitialHealth(_featureStatus.Current.ConfiguredEnabled, out _fruit, out _treasure);
         _runtime?.PublishState(lifecycle, _fruit, _treasure);
         PublishFeatureStatus();
@@ -110,27 +123,15 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
 
     public void Dispose() => _runtime?.Dispose();
 
-    /// <summary>
-    /// The latest projection Auto Harvest's own service published, if it has published one and the
-    /// read is fresh.
-    /// </summary>
-    private static bool TryReadLatestProjection(
-        SuiteFramePump pump,
-        out ServiceStateProjectionSnapshot projection)
-    {
-        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoHarvestServicePolicies.ServiceId) is
-            { LatestProjection.IsPresent: true } service)
-        {
-            projection = service.LatestProjection.Snapshot;
-            return true;
-        }
-        projection = default;
-        return false;
-    }
+    private static ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump) =>
+        ServiceCycleDiagnostics.ReadAvailableService(pump, AutoHarvestServicePolicies.ServiceId);
 
     private void PublishFeatureStatus()
     {
-        var health = AutoHarvestFeatureStatusProjector.Project(_fruit, _treasure);
+        var health = AutoHarvestFeatureStatusProjector.Project(
+            _fruit,
+            _treasure,
+            _retries.TryGetBackingOff(out var retry) ? retry : null);
         if (health.State != FeatureStatusState.ConfigurationDisabled && _emergencyDisabled)
         {
             _featureStatus.ObserveRuntimeLifecycle(

@@ -39,8 +39,7 @@ internal sealed partial class AutoHarvestBindingResolver :
 #if SERVICE_CYCLE_PROFILE
         _profileOperations = profileOperations ?? throw new ArgumentNullException(nameof(profileOperations));
 #endif
-        if (!AutoHarvestNativeBindings.TryCreate(out _bindings, out _bindReason, resolveType, includeContract))
-            _contractCircuit.Block(AutoHarvestPair.FruitTree, AutoHarvestRuntimeFailureScope.Feature);
+        AutoHarvestNativeBindings.TryCreate(out _bindings, out _bindReason, resolveType, includeContract);
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -125,6 +124,7 @@ internal sealed partial class AutoHarvestBindingResolver :
         _fruit = null;
         _treasure = null;
         _shared = null;
+        _contractCircuit.InvalidateLifecycle();
     }
 
     private static AutoHarvestResolvedPairSet FailedPairSet(

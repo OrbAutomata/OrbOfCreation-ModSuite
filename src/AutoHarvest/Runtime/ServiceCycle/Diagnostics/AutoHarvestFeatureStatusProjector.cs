@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -30,7 +31,8 @@ internal static class AutoHarvestFeatureStatusProjector
     /// </remarks>
     public static AutoHarvestFeatureStatus Project(
         in AutoHarvestPairHealth fruit,
-        in AutoHarvestPairHealth treasure)
+        in AutoHarvestPairHealth treasure,
+        ServiceRetryEntry? backingOff = null)
     {
         var selectedCount = CountSelected(fruit) + CountSelected(treasure);
         if (selectedCount == 0)
@@ -43,6 +45,15 @@ internal static class AutoHarvestFeatureStatusProjector
 
         if (TryProjectFeatureScoped(fruit, treasure, out var featureScoped))
             return featureScoped;
+
+        if (backingOff is { } retry)
+        {
+            return new AutoHarvestFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.NativeMutationFailed,
+                $"Auto Harvest is backing off {AutoHarvestServicePolicies.Describe(retry.Target)} after " +
+                $"{retry.ConsecutiveFailures} failed attempt(s) and retries it when due: {retry.Reason}");
+        }
 
         var hasUnavailablePair = IsPairUnavailable(fruit) || IsPairUnavailable(treasure);
         var hasCapableSibling = IsCapable(fruit) || IsCapable(treasure);
@@ -88,14 +99,6 @@ internal static class AutoHarvestFeatureStatusProjector
                 "The native plot-action list has no free action entry.");
         }
 
-        if (IsPairFaulted(fruit) || IsPairFaulted(treasure))
-        {
-            return new AutoHarvestFeatureStatus(
-                FeatureStatusState.Faulted,
-                FeatureStatusReasonCode.PostconditionFailed,
-                "A selected harvest pair is blocked after an unverifiable native mutation.");
-        }
-
         if (IsPairContractUnavailable(fruit) || IsPairContractUnavailable(treasure))
         {
             return new AutoHarvestFeatureStatus(
@@ -104,7 +107,7 @@ internal static class AutoHarvestFeatureStatusProjector
                 "A selected harvest pair failed its audited native contract.");
         }
 
-        // After the two failure branches, because a broken sibling is the more urgent thing to say,
+        // After the failure branch, because a broken sibling is the more urgent thing to say,
         // and before the registry one, because "the game has not evaluated this yet" is the more
         // specific reading of the same waiting. Both are NotReady; neither is Locked.
         if (IsPrerequisitesNotConfirmed(fruit) || IsPrerequisitesNotConfirmed(treasure))
@@ -135,17 +138,6 @@ internal static class AutoHarvestFeatureStatusProjector
         in AutoHarvestPairHealth treasure,
         out AutoHarvestFeatureStatus health)
     {
-        var faulted = IsFeatureScoped(fruit, AutoHarvestPairHealthKind.Faulted) ||
-                      IsFeatureScoped(treasure, AutoHarvestPairHealthKind.Faulted);
-        if (faulted)
-        {
-            health = new AutoHarvestFeatureStatus(
-                FeatureStatusState.Faulted,
-                FeatureStatusReasonCode.RuntimeFailure,
-                "The Auto Harvest runtime is unavailable after a native failure.");
-            return true;
-        }
-
         var contract = IsFeatureScoped(fruit, AutoHarvestPairHealthKind.ContractUnavailable) ||
                        IsFeatureScoped(treasure, AutoHarvestPairHealthKind.ContractUnavailable);
         if (contract)
@@ -178,7 +170,6 @@ internal static class AutoHarvestFeatureStatusProjector
     private static bool IsPairUnavailable(in AutoHarvestPairHealth value) =>
         value.Selected && !value.FeatureScoped &&
         (value.Kind == AutoHarvestPairHealthKind.ContractUnavailable ||
-         value.Kind == AutoHarvestPairHealthKind.Faulted ||
          value.Kind == AutoHarvestPairHealthKind.RegistryNotReady);
     /// <summary>
     /// Whether this pair is a working one, whatever it happens to be doing this instant.
@@ -203,8 +194,6 @@ internal static class AutoHarvestFeatureStatusProjector
         value.Selected && value.Kind == AutoHarvestPairHealthKind.ActionNotOffered;
     private static bool IsQueueBlocked(in AutoHarvestPairHealth value) =>
         value.Selected && value.Kind == AutoHarvestPairHealthKind.QueueBlocked;
-    private static bool IsPairFaulted(in AutoHarvestPairHealth value) =>
-        value.Selected && !value.FeatureScoped && value.Kind == AutoHarvestPairHealthKind.Faulted;
     private static bool IsPairContractUnavailable(in AutoHarvestPairHealth value) =>
         value.Selected && !value.FeatureScoped && value.Kind == AutoHarvestPairHealthKind.ContractUnavailable;
     private static bool IsRegistryNotReady(in AutoHarvestPairHealth value) =>

@@ -39,6 +39,7 @@ internal sealed class AutoHarvestWorkerDefinition :
         var projected = AutoHarvestFrameProjector.Project(in config, world);
         var result = _evaluator.Evaluate(projected, config, state, context);
         state = result.State;
+        AutoHarvestCycleEvaluator.SettleRetries(in state, in context, actions);
         if (result.HasAction)
         {
             var action = result.Action;

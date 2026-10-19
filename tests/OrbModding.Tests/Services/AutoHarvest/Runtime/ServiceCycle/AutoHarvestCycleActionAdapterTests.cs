@@ -14,7 +14,6 @@ public sealed class AutoHarvestCycleActionAdapterTests
 {
     [Theory]
     [InlineData(RejectionScenario.Disabled)]
-    [InlineData(RejectionScenario.Quarantined)]
     [InlineData(RejectionScenario.Ownership)]
     [InlineData(RejectionScenario.Permit)]
     [InlineData(RejectionScenario.Lifecycle)]
@@ -39,7 +38,6 @@ public sealed class AutoHarvestCycleActionAdapterTests
 
         Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
         AssertOrdered(fixture.Events, "ownership", "permit", "resolve", "mutate");
-        Assert.Equal(1, fixture.Gates.QuarantineReadCount);
     }
 
     /// <summary>
@@ -63,8 +61,12 @@ public sealed class AutoHarvestCycleActionAdapterTests
         Assert.Equal(AutoHarvestActionSafetyState.ResourceDrain, fixture.Mutation.Safety);
     }
 
+    /// <summary>
+    /// An add the game took without starting the harvest is a pair fault, and it backs only that
+    /// pair off, on the pair's own waits.
+    /// </summary>
     [Fact]
-    public void AttemptedUnverifiedMutationQuarantinesThePair()
+    public void AnAddThatLeftThePairIdleBacksThePairOff()
     {
         using var fixture = new Fixture();
         fixture.Mutation.Result = AutoHarvestMutationAdapter.FromVerifier(
@@ -74,18 +76,15 @@ public sealed class AutoHarvestCycleActionAdapterTests
         var result = fixture.Execute();
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.Equal(AutoHarvestActionResultCodes.PairFaulted, result.Code);
         Assert.True(result.HasNativeEvidence);
-        Assert.Equal(1, fixture.Gates.QuarantineCount);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)), result.TargetInitialBackoff);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(10)), result.TargetBackoffCap);
     }
 
     /// <summary>
     /// An outcome read without a mutation having been attempted is not this pair's fault.
     /// </summary>
-    /// <remarks>
-    /// The quarantine exists to stop retrying something the game refused to do. Nothing was asked of
-    /// the game here, so there is nothing to stop retrying, and naming it a pair fault would make the
-    /// worker give up on a pair over a failure that never touched it.
-    /// </remarks>
     [Fact]
     public void AnUnverifiedOutcomeWithNoAttemptIsNotAPairFault()
     {
@@ -98,11 +97,10 @@ public sealed class AutoHarvestCycleActionAdapterTests
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
-        Assert.Equal(0, fixture.Gates.QuarantineCount);
     }
 
     [Fact]
-    public void NonAttemptedFinalPreflightRejectionDoesNotQuarantine()
+    public void AFinalPreflightRejectionDoesNotBackThePairOff()
     {
         using var fixture = new Fixture();
         fixture.Mutation.Result = NativeActionOutcome.Reject(
@@ -113,11 +111,12 @@ public sealed class AutoHarvestCycleActionAdapterTests
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.False(result.HasNativeEvidence);
-        Assert.Equal(0, fixture.Gates.QuarantineCount);
+        Assert.Null(result.TargetInitialBackoff);
     }
 
     /// <summary>
-    /// A refused binding is reported in the terms the worker records it in: which pairs it stops.
+    /// A proven contract mismatch is reported in the terms the worker records it in: which pairs it
+    /// stops.
     /// </summary>
     /// <remarks>
     /// The worker keeps this service's fault memory, and its only view of what happened is the
@@ -140,11 +139,11 @@ public sealed class AutoHarvestCycleActionAdapterTests
     }
 
     /// <summary>
-    /// A resolution that failed without tripping the circuit is not reported as a contract the build
+    /// A resolution that failed without proving a mismatch is not reported as a contract the build
     /// does not have.
     /// </summary>
     [Fact]
-    public void ARefusedBindingWithNoTrippedCircuitStaysAnUnattributedFault()
+    public void ARefusedBindingWithNoProvenMismatchStaysAnUnattributedFault()
     {
         using var fixture = new Fixture();
         fixture.FailResolution(scope: null);
@@ -214,13 +213,10 @@ public sealed class AutoHarvestCycleActionAdapterTests
             Events = new List<string>();
             Bindings = new BindingPort(Events, () => _nativeLifecycle);
             Mutation = new MutationPort(Events);
-            Gates = new GatePort();
             ContractCircuit = new AutoHarvestContractCircuit();
             _adapter = new AutoHarvestCycleActionAdapter(
                 createBindings?.Invoke(ContractCircuit) ?? Bindings,
                 Mutation,
-                Gates,
-                ContractCircuit,
                 () =>
                 {
                     Events.Add("ownership");
@@ -230,13 +226,14 @@ public sealed class AutoHarvestCycleActionAdapterTests
                 {
                     Events.Add("permit");
                     return _capturePermit;
-                });
+                },
+                Warnings.Add);
         }
 
         public List<string> Events { get; }
         public BindingPort Bindings { get; }
         public MutationPort Mutation { get; }
-        public GatePort Gates { get; }
+        public List<string> Warnings { get; } = new();
         public AutoHarvestContractCircuit ContractCircuit { get; }
 
         public ServiceActionResultCode ConfigureScenario(RejectionScenario scenario)
@@ -244,7 +241,6 @@ public sealed class AutoHarvestCycleActionAdapterTests
             return scenario switch
             {
                 RejectionScenario.Disabled => SetDisabled(),
-                RejectionScenario.Quarantined => SetQuarantined(),
                 RejectionScenario.Ownership => SetOwnershipUnavailable(),
                 RejectionScenario.Permit => SetPermitUnavailable(),
                 RejectionScenario.Lifecycle => SetLifecycleReplaced(),
@@ -256,12 +252,6 @@ public sealed class AutoHarvestCycleActionAdapterTests
         {
             _operational = false;
             return CommonActionResultCodes.ServiceDisabled;
-        }
-
-        private ServiceActionResultCode SetQuarantined()
-        {
-            Gates.Quarantined = true;
-            return AutoHarvestActionResultCodes.PairFaulted;
         }
 
         private ServiceActionResultCode SetOwnershipUnavailable()
@@ -283,14 +273,15 @@ public sealed class AutoHarvestCycleActionAdapterTests
         }
 
         /// <summary>
-        /// Makes binding resolution fail, having tripped the circuit at <paramref name="scope"/>
-        /// first — the order the resolver itself produces, since it blocks the circuit as it fails.
+        /// Makes binding resolution fail: a proven mismatch reaching <paramref name="scope"/>, or a
+        /// read that proved nothing when it is null.
         /// </summary>
-        public void FailResolution(AutoHarvestRuntimeFailureScope? scope)
-        {
-            Bindings.FailsToResolve = true;
-            if (scope is not null) ContractCircuit.Block(AutoHarvestPair.FruitTree, scope.Value);
-        }
+        public void FailResolution(AutoHarvestRuntimeFailureScope? scope) =>
+            Bindings.Failure = scope is null
+                ? AutoHarvestNativeFailure.Create(
+                    AutoHarvestRuntimeFailureKind.Retryable,
+                    AutoHarvestRuntimeFailureScope.Pair)
+                : AutoHarvestNativeFailure.Create(AutoHarvestRuntimeFailureKind.Contract, scope.Value);
 
         public ServiceActionResult Execute()
         {
@@ -341,25 +332,13 @@ public sealed class AutoHarvestCycleActionAdapterTests
             _readLifecycle = readLifecycle;
         }
 
-        public bool FailsToResolve { get; set; }
+        public AutoHarvestNativeFailure? Failure { get; set; }
 
         public AutoHarvestResolvedPairSet ResolvePairSet()
         {
             _events.Add("resolve");
-            if (FailsToResolve)
-            {
-                return AutoHarvestResolvedPairSet.Create(
-                    null!,
-                    null!,
-                    fruit: null,
-                    AutoHarvestNativeFailure.Create(
-                        AutoHarvestRuntimeFailureKind.Contract,
-                        AutoHarvestRuntimeFailureScope.Pair),
-                    treasure: null,
-                    AutoHarvestNativeFailure.Create(
-                        AutoHarvestRuntimeFailureKind.Contract,
-                        AutoHarvestRuntimeFailureScope.Pair));
-            }
+            if (Failure is { } failure)
+                return AutoHarvestResolvedPairSet.Create(null!, null!, fruit: null, failure, treasure: null, failure);
 
             var shared = new AutoHarvestSharedBinding(
                 new object(),
@@ -409,40 +388,19 @@ public sealed class AutoHarvestCycleActionAdapterTests
         public NativeActionOutcome Submit(
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
-            AutoHarvestActionSafetyState safety,
-            Action quarantine)
+            AutoHarvestActionSafetyState safety)
         {
             _events.Add("mutate");
             SubmitCount++;
             Facts = facts;
             Safety = safety;
-            if (Result.CallOutcome.MutationAttempts > 0 && !Result.Verified) quarantine();
             return Result;
-        }
-    }
-
-    private sealed class GatePort : IAutoHarvestGatePort
-    {
-        public bool Quarantined { get; set; }
-        public int QuarantineReadCount { get; private set; }
-        public int QuarantineCount { get; private set; }
-        public void ObserveResolvedPairs(in AutoHarvestResolvedPairSet pairs) { }
-        public bool IsQuarantined(AutoHarvestPair pair)
-        {
-            QuarantineReadCount++;
-            return Quarantined;
-        }
-        public void Quarantine(AutoHarvestPair pair)
-        {
-            Quarantined = true;
-            QuarantineCount++;
         }
     }
 
     public enum RejectionScenario
     {
         Disabled,
-        Quarantined,
         Ownership,
         Permit,
         Lifecycle,

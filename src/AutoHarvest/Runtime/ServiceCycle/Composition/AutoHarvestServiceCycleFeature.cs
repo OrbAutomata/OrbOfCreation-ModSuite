@@ -34,7 +34,6 @@ internal sealed class AutoHarvestServiceCycleFeature : IAutomataServiceCycleFeat
         return new AutoHarvestFeatureRuntime(
             _dependencies,
             adapters.Bindings,
-            adapters.Gates,
             registration,
             context.LifecycleValue,
             context.ConfigurationGeneration
@@ -48,15 +47,14 @@ internal sealed class AutoHarvestServiceCycleFeature : IAutomataServiceCycleFeat
 
 /// <summary>
 /// The non-generic per-frame runtime for Auto Harvest inside the shared host. It owns
-/// the feature's typed registration handle, native binding cache, native gate set, and
-/// diagnostics bridge. Disposal is split so the application can tear diagnostics down
-/// before host shutdown and the registration/bindings down after it.
+/// the feature's typed registration handle, native binding cache, and diagnostics bridge.
+/// Disposal is split so the application can tear diagnostics down before host shutdown and
+/// the registration/bindings down after it.
 /// </summary>
 internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRuntime
 {
     private readonly AutoHarvestFeatureDependencies _dependencies;
     private readonly AutoHarvestBindingResolver _bindings;
-    private readonly AutoHarvestNativeGateSet _gates;
     private readonly ServiceRegistration<
         AutoHarvestCycleState,
         AutoHarvestCycleAction> _registration;
@@ -70,7 +68,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
     internal AutoHarvestFeatureRuntime(
         AutoHarvestFeatureDependencies dependencies,
         AutoHarvestBindingResolver bindings,
-        AutoHarvestNativeGateSet gates,
         ServiceRegistration<
             AutoHarvestCycleState,
             AutoHarvestCycleAction> registration,
@@ -83,7 +80,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _bindings = bindings ?? throw new ArgumentNullException(nameof(bindings));
-        _gates = gates ?? throw new ArgumentNullException(nameof(gates));
         _registration = registration ?? throw new ArgumentNullException(nameof(registration));
         _lifecycleValue = lifecycleValue;
         _initialConfigurationGeneration = initialConfigurationGeneration;
@@ -99,7 +95,8 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
             _initialConfigurationGeneration,
             _dependencies.OwnsActionFamily(),
             _dependencies.RuntimeDiagnostics,
-            _dependencies.FeatureStatus);
+            _dependencies.FeatureStatus,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
@@ -115,7 +112,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
         ConfigGeneration configurationGeneration)
     {
         _bindings.InvalidateLifecycle();
-        _gates.ObserveLifecycle(nativeLifecycle);
         _diagnostics?.ObserveLifecycle(
             nativeLifecycle,
             configurationGeneration,

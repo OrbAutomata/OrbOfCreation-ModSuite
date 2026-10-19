@@ -80,8 +80,8 @@ internal static class AutoHarvestWorldFacts
     /// <remarks>
     /// Identity is what fails, and it fails first in the policy, so the rejection names the real
     /// problem — the world has no such plot-and-action pair — rather than reporting the four facts
-    /// that follow as separately unknown. Also the shape a pair takes when the service has quarantined
-    /// it or blocked its contract: nothing about it is known, because nothing about it was asked.
+    /// that follow as separately unknown. Also the shape a pair takes when the service has blocked its
+    /// contract: nothing about it is known, because nothing about it was asked.
     /// </remarks>
     internal static AutoHarvestPairFacts Unknown =>
         new(

@@ -14,15 +14,9 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
 {
     private readonly IAutoHarvestBindingPort _bindings;
     private readonly IAutoHarvestMutationPort _mutation;
-    private readonly IAutoHarvestGatePort _gates;
-    private readonly IAutoHarvestContractCircuit _contractCircuit;
     private readonly Func<bool> _ownsActionFamily;
     private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly AutomationCycleGuard<AutoHarvestCycleAction> _guard = new(
-        "Auto Harvest",
-        static action => "Auto Harvest failed to collect " +
-            EntityIdentityFormatter.Format(AutoHarvestPairSpecification.For(action.Pair).Plot.Uuid),
-        static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly AutomationCycleGuard<AutoHarvestCycleAction> _guard;
 #if SERVICE_CYCLE_PROFILE
     private readonly AutomataProfileOperations _profileOperations;
     private readonly IAutoHarvestProfileBindingObservation _profileBindings;
@@ -31,10 +25,9 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     public AutoHarvestCycleActionAdapter(
         IAutoHarvestBindingPort bindings,
         IAutoHarvestMutationPort mutation,
-        IAutoHarvestGatePort gates,
-        IAutoHarvestContractCircuit contractCircuit,
         Func<bool> ownsActionFamily,
-        Func<bool> tryCaptureMutationPermit
+        Func<bool> tryCaptureMutationPermit,
+        Action<string> warn
 #if SERVICE_CYCLE_PROFILE
         , AutomataProfileOperations profileOperations,
         IAutoHarvestProfileBindingObservation profileBindings
@@ -43,11 +36,14 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     {
         _bindings = bindings ?? throw new ArgumentNullException(nameof(bindings));
         _mutation = mutation ?? throw new ArgumentNullException(nameof(mutation));
-        _gates = gates ?? throw new ArgumentNullException(nameof(gates));
-        _contractCircuit = contractCircuit ?? throw new ArgumentNullException(nameof(contractCircuit));
         _ownsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
         _tryCaptureMutationPermit = tryCaptureMutationPermit ??
             throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
+        _guard = new AutomationCycleGuard<AutoHarvestCycleAction>(
+            "Auto Harvest",
+            static action => "Auto Harvest failed to collect " +
+                EntityIdentityFormatter.Format(AutoHarvestPairSpecification.For(action.Pair).Plot.Uuid),
+            warn ?? throw new ArgumentNullException(nameof(warn)));
 #if SERVICE_CYCLE_PROFILE
         _profileOperations = profileOperations ?? throw new ArgumentNullException(nameof(profileOperations));
         _profileBindings = profileBindings ?? throw new ArgumentNullException(nameof(profileBindings));
@@ -58,7 +54,8 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
         in AutoHarvestCycleAction action,
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context)
-        => TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true);
+        => AutoHarvestServicePolicies.BackingOffThePair(
+            TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true));
 
 #if SERVICE_CYCLE_PROFILE
     internal ServiceActionResult TryExecuteGameMcp(
@@ -79,8 +76,6 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
              !AutoHarvestConfigurationPolicy.IsSelected(config, action.Pair)))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
-        if (_gates.IsQuarantined(action.Pair))
-            return ServiceActionResult.Faulted(AutoHarvestActionResultCodes.PairFaulted);
         if (!_guard.Owns(_ownsActionFamily) || !_tryCaptureMutationPermit())
             return ServiceActionResult.Rejected(AutoHarvestActionResultCodes.ActionFamilyUnavailable);
 
@@ -97,13 +92,15 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
             var pairs = _bindings.ResolvePairSet();
             var resolution = pairs.For(action.Pair);
             if (!resolution.Succeeded)
-                return ServiceActionResult.Faulted(ContractFailureCode(action.Pair), resolution.Failure.Reason);
+                return Unresolved(resolution.Failure, in action);
             resolved = resolution.Pair;
-            if (!AutoHarvestNativeLifecycle.Matches(
-                    resolved.LifecycleGeneration,
-                    context.Cycle.Lifecycle))
-                return ServiceActionResult.Rejected(CommonActionResultCodes.LifecycleReplaced);
-            _gates.ObserveResolvedPairs(pairs);
+            var lifecycle = resolved.LifecycleGeneration;
+            if (!_guard.TryAdmitEpoch(
+                    () => lifecycle,
+                    unchecked((long)context.Cycle.Lifecycle.Value),
+                    in action,
+                    out var refusal))
+                return refusal;
 #if SERVICE_CYCLE_PROFILE
             if (_profileBindings.TryComplete(temperature)) bindingStage.Complete();
 #endif
@@ -119,12 +116,10 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
         }
 #endif
 
-        var pair = action.Pair;
         var result = _mutation.Submit(
             resolved,
             action.Facts,
-            action.Safety,
-            () => _gates.Quarantine(pair)
+            action.Safety
 #if SERVICE_CYCLE_PROFILE
             , in context
 #endif
@@ -133,19 +128,17 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     }
 
     /// <summary>
-    /// How far the contract failure that just refused this pair reaches.
+    /// A proven mismatch is named by how far it reaches, which is what the worker holds for the rest
+    /// of the lifecycle, and it is warned about once; any other failure to resolve is an adapter fault
+    /// and is retried.
     /// </summary>
-    /// <remarks>
-    /// The resolver trips the circuit as it fails, so the scope is readable immediately afterwards. A
-    /// resolution that failed without tripping it failed for some other reason and stays an
-    /// unattributed adapter fault rather than being reported as a contract the build does not have.
-    /// </remarks>
-    private ServiceActionResultCode ContractFailureCode(AutoHarvestPair pair)
+    private ServiceActionResult Unresolved(in AutoHarvestNativeFailure failure, in AutoHarvestCycleAction action)
     {
-        var failure = _contractCircuit.FailureFor(pair);
-        if (!failure.IsValid) return CommonActionResultCodes.AdapterFault;
-        return failure.Scope == AutoHarvestRuntimeFailureScope.Feature
+        if (failure.Kind != AutoHarvestRuntimeFailureKind.Contract)
+            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, failure.Reason);
+        var code = failure.Scope == AutoHarvestRuntimeFailureScope.Feature
             ? AutoHarvestActionResultCodes.FeatureContractUnavailable
             : AutoHarvestActionResultCodes.PairContractUnavailable;
+        return _guard.Finish(NativeActionOutcome.FaultBeforeCall(code, failure.Reason), in action);
     }
 }

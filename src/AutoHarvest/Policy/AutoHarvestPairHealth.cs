@@ -36,6 +36,12 @@ internal enum AutoHarvestPairHealthKind
     QueueBlocked = 5,
     RegistryNotReady = 6,
     ContractUnavailable = 7,
+
+    /// <summary>A mutation was attempted and the game did not do what it was asked.</summary>
+    /// <remarks>
+    /// Nothing produces this any more: a pair whose add did not engage backs off and is retried
+    /// instead of staying faulted. The member stays because the value is the wire.
+    /// </remarks>
     Faulted = 8,
 
     /// <summary>The plot the harvest belongs to is not visible in the world.</summary>

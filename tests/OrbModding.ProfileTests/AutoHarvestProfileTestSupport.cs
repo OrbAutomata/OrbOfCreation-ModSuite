@@ -21,10 +21,9 @@ internal static class AutoHarvestProfileTestSupport
         AutomataProfileOperations operations) => new(
             bindings,
             new NoOpMutationPort(),
-            new GatePort(),
-            new ContractCircuit(),
             () => true,
             () => true,
+            static _ => { },
             operations,
             bindings);
 
@@ -246,26 +245,6 @@ internal static class AutoHarvestProfileTestSupport
         }
     }
 
-    private sealed class GatePort : IAutoHarvestGatePort
-    {
-        public void ObserveResolvedPairs(in AutoHarvestResolvedPairSet pairs)
-        {
-        }
-
-        public bool IsQuarantined(AutoHarvestPair pair) => false;
-        public void Quarantine(AutoHarvestPair pair)
-        {
-        }
-    }
-
-    private sealed class ContractCircuit : IAutoHarvestContractCircuit
-    {
-        public AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair) => default;
-        public void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope)
-        {
-        }
-    }
-
     /// <summary>
     /// Stops at the binding stage. These tests measure resolution, not submission.
     /// </summary>
@@ -275,7 +254,6 @@ internal static class AutoHarvestProfileTestSupport
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
             AutoHarvestActionSafetyState safety,
-            Action quarantine,
             in ServiceActionContext context) =>
             NativeActionOutcome.Reject(CommonActionResultCodes.PolicyRejected, string.Empty);
     }

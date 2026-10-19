@@ -577,6 +577,33 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         Assert.Equal(0, spell.GetLevelCost().PerformCalls);
     }
 
+    /// <summary>
+    /// A registry read the game threw on while the boundary bound proves nothing about the build: the
+    /// press faults without the exception's text, and the next one binds and levels.
+    /// </summary>
+    [Fact]
+    public void ARegistryReadThatThrowsWhileBindingIsRetriedRatherThanBlockingTheLifecycle()
+    {
+        const string cause = "injected registry outage";
+        var outage = true;
+        var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
+        var levels = new SpellLevelNativeAdapter(new TypedRegistryResolver(
+            () => 1,
+            () => outage
+                ? throw new InvalidOperationException(cause)
+                : TypedRegistrySourceSnapshot.Ready(global::IdScriptableObject.RuntimeLookup),
+            static value => ((global::IdScriptableObject)value).GetGuid()));
+
+        var failed = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        outage = false;
+        var retried = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, failed.Disposition);
+        Assert.Equal(ServiceActionDisposition.Committed, retried.Disposition);
+        Assert.Equal(4, spell.masteryLevel);
+        Assert.DoesNotContain(cause, failed.Reason);
+    }
+
     // ---- Helpers -----------------------------------------------------------------------------
 
     private static Guid Id(global::SpellRecipeSO spell) => Guid.Parse(spell.uuid);

@@ -117,5 +117,9 @@ public sealed class AutoHarvestProfileBindingObservationTests
         public void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope)
         {
         }
+
+        public void InvalidateLifecycle()
+        {
+        }
     }
 }
