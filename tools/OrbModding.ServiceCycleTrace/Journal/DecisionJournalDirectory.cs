@@ -56,10 +56,11 @@ internal sealed class DecisionJournalDirectory
 
     internal void EnsureSafeReportPath(string path)
     {
-        var fullPath = Path.GetFullPath(path);
-        if (LooksLikeSegment(Path.GetFileName(fullPath)))
+        var name = Path.GetFileName(Path.GetFullPath(path));
+        if (LooksLikeSegment(name))
             throw new InvalidOperationException(
-                "A report cannot use a decision-journal evidence filename.");
+                $"A report cannot be named {name}: names starting with {Prefix} or ending with " +
+                $"{Extension} are reserved for decision-journal evidence.");
     }
 
     private string SegmentPath(int ordinal) => Path.Combine(

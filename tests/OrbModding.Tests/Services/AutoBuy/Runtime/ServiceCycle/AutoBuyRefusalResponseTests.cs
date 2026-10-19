@@ -101,7 +101,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
     }
 
     [Fact]
-    public void AffordabilityRefusalStaysLoudWithoutWritingABundle()
+    public void AffordabilityRefusalIsAnOrdinaryRefusalThatKeepsAutoBuyOn()
     {
         var config = new EditableConfig(AutoBuyOperationMode.Active);
         var responder = Responder(config, out var bundles, out var logged);
@@ -110,10 +110,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
 
         Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
         Assert.False(Directory.Exists(bundles));
-        var message = Assert.Single(logged);
-        Assert.Contains("skipped a purchase whose live resources had moved", message);
-        Assert.Contains("Auto Buy remains enabled", message);
-        Assert.DoesNotContain("Diagnostic bundle", message);
+        Assert.Empty(logged);
     }
 
     /// <summary>
@@ -131,11 +128,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
 
         Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
         Assert.False(Directory.Exists(bundles));
-        var message = Assert.Single(logged);
-        Assert.Contains("skipped a purchase the game had shut since planning", message);
-        Assert.Contains("refused by IsAvailable()", message);
-        Assert.Contains("Auto Buy remains enabled", message);
-        Assert.DoesNotContain("Diagnostic bundle", message);
+        Assert.Empty(logged);
     }
 
     /// <summary>
@@ -153,8 +146,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         responder.ObserveRefusal(Report(RefusedOnAvailability(), worldGeneration: 5));
 
         Assert.Equal(AutoBuyOperationMode.Disabled, config.Current.AutoBuy.Mode);
-        Assert.Equal(2, logged.Count);
-        Assert.Contains("Auto Buy disabled itself", logged[1]);
+        Assert.Contains("Auto Buy disabled itself", Assert.Single(logged));
     }
 
     /// <summary>
@@ -171,8 +163,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         responder.ObserveRefusal(Report(RefusedOnAvailability()));
 
         Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
-        Assert.Equal(2, logged.Count);
-        Assert.All(logged, message => Assert.Contains("Auto Buy remains enabled", message));
+        Assert.Empty(logged);
     }
 
     [Fact]
