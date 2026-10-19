@@ -195,6 +195,39 @@ internal static class GameMcpTooltipPanelRow
     }
 
     /// <summary>
+    /// One panel of the screen-elements page, from its rows and the address each row printed.
+    /// </summary>
+    /// <remarks>
+    /// A panel holding one element is that element: naming a group around it spent a line on a row
+    /// whose whole content was one name, and round ten's worst page was six such panels, two thirds
+    /// of it address. A panel of one component repeated says the component once as
+    /// <c>pathComponent</c> and each row keeps its own bracket index, brackets included, because a
+    /// bare number in a path column beside a slot column is the confusion that cost round eleven a
+    /// refused cast.
+    /// </remarks>
+    internal static GameMcpObjectBuilder Panel(
+        IReadOnlyList<GameMcpObjectBuilder> members,
+        IReadOnlyList<string> segments)
+    {
+        if (members is null) throw new ArgumentNullException(nameof(members));
+        if (segments is null) throw new ArgumentNullException(nameof(segments));
+        if (members.Count != segments.Count)
+            throw new ArgumentException("one address per panel row", nameof(segments));
+        if (members.Count == 1) return members[0];
+        var group = new GameMcpObjectBuilder();
+        if (TrySharedComponent(segments, out var component))
+        {
+            group["pathComponent"] = component;
+            for (var member = 0; member < members.Count; member++)
+                members[member]["path"] = segments[member].Substring(component.Length);
+        }
+        var elements = new GameMcpArrayBuilder();
+        for (var member = 0; member < members.Count; member++) elements.Add(members[member]);
+        group["elements"] = elements;
+        return group;
+    }
+
+    /// <summary>
     /// The component every element of one panel is an indexed instance of, when there is one and
     /// saying it once is shorter than saying it on every row.
     /// </summary>

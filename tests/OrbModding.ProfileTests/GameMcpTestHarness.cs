@@ -173,38 +173,16 @@ internal static class GameMcpTestHarness
         GameMcpFrameContext context)
     {
         var request = operation.Request;
-        return (request.ToolName switch
+        if (!Plugin.TryExecuteFrameRead(request, context, out var execution))
         {
-            "world_overview" => GameMcpToolExecution.Read(
-                GameMcpWorldQuery.Overview(context).Freeze()),
-            "world_categories" => GameMcpToolExecution.Read(
-                GameMcpWorldQuery.ListCategories(context).Freeze()),
-            "world_list" => GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
-                context, request.Category, request.Offset, request.Limit).Freeze()),
-            "world_get" => GameMcpToolExecution.Read(
-                GameMcpWorldQuery.GetRows(
-                    context,
-                    request.Category,
-                    request.Uuids).Freeze()),
-            "world_search" => GameMcpToolExecution.Read(
-                GameMcpWorldQuery.Search(
-                    context,
-                    request.Query,
-                    request.Offset,
-                    request.Limit,
-                    request.Category,
-                    request.StateFilter,
-                    request.RunFilter,
-                    request.KeywordFilter,
-                    request.LimitFromCaller).Freeze()),
-            "strategist" => GameMcpStrategistQuery.Read(context, request.Section),
-            _ => GameMcpToolExecution.Error(new GameMcpObjectBuilder
+            execution = GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {
                 ["status"] = "not_available",
                 ["code"] = "test_executor_missing",
                 ["reason"] = request.ToolName,
-            }.Freeze()),
-        }).WithEntityIdentities(
+            }.Freeze());
+        }
+        return execution.WithEntityIdentities(
             context.World?.Snapshot.EntityIdentities ?? EntityCatalog);
     }
 

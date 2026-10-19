@@ -263,6 +263,53 @@ public sealed class GameMcpSearchTests
             (string?)elsewhere["reason"]);
     }
 
+    [Fact]
+    public void The_discovered_argument_reaches_the_page_a_tool_call_returns()
+    {
+        var undiscovered = Guid.Parse("fedcba98-7654-4321-8fed-cba987654321");
+        var known = GameMcpAcceptanceFixture.SpellWorld(4, 30);
+        var world = known with
+        {
+            SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
+            {
+                known.SpellRecipes[0],
+                new WorldSpellRecipe(
+                    undiscovered,
+                    discovered: false,
+                    discRarityLevel: 0,
+                    masteryXp: BigDouble.Zero,
+                    masteryLevel: 0,
+                    masteryLevelReady: false,
+                    masteryLevelAffordable: false,
+                    hiddenDiscovery: false,
+                    isRequiredDiscovery: true,
+                    penaltyUsageCost: 1,
+                    castSpeed: 1,
+                    baseCharges: 1,
+                    repeatInstantEffects: false,
+                    spellPowerMod: BigDouble.One,
+                    spellCostMod: BigDouble.One,
+                    spellCdSpeedMod: BigDouble.One,
+                    spellDurationMod: BigDouble.One,
+                    spellSpecialMod: BigDouble.One,
+                    spellXpMod: BigDouble.One,
+                    hasAlertedThisMastery: false),
+            }),
+        };
+
+        var page = GameMcpAcceptanceFixture.CallText(
+            "world_search",
+            new JObject { ["category"] = "spell-recipes", ["discovered"] = true },
+            GameMcpAcceptanceFixture.Snapshot(world));
+
+        Assert.Contains(
+            GameMcpTestHarness.Handle(GameMcpAcceptanceFixture.SpellId),
+            page,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            GameMcpTestHarness.Handle(undiscovered), page, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// The tool description is the only account of the surface a caller reads before using it, so
     /// every filter and the optional query are named there in the same words the tool answers in.

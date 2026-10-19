@@ -1558,12 +1558,11 @@ public sealed class Plugin : BaseUnityPlugin
             : _modalOpenGameAction.BindingFailure;
     }
 
-    private bool TryExecuteGameMcpFrameOperation(
-        GameMcpFrameOperation operation,
+    internal static bool TryExecuteFrameRead(
+        GameMcpOperationRequest request,
         GameMcpFrameContext context,
         out GameMcpToolExecution execution)
     {
-        var request = operation.Request;
         switch (request.ToolName)
         {
             case "world_overview":
@@ -1612,12 +1611,6 @@ public sealed class Plugin : BaseUnityPlugin
             case "strategist":
                 execution = GameMcpStrategistQuery.Read(context, request.Section);
                 return true;
-            case "suite_check_game_math":
-                execution = RunGameMcpGameMathCheck();
-                return true;
-            case "game_screen_catalog":
-                execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
-                return true;
             case "suite_configuration":
                 execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(
                     context, request.Mode == "describe", request.Section));
@@ -1632,6 +1625,26 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             case "trace_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+                return true;
+        }
+        execution = null!;
+        return false;
+    }
+
+    private bool TryExecuteGameMcpFrameOperation(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext context,
+        out GameMcpToolExecution execution)
+    {
+        var request = operation.Request;
+        if (TryExecuteFrameRead(request, context, out execution)) return true;
+        switch (request.ToolName)
+        {
+            case "suite_check_game_math":
+                execution = RunGameMcpGameMathCheck();
+                return true;
+            case "game_screen_catalog":
+                execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
                 return true;
             case "game_spell_loadout" when request.Mode == "preview":
                 var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
@@ -3992,12 +4005,8 @@ public sealed class Plugin : BaseUnityPlugin
                 "That page marker is not one game_screen_elements printed; page it again — the " +
                 "markers change when the screen does.");
         }
-        // A page is a stretch of panels, not a stretch of elements. One prefix over a mixed page is
-        // only as deep as its most distant pair of rows, so a page holding three panels factored out
-        // a canvas name and left every row carrying its own panel's ancestry in full. Each panel now
-        // says the ancestry its own rows share, once and before them, and its rows are leaves — so
-        // the prefix a row is read against is the line directly above it rather than a line 25 rows
-        // below, and a screen that used to take four pages of repeated path fits in one call.
+        // A page is a stretch of panels, not a stretch of elements: offset, limit, total and
+        // nextOffset all count panels, so a page never cuts one in half.
         var paths = new string[entries.Length];
         for (var index = 0; index < entries.Length; index++) paths[index] = entries[index].Path;
         var panels = NativeObjectPath.Runs(paths);
@@ -4013,10 +4022,8 @@ public sealed class Plugin : BaseUnityPlugin
         for (var index = first; index < end; index++)
         {
             var panel = panels[index];
-            var elements = new GameMcpArrayBuilder();
             var members = new List<GameMcpObjectBuilder>(panel.Count);
             var segments = new List<string>(panel.Count);
-            GameMcpObjectBuilder? sole = null;
             for (var member = panel.Start; member < panel.Start + panel.Count; member++)
             {
                 var entry = entries[member];
@@ -4043,35 +4050,10 @@ public sealed class Plugin : BaseUnityPlugin
                 {
                     tooltip = GameMcpTooltipPanelRow.Opens(segment, entry.ModalTitle);
                 }
-                elements.Add(tooltip);
                 members.Add(tooltip);
                 segments.Add(segment);
-                sole = tooltip;
             }
-
-            // A panel holding one element is that element: naming a group around it spent a line on
-            // a row whose whole content was one name. Round ten's worst page was six panels of one
-            // element each, two thirds of it address.
-            if (sole is not null && panel.Count == 1)
-            {
-                projected.Add(sole);
-                continue;
-            }
-            var group = new GameMcpObjectBuilder();
-
-            // Siblings under one parent are usually one component repeated with a different index,
-            // and typing that component once per row cost a round 1,210 bytes inside tables that
-            // already name what their rows share. The panel says it once and each row keeps its own
-            // bracket index — brackets included, because a bare number in a path column beside a
-            // slot column is exactly the confusion that cost round eleven a refused cast.
-            if (GameMcpTooltipPanelRow.TrySharedComponent(segments, out var component))
-            {
-                group["pathComponent"] = component;
-                for (var member = 0; member < members.Count; member++)
-                    members[member]["path"] = segments[member].Substring(component.Length);
-            }
-            group["elements"] = elements;
-            projected.Add(group);
+            projected.Add(GameMcpTooltipPanelRow.Panel(members, segments));
         }
         var details = new GameMcpObjectBuilder
         {
