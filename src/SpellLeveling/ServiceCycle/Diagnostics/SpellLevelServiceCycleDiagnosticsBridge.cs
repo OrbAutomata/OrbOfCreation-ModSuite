@@ -45,6 +45,8 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
     private bool _evaluationRefreshPending;
     private bool _capabilitySeeded;
     private string _capabilityFailure = string.Empty;
+
+    internal const string CapabilityScreen = "Spell Leveling capability";
     private AutoSpellLevelCapability _reportedCapability;
     private string? _reportedWaitingReason;
 
@@ -117,6 +119,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _capability.Reset();
         _boundaryStatus.Reset();
         _retries.InvalidateLifecycle();
+        _capabilityFailure = string.Empty;
         _cycleObserved = false;
         _capabilitySeeded = false;
         _evaluationRefreshPending = false;
@@ -125,12 +128,13 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
 
     /// <summary>
     /// Asks the game what the feature can do so the tooltip is right before the first action rather
-    /// than after it. An unreadable contract leaves the capability where it was, warns once per
-    /// distinct reason, and is asked again on the next evaluation.
+    /// than after it. An unreadable contract leaves the capability where it was and is asked again on
+    /// the next evaluation; the cause goes to the suite log and the warning is written only when the
+    /// failure's sentence changes.
     /// </summary>
     private void SeedCapability()
     {
-        _capabilitySeeded = _capabilityPort.TryReadCapability(out var capability, out var failure);
+        _capabilitySeeded = _capabilityPort.TryReadCapability(out var capability, out var failure, out var cause);
         if (_capabilitySeeded)
         {
             _capability.Observe(capability);
@@ -139,7 +143,8 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         }
         if (string.Equals(_capabilityFailure, failure, StringComparison.Ordinal)) return;
         _capabilityFailure = failure;
-        Plugin.Log?.LogAutomataWarning("Spell Leveling could not read what the game lets it do: " + failure);
+        var reference = GameActionFaultLog.Record(cause, CapabilityScreen);
+        Plugin.Log?.LogAutomataWarning("Spell Leveling could not read what the game lets it do: " + failure + reference);
     }
 
     private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)

@@ -53,31 +53,35 @@ internal readonly struct SpellLevelSubmission
     public static SpellLevelSubmission ContractUnavailable(string reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
-    public static SpellLevelSubmission Attempted<TState>(NativeMutationEvidence<TState> evidence, string failure)
+    public static SpellLevelSubmission Attempted<TState>(
+        NativeMutationEvidence<TState> evidence, string pressed, string noRise)
     {
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified) return new(NativeActionOutcome.Commit(calls, string.Empty));
         if (!evidence.MutationWasAttempted)
             return new(NativeActionOutcome.Fault(
-                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()));
-        return new(
-            NativeActionOutcome.Fault(
                 CommonActionResultCodes.AdapterFault,
                 evidence.Outcome,
                 calls,
-                evidence.Exception is { } exception
-                    ? AfterThrow(failure, exception)
-                    : failure + ": " + evidence.Format()),
+                "spell-level read failed before the press." + Logged(evidence.Exception)));
+        var reason = !evidence.HasAfter
+            ? $"{pressed} and could not read mastery levels after the press."
+            : evidence.Exception is null
+                ? $"{pressed} {noRise}."
+                : $"{pressed} {noRise} after the game threw.";
+        return new(
+            NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, reason + Logged(evidence.Exception)),
             paidWithoutLevel: true);
     }
 
-    public static SpellLevelSubmission ThrewAfterPayment(string failure, Exception exception) =>
+    public static SpellLevelSubmission ThrewAfterPayment(string pressed, Exception exception) =>
         new(
             NativeActionOutcome.Fault(
                 CommonActionResultCodes.AdapterFault,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
-                AfterThrow(failure, exception)),
+                $"{pressed} and no rise was seen after the game threw." + Logged(exception)),
             paidWithoutLevel: true);
 
 #if SERVICE_CYCLE_PROFILE
@@ -85,8 +89,8 @@ internal readonly struct SpellLevelSubmission
         new(Outcome, PaidWithoutLevel, charges);
 #endif
 
-    private static string AfterThrow(string failure, Exception exception) =>
-        failure + " after the game threw." + GameActionFaultLog.Record(exception, SpellLevelNativeAdapter.Feature);
+    private static string Logged(Exception? exception) =>
+        GameActionFaultLog.Record(exception, SpellLevelNativeAdapter.Feature);
 }
 
 /// <summary>
@@ -146,8 +150,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     public SpellLevelSubmission Submit(SpellLevelActionKind kind, Guid uuid)
     {
-        if (!TryInitialize(out var reason))
-            return SpellLevelSubmission.ContractUnavailable(reason);
+        if (!TryInitialize(out var reason, out var cause))
+            return SpellLevelSubmission.ContractUnavailable(reason + GameActionFaultLog.Record(cause, Feature));
         var native = _bindings!;
 
         try
@@ -203,12 +207,13 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     /// <summary>
     /// What the game says the feature can currently do. The <c>All</c> half is snapshot-derivable and
-    /// the worker derives it; this exists for the <c>Locked</c> half, which is not.
+    /// the worker derives it; this exists for the <c>Locked</c> half, which is not. A failure is a
+    /// stable sentence, and what the game threw, if anything, is handed back unrecorded as its cause.
     /// </summary>
-    public bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure)
+    public bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure, out Exception? cause)
     {
         capability = AutoSpellLevelCapability.Locked;
-        if (!TryInitialize(out failure)) return false;
+        if (!TryInitialize(out failure, out cause)) return false;
         var native = _bindings!;
 
         try
@@ -233,7 +238,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            failure = "spell-level capability check failed." + GameActionFaultLog.Record(ex, Feature);
+            failure = "spell-level capability check failed.";
+            cause = ex;
             return false;
         }
     }
@@ -263,7 +269,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         var submission = Mutate(
             "Spell level single",
             uuid.ToString("D"),
-            $"{Feature} paid for a level of {EntityIdentityFormatter.PlayerName(uuid)} and the level did not rise",
+            $"{Feature} paid for a level of {EntityIdentityFormatter.PlayerName(uuid)}",
+            "and the level did not rise",
             () => native.MasteryLevel(recipe),
             () =>
             {
@@ -277,19 +284,20 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     }
 
     /// <summary>
-    /// Presses the game and verifies one sentinel: the level rose. Any rise commits, so a level the
-    /// player bought by hand in the same frame is still this press landing. A press past payment that
-    /// did not raise it, an unexpected throw included, is a paid-without-level fault whose exception
-    /// goes whole to the suite log; a throw before the press escapes as it always did.
+    /// Presses the game and verifies one sentinel: the level rose, and any rise commits. A press that
+    /// did not raise it, a throw included, is a paid-without-level fault whose exception goes whole to
+    /// the suite log. An expected throw reading the level before the press is a fault with nothing
+    /// paid; an unexpected one escapes.
     /// </summary>
     private static SpellLevelSubmission Mutate(
         string feature,
         string identity,
-        string failure,
+        string pressed,
+        string noRise,
         Func<long> readLevel,
         Action press)
     {
-        var pressed = false;
+        var pressedGame = false;
         try
         {
             var evidence = NativeMutationVerifier.Execute(
@@ -299,15 +307,15 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                 readLevel,
                 () =>
                 {
-                    pressed = true;
+                    pressedGame = true;
                     press();
                 },
                 static (before, after) => after > before);
-            return SpellLevelSubmission.Attempted(evidence, failure);
+            return SpellLevelSubmission.Attempted(evidence, pressed, noRise);
         }
-        catch (Exception ex) when (pressed && !ExceptionDetail.IsProcessFatal(ex))
+        catch (Exception ex) when (pressedGame && !ExceptionDetail.IsProcessFatal(ex))
         {
-            return SpellLevelSubmission.ThrewAfterPayment(failure, ex);
+            return SpellLevelSubmission.ThrewAfterPayment(pressed, ex);
         }
     }
 
@@ -380,7 +388,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         return Mutate(
             "Spell level all",
             uuid == Guid.Empty ? "all ready spells" : uuid.ToString("D"),
-            $"{Feature} pressed level all and no spell's level rose",
+            $"{Feature} pressed level all",
+            "and no spell's level rose",
             ReadTotalMasteryLevels,
             () => native.TryLevelAll(manager));
     }
@@ -407,8 +416,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         return false;
     }
 
-    private bool TryInitialize(out string reason)
+    private bool TryInitialize(out string reason, out Exception? cause)
     {
+        cause = null;
         if (IsBound)
         {
             reason = string.Empty;
@@ -455,7 +465,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             Unbind();
-            return Retry("spell-level contract initialization failed." + GameActionFaultLog.Record(ex, Feature), out reason);
+            cause = ex;
+            return Retry("spell-level contract initialization failed.", out reason);
         }
     }
 

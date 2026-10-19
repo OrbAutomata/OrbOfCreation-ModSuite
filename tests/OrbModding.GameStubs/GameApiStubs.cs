@@ -245,7 +245,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool SuppressMasteryGain { get; set; }
     public bool SuppressLevelMutation { get; set; }
     public Exception? ThrowAfterLevelMutation { get; set; }
-    public int PlayerLevelsInTheSameFrame { get; set; }
+    public int ExtraLevelsPerPurchase { get; set; }
     public int MasteryGrantCalls { get; private set; }
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
     public Prerequisites.Container levelingPrerequisites = new Prerequisites.Container();
@@ -337,7 +337,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
         if (!readyToLevel) return;
         if (!SuppressLevelMutation)
         {
-            masteryLevel += 1 + PlayerLevelsInTheSameFrame;
+            masteryLevel += 1 + ExtraLevelsPerPurchase;
             readyToLevel = false;
         }
         if (ThrowAfterLevelMutation is { } failure) throw failure;
@@ -1785,9 +1785,12 @@ public class Prerequisites
 
         public BigDouble AdjustValue => adjustValue;
 
+        public Exception? CheckFailure { get; set; }
+
         public bool Check()
         {
             CheckCalls++;
+            if (CheckFailure is { } failure) throw failure;
             if (available) return true;
             if (NativeCheckResult) available = true;
             return available;
@@ -1934,8 +1937,10 @@ public class ResourceCostList
     public int AffordableLevels = int.MaxValue;
     public int PerformCalls { get; private set; }
     public int? ThrowAfterCostRows { get; set; }
+    public Action? WhileAffordabilityIsRead { get; set; }
     public bool HasEnough()
     {
+        WhileAffordabilityIsRead?.Invoke();
         if (!affordable || AffordableLevels <= 0) return false;
         var totals = new Dictionary<ResourceSO, BigDouble>();
         for (var index = 0; index < costs.Count; index++)

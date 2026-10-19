@@ -43,10 +43,10 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void ALevelThePlayerAlsoBoughtInTheSameFrameStillCommits()
+    public void ALevelThatRisesByMoreThanOneStillCommits()
     {
         var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
-        spell.PlayerLevelsInTheSameFrame = 1;
+        spell.ExtraLevelsPerPurchase = 1;
 
         var result = Execute(SpellLevelActionKind.Single, Id(spell));
 
@@ -359,6 +359,49 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AnExpectedThrowAfterPaymentWithNoLevelFaultsAfterTheGameThrewUnderItsLogReference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.SuppressLevelMutation = true;
+        spell.ThrowAfterLevelMutation = new InvalidOperationException("injected expected failure after payment");
+
+        var faulted = Execute(SpellLevelActionKind.Single, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)), faulted.TargetInitialBackoff);
+        var entry = Assert.Single(logged);
+        Assert.Contains("System.InvalidOperationException: injected expected failure after payment", entry);
+        Assert.Equal(
+            $"Spell Leveling paid for a level of {EntityIdentityFormatter.PlayerName(Id(spell))} and the level did not rise " +
+            "after the game threw. Reference " + entry.Split(' ')[3] + " is in the suite log.",
+            faulted.Reason);
+    }
+
+    [Fact]
+    public void AReadThatFailsBeforeTheBatchPressFaultsUnderItsLogReferenceWithNothingPaid()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        UnlockLevelAll(level: 1);
+        spell.levelCost.WhileAffordabilityIsRead =
+            () => global::SpellManager.instance!.availableSpellRecipes.value = null!;
+
+        var faulted = Execute(SpellLevelActionKind.All, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.Null(faulted.TargetInitialBackoff);
+        Assert.Equal(0, global::SpellManager.instance!.TryLevelAllCalls);
+        var entry = Assert.Single(logged);
+        Assert.Contains("available spell recipe contents are unavailable", entry);
+        Assert.Equal(
+            "spell-level read failed before the press. Reference " + entry.Split(' ')[3] + " is in the suite log.",
+            faulted.Reason);
+    }
+
+    [Fact]
     public void AnAllThatLevelsNothingFaultsAndBacksOffWithoutBlockingTheNextPress()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
@@ -439,16 +482,16 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var levels = new SpellLevelNativeAdapter();
         var spell = Spell(masteryLevel: 1, ready: false, unlocked: false);
 
-        Assert.True(levels.TryReadCapability(out var locked, out _));
+        Assert.True(levels.TryReadCapability(out var locked, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.Locked, locked);
 
         // Readiness is not what unlocks the feature — the prerequisite is.
         spell.levelingPrerequisites.available = true;
-        Assert.True(levels.TryReadCapability(out var single, out _));
+        Assert.True(levels.TryReadCapability(out var single, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.Single, single);
 
         UnlockLevelAll(level: 1);
-        Assert.True(levels.TryReadCapability(out var all, out _));
+        Assert.True(levels.TryReadCapability(out var all, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.All, all);
     }
 
@@ -470,7 +513,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
                 missing + " did not disable the set: " + result.Reason);
             Assert.Equal(1, spell.masteryLevel);
             Assert.Equal(0, spell.GetLevelCost().PerformCalls);
-            Assert.False(levels.TryReadCapability(out _, out _));
+            Assert.False(levels.TryReadCapability(out _, out _, out _));
         }
     }
 

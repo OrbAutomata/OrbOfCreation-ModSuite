@@ -54,7 +54,7 @@ internal enum SpellLevelExclusion
     /// <summary>Ready, but another ready spell outranked it. Exactly one action is planned per cycle.</summary>
     Outranked = 4,
 
-    /// <summary>Ready and affordable, but backing off after a level the game charged for did not rise.</summary>
+    /// <summary>Ready and affordable, but backing off on the retry gate after its last level faulted.</summary>
     BackingOff = 5,
 }
 
@@ -70,7 +70,7 @@ internal readonly struct SpellLevelExclusionHistogram
         int notReady,
         int unaffordable,
         int outranked,
-        int backingOff = 0)
+        int backingOff)
     {
         Undiscovered = undiscovered;
         NotReady = notReady;
