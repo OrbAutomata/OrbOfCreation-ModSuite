@@ -14,9 +14,12 @@ namespace OrbModding.GameContractTests;
 
 public sealed class NativeContractManifestTests
 {
-    /// <summary>The game type each category walks, as its binder declares it.</summary>
+    /// <summary>
+    /// The game type each category walks, as its binder declares it or as the collector hands it to
+    /// the shared description binder.
+    /// </summary>
     private static readonly Regex TypeNamePattern = new(
-        "TypeName\\s*=>\\s*\"(?<type>[A-Za-z_][A-Za-z0-9_]*)\"",
+        "(?:TypeName\\s*=>|new\\s+WorldDescriptionBinder<\\w+>\\(\\s*\"[^\"]*\",)\\s*\"(?<type>[A-Za-z_][A-Za-z0-9_]*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
@@ -436,7 +439,7 @@ public sealed class NativeContractManifestTests
             $"World collector directory not found, so nothing was checked: {worldDirectory}");
 
         var collected = Directory
-            .EnumerateFiles(worldDirectory, "World*.cs", SearchOption.AllDirectories)
+            .EnumerateFiles(worldDirectory, "*.cs", SearchOption.AllDirectories)
             .SelectMany(file => TypeNamePattern.Matches(File.ReadAllText(file)).Cast<Match>())
             .Select(match => match.Groups["type"].Value)
             .Distinct(StringComparer.Ordinal)
