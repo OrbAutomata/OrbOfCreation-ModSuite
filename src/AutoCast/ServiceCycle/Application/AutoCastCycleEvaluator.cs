@@ -67,12 +67,6 @@ internal static class AutoCastCycleEvaluator
             holdingCharge: state.HeldChargeSlot != AutoCastCycleState.NoHeldSlot,
             channelBlocked: false);
 
-        // A disabled service plans nothing but still reschedules, so it resumes the moment the
-        // operator turns it back on. It does not release a hold on the way out: the start gate opens
-        // no cycle while disabled, and the feature runtime lets go of the hold on the main thread
-        // once the start gate has read the feature off.
-        if (!AutoCastConfigurationPolicy.IsOperational(config)) return wake;
-
         var rows = slots.AsSpan();
         var owedRelease = SettleRetries(retryGate, rows, decisionAt, actions);
 

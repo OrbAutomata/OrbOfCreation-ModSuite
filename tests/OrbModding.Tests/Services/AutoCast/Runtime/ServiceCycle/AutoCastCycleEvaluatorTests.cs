@@ -132,18 +132,6 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     [Fact]
-    public void NonOperationalConfigurationPlansNothingButStillReschedules()
-    {
-        var world = World(Slot(0, Ember, castReady: true));
-
-        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
-        Assert.Empty(Plan(world, Config(mode: AutoCastOperationMode.Disabled), ref state, out var wake));
-        Assert.Equal(WakePolicyKind.OnPublication, wake.Kind);
-        Assert.Empty(Plan(world, Config(enabled: false), ref state, out _));
-        Assert.Empty(Plan(world, Config(emergencyDisabled: true), ref state, out _));
-    }
-
-    [Fact]
     public void AnEmptySlotIsNeverPlanned()
     {
         var world = World(Slot(0, Guid.Empty, occupied: false, castReady: true));
@@ -610,21 +598,17 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     private static SuiteRuntimeConfiguration Config(
-        bool enabled = true,
-        bool emergencyDisabled = false,
-        AutoCastOperationMode mode = AutoCastOperationMode.Active,
         bool fullCharge = false,
         bool ritualAware = false,
         float startResourcePercent = 0f,
         string absoluteReserve = "0") =>
         new()
         {
-            General = new SuiteGeneralConfiguration { Enabled = enabled },
-            Safety = new SuiteSafetyConfiguration { EmergencyDisable = emergencyDisabled },
+            General = new SuiteGeneralConfiguration { Enabled = true },
             Reserves = new AutomataReserveConfiguration { AbsoluteReserve = absoluteReserve },
             AutoCast = new AutoCastConfiguration
             {
-                Mode = mode,
+                Mode = AutoCastOperationMode.Active,
                 FullCharge = fullCharge,
                 RitualAware = ritualAware,
                 StartResourcePercent = startResourcePercent,
