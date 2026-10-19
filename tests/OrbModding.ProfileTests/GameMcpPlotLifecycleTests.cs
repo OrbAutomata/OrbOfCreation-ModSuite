@@ -227,7 +227,7 @@ public sealed class GameMcpPlotLifecycleTests
     {
         var pairs = new List<WorldPlotAction>();
         var instances = new List<WorldPlotActionInstance>();
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().ToList();
+        var identities = new List<EntityIdentityName>();
         for (var index = 0; index < count; index++)
         {
             var plot = Guid.Parse("fd" + index.ToString("D2") + "0000-0000-0000-0000-000000000001");
@@ -250,8 +250,7 @@ public sealed class GameMcpPlotLifecycleTests
         var world = World(prerequisitesReady: false, active: 0);
         return world with
         {
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(
-                9, identities.OrderBy(row => row.EntityId).ToArray()),
+            EntityIdentities = GameMcpTestHarness.CatalogWith(identities.ToArray()),
             PlotActions = PublicationTable<WorldPlotAction>.Create(pairs.ToArray()),
             PlotActionInstances = PublicationTable<WorldPlotActionInstance>.Create(
                 instances.ToArray()),
@@ -292,7 +291,7 @@ public sealed class GameMcpPlotLifecycleTests
         // The one skeleton: identity at the top, the row under `row:`. `nativeType` is absent
         // because `plot-nodes` is one native class and `world_categories` publishes which.
         Assert.Equal(
-            new[] { "uuid", "name", "category", "row" },
+            new[] { "uuid", "name", "internalName", "category", "row" },
             block.Children<JProperty>().Select(property => property.Name));
         Assert.Equal("Moon Garden", (string?)block["name"]);
         Assert.Equal("plot-nodes", (string?)block["category"]);
@@ -381,16 +380,14 @@ public sealed class GameMcpPlotLifecycleTests
         {
             new WorldPlotActionInstance(PlotId, ActionId, 0, 0, false, false, true),
         });
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(PlotId, "PlotNodeSO", "Moon Garden", "moonGarden"),
-            new EntityIdentityName(ActionId, "PlotNodeActionSO", "Plant Moondust", "plantMoondust"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ActionId, "PlotNodeActionSO", "Plant Moondust", "plantMoondust"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             PlotActions = PublicationTable<WorldPlotAction>.Create(new[] { pair }),
             PlotActionInstances = instances,
             ActionQueueSlots = active > 0

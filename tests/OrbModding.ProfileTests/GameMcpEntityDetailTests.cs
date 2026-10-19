@@ -73,13 +73,14 @@ public sealed class GameMcpEntityDetailTests : IDisposable
                 Crafting(ReadyCraftingId, visible: true, canBuy: true),
                 Crafting(BlockedCraftingId, visible: false, canBuy: false),
             }),
+            EntityIdentities = GameMcpTestHarness.EntityCatalog,
             CollectedAtEpoch = 31,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(original, new WorldGeneration(909));
-        var pinned = Snapshot(publisher.ReadLatest());
+        var pinned = GameMcpTestHarness.Context(publisher.ReadLatest());
         publisher.Publish(new GameWorldState
         {
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(new[]
@@ -1433,7 +1434,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var state = Snapshot(world, 930);
+        var state = GameMcpTestHarness.Context(world, 930);
 
         var upgradeResult = GameMcpTestHarness.Detail(state, upgradeId);
         var researchResult = GameMcpTestHarness.Detail(state, ReadyResearchId);
@@ -1584,7 +1585,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         };
 
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
-            Snapshot(world, 949),
+            GameMcpTestHarness.Context(world, 949),
             string.Empty,
             new[]
             {
@@ -1645,7 +1646,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             CollectedAtEpoch = 52,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var state = Snapshot(world, 950);
+        var state = GameMcpTestHarness.Context(world, 950);
 
         var resolved = GameMcpTestHarness.Detail(state, glyphId);
         var addressed = GameMcpTestHarness.Detail(state, "augment-glyphs", glyphId);
@@ -1730,33 +1731,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         (bool)explanation["predicates"]![name]!["available"]!;
 
     private static JObject Explain(GameWorldState world, Guid id, ulong generation) =>
-        GameMcpTestHarness.Detail(Snapshot(world, generation), id);
-
-    private static GameMcpFrameContext Snapshot(GameWorldState world, ulong generation)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
-            world with { EntityIdentities = GameMcpTestHarness.EntityCatalog },
-            new WorldGeneration(generation));
-        return Snapshot(publisher.ReadLatest());
-    }
-
-    private static GameMcpFrameContext Snapshot(
-        WorldPublication<GameWorldState> publication)
-    {
-        if (publication.Snapshot.EntityIdentities.IsBound)
-            return GameMcpTestHarness.Context(publication);
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
-            publication.Snapshot with
-            {
-                EntityIdentities = GameMcpTestHarness.EntityCatalog,
-            },
-            publication.Generation);
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
+        GameMcpTestHarness.Detail(GameMcpTestHarness.Context(world, generation), id);
 
     private static WorldSpellRecipe Spell(
         Guid id,
@@ -1956,12 +1931,9 @@ public sealed class GameMcpEntityDetailTests : IDisposable
             CollectedAtEpoch = 71,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(971));
         var page = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpWorldQuery.GetRows(
-                    GameMcpTestHarness.Context(publisher.ReadLatest()),
+                    GameMcpTestHarness.Context(world),
                     string.Empty,
                     new[] { mining.ToString("D") })
                 .Freeze(),

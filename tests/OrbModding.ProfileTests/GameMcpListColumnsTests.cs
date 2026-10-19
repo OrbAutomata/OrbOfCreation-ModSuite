@@ -338,23 +338,6 @@ public sealed class GameMcpListColumnsTests
 
     private static GameWorldState OneRowOfEach()
     {
-        // A public category's availability also rests on the helper collections its rows are
-        // joined from, so every report a category can require is present and clean here.
-        var collected = GameMcpWorldQuery.RegisteredCategoryNames()
-            .Concat(new[]
-            {
-                "structure-costs", "upgrade-costs", "crafting-recipe-state", "crafting-decisions",
-                "loadouts", "concept-instances", "ordinary-alchemy-loadout", "action-queues",
-                "plot-actions", "plot-action-instances", "harvest-resources",
-                "harvest-element-controls", "harvest-action-controls", "harvest-lifecycle-costs",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 1, 0, string.Empty))
-            .ToArray();
         return new GameWorldState
         {
             Structures = PublicationTable<WorldStructure>.Create(new WorldStructure[1]),
@@ -410,7 +393,8 @@ public sealed class GameMcpListColumnsTests
                     PublicationTable<WorldTargetingCandidate>.Empty),
             }),
             CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(collected),
+                PublicationTable<WorldCollectionCategoryStatus>.Create(
+                    GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -932,11 +916,8 @@ public sealed class GameMcpListColumnsTests
 
     private static JObject AlchemyTypes(params Guid[] selectedLevels)
     {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(AlchemyTypesWorld(selectedLevels), new WorldGeneration(734));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(publisher.ReadLatest()), "alchemy-types", 0, 50));
+            GameMcpTestHarness.Context(AlchemyTypesWorld(selectedLevels)), "alchemy-types", 0, 50));
     }
 
     /// <summary>
@@ -1011,11 +992,8 @@ public sealed class GameMcpListColumnsTests
         WorldUpgradeListMembership[] memberships,
         params WorldUpgrade[] upgrades)
     {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(UpgradesWorld(memberships, upgrades), new WorldGeneration(733));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(publisher.ReadLatest()), "upgrades", 0, 50));
+            GameMcpTestHarness.Context(UpgradesWorld(memberships, upgrades)), "upgrades", 0, 50));
     }
 
     private static JObject Structures(params WorldStructure[] structures)
@@ -1036,11 +1014,8 @@ public sealed class GameMcpListColumnsTests
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(734));
         return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(publisher.ReadLatest()), "attributes", 0, 50));
+            GameMcpTestHarness.Context(world), "attributes", 0, 50));
     }
 
     private static WorldStructure Structure(Guid id, bool unlocked, int level = 0)

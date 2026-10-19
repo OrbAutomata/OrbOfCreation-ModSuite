@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using OrbAutomata.GameMcp;
 using OrbModding.Common.Runtime.World;
 using Xunit;
@@ -22,7 +22,9 @@ public sealed class GameMcpEntityHandleTests
     [Fact]
     public void The_handle_length_is_the_shortest_prefix_unique_across_every_published_id()
     {
-        var ids = PublishedIds();
+        var ids = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray()
+            .Select(row => row.EntityId.ToString("D"))
+            .ToList();
 
         Assert.True(ids.Count > 2500, "the published id set should cover the whole pinned build");
         Assert.Equal(ids.Count, Distinct(ids, GameMcpEntityHandle.Length));
@@ -127,20 +129,5 @@ public sealed class GameMcpEntityHandleTests
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < ids.Count; index++) seen.Add(ids[index].Substring(0, length));
         return seen.Count;
-    }
-
-    private static IReadOnlyList<string> PublishedIds()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "data", "entity-mappings.tsv");
-        var lines = File.ReadAllLines(path);
-        var result = new List<string>(lines.Length);
-        for (var index = 1; index < lines.Length; index++)
-        {
-            var line = lines[index];
-            if (line.Length == 0) continue;
-            var tab = line.IndexOf('\t');
-            result.Add(tab < 0 ? line : line.Substring(0, tab));
-        }
-        return result;
     }
 }

@@ -28,11 +28,7 @@ public sealed class GameMcpCollectorAccountabilityTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         var report = new GameWorldCollector().Collect(frame);
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(GameWorldFrameDeriver.Build(frame), new WorldGeneration(1001));
-
-        var page = Names(GameMcpTestHarness.Context(publisher.ReadLatest()));
+        var page = Names(GameMcpTestHarness.Context(GameWorldFrameDeriver.Build(frame)));
         var reachedThroughATable = new HashSet<string>(
             GameMcpWorldQuery.ListedCollectionReportNames(),
             StringComparer.Ordinal);

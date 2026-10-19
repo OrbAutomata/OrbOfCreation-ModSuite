@@ -199,26 +199,20 @@ public sealed class GameMcpLevelEffectTests : IDisposable
     private static JObject Row(string category, Guid uuid) =>
         (JObject)Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(), category, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!["row"]!;
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query) =>
-        Json(GameMcpWorldQuery.Search(Context(), query, 0, 50, limitFromCaller: false));
+        Json(GameMcpWorldQuery.Search(
+            GameMcpTestHarness.Context(World()), query, 0, 50, limitFromCaller: false));
 
     private static JObject[] Rows(JObject page) =>
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
 
     private static JObject Json(GameMcpObjectBuilder value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
-    private static GameMcpFrameContext Context()
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(World(), new WorldGeneration(983));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     private static GameWorldState World()
     {
@@ -271,8 +265,8 @@ public sealed class GameMcpLevelEffectTests : IDisposable
                 Effect(Arcane, 0, "EffectLevel", ArcanistStructures,
                     GameValueModifierType.Raw, 2d),
             })),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 91,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -304,21 +298,6 @@ public sealed class GameMcpLevelEffectTests : IDisposable
             default, default, new BigDouble(200), default, default, default, default, default,
             default, default, default, default, default, default, default,
             new BigDouble(35), new BigDouble(240));
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, SortedNames(new[]

@@ -374,25 +374,11 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal(99, System.Text.Encoding.UTF8.GetByteCount(
             list.ToString(Newtonsoft.Json.Formatting.None)));
 
-        var reportNames = GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
         var searchState = GameMcpAcceptanceFixture.Snapshot(
             GameMcpAcceptanceFixture.SpellWorld(4, 30) with
             {
-                CollectionCategories =
-                    PublicationTable<WorldCollectionCategoryStatus>.Create(reportNames),
+                CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                    GameMcpTestHarness.AllCategoriesCollected()),
             });
         var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             searchState,

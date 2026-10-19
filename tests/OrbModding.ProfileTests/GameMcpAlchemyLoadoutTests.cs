@@ -192,17 +192,15 @@ public sealed class GameMcpAlchemyLoadoutTests
             false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8, false,
             new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(RecipeId, "AlchemyRecipeSO", "Catalyze", "catalyze"),
             new EntityIdentityName(TypeId, "AlchemyTypeSO", "Alchemy", "alchemy"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[] { recipe }),
             AlchemyInstances = PublicationTable<WorldAlchemyInstance>.Create(new[]

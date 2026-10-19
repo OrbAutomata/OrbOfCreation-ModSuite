@@ -61,10 +61,7 @@ public sealed class GameMcpResourceBarTests
 
     private static GameMcpFrameContext World()
     {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(State(), new WorldGeneration(733));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(State());
     }
 
     private static GameWorldState State() => new()

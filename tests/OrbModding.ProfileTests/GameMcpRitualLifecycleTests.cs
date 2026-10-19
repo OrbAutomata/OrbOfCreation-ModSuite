@@ -518,16 +518,14 @@ public sealed class GameMcpRitualLifecycleTests
             false, 0, Guid.Empty, in rateInputs, in traits, in resourceModifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8, false,
             new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(RitualId, "RitualSO", "Moon Rite", "moon_rite"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Rituals = PublicationTable<WorldRitual>.Create(new[] { ritual }),
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]

@@ -169,7 +169,8 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
             "unavailable (ERR_INPUT): unknown category 'glyph-effects'; call world_categories " +
             "for the exact discoverable names",
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "glyph-effects", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "glyph-effects", 0, 50, limitFromCaller: false))));
     }
 
     private static JObject[] Effects(Guid glyphId) =>
@@ -179,7 +180,8 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query) =>
-        Json(GameMcpWorldQuery.Search(Context(World()), query, 0, 50, limitFromCaller: false));
+        Json(GameMcpWorldQuery.Search(
+            GameMcpTestHarness.Context(World()), query, 0, 50, limitFromCaller: false));
 
     private static JObject[] Rows(JObject page) =>
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
@@ -187,18 +189,12 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), "augment-glyphs", new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()),
+                "augment-glyphs", new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(982));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     private static GameWorldState World() =>
         new()
@@ -225,8 +221,8 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
                 Factor(Fortunate, "spellDoubleCastRating", Guid.Empty, EchoRating,
                     GameValueModifierType.MultiDiminishing, 0.17d),
             }),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 82,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -249,21 +245,6 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
         return rows;
     }
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, Sorted(new[]

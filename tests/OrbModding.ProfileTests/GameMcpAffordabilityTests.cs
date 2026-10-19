@@ -138,32 +138,12 @@ public sealed class GameMcpAffordabilityTests
                 GameMcpTestHarness.BandwidthResource(
                     Resource, new BigDouble(50), new BigDouble(100)),
             }),
-            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
-            {
-                new WorldCollectionCategoryStatus(
-                    "attributes", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "resources", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "purchase-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "upgrades", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "modifier-variables", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "int-variables", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "structure-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-                new WorldCollectionCategoryStatus(
-                    "upgrade-costs", WorldCategoryOutcome.Collected, 0, 0, string.Empty),
-            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(733));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     private static WorldPurchaseCost Cost(

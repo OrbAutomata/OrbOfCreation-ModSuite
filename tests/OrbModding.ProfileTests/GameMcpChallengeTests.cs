@@ -474,17 +474,15 @@ public sealed class GameMcpChallengeTests
             new WorldChallenge(Third, 2, thirdState, true, false, 5, 10, 20, 50,
                 true, true, false, new BigDouble(20), new BigDouble(50)),
         };
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(First, "ChallengeSO", "Prismatic Trial", "prismaticTrial"),
             new EntityIdentityName(Second, "ChallengeSO", "Expanding Trial", "expandingTrial"),
-            new EntityIdentityName(Third, "ChallengeSO", "Temporal Trial", "temporalTrial"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(Third, "ChallengeSO", "Temporal Trial", "temporalTrial"));
         return new GameWorldState
         {
             CollectedAtEpoch = 21,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(21, identities),
+            EntityIdentities = identities,
             Challenges = PublicationTable<WorldChallenge>.Create(rows),
             ChallengeContext = new WorldChallengeContext(
                 true, string.Empty, true, challengesFetched, rerollsLeft, 3, selectionMaximum,

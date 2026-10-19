@@ -208,7 +208,7 @@ public sealed class GameMcpResearchTests
             canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(Pinned(world, 2807),
+        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2807),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
@@ -239,7 +239,8 @@ public sealed class GameMcpResearchTests
             spendableAmount: 1,
             heldAmount: 1);
         var entity = Assert.Single(Json(GameMcpWorldQuery.GetRows(
-                    Pinned(world, 2812), "research", new[] { ResearchId.ToString("D") }).Freeze(),
+                    GameMcpTestHarness.Context(world, 2812),
+                    "research", new[] { ResearchId.ToString("D") }).Freeze(),
                 world)["results"]!.Values<JObject>())!;
         var develop = entity["row"]!["develop"]!;
 
@@ -504,17 +505,15 @@ public sealed class GameMcpResearchTests
             true, stillHasLeeway, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ResearchId, "ResearchSO", "Improved Casting", "improvedCasting"),
             new EntityIdentityName(ResourceId, "ResourceSO", "Arcana", "arcana"),
-            new EntityIdentityName(TypeId, "ResearchTypeSO", "Insight", "insight"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(TypeId, "ResearchTypeSO", "Insight", "insight"));
         return new GameWorldState
         {
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = collectedAtUtcTicks ?? DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(41, identities),
+            EntityIdentities = identities,
             Resources = heldAmount is null
                 ? PublicationTable<WorldResource>.Empty
                 : PublicationTable<WorldResource>.Create(new[] { Held(heldAmount.Value) }),
@@ -626,13 +625,6 @@ public sealed class GameMcpResearchTests
     /// harness swaps in its own, which leaves a sentence composed at read time naming a UUID the
     /// normalizer then resolves for every other field.
     /// </summary>
-    private static GameMcpFrameContext Pinned(GameWorldState world, ulong generation)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(generation));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
-
     private static JObject Json(GameMcpValue value, GameWorldState world) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

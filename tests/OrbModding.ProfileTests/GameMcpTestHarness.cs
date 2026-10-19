@@ -119,16 +119,56 @@ internal static class GameMcpTestHarness
             lifecycleState: lifecycleState);
     }
 
+    /// <summary>
+    /// The frame a read of this world sees. A world that carries its own bound catalog keeps it, so
+    /// the frame and the encoder name rows from one catalog, as they do live; a world with none is
+    /// given the pinned build's.
+    /// </summary>
     internal static GameMcpFrameContext Context(
         GameWorldState world,
-        ulong generation = 1001)
+        ulong generation = 1001,
+        ulong configurationGeneration = 3,
+        long lifecycleGeneration = 9)
     {
         var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(
-            world with { EntityIdentities = EntityCatalog },
+            world.EntityIdentities.IsBound
+                ? world
+                : world with { EntityIdentities = EntityCatalog },
             new WorldGeneration(generation));
-        return Context(publisher.ReadLatest());
+        return Context(
+            publisher.ReadLatest(),
+            configurationGeneration: configurationGeneration,
+            lifecycleGeneration: lifecycleGeneration);
     }
+
+    /// <summary>
+    /// The pinned build's catalog with a fixture's own names added. A name given for an id the
+    /// build already knows replaces the build's, so every id resolves to exactly one name.
+    /// </summary>
+    internal static EntityIdentityCatalogSnapshot CatalogWith(params EntityIdentityName[] rows)
+    {
+        var named = new HashSet<Guid>(rows.Select(row => row.EntityId));
+        return EntityIdentityCatalogSnapshot.Bound(
+            EntityCatalog.Generation,
+            EntityCatalog.Rows.AsSpan().ToArray()
+                .Where(row => !named.Contains(row.EntityId))
+                .Concat(rows)
+                .OrderBy(row => row.EntityId)
+                .ToArray());
+    }
+
+    /// <summary>
+    /// A clean report for every category the read surface registers and every collection report a
+    /// listable category is built from.
+    /// </summary>
+    internal static WorldCollectionCategoryStatus[] AllCategoriesCollected() =>
+        GameMcpWorldQuery.RegisteredCategoryNames()
+            .Concat(GameMcpWorldQuery.ListedCollectionReportNames())
+            .Distinct(StringComparer.Ordinal)
+            .Select(name => new WorldCollectionCategoryStatus(
+                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
+            .ToArray();
 
     internal static JObject Json(GameMcpObjectBuilder value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
