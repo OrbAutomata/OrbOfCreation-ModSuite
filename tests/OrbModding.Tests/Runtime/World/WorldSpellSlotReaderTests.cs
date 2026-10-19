@@ -166,25 +166,22 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         Assert.Equal(3, frame.SpellSlots.Count);
     }
 
-    /// <summary>
-    /// A slot whose reading throws costs that slot and no other: the pass keeps going and says which
-    /// position failed and why.
-    /// </summary>
     [Fact]
-    public void ASlotThatThrowsCostsOnlyItsOwnRow()
+    public void ALoadoutReadThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        Seed();
+        global::SpellManager.CanCastASpellFailure = new NullReferenceException("spell manager was destroyed");
+
+        Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+    }
+
+    [Fact]
+    public void ASlotThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
         Seed();
         Loadout().value[0]!.augmentGlyphRefs = null!;
 
-        var frame = new GameWorldCycleFrame();
-        var report = Reader().Collect(new HashSet<Guid>(), frame);
-
-        Assert.Equal(WorldCategoryOutcome.Collected, report.Outcome);
-        Assert.Equal(2, report.Sampled);
-        Assert.Equal(1, report.Skipped);
-        Assert.StartsWith("reading slot 0 threw: ", report.FirstFailure);
-        Assert.Equal(2, frame.SpellSlots.Count);
-        Assert.Equal(0, frame.SpellCosts.Count);
+        Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
     }
 
     /// <summary>
@@ -285,6 +282,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         global::GlyphSO.All.Clear();
         global::SettingsManager.CancellableSpells = true;
         global::SpellManager.NativeCanCast = true;
+        global::SpellManager.CanCastASpellFailure = null;
         global::UnityEngine.Resources.Objects.Clear();
     }
 

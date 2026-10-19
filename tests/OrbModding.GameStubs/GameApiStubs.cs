@@ -2739,6 +2739,7 @@ public class SpellManager
 {
     public static SpellManager? instance;
     public static bool NativeCanCast { get; set; } = true;
+    public static Exception? CanCastASpellFailure { get; set; }
     public SpellRecipeListVariable availableSpellRecipes = new SpellRecipeListVariable();
     public ResourceListVariable spellWeightVariables = new ResourceListVariable();
     public GlyphListVariable selectedCoreGlyphs = new GlyphListVariable();
@@ -2759,7 +2760,7 @@ public class SpellManager
     public ResourceCostList? CreateCostOverride { get; set; }
     public Func<IReadOnlyList<GlyphSO>, ResourceCostList>? CreateCostResolver { get; set; }
 
-    public static bool CanCastASpell() => NativeCanCast;
+    public static bool CanCastASpell() => CanCastASpellFailure is null ? NativeCanCast : throw CanCastASpellFailure;
     public static ResourceCostList GetUsageCostOfSpell(Spell spell) => spell.GetUsageCost();
 
     /// <summary>

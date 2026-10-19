@@ -255,7 +255,7 @@ public sealed class AutomataOwnedFormulaVerifierTests
         var spell = new SpellRecipeSO { uuid = SpellId.ToString() };
         spell.levelCost.costs.Add(new ResourceTuple(resource, new BigDouble(nativeAmount)));
         var published = new WorldSpellRecipe(
-            SpellId, true, 0, default, 0, true, true, 1, Guid.Empty,
+            SpellId, true, 0, default, 0, true, true,
             false, false, 0, 1, 1, false,
             default, default, default, default, default, default, false);
         var world = new GameWorldState
