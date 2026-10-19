@@ -148,7 +148,7 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => game.IsRunning(AutoHarvestPair.FruitTree));
         harness.PumpUntilTheNewestWorldIsEvaluated();
 
-        Assert.Contains("could not be read", status.Reason.Summary);
+        Assert.Contains("runtime registry source failed.", status.Reason.Summary);
         Assert.DoesNotContain(cause, status.Reason.Summary);
         Assert.Contains(_faultLog, entry => entry.Contains(cause, StringComparison.Ordinal));
         Assert.Equal(0, harness.RetryGate.Count);

@@ -19,8 +19,12 @@ public sealed class TypedRegistryResolverTests
         Assert.Equal(TypedRegistryResolutionStatus.ContractUnavailable, contract.Resolve(Guid.NewGuid(), typeof(Entity)).Status);
     }
 
+    /// <summary>
+    /// A read that threw proves nothing about the build, so it is retried; an unbound registry and a
+    /// wrong type are mismatches the game proved. The exception stays out of the reason.
+    /// </summary>
     [Fact]
-    public void AReadThatThrowsProvesNoMismatchWhileAnUnboundRegistryAndAWrongTypeDo()
+    public void AReadThatThrowsIsRetriedWhileAnUnboundRegistryAndAWrongTypeAreNot()
     {
         var uuid = Guid.NewGuid();
         var sourceThrew = Resolver(() => throw new InvalidOperationException("registry not loaded"));
@@ -35,12 +39,14 @@ public sealed class TypedRegistryResolverTests
         foreach (var resolver in new[] { sourceThrew, lookupThrew, accessorThrew })
         {
             var threw = resolver.Resolve(uuid, typeof(Entity));
-            Assert.Equal(TypedRegistryResolutionStatus.ContractUnavailable, threw.Status);
-            Assert.False(threw.IsProvenMismatch);
-            Assert.False(threw.IsRetryable);
+            Assert.False(threw.IsResolved);
+            Assert.True(threw.IsRetryable);
+            Assert.DoesNotContain("registry not loaded", threw.Format());
+            Assert.DoesNotContain("injected lookup outage", threw.Format());
+            Assert.DoesNotContain("guid unreadable", threw.Format());
         }
-        Assert.True(unbound.Resolve(uuid, typeof(Entity)).IsProvenMismatch);
-        Assert.True(wrongType.Resolve(uuid, typeof(Entity)).IsProvenMismatch);
+        Assert.False(unbound.Resolve(uuid, typeof(Entity)).IsRetryable);
+        Assert.False(wrongType.Resolve(uuid, typeof(Entity)).IsRetryable);
     }
 
     [Fact]
@@ -272,7 +278,7 @@ public sealed class TypedRegistryResolverTests
 
     private sealed class ThrowingRegistry : Hashtable
     {
-        public override bool Contains(object key) => throw new InvalidOperationException("lookup failed");
+        public override bool Contains(object key) => throw new InvalidOperationException("injected lookup outage");
     }
 
     private sealed class NearMatchRegistryContract

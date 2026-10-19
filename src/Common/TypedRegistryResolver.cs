@@ -76,20 +76,16 @@ public sealed class TypedRegistryResolution
     public long LifecycleGeneration { get; }
     public string Reason { get; }
     public bool IsResolved => Status == TypedRegistryResolutionStatus.Resolved && Value is not null;
-    public bool IsRetryable => Status is
+
+    /// <summary>
+    /// Whether asking again can succeed. An unresolved answer that is not retryable is a mismatch the
+    /// game proved: the wrong type, contradictory identity, or a registry whose shape does not bind.
+    /// A read that threw proves none of that, so it is retried.
+    /// </summary>
+    public bool IsRetryable => _readThrew || Status is
         TypedRegistryResolutionStatus.RegistryNotReady or
         TypedRegistryResolutionStatus.NotFound or
         TypedRegistryResolutionStatus.StaleGeneration;
-
-    /// <summary>
-    /// The game answered with something its contract rules out: the wrong type, contradictory
-    /// identity, or a registry whose shape does not bind. A read that threw proves none of that, so
-    /// it is neither this nor <see cref="IsRetryable"/>.
-    /// </summary>
-    public bool IsProvenMismatch => Status is
-        TypedRegistryResolutionStatus.WrongType or
-        TypedRegistryResolutionStatus.AmbiguousEvidence ||
-        Status == TypedRegistryResolutionStatus.ContractUnavailable && !_readThrew;
 
     public bool IsCurrent(GameLifecycleMonitor monitor) =>
         monitor.IsCurrent(LifecycleGeneration);
@@ -186,7 +182,8 @@ public sealed class TypedRegistryResolver
                 expectedType,
                 EvidenceAssessment.Unresolved(EvidenceSource.StaticContract),
                 generation,
-                "runtime registry source failed: " + ex.GetBaseException().Message);
+                "runtime registry source failed.",
+                ex);
         }
 
         if (!source.IsReady)
@@ -229,7 +226,8 @@ public sealed class TypedRegistryResolver
                 expectedType,
                 EvidenceAssessment.Unresolved(EvidenceSource.StaticContract),
                 generation,
-                "runtime registry lookup failed: " + ex.GetBaseException().Message);
+                "runtime registry lookup failed.",
+                ex);
         }
 
         if (value is null)
@@ -273,7 +271,8 @@ public sealed class TypedRegistryResolver
                     EvidenceSource.RuntimeNativeType |
                     EvidenceSource.RuntimeRegistry),
                 generation,
-                "stable UUID accessor failed: " + ex.GetBaseException().Message);
+                "stable UUID accessor failed.",
+                ex);
         }
         if (resolvedUuid == Guid.Empty || resolvedUuid != uuid)
         {
@@ -315,12 +314,17 @@ public sealed class TypedRegistryResolver
             $"lifecycle generation changed during resolution; captured={result.LifecycleGeneration}; current={current}");
     }
 
+    /// <summary>
+    /// A read the game threw on. The exception goes to the suite log, and the reason names only its
+    /// reference, so the text never reaches a status or the wire.
+    /// </summary>
     private TypedRegistryResolution Threw(
         Guid uuid,
         Type expectedType,
         EvidenceAssessment evidence,
         long generation,
-        string reason) =>
+        string what,
+        Exception exception) =>
         EnsureCurrent(new TypedRegistryResolution(
             uuid,
             expectedType,
@@ -328,7 +332,7 @@ public sealed class TypedRegistryResolver
             null,
             evidence,
             generation,
-            reason,
+            what + GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(exception, "the runtime registry")),
             readThrew: true));
 
     private TypedRegistryResolution Result(
