@@ -225,6 +225,64 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
     }
 
     /// <summary>
+    /// The first action to succeed after an action fault carries the recovery. The journal keeps
+    /// recording through it, on a clock that moves with every read as the game's does.
+    /// </summary>
+    [Fact]
+    public void ACommitAfterAnActionFaultKeepsTheJournalRecordingInTickOrder()
+    {
+        var clock = new IncrementingTestClock(100);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var definition = new ExecutionServiceDefinition("journal.runtime.fault-recovery")
+        {
+            ActionCount = 1,
+            FaultAtIndex = 0,
+        };
+        definition.ActionCallback = () =>
+        {
+            if (definition.ActionExecutionCount > 1) definition.FaultAtIndex = -1;
+        };
+        using var registration = registry.Register(definition, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
+        using var storage = new DecisionJournalRuntimeTestStorage();
+        var runtime = Runtime(pump, storage);
+        using var teardown = new JournalTeardown(runtime);
+        AdvanceTo(runtime, DecisionJournalRuntimeState.Recording);
+
+        var frame = ServiceRunnerTestWait.PrepareBatch(pump, registration);
+        Assert.True(
+            SpinWait.SpinUntil(() =>
+            {
+                TestWorldCollector.CollectedAt(registry, frame);
+                pump.PumpFrame(frame++);
+                return definition.ActionExecutionCount == 2;
+            }, Deadline),
+            $"Expected a second action; observed {definition.ActionExecutionCount}.");
+
+        var snapshot = runtime.Tick();
+        Assert.True(
+            snapshot.State == DecisionJournalRuntimeState.Recording,
+            $"{snapshot.State} at {snapshot.FaultSite}: {snapshot.FaultException?.Message}");
+        runtime.RequestStop();
+        AdvanceTo(runtime, DecisionJournalRuntimeState.Stopped);
+
+        var records = storage.ReadRecords();
+        var actions = records.Where(item => item.Kind == DecisionJournalRecordKind.Action).ToArray();
+        Assert.Equal(
+            new[] { ServiceActionDisposition.Faulted, ServiceActionDisposition.Committed },
+            actions.Select(action => action.ActionOutcome.Disposition));
+        Assert.DoesNotContain(records, item =>
+            item.Kind == DecisionJournalRecordKind.DecisionSpan &&
+            item.DecisionOutcomeKind == DecisionJournalDecisionOutcomeKind.Batch &&
+            item.LastCycle == actions[1].LastCycle);
+        Assert.Equal(
+            records.Select(item => item.LastTimestampTicks).OrderBy(ticks => ticks),
+            records.Select(item => item.LastTimestampTicks));
+    }
+
+    /// <summary>
     /// Running out of memory is not an action fault the suite can retry past. It leaves the action
     /// boundary the way it leaves every other boundary that checks for it.
     /// </summary>
