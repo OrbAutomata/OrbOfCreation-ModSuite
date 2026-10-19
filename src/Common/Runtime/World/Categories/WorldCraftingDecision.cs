@@ -88,23 +88,14 @@ internal readonly struct WorldCraftingDecision
 
 internal readonly struct WorldCraftingDecisionCost
 {
-    internal WorldCraftingDecisionCost(
-        Guid recipeId,
-        Guid resourceId,
-        BigDouble cost,
-        BigDouble amount)
+    internal WorldCraftingDecisionCost(Guid recipeId, WorldResourceCost cost)
     {
         RecipeId = recipeId;
-        ResourceId = resourceId;
         Cost = cost;
-        Amount = amount;
     }
 
     internal Guid RecipeId { get; }
-    internal Guid ResourceId { get; }
-    internal BigDouble Cost { get; }
-    internal BigDouble Amount { get; }
-    internal bool Affordable => Amount.CompareTo(Cost) >= 0;
+    internal WorldResourceCost Cost { get; }
 }
 
 internal readonly struct WorldCraftingQueueEntry
@@ -588,9 +579,10 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
                 throw new InvalidOperationException("cost resource UUID was empty");
             frame.CraftingDecisionCosts.Append(new WorldCraftingDecisionCost(
                 recipeId,
-                resourceId,
-                _costValue!(tuple) * factor,
-                _resourceAmount!(resource)));
+                new WorldResourceCost(
+                    resourceId,
+                    _costValue!(tuple) * factor,
+                    _resourceAmount!(resource))));
         }
     }
 

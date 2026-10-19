@@ -6474,9 +6474,9 @@ internal static class GameMcpWorldQuery
         for (var index = 0; index < tree.NextItemCosts.Count; index++)
         {
             var cost = tree.NextItemCosts[index];
-            var amount = SpendableAmount(world, cost.ResourceId, cost.AvailableAmount);
-            var affordable = CanAfford(world, cost.ResourceId, cost.Amount, cost.AvailableAmount);
-            var price = PlayerFacingCost(world, cost.ResourceId, cost.Amount);
+            var amount = SpendableAmount(world, cost.ResourceId, cost.Held);
+            var affordable = CanAfford(world, cost.ResourceId, cost.Price, cost.Held);
+            var price = PlayerFacingCost(world, cost.ResourceId, cost.Price);
             var (priceCell, amountCell) = GameMcpNumberFormatter.CellsApart(price, amount);
             costs.Add(new JObject
             {
@@ -6825,8 +6825,8 @@ internal static class GameMcpWorldQuery
             for (var index = 0; index < decision.DevelopmentCosts.Count; index++)
             {
                 var value = decision.DevelopmentCosts[index];
-                var playerCost = PlayerFacingCost(world, value.ResourceId, value.Cost);
-                var spendable = SpendableAmount(world, value.ResourceId, value.Amount);
+                var playerCost = PlayerFacingCost(world, value.ResourceId, value.Price);
+                var spendable = SpendableAmount(world, value.ResourceId, value.Held);
                 var (costCell, amountCell) = GameMcpNumberFormatter.CellsApart(playerCost, spendable);
                 costs.Add(new JObject
                 {
@@ -6834,7 +6834,7 @@ internal static class GameMcpWorldQuery
                     ["cost"] = costCell,
                     ["amount"] = amountCell,
                     ["affordable"] = CanAfford(
-                        world, value.ResourceId, value.Cost, value.Amount),
+                        world, value.ResourceId, value.Price, value.Held),
                 });
             }
             develop["costs"] = costs;
@@ -8252,19 +8252,19 @@ internal static class GameMcpWorldQuery
 
     internal static string ShortfallReason(
         GameWorldState world,
-        PublicationTable<WorldResearchCost> costs)
+        PublicationTable<WorldResourceCost> costs)
     {
         var rows = new List<(string, BigDouble, BigDouble)>();
         for (var index = 0; index < costs.Count; index++)
         {
             var value = costs[index];
-            if (CanAfford(world, value.ResourceId, value.Cost, value.Amount)) continue;
+            if (CanAfford(world, value.ResourceId, value.Price, value.Held)) continue;
             var identity = EntityIdentityFormatter.Describe(
                 value.ResourceId, world.EntityIdentities);
             rows.Add((
                 identity.HasName ? identity.Name : value.ResourceId.ToString("D"),
-                PlayerFacingCost(world, value.ResourceId, value.Cost),
-                SpendableAmount(world, value.ResourceId, value.Amount)));
+                PlayerFacingCost(world, value.ResourceId, value.Price),
+                SpendableAmount(world, value.ResourceId, value.Held)));
         }
         var sentence = GameMcpDecisionReason.Shortfall(rows);
         return sentence.Length == 0
@@ -8280,14 +8280,14 @@ internal static class GameMcpWorldQuery
         var rows = new List<(string, BigDouble, BigDouble)>();
         for (var index = start; index < start + count; index++)
         {
-            var value = world.CraftingDecisionCosts[index];
-            if (CanAfford(world, value.ResourceId, value.Cost, value.Amount)) continue;
+            var value = world.CraftingDecisionCosts[index].Cost;
+            if (CanAfford(world, value.ResourceId, value.Price, value.Held)) continue;
             var identity = EntityIdentityFormatter.Describe(
                 value.ResourceId, world.EntityIdentities);
             rows.Add((
                 identity.HasName ? identity.Name : value.ResourceId.ToString("D"),
-                PlayerFacingCost(world, value.ResourceId, value.Cost),
-                SpendableAmount(world, value.ResourceId, value.Amount)));
+                PlayerFacingCost(world, value.ResourceId, value.Price),
+                SpendableAmount(world, value.ResourceId, value.Held)));
         }
         return GameMcpDecisionReason.Shortfall(rows);
     }
@@ -9689,16 +9689,16 @@ internal static class GameMcpWorldQuery
                 var exactCosts = new JArray();
                 for (var index = 0; index < costCount; index++)
                 {
-                    var cost = world.CraftingDecisionCosts[costStart + index];
-                    var playerCost = PlayerFacingCost(world, cost.ResourceId, cost.Cost);
-                    var spendable = SpendableAmount(world, cost.ResourceId, cost.Amount);
+                    var cost = world.CraftingDecisionCosts[costStart + index].Cost;
+                    var playerCost = PlayerFacingCost(world, cost.ResourceId, cost.Price);
+                    var spendable = SpendableAmount(world, cost.ResourceId, cost.Held);
                     exactCosts.Add(new JObject
                     {
                         ["resourceId"] = cost.ResourceId.ToString("D"),
                         ["cost"] = new GameMcpDomainValue(playerCost),
                         ["amount"] = new GameMcpDomainValue(spendable),
                         ["affordable"] = CanAfford(
-                            world, cost.ResourceId, cost.Cost, cost.Amount),
+                            world, cost.ResourceId, cost.Price, cost.Held),
                     });
                 }
                 result["nextCosts"] = exactCosts;

@@ -315,9 +315,9 @@ public sealed class GameMcpDiscoverableRowTests
             discovered: false,
             required: false,
             affordable: true,
-            PublicationTable<WorldDiscoverableCost>.Create(new[]
+            PublicationTable<WorldResourceCost>.Create(new[]
             {
-                new WorldDiscoverableCost(PsiId, new BigDouble(100), new BigDouble(63)),
+                new WorldResourceCost(PsiId, new BigDouble(100), new BigDouble(63)),
             }));
         var modifiers = default(RawRitualModifiers);
         var world = new GameWorldState
@@ -402,7 +402,7 @@ public sealed class GameMcpDiscoverableRowTests
                         : onOffer != Guid.Empty
                             ? new[] { onOffer }
                             : Array.Empty<Guid>(),
-                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    false, true, Array.Empty<WorldResourceCost>(),
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
             }),
         };
@@ -425,9 +425,9 @@ public sealed class GameMcpDiscoverableRowTests
         bool olderCopyOnBar = false,
         Guid treeHoldsOffer = default)
     {
-        var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
+        var costs = PublicationTable<WorldResourceCost>.Create(new[]
         {
-            new WorldDiscoverableCost(ResourceId, new BigDouble(5), new BigDouble(8)),
+            new WorldResourceCost(ResourceId, new BigDouble(5), new BigDouble(8)),
         });
         var decision = new WorldDiscoverableDecision(
             visible: true,
@@ -473,7 +473,7 @@ public sealed class GameMcpDiscoverableRowTests
                     treeHoldsOffer == Guid.Empty
                         ? Array.Empty<Guid>()
                         : new[] { treeHoldsOffer },
-                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    false, true, Array.Empty<WorldResourceCost>(),
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
             }),
             SpellWorkbench = new WorldSpellWorkbench(

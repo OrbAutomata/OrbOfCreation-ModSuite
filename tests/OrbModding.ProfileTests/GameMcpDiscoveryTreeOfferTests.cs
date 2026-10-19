@@ -186,7 +186,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var selected = new WorldDiscoveryTree(
             treeId, true, 2, BigDouble.Zero, 1, false, offerId,
-            new[] { offerId }, false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+            new[] { offerId }, false, true, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false);
         var world = DiscoveryWorld(
             selected,
@@ -521,7 +521,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 new WorldDiscoveryTree(
                     treeId, true, actionMode, actionTime, rerollsLeft, false, Guid.Empty,
                     offers ?? Array.Empty<Guid>(), false, true,
-                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, discoveredCount, 3, discoveredCount + 3, 4, true, true, false),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
@@ -546,7 +546,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             currentOfferIds: Array.Empty<Guid>(),
             hasImmediateRequiredDiscovery: false,
             nextItemAffordable: true,
-            nextItemCosts: Array.Empty<WorldDiscoveryTreeCost>(),
+            nextItemCosts: Array.Empty<WorldResourceCost>(),
             overrideRerollsId: Guid.Empty,
             overrideChoicesId: Guid.Empty,
             additionalDiscoveryChoices: 0,
@@ -620,7 +620,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Array.Empty<Guid>(), false, true,
             new[]
             {
-                new WorldDiscoveryTreeCost(
+                new WorldResourceCost(
                     currencyId,
                     new BigDouble(11, 23),
                     new BigDouble(563, 22)),
@@ -655,7 +655,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Array.Empty<Guid>(), false, false,
             new[]
             {
-                new WorldDiscoveryTreeCost(
+                new WorldResourceCost(
                     currencyId,
                     new BigDouble(11, 23),
                     new BigDouble(1, 2)),
@@ -696,7 +696,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Array.Empty<Guid>(), false, false,
             new[]
             {
-                new WorldDiscoveryTreeCost(
+                new WorldResourceCost(
                     currencyId, new BigDouble(4, 2), new BigDouble(1, 2)),
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
@@ -724,7 +724,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var tree = new WorldDiscoveryTree(
             treeId, true, 2, BigDouble.Zero, 1, false, Guid.Empty,
             new[] { runeId, glyphId }, false, false,
-            Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+            Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
             0, 0, false, 2, 8, 5, 9, true, true, false);
         var world = DiscoveryWorld(
             tree,
@@ -775,7 +775,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var missing = Guid.NewGuid();
         var world = DiscoveryWorld(new WorldDiscoveryTree(
             treeId, true, 2, BigDouble.Zero, 1, false, Guid.Empty,
-            new[] { missing }, false, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            new[] { missing }, false, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 0, 1, 3, 2, true, true, false));
 
         var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
@@ -813,7 +813,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var used = offerState == -1;
         var tree = new WorldDiscoveryTree(
             treeId, visible, mode, BigDouble.Zero, rerolls, used, Guid.Empty,
-            offers, immediateRequired, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            offers, immediateRequired, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false);
         var world = DiscoveryWorld(
             tree,
@@ -858,7 +858,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
         var tree = new WorldDiscoveryTree(
             treeId, true, 2, BigDouble.Zero, 1, false, Guid.Empty,
-            new[] { offerId }, true, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            new[] { offerId }, true, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false);
         var world = DiscoveryWorld(
             tree,
@@ -901,7 +901,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var treeId = Guid.NewGuid();
         var tree = new WorldDiscoveryTree(
             treeId, true, 1, new BigDouble(0.1d), 1, false, Guid.Empty,
-            Array.Empty<Guid>(), false, false, Array.Empty<WorldDiscoveryTreeCost>(),
+            Array.Empty<Guid>(), false, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, false, true, false);
 
         var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
@@ -948,7 +948,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
 
             var idle = DiscoveryWorld(new WorldDiscoveryTree(
                 tree.GetGuid(), true, 0, BigDouble.Zero, 1, false, Guid.Empty,
-                Array.Empty<Guid>(), false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                Array.Empty<Guid>(), false, true, Array.Empty<WorldResourceCost>(),
                 Guid.Empty, Guid.Empty, 0, 0, false, 0, 2, 3, 3, true, true, false));
             var idleRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
                 GameMcpTestHarness.Context(idle, generation: 90),
@@ -985,7 +985,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 new WorldDiscoveryTree(
                     tree.GetGuid(), true, 2, BigDouble.Zero, tree.rerollsLeft, false,
                     Guid.Empty, new[] { firstId, secondId }, false, false,
-                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, 0, 2, 3, 3, true, true, false),
                 timeRunes: timeRuneRows,
                 glyphs: glyphRows);
@@ -1016,7 +1016,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 new WorldDiscoveryTree(
                     tree.GetGuid(), true, 2, BigDouble.Zero, tree.rerollsLeft, false,
                     Guid.Empty, new[] { firstId, secondId }, false, false,
-                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, 1, 2, 4, 3, true, true, false),
                 timeRunes: timeRuneRows,
                 glyphs: glyphRows);
@@ -1049,7 +1049,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 new WorldDiscoveryTree(
                     tree.GetGuid(), true, 2, BigDouble.Zero, tree.rerollsLeft, false,
                     tree.selectedChoiceId.guid, readOffers, false, false,
-                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, 0, 2, 3, 3, true, true, false),
                 timeRunes: timeRuneRows,
                 glyphs: glyphRows);
@@ -1086,7 +1086,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     Guid.Empty, Array.Empty<Guid>(), false, true,
                     new[]
                     {
-                        new WorldDiscoveryTreeCost(
+                        new WorldResourceCost(
                             nextCostResource,
                             new BigDouble(1.4d, 4),
                             new BigDouble(2d, 25)),
@@ -1178,7 +1178,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             Array.Empty<Guid>(), false, true,
             new[]
             {
-                new WorldDiscoveryTreeCost(
+                new WorldResourceCost(
                     resource, new BigDouble(7.5d, 6), new BigDouble(2.43d, 25)),
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 5, 4, 8, 5, false, true, false));
@@ -1239,7 +1239,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             new WorldDiscoveryTree(
                 tree, true, 2, BigDouble.Zero, 1, false, Guid.Empty,
                 new[] { firstOffer, secondOffer }, false, false,
-                Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                 0, 0, false, 2, 2, 5, 3, false, true, false),
             glyphs: new[]
             {
@@ -1418,7 +1418,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     () => string.Empty)));
             var worldTree = new WorldDiscoveryTree(
                 tree.GetGuid(), true, 0, BigDouble.Zero, 0, false, Guid.Empty,
-                Array.Empty<Guid>(), false, true, Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty,
+                Array.Empty<Guid>(), false, true, Array.Empty<WorldResourceCost>(), Guid.Empty,
                 Guid.Empty, 0, 0, false, 0, 1, 3, 2, true, true, false);
             var world = new GameWorldState
             {
@@ -1531,7 +1531,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 DiscoveryWorld(new WorldDiscoveryTree(
                     treeId, true, 0, BigDouble.Zero, 1, false, Guid.Empty,
                     Array.Empty<Guid>(), false, false,
-                    Array.Empty<WorldDiscoveryTreeCost>(), Guid.Empty, Guid.Empty,
+                    Array.Empty<WorldResourceCost>(), Guid.Empty, Guid.Empty,
                     0, 0, false, discovered, discovered, discoverable, discoverable,
                     false, false, discovered >= discoverable)),
                 generation: 84),
@@ -1554,7 +1554,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         WorldDiscoveryTree Idle(Guid id, bool required) => new(
             id, true, 0, BigDouble.Zero, 1, false, Guid.Empty, Array.Empty<Guid>(),
             required, false,
-            new[] { new WorldDiscoveryTreeCost(verdantEnergy, new BigDouble(12, 2), new BigDouble(5, 2)) },
+            new[] { new WorldResourceCost(verdantEnergy, new BigDouble(12, 2), new BigDouble(5, 2)) },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, required, true, false);
         var world = new GameWorldState
         {
@@ -1619,7 +1619,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         var tree = new WorldDiscoveryTree(
             alchemyTree, true, 0, BigDouble.Zero, 1, false, Guid.Empty, Array.Empty<Guid>(),
             true, true,
-            new[] { new WorldDiscoveryTreeCost(control, new BigDouble(1, 2), new BigDouble(5, 2)) },
+            new[] { new WorldResourceCost(control, new BigDouble(1, 2), new BigDouble(5, 2)) },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
         JObject Overview(bool screenAvailable) => GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
             GameMcpTestHarness.Context(

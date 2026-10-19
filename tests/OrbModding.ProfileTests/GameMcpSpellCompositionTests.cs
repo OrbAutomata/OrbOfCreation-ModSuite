@@ -417,7 +417,7 @@ public sealed class GameMcpSpellCompositionTests
                     BigDouble.One,
                     false,
                     recipeGlyphs,
-                    PublicationTable<WorldDiscoverableCost>.Empty,
+                    PublicationTable<WorldResourceCost>.Empty,
                     true),
             }),
             // The two core ids are retired unlockers: the world publishes no glyph row for them, and

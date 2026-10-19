@@ -668,7 +668,7 @@ public sealed class WorldTypeModifierDerivationTests
                     canApplyBonusLevel: false,
                     freeBonusLevels: 0,
                     developmentCostAffordable: false,
-                    PublicationTable<WorldResearchCost>.Empty,
+                    PublicationTable<WorldResourceCost>.Empty,
                     PublicationTable<WorldResearchInvestment>.Empty,
                     PublicationTable<WorldResearchTypeDecision>.Create(
                         entry.Types
