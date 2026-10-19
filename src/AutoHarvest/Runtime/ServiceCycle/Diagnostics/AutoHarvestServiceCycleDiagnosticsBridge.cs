@@ -12,9 +12,6 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
     internal const string ImplementationName = "ServiceCycle";
 
     private readonly AutomataFeatureStatusReporter _featureStatus;
-    // Sized for the Automata host's registered services so the ordinary frame copies nothing extra and
-    // allocates nothing; a host that grows past it resizes once and carries on.
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services = new ServiceCycleServiceDiagnosticsSnapshot[4];
     private readonly AutoHarvestRuntimeDiagnosticsPublisher? _runtime;
     private AutoHarvestPairHealth _fruit;
     private AutoHarvestPairHealth _treasure;
@@ -114,31 +111,17 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
     public void Dispose() => _runtime?.Dispose();
 
     /// <summary>
-    /// The latest projection Auto Harvest's own service published, if it has published one.
+    /// The latest projection Auto Harvest's own service published, if it has published one and the
+    /// read is fresh.
     /// </summary>
-    /// <remarks>
-    /// By service identity, and against a destination big enough to hold every registered service.
-    /// This used to copy into one slot and read ordinal zero, which is two mistakes that hid each
-    /// other: the copy was never complete once the host held more than one service, so the read never
-    /// happened — and had it happened it would have read the world collection service, which registers
-    /// first and knows nothing about harvest pairs. The health line sat on its seeded value for the
-    /// whole session, telling players a running feature was still waiting for native evidence.
-    /// </remarks>
-    private bool TryReadLatestProjection(
+    private static bool TryReadLatestProjection(
         SuiteFramePump pump,
         out ServiceStateProjectionSnapshot projection)
     {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
+        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoHarvestServicePolicies.ServiceId) is
+            { LatestProjection.IsPresent: true } service)
         {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            if (!_services[index].ServiceId.Equals(AutoHarvestServicePolicies.ServiceId)) continue;
-            if (!_services[index].LatestProjection.IsPresent) break;
-            projection = _services[index].LatestProjection.Snapshot;
+            projection = service.LatestProjection.Snapshot;
             return true;
         }
         projection = default;

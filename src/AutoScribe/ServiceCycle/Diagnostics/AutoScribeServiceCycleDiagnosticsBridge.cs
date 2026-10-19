@@ -15,8 +15,6 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     private readonly AutoScribeActionHealth _health;
     private readonly ServiceRetryEpisodeNarrator _retries =
         new("Auto Scribe", static message => Plugin.Log?.LogAutomataWarning(message));
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
     private long _lifecycle;
     private ConfigGeneration _configuration;
     private bool _emergencyDisabled;
@@ -46,7 +44,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
-            ? ReadService(pump)
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoScribeServicePolicies.ServiceId)
             : null;
         changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0 &&
@@ -271,20 +269,6 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             out kind,
             out blockedRole,
             out blockedReason);
-    }
-
-    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
-    {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-            if (_services[index].ServiceId.Equals(AutoScribeServicePolicies.ServiceId))
-                return _services[index];
-        return null;
     }
 
     private static AutoScribeFeatureStatus Blocked(
