@@ -262,6 +262,25 @@ public sealed class WorldStructuralEpochTests : IDisposable
     }
 
     /// <summary>
+    /// A skipped pass reads the link only for its live gates, so an unexpected throw there is that
+    /// reader's alone.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingAPrerequisiteLinksLiveGateFaultsThePass()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        link.linkTiers.Add(new global::PrerequisiteLinkSO.LinkDefinition());
+        global::PrerequisiteLinkSO.All.Add(link);
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        collector.Collect(frame);
+
+        link.GetGuidFailure = new NullReferenceException("GetGuid failed");
+
+        Assert.Throws<NullReferenceException>(() => collector.Collect(frame));
+    }
+
+    /// <summary>
     /// The requirement graph is read once an epoch, and no pass asks the game for a verdict.
     /// </summary>
     /// <remarks>
