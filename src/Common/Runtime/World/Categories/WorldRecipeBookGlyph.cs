@@ -124,7 +124,7 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
                 buffer.Append(new WorldRecipeBookGlyph(id, book));
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return Withheld(
                     buffer, "reading a glyph's recipe book threw: " + ex.GetBaseException().Message);

@@ -173,6 +173,26 @@ public sealed class EntityIdentityCatalogTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedExceptionFromANameReadEscapesTheCapture()
+    {
+        var uuid = Guid.NewGuid();
+        Register(uuid, new NamedEntity("Display", "Asset"));
+        try
+        {
+            var catalog = Catalog(
+                10,
+                displayName: _ => throw new NullReferenceException("localization failed"));
+            catalog.Reset(10);
+
+            Assert.Throws<NullReferenceException>(() => catalog.Capture(10));
+        }
+        finally
+        {
+            IdScriptableObject.RuntimeLookup.Remove(uuid);
+        }
+    }
+
+    [Fact]
     public void IdentityContradictionPublishesEmptyFailureOnceAndNeverBlocksCaller()
     {
         var key = Guid.NewGuid();

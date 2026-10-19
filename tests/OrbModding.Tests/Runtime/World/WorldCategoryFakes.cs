@@ -287,8 +287,9 @@ internal class FakeIdRegistry
     public static readonly Dictionary<Guid, object> RuntimeLookup = new();
 
     public Guid Identity = Guid.NewGuid();
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 }
 
 /// <summary>
@@ -1983,8 +1984,9 @@ internal sealed class FakeResource
     public bool inLossMode;
     public bool inRestMode;
     public bool inRallyMode;
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 
     public BigDouble GetQuantity() => QuantityFailure is { } failure ? throw failure : Quantity;
 
@@ -2853,8 +2855,9 @@ internal sealed class FakeRecipeBook
     public Guid Identity = Guid.NewGuid();
     public bool Available;
     public FakePrerequisites prerequisites = new();
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
     public bool IsAvailable() => Available;
 }
 

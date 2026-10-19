@@ -193,7 +193,7 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
                     sampled++;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return Withheld(
                     buffer,

@@ -135,7 +135,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Withheld(
                 buffer, "reading the resource panel's lists threw: " + ex.GetBaseException().Message);

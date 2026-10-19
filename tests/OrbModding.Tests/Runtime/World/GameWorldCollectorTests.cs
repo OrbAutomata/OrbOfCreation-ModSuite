@@ -2739,6 +2739,16 @@ public sealed class GameWorldCollectorTests : IDisposable
             request.Candidates.AsSpan().ToArray().Select(candidate => candidate.Position));
     }
 
+    [Fact]
+    public void ATargetCandidateThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        var owner = new FakeStructure { Identity = Guid.NewGuid() };
+        var candidate = new FakeStructure { GetGuidFailure = new NullReferenceException("candidate") };
+        FakeTargetingManager.Current = new FakeTargetingManager.TargetLink(owner, candidate);
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
     // The member shape each binder requires, stated once. Field names that a binder reads as fields
     // are spelled exactly as the game spells them; everything else is reached through an accessor, so
     // the property names here are free to read well.
@@ -3593,6 +3603,45 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(2, choiceRow.CurrentOfferIds.Count);
         Assert.Equal(firstOffer, choiceRow.CurrentOfferIds[0]);
         Assert.Equal(secondOffer, choiceRow.CurrentOfferIds[1]);
+    }
+
+    [Fact]
+    public void ADiscoveryTreeBookThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        var tree = new FakeDiscoveryTree();
+        tree.availableRecipeBooks!.value.Add(
+            new FakeRecipeBook { GetGuidFailure = new NullReferenceException("tree book") });
+        FakeDiscoveryTree.All.Add(tree);
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
+    /// <summary>
+    /// The augment glyph reader reads the same book link first, so this pass leaves it unbound by
+    /// withholding the cost-list type it needs and the recipe-book glyph reader needs nothing of.
+    /// </summary>
+    [Fact]
+    public void ARecipeBookGlyphThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakeGlyph.All.Add(new FakeGlyph
+        {
+            associatedRecipeBook = new FakeRecipeBook
+            {
+                GetGuidFailure = new NullReferenceException("glyph book"),
+            },
+        });
+
+        Assert.Throws<NullReferenceException>(
+            () => Collector(("ResourceCostList", null)).Collect());
+    }
+
+    [Fact]
+    public void APinnedResourceThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        var pinned = (FakeSpellWeightList)FakeIdRegistry.RuntimeLookup[KnownEntities.ResourceBarCore.Uuid];
+        pinned.value.Add(new FakeResource { GetGuidFailure = new NullReferenceException("pinned") });
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
 
     /// <summary>
@@ -6361,6 +6410,33 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         Assert.Equal(2, report.Skipped);
         Assert.Equal("the complete challenge type binding set was unavailable", report.FirstFailure);
+    }
+
+    [Fact]
+    public void APrestigeDecisionThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakePersistentResetManager.instance.persistValue = new FakeCount { value = null! };
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
+    [Fact]
+    public void AChallengeDecisionThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakePersistentResetManager.instance.challengeRerollsLeft = new FakeCount { value = null! };
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
+    [Fact]
+    public void AChallengeTypeThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakeChallengeType.All.Add(new FakeChallengeType
+        {
+            GetGuidFailure = new NullReferenceException("challenge type"),
+        });
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
 
     /// <summary>

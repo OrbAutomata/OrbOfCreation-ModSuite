@@ -410,7 +410,7 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
                 buffer.SetPrestige(_resourceId!(resource), _asInt!(persistenceCurrent),
                     _asInt!(persistenceProjected), _asInt!(persistencePrevious), _asInt!(resetCount));
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 var reason = "reading prestige decisions threw: " + exception.GetBaseException().Message;
                 buffer.SetPrestigeUnavailable(reason);
@@ -418,7 +418,7 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
             }
             return Collected(typeFailure, 0, string.Empty);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             var reason = "reading challenge decisions threw: " + exception.GetBaseException().Message;
             buffer.SetUnavailable(reason);
@@ -486,7 +486,7 @@ internal sealed class WorldChallengeContextReader : IWorldCategoryReader
 
             return string.Empty;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Withhold(
                 frame, "reading challenge types threw: " + exception.GetBaseException().Message);
