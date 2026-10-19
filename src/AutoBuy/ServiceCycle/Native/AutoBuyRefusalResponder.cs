@@ -12,8 +12,9 @@ internal interface IAutoBuyRefusalResponsePort
 }
 
 /// <summary>
-/// Logs expected affordability staleness without a synchronous capture, and stands Auto Buy down
-/// with one bounded diagnostic only for structural or otherwise impossible disagreements.
+/// Lets expected affordability and availability staleness pass as ordinary refusals, and stands
+/// Auto Buy down with one bounded diagnostic only for structural or otherwise impossible
+/// disagreements.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,7 +22,8 @@ internal interface IAutoBuyRefusalResponsePort
 /// 1,988 identical refusals in a prior session, so those still stop after one full diagnostic.
 /// Affordability is different. Resource quantities can move after collection through drain and
 /// earlier queue-time spending, so a price-only disagreement is expected snapshot staleness: the
-/// action skips, the service stays active, and the next fresh world is planned normally.
+/// action skips, the service stays active, and the next fresh world is planned normally. Like every
+/// refusal, its reason travels on the result and writes no log line.
 /// </para>
 /// <para>
 /// Availability is the same kind of fact and was treated as the opposite one. The game opens and
@@ -79,14 +81,7 @@ internal sealed class AutoBuyRefusalResponder : IAutoBuyRefusalResponsePort
 
         if (report.Diagnosis.Classification ==
             AutoBuyRefusalClassification.AffordabilityChanged)
-        {
-            var affordabilitySummary =
-                $"Auto Buy skipped a purchase whose live resources had moved since planning " +
-                $"({report.Candidate}): {report.Diagnosis.Describe()}. " +
-                "Auto Buy remains enabled and will re-plan from the next world collection.";
-            _log(affordabilitySummary);
             return;
-        }
 
         if (report.Diagnosis.Classification ==
                 AutoBuyRefusalClassification.AvailabilityChanged &&
@@ -94,11 +89,6 @@ internal sealed class AutoBuyRefusalResponder : IAutoBuyRefusalResponsePort
         {
             _availabilityCandidate = report.Uuid;
             _availabilityWorldGeneration = report.WorldGeneration;
-            _log(
-                $"Auto Buy skipped a purchase the game had shut since planning " +
-                $"({report.Candidate}): {report.Diagnosis.Describe()}. " +
-                "Auto Buy remains enabled and will re-plan from the next world collection, " +
-                "which reads the same gate.");
             return;
         }
 

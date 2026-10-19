@@ -183,8 +183,8 @@ internal readonly struct AutoBuyPurchaseSubmission
     public static AutoBuyPurchaseSubmission NotAdmissible(in AutoBuyAdmissionDiagnosis diagnosis) =>
         Refused(
             diagnosis.Classification == AutoBuyRefusalClassification.AffordabilityChanged
-                ? NativeActionOutcome.Skip(CommonActionResultCodes.Skipped, string.Empty)
-                : NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, string.Empty),
+                ? NativeActionOutcome.Skip(CommonActionResultCodes.Skipped, diagnosis.Describe())
+                : NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, diagnosis.Describe()),
             in diagnosis);
 
     private static AutoBuyPurchaseSubmission Refused(

@@ -380,8 +380,8 @@ category costs across hundreds of passes, which is the only form in which a spik
 Neither derives the other: three named categories in one pass cannot be averaged, and a session
 average cannot say which pass was the expensive one.
 
-Auto Buy affordability drift remains a loud refusal but does not synchronously render or write a
-bundle. Only a planned purchase reaches the responder; a refused `game_purchase` press answers its
+Auto Buy affordability and availability drift are ordinary refusals: their reason travels on the
+result, with no log line and no bundle. Only a planned purchase reaches the responder; a refused `game_purchase` press answers its
 caller. Structural contradictions that disable the feature retain a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
 oversized bundle, inspection failure, or retention failure leaves the refusal loud and names the

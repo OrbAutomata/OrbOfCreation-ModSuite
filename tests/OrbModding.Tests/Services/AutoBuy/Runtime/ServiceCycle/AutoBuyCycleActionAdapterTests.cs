@@ -402,6 +402,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
         Assert.Equal(ServiceActionDisposition.Skipped, result.Disposition);
         Assert.Equal(CommonActionResultCodes.Skipped, result.Code);
+        Assert.Equal("refused by GetPurchaseCost().HasEnough()", result.Reason);
         Assert.False(result.HasNativeEvidence);
         var report = Assert.Single(refusals.Reports);
         Assert.Equal(AutoBuyRefusalClassification.AffordabilityChanged, report.Diagnosis.Classification);
