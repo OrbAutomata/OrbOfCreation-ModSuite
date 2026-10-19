@@ -254,7 +254,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         var target = Equipment();
         Register(target);
         using var boundary = Boundary(
-            includeContract: id => id != "equipment-loadout.list-at-maximum-action");
+            includeContract: id => id != "equipment-loadout.list-at-maximum");
 
         var result = Submit(boundary, target, EquipmentLoadoutActionKind.Equip);
 

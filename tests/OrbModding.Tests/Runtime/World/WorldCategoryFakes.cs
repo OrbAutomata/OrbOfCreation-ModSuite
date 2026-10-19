@@ -1921,6 +1921,7 @@ internal sealed class FakeResource
     public BigDouble Rate;
     public bool Visible = true;
     public bool ThrowOnRate;
+    public Exception? QuantityFailure;
     public FakeModifierRecord maxQuantity = new(-1d);
     public BigDouble lifetimeQuantity;
     public BigDouble discoveryTime;
@@ -1984,7 +1985,7 @@ internal sealed class FakeResource
 
     public Guid GetGuid() => Identity;
 
-    public BigDouble GetQuantity() => Quantity;
+    public BigDouble GetQuantity() => QuantityFailure is { } failure ? throw failure : Quantity;
 
     public BigDouble GetTrueQuantity() => Quantity;
 

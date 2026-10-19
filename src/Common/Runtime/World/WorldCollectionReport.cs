@@ -77,8 +77,9 @@ internal readonly struct WorldCategoryReport
 /// The evidence one collection leaves behind: what was read, what was not, and why.
 /// </summary>
 /// <remarks>
-/// Collection degrades per category rather than all-or-nothing, so a build that renamed one research
-/// member still yields resources, structures, and upgrades. That is only defensible if the gap is
+/// An expected native failure costs one row or one category rather than the pass, so a build that
+/// renamed one research member still yields resources, structures, and upgrades. Any other throw
+/// faults the whole pass and leaves no report. Degrading is only defensible if the gap is
 /// visible — a partial snapshot that reports itself as complete is worse than no snapshot, because
 /// every consumer downstream would read "no research available" as a fact about the save rather than
 /// a fact about the read.

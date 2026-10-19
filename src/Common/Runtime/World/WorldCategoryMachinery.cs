@@ -653,8 +653,8 @@ internal interface IWorldCategoryReader
 }
 
 /// <summary>
-/// Generic traversal for one category: registry walk, identity claiming, per-entity failure capture,
-/// and buffer management.
+/// Generic traversal for one category: registry walk, identity claiming, per-entity capture of expected
+/// native failures, and buffer management.
 /// </summary>
 /// <remarks>
 /// Buffers are reused across collections and grow by doubling. Safety comes from single ownership —
@@ -753,7 +753,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
                 buffer.Append(in sample);
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 Skip(
                     ref skipped,

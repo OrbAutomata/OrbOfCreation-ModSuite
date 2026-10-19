@@ -26816,7 +26816,7 @@
       "usages": ["reflection"], "place": "action"
     },
     {
-      "id": "equipment-loadout.list-at-maximum-action", "assembly": "assembly-csharp",
+      "id": "equipment-loadout.list-at-maximum", "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "method", "member": "IsAtMax",
       "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [],
       "owners": ["Common equipment decision world collection"],
