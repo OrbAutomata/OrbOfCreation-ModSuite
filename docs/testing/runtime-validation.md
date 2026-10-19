@@ -143,7 +143,10 @@ To see how much of the collector's work and the long hitches the suite causes, i
 perf-debug build and play normally. Before quitting, press **Stop profile** on Mods > Runtime so the
 profile writes its manifest, then quit the game normally so the full trace writes its own. Run
 `./script/trace --full "<game>/BepInEx/config/OrbOfCreation-ModSuite/trace" report.md` and read its
-Garbage collection section. If it says the section is unavailable, the BepInEx log names why.
+Garbage collection section. It charges the suite with what grew inside its pumps and with what the
+game's part of a frame grew beyond the game's own rate while a suite worker was evaluating; the game's
+own rate is read from frames no worker overlapped. If it says the section is unavailable, the BepInEx
+log names why.
 
 ### Heap-growth capture
 
