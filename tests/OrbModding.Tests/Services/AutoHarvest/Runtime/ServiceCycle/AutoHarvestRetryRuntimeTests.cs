@@ -132,6 +132,24 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
     }
 
     [Fact]
+    public void AThrowThatEscapesOnePairStillLetsTheOtherPairHarvest()
+    {
+        using var game = AutoHarvestTestGame.Load();
+        game.Queue.EscapeFromAddOf = game.Action(AutoHarvestPair.FruitTree);
+        using var harness = new Harness(treasure: true);
+
+        harness.PumpWorldsUntil(() => harness.RetryGate.Count == 1);
+        for (var wait = 0; wait < 4 && !game.IsRunning(AutoHarvestPair.TreasureTree); wait++)
+        {
+            harness.Advance(PastThePairWait);
+            harness.PumpUntilTheNewestWorldIsEvaluated();
+        }
+
+        Assert.True(game.IsRunning(AutoHarvestPair.TreasureTree));
+        Assert.False(game.IsRunning(AutoHarvestPair.FruitTree));
+    }
+
+    [Fact]
     public void ARegistryReadThatThrowsIsRetriedAndItsCauseStaysInTheLog()
     {
         const string cause = "injected registry outage";

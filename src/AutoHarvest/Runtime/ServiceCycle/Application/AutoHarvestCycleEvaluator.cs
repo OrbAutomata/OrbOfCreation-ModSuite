@@ -136,9 +136,11 @@ internal sealed class AutoHarvestCycleEvaluator
         in AutoHarvestCycleState state,
         in BatchReceipt receipt)
     {
-        if (!state.HasPlannedAction ||
-            !receipt.IsPresent ||
-            receipt.Disposition != BatchTerminalDisposition.Completed ||
+        if (!state.HasPlannedAction || !receipt.IsPresent)
+            return state.NextPair;
+        if (receipt.Disposition == BatchTerminalDisposition.Faulted)
+            return Other(state.PlannedPair);
+        if (receipt.Disposition != BatchTerminalDisposition.Completed ||
             receipt.ActionCount != 1 ||
             receipt.CommittedCount != 1)
         {

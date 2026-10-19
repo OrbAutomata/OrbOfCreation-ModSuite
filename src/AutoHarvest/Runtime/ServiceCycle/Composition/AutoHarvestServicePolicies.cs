@@ -13,8 +13,7 @@ internal static class AutoHarvestServicePolicies
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
 
     // A harvest add spends nothing when it is made, so a faulted pair waits a second rather than a
-    // paid press's minute. A second outlasts the service's own first wait, so the other pair takes
-    // its turn before the faulted one is tried again.
+    // paid press's minute.
     private static readonly MonotonicDuration PairFirstWait =
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
     private static readonly MonotonicDuration PairWaitCap =

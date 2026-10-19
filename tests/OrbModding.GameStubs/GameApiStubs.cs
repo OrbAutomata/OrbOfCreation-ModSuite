@@ -986,6 +986,9 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
 
     /// <summary>The add lands, then the game throws and the list stops reading.</summary>
     public bool BreakAfterMutation { get; set; }
+
+    /// <summary>Adds of this one action throw an exception the suite does not expect, and nothing lands.</summary>
+    public PlotNodeActionSO? EscapeFromAddOf { get; set; }
     private bool brokenReads;
 
     protected override bool IsFilledElement(PlotNodeActionInstance element) =>
@@ -1008,6 +1011,8 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
 
     public void AddInstance(PlotNodeActionInstance prototype, int quantity)
     {
+        if (EscapeFromAddOf is not null && ReferenceEquals(prototype.GetAction(), EscapeFromAddOf))
+            throw new NotSupportedException("injected unexpected failure adding the plot action");
         Add(prototype, quantity);
         if (!BreakAfterMutation) return;
         brokenReads = true;
