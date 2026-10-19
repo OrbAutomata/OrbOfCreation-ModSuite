@@ -36,6 +36,10 @@ public sealed class ProductionSourceAuditTests
         var scoped = new[]
         {
             Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirement.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirementReader.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldRequirementConditionAccessors.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldRequirementList.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldPrerequisiteLinkTier.cs"),
             Path.Combine(root, "src", "Common", "Runtime", "World", "WorldRequirementEvaluator.cs"),
             Path.Combine(root, "src", "Automata", "Runtime", "Verification", "AutomataRequirementVerifier.cs"),
             Path.Combine(root, "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"),
