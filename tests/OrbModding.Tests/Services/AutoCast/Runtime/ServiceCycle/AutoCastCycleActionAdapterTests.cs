@@ -450,42 +450,6 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AToggleOffFaultDoesNotHoldBackACastOfTheSameSpell()
-    {
-        var spell = Equip(Ember);
-        spell.ToggledSpell = true;
-        spell.NativeCasting = true;
-        spell.SuppressToggleOff = true;
-        var natives = new AutoCastNativeAdapter();
-
-        var turnOff = Execute(ToggleOff(0, Ember), natives: natives);
-        spell.ToggledSpell = false;
-        spell.NativeCasting = false;
-        var cast = Execute(Fire(0, Ember), natives: natives);
-
-        Assert.Equal(ServiceActionDisposition.Faulted, turnOff.Disposition);
-        Assert.Equal(ServiceActionDisposition.Committed, cast.Disposition);
-        Assert.Equal(1, spell.NumCasts);
-    }
-
-    [Fact]
-    public void ACastFaultDoesNotHoldBackTurningTheSameSpellOff()
-    {
-        var spell = Equip(Ember);
-        spell.EmitFireSignal = false;
-        var natives = new AutoCastNativeAdapter();
-
-        var cast = Execute(Fire(0, Ember), natives: natives);
-        spell.ToggledSpell = true;
-        spell.NativeCasting = true;
-        var turnOff = Execute(ToggleOff(0, Ember), natives: natives);
-
-        Assert.Equal(ServiceActionDisposition.Faulted, cast.Disposition);
-        Assert.Equal(ServiceActionDisposition.Committed, turnOff.Disposition);
-        Assert.False(spell.NativeCasting);
-    }
-
-    [Fact]
     public void ACastResolvesEveryTargetRequestItOpens()
     {
         var spell = Equip(Ember);

@@ -74,9 +74,9 @@ internal struct AutoCastCycleState
     }
 
     /// <summary>
-    /// Forgets the hold. Called when the release is planned rather than when it commits, matching the
-    /// legacy engine, which cleared its held candidate before calling the game and only warned when
-    /// the call failed — a hold the suite cannot release is not one it should keep waiting on.
+    /// Forgets the hold. Called when the release is planned rather than when it commits, so a hold the
+    /// suite cannot release never freezes the rotation; a release that faults stays owed on the retry
+    /// gate, which plans it again when it is due.
     /// </summary>
     public void ReleaseHeldCharge()
     {

@@ -19,7 +19,8 @@ namespace OrbModding.Tests.Services.AutoCast.Runtime.ServiceCycle;
 /// <summary>
 /// A cast the fire hook did not see backs that spell's cast off on the retry gate, doubling from a
 /// quarter second, while the rest of the loadout keeps its turns and the status says which spell and
-/// why. The test clock moves only when a test means to bring a retry due.
+/// why; a charge release that faulted backs off as a release and is planned again when due. The test
+/// clock moves only when a test means to bring a retry due.
 /// </summary>
 [Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
@@ -106,6 +107,35 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
+    public void AFaultedChargeReleaseBacksOffAsAReleaseAndIsRetriedBeforeTheSpellCastsAgain()
+    {
+        var ember = Equip(Ember);
+        ember.ChargeReleaseFailure = new InvalidOperationException("injected charge release failure");
+        using var harness = new Harness(fullCharge: true);
+
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var faulted = harness.RetryGate.Latest;
+        var heldAfterTheFault = ember.HoldingCharge;
+        var status = harness.Status.Current;
+        ember.ChargeReleaseFailure = null;
+        harness.Advance(PastTheFirstWait);
+        harness.PumpWorldsUntil(() => !ember.HoldingCharge);
+        var castsWhenReleased = ember.FireCalls;
+        harness.PumpWorldsUntil(() => ember.FireCalls == 2);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+
+        Assert.Equal(AutoCastServicePolicies.RetryTarget(AutoCastActionKind.ReleaseCharge, Ember), faulted.Target);
+        Assert.True(heldAfterTheFault);
+        Assert.Contains(
+            "is backing off releasing the charge on " + EntityIdentityFormatter.Format(Ember),
+            status.Reason.Summary);
+        Assert.Equal(1, castsWhenReleased);
+        Assert.False(ember.HoldingCharge);
+        Assert.Equal(0, harness.RetryGate.Count);
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
+    }
+
+    [Fact]
     public void AnUnexpectedThrowAfterTheCastLandedCommitsAndLogsWithoutBackingOff()
     {
         var log = new List<string>();
@@ -152,7 +182,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
         private long _frame = 10;
         private ulong _generation = 2;
 
-        internal Harness()
+        internal Harness(bool fullCharge = false)
         {
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
@@ -165,7 +195,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
                     Epoch));
             _registry = new ServiceCycleRegistry(
                 1,
-                Configuration(),
+                Configuration(fullCharge),
                 new ConfigGeneration(1),
                 new LifecycleGeneration((ulong)Epoch),
                 _clock);
@@ -257,7 +287,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
                     attuning: false,
                     channeled: false,
                     toggled: false,
-                    chargeable: false,
+                    chargeable: spell.CanCharge(),
                     castReady: spell.NativeCanCast,
                     chargeAvailable: true,
                     resourcesCovered: true,
@@ -276,14 +306,14 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
         }
     }
 
-    private static SuiteRuntimeConfiguration Configuration() =>
+    private static SuiteRuntimeConfiguration Configuration(bool fullCharge) =>
         new()
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
             AutoCast = new AutoCastConfiguration
             {
                 Mode = AutoCastOperationMode.Active,
-                FullCharge = false,
+                FullCharge = fullCharge,
                 RitualAware = false,
             },
         };

@@ -27,10 +27,6 @@ internal static class AutoCastServicePolicies
 
     /// <summary>A retry target in a sentence: which spell, and what the service was doing with it.</summary>
     internal static string Describe(ServiceRetryTarget target) =>
-        (AutoCastActionKind)target.ActionKind switch
-        {
-            AutoCastActionKind.ReleaseCharge => "releasing the charge on ",
-            AutoCastActionKind.ToggleOff => "turning off ",
-            _ => "casting ",
-        } + EntityIdentityFormatter.Format(target.Id);
+        (target.ActionKind == (byte)AutoCastActionKind.ReleaseCharge ? "releasing the charge on " : "casting ") +
+        EntityIdentityFormatter.Format(target.Id);
 }
