@@ -286,6 +286,20 @@ internal static class WorldPlotActionDrainDeriver
 internal static class WorldPlotActionInstanceLookup
 {
     /// <summary>
+    /// By plot, then action, then position, so one pair's instances are contiguous and in the order
+    /// the plot holds them.
+    /// </summary>
+    internal static readonly Comparison<WorldPlotActionInstance> Order =
+        static (left, right) =>
+        {
+            var byPlot = left.PlotNodeId.CompareTo(right.PlotNodeId);
+            if (byPlot != 0) return byPlot;
+
+            var byAction = left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
+            return byAction != 0 ? byAction : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
+    /// <summary>
     /// The half-open row range belonging to the pair. Both indices are zero when the pair holds no
     /// instance, which is the honest reading of a plot that is not running the action.
     /// </summary>
@@ -339,61 +353,6 @@ internal static class WorldPlotActionInstanceLookup
     }
 }
 
-/// <summary>Every plot's action instances as read, held where a cycle can own them.</summary>
-internal sealed class WorldPlotActionInstanceBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldPlotActionInstance[] _samples = new WorldPlotActionInstance[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldPlotActionInstance this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldPlotActionInstance sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>
-/// Publishes the instance readings, sorted by plot, then action, then position, so one pair's
-/// instances are contiguous and in the order the plot holds them.
-/// </summary>
-internal static class WorldPlotActionInstanceDeriver
-{
-    internal static PublicationTable<WorldPlotActionInstance> Build(WorldPlotActionInstanceBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldPlotActionInstance>.Empty;
-
-        var derived = new WorldPlotActionInstance[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, InstanceComparer.ByPairThenOrdinal);
-        return PublicationTable<WorldPlotActionInstance>.Create(derived, derived.Length);
-    }
-
-    private sealed class InstanceComparer : IComparer<WorldPlotActionInstance>
-    {
-        internal static readonly IComparer<WorldPlotActionInstance> ByPairThenOrdinal =
-            new InstanceComparer();
-
-        public int Compare(WorldPlotActionInstance left, WorldPlotActionInstance right)
-        {
-            var byPlot = left.PlotNodeId.CompareTo(right.PlotNodeId);
-            if (byPlot != 0) return byPlot;
-
-            var byAction = left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
-            return byAction != 0 ? byAction : left.Ordinal.CompareTo(right.Ordinal);
-        }
-    }
-}
-
 /// <summary>
 /// Exact lookup over the plot-action table, which is sorted by plot and then action.
 /// </summary>
@@ -437,46 +396,6 @@ internal static class WorldPlotActionLookup
     }
 }
 
-/// <summary>Every plot-and-action pair as read, held where a cycle can own them.</summary>
-internal sealed class WorldPlotActionBuffer
-{
-    private const int InitialCapacity = 64;
-
-    private RawPlotAction[] _samples = new RawPlotAction[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly RawPlotAction this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in RawPlotAction sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-
-    /// <summary>
-    /// The index of the pair already recorded for this plot and action, or <c>-1</c>. A linear scan
-    /// backwards from the end, which is where it will be: the reader finishes one plot before
-    /// starting the next, so a plot's pairs are the tail while it is being read.
-    /// </summary>
-    internal int IndexOf(Guid plotNodeId, Guid plotNodeActionId)
-    {
-        for (var index = _count - 1; index >= 0; index--)
-        {
-            ref readonly var sample = ref _samples[index];
-            if (sample.PlotNodeId != plotNodeId) return -1;
-            if (sample.PlotNodeActionId == plotNodeActionId) return index;
-        }
-
-        return -1;
-    }
-
-    internal void Replace(int index, in RawPlotAction sample) => _samples[index] = sample;
-}
-
 /// <summary>
 /// Answers "may this action be started on this plot" for every pair, on the worker.
 /// </summary>
@@ -498,7 +417,7 @@ internal sealed class WorldPlotActionDeriver
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
     }
 
-    internal PublicationTable<WorldPlotAction> Build(WorldPlotActionBuffer buffer)
+    internal PublicationTable<WorldPlotAction> Build(WorldRelationBuffer<RawPlotAction> buffer)
     {
         if (buffer is null) throw new ArgumentNullException(nameof(buffer));
         if (buffer.Count == 0) return PublicationTable<WorldPlotAction>.Empty;
@@ -719,8 +638,8 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
     private int Read(
         object plot,
-        WorldPlotActionBuffer buffer,
-        WorldPlotActionInstanceBuffer instances,
+        WorldRelationBuffer<RawPlotAction> buffer,
+        WorldRelationBuffer<WorldPlotActionInstance> instances,
         WorldRelationBuffer<WorldPlotActionDrain> drains)
     {
         var plotId = _plotId!(plot);
@@ -731,7 +650,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         return appended;
     }
 
-    private int Offered(object plot, Guid plotId, WorldPlotActionBuffer buffer)
+    private int Offered(object plot, Guid plotId, WorldRelationBuffer<RawPlotAction> buffer)
     {
         var offered = _offered!(plot);
         if (offered is null) return 0;
@@ -745,7 +664,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
             var actionId = _actionId!(action);
             if (actionId == Guid.Empty) continue;
 
-            var existing = buffer.IndexOf(plotId, actionId);
+            var existing = IndexOf(buffer, plotId, actionId);
             if (existing >= 0)
             {
                 ref readonly var previous = ref buffer[existing];
@@ -786,8 +705,8 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
     private void Instantiated(
         object plot,
         Guid plotId,
-        WorldPlotActionBuffer buffer,
-        WorldPlotActionInstanceBuffer rows,
+        WorldRelationBuffer<RawPlotAction> buffer,
+        WorldRelationBuffer<WorldPlotActionInstance> rows,
         WorldRelationBuffer<WorldPlotActionDrain> drains)
     {
         var instances = _instances!(plot);
@@ -810,7 +729,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
             if (actionId == Guid.Empty) continue;
 
-            var existing = buffer.IndexOf(plotId, actionId);
+            var existing = IndexOf(buffer, plotId, actionId);
             if (existing < 0 || buffer[existing].InstanceCount == 0)
                 Drains(instance, plotId, actionId, drains);
 
@@ -836,6 +755,26 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
                 previous.InstanceCount + 1,
                 previous.PrerequisiteEvidence));
         }
+    }
+
+    /// <summary>
+    /// The index of the pair already recorded for this plot and action, or <c>-1</c>. A linear scan
+    /// backwards from the end, which is where it will be: the reader finishes one plot before
+    /// starting the next, so a plot's pairs are the tail while it is being read.
+    /// </summary>
+    private static int IndexOf(
+        WorldRelationBuffer<RawPlotAction> buffer,
+        Guid plotNodeId,
+        Guid plotNodeActionId)
+    {
+        for (var index = buffer.Count - 1; index >= 0; index--)
+        {
+            ref readonly var sample = ref buffer[index];
+            if (sample.PlotNodeId != plotNodeId) return -1;
+            if (sample.PlotNodeActionId == plotNodeActionId) return index;
+        }
+
+        return -1;
     }
 
     /// <summary>

@@ -201,6 +201,17 @@ internal readonly struct WorldActionQueueSlot
 internal static class WorldActionQueueSlotLookup
 {
     /// <summary>
+    /// By queue and then position, so one queue's slots are contiguous and in the order the game
+    /// holds them.
+    /// </summary>
+    internal static readonly Comparison<WorldActionQueueSlot> Order =
+        static (left, right) =>
+        {
+            var byQueue = left.QueueId.CompareTo(right.QueueId);
+            return byQueue != 0 ? byQueue : left.Index.CompareTo(right.Index);
+        };
+
+    /// <summary>
     /// The half-open row range belonging to <paramref name="queueId"/>. Both indices are zero when
     /// the queue published no slots, which is the honest reading of a queue whose slots are not
     /// collected — not a queue with none.
@@ -240,57 +251,6 @@ internal static class WorldActionQueueSlotLookup
         start = found;
         while (start + count < rows.Length && rows[start + count].QueueId == queueId) count++;
         return true;
-    }
-}
-
-/// <summary>Every queue slot as read, held where a cycle can own them.</summary>
-internal sealed class WorldActionQueueSlotBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldActionQueueSlot[] _samples = new WorldActionQueueSlot[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldActionQueueSlot this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldActionQueueSlot sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>
-/// Publishes the slot readings, sorted by queue and then position, so one queue's slots are
-/// contiguous and in the order the game holds them.
-/// </summary>
-internal static class WorldActionQueueSlotDeriver
-{
-    internal static PublicationTable<WorldActionQueueSlot> Build(WorldActionQueueSlotBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldActionQueueSlot>.Empty;
-
-        var derived = new WorldActionQueueSlot[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, SlotComparer.ByQueueThenIndex);
-        return PublicationTable<WorldActionQueueSlot>.Create(derived, derived.Length);
-    }
-
-    private sealed class SlotComparer : IComparer<WorldActionQueueSlot>
-    {
-        internal static readonly IComparer<WorldActionQueueSlot> ByQueueThenIndex = new SlotComparer();
-
-        public int Compare(WorldActionQueueSlot left, WorldActionQueueSlot right)
-        {
-            var byQueue = left.QueueId.CompareTo(right.QueueId);
-            return byQueue != 0 ? byQueue : left.Index.CompareTo(right.Index);
-        }
     }
 }
 
@@ -477,7 +437,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         object queue,
         HashSet<Guid> claimed,
         WorldSampleBuffer<RawWorldActionQueue, WorldActionQueue> queues,
-        WorldActionQueueSlotBuffer slots)
+        WorldRelationBuffer<WorldActionQueueSlot> slots)
     {
         var queueId = _slotQueueId!(queue);
         if (queueId == Guid.Empty) return "carried no identity";

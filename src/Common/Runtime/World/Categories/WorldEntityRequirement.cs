@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -352,6 +351,15 @@ internal readonly struct WorldEntityRequirement
 /// </remarks>
 internal static class WorldEntityRequirementLookup
 {
+    internal static readonly Comparison<WorldEntityRequirement> Order =
+        static (left, right) =>
+        {
+            var byOwner = left.OwnerId.CompareTo(right.OwnerId);
+            if (byOwner != 0) return byOwner;
+            var byContainer = left.ContainerIndex.CompareTo(right.ContainerIndex);
+            return byContainer != 0 ? byContainer : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldEntityRequirement> table,
         Guid ownerId,
@@ -416,58 +424,5 @@ internal static class WorldEntityRequirementLookup
         while (start + count < ownerEnd && rows[start + count].ContainerIndex == containerIndex)
             count++;
         return true;
-    }
-}
-
-/// <summary>Every authored per-level condition and group as read, held where a cycle can own them.</summary>
-internal sealed class WorldEntityRequirementBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldEntityRequirement[] _samples = new WorldEntityRequirement[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldEntityRequirement this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Truncate(int count) => _count = count;
-
-    internal void Append(in WorldEntityRequirement sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>Publishes the requirement readings, sorted by owner and then position.</summary>
-internal static class WorldEntityRequirementDeriver
-{
-    internal static PublicationTable<WorldEntityRequirement> Build(WorldEntityRequirementBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldEntityRequirement>.Empty;
-
-        var derived = new WorldEntityRequirement[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, RequirementComparer.ByOwnerThenOrdinal);
-        return PublicationTable<WorldEntityRequirement>.Create(derived, derived.Length);
-    }
-
-    private sealed class RequirementComparer : IComparer<WorldEntityRequirement>
-    {
-        internal static readonly IComparer<WorldEntityRequirement> ByOwnerThenOrdinal =
-            new RequirementComparer();
-
-        public int Compare(WorldEntityRequirement left, WorldEntityRequirement right)
-        {
-            var byOwner = left.OwnerId.CompareTo(right.OwnerId);
-            if (byOwner != 0) return byOwner;
-            var byContainer = left.ContainerIndex.CompareTo(right.ContainerIndex);
-            return byContainer != 0 ? byContainer : left.Ordinal.CompareTo(right.Ordinal);
-        }
     }
 }

@@ -39,33 +39,6 @@ internal readonly struct RawLevelCostModifier
 }
 
 /// <summary>
-/// Each upgrade's per-level cost modifiers, held where a cycle can own them.
-/// </summary>
-/// <remarks>
-/// Same shape and same bargain as <see cref="WorldPurchaseCostBuffer"/>: several rows per entity,
-/// contiguous per entity, reused across cycles, readings only.
-/// </remarks>
-internal sealed class WorldLevelCostModifierBuffer
-{
-    private const int InitialCapacity = 64;
-
-    private RawLevelCostModifier[] _samples = new RawLevelCostModifier[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly RawLevelCostModifier this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in RawLevelCostModifier sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>
 /// Reads every upgrade's authored cost and the modifier list it grows by.
 /// </summary>
 /// <remarks>
@@ -188,8 +161,8 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
 
     private int Read(
         object upgrade,
-        WorldPurchaseCostBuffer costs,
-        WorldLevelCostModifierBuffer modifiers)
+        WorldRelationBuffer<RawPurchaseCost> costs,
+        WorldRelationBuffer<RawLevelCostModifier> modifiers)
     {
         var entityId = _upgradeId!(upgrade);
         if (entityId == Guid.Empty) return 0;
@@ -220,7 +193,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
     private void ReadPerLevelModifiers(
         object upgrade,
         Guid entityId,
-        WorldLevelCostModifierBuffer modifiers)
+        WorldRelationBuffer<RawLevelCostModifier> modifiers)
     {
         var reference = _costModPerLevel!(upgrade);
         if (reference is null) return;
@@ -236,7 +209,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
         IList? source,
         Guid entityId,
         bool isExponent,
-        WorldLevelCostModifierBuffer modifiers)
+        WorldRelationBuffer<RawLevelCostModifier> modifiers)
     {
         if (source is null) return;
 

@@ -44,6 +44,13 @@ internal readonly struct WorldRequirementListMember
 
 internal static class WorldRequirementListLookup
 {
+    internal static readonly Comparison<WorldRequirementListMember> Order =
+        static (left, right) =>
+        {
+            var byList = left.ListId.CompareTo(right.ListId);
+            return byList != 0 ? byList : left.Position.CompareTo(right.Position);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldRequirementListMember> table,
         Guid listId,
@@ -78,40 +85,5 @@ internal static class WorldRequirementListLookup
         start = found;
         while (start + count < rows.Length && rows[start + count].ListId == listId) count++;
         return true;
-    }
-}
-
-internal sealed class WorldRequirementListBuffer
-{
-    private WorldRequirementListMember[] _samples = new WorldRequirementListMember[32];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldRequirementListMember this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldRequirementListMember sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldRequirementListDeriver
-{
-    internal static PublicationTable<WorldRequirementListMember> Build(
-        WorldRequirementListBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldRequirementListMember>.Empty;
-
-        var rows = new WorldRequirementListMember[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) =>
-        {
-            var byList = left.ListId.CompareTo(right.ListId);
-            return byList != 0 ? byList : left.Position.CompareTo(right.Position);
-        });
-        return PublicationTable<WorldRequirementListMember>.Create(rows, rows.Length);
     }
 }

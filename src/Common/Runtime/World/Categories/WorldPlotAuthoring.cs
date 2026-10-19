@@ -90,6 +90,9 @@ internal readonly struct WorldPlotPhaseDescriptor
 /// </remarks>
 internal static class WorldPlotAuthoringLookup
 {
+    internal static readonly Comparison<WorldPlotAuthoring> Order =
+        static (left, right) => left.PlotNodeId.CompareTo(right.PlotNodeId);
+
     internal static bool TryFind(
         PublicationTable<WorldPlotAuthoring> table,
         Guid plotNodeId,
@@ -126,6 +129,13 @@ internal static class WorldPlotAuthoringLookup
 /// </remarks>
 internal static class WorldPlotPhaseDescriptorLookup
 {
+    internal static readonly Comparison<WorldPlotPhaseDescriptor> Order =
+        static (left, right) =>
+        {
+            var byPlot = left.PlotNodeId.CompareTo(right.PlotNodeId);
+            return byPlot != 0 ? byPlot : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldPlotPhaseDescriptor> table,
         Guid plotNodeId,
@@ -159,101 +169,6 @@ internal static class WorldPlotPhaseDescriptorLookup
         start = found;
         while (start + count < rows.Length && rows[start + count].PlotNodeId == plotNodeId) count++;
         return true;
-    }
-}
-
-/// <summary>Every plot's authoring as read, held where a cycle can own it.</summary>
-internal sealed class WorldPlotAuthoringBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldPlotAuthoring[] _samples = new WorldPlotAuthoring[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldPlotAuthoring this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldPlotAuthoring sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>Every authored phase as read.</summary>
-internal sealed class WorldPlotPhaseDescriptorBuffer
-{
-    private const int InitialCapacity = 64;
-
-    private WorldPlotPhaseDescriptor[] _samples = new WorldPlotPhaseDescriptor[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldPlotPhaseDescriptor this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldPlotPhaseDescriptor sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>Publishes the authoring readings, sorted by plot.</summary>
-internal static class WorldPlotAuthoringDeriver
-{
-    internal static PublicationTable<WorldPlotAuthoring> Build(WorldPlotAuthoringBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldPlotAuthoring>.Empty;
-
-        var derived = new WorldPlotAuthoring[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, AuthoringComparer.ByPlot);
-        return PublicationTable<WorldPlotAuthoring>.Create(derived, derived.Length);
-    }
-
-    private sealed class AuthoringComparer : IComparer<WorldPlotAuthoring>
-    {
-        internal static readonly IComparer<WorldPlotAuthoring> ByPlot = new AuthoringComparer();
-
-        public int Compare(WorldPlotAuthoring left, WorldPlotAuthoring right) =>
-            left.PlotNodeId.CompareTo(right.PlotNodeId);
-    }
-}
-
-/// <summary>Publishes the phase readings, sorted by plot and then position.</summary>
-internal static class WorldPlotPhaseDescriptorDeriver
-{
-    internal static PublicationTable<WorldPlotPhaseDescriptor> Build(
-        WorldPlotPhaseDescriptorBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldPlotPhaseDescriptor>.Empty;
-
-        var derived = new WorldPlotPhaseDescriptor[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, PhaseComparer.ByPlotThenOrdinal);
-        return PublicationTable<WorldPlotPhaseDescriptor>.Create(derived, derived.Length);
-    }
-
-    private sealed class PhaseComparer : IComparer<WorldPlotPhaseDescriptor>
-    {
-        internal static readonly IComparer<WorldPlotPhaseDescriptor> ByPlotThenOrdinal =
-            new PhaseComparer();
-
-        public int Compare(WorldPlotPhaseDescriptor left, WorldPlotPhaseDescriptor right)
-        {
-            var byPlot = left.PlotNodeId.CompareTo(right.PlotNodeId);
-            return byPlot != 0 ? byPlot : left.Ordinal.CompareTo(right.Ordinal);
-        }
     }
 }
 
@@ -344,8 +259,8 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
 
     private bool Read(
         object plot,
-        WorldPlotAuthoringBuffer authoring,
-        WorldPlotPhaseDescriptorBuffer phases)
+        WorldRelationBuffer<WorldPlotAuthoring> authoring,
+        WorldRelationBuffer<WorldPlotPhaseDescriptor> phases)
     {
         var plotId = _plotId!(plot);
         if (plotId == Guid.Empty) return false;

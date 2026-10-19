@@ -361,40 +361,6 @@ internal static class WorldPurchaseCostLookup
 }
 
 /// <summary>
-/// The authored cost entries for every entity, held where a cycle can own them.
-/// </summary>
-/// <remarks>
-/// Not a <see cref="WorldSampleBuffer{TSample, TRow}"/>, because that one holds one row per entity
-/// and refuses duplicates. Everything else about it is the same bargain: reused across cycles, grown
-/// by doubling, and read only by the deriver.
-/// <para>
-/// It holds readings and nothing else. The derive scratch lives on
-/// <see cref="WorldPurchaseCostDeriver"/> instead, because one of those scratch arrays is a
-/// <c>BigDouble[]</c> — and an array of a game value type is a runtime boundary a service frame may
-/// not hold, however audited the element type is on its own.
-/// </para>
-/// </remarks>
-internal sealed class WorldPurchaseCostBuffer
-{
-    private const int InitialCapacity = 64;
-
-    private RawPurchaseCost[] _samples = new RawPurchaseCost[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly RawPurchaseCost this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in RawPurchaseCost sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>
 /// Runs the two ported cost chains over every entity's collected entries.
 /// </summary>
 /// <remarks>
@@ -418,7 +384,7 @@ internal sealed class WorldPurchaseCostDeriver
     private readonly PublicationTable<WorldUpgrade> _upgrades;
     private readonly PublicationTable<WorldResource> _resources;
     private readonly PublicationTable<WorldModifierVariable> _modifiers;
-    private readonly WorldLevelCostModifierBuffer _levelModifiers;
+    private readonly WorldRelationBuffer<RawLevelCostModifier> _levelModifiers;
     private readonly WorldFrameGlobals _globals;
     private readonly int _structureGroupedLevels;
 
@@ -437,7 +403,7 @@ internal sealed class WorldPurchaseCostDeriver
         PublicationTable<WorldUpgrade> upgrades,
         PublicationTable<WorldResource> resources,
         PublicationTable<WorldModifierVariable> modifiers,
-        WorldLevelCostModifierBuffer levelModifiers,
+        WorldRelationBuffer<RawLevelCostModifier> levelModifiers,
         in WorldFrameGlobals globals,
         int structureGroupedLevels)
     {
@@ -460,7 +426,7 @@ internal sealed class WorldPurchaseCostDeriver
     /// without one of its terms. A wrong price is worse than an absent one: a consumer can see the
     /// absence and fall back, and cannot see a silently-cheap candidate.
     /// </remarks>
-    internal PublicationTable<WorldPurchaseCost> Build(WorldPurchaseCostBuffer buffer)
+    internal PublicationTable<WorldPurchaseCost> Build(WorldRelationBuffer<RawPurchaseCost> buffer)
     {
         if (buffer is null) throw new ArgumentNullException(nameof(buffer));
         if (buffer.Count == 0) return PublicationTable<WorldPurchaseCost>.Empty;
@@ -637,7 +603,7 @@ internal sealed class WorldPurchaseCostDeriver
 
     private PublicationTable<WorldPurchaseCostModifierSource> BuildModifierSources(
         Guid entityId,
-        WorldPurchaseCostBuffer buffer,
+        WorldRelationBuffer<RawPurchaseCost> buffer,
         int start,
         int length)
     {
@@ -650,7 +616,7 @@ internal sealed class WorldPurchaseCostDeriver
 
     private PublicationTable<WorldPurchaseCostModifierSource> BuildStructureModifierSources(
         in WorldStructure structure,
-        WorldPurchaseCostBuffer buffer,
+        WorldRelationBuffer<RawPurchaseCost> buffer,
         int start,
         int length)
     {
@@ -786,7 +752,7 @@ internal sealed class WorldPurchaseCostDeriver
     /// so the only thing dispatched on here is which registry the identity belongs to.
     /// </summary>
     private bool TryComputeEntity(
-        WorldPurchaseCostBuffer buffer,
+        WorldRelationBuffer<RawPurchaseCost> buffer,
         Guid entityId,
         int start,
         int length,
@@ -805,7 +771,7 @@ internal sealed class WorldPurchaseCostDeriver
     }
 
     private bool TryPriceStructure(
-        WorldPurchaseCostBuffer buffer,
+        WorldRelationBuffer<RawPurchaseCost> buffer,
         int start,
         in WorldStructure structure,
         int length,
@@ -853,7 +819,7 @@ internal sealed class WorldPurchaseCostDeriver
     /// a flat-cost upgrade, not a degraded reading, so it is not treated as a failure.
     /// </remarks>
     private bool TryPriceUpgrade(
-        WorldPurchaseCostBuffer buffer,
+        WorldRelationBuffer<RawPurchaseCost> buffer,
         int start,
         in WorldUpgrade upgrade,
         Guid entityId,
@@ -963,7 +929,7 @@ internal sealed class WorldPurchaseCostDeriver
     }
 
     /// <summary>Copies one entity's authored entries into the arithmetic scratch.</summary>
-    private void FillCosts(WorldPurchaseCostBuffer buffer, int start, int length)
+    private void FillCosts(WorldRelationBuffer<RawPurchaseCost> buffer, int start, int length)
     {
         if (_scratch.Length < length)
         {
@@ -1011,7 +977,10 @@ internal sealed class WorldPurchaseCostDeriver
     /// a zero this chain must not multiply by. See W5.
     /// </para>
     /// </remarks>
-    private bool TryFillAttributeMods(WorldPurchaseCostBuffer buffer, int start, int length)
+    private bool TryFillAttributeMods(
+        WorldRelationBuffer<RawPurchaseCost> buffer,
+        int start,
+        int length)
     {
         for (var offset = 0; offset < length; offset++)
         {
@@ -1168,7 +1137,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
-    private int Read(object structure, WorldPurchaseCostBuffer buffer)
+    private int Read(object structure, WorldRelationBuffer<RawPurchaseCost> buffer)
     {
         var entityId = _structureId!(structure);
         if (entityId == Guid.Empty) return 0;
