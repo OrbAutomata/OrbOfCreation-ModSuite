@@ -1,6 +1,7 @@
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -14,9 +15,12 @@ internal static class ServiceCycleServiceDiagnosticsProjector
         out ServiceCycleServiceDiagnosticsSnapshot snapshot)
     {
         snapshot = default;
-        if (slot.IsDisposed || !slot.TryGetRunnerSnapshot(out var runner)) return false;
+        if (slot.IsDisposed) return false;
+        var lifecycleSource = slot.LifecycleSnapshot;
+        if (!ServesDesiredLifecycle(in lifecycleSource) || !slot.TryGetRunnerSnapshot(out var runner))
+            return false;
         var lifecycle = ServiceCycleLifecycleDiagnosticsProjector.Project(
-            slot.LifecycleSnapshot,
+            lifecycleSource,
             slot.LifecyclePositionTransitionCount);
         var currentCycle = runner.HasActiveBatch ? runner.ActiveCycle : runner.InFlightCycle;
         var currentBatch = runner.HasActiveBatch ? runner.ActiveBatch : runner.InFlightBatch;
@@ -113,6 +117,15 @@ internal static class ServiceCycleServiceDiagnosticsProjector
             ProjectTiming(in runner, observedAt),
             runner.RetryGate);
         return true;
+    }
+
+    private static bool ServesDesiredLifecycle(in ServiceLifecycleSlotSnapshot source)
+    {
+        var current = source.Position0.State == ServiceRunnerPositionState.Current
+            ? source.Position0
+            : source.Position1;
+        return current.State == ServiceRunnerPositionState.Current &&
+            current.Lifecycle == source.DesiredLifecycle;
     }
 
     private static ServiceCycleOperationalPhase ProjectOperationalPhase(

@@ -212,6 +212,42 @@ public sealed class ServiceCycleDiagnosticsTests
     }
 
     [Fact]
+    public void ARunnerTheLifecycleReplacedHasNoReadWhileItWaitsToRetire()
+    {
+        using var registry = new ServiceCycleRegistry(1);
+        var definition = new ExecutionServiceDefinition("diagnostics.replaced") { ActionCount = 1 };
+        using var registration = registry.Register(
+            definition,
+            new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
+        var id = new ServiceId("diagnostics.replaced");
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
+        var beforeReplacement = AvailableServiceDiagnostics.Await(pump, id);
+        using var contention = new HandoffGateContention(registration.Runner);
+        contention.Acquire();
+        var replaced = pump.RequestLifecycleReplacement(new LifecycleGeneration(2));
+        contention.Release();
+
+        var whileRetiring = ServiceCycleDiagnostics.ReadAvailableService(pump, id);
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => ServiceCycleDiagnostics.ReadAvailableService(pump, id) is not null,
+            collector: registry);
+        var settled = AvailableServiceDiagnostics.Await(pump, id);
+
+        Assert.Equal((ulong)1, beforeReplacement.Lifecycle.DesiredLifecycle.Value);
+        Assert.True(replaced);
+        Assert.Null(whileRetiring);
+        Assert.Equal((ulong)2, settled.Lifecycle.DesiredLifecycle.Value);
+        Assert.True(settled.Lifecycle.LatestTerminal.IsPresent);
+    }
+
+    [Fact]
     public void ADuplicateFrameIsRejectedAndTheEmergencyEpisodeKeepsItsReason()
     {
         var clock = new ThreadSafeTestClock(100);
