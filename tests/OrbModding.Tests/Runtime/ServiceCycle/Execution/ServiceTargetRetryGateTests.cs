@@ -241,6 +241,37 @@ public sealed class ServiceTargetRetryGateTests
     }
 
     [Fact]
+    public void AMarkedRefusalDoublesPastThePolicyMaximumUpToTheCapItCarries()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.refusal.long")
+        {
+            ActionCount = 1,
+            RejectAtIndex = 0,
+            RefusalsBackOff = true,
+            RefusalBackoffCap = new MonotonicDuration(200),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        var waits = new long[7];
+        for (var failures = 1; failures <= waits.Length; failures++)
+        {
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump, ref frame, () => Failures(registration) == failures, clock, registry);
+            waits[failures - 1] = registration.Runner.Snapshot.RetryGate.Latest.Backoff.Ticks;
+        }
+
+        Assert.Equal(80, service.FaultRecoveryPolicy.MaximumBackoff.Ticks);
+        Assert.Equal(new long[] { 10, 20, 40, 80, 160, 200, 200 }, waits);
+    }
+
+    [Fact]
     public void ASkipThatBacksOffItsTargetStillCompletesTheBatch()
     {
         var clock = new ThreadSafeTestClock(1_000);
