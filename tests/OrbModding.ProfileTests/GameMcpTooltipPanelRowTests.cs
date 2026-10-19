@@ -33,17 +33,15 @@ public sealed class GameMcpTooltipPanelRowTests
             string.Join('\n', new[]
             {
                 "scene: Main",
-                "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
-                "  pathPrefix: MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
+                "  pathComponent: SpellButtonBottomBar(Clone)",
                 "  elements 3",
                 "  [id | name | path | slot]",
-                "  d0a000 | Ralochs's Cube | SpellButtonBottomBar(Clone)[0] | 1",
-                "  d0c000 | Propagation | SpellButtonBottomBar(Clone)[3] | 4",
-                "  d0b000 | Beam Burst | SpellButtonBottomBar(Clone)[6] | 7",
+                "  d0a000 | Ralochs's Cube | [0] | 1",
+                "  d0c000 | Propagation | [3] | 4",
+                "  d0b000 | Beam Burst | [6] | 7",
             }),
-            Render(Panel(
-                "MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
+            Render(Page(
                 Row("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube),
                 Row("SpellButtonBottomBar(Clone)[3]", "Propagation", Propagation),
                 Row("SpellButtonBottomBar(Clone)[6]", "Beam Burst", BeamBurst))));
@@ -60,19 +58,16 @@ public sealed class GameMcpTooltipPanelRowTests
             string.Join('\n', new[]
             {
                 "scene: Main",
-                "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
-                "  pathPrefix: PassiveList[0]",
                 "  pathComponent: PassiveAbilityItem(Clone)",
                 "  elements 2",
                 "  [id | name | path]",
                 "  d0d000 | Resonance | [0]",
                 "  d0e000 | Ferocity | [1]",
             }),
-            Render(Folded(
-                "PassiveList[0]",
-                ("PassiveAbilityItem(Clone)[0]", "Resonance", Resonance),
-                ("PassiveAbilityItem(Clone)[1]", "Ferocity", Ferocity))));
+            Render(Page(
+                Row("PassiveAbilityItem(Clone)[0]", "Resonance", Resonance),
+                Row("PassiveAbilityItem(Clone)[1]", "Ferocity", Ferocity))));
     }
 
     /// <summary>
@@ -86,16 +81,13 @@ public sealed class GameMcpTooltipPanelRowTests
             string.Join('\n', new[]
             {
                 "scene: Main",
-                "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
-                "  pathPrefix: MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
                 "  elements 2",
                 "  [id | name | path | slot]",
                 "  d0a000 | Ralochs's Cube | SpellButtonBottomBar(Clone)[0] | 1",
                 "  - | Cast settings | SettingsButton[1] | -",
             }),
-            Render(Panel(
-                "MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
+            Render(Page(
                 Row("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube),
                 Row("SettingsButton[1]", "Cast settings", Guid.Empty))));
     }
@@ -152,16 +144,13 @@ public sealed class GameMcpTooltipPanelRowTests
             string.Join('\n', new[]
             {
                 "scene: Main",
-                "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
-                "  pathPrefix: TopBar[0]/ChromeButtons[1]",
                 "  elements 2",
                 "  [name | path | opens]",
                 "  Statistics | StatsButton[0] | modal",
                 "  Settings | SettingsButton[1] | modal",
             }),
-            Render(Panel(
-                "TopBar[0]/ChromeButtons[1]",
+            Render(Page(
                 GameMcpTooltipPanelRow.Opens("StatsButton[0]", "Statistics"),
                 GameMcpTooltipPanelRow.Opens("SettingsButton[1]", "Settings"))));
     }
@@ -203,9 +192,7 @@ public sealed class GameMcpTooltipPanelRowTests
             string.Join('\n', new[]
             {
                 "scene: Main",
-                "pathRoot: Canvas[0]/ContentArea[2]",
                 "rows 1/1:",
-                "  pathPrefix: MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
                 "  pathComponent: SpellButtonBottomBar(Clone)",
                 "  elements 3",
                 "  [id | name | path | slot]",
@@ -213,11 +200,10 @@ public sealed class GameMcpTooltipPanelRowTests
                 "  d0c000 | Propagation | [3] | 4",
                 "  d0b000 | Beam Burst | [6] | 7",
             }),
-            Render(Folded(
-                "MainContentContainer[2]/CastingBar[3]/SmallSpellList[0]",
-                ("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube),
-                ("SpellButtonBottomBar(Clone)[3]", "Propagation", Propagation),
-                ("SpellButtonBottomBar(Clone)[6]", "Beam Burst", BeamBurst))));
+            Render(Page(
+                Row("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube),
+                Row("SpellButtonBottomBar(Clone)[3]", "Propagation", Propagation),
+                Row("SpellButtonBottomBar(Clone)[6]", "Beam Burst", BeamBurst))));
     }
 
     /// <summary>
@@ -242,6 +228,15 @@ public sealed class GameMcpTooltipPanelRowTests
         // One element is a panel with nothing to share.
         Assert.False(GameMcpTooltipPanelRow.TrySharedComponent(
             new[] { "SpellButtonBottomBar(Clone)[0]" }, out _));
+        Assert.Equal(
+            string.Join('\n', new[]
+            {
+                "scene: Main",
+                "rows 1/1",
+                "[id | name | path | slot]",
+                "d0a000 | Ralochs's Cube | SpellButtonBottomBar(Clone)[0] | 1",
+            }),
+            Render(Page(Row("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube))));
     }
 
     /// <summary>
@@ -297,60 +292,18 @@ public sealed class GameMcpTooltipPanelRowTests
         GameMcpTooltipPanelRow.Project(path, name, entityId, World(
             (0, Cube), (3, Propagation), (6, BeamBurst)));
 
-    /// <summary>
-    /// The same document with the gadget's shared-component fold applied, so the page under test is
-    /// the page the verb emits rather than one assembled to match it.
-    /// </summary>
-    private static JObject Folded(
-        string prefix,
-        params (string Path, string Name, Guid Entity)[] elements)
+    /// <summary>The page one panel produces, folded by the call the verb makes.</summary>
+    private static JObject Page(params GameMcpObjectBuilder[] members)
     {
-        var segments = new string[elements.Length];
-        for (var index = 0; index < elements.Length; index++) segments[index] = elements[index].Path;
-        Assert.True(GameMcpTooltipPanelRow.TrySharedComponent(segments, out var component));
-
-        var members = new GameMcpArrayBuilder();
-        for (var index = 0; index < elements.Length; index++)
-        {
-            var element = elements[index];
-            var row = Row(element.Path, element.Name, element.Entity);
-            row["path"] = element.Path.Substring(component.Length);
-            members.Add(row);
-        }
+        var segments = new string[members.Length];
+        for (var index = 0; index < members.Length; index++)
+            segments[index] = (string)members[index]["path"]!;
         var rows = new GameMcpArrayBuilder();
-        rows.Add(new GameMcpObjectBuilder
-        {
-            ["pathPrefix"] = prefix,
-            ["pathComponent"] = component,
-            ["elements"] = members,
-        });
+        rows.Add(GameMcpTooltipPanelRow.Panel(members, segments));
         return Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             new GameMcpObjectBuilder
             {
                 ["scene"] = "Main",
-                ["pathRoot"] = "Canvas[0]/ContentArea[2]",
-                ["total"] = 1,
-                ["rows"] = rows,
-            }.Freeze(),
-            Catalog));
-    }
-
-    /// <summary>The catalog document one panel produces, exactly as the gadget assembles it.</summary>
-    private static JObject Panel(string prefix, params GameMcpObjectBuilder[] elements)
-    {
-        var rows = new GameMcpArrayBuilder();
-        var members = new GameMcpArrayBuilder();
-        for (var index = 0; index < elements.Length; index++) members.Add(elements[index]);
-        rows.Add(new GameMcpObjectBuilder
-        {
-            ["pathPrefix"] = prefix,
-            ["elements"] = members,
-        });
-        return Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            new GameMcpObjectBuilder
-            {
-                ["scene"] = "Main",
-                ["pathRoot"] = "Canvas[0]/ContentArea[2]",
                 ["total"] = 1,
                 ["rows"] = rows,
             }.Freeze(),
