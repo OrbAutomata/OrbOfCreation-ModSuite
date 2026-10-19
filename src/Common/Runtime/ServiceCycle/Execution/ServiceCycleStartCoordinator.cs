@@ -112,7 +112,6 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         ConfigurationPublication configuration,
         in ServiceStartDecisionFact startFact,
         in ServiceStartInvocationFact startInvocation,
-        bool nonBlockingProbe,
         int ordinal,
         IServiceCycleAttemptObserver? observer);
 
@@ -128,7 +127,7 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         State.CycleConfiguration = null;
     }
 
-    private ServiceCycleStartAttempt TryPublishPendingRequest(bool nonBlocking)
+    private ServiceCycleStartAttempt TryPublishPendingRequest()
     {
         if (Lifetime.IsSuperseded)
         {
@@ -145,12 +144,9 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
             throw new InvalidOperationException("A deferred request lost its pinned strategy.");
         // As above, the causal queue timestamp must precede the handoff that can wake evaluation.
         var queuedAt = Clock.Now;
-        var published = nonBlocking
-            ? _handoff.TryPublishRequestNonBlocking(
-                configuration, world, strategy, in _pendingContext, _pendingBatch, out _)
-            : _handoff.TryPublishRequest(
-                configuration, world, strategy, in _pendingContext, _pendingBatch, out _);
-        if (!published) return default;
+        if (!_handoff.TryPublishRequestNonBlocking(
+                configuration, world, strategy, in _pendingContext, _pendingBatch, out _))
+            return default;
 
         var identity = _pendingContext.Identity;
         var batch = _pendingBatch;

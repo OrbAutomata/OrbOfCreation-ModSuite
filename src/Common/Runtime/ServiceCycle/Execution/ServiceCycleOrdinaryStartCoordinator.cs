@@ -50,7 +50,6 @@ internal sealed class ServiceCycleOrdinaryStartCoordinator<TState, TAction> :
         ConfigurationPublication configuration,
         in ServiceStartDecisionFact startFact,
         in ServiceStartInvocationFact startInvocation,
-        bool nonBlockingProbe,
         int ordinal,
         IServiceCycleAttemptObserver? observer)
     {
@@ -64,7 +63,6 @@ internal sealed class ServiceCycleOrdinaryStartCoordinator<TState, TAction> :
             in startFact,
             in startInvocation,
             default,
-            in recoveredFault,
-            nonBlockingProbe);
+            in recoveredFault);
     }
 }

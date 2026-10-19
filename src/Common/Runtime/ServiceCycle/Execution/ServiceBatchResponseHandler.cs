@@ -17,26 +17,19 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
         _completion = completion;
     }
 
-    internal bool TryAcquire()
-    {
-        if (!_runtime.Handoff.TryAcquireResponse(out var response)) return false;
-        Publish(in response, response.PublishedAt, nonBlockingHandoff: false, out _);
-        return true;
-    }
-
     internal ServiceResponseAcquisition TryAcquireNonBlocking(
         MonotonicTimestamp now)
     {
         if (!_runtime.Handoff.TryAcquireResponseNonBlocking(out var response))
             return default;
-        Publish(in response, now, nonBlockingHandoff: true, out var terminalReceipt);
+        Publish(in response, now, out var terminalReceipt);
         return new ServiceResponseAcquisition(in response, terminalReceipt);
     }
 
     internal void PublishAuthoritativeTerminal(
         in ServiceWorkerResponse response,
         MonotonicTimestamp now) =>
-        Publish(in response, now, nonBlockingHandoff: true, out _);
+        Publish(in response, now, out _);
 
     internal void MarkOutstandingEmergency(EmergencyStopContext emergency)
     {
@@ -51,7 +44,6 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
     private void Publish(
         in ServiceWorkerResponse response,
         MonotonicTimestamp terminalNow,
-        bool nonBlockingHandoff,
         out BatchReceipt terminalReceipt)
     {
         terminalReceipt = default;
@@ -78,7 +70,7 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
             _runtime.State.HasActiveBatch = false;
             _runtime.State.HasInFlightCycle = false;
             _runtime.ClearVisibleActionBatch();
-            _completion.ReturnMainOwnership(nonBlockingHandoff);
+            _completion.ReturnMainOwnership();
             return;
         }
 
@@ -109,7 +101,6 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
                 _completion.RejectForEmergencyStop(
                     responseEmergency,
                     terminalNow,
-                    nonBlockingHandoff,
                     out terminalReceipt);
             }
             return;
@@ -127,6 +118,6 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
             response.Cycle.World,
             invalidatedByWorld: _runtime.Starts.WorldEndsWait(response.WakePolicy));
         _runtime.State.CycleConfiguration = null;
-        _completion.ReturnMainOwnership(nonBlockingHandoff);
+        _completion.ReturnMainOwnership();
     }
 }

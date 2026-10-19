@@ -16,7 +16,6 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
     internal bool RejectForEmergencyStop(
         EmergencyStopContext emergency,
         MonotonicTimestamp now,
-        bool nonBlockingHandoff,
         out BatchReceipt receipt)
     {
         if (!emergency.IsValid)
@@ -41,7 +40,7 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
             now,
             emergency,
             _runtime.State.PreNativeSkippedCount);
-        CompleteBatch(in receipt, now, true, nonBlockingHandoff);
+        CompleteBatch(in receipt, now, true);
         return true;
     }
 
@@ -149,8 +148,7 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
     internal void CompleteBatch(
         in BatchReceipt receipt,
         MonotonicTimestamp terminalAt,
-        bool rejectedOrFaulted,
-        bool nonBlockingHandoff)
+        bool rejectedOrFaulted)
     {
         _runtime.State.PreviousReceipt = receipt;
         _runtime.State.ScheduleWake(
@@ -169,9 +167,9 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
             if (_runtime.Actions.ReleaseRejectedBatchForWorkerCleanup(
                     out var from,
                     out var count))
-                ReturnMainOwnershipWithCleanup(from, count, nonBlockingHandoff);
+                SetPendingCompletion(PendingMainOwnershipCompletion.WorkerCleanup, from, count);
             else
-                ReturnMainOwnership(nonBlockingHandoff);
+                ReturnMainOwnership();
             _runtime.ClearVisibleActionBatch();
             return;
         }
@@ -181,7 +179,7 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
             _runtime.State.LatestFault = default;
         _runtime.Actions.CompleteSuccessfulBatch();
         _runtime.ClearVisibleActionBatch();
-        ReturnMainOwnership(nonBlockingHandoff);
+        ReturnMainOwnership();
     }
 
     internal void CompleteLifecycleOrphan(in BatchReceipt receipt)
@@ -190,28 +188,8 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
         ClearActiveCycle();
     }
 
-    internal void ReturnMainOwnership(bool nonBlocking)
-    {
-        if (!nonBlocking)
-        {
-            _runtime.Handoff.CompleteMainOwnership();
-            return;
-        }
+    internal void ReturnMainOwnership() =>
         SetPendingCompletion(PendingMainOwnershipCompletion.ReturnEmpty, 0, 0);
-    }
-
-    private void ReturnMainOwnershipWithCleanup(
-        int from,
-        int count,
-        bool nonBlocking)
-    {
-        if (!nonBlocking)
-        {
-            _runtime.Handoff.CompleteMainOwnershipWithWorkerCleanup(from, count);
-            return;
-        }
-        SetPendingCompletion(PendingMainOwnershipCompletion.WorkerCleanup, from, count);
-    }
 
     private void SetPendingCompletion(
         PendingMainOwnershipCompletion completion,

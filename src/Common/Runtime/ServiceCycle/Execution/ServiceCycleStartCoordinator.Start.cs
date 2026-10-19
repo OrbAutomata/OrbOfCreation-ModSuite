@@ -8,13 +8,12 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
 {
     internal ServiceCycleStartAttempt TryStart(
         MonotonicTimestamp now,
-        bool nonBlockingProbe = false,
-        int ordinal = 0,
-        IServiceCycleAttemptObserver? observer = null)
+        int ordinal,
+        IServiceCycleAttemptObserver? observer)
     {
         if (Lifetime.IsSuperseded) return default;
         if (_hasPendingRequest)
-            return TryPublishPendingRequest(nonBlockingProbe);
+            return TryPublishPendingRequest();
 
         var configuration = _configuration.ReadLatest();
         var world = _world.ReadLatest();
@@ -30,17 +29,9 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         if (State.HasWakeDue && now < State.NextWakeDue)
             return default;
 
-        ServiceHandoffSnapshot handoff;
-        if (nonBlockingProbe)
-        {
-            if (_handoff.PhaseHint != ServiceHandoffPhase.Empty ||
-                !_handoff.TrySnapshot(out handoff))
-                return default;
-        }
-        else
-        {
-            handoff = _handoff.Snapshot;
-        }
+        if (_handoff.PhaseHint != ServiceHandoffPhase.Empty ||
+            !_handoff.TrySnapshot(out var handoff))
+            return default;
         if (handoff.Phase != ServiceHandoffPhase.Empty || handoff.CleanupPending)
             return default;
 
@@ -110,7 +101,6 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
             configuration,
             in startFact,
             in startInvocation,
-            nonBlockingProbe,
             ordinal,
             observer);
     }
