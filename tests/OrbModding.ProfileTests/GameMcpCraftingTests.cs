@@ -618,11 +618,6 @@ public sealed class GameMcpCraftingTests
             useQuantityAsLevel: false,
             timeToComplete: 5,
             outputWithinCapacity: true,
-            typeCount: 0,
-            authoredInputCount: 1,
-            generatedOutputCount: 0,
-            consumableOutputCount: 0,
-            engagementEffectCount: 0,
             completionEffectCount: 0);
         var recipe = new WorldCraftingRecipe(
             in reading,

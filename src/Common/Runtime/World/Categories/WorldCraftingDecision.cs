@@ -341,7 +341,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         {
             AppendQueueEntries(frame);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             frame.CraftingQueueEntries.Reset();
             return WorldCategoryReport.Missing(
@@ -364,7 +364,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
                 AppendDecision(recipe, frame);
                 sampled++;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 skipped++;
                 if (firstFailure.Length == 0)

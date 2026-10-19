@@ -132,6 +132,24 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
     }
 
     /// <summary>
+    /// A throw that is not an expected native failure faults the world pass instead of costing the
+    /// category.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowFaultsTheWorldPass()
+    {
+        Seed();
+        var active = global::AlchemyManager.instance!.activeAlchemy;
+        var failure = new NullReferenceException("CanAddInstance failed");
+        active.ThrowOnCanAdd = true;
+        active.CanAddFailure = failure;
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
     /// A throw on a later recipe withdraws the holdings already read, so no recipe reads as one
     /// nothing holds because the read stopped before it.
     /// </summary>

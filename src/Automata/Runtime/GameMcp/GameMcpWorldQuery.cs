@@ -10397,9 +10397,7 @@ internal static class GameMcpWorldQuery
             "entityId", "reading.visible", "reading.visibilityReasonCode",
             "reading.canBuyAtStartingQuantity", "reading.nativePurchaseReasonCode",
             "reading.startingQuantity", "reading.outputWithinCapacity",
-            "reading.outputCapacityReasonCode", "reading.authoredInputCount",
-            "reading.generatedOutputCount", "reading.consumableOutputCount",
-            "reading.engagementEffectCount",
+            "reading.outputCapacityReasonCode",
         },
         "crafting-queue-entries" => new[]
         {

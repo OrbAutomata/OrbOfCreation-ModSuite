@@ -3401,6 +3401,7 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public bool SuppressAddMutation { get; set; }
     public bool SuppressRemoveMutation { get; set; }
     public bool ThrowOnCanAdd { get; set; }
+    public Exception CanAddFailure { get; set; } = new InvalidOperationException("CanAddInstance failed");
 
     /// <summary>The game throws asking about this one recipe, after earlier ones answered.</summary>
     public AlchemyRecipeSO? ThrowOnCanAddFor { get; set; }
@@ -3414,7 +3415,7 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public bool CanAddInstance(AlchemyRecipeSO recipe)
     {
         if (ThrowOnCanAdd || ReferenceEquals(recipe, ThrowOnCanAddFor))
-            throw new InvalidOperationException("CanAddInstance failed");
+            throw CanAddFailure;
         var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
         if (instance is not null && instance.queuedQuantity >= recipe.GetMaxUsageSlots()) return false;
         if (instance is not null) return true;
