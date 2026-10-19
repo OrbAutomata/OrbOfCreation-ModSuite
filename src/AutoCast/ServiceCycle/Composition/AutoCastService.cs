@@ -34,7 +34,8 @@ internal static class AutoCastService
                 describeAction: static (in AutoCastCycleAction action) =>
                     ServiceActionJournalAttribution.Native(
                         action.SpellRecipeId,
-                        ServiceActionNativeTypeId.SpellRecipeSO),
+                        ServiceActionNativeTypeId.SpellRecipeSO,
+                        (byte)action.Kind),
                 execute: actions.TryExecute);
 
         // Auto Cast's own configuration, plus the one piece of runtime state that is the suite's

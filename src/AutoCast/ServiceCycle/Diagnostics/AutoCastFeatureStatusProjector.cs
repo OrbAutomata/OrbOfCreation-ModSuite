@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -27,8 +28,9 @@ internal readonly struct AutoCastFeatureStatus
 /// <para>
 /// The emergency stop comes before ownership, because a suite that has stood down entirely is a
 /// bigger fact than which plugin holds a lease. Manual pause comes last of the blocking terms,
-/// because it is the only one that resolves on its own. Saved configuration is deliberately absent:
-/// the central status join owns intent.
+/// because it is the only one that resolves on its own. A spell backing off after a fault comes next:
+/// the rest of the loadout still casts, so it degrades the feature rather than blocking it. Saved
+/// configuration is deliberately absent: the central status join owns intent.
 /// </para>
 /// </remarks>
 internal static class AutoCastFeatureStatusProjector
@@ -42,7 +44,8 @@ internal static class AutoCastFeatureStatusProjector
         bool manualPaused,
         bool cycleObserved,
         AutoCastExclusion heldFor = AutoCastExclusion.None,
-        Guid heldSpellId = default)
+        Guid heldSpellId = default,
+        ServiceRetryEntry? backingOff = null)
     {
         if (emergencyDisabled)
         {
@@ -66,6 +69,15 @@ internal static class AutoCastFeatureStatusProjector
                 FeatureStatusState.TemporarilyBlocked,
                 FeatureStatusReasonCode.ManualPause,
                 ManualPauseSummary);
+        }
+
+        if (backingOff is { } retry)
+        {
+            return new AutoCastFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.NativeMutationFailed,
+                $"Auto Cast is backing off {AutoCastServicePolicies.Describe(retry.Target)} after " +
+                $"{retry.ConsecutiveFailures} failed attempt(s) and retries it when due: {retry.Reason}");
         }
 
         // The legacy engine's gameplay-scene term, reached the way the runtime states it: a service

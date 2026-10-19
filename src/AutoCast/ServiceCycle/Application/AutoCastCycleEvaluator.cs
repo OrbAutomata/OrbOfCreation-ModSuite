@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -33,6 +34,12 @@ namespace OrbAutomata;
 /// rotation, attacks included.
 /// </para>
 /// <para>
+/// A spell whose last cast faulted waits out its back-off on the retry gate while the rest of the
+/// loadout keeps its turns. Its episode ends when the cast commits or when no occupied slot holds it
+/// any more; a release is never held back, and the service plans no toggle-off, so an episode for
+/// either ends once nothing is left to retry.
+/// </para>
+/// <para>
 /// The reserve floor is read from configuration, not from the strategy bulletin. That is the standing
 /// interim rule for every migration before the strategist exists, and it is the same arithmetic Auto
 /// Buy already applies to the same two settings.
@@ -44,9 +51,12 @@ internal static class AutoCastCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref AutoCastCycleState state,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<AutoCastCycleAction> actions,
         out AutoCastDecisionMetrics metrics)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
         var slots = world.SpellSlots;
         metrics = new AutoCastDecisionMetrics(
@@ -62,6 +72,7 @@ internal static class AutoCastCycleEvaluator
         if (!AutoCastConfigurationPolicy.IsOperational(config)) return wake;
 
         var rows = slots.AsSpan();
+        EndSettledRetries(retryGate, rows, in state, actions);
 
         // A live hold is the whole cycle. The legacy engine froze everything while charging — no
         // evaluation, no other slot, not even its interval clock — because a second cast during a
@@ -103,6 +114,7 @@ internal static class AutoCastCycleEvaluator
         var belowThreshold = 0;
         var outsideRitual = 0;
         var ritualChannel = 0;
+        var backingOff = 0;
         var eligible = 0;
         var chosen = -1;
         var heldSpellId = Guid.Empty;
@@ -132,6 +144,14 @@ internal static class AutoCastCycleEvaluator
                 case AutoCastExclusion.RitualChannel: ritualChannel++; Hold(in row); continue;
             }
 
+            if (row.SpellRecipeId != Guid.Empty &&
+                retryGate.IsWaiting(
+                    AutoCastServicePolicies.RetryTarget(AutoCastActionKind.Fire, row.SpellRecipeId), decisionAt))
+            {
+                backingOff++;
+                continue;
+            }
+
             eligible++;
 
             // First fit wins the turn; the rest are counted as outranked so every slot is
@@ -143,7 +163,8 @@ internal static class AutoCastCycleEvaluator
             empty, busy, notReady, reserveFloor, belowThreshold,
             outranked: eligible == 0 ? 0 : eligible - 1,
             outsideRitual,
-            ritualChannel);
+            ritualChannel,
+            backingOff);
 
         if (chosen < 0)
         {
@@ -177,6 +198,37 @@ internal static class AutoCastCycleEvaluator
         {
             if (heldSpellId == Guid.Empty) heldSpellId = row.SpellRecipeId;
         }
+    }
+
+    /// <summary>
+    /// Ends every retry episode whose action the service would no longer plan: a cast of a spell no
+    /// occupied slot holds, a release of a charge it is not holding, and any toggle-off.
+    /// </summary>
+    private static void EndSettledRetries(
+        ServiceRetryGateSnapshot retryGate,
+        ReadOnlySpan<WorldSpellSlot> rows,
+        in AutoCastCycleState state,
+        ServiceActionWriter<AutoCastCycleAction> actions)
+    {
+        for (var index = 0; index < retryGate.Count; index++)
+        {
+            var target = retryGate[index].Target;
+            var planned = (AutoCastActionKind)target.ActionKind switch
+            {
+                AutoCastActionKind.Fire => Equipped(rows, target.Id),
+                AutoCastActionKind.ReleaseCharge => state.HeldChargeSlot != AutoCastCycleState.NoHeldSlot &&
+                    state.HeldChargeSpellId == target.Id,
+                _ => false,
+            };
+            if (!planned) actions.EndRetry(target);
+        }
+    }
+
+    private static bool Equipped(ReadOnlySpan<WorldSpellSlot> rows, Guid spellId)
+    {
+        for (var index = 0; index < rows.Length; index++)
+            if (rows[index].Occupied && rows[index].SpellRecipeId == spellId) return true;
+        return false;
     }
 
     /// <summary>

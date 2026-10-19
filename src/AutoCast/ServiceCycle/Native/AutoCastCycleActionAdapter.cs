@@ -27,8 +27,8 @@ namespace OrbAutomata;
 /// sees strictly less than this boundary does — whether a target request is open, whether the caster
 /// is free, and whether the spell has anything to aim at are all live-only (W60) — so those three
 /// reject penalty-free and say so. What is not ordinary is an attempted mutation the verifier could
-/// not confirm: the fire hook's epoch not advancing by exactly one means a cast that spent something
-/// other than what was planned, and that faults.
+/// not confirm: a press after which the fire hook's epoch did not rise, or a target prompt was left
+/// open, faults, and the service backs off that spell's cast until it is due again.
 /// </para>
 /// </remarks>
 internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort

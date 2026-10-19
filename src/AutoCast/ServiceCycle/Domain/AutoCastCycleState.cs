@@ -124,6 +124,9 @@ internal enum AutoCastExclusion
 
     /// <summary>A channel during a ritual battle, which would keep an equipped attack spell from going.</summary>
     RitualChannel = 8,
+
+    /// <summary>Its last cast faulted, and the retry gate has not let it go again yet.</summary>
+    BackingOff = 9,
 }
 
 /// <summary>How many slots each exclusion term accounted for in one cycle.</summary>
@@ -141,7 +144,8 @@ internal readonly struct AutoCastExclusionHistogram
         int belowStartThreshold,
         int outranked,
         int outsideRitual = 0,
-        int ritualChannel = 0)
+        int ritualChannel = 0,
+        int backingOff = 0)
     {
         Empty = empty;
         Busy = busy;
@@ -151,6 +155,7 @@ internal readonly struct AutoCastExclusionHistogram
         Outranked = outranked;
         OutsideRitual = outsideRitual;
         RitualChannel = ritualChannel;
+        BackingOff = backingOff;
     }
 
     public int Empty { get; }
@@ -161,10 +166,11 @@ internal readonly struct AutoCastExclusionHistogram
     public int Outranked { get; }
     public int OutsideRitual { get; }
     public int RitualChannel { get; }
+    public int BackingOff { get; }
 
     public int Total =>
         Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + Outranked +
-        OutsideRitual + RitualChannel;
+        OutsideRitual + RitualChannel + BackingOff;
 
     public int For(AutoCastExclusion exclusion) => exclusion switch
     {
@@ -176,6 +182,7 @@ internal readonly struct AutoCastExclusionHistogram
         AutoCastExclusion.Outranked => Outranked,
         AutoCastExclusion.OutsideRitual => OutsideRitual,
         AutoCastExclusion.RitualChannel => RitualChannel,
+        AutoCastExclusion.BackingOff => BackingOff,
         _ => 0,
     };
 }

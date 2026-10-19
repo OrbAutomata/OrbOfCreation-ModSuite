@@ -34,7 +34,7 @@ internal readonly struct AutoCastSubmission
 
     public static AutoCastSubmission Rejected(
         ServiceActionResultCode code,
-        string reason,
+        GameActionReason reason,
         Guid occupant = default) =>
         new(NativeActionOutcome.Reject(code, reason), occupant);
 
@@ -48,40 +48,80 @@ internal readonly struct AutoCastSubmission
     public static AutoCastSubmission AlreadyCasting(string reason) =>
         Skipped(AutoCastActionResultCodes.SpellAlreadyCasting, reason);
 
-    public static AutoCastSubmission ContractUnavailable(string reason) =>
+    public static AutoCastSubmission ContractUnavailable(GameActionReason reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     /// <summary>A charge release, which is a native call with nothing to verify a delta against.</summary>
-    public static AutoCastSubmission Released(bool succeeded, string reason) =>
-        new(succeeded
-            ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), reason)
+    public static AutoCastSubmission Released(Guid spellRecipeId, Exception? failure) =>
+        new(failure is null
+            ? NativeActionOutcome.Commit(new NativeMutationCallOutcome(1, 1, 1), string.Empty)
             : NativeActionOutcome.Fault(
                 CommonActionResultCodes.AdapterFault,
                 NativeMutationOutcome.ExecutionThrew,
                 new NativeMutationCallOutcome(1, 1, 0),
-                reason));
+                GameActionFaultLog.Reason(
+                    $"{AutoCastNativeAdapter.Feature} could not let go of the charge hold on " +
+                    $"{EntityIdentityFormatter.PlayerName(spellRecipeId)}.",
+                    failure,
+                    AutoCastNativeAdapter.Feature)));
 
     /// <summary>
-    /// An unverified cast whose charge hold could not be let go either, so the fault says both.
+    /// A pressed spell, committed when the sentinel shows the change and otherwise a fault whose
+    /// sentence says what was pressed and what was missing, with every exception in the suite log.
     /// </summary>
-    public AutoCastSubmission WithStuckHold(string releaseReason) =>
-        new(NativeActionOutcome.Fault(
-            Outcome.Code,
-            Outcome.Mutation,
-            Outcome.CallOutcome,
-            $"{Outcome.Reason}; the charge hold taken for it could not be let go: {releaseReason}"),
-            Occupant);
-
+    /// <param name="escaped">
+    /// What the press threw past the verifier, which leaves no after-state to read; the evidence is
+    /// then unset.
+    /// </param>
+    /// <param name="purpose">What the press was for, after the spell's name; empty for a cast.</param>
+    /// <param name="ownFailure">Why the suite itself stopped partway, which no exception explains.</param>
+    /// <param name="stuckHold">What letting go of the charge hold taken for the press threw.</param>
     public static AutoCastSubmission Attempted<TState>(
         NativeMutationEvidence<TState> evidence,
-        int nativeCallsAttempted)
+        Exception? escaped,
+        int nativeCallsAttempted,
+        Guid spellRecipeId,
+        string purpose,
+        Func<TState, TState, string> missed,
+        string ownFailure,
+        Exception? stuckHold)
     {
-        var calls = new NativeMutationCallOutcome(
-            Math.Max(1, nativeCallsAttempted), 1, evidence.IsVerified ? 1 : 0);
-        return new(evidence.IsVerified
-            ? NativeActionOutcome.Commit(calls, string.Empty)
-            : NativeActionOutcome.Fault(
-                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()));
+        var attempted = escaped is not null || evidence.MutationWasAttempted;
+        var committed = escaped is null && evidence.IsVerified;
+        var calls = attempted
+            ? new NativeMutationCallOutcome(Math.Max(1, nativeCallsAttempted), 1, committed ? 1 : 0)
+            : default;
+        if (committed) return new(NativeActionOutcome.Commit(calls, string.Empty));
+
+        var spell = EntityIdentityFormatter.PlayerName(spellRecipeId);
+        var pressed = $"{AutoCastNativeAdapter.Feature} pressed {spell}{purpose}";
+        var cause = escaped ?? evidence.Exception;
+        string sentence;
+        if (escaped is not null)
+            sentence = $"{pressed}, and nothing was confirmed after the game threw.";
+        else if (!evidence.MutationWasAttempted)
+            sentence = $"{AutoCastNativeAdapter.Feature} could not read {spell} before the press.";
+        else if (ownFailure.Length > 0)
+        {
+            sentence = $"{pressed}, and {ownFailure}.";
+            cause = null;
+        }
+        else if (!evidence.HasAfter)
+            sentence = $"{pressed}, and the spell could not be read after the press.";
+        else if (evidence.Exception is null)
+            sentence = $"{pressed}, {missed(evidence.Before, evidence.After)}.";
+        else
+            sentence = $"{pressed}, {missed(evidence.Before, evidence.After)} after the game threw.";
+        if (stuckHold is not null) sentence += " The charge hold taken for it could not be let go.";
+
+        return new(NativeActionOutcome.Fault(
+            CommonActionResultCodes.AdapterFault,
+            escaped is null ? evidence.Outcome : NativeMutationOutcome.ExecutionThrew,
+            calls,
+            new GameActionReason(
+                sentence,
+                GameActionFaultLog.RecordReference(
+                    cause, AutoCastNativeAdapter.Feature, "Letting go of the charge hold", stuckHold))));
     }
 }
 
@@ -121,8 +161,10 @@ internal interface IAutoCastNativePort
     bool? IsRitualRunning();
 }
 
-internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
+internal sealed class AutoCastNativeAdapter : IAutoCastNativePort
 {
+    internal const string Feature = "Auto Cast";
+
     /// <summary>The charge-input source id, unchanged so an in-flight hold is still ours to release.</summary>
     private const string ChargeInputSource = "OrbAutomata.AutoCast.FullCharge";
 
@@ -131,7 +173,6 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
     private readonly AutoCastNativeBindings? _bindings;
     private readonly string _bindingFailure;
-    private readonly Dictionary<Guid, string> _blockedSpells = new();
 
     public AutoCastNativeAdapter() =>
         AutoCastNativeBindings.TryCreate(out _bindings, out _bindingFailure);
@@ -179,9 +220,6 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     "another spell is still casting, and the game casts one spell at a time");
             }
 
-            if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
-                return AutoCastSubmission.ContractUnavailable(blocked);
-
             // Asked of the spell this position actually resolved to, not of a published loadout a
             // rearrangement can have outrun. A hold on a spell the game does not charge would set an
             // input the game ignores and fire an ordinary cast under a charged name; a hold asked
@@ -219,29 +257,19 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     "the native target selector has no valid target");
             }
 
-            if (holdFullCharge && !TrySetChargeHold(native, spell, true, out var holdReason))
+            if (holdFullCharge && TrySetChargeHold(native, spell, true) is { } holdFailure)
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.ChargeHoldRefused,
-                    $"a charged-spell hold could not be established: {holdReason}");
+                    GameActionFaultLog.Reason("a charged-spell hold could not be established.", holdFailure, Feature));
             }
 
-            var submission = Submit(native, manager, slotIndex, spellRecipeId);
-
-            // A hold taken for a cast that never landed is a charge input stuck down with nothing
-            // holding it, so it is let go on every failing path exactly as the legacy engine did.
-            if (holdFullCharge && !submission.Outcome.Verified &&
-                !TrySetChargeHold(native, spell, false, out var releaseReason))
-            {
-                return submission.WithStuckHold(releaseReason);
-            }
-
-            return submission;
+            return Submit(native, manager, slotIndex, spellRecipeId, holdFullCharge ? spell : null);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoCastSubmission.ContractUnavailable(
-                $"cast submission failed: {ex.GetBaseException().Message}");
+                GameActionFaultLog.Reason("the cast could not be checked before the press.", ex, Feature));
         }
     }
 
@@ -263,13 +291,12 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                     AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
 
-            var released = TrySetChargeHold(native, spell, false, out var releaseReason);
-            return AutoCastSubmission.Released(released, released ? string.Empty : releaseReason);
+            return AutoCastSubmission.Released(spellRecipeId, TrySetChargeHold(native, spell, false));
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoCastSubmission.ContractUnavailable(
-                $"charge release failed: {ex.GetBaseException().Message}");
+                GameActionFaultLog.Reason("the charge hold could not be checked before letting it go.", ex, Feature));
         }
     }
 
@@ -278,17 +305,16 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         if (!TryReadLoadout(out var native, out var manager, out var loadout, out var reason))
             return AutoCastSubmission.ContractUnavailable(reason);
 
+        object spell;
         try
         {
             if (!TryResolveSlot(
-                    native, loadout, slotIndex, spellRecipeId, out var spell, out var identityReason,
+                    native, loadout, slotIndex, spellRecipeId, out spell, out var identityReason,
                     out var occupant))
             {
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SlotIdentityChanged, identityReason, occupant);
             }
-            if (_blockedSpells.TryGetValue(spellRecipeId, out var blocked))
-                return AutoCastSubmission.ContractUnavailable(blocked);
             if (!native.IsToggled(spell))
                 return AutoCastSubmission.Rejected(
                     AutoCastActionResultCodes.SpellNotToggleable,
@@ -305,9 +331,19 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                 return AutoCastSubmission.Skipped(
                     AutoCastActionResultCodes.SpellNotReady,
                     "the spell's visible cast button is not available right now");
+        }
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        {
+            return AutoCastSubmission.ContractUnavailable(
+                GameActionFaultLog.Reason("the toggle could not be checked before the press.", ex, Feature));
+        }
 
-            var nativeCalls = 0;
-            var evidence = NativeMutationVerifier.Execute(
+        var nativeCalls = 0;
+        NativeMutationEvidence<bool> evidence = default;
+        Exception? escaped = null;
+        try
+        {
+            evidence = NativeMutationVerifier.Execute(
                 "toggle spell off",
                 EntityIdentityFormatter.Format(spellRecipeId),
                 "Spell.IsCasting true to false",
@@ -320,16 +356,15 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
                         native.FireSpellIndex(manager, slotIndex);
                     }
                 },
-                (before, after) => before && !after,
-                attempted => _blockedSpells[spellRecipeId] =
-                    "native toggle-off blocked until the next lifecycle: " + attempted.Format());
-            return AutoCastSubmission.Attempted(evidence, nativeCalls);
+                static (before, after) => before && !after);
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        catch (Exception ex) when (nativeCalls > 0 && !ExceptionDetail.IsProcessFatal(ex))
         {
-            return AutoCastSubmission.ContractUnavailable(
-                "toggle-off submission failed: " + ex.GetBaseException().Message);
+            escaped = ex;
         }
+        return AutoCastSubmission.Attempted(
+            evidence, escaped, nativeCalls, spellRecipeId, " to turn it off",
+            static (_, _) => "and it kept running", string.Empty, stuckHold: null);
     }
 
     public bool? IsRitualRunning()
@@ -345,46 +380,53 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         }
     }
 
-    public void Dispose() => InvalidateLifecycle();
-
     /// <summary>
-    /// Drops every quarantine: a spell blocked because its mutation could not be verified deserves
-    /// another chance in a run of the game where the contract may hold again.
-    /// </summary>
-    public void InvalidateLifecycle() => _blockedSpells.Clear();
-
-    /// <summary>
-    /// Submits the cast and resolves whatever target requests it opens, verified as an exact one-fire
-    /// delta on the hook every cast in the game passes through.
+    /// Submits the cast and resolves whatever target requests it opens, verified on the hook every
+    /// cast in the game passes through: its epoch rose and no target prompt was left open.
     /// </summary>
     /// <remarks>
-    /// The postcondition is the <c>Spell.Fire</c> patch's own epoch advancing by exactly one with no
-    /// target prompt left open. Two is as wrong as none: it would mean the submission cast twice, and
-    /// a cast that spent twice what was planned is precisely what verification exists to catch.
+    /// A charge hold taken for the press is let go on every path that did not commit, as the legacy
+    /// engine did: a hold left down for a cast that never landed has nothing holding it.
     /// </remarks>
-    private AutoCastSubmission Submit(
+    private static AutoCastSubmission Submit(
         AutoCastNativeBindings native,
         object manager,
         int slotIndex,
-        Guid spellRecipeId)
+        Guid spellRecipeId,
+        object? heldSpell)
     {
         var nativeCalls = 0;
         var failure = string.Empty;
-        var evidence = NativeMutationVerifier.Execute(
-            "Auto Cast fire",
-            EntityIdentityFormatter.Format(spellRecipeId),
-            "Spell.Fire hook epoch exact delta +1 and no target prompt left open",
-            () => AutoCastManualSignal.FireEpoch,
-            () =>
-            {
-                if (!FireAndResolveTargets(native, manager, slotIndex, ref nativeCalls, out failure))
-                    throw new InvalidOperationException(failure);
-            },
-            (before, after) => after == before + 1 && !native.IsTargeting(),
-            attempted => _blockedSpells[spellRecipeId] =
-                $"native cast blocked until the next lifecycle: {attempted.Format()}");
+        NativeMutationEvidence<(long Epoch, bool Targeting)> evidence = default;
+        Exception? escaped = null;
+        try
+        {
+            evidence = NativeMutationVerifier.Execute<(long Epoch, bool Targeting)>(
+                "Auto Cast fire",
+                EntityIdentityFormatter.Format(spellRecipeId),
+                "Spell.Fire hook epoch rose and no target prompt left open",
+                () => (AutoCastManualSignal.FireEpoch, native.IsTargeting()),
+                () =>
+                {
+                    if (!FireAndResolveTargets(native, manager, slotIndex, ref nativeCalls, out failure))
+                        throw new InvalidOperationException(failure);
+                },
+                static (before, after) => after.Epoch > before.Epoch && !after.Targeting);
+        }
+        catch (Exception ex) when (nativeCalls > 0 && !ExceptionDetail.IsProcessFatal(ex))
+        {
+            escaped = ex;
+        }
 
-        return AutoCastSubmission.Attempted(evidence, nativeCalls);
+        var stuckHold = heldSpell is not null && (escaped is not null || !evidence.IsVerified)
+            ? TrySetChargeHold(native, heldSpell, false)
+            : null;
+        return AutoCastSubmission.Attempted(
+            evidence, escaped, nativeCalls, spellRecipeId, string.Empty,
+            static (before, after) => after.Epoch > before.Epoch
+                ? "and a target prompt was left open"
+                : "and no cast started",
+            failure, stuckHold);
     }
 
     private static bool FireAndResolveTargets(
@@ -417,7 +459,7 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
             if (target is null)
             {
-                reason = "native target selector returned no valid target";
+                reason = "the game's target selector offered no target";
                 return false;
             }
 
@@ -427,7 +469,8 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
 
         if (native.IsTargeting())
         {
-            reason = "target request limit exceeded";
+            reason = "the cast still asked for a target after " +
+                MaximumTargetRounds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " were given";
             return false;
         }
 
@@ -435,22 +478,17 @@ internal sealed class AutoCastNativeAdapter : IAutoCastNativePort, IDisposable
         return true;
     }
 
-    private static bool TrySetChargeHold(
-        AutoCastNativeBindings native,
-        object spell,
-        bool holding,
-        out string reason)
+    /// <summary>Sets the charge input, answering what the game threw when it could not.</summary>
+    private static Exception? TrySetChargeHold(AutoCastNativeBindings native, object spell, bool holding)
     {
         try
         {
             native.SetChargeInput(spell, ChargeInputSource, holding);
-            reason = string.Empty;
-            return true;
+            return null;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            reason = ex.GetBaseException().Message;
-            return false;
+            return ex;
         }
     }
 

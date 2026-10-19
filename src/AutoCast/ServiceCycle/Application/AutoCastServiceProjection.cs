@@ -6,16 +6,17 @@ namespace OrbAutomata;
 /// Projects the worker's per-cycle decision cardinality onto the neutral journal surface.
 /// </summary>
 /// <remarks>
-/// Auto Cast's ordinary output is one cast or none, so a bare "0 planned" says nothing. The eight
+/// Auto Cast's ordinary output is one cast or none, so a bare "0 planned" says nothing. The nine
 /// exclusion counters plus the eligible count attribute every equipped slot to a term, and the
 /// captured count minus their sum is always the eligible count — a term that starts silently
-/// swallowing slots cannot hide in a total.
+/// swallowing slots cannot hide in a total. How many actions a cycle planned is the semantic trace's
+/// own emitted-action count, so it does not ride here; the projection holds sixteen entries.
 /// </remarks>
 internal static class AutoCastServiceProjection
 {
     internal const int CapturedSlotsKey = 10;
     internal const int EligibleSlotsKey = 11;
-    internal const int PlannedActionsKey = 12;
+    // Key 12 is retired; never reuse it.
     internal const int HoldingChargeKey = 13;
     internal const int ChannelBlockedKey = 14;
     internal const int ExcludedEmptyKey = 15;
@@ -28,6 +29,7 @@ internal static class AutoCastServiceProjection
     internal const int ExcludedOutsideRitualKey = 22;
     internal const int ExcludedRitualChannelKey = 23;
     internal const int HeldSpellKey = 24;
+    internal const int ExcludedBackingOffKey = 26;
 
     public static void Write(
         in AutoCastCycleState state,
@@ -36,7 +38,6 @@ internal static class AutoCastServiceProjection
         var decision = state.Decision;
         output.Add(Key(CapturedSlotsKey), Integer(decision.CapturedSlots));
         output.Add(Key(EligibleSlotsKey), Integer(decision.EligibleSlots));
-        output.Add(Key(PlannedActionsKey), Integer(decision.PlannedActions));
         output.Add(Key(HoldingChargeKey), Integer(decision.HoldingCharge ? 1 : 0));
         output.Add(Key(ChannelBlockedKey), Integer(decision.ChannelBlocked ? 1 : 0));
 
@@ -51,6 +52,7 @@ internal static class AutoCastServiceProjection
         output.Add(Key(ExcludedOutsideRitualKey), Integer(exclusions.OutsideRitual));
         output.Add(Key(ExcludedRitualChannelKey), Integer(exclusions.RitualChannel));
         ServiceProjectionGuid.Write(output, HeldSpellKey, decision.HeldSpellId);
+        output.Add(Key(ExcludedBackingOffKey), Integer(exclusions.BackingOff));
     }
 
     private static ServiceProjectionKey Key(int value) => new(value);

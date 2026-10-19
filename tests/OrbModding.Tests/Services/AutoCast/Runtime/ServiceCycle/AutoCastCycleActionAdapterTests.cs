@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -14,6 +15,7 @@ namespace OrbModding.Tests.Services.AutoCast.Runtime.ServiceCycle;
 /// the caster is free, whether the slot still holds the spell that was planned — is decided here, so
 /// this is where those rules are pinned.
 /// </summary>
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoCastCycleActionAdapterTests : IDisposable
 {
     private const long PlannedEpoch = 7;
@@ -23,10 +25,14 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
     public AutoCastCycleActionAdapterTests() => ResetNativeState();
 
-    public void Dispose() => ResetNativeState();
+    public void Dispose()
+    {
+        GameActionFaultLog.ConfigureLog(null);
+        ResetNativeState();
+    }
 
     [Fact]
-    public void ACastCommitsAsAnExactOneFireDelta()
+    public void ACastCommitsWhenTheFireHookRises()
     {
         var spell = Equip(Ember);
 
@@ -270,8 +276,10 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AHoldThatCouldNotBeLetGoAfterAFailedCastIsNamedInTheFault()
+    public void AHoldThatCouldNotBeLetGoAfterAFailedCastIsNamedInTheFaultAndItsExceptionLogged()
     {
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
         var spell = Equip(Ember);
         spell.EmitFireSignal = false;
         spell.ChargeReleaseFailure = new InvalidOperationException("injected charge release failure");
@@ -281,9 +289,11 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
         Assert.True(spell.HoldingCharge);
         Assert.Contains(
-            "the charge hold taken for it could not be let go: injected charge release failure",
+            "and no cast started. The charge hold taken for it could not be let go.",
             result.Reason,
             StringComparison.Ordinal);
+        Assert.DoesNotContain("injected", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("injected charge release failure", Assert.Single(log), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -418,7 +428,7 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void ToggleOffFaultsAndBlocksWhenTheNativeFireRouteLeavesTheToggleActive()
+    public void ToggleOffFaultsWhenTheNativeFireRouteLeavesTheToggleActiveAndTheNextPressIsMade()
     {
         var spell = Equip(Ember);
         spell.ToggledSpell = true;
@@ -427,15 +437,52 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
         var natives = new AutoCastNativeAdapter();
 
         var first = Execute(ToggleOff(0, Ember), natives: natives);
-        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
-        Assert.Equal(1, spell.FireCalls);
-        Assert.True(spell.NativeCasting);
-
         spell.SuppressToggleOff = false;
         var second = Execute(ToggleOff(0, Ember), natives: natives);
-        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
-        Assert.Equal(1, spell.FireCalls);
-        Assert.True(spell.NativeCasting);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(
+            $"Auto Cast pressed {EntityIdentityFormatter.PlayerName(Ember)} to turn it off, and it kept running.",
+            first.Reason);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
+        Assert.Equal(2, spell.FireCalls);
+        Assert.False(spell.NativeCasting);
+    }
+
+    [Fact]
+    public void AToggleOffFaultDoesNotHoldBackACastOfTheSameSpell()
+    {
+        var spell = Equip(Ember);
+        spell.ToggledSpell = true;
+        spell.NativeCasting = true;
+        spell.SuppressToggleOff = true;
+        var natives = new AutoCastNativeAdapter();
+
+        var turnOff = Execute(ToggleOff(0, Ember), natives: natives);
+        spell.ToggledSpell = false;
+        spell.NativeCasting = false;
+        var cast = Execute(Fire(0, Ember), natives: natives);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, turnOff.Disposition);
+        Assert.Equal(ServiceActionDisposition.Committed, cast.Disposition);
+        Assert.Equal(1, spell.NumCasts);
+    }
+
+    [Fact]
+    public void ACastFaultDoesNotHoldBackTurningTheSameSpellOff()
+    {
+        var spell = Equip(Ember);
+        spell.EmitFireSignal = false;
+        var natives = new AutoCastNativeAdapter();
+
+        var cast = Execute(Fire(0, Ember), natives: natives);
+        spell.ToggledSpell = true;
+        spell.NativeCasting = true;
+        var turnOff = Execute(ToggleOff(0, Ember), natives: natives);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, cast.Disposition);
+        Assert.Equal(ServiceActionDisposition.Committed, turnOff.Disposition);
+        Assert.False(spell.NativeCasting);
     }
 
     [Fact]
@@ -464,45 +511,72 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(
+            $"Auto Cast pressed {EntityIdentityFormatter.PlayerName(Ember)}, and the game's target selector offered no target.",
+            result.Reason);
+    }
+
+    /// <summary>
+    /// The prompt a failed cast left open is the first thing the next press asks about, so a retry
+    /// never submits a cast into it.
+    /// </summary>
+    [Fact]
+    public void TheNextPressAfterACastLeftItsPromptOpenRefusesUntilThePromptCloses()
+    {
+        var spell = Equip(Ember);
+        spell.RequestsOnFire = 1;
+        global::TargetingManager.AvailableTarget = null;
+        var natives = new AutoCastNativeAdapter();
+
+        Execute(Fire(0, Ember), natives: natives);
+        var whileOpen = Execute(Fire(0, Ember), natives: natives);
+        global::TargetingManager.Reset();
+        spell.RequestsOnFire = 0;
+        var afterClose = Execute(Fire(0, Ember), natives: natives);
+
+        Assert.Equal(AutoCastActionResultCodes.TargetingInProgress, whileOpen.Code);
+        Assert.Equal(ServiceActionDisposition.Committed, afterClose.Disposition);
+        Assert.Equal(2, spell.FireCalls);
     }
 
     [Fact]
-    public void AMutationThatDoesNotMoveTheFireHookFaultsAndBlocksThatSpellUntilTheNextLifecycle()
+    public void ACastThatDoesNotMoveTheFireHookFaultsAndTheNextPressIsMade()
     {
-        // The audited postcondition. A native call that does not deliver means the suite no longer
-        // understands the contract, so it faults and refuses to call again rather than firing on
-        // every cycle forever.
         var spell = Equip(Ember);
         spell.EmitFireSignal = false;
         var natives = new AutoCastNativeAdapter();
 
         var first = Execute(Fire(0, Ember), natives: natives);
-        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
-        Assert.Equal(1, spell.FireCalls);
-
         spell.EmitFireSignal = true;
         var second = Execute(Fire(0, Ember), natives: natives);
-        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
-        Assert.Equal(1, spell.FireCalls);
 
-        // A lifecycle boundary is the one thing that clears it, which is the whole retained-state rule.
-        natives.InvalidateLifecycle();
-        var third = Execute(Fire(0, Ember), natives: natives);
-        Assert.Equal(ServiceActionDisposition.Committed, third.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(
+            $"Auto Cast pressed {EntityIdentityFormatter.PlayerName(Ember)}, and no cast started.",
+            first.Reason);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
         Assert.Equal(2, spell.FireCalls);
     }
 
     [Fact]
-    public void ABlockedSpellDoesNotBlockTheRestOfTheLoadout()
+    public void AnUnexpectedThrowAfterAPressThatStartedNoCastFaultsWithTheExceptionOnlyInTheLog()
     {
-        var ember = Equip(Ember);
-        var frost = Equip(Frost);
-        ember.EmitFireSignal = false;
-        var natives = new AutoCastNativeAdapter();
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        var spell = Equip(Ember);
+        spell.EmitFireSignal = false;
+        global::SpellManager.instance!.ThrowAfterFireSpellIndex =
+            new NullReferenceException("injected defect after the press");
 
-        Assert.Equal(ServiceActionDisposition.Faulted, Execute(Fire(0, Ember), natives: natives).Disposition);
-        Assert.Equal(ServiceActionDisposition.Committed, Execute(Fire(1, Frost), natives: natives).Disposition);
-        Assert.Equal(1, frost.FireCalls);
+        var result = Execute(Fire(0, Ember));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.StartsWith(
+            $"Auto Cast pressed {EntityIdentityFormatter.PlayerName(Ember)}, and nothing was confirmed after the game threw.",
+            result.Reason,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("injected", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("System.NullReferenceException: injected defect after the press", Assert.Single(log));
     }
 
     [Fact]

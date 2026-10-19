@@ -2760,6 +2760,7 @@ public class SpellManager
     public bool SuppressRemoval { get; set; }
     public bool ThrowBeforeRemoval { get; set; }
     public bool ThrowAfterRemoval { get; set; }
+    public Exception? ThrowAfterFireSpellIndex { get; set; }
     public int RemoveCalls { get; private set; }
 
     /// <summary>How often the native gate refused a removal the caller asked for anyway.</summary>
@@ -2865,6 +2866,7 @@ public class SpellManager
             null,
             Type.EmptyTypes,
             null)?.Invoke(spell, Array.Empty<object>());
+        if (ThrowAfterFireSpellIndex is { } failure) throw failure;
     }
 
     public void TryLevelAllSpells()

@@ -1,4 +1,5 @@
 using System;
+using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -17,11 +18,19 @@ namespace OrbAutomata;
 /// rather than latched, because it is the one blocking term that expires without anybody doing
 /// anything, and a line that only updated when something happened would keep claiming a pause that
 /// ran out while the player stood still.
+/// <para>
+/// A spell backing off on the service's retry gate is narrated here and keeps the feature Degraded,
+/// naming the spell, what the service was doing with it and why, until its episode ends.
+/// </para>
 /// </remarks>
 internal sealed class AutoCastServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly AutoCastManualPauseState _manualPause;
+    private readonly ServiceRetryEpisodeNarrator _retries = new(
+        AutoCastNativeAdapter.Feature,
+        static message => Plugin.Log?.LogAutomataWarning(message),
+        AutoCastServicePolicies.Describe);
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -56,9 +65,13 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
         _manualPaused = paused;
-        if (report.ResponsesAcquired != 0 &&
-            TryReadLatestHold(pump, out var heldFor, out var heldSpellId))
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoCastServicePolicies.ServiceId)
+            : null;
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        if (report.ResponsesAcquired != 0 && service is { } available)
         {
+            ReadLatestHold(in available, out var heldFor, out var heldSpellId);
             conditionsChanged = conditionsChanged || !_cycleObserved ||
                 _heldFor != heldFor || _heldSpellId != heldSpellId;
             _cycleObserved = true;
@@ -91,6 +104,7 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         // not a fact about this one, and the worker has not evaluated against the new world yet.
         _manualPause.Reset();
         _manualPaused = false;
+        _retries.InvalidateLifecycle();
         _cycleObserved = false;
         _heldFor = AutoCastExclusion.None;
         _heldSpellId = Guid.Empty;
@@ -105,7 +119,8 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
             _manualPaused,
             _cycleObserved,
             _heldFor,
-            _heldSpellId);
+            _heldSpellId,
+            _retries.TryGetBackingOff(out var retry) ? retry : null);
         _featureStatus.ObserveRuntimeLifecycle(
             health.State,
             health.Reason,
@@ -114,18 +129,18 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
             _configurationGeneration);
     }
 
-    private static bool TryReadLatestHold(SuiteFramePump pump, out AutoCastExclusion heldFor, out Guid heldSpellId)
+    private static void ReadLatestHold(
+        in ServiceCycleServiceDiagnosticsSnapshot service,
+        out AutoCastExclusion heldFor,
+        out Guid heldSpellId)
     {
         heldFor = AutoCastExclusion.None;
         heldSpellId = Guid.Empty;
-        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoCastServicePolicies.ServiceId) is not { } service)
-            return false;
-        if (!service.LatestProjection.IsPresent) return true;
+        if (!service.LatestProjection.IsPresent) return;
         var projection = service.LatestProjection.Snapshot;
         heldSpellId = ServiceProjectionGuid.Read(in projection, AutoCastServiceProjection.HeldSpellKey);
         heldFor = AutoCastDecisionMetrics.HeldReason(
             heldSpellId, ReadInteger(in projection, AutoCastServiceProjection.ExcludedOutsideRitualKey));
-        return true;
     }
 
     private static long ReadInteger(in ServiceStateProjectionSnapshot projection, int key)

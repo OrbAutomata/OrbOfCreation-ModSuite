@@ -649,7 +649,8 @@ public sealed class AutoCastCycleEvaluatorTests
         var store = new ReusableActionStore<AutoCastCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoCastCycleAction>(store);
-        wake = AutoCastCycleEvaluator.Evaluate(world, in config, ref state, writer, out metrics);
+        wake = AutoCastCycleEvaluator.Evaluate(
+            world, in config, ref state, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<AutoCastCycleAction>(store.Count);
         while (!store.IsComplete)
