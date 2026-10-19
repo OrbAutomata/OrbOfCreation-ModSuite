@@ -36,12 +36,11 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
 
-        var prefix = runner.TryExecuteOne(clock.Now);
-        var terminal = runner.TryExecuteOne(clock.Now);
+        var prefix = runner.TryExecuteOneNonBlocking(clock.Now);
+        var terminal = runner.TryExecuteOneNonBlocking(clock.Now);
 
         Assert.False(prefix.BatchTerminal);
         Assert.True(terminal.BatchTerminal);
@@ -70,16 +69,16 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(ServiceRunnerTestWait.DecideStart(runner, clock.Now).Queued);
         Assert.Equal(1100, runner.Snapshot.NextWakeDue.Ticks);
         definition.StartDecision =
             ServiceStartDecision.Ready(CommonServiceDecisionCodes.Ready);
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(clock.Now).Queued);
         Assert.Equal(1, definition.StartCount);
 
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
 
-        var awakened = runner.TryStartCycle(clock.Now);
+        var awakened = ServiceRunnerTestWait.StartCycle(runner, clock.Now);
 
         Assert.True(awakened.Queued);
         Assert.Equal(2, definition.StartCount);
@@ -105,16 +104,16 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        var first = runner.TryStartCycle(clock.Now);
+        var first = ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(first.Queued);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
         release.Set();
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.Equal(1100, runner.Snapshot.NextWakeDue.Ticks);
 
-        var awakened = runner.TryStartCycle(clock.Now);
+        var awakened = ServiceRunnerTestWait.StartCycle(runner, clock.Now);
 
         Assert.True(awakened.Queued);
         Assert.Equal(1UL, first.Cycle.Config.Value);
@@ -136,12 +135,12 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(ServiceRunnerTestWait.DecideStart(runner, clock.Now).Queued);
         Assert.Equal(110, runner.Snapshot.NextWakeDue.Ticks);
 
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
 
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(clock.Now).Queued);
         Assert.Equal(1, definition.StartCount);
         Assert.Equal(110, runner.Snapshot.NextWakeDue.Ticks);
     }
@@ -171,25 +170,28 @@ public sealed class ServiceWakeConfigurationTests
         Assert.True(runner.Snapshot.WorkerIsBackground);
         Assert.Equal("Orb.ServiceCycle.test.execution.handoff.lifecycle-1", runner.WorkerName);
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         Assert.Equal(ServiceHandoffPhase.Evaluating, runner.ProbeHandoff().Phase);
 
-        Assert.False(HeldGate.AssertReturnsWhileHeld(runner.TryAcquireResponse, release.Set));
+        Assert.False(HeldGate.AssertReturnsWhileHeld(
+            () => runner.TryAcquireResponseNonBlocking(clock.Now).Acquired,
+            release.Set));
         registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
         release.Set();
 
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        Assert.Equal(ServiceHandoffPhase.MainOwnedBatch, runner.Snapshot.Handoff.Phase);
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.Equal(ServiceHandoffPhase.Empty, runner.Snapshot.Handoff.Phase);
         Assert.Equal(1, definition.LastEvaluatedSetting);
         Assert.Equal(3UL, runner.Snapshot.Projection.LatestConfiguration.Value);
         Assert.Equal(1L, runner.Snapshot.Projection.Snapshot.GetEntry(0).Value.Integer);
 
         definition.EvaluationRelease = null;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.Equal(2, definition.LastEvaluatedSetting);
         Assert.Equal(2L, runner.Snapshot.Projection.Snapshot.GetEntry(0).Value.Integer);
     }
@@ -217,11 +219,11 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
         clock.AdvanceTo(new MonotonicTimestamp(120));
-        Assert.True(runner.TryAcquireResponse());
-        if (!zeroActions) Assert.True(runner.TryExecuteOne(clock.Now).BatchTerminal);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        if (!zeroActions) Assert.True(runner.TryExecuteOneNonBlocking(clock.Now).BatchTerminal);
         Assert.Equal(expectedDue, runner.Snapshot.NextWakeDue.Ticks);
     }
 
@@ -241,12 +243,11 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         var attemptedAt = clock.Now;
 
-        var dispatch = runner.TryExecuteOne(attemptedAt);
+        var dispatch = runner.TryExecuteOneNonBlocking(attemptedAt);
 
         Assert.True(dispatch.BatchTerminal);
         Assert.Equal(attemptedAt, definition.LastActionAttemptedAt);
@@ -270,7 +271,7 @@ public sealed class ServiceWakeConfigurationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        var attempt = runner.TryStartCycle(clock.Now);
+        var attempt = ServiceRunnerTestWait.DecideStart(runner, clock.Now);
         var snapshot = runner.Snapshot;
 
         Assert.False(attempt.Queued);
@@ -295,12 +296,11 @@ public sealed class ServiceWakeConfigurationTests
             definition,
             new LifecycleGeneration(1));
         var runner = registration.Runner;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         var attemptedAt = clock.Now;
 
-        var dispatch = runner.TryExecuteOne(attemptedAt);
+        var dispatch = runner.TryExecuteOneNonBlocking(attemptedAt);
         var snapshot = runner.Snapshot;
 
         Assert.True(dispatch.BatchTerminal);
@@ -328,7 +328,7 @@ public sealed class ServiceWakeConfigurationTests
             definition,
             new LifecycleGeneration(1));
 
-        var attempt = registration.Runner.TryStartCycle(clock.Now);
+        var attempt = ServiceRunnerTestWait.DecideStart(registration.Runner, clock.Now);
 
         Assert.False(attempt.Queued);
         Assert.False(attempt.CaptureAttempted);
@@ -349,7 +349,7 @@ public sealed class ServiceWakeConfigurationTests
         };
         using var registration = registry.RegisterSource(definition, new LifecycleGeneration(1));
 
-        var attempt = registration.Runner.TryStartCycle(clock.Now);
+        var attempt = ServiceRunnerTestWait.DecideStart(registration.Runner, clock.Now);
 
         Assert.False(attempt.Queued);
         Assert.True(attempt.CaptureAttempted);

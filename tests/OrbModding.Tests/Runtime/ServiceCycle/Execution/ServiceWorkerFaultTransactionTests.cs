@@ -36,7 +36,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         if (projectionFault) definition.FailNextProjections(1);
         else definition.FailNextEvaluations(1);
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(actionsAppended.Wait(ServiceCycleTestDeadline.Value));
         var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
             "_resourceClaims",
@@ -45,20 +45,20 @@ public sealed class ServiceWorkerFaultTransactionTests
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
         actionsRelease.Set();
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var contended = runner.Snapshot;
         Assert.False(contended.Fault.IsValid);
         Assert.Equal(1, contended.WorkerStateConstructionContentionCount);
         Assert.Equal(1, definition.StateCreateCount);
         Assert.Equal(1, definition.StateReleaseCount);
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(clock.Now).Queued);
 
         ledger.EndFactory(blocker);
         clock.AdvanceTo(contended.NextWakeDue);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var preserved = runner.Snapshot;
         Assert.True(preserved.Fault.IsValid);
         Assert.Equal(
@@ -101,7 +101,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         if (projectionFault) definition.FailNextProjections(1);
         else definition.FailNextEvaluations(1);
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(actionsAppended.Wait(ServiceCycleTestDeadline.Value));
         var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
             "_resourceClaims",
@@ -111,8 +111,8 @@ public sealed class ServiceWorkerFaultTransactionTests
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
         definition.FailNextStateFactories(1);
         actionsRelease.Set();
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var contended = runner.Snapshot;
         Assert.False(contended.Fault.IsValid);
         Assert.Equal(1, contended.WorkerStateConstructionContentionCount);
@@ -120,9 +120,9 @@ public sealed class ServiceWorkerFaultTransactionTests
 
         ledger.EndFactory(blocker);
         clock.AdvanceTo(contended.NextWakeDue);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var stateFactoryFault = runner.Snapshot;
         Assert.Equal(ServiceFaultCategory.StateFactory, stateFactoryFault.Fault.Category);
         Assert.Equal(1, stateFactoryFault.Fault.OccurrenceCount);
@@ -157,7 +157,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(appended.Wait(ServiceCycleTestDeadline.Value));
         var whileWorkerOwns = runner.Snapshot;
         Assert.Equal(ServiceHandoffPhase.Evaluating, whileWorkerOwns.Handoff.Phase);
@@ -165,8 +165,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         Assert.Equal(0, whileWorkerOwns.ActionCapacity);
 
         release.Set();
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.Equal(500, runner.Snapshot.ActionCount);
         Assert.True(runner.Snapshot.ActionCapacity >= 500);
     }
@@ -191,9 +190,9 @@ public sealed class ServiceWorkerFaultTransactionTests
         definition.PartialActionCountBeforeFault = 20;
         if (projectionFault) definition.FailNextProjections(1);
         else definition.FailNextEvaluations(1);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var faulted = runner.Snapshot;
         Assert.True(faulted.Fault.IsValid);
         Assert.Equal(
@@ -205,7 +204,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         Assert.True(definition.StateCreateCount >= 2);
 
         var evaluationCount = definition.EvaluationCount;
-        Assert.False(runner.TryStartCycle(new MonotonicTimestamp(faulted.NextWakeDue.Ticks - 1)).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(new MonotonicTimestamp(faulted.NextWakeDue.Ticks - 1)).Queued);
         Assert.Equal(evaluationCount, definition.EvaluationCount);
         clock.AdvanceTo(faulted.NextWakeDue);
         ServiceRunnerTestWait.RunZeroActionCycle(runner, clock);
@@ -225,9 +224,8 @@ public sealed class ServiceWorkerFaultTransactionTests
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         var snapshot = runner.Snapshot;
         Assert.Equal(0, snapshot.ActionCount);
         Assert.Equal(0, snapshot.ActionCursor);
@@ -250,10 +248,10 @@ public sealed class ServiceWorkerFaultTransactionTests
         using var registration = registry.Register(definition, new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        Assert.True(runner.TryExecuteOne(clock.Now).BatchTerminal);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        Assert.True(runner.TryExecuteOneNonBlocking(clock.Now).BatchTerminal);
+        ServiceRunnerTestWait.ForHandback(runner);
         ServiceRunnerTestWait.ForCleanup(runner);
         var first = runner.Snapshot;
         Assert.Equal(ServiceFaultCategory.ActionExecution, first.Fault.Category);
@@ -263,7 +261,7 @@ public sealed class ServiceWorkerFaultTransactionTests
         var sleepScanAllocations = AllocationProbe.MeasureRepeated(
             10_000,
             () => unexpectedlyQueued |=
-                runner.TryStartCycle(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued);
+                runner.TryStartCycleNonBlocking(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued);
 
         Assert.False(unexpectedlyQueued);
         Assert.Equal(0, sleepScanAllocations);
@@ -271,10 +269,9 @@ public sealed class ServiceWorkerFaultTransactionTests
         Assert.Equal(1, definition.ActionExecutionCount);
 
         clock.AdvanceTo(first.NextWakeDue);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        Assert.True(runner.TryExecuteOne(clock.Now).BatchTerminal);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        Assert.True(runner.TryExecuteOneNonBlocking(clock.Now).BatchTerminal);
         var second = runner.Snapshot;
         Assert.Equal(2, second.Fault.OccurrenceCount);
         Assert.True(second.NextWakeDue > first.NextWakeDue);
@@ -293,26 +290,26 @@ public sealed class ServiceWorkerFaultTransactionTests
         var runner = registration.Runner;
 
         definition.FailNextStateFactories(2);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var first = runner.Snapshot;
         Assert.Equal(ServiceFaultCategory.StateFactory, first.Fault.Category);
         var createsAfterFirst = definition.StateCreateCount;
 
         for (var index = 0; index < 100; index++)
-            Assert.False(runner.TryStartCycle(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued);
+            Assert.False(runner.TryStartCycleNonBlocking(new MonotonicTimestamp(first.NextWakeDue.Ticks - 1)).Queued);
         Assert.Equal(createsAfterFirst, definition.StateCreateCount);
 
         clock.AdvanceTo(first.NextWakeDue);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var second = runner.Snapshot;
         Assert.Equal(ServiceFaultCategory.StateFactory, second.Fault.Category);
         Assert.True(second.NextWakeDue > first.NextWakeDue);
         var createsAfterSecond = definition.StateCreateCount;
-        Assert.False(runner.TryStartCycle(new MonotonicTimestamp(second.NextWakeDue.Ticks - 1)).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(new MonotonicTimestamp(second.NextWakeDue.Ticks - 1)).Queued);
         Assert.Equal(createsAfterSecond, definition.StateCreateCount);
 
         clock.AdvanceTo(second.NextWakeDue);

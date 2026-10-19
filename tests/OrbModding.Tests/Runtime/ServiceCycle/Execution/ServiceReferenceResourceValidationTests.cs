@@ -61,11 +61,9 @@ public sealed class ServiceReferenceResourceValidationTests
         var retryDue = default(MonotonicTimestamp);
         for (var attempt = 1; attempt <= 4; attempt++)
         {
-            Assert.True(runner.TryStartCycle(clock.Now).Queued);
-            Assert.True(SpinWait.SpinUntil(
-                () => runner.Snapshot.Handoff.Phase == ServiceHandoffPhase.ResponseReady,
-                ServiceCycleTestDeadline.Value));
-            Assert.True(runner.TryAcquireResponse());
+            ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+            ServiceRunnerTestWait.AcquireResponse(runner, clock);
+            ServiceRunnerTestWait.ForHandback(runner);
             var faulted = runner.Snapshot;
             retryDue = faulted.NextWakeDue;
 
@@ -78,11 +76,8 @@ public sealed class ServiceReferenceResourceValidationTests
 
         definition.ReturnNullState = false;
         clock.AdvanceTo(retryDue);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.Snapshot.Handoff.Phase == ServiceHandoffPhase.ResponseReady,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
 
         Assert.False(runner.Snapshot.Fault.IsValid);
         Assert.Equal(5, definition.StateCreateCount);
@@ -99,11 +94,8 @@ public sealed class ServiceReferenceResourceValidationTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.Snapshot.Handoff.Phase == ServiceHandoffPhase.ResponseReady,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
 
         var projection = runner.Snapshot.Projection.Snapshot;
         Assert.Equal(1, projection.Count);

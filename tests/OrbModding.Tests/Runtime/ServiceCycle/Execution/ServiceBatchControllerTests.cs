@@ -30,18 +30,18 @@ public sealed class ServiceBatchControllerTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.Equal(actionCount, runner.Snapshot.PreviousReceipt.IsPresent ? 0 : runner.Snapshot.ActionCount);
 
         for (var index = 0; index < actionCount; index++)
         {
-            var dispatch = runner.TryExecuteOne(clock.Now);
+            var dispatch = runner.TryExecuteOneNonBlocking(clock.Now);
             Assert.True(dispatch.Attempted);
             Assert.Equal(index == actionCount - 1, dispatch.BatchTerminal);
         }
 
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.Equal(ServiceHandoffPhase.Empty, runner.Snapshot.Handoff.Phase);
         Assert.Equal(actionCount, runner.Snapshot.PreviousReceipt.ActionCount);
         Assert.Equal(actionCount, runner.Snapshot.PreviousReceipt.CommittedCount);
@@ -49,9 +49,8 @@ public sealed class ServiceBatchControllerTests
         Assert.Equal(3, definition.LastEvaluatedSetting);
         if (actionCount != 0) Assert.Equal(3, definition.LastExecutedSetting);
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.Equal(2L, runner.Snapshot.Projection.Snapshot.GetEntry(0).Value.Integer);
     }
 
@@ -71,17 +70,18 @@ public sealed class ServiceBatchControllerTests
             new LifecycleGeneration(1));
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.Equal(100_000, runner.Snapshot.ActionCount);
         Assert.True(runner.Snapshot.ActionCapacity >= 100_000);
         Assert.True(runner.Snapshot.ActionGrowthAllocations > 0);
 
-        var dispatch = runner.TryExecuteOne(clock.Now);
+        var dispatch = runner.TryExecuteOneNonBlocking(clock.Now);
         Assert.True(dispatch.BatchTerminal);
         Assert.Equal(BatchTerminalDisposition.Rejected, dispatch.Receipt.Disposition);
         Assert.Equal(99_999, dispatch.Receipt.UntouchedSuffixCount);
+        Assert.Equal(0, runner.Snapshot.Handoff.CleanupRequestCount);
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.Equal(1, runner.Snapshot.Handoff.CleanupRequestCount);
 
         ServiceRunnerTestWait.ForCleanup(runner);

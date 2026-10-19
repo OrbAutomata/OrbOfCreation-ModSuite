@@ -40,7 +40,7 @@ public sealed class ServiceCycleEvaluationInputTests
             definition, new LifecycleGeneration(1));
         registry.WorldPublication.Publish(WorldOfThreeStructures(), new WorldGeneration(2));
 
-        RunOneCycle(registration.Runner, clock);
+        ServiceRunnerTestWait.RunZeroActionCycle(registration.Runner, clock);
 
         Assert.Equal(3, definition.LastEvaluatedStructures);
         Assert.False(definition.LastEvaluatedWorldWasTheEmptyDefault);
@@ -62,7 +62,7 @@ public sealed class ServiceCycleEvaluationInputTests
         using var registration = registry.Register(
             definition, new LifecycleGeneration(1));
 
-        RunOneCycle(registration.Runner, clock);
+        ServiceRunnerTestWait.RunZeroActionCycle(registration.Runner, clock);
 
         Assert.True(definition.LastEvaluatedWorldWasTheEmptyDefault);
     }
@@ -88,7 +88,7 @@ public sealed class ServiceCycleEvaluationInputTests
         definition.CaptureCallback = () =>
             registry.WorldPublication.Publish(WorldOfThreeStructures(), new WorldGeneration(2));
 
-        RunOneSourceCycle(registration.Runner, clock);
+        ServiceRunnerTestWait.RunZeroActionCycle(registration.Runner, clock);
 
         Assert.Equal(0, definition.LastCapturedWorldStructures);
         Assert.Equal(new WorldGeneration(1), definition.LastEvaluatedWorld);
@@ -142,13 +142,15 @@ public sealed class ServiceCycleEvaluationInputTests
         using var registration = registry.Register(
             definition, new LifecycleGeneration(1));
 
-        var seeded = RunOneCycle(registration.Runner, clock);
+        ServiceRunnerTestWait.RunZeroActionCycle(registration.Runner, clock);
+        var seeded = registration.Runner.Snapshot;
 
         Assert.Equal(new WorldGeneration(1), seeded.ActiveCycle.World);
         Assert.True(definition.LastEvaluatedWorldWasTheEmptyDefault);
 
         registry.WorldPublication.Publish(WorldOfThreeStructures(), new WorldGeneration(4));
-        var collected = RunOneCycle(registration.Runner, clock);
+        ServiceRunnerTestWait.RunZeroActionCycle(registration.Runner, clock);
+        var collected = registration.Runner.Snapshot;
 
         Assert.Equal(new WorldGeneration(4), collected.ActiveCycle.World);
         Assert.Equal(3, definition.LastEvaluatedStructures);
@@ -164,24 +166,4 @@ public sealed class ServiceCycleEvaluationInputTests
                 WorldStructureDeriver.Shared.Derive(WorldSamples.Structure(Guid.NewGuid())),
             }),
     };
-
-    private static ServiceRunnerSnapshot RunOneCycle(
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ThreadSafeTestClock clock)
-    {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        return runner.Snapshot;
-    }
-
-    private static ServiceRunnerSnapshot RunOneSourceCycle(
-        ServiceRunner<SourceState, SourceAction> runner,
-        ThreadSafeTestClock clock)
-    {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        return runner.Snapshot;
-    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -219,13 +220,13 @@ internal static class ServiceRunnerTestWait
         }
     }
 
-    internal static void RunZeroActionCycle(
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
+    internal static void RunZeroActionCycle<TState, TAction>(
+        ServiceRunner<TState, TAction> runner,
         ThreadSafeTestClock clock)
     {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        StartCycle(runner, clock.Now);
+        AcquireResponse(runner, clock);
+        ForHandback(runner);
     }
 
     internal static void RunAndDrain(
@@ -233,20 +234,88 @@ internal static class ServiceRunnerTestWait
         ThreadSafeTestClock clock,
         int count)
     {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        StartCycle(runner, clock.Now);
+        AcquireResponse(runner, clock);
+        var dispatch = default(ServiceActionDispatch);
         for (var index = 0; index < count; index++)
-            Assert.True(runner.TryExecuteOne(clock.Now).Attempted);
+        {
+            dispatch = runner.TryExecuteOneNonBlocking(clock.Now);
+            Assert.True(dispatch.Attempted);
+        }
+        if (dispatch.BatchTerminal) ForHandback(runner);
     }
 
     internal static void RunRejectedBatch(
         ServiceRunner<ExecutionState, ExecutionAction> runner,
         ThreadSafeTestClock clock)
     {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        Assert.True(runner.TryExecuteOne(clock.Now).BatchTerminal);
+        StartCycle(runner, clock.Now);
+        AcquireResponse(runner, clock);
+        Assert.True(runner.TryExecuteOneNonBlocking(clock.Now).BatchTerminal);
+        ForHandback(runner);
+    }
+
+    /// <summary>
+    /// Queues a cycle the way the pump does, asking again whenever the zero-timeout handoff probe
+    /// came back empty because the worker was holding its gate.
+    /// </summary>
+    /// <remarks>
+    /// A probe that loses the gate after the start decision ran stashes the request, and the next
+    /// probe publishes that stash without deciding again, so the start callback still runs once.
+    /// </remarks>
+    internal static ServiceCycleStartAttempt StartCycle<TState, TAction>(
+        ServiceRunner<TState, TAction> runner,
+        MonotonicTimestamp now)
+    {
+        var attempt = default(ServiceCycleStartAttempt);
+        if (!SpinWait.SpinUntil(
+                () => (attempt = runner.TryStartCycleNonBlocking(now)).Queued,
+                ServiceCycleTestDeadline.Value))
+        {
+            throw new TimeoutException("The runner never queued a cycle.");
+        }
+        return attempt;
+    }
+
+    /// <summary>
+    /// Asks the runner to start and returns the first attempt that reached the service's own start
+    /// decision, for a test about what that decision or its capture did.
+    /// </summary>
+    /// <remarks>
+    /// The handoff probe runs before the decision and a lost probe returns before it, so reading a
+    /// single attempt would assert that the worker was not holding its gate at that instant.
+    /// </remarks>
+    internal static ServiceCycleStartAttempt DecideStart<TState, TAction>(
+        ServiceRunner<TState, TAction> runner,
+        MonotonicTimestamp now)
+    {
+        var attempt = default(ServiceCycleStartAttempt);
+        if (!SpinWait.SpinUntil(
+                () =>
+                {
+                    attempt = runner.TryStartCycleNonBlocking(now);
+                    return attempt.Queued || attempt.StartInvocation.IsPresent;
+                },
+                ServiceCycleTestDeadline.Value))
+        {
+            throw new TimeoutException("The runner never reached the service's start decision.");
+        }
+        return attempt;
+    }
+
+    /// <summary>
+    /// Hands main ownership back after a terminal, which the pump does on a later frame rather than
+    /// inside the call that ended the batch.
+    /// </summary>
+    internal static void ForHandback<TState, TAction>(
+        ServiceRunner<TState, TAction> runner)
+    {
+        if (!SpinWait.SpinUntil(
+                runner.TryAdvancePendingMainOwnership,
+                ServiceCycleTestDeadline.Value))
+        {
+            throw new TimeoutException(
+                $"The runner never handed main ownership back; current phase {runner.HandoffPhaseHint}.");
+        }
     }
 }

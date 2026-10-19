@@ -189,11 +189,9 @@ public sealed class ServiceCycleRegistryTests
         // Worker state is minted on the first cycle, so a registration that never ran has no state
         // whose release could fault — and nothing for this to be about.
         var runner = registration.Runner;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
 
         registration.Dispose();
         Assert.True(SpinWait.SpinUntil(

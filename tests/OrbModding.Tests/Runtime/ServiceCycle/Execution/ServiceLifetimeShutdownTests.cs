@@ -29,7 +29,7 @@ public sealed class ServiceLifetimeShutdownTests
             definition,
             new LifecycleGeneration(1));
         var runner = registration.Runner;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
 
         HeldGate.AssertReturnsWhileHeld(registration.Dispose, release.Set);
@@ -59,7 +59,7 @@ public sealed class ServiceLifetimeShutdownTests
         var registration = RegisterPinningConfiguration(registry, definition, out var reference);
         var runner = registration.Runner;
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         registration.Dispose();
         release.Set();
