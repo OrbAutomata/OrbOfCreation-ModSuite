@@ -6,17 +6,17 @@ namespace OrbAutomata;
 /// Projects the worker's per-cycle decision cardinality onto the neutral journal surface.
 /// </summary>
 /// <remarks>
-/// Auto Cast's ordinary output is one cast or none, so a bare "0 planned" says nothing. The nine
-/// exclusion counters plus the eligible count attribute every equipped slot to a term, and the
-/// captured count minus their sum is always the eligible count — a term that starts silently
-/// swallowing slots cannot hide in a total. How many actions a cycle planned is the semantic trace's
-/// own emitted-action count, so it does not ride here; the projection holds sixteen entries.
+/// Auto Cast's ordinary output is one cast or none, so a bare "0 planned" says nothing. The eight
+/// exclusion counters plus the eligible count attribute every captured slot to a term, and the
+/// captured count minus the exclusions is always the eligible count — a term that starts silently
+/// swallowing slots cannot hide in a total. Key 20 counted the eligible slots that lost the turn,
+/// which is always one fewer than the eligible count; it is retired and never reused.
 /// </remarks>
 internal static class AutoCastServiceProjection
 {
     internal const int CapturedSlotsKey = 10;
     internal const int EligibleSlotsKey = 11;
-    // Key 12 is retired; never reuse it.
+    internal const int PlannedActionsKey = 12;
     internal const int HoldingChargeKey = 13;
     internal const int ChannelBlockedKey = 14;
     internal const int ExcludedEmptyKey = 15;
@@ -24,7 +24,6 @@ internal static class AutoCastServiceProjection
     internal const int ExcludedNotReadyKey = 17;
     internal const int ExcludedReserveFloorKey = 18;
     internal const int ExcludedBelowStartThresholdKey = 19;
-    internal const int ExcludedOutrankedKey = 20;
     internal const int LoadoutOpenKey = 21;
     internal const int ExcludedOutsideRitualKey = 22;
     internal const int ExcludedRitualChannelKey = 23;
@@ -38,6 +37,7 @@ internal static class AutoCastServiceProjection
         var decision = state.Decision;
         output.Add(Key(CapturedSlotsKey), Integer(decision.CapturedSlots));
         output.Add(Key(EligibleSlotsKey), Integer(decision.EligibleSlots));
+        output.Add(Key(PlannedActionsKey), Integer(decision.PlannedActions));
         output.Add(Key(HoldingChargeKey), Integer(decision.HoldingCharge ? 1 : 0));
         output.Add(Key(ChannelBlockedKey), Integer(decision.ChannelBlocked ? 1 : 0));
 
@@ -47,7 +47,6 @@ internal static class AutoCastServiceProjection
         output.Add(Key(ExcludedNotReadyKey), Integer(exclusions.NotReady));
         output.Add(Key(ExcludedReserveFloorKey), Integer(exclusions.ReserveFloor));
         output.Add(Key(ExcludedBelowStartThresholdKey), Integer(exclusions.BelowStartThreshold));
-        output.Add(Key(ExcludedOutrankedKey), Integer(exclusions.Outranked));
         output.Add(Key(LoadoutOpenKey), Integer(decision.LoadoutOpen ? 1 : 0));
         output.Add(Key(ExcludedOutsideRitualKey), Integer(exclusions.OutsideRitual));
         output.Add(Key(ExcludedRitualChannelKey), Integer(exclusions.RitualChannel));

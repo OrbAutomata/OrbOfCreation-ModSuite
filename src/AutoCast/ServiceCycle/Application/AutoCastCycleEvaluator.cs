@@ -167,14 +167,13 @@ internal static class AutoCastCycleEvaluator
 
             eligible++;
 
-            // First fit wins the turn; the rest are counted as outranked so every slot is
-            // accounted for, and the scan continues rather than breaking so the histogram is whole.
+            // First fit wins the turn, and the scan continues rather than breaking so the histogram
+            // is whole.
             if (chosen < 0) chosen = index;
         }
 
         var histogram = new AutoCastExclusionHistogram(
             empty, busy, notReady, reserveFloor, belowThreshold,
-            outranked: eligible == 0 ? 0 : eligible - 1,
             outsideRitual,
             ritualChannel,
             backingOff);

@@ -116,9 +116,6 @@ internal enum AutoCastExclusion
     /// <summary>A resource it touches sits below the configured start threshold.</summary>
     BelowStartThreshold = 5,
 
-    /// <summary>Eligible, but another eligible slot had this cycle's turn.</summary>
-    Outranked = 6,
-
     /// <summary>An attack spell while no ritual battle runs, so its combat effects would fizzle.</summary>
     OutsideRitual = 7,
 
@@ -142,7 +139,6 @@ internal readonly struct AutoCastExclusionHistogram
         int notReady,
         int reserveFloor,
         int belowStartThreshold,
-        int outranked,
         int outsideRitual = 0,
         int ritualChannel = 0,
         int backingOff = 0)
@@ -152,7 +148,6 @@ internal readonly struct AutoCastExclusionHistogram
         NotReady = notReady;
         ReserveFloor = reserveFloor;
         BelowStartThreshold = belowStartThreshold;
-        Outranked = outranked;
         OutsideRitual = outsideRitual;
         RitualChannel = ritualChannel;
         BackingOff = backingOff;
@@ -163,14 +158,13 @@ internal readonly struct AutoCastExclusionHistogram
     public int NotReady { get; }
     public int ReserveFloor { get; }
     public int BelowStartThreshold { get; }
-    public int Outranked { get; }
     public int OutsideRitual { get; }
     public int RitualChannel { get; }
     public int BackingOff { get; }
 
     public int Total =>
-        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + Outranked +
-        OutsideRitual + RitualChannel + BackingOff;
+        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + OutsideRitual +
+        RitualChannel + BackingOff;
 
     public int For(AutoCastExclusion exclusion) => exclusion switch
     {
@@ -179,7 +173,6 @@ internal readonly struct AutoCastExclusionHistogram
         AutoCastExclusion.NotReady => NotReady,
         AutoCastExclusion.ReserveFloor => ReserveFloor,
         AutoCastExclusion.BelowStartThreshold => BelowStartThreshold,
-        AutoCastExclusion.Outranked => Outranked,
         AutoCastExclusion.OutsideRitual => OutsideRitual,
         AutoCastExclusion.RitualChannel => RitualChannel,
         AutoCastExclusion.BackingOff => BackingOff,
