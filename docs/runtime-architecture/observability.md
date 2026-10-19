@@ -277,12 +277,12 @@ commit and oldest-first eviction. Retained full segments occupy 67,091,360 bytes
 transition occupies 67,101,720 bytes, below 67,108,864. Partial checkpoint segments only reduce that
 total.
 
-**Format.** Journal schema 3 uses one fixed 80-byte numeric record. Each `OSJD` segment has an 80-byte
+**Format.** Journal schema 4 uses one fixed 80-byte numeric record. Each `OSJD` segment has an 80-byte
 envelope, at most 128 records, and a 40-byte `OSJF` footer with exact run/ordinal/sequence fences and an
 IEEE CRC32 — a separate format and sink from `OSCS`. Decision records retain service ordinal,
 lifecycle, cycle/time range, repeat count, one decision outcome, and failure occurrence range. Action
-records spend their fixed key space on exact target/routing attribution and one postcondition-backed
-outcome. Wake policy, projections, requested/committed/published counts, and native-call/mutation
+records spend their fixed key space on exact target/routing attribution, including the candidate's
+action kind, and one postcondition-backed outcome. Wake policy, projections, requested/committed/published counts, and native-call/mutation
 ledgers are not computed for this artifact; deeper timing and accounting remain in the explicitly
 armed semantic trace.
 

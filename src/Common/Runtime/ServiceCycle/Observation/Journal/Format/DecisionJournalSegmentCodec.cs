@@ -8,10 +8,10 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Format;
 internal static class DecisionJournalSegmentCodec
 {
     /// <summary>
-    /// v3 replaces the fixed accounting record with compact attributed action outcomes. Older
-    /// stores cannot be continued and are loudly counted by reconciliation before recording starts.
+    /// v4 attributes each action outcome to the candidate's action kind as well. Older stores
+    /// cannot be continued and are loudly counted by reconciliation before recording starts.
     /// </summary>
-    internal const ushort SchemaVersion = 3;
+    internal const ushort SchemaVersion = 4;
     internal const int HeaderBytes = 80;
     internal const int FooterBytes = 40;
     internal const int MaximumRecords = 128;

@@ -4,22 +4,24 @@ using OrbModding.Common.Runtime;
 namespace OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 /// <summary>
-/// The exact native target one retry episode belongs to: the UUID and native type its actions are
-/// attributed to in the decision journal.
+/// The exact native target one retry episode belongs to: the UUID, native type and action kind its
+/// actions are attributed to in the decision journal.
 /// </summary>
 public readonly struct ServiceRetryTarget : IEquatable<ServiceRetryTarget>
 {
-    public ServiceRetryTarget(Guid id, ServiceActionNativeTypeId nativeType)
+    public ServiceRetryTarget(Guid id, ServiceActionNativeTypeId nativeType, byte actionKind = 0)
     {
         if (id == Guid.Empty) throw new ArgumentException("A retry target needs its stable UUID.", nameof(id));
         if (nativeType is <= ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.EquipmentSO)
             throw new ArgumentOutOfRangeException(nameof(nativeType));
         Id = id;
         NativeType = nativeType;
+        ActionKind = actionKind;
     }
 
     public Guid Id { get; }
     public ServiceActionNativeTypeId NativeType { get; }
+    public byte ActionKind { get; }
 
     public static bool TryFrom(in ServiceActionJournalAttribution attribution, out ServiceRetryTarget target)
     {
@@ -28,13 +30,14 @@ public readonly struct ServiceRetryTarget : IEquatable<ServiceRetryTarget>
             target = default;
             return false;
         }
-        target = new ServiceRetryTarget(attribution.CandidateId, attribution.NativeType);
+        target = new ServiceRetryTarget(attribution.CandidateId, attribution.NativeType, attribution.ActionKind);
         return true;
     }
 
-    public bool Equals(ServiceRetryTarget other) => Id == other.Id && NativeType == other.NativeType;
+    public bool Equals(ServiceRetryTarget other) =>
+        Id == other.Id && NativeType == other.NativeType && ActionKind == other.ActionKind;
     public override bool Equals(object? obj) => obj is ServiceRetryTarget other && Equals(other);
-    public override int GetHashCode() => Id.GetHashCode() * 31 + (int)NativeType;
+    public override int GetHashCode() => (Id.GetHashCode() * 31 + (int)NativeType) * 31 + ActionKind;
     public static bool operator ==(ServiceRetryTarget left, ServiceRetryTarget right) => left.Equals(right);
     public static bool operator !=(ServiceRetryTarget left, ServiceRetryTarget right) => !left.Equals(right);
 }

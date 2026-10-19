@@ -84,7 +84,7 @@ public sealed class DecisionJournalRecordTests
     }
 
     [Fact]
-    public void SchemaThreeNativeTypeRosterIsAppendOnlyAndPinned()
+    public void TheNativeTypeRosterIsAppendOnlyAndPinned()
     {
         Assert.Equal(9, Enum.GetValues(typeof(ServiceActionNativeTypeId)).Length);
         Assert.Equal(0, (ushort)ServiceActionNativeTypeId.NotApplicable);

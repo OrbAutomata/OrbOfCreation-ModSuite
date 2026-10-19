@@ -95,6 +95,7 @@ internal static class DecisionJournalRecordCodec
         WriteU32(bytes, 4, record.ActionOutcome.Value);
         WriteU16(bytes, 8, Service(record.Service));
         WriteU16(bytes, 10, record.ActionOrdinal);
+        bytes[12] = record.Attribution.ActionKind;
         WriteU64(bytes, 16, record.FirstCycle);
         WriteI64(bytes, 24, record.FirstTimestampTicks);
         record.Attribution.CandidateId.TryWriteBytes(bytes.Slice(32, 16));
@@ -104,13 +105,14 @@ internal static class DecisionJournalRecordCodec
 
     private static DecisionJournalRecord ReadAction(ReadOnlySpan<byte> bytes)
     {
-        if (!IsZero(bytes.Slice(12, 4))) throw Invalid();
+        if (!IsZero(bytes.Slice(13, 3))) throw Invalid();
         var attribution = new ServiceActionJournalAttribution(
             new Guid(bytes.Slice(32, 16)),
             (ServiceActionNativeTypeId)ReadU16(bytes, 2),
             new Guid(bytes.Slice(48, 16)),
             new Guid(bytes.Slice(64, 16)),
-            (ServiceActionRouteStatus)bytes[1]);
+            (ServiceActionRouteStatus)bytes[1],
+            bytes[12]);
         return DecisionJournalRecord.ReadAction(
             TraceService(ReadU16(bytes, 8)),
             ReadU64(bytes, 16),

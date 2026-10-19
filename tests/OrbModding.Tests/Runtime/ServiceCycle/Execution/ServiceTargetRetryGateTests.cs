@@ -40,6 +40,23 @@ public sealed class ServiceTargetRetryGateTests
     }
 
     [Fact]
+    public void TwoActionKindsOnOneEntityBackOffApartAndACommitEndsOnlyItsOwn()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var cast = new ServiceRetryTarget(First.Id, First.NativeType, actionKind: 0);
+        var turnOff = new ServiceRetryTarget(First.Id, First.NativeType, actionKind: 2);
+
+        gate.Record(cast, Code, "no cast started", new MonotonicTimestamp(100));
+        gate.Record(cast, Code, "no cast started", new MonotonicTimestamp(100));
+        gate.Record(turnOff, Code, "kept running", new MonotonicTimestamp(100));
+        gate.ClearOnCommit(turnOff);
+
+        Assert.True(gate.Snapshot.TryFind(cast, out var castEntry));
+        Assert.Equal(2, castEntry.ConsecutiveFailures);
+        Assert.False(gate.Snapshot.TryFind(turnOff, out _));
+    }
+
+    [Fact]
     public void ACallerCapHoldsTheDoublingBelowThePolicyCap()
     {
         var gate = new ServiceTargetRetryGate(Policy);

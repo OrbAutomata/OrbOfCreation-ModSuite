@@ -29,7 +29,7 @@ internal static class DecisionJournalReport
         writer.WriteLine("# ServiceCycle decision-journal report");
         writer.WriteLine();
         writer.WriteLine("- Scope: Validated retained durable window");
-        writer.WriteLine("- Format: OSJD wire schema 3");
+        writer.WriteLine("- Format: OSJD wire schema 4");
         writer.WriteLine("- Artifact: `journal`");
         writer.WriteLine($"- Segments: {Number(window.SegmentCount)}");
         writer.WriteLine($"- Retained records: {Number(window.RecordCount)}");
@@ -106,7 +106,7 @@ internal static class DecisionJournalReport
         writer.WriteLine("## Numeric run/service view");
         writer.WriteLine();
         writer.WriteLine(
-            "OSJD schema 3 carries numeric service identities plus exact per-action candidate, native-type, list, view, route-status, disposition, and result-code sentinels. This report does not infer feature names.");
+            "OSJD schema 4 carries numeric service identities plus exact per-action candidate, native-type, action-kind, list, view, route-status, disposition, and result-code sentinels. This report does not infer feature names.");
         writer.WriteLine();
         if (analysis.ServiceCount == 0)
         {

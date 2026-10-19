@@ -209,14 +209,14 @@ public sealed class DecisionJournalSegmentConsumerTests
     }
 
     /// <summary>
-    /// A schema-2 accounting store is abandoned before schema 3 starts fresh.
+    /// A schema-3 store without action kinds is abandoned before schema 4 starts fresh.
     /// </summary>
     /// <remarks>
     /// Backwards is the direction that actually happens: a schema bump meets stores already on disk.
-    /// Schema 3 deliberately has no migration or dual reader, and the discarded count remains loud.
+    /// The journal deliberately has no migration or dual reader, and the discarded count remains loud.
     /// </remarks>
     [Fact]
-    public void ASchemaTwoStoreIsAbandonedBeforeSchemaThreeStarts()
+    public void ASchemaThreeStoreIsAbandonedBeforeSchemaFourStarts()
     {
         using var directory = new DecisionJournalTestDirectory();
         var path = directory.WriteSegment(
@@ -225,8 +225,8 @@ public sealed class DecisionJournalSegmentConsumerTests
             1,
             DecisionJournalRecord.Decision(CreateObservation(1, 10)));
         var bytes = File.ReadAllBytes(path);
-        bytes[4] = 2;
-        bytes[8] = 2;
+        bytes[4] = 3;
+        bytes[8] = 3;
         File.WriteAllBytes(path, bytes);
 
         var consumer = Consume(directory, run: 37, out var written);
