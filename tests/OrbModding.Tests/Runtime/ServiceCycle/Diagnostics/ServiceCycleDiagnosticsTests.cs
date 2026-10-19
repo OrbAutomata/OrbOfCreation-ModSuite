@@ -94,7 +94,8 @@ public sealed class ServiceCycleDiagnosticsTests
 
         try
         {
-            Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
+            var frame = TestWorldCollector.ActivationFrame + 1;
+            ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
             Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
             registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
 
@@ -189,10 +190,9 @@ public sealed class ServiceCycleDiagnosticsTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(registration.Runner.TryAcquireResponse());
-        Assert.True(registration.Runner.TryExecuteOne(clock.Now).Attempted);
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        Assert.Equal(1, pump.PumpFrame(frame).ActionsAttempted);
         clock.Advance(new MonotonicDuration(5));
 
         var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];

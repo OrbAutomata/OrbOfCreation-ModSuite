@@ -52,13 +52,17 @@ public sealed class AutoScribeServiceCycleRuntimeTests
             () => registration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty,
             clock);
 
-        for (var publication = 1000UL; publication <= 1002UL; publication++)
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            registry.WorldPublication.Publish(World(profile, epoch: 7), new WorldGeneration(publication));
+            TestWorldCollector.CollectedAt(registry, frame, World(profile, epoch: 7));
             clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(11)));
-            var attempt = registration.Runner.TryStartCycle(clock.Now);
+            var asked = clock.Now;
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump,
+                ref frame,
+                () => registration.Runner.Snapshot.LastStartDecision.ObservedAt == asked);
 
-            Assert.False(attempt.Queued);
+            Assert.Equal(ServiceHandoffPhase.Empty, registration.Runner.HandoffPhaseHint);
             Assert.False(registration.Runner.Snapshot.LastStartDecision.Decision.ShouldStart);
             Assert.Equal(
                 AutoScribeServiceDecisionCodes.Quarantined,

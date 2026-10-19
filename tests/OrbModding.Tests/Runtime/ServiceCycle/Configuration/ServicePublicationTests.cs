@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using RuntimeLifecycleGeneration = OrbModding.Common.Runtime.LifecycleGeneration;
@@ -133,15 +134,18 @@ public sealed class ServicePublicationTests
             definition,
             new RuntimeLifecycleGeneration(1));
         registry.StrategyPublication.Publish(TestSuiteStrategy.WithSetting(5));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
         var runner = registration.Runner;
+        var frame = TestWorldCollector.ActivationFrame + 1;
 
-        var attempt = runner.TryStartCycle(clock.Now);
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, runner, ref frame);
+        var cycle = runner.Snapshot.InFlightCycle;
+        ServiceRunnerTestWait.PumpToResponse(pump, runner, ref frame);
 
-        Assert.True(attempt.Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
         Assert.Equal(5, definition.LastEvaluatedStrategySetting);
-        Assert.Equal(2UL, attempt.Cycle.Strategy.Value);
+        Assert.Equal(2UL, cycle.Strategy.Value);
     }
 
     [Fact]
