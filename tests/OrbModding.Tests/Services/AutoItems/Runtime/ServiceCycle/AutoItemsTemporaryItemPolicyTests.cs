@@ -345,11 +345,11 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         Assert.True(
             Elapsed(calls[1], calls[2]) >= TimeSpan.FromMilliseconds(500),
             $"The second retry came {Elapsed(calls[1], calls[2])} after the second use.");
-        Assert.Equal(3, warnings.Count);
+        Assert.Equal(2, warnings.Count);
         Assert.Contains("after 1 failed attempt", warnings[0]);
         Assert.Contains("disappeared before it engaged", warnings[0]);
-        Assert.Contains("after 2 failed attempts in a row", warnings[1]);
-        Assert.Contains("stops backing off", warnings[2]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.EndsWith("after 2 failed attempts in a row.", warnings[1]);
         Assert.All(warnings, line => Assert.Contains(itemId.ToString("D"), line));
         Assert.Equal(FeatureStatusState.Operational, status.Current.State);
     }
@@ -429,7 +429,9 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         Assert.Equal(3, fruit.SelectAndFireTimestamps.Count);
         Assert.Contains(itemId.ToString("D"), warnings[0]);
         Assert.Contains("backs off", warnings[0]);
-        Assert.Contains("after 2 failed attempts in a row", warnings[1]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.EndsWith("after 2 failed attempts in a row.", warnings[1]);
+        Assert.Equal(2, warnings.Count);
         Assert.Equal(FeatureStatusState.Degraded, backingOffStatus.State);
         Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, backingOffStatus.Reason.Code);
         Assert.Contains(itemId.ToString("D"), backingOffStatus.Reason.Summary);

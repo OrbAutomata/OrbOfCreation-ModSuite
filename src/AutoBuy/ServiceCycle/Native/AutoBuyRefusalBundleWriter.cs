@@ -6,7 +6,7 @@ using System.Text;
 namespace OrbAutomata;
 
 /// <summary>
-/// Where a refusal bundle is put. Separated from the responder so recoverable and stand-down policy
+/// Where a refusal bundle is put. Separated from the responder so retry and invariant policy
 /// can be tested without a filesystem, and so a failure to write one is a value the responder handles
 /// rather than an exception thrown into the action path.
 /// </summary>
@@ -20,7 +20,7 @@ internal interface IAutoBuyRefusalBundlePort
 }
 
 /// <summary>
-/// Writes structural-refusal bundles to a stable directory under the suite's trace root and keeps
+/// Writes invariant-refusal bundles to a stable directory under the suite's trace root and keeps
 /// the newest evidence within fixed count and byte budgets.
 /// </summary>
 /// <remarks>
@@ -30,7 +30,7 @@ internal interface IAutoBuyRefusalBundlePort
 /// they were told about has to be the folder it is still in after a restart.
 /// </para>
 /// <para>
-/// Nothing here throws. The bundle exists so a person can find out why the suite stopped buying; a
+/// Nothing here throws. The bundle exists so a person can find out why Auto Buy held off; a
 /// writer that could fault the action path would turn a diagnosis into a second fault.
 /// </para>
 /// </remarks>

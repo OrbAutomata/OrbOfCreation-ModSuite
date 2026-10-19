@@ -209,8 +209,9 @@ on the result to the wire and the feature's health surface.
 - `Faulted` — an unexpected adapter, contract, or mutation failure occurred; terminate the batch and
   publish fault evidence.
 
-There is no `Deferred` outcome, and a batch is never retried; a faulted action's target backs off
-through [the per-target retry gate](#per-target-retry-gate). A skip emits one `ActionSkipped` fact and
+There is no `Deferred` outcome, and a batch is never retried; a faulted action's target, or a skipped
+or rejected one whose result asks for it, backs off through
+[the per-target retry gate](#per-target-retry-gate). A skip emits one `ActionSkipped` fact and
 continues. The first rejection or fault preserves the processed prefix and discards the untouched
 suffix without executing it; one `BatchAborted` fact records the terminal index and suffix count rather
 than one event per untouched action. A later cycle may replan only after a world collected strictly
@@ -316,29 +317,40 @@ off without logging until the service recovers. A process-fatal exception is nev
 
 Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
 journal: stable UUID plus native type. A target in the gate waits and is tried again on a later world;
-the gate itself never latches. Auto Items is the service that plans from the gate and narrates it;
-every other service keeps the fault handling its own page describes.
+the gate itself never latches. Auto Items and Auto Buy plan from the gate and narrate it; every other
+service keeps the fault handling its own page describes.
 
-The gate is fed from two places:
+The gate is fed from three places:
 
 - a `Faulted` action records its target with the result's code and reason;
+- a `Skipped` or `Rejected` result marked with `ServiceActionResult.BackingOffTarget` records its
+  target the same way, so a refusal the service can tell apart from an ordinary one retries instead of
+  waiting for a new world only;
 - an evaluator that sees, in a later world, that an already committed action did not do what it should
   reports it through `ServiceActionWriter.ReportFailure`.
 
 Each failure in a row doubles the wait from the service's fault-recovery initial backoff up to its
-maximum backoff. A reporter may name a cap of its own instead; `ReportFailure` refuses one shorter than
-the initial backoff. A committed action of that target ends an episode its own fault started; an
-episode the evaluator reported ends only on `ServiceActionWriter.EndRetry`, which the evaluator sends
-when it sees the target work again or stops considering it at all. The gate lives in the runner, so a
+maximum backoff. A reporter may name a cap of its own instead, on the mark or on `ReportFailure`; one
+shorter than the initial backoff is refused there and faults the action here. A mark may also ask for a
+quiet first failure: the entry stays quiet while every failure in a row comes from the world the first
+was planned from, and turns loud on the first failure planned from a fresher one.
+
+A committed action of that target ends an episode its own fault or marked refusal started; an episode
+the evaluator reported ends only on `ServiceActionWriter.EndRetry`. The evaluator sends `EndRetry`
+when it sees the target work again or stops considering it at all, and it ends any episode, whatever
+started it. The gate lives in the runner, so a
 new lifecycle starts with none.
 
 A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is
 due. The wake a finished batch or a successful evaluation schedules never outlasts the next target
 that comes due, so the service wakes when a backed-off target may try again; a service-wide fault
 backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
-diagnostics snapshot carries the gate. A narrating feature logs one warning per failure, with the
-attempt count and the wait, and one when the episode ends, and degrades its status with the latest
-reason while any target waits.
+diagnostics snapshot carries the gate. A narrating feature logs one warning when an episode is
+announced, with the attempt count, the wait and the reason, and one when it ends; failures in between
+stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason only
+while an announced target is still backing off. Once that target's retry is due, the status no longer
+names it, even though its entry stays until a commit or `EndRetry` ends it: a target that is due may
+be held by something else, such as its price, and that wait is not a retry.
 
 ## Common frame pump
 

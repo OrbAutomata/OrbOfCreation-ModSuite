@@ -18,7 +18,9 @@ internal sealed class AutoBuyFeatureDependencies
         Func<AutoBuyCandidateKinds> ownershipMask,
         RuntimeDiagnosticsRegistry? runtimeDiagnostics,
         AutomataFeatureStatusReporter featureStatus,
-        IAutoBuyRefusalResponsePort refusalResponse
+        IAutoBuyRefusalBundlePort refusalBundles,
+        Action<string> reportInvariant,
+        Action<string> warn
 #if SERVICE_CYCLE_PROFILE
         , Func<AutoBuyCandidateKind, bool>? gameMcpOwnership = null
 #endif
@@ -28,7 +30,9 @@ internal sealed class AutoBuyFeatureDependencies
         OwnershipMask = ownershipMask ?? throw new ArgumentNullException(nameof(ownershipMask));
         RuntimeDiagnostics = runtimeDiagnostics;
         FeatureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
-        RefusalResponse = refusalResponse ?? throw new ArgumentNullException(nameof(refusalResponse));
+        RefusalBundles = refusalBundles ?? throw new ArgumentNullException(nameof(refusalBundles));
+        ReportInvariant = reportInvariant ?? throw new ArgumentNullException(nameof(reportInvariant));
+        Warn = warn ?? throw new ArgumentNullException(nameof(warn));
 #if SERVICE_CYCLE_PROFILE
         GameMcpOwnership = gameMcpOwnership ?? (_ => false);
 #endif
@@ -39,7 +43,13 @@ internal sealed class AutoBuyFeatureDependencies
 
     public RuntimeDiagnosticsRegistry? RuntimeDiagnostics { get; }
     public AutomataFeatureStatusReporter FeatureStatus { get; }
-    public IAutoBuyRefusalResponsePort RefusalResponse { get; }
+    public IAutoBuyRefusalBundlePort RefusalBundles { get; }
+
+    /// <summary>Where the refusal the suite's model says cannot happen is said, at error.</summary>
+    public Action<string> ReportInvariant { get; }
+
+    /// <summary>Where the feature's warnings are said: retry episodes and purchase-view blocks.</summary>
+    public Action<string> Warn { get; }
 #if SERVICE_CYCLE_PROFILE
     internal Func<AutoBuyCandidateKind, bool> GameMcpOwnership { get; }
 #endif

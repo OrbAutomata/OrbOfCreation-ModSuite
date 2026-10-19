@@ -28,7 +28,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             cycleObserved: true,
             AutoItemsDecisionKind.Scroll,
             health,
-            ServiceRetryGateSnapshot.Empty);
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.State);
         Assert.Equal(FeatureStatusReasonCode.TemporarySafetyBlock, status.Reason);
@@ -62,7 +63,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             cycleObserved: true,
             AutoItemsDecisionKind.Relic,
             health,
-            gate.Snapshot);
+            gate.Snapshot,
+            new MonotonicTimestamp(10));
 
         Assert.False(health.HasFailure);
         Assert.Equal(FeatureStatusState.Degraded, status.State);
@@ -91,7 +93,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             cycleObserved: true,
             AutoItemsDecisionKind.Idle,
             new AutoItemsActionHealth(),
-            gate.Snapshot);
+            gate.Snapshot,
+            new MonotonicTimestamp(10));
 
         Assert.Equal(FeatureStatusState.Degraded, status.State);
         Assert.Equal(FeatureStatusReasonCode.ContractUnavailable, status.Reason);
@@ -115,7 +118,8 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             cycleObserved: true,
             AutoItemsDecisionKind.Scroll,
             health,
-            ServiceRetryGateSnapshot.Empty);
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.State);
         Assert.Equal(FeatureStatusReasonCode.TargetingInProgress, status.Reason);

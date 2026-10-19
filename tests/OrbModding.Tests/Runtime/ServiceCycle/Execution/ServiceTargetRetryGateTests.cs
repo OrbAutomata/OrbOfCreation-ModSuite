@@ -134,6 +134,198 @@ public sealed class ServiceTargetRetryGateTests
     }
 
     [Fact]
+    public void AQuietFirstFailureIsAnnouncedOnlyOnceAFresherWorldFailsItAgain()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var planned = new WorldGeneration(4);
+
+        var first = gate.Record(First, Code, "gone", default, quietFirstFailure: true, plannedFrom: planned);
+        var sameWorld = gate.Record(First, Code, "gone", default, quietFirstFailure: true, plannedFrom: planned);
+        var announced = gate.TryGetLatestAnnouncedOrDefault();
+        var fresher = gate.Record(First, Code, "gone", default, quietFirstFailure: true, plannedFrom: planned.Next());
+        var later = gate.Record(First, Code, "gone", default, quietFirstFailure: true, plannedFrom: planned.Next().Next());
+
+        Assert.True(first.IsQuiet);
+        Assert.True(sameWorld.IsQuiet);
+        Assert.Null(announced);
+        Assert.False(fresher.IsQuiet);
+        Assert.False(later.IsQuiet);
+        Assert.Equal(3, fresher.ConsecutiveFailures);
+        Assert.Equal(fresher.Target, gate.TryGetLatestAnnouncedOrDefault()?.Target);
+    }
+
+    [Fact]
+    public void TheNarratorAnnouncesEachEpisodeOnceWhenItStartsAndOnceWhenItEnds()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var warnings = new System.Collections.Generic.List<string>();
+        var narrator = new OrbModding.Common.ServiceRetryEpisodeNarrator("Feature", warnings.Add);
+
+        gate.Record(Second, Code, "first try gone", default, quietFirstFailure: true, plannedFrom: new WorldGeneration(1));
+        narrator.Observe(gate.Snapshot, default);
+        gate.Clear(Second);
+        narrator.Observe(gate.Snapshot, default);
+        for (var failures = 0; failures < 3; failures++)
+        {
+            gate.Record(First, Code, "no change", default);
+            narrator.Observe(gate.Snapshot, default);
+        }
+        gate.ClearOnCommit(First);
+        narrator.Observe(gate.Snapshot, default);
+
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("Feature backs off", warnings[0]);
+        Assert.Contains("after 1 failed attempt and tries again in", warnings[0]);
+        Assert.EndsWith(": no change", warnings[0]);
+        Assert.Contains("Feature stops backing off", warnings[1]);
+        Assert.EndsWith("after 3 failed attempts in a row.", warnings[1]);
+        Assert.DoesNotContain(warnings, line => line.Contains(Second.Id.ToString("D")));
+    }
+
+    [Fact]
+    public void AnAnnouncedTargetIsBackingOffOnlyUntilItsRetryIsDue()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var narrator = new OrbModding.Common.ServiceRetryEpisodeNarrator("Feature", static _ => { });
+        var entry = gate.Record(First, Code, "no change", new MonotonicTimestamp(100));
+
+        var recorded = narrator.Observe(gate.Snapshot, new MonotonicTimestamp(100));
+        var waiting = narrator.TryGetBackingOff(out _);
+        var stillWaiting = narrator.Observe(gate.Snapshot, new MonotonicTimestamp(109));
+        var due = narrator.Observe(gate.Snapshot, entry.RetryDue);
+
+        Assert.True(recorded);
+        Assert.True(waiting);
+        Assert.False(stillWaiting);
+        Assert.True(due);
+        Assert.False(narrator.TryGetBackingOff(out _));
+        Assert.True(gate.Snapshot.TryFind(First, out _));
+        Assert.Null(gate.TryGetLatestAnnouncedOrDefault(entry.RetryDue));
+    }
+
+    [Fact]
+    public void ARefusalThatBacksOffItsTargetRetriesItWhenDueUnderTheCapItCarries()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.refusal")
+        {
+            ActionCount = 1,
+            RejectAtIndex = 0,
+            RefusalsBackOff = true,
+            RefusalBackoffCap = new MonotonicDuration(20),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        var waits = new long[3];
+        for (var failures = 1; failures <= waits.Length; failures++)
+        {
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump, ref frame, () => Failures(registration) == failures, clock, registry);
+            waits[failures - 1] = registration.Runner.Snapshot.RetryGate.Latest.Backoff.Ticks;
+        }
+        var entry = registration.Runner.Snapshot.RetryGate.Latest;
+        service.RejectAtIndex = -1;
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump, ref frame, () => registration.Runner.Snapshot.RetryGate.Count == 0, clock, registry);
+
+        Assert.Equal(new long[] { 10, 20, 20 }, waits);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected, entry.Code);
+        Assert.Equal(CommonActionResultCodes.PolicyRejected.Name, entry.Reason);
+        Assert.False(entry.IsQuiet);
+    }
+
+    [Fact]
+    public void AMarkedRefusalDoublesPastThePolicyMaximumUpToTheCapItCarries()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.refusal.long")
+        {
+            ActionCount = 1,
+            RejectAtIndex = 0,
+            RefusalsBackOff = true,
+            RefusalBackoffCap = new MonotonicDuration(200),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        var waits = new long[7];
+        for (var failures = 1; failures <= waits.Length; failures++)
+        {
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump, ref frame, () => Failures(registration) == failures, clock, registry);
+            waits[failures - 1] = registration.Runner.Snapshot.RetryGate.Latest.Backoff.Ticks;
+        }
+
+        Assert.Equal(80, service.FaultRecoveryPolicy.MaximumBackoff.Ticks);
+        Assert.Equal(new long[] { 10, 20, 40, 80, 160, 200, 200 }, waits);
+    }
+
+    [Fact]
+    public void ASkipThatBacksOffItsTargetStillCompletesTheBatch()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.skip")
+        {
+            ActionCount = 1,
+            SkipWithoutNativeAtIndex = 0,
+            RefusalsBackOff = true,
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump, ref frame, () => Failures(registration) == 1, clock, registry);
+        var entry = registration.Runner.Snapshot.RetryGate.Latest;
+
+        Assert.Equal(CommonActionResultCodes.Skipped, entry.Code);
+        Assert.Equal(new MonotonicDuration(10), entry.Backoff);
+        Assert.Equal(BatchTerminalDisposition.Completed, registration.Runner.Snapshot.PreviousReceipt.Disposition);
+    }
+
+    [Fact]
+    public void ARefusalCappedBelowTheFirstWaitFaultsItsAction()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.cap")
+        {
+            ActionCount = 1,
+            RejectAtIndex = 0,
+            RefusalsBackOff = true,
+            RefusalBackoffCap = new MonotonicDuration(5),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump, ref frame, () => Failures(registration) == 1, clock, registry);
+        var entry = registration.Runner.Snapshot.RetryGate.Latest;
+
+        Assert.Equal(CommonActionResultCodes.AdapterFault, entry.Code);
+        Assert.Contains("below its initial fault backoff", entry.Reason);
+    }
+
+    [Fact]
     public void AFaultedActionBacksItsTargetOffWithDoublingUntilItCommits()
     {
         var clock = new ThreadSafeTestClock(1_000);
@@ -256,4 +448,12 @@ public sealed class ServiceTargetRetryGateTests
         var gate = registration.Runner.Snapshot.RetryGate;
         return gate.Count == 0 ? 0 : gate.Latest.ConsecutiveFailures;
     }
+}
+
+internal static class ServiceTargetRetryGateTestExtensions
+{
+    internal static ServiceRetryEntry? TryGetLatestAnnouncedOrDefault(
+        this ServiceTargetRetryGate gate,
+        MonotonicTimestamp now = default) =>
+        gate.Snapshot.TryGetLatestAnnounced(now, out var entry) ? entry : null;
 }

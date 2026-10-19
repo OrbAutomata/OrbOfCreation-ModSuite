@@ -45,11 +45,12 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         if (report.ResponsesAcquired == 0 && report.ActionsAttempted == 0)
         {
+            changed |= _retries.Observe(_retries.Current, pump.DiagnosticsNow);
             PublishIfChanged(changed);
             return;
         }
         var service = ReadService(pump);
-        changed |= service.HasValue && _retries.Observe(service.Value.RetryGate);
+        changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0 &&
             service.HasValue &&
             TryReadLatestDecision(
@@ -118,7 +119,8 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _cycleObserved,
             _decisionKind,
             _health,
-            _retries.Current);
+            _retries.Current,
+            _retries.ObservedAt);
         _dependencies.FeatureStatus.ObserveRuntimeLifecycle(
             status.State,
             status.Reason,

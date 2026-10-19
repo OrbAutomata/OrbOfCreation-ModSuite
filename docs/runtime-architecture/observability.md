@@ -352,8 +352,9 @@ The suite does not use `LogOutput.log` as an action ledger. Verified successes a
 no-actions emit no per-action line; the action journal and Runtime outcome projection own those facts.
 A submitted mutation whose postcondition does not hold emits one warning. Lifecycle/startup/shutdown
 messages remain, and an actual adapter failure or native refusal emits one actionable line with stable
-identity and reason. Auto Buy's classified refusal responder owns the `NotAdmissible` line so narration
-cannot duplicate it.
+identity and reason. Auto Buy's classified refusal responder decides what a `NotAdmissible` refusal says: its own error
+line for the invariant, the retry gate's episode lines for everything it backs off, nothing for a
+price refusal.
 
 World collection announces what a pass managed when the answer changes, and the sampled population is
 part of that answer: a healthy pass repeats only while its entity count stays within a tenth of the
@@ -380,9 +381,12 @@ category costs across hundreds of passes, which is the only form in which a spik
 Neither derives the other: three named categories in one pass cannot be averaged, and a session
 average cannot say which pass was the expensive one.
 
-Auto Buy affordability and availability drift are ordinary refusals: their reason travels on the
-result, with no log line and no bundle. Only a planned purchase reaches the responder; a refused `game_purchase` press answers its
-caller. Structural contradictions that disable the feature retain a full text bundle under
+Auto Buy affordability drift is an ordinary refusal: its reason travels on the result, with no log
+line and no bundle. Availability drift and level contradictions back the candidate off on the retry
+gate, which logs once when the episode is announced and once when it ends; the first refusal of
+either stays quiet until a fresher world refuses again. Only a planned purchase reaches the
+responder; a refused `game_purchase` press answers its caller. A refusal the suite's model says
+cannot happen holds Auto Buy off for the lifecycle and retains a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
 oversized bundle, inspection failure, or retention failure leaves the refusal loud and names the
 bundle as unavailable rather than overwriting evidence or faulting gameplay.

@@ -1,12 +1,13 @@
 using System;
 using System.Globalization;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common;
 
 /// <summary>
-/// Says out loud what a service's retry gate is doing: one line each time a target fails and backs
-/// off, and one when the episode ends.
+/// Says out loud what a service's retry gate is doing: one line when a target's episode is announced,
+/// and one when that episode ends. A quiet entry is announced only once it stops being quiet.
 /// </summary>
 internal sealed class ServiceRetryEpisodeNarrator
 {
@@ -21,16 +22,33 @@ internal sealed class ServiceRetryEpisodeNarrator
     }
 
     internal ServiceRetryGateSnapshot Current { get; private set; } = ServiceRetryGateSnapshot.Empty;
+    internal MonotonicTimestamp ObservedAt { get; private set; }
 
-    /// <summary>Narrates the change from the last gate seen; answers whether anything changed.</summary>
-    internal bool Observe(ServiceRetryGateSnapshot gate)
+    /// <summary>The announced target still backing off when the gate was last observed.</summary>
+    internal bool TryGetBackingOff(out ServiceRetryEntry entry) =>
+        Current.TryGetLatestAnnounced(ObservedAt, out entry);
+
+    /// <summary>
+    /// Narrates the change from the last gate seen and moves the clock to <paramref name="now"/>;
+    /// answers whether the gate changed or the announced target backing off did.
+    /// </summary>
+    internal bool Observe(ServiceRetryGateSnapshot gate, MonotonicTimestamp now)
     {
         if (gate is null) throw new ArgumentNullException(nameof(gate));
-        if (ReferenceEquals(gate, Current)) return false;
+        var wasBackingOff = TryGetBackingOff(out var before);
+        var gateChanged = !ReferenceEquals(gate, Current);
+        if (gateChanged) Narrate(gate);
+        ObservedAt = now;
+        var backingOff = TryGetBackingOff(out var after);
+        return gateChanged || backingOff != wasBackingOff || backingOff && after.Target != before.Target;
+    }
+
+    private void Narrate(ServiceRetryGateSnapshot gate)
+    {
         for (var index = 0; index < Current.Count; index++)
         {
             var previous = Current[index];
-            if (!gate.TryFind(previous.Target, out _))
+            if (!previous.IsQuiet && !gate.TryFind(previous.Target, out _))
                 _warn(
                     $"{_feature} stops backing off {EntityIdentityFormatter.Format(previous.Target.Id)} after " +
                     $"{Attempts(previous.ConsecutiveFailures)}.");
@@ -38,9 +56,8 @@ internal sealed class ServiceRetryEpisodeNarrator
         for (var index = 0; index < gate.Count; index++)
         {
             var entry = gate[index];
-            if (Current.TryFind(entry.Target, out var previous) &&
-                previous.ConsecutiveFailures == entry.ConsecutiveFailures &&
-                previous.FailedAt == entry.FailedAt)
+            if (entry.IsQuiet ||
+                Current.TryFind(entry.Target, out var previous) && !previous.IsQuiet)
                 continue;
             _warn(
                 $"{_feature} backs off {EntityIdentityFormatter.Format(entry.Target.Id)} after " +
@@ -49,7 +66,6 @@ internal sealed class ServiceRetryEpisodeNarrator
                 entry.Reason);
         }
         Current = gate;
-        return true;
     }
 
     /// <summary>A new lifecycle starts with no target backing off, and nothing to announce about the old one.</summary>

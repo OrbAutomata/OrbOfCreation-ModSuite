@@ -13,9 +13,10 @@ internal static class AutoBuyService
 {
     internal static IAutomataServiceDefinition<
         AutoBuyCycleState,
-        AutoBuyCycleAction> Define(IAutoBuyCycleActionPort actions)
+        AutoBuyCycleAction> Define(IAutoBuyCycleActionPort actions, AutoBuyInvariantLatch latch)
     {
         if (actions is null) throw new ArgumentNullException(nameof(actions));
+        if (latch is null) throw new ArgumentNullException(nameof(latch));
 
         var metadata = new AutomataServiceMetadata(
             AutoBuyServicePolicies.ServiceId,
@@ -31,16 +32,12 @@ internal static class AutoBuyService
                     action.OwningListId != Guid.Empty && action.OwningViewId != Guid.Empty
                         ? ServiceActionJournalAttribution.Routed(
                             action.Uuid,
-                            action.Kind == AutoBuyCandidateKind.Structure
-                                ? ServiceActionNativeTypeId.StructureSO
-                                : ServiceActionNativeTypeId.UpgradeSO,
+                            AutoBuyServicePolicies.NativeType(action.Kind),
                             action.OwningListId,
                             action.OwningViewId)
                         : new ServiceActionJournalAttribution(
                             action.Uuid,
-                            action.Kind == AutoBuyCandidateKind.Structure
-                                ? ServiceActionNativeTypeId.StructureSO
-                                : ServiceActionNativeTypeId.UpgradeSO,
+                            AutoBuyServicePolicies.NativeType(action.Kind),
                             Guid.Empty,
                             Guid.Empty,
                             ServiceActionRouteStatus.Contradictory),
@@ -49,10 +46,10 @@ internal static class AutoBuyService
         // Only Auto Buy's own policy. Whether the shared world is fresh enough to act on is not a
         // feature question: the runtime gates a service bound to a world generation source before
         // this is ever called.
-        static ServiceStartDecision ShouldStart(
+        ServiceStartDecision ShouldStart(
             in SuiteRuntimeConfiguration config,
             in ServiceCycleStartContext context) =>
-            AutoBuyConfigurationPolicy.IsOperational(config)
+            AutoBuyConfigurationPolicy.IsOperational(config) && !latch.IsTripped
                 ? ServiceStartDecision.Ready(CommonServiceDecisionCodes.Ready)
                 : ServiceStartDecision.Wait(
                     CommonServiceDecisionCodes.NotReady,

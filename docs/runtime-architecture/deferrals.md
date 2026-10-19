@@ -33,7 +33,7 @@ other three streams answer most bug reports. Resume from
 ## The suite's on-disk cap
 
 The always-on journal has a 64 MiB envelope, routine per-action success/no-op logging is absent, and
-structural refusal bundles have a 1 MiB envelope. The cap as the north star states it also covers
+invariant refusal bundles have a 1 MiB envelope. The cap as the north star states it also covers
 BepInEx's own retention and explicitly armed diagnostic sessions. BepInEx owns `LogOutput.log`, while
 full traces intentionally have no live byte cutoff, so the combined mandate remains open even though
 ordinary release steady state is bounded by design.

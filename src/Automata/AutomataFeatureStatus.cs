@@ -250,20 +250,6 @@ internal sealed class AutomataFeatureStatuses : IDisposable
             ObserveConfiguredIntent(reporter, config, configurationGeneration);
     }
 
-    internal bool ObserveAutoBuyInvariantStandDown(
-        string summary,
-        ConfigGeneration configurationGeneration)
-    {
-        if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value)
-            return false;
-        return AutoBuy.Observe(
-            false,
-            FeatureStatusState.ConfigurationDisabled,
-            FeatureStatusReasonCode.InvariantViolation,
-            summary,
-            configurationGeneration);
-    }
-
     internal void ObserveContractUnavailable(
         SuiteRuntimeConfiguration config,
         long lifecycleGeneration,

@@ -31,10 +31,10 @@ Exactly one usage must engage before disappearing. A queued usage that vanishes 
 cancelled: the worker reports it to the retry gate, so the item backs off with doubling until one of
 its usages engages. A second usage of the item belongs to the player and pauses that exact item until
 no usage of it remains, then the item resumes; that pause logs one warning each way, ends any backoff
-of the item, and the feature stays Operational. While any item backs off and Auto Items is on, the
+of the item, and the feature stays Operational. While any item backs off and its retry is not yet due, and Auto Items is on, the
 feature reports Degraded with the latest item and reason, under a contract reason when the fault was a
-contract or multi-buy failure before the native call. Each failure logs one warning and the end of the
-backoff logs one more. A temporary item still
+contract or multi-buy failure before the native call. The first failure of an episode logs one
+warning and the end of the backoff logs one more; the failures between them stay quiet. A temporary item still
 preparing holds every use back; once its effect is active, only another temporary use waits, and
 Relics and Scrolls keep firing. Native Scroll/Relic preparation excludes a temporary use.
 

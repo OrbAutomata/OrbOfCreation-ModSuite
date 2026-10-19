@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -32,7 +33,8 @@ internal static class AutoItemsFeatureStatusProjector
         bool cycleObserved,
         AutoItemsDecisionKind decisionKind,
         AutoItemsActionHealth health,
-        ServiceRetryGateSnapshot retries)
+        ServiceRetryGateSnapshot retries,
+        MonotonicTimestamp now)
     {
         if (emergencyDisabled)
             return Blocked(
@@ -53,8 +55,8 @@ internal static class AutoItemsFeatureStatusProjector
                     : bindingFailure);
         if (health.HasFailure)
             return FromActionFailure(health.Code, health.Reason);
-        if (retries.Count != 0 && decisionKind != AutoItemsDecisionKind.Disabled)
-            return BackingOff(retries.Latest);
+        if (decisionKind != AutoItemsDecisionKind.Disabled && retries.TryGetLatestAnnounced(now, out var retry))
+            return BackingOff(in retry);
         if (!cycleObserved)
             return new AutoItemsFeatureStatus(
                 FeatureStatusState.NotReady,

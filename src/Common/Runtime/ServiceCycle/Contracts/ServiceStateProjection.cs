@@ -260,6 +260,9 @@ public readonly struct ServiceFaultRecoveryPolicy
     public MonotonicDuration BackoffAfter(int consecutiveFailures) =>
         BackoffAfter(consecutiveFailures, MaximumBackoff);
 
+    /// <summary>A caller's own cap may sit above the policy maximum, never below the first wait.</summary>
+    internal bool AllowsCap(MonotonicDuration? maximum) => maximum is not { } cap || cap >= InitialBackoff;
+
     /// <summary>The same doubling, held at a cap of the caller's own instead of the policy's.</summary>
     public MonotonicDuration BackoffAfter(int consecutiveFailures, MonotonicDuration maximum)
     {

@@ -23,20 +23,23 @@ internal enum AutoBuyRefusalClassification
     AffordabilityChanged = 0,
 
     /// <summary>
-    /// Only the candidate's own availability moved after the snapshot. Also expected staleness:
-    /// skip this candidate and re-plan.
+    /// Only the candidate's own availability moved after the snapshot. Also expected staleness: the
+    /// candidate backs off quietly until a fresher world is refused again.
     /// </summary>
     /// <remarks>
     /// The world reads the same <c>IsAvailable()</c> the boundary re-asks, several times a second,
     /// and the doctrine treats availability as a mutable native fact for exactly that reason — the
     /// boundary revalidates it because it moves. A lifecycle reset moves a great many of them at
     /// once: after a prestige an entity the player has not re-earned is legitimately shut again,
-    /// and a plan made a frame earlier is simply out of date. Filing that as a contradiction stood
-    /// the whole service down over one candidate the game was right about.
+    /// and a plan made a frame earlier is simply out of date.
     /// </remarks>
     AvailabilityChanged,
 
-    /// <summary>A live structural boolean contradicts the snapshot the planner admitted.</summary>
+    /// <summary>
+    /// A live level term (max level or max queued level) contradicts the snapshot the planner
+    /// admitted. The player can queue the last level by hand after collection, so the candidate
+    /// backs off quietly until a fresher world is refused again, as for availability.
+    /// </summary>
     StructuralMismatch,
 
     /// <summary>
@@ -226,9 +229,9 @@ internal readonly struct AutoBuyAdmissionDiagnosis
                 return AutoBuyRefusalClassification.StructuralMismatch;
             }
 
-            // Availability alone. The level terms above are the candidate's own progress, which
-            // only the suite moves and so cannot disagree behind its back; availability is a gate
-            // the game opens and shuts on its own, most of all across a lifecycle reset.
+            // Availability alone. Both can move after collection: the player queues a level by
+            // hand, and the game opens and shuts availability on its own, most of all across a
+            // lifecycle reset. A level term names the more specific cause, so it is asked first.
             if (IsAvailable == AutoBuyAdmissionTerm.Refused)
                 return AutoBuyRefusalClassification.AvailabilityChanged;
 

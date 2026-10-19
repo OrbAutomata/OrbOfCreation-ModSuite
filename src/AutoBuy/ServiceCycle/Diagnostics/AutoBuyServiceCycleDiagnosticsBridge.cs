@@ -20,6 +20,10 @@ namespace OrbAutomata;
 internal sealed class AutoBuyServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
+    private readonly AutoBuyInvariantLatch _latch;
+    private readonly Action<string> _warn;
+    private readonly ServiceRetryEpisodeNarrator _retries;
+    private int _publishedLatchRevision;
     // Sized for the Automata host's registered services so the ordinary frame copies nothing extra and
     // allocates nothing; a host that grows past it resizes once and carries on.
     private ServiceCycleServiceDiagnosticsSnapshot[] _services = new ServiceCycleServiceDiagnosticsSnapshot[4];
@@ -36,9 +40,14 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         long lifecycle,
         ConfigGeneration configurationGeneration,
         AutoBuyCandidateKinds owned,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        AutoBuyInvariantLatch latch,
+        Action<string> warn)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _latch = latch ?? throw new ArgumentNullException(nameof(latch));
+        _warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        _retries = new ServiceRetryEpisodeNarrator("Auto Buy", warn);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
@@ -52,12 +61,19 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
     {
         var conditionsChanged =
             _emergencyDisabled != pump.IsEmergencyStopEngaged ||
-            _owned != owned;
+            _owned != owned ||
+            _publishedLatchRevision != _latch.Revision;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
         if (report.ResponsesAcquired != 0) _evaluationRefreshPending = true;
-        if (_evaluationRefreshPending && TryReadProjection(pump, out var projection))
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ReadService(pump)
+            : null;
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        if (_evaluationRefreshPending) service ??= ReadService(pump);
+        if (_evaluationRefreshPending && service is { } observed && observed.LatestProjection.IsPresent)
         {
+            var projection = observed.LatestProjection;
             _evaluationRefreshPending = false;
             var wasObserved = _cycleObserved;
             var priorBlock = _decisionBlock;
@@ -97,16 +113,21 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         _evaluationRefreshPending = false;
         _decisionBlock = AutoBuyDecisionBlockReason.None;
         _narratedDecisionBlock = AutoBuyDecisionBlockReason.None;
+        _retries.InvalidateLifecycle();
         PublishFeatureStatus();
     }
 
     private void PublishFeatureStatus()
     {
+        _publishedLatchRevision = _latch.Revision;
         var health = AutoBuyFeatureStatusProjector.Project(
             _emergencyDisabled,
             _owned,
             _cycleObserved,
-            _decisionBlock);
+            _decisionBlock,
+            _latch.Summary,
+            _retries.Current,
+            _retries.ObservedAt);
         _featureStatus.ObserveRuntimeLifecycle(
             health.State,
             health.Reason,
@@ -116,9 +137,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         NarrateDecisionBlock(health);
     }
 
-    private bool TryReadProjection(
-        SuiteFramePump pump,
-        out ServiceProjectionPublication projection)
+    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
     {
         var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
         if (copy.RequiredCount > _services.Length)
@@ -127,13 +146,9 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
             copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
         }
         for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            if (!_services[index].ServiceId.Equals(AutoBuyServicePolicies.ServiceId)) continue;
-            projection = _services[index].LatestProjection;
-            return projection.IsPresent;
-        }
-        projection = default;
-        return false;
+            if (_services[index].ServiceId.Equals(AutoBuyServicePolicies.ServiceId))
+                return _services[index];
+        return null;
     }
 
     internal static AutoBuyDecisionBlockReason TotalRelationBlock(
@@ -181,7 +196,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         }
         else
         {
-            Plugin.Log?.LogAutomataWarning("Auto Buy is temporarily blocked: " + health.Summary);
+            _warn("Auto Buy is temporarily blocked: " + health.Summary);
         }
         _narratedDecisionBlock = _decisionBlock;
     }

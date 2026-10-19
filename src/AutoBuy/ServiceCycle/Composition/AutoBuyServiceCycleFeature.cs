@@ -41,15 +41,16 @@ internal sealed class AutoBuyServiceCycleFeature : IAutomataServiceCycleFeature
             registration,
             context.LifecycleValue,
             context.ConfigurationGeneration,
-            adapters.Actions);
+            adapters.Actions,
+            adapters.Latch);
     }
 
 }
 
 /// <summary>
 /// The non-generic per-frame runtime for Auto Buy inside the shared host. It owns the action adapter's
-/// lifecycle-bound purchase-route evidence as well as its feature-status bridge, and invalidates the
-/// former whenever the native lifecycle changes or the registration is disposed. The decision
+/// lifecycle-bound purchase-route evidence, the invariant latch, and the feature-status bridge, and
+/// clears the first two whenever the native lifecycle changes. The decision
 /// journal records every cycle, but it is not what the UI reads: the toggle button, its tooltip, and
 /// the Mod Config health row all read the feature status registry, and without the bridge below
 /// nothing refreshed that registry once gameplay was live.
@@ -63,6 +64,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
     private long _lifecycleValue;
     private readonly ConfigGeneration _initialConfigurationGeneration;
     private readonly AutoBuyCycleActionAdapter _actions;
+    private readonly AutoBuyInvariantLatch _latch;
     private AutoBuyServiceCycleDiagnosticsBridge? _diagnostics;
 
     internal AutoBuyFeatureRuntime(
@@ -72,13 +74,15 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
             AutoBuyCycleAction> registration,
         long lifecycleValue,
         ConfigGeneration initialConfigurationGeneration,
-        AutoBuyCycleActionAdapter actions)
+        AutoBuyCycleActionAdapter actions,
+        AutoBuyInvariantLatch latch)
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
         _registration = registration ?? throw new ArgumentNullException(nameof(registration));
         _lifecycleValue = lifecycleValue;
         _initialConfigurationGeneration = initialConfigurationGeneration;
         _actions = actions ?? throw new ArgumentNullException(nameof(actions));
+        _latch = latch ?? throw new ArgumentNullException(nameof(latch));
     }
 
     public void ActivateDiagnostics()
@@ -87,7 +91,9 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
             _lifecycleValue,
             _initialConfigurationGeneration,
             _dependencies.OwnershipMask(),
-            _dependencies.FeatureStatus);
+            _dependencies.FeatureStatus,
+            _latch,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
@@ -109,6 +115,7 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
         if (_lifecycleValue != nativeLifecycle)
         {
             _actions.InvalidateTopology();
+            _latch.Clear();
             _lifecycleValue = nativeLifecycle;
         }
         _diagnostics?.ObserveLifecycle(
