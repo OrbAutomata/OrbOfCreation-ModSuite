@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests;
@@ -32,7 +33,7 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void TheRequirementPathNeverBindsTheCheckOverloadThatLatches()
     {
-        var root = FindRepositoryRoot();
+        var root = RepositorySources.Root;
         var scoped = new[]
         {
             Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirement.cs"),
@@ -101,11 +102,8 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void TheMcpSurfaceNamesEntitiesTheWayAPlayerDoes()
     {
-        var surfaceRoot = Path.Combine(
-            FindRepositoryRoot(), "src", "Automata", "Runtime", "GameMcp");
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     surfaceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"))
         {
             var lineNumber = 0;
             foreach (var line in File.ReadLines(path))
@@ -135,7 +133,7 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void NoWireSentenceInAGameActionNamesTheGamesOwnCode()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var nativeVocabulary = new[]
         {
             "binding set", "decision graph", "persistent reset manager", "live registry",
@@ -146,16 +144,9 @@ public sealed class ProductionSourceAuditTests
         };
         var literal = new Regex("\"([^\"]*)\"");
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*GameAction.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lineNumber = 0;
             foreach (var line in File.ReadLines(path))
             {
@@ -219,7 +210,7 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void NoRawExceptionTextReachesTheWire()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var diagnosticSinks = new[]
         {
             "_bindingFailure", "nativeDetail", "AutomaticSaveBackupStatus.Failed",
@@ -275,23 +266,14 @@ public sealed class ProductionSourceAuditTests
     private static IEnumerable<string> FilesWhoseTextCanReachACaller(string sourceRoot)
     {
         var candidates = new List<string>();
-        candidates.AddRange(Directory.EnumerateFiles(
-            Path.Combine(sourceRoot, "Automata", "Runtime", "GameMcp"),
-            "*.cs",
-            SearchOption.AllDirectories));
-        candidates.AddRange(Directory.EnumerateFiles(
-            sourceRoot, "*GameAction.cs", SearchOption.AllDirectories));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
+        candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in candidates)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
             if (seen.Add(relativePath)) yield return path;
         }
     }
@@ -318,20 +300,14 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void AnActionBoundaryReadsAutomationOptionsOnlyWhereItNamesTheAutomationFlag()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var flags = new[] { "requireAutomationPolicy", "applyAutomationLimits" };
         var reads = new[] { "config.", "configuration.", "ConfigurationPolicy." };
         var offenders = new List<string>();
         var swept = 0;
-        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lines = File.ReadAllLines(path);
             if (!Array.Exists(lines, line => Names(line, flags))) continue;
             swept++;
@@ -369,19 +345,13 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void ChromePanelControlsAreEnumeratedInExactlyOnePlace()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         const string owner = "Automata/Runtime/GameMcp/ModalOpenGameAction.cs";
         var offenders = new List<string>();
         var owned = 0;
-        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lines = File.ReadAllLines(path);
             for (var index = 0; index < lines.Length; index++)
             {
@@ -426,21 +396,5 @@ public sealed class ProductionSourceAuditTests
         }
 
         return false;
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-        {
-            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
-                {
-                    return directory.FullName;
-                }
-            }
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 }

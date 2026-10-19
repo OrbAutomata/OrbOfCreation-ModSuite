@@ -20,6 +20,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -882,7 +883,7 @@ public sealed class GameMcpWorldEnvelopeTests
     public void NoQueueTheWorldPublishesPrintsItsInternalName()
     {
         var collector = File.ReadAllText(Path.Combine(
-            RepositoryRoot(),
+            RepositorySources.Root,
             "src", "Common", "Runtime", "World", "Categories", "WorldActionQueue.cs"));
         var published = Regex
             .Matches(collector, @"registry\[KnownEntities\.([A-Za-z0-9_]+)\.Uuid\]")
@@ -920,19 +921,6 @@ public sealed class GameMcpWorldEnvelopeTests
             Assert.Equal(printed, (string?)row["name"]);
             Assert.Null(row["internalName"]);
         }
-    }
-
-    private static string RepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 
     /// <summary>

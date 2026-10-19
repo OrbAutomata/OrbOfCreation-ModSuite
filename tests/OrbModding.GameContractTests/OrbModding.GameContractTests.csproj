@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/OrbModSuite.csproj" />
+    <Compile Include="../TestSupport/RepositorySources.cs" Link="TestSupport/RepositorySources.cs" />
   </ItemGroup>
 
   <ItemGroup>

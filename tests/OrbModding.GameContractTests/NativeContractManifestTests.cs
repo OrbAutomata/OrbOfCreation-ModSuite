@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using OrbModding.Common;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.GameContractTests;
@@ -241,7 +242,7 @@ public sealed class NativeContractManifestTests
     public void Manifest_IsCompleteAndInternallyConsistent()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
 
         Assert.Equal(5, manifest.SchemaVersion);
 
@@ -358,21 +359,17 @@ public sealed class NativeContractManifestTests
     public void EverySourceDirectoryIsAnAuditRoot()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         var roots = manifest.SourceAudit.Roots
             .Select(NormalizePath)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var directories = Directory
-            .EnumerateDirectories(Path.Combine(repositoryRoot, "src"))
-            .Where(directory =>
-            {
-                var name = Path.GetFileName(directory)!;
-                return !name.StartsWith("bin", StringComparison.Ordinal) &&
-                       !name.StartsWith("obj", StringComparison.Ordinal) &&
-                       ContainsAuditableSource(directory);
-            })
-            .Select(directory => NormalizePath(Path.GetRelativePath(repositoryRoot, directory)))
+        var directories = RepositorySources
+            .SourceFiles("*.cs")
+            .Select(path => NormalizePath(Path.GetRelativePath(repositoryRoot, path)).Split('/'))
+            .Where(segments => segments.Length > 2)
+            .Select(segments => segments[0] + "/" + segments[1])
+            .Distinct(StringComparer.Ordinal)
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
@@ -382,23 +379,6 @@ public sealed class NativeContractManifestTests
                 roots.Contains(directory),
                 $"Source directory is not a native-contract audit root, so reflection in it is never "
                     + $"checked: {directory}"));
-    }
-
-    private static bool ContainsAuditableSource(string directory)
-    {
-        if (Directory.EnumerateFiles(directory, "*.cs", SearchOption.TopDirectoryOnly).Any())
-            return true;
-
-        foreach (var child in Directory.EnumerateDirectories(directory))
-        {
-            var name = Path.GetFileName(child)!;
-            if (name.StartsWith("bin", StringComparison.Ordinal) ||
-                name.StartsWith("obj", StringComparison.Ordinal))
-                continue;
-            if (ContainsAuditableSource(child)) return true;
-        }
-
-        return false;
     }
 
     [Fact]
@@ -436,7 +416,7 @@ public sealed class NativeContractManifestTests
     public void ActiveNativeReflectionAndHarmonyTargets_AreDeclared()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         var exemptions = manifest.SourceAudit.Exemptions.ToDictionary(
             exemption => NormalizePath(exemption.Path),
             exemption => exemption,
@@ -453,8 +433,7 @@ public sealed class NativeContractManifestTests
 
         foreach (var root in manifest.SourceAudit.Roots)
         {
-            var absoluteRoot = Path.Combine(repositoryRoot, root.Replace('/', Path.DirectorySeparatorChar));
-            foreach (var sourcePath in Directory.EnumerateFiles(absoluteRoot, "*.cs", SearchOption.AllDirectories))
+            foreach (var sourcePath in RepositorySources.SourceFiles("*.cs", root))
             {
                 var relativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, sourcePath));
                 if (!visited.Add(relativePath))
@@ -560,7 +539,7 @@ public sealed class NativeContractManifestTests
     public void EveryMirroredContractNamesAMemberNoSourceSelects()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         var mirrored = manifest.Contracts.Where(contract => !IsTouched(contract)).ToArray();
         Assert.NotEmpty(mirrored);
 
@@ -579,8 +558,7 @@ public sealed class NativeContractManifestTests
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var root in manifest.SourceAudit.Roots)
         {
-            var absoluteRoot = Path.Combine(repositoryRoot, root.Replace('/', Path.DirectorySeparatorChar));
-            foreach (var sourcePath in Directory.EnumerateFiles(absoluteRoot, "*.cs", SearchOption.AllDirectories))
+            foreach (var sourcePath in RepositorySources.SourceFiles("*.cs", root))
             {
                 var relativePath = NormalizePath(Path.GetRelativePath(repositoryRoot, sourcePath));
                 if (!visited.Add(relativePath)) continue;
@@ -687,7 +665,7 @@ public sealed class NativeContractManifestTests
     public void CheckedInGameReferences_MatchEveryDeclaredContract()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         var referenceRoot = Path.Combine(repositoryRoot, "lib", "game-refs", "v1.0.5");
         var failures = new List<string>();
 
@@ -746,7 +724,7 @@ public sealed class NativeContractManifestTests
     {
         var manifest = NativeContractManifest.Load();
         var paths = GameAssemblyPaths.Require();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
 
         var worldDirectory = Path.Combine(
             repositoryRoot, "src", "Common", "Runtime", "World");
@@ -1163,7 +1141,7 @@ public sealed class NativeContractManifestTests
     {
         var manifest = NativeContractManifest.Load();
         var collector = Path.Combine(
-            RepositoryPaths.RequireRoot(),
+            RepositorySources.Root,
             "src", "Common", "Runtime", "World", "GameWorldCollector.cs");
         Assert.True(File.Exists(collector), $"The collector was not found at {collector}");
 
@@ -1198,7 +1176,7 @@ public sealed class NativeContractManifestTests
     public void EveryCaptureRootSelectorNamesACaptureContract()
     {
         var manifest = NativeContractManifest.Load();
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         Assert.NotEmpty(manifest.CaptureRoots);
 
         var capturing = manifest.Contracts
@@ -1217,8 +1195,7 @@ public sealed class NativeContractManifestTests
 
         var failures = new List<string>();
         var walked = 0;
-        foreach (var file in Directory.EnumerateFiles(
-                     Path.Combine(repositoryRoot, "src"), "*.cs", SearchOption.AllDirectories))
+        foreach (var file in RepositorySources.SourceFiles("*.cs"))
         {
             var source = File.ReadAllText(file);
             var declaration = NamespacePattern.Match(source);
@@ -1286,7 +1263,7 @@ public sealed class NativeContractManifestTests
     [Fact]
     public void EveryStringTakingBinderMemberIsClassified()
     {
-        var repositoryRoot = RepositoryPaths.RequireRoot();
+        var repositoryRoot = RepositorySources.Root;
         var binderSources = new[]
         {
             Path.Combine(repositoryRoot, "src", "Common", "Runtime", "World", "NativeAccessorBinder.cs"),
@@ -1491,7 +1468,7 @@ public sealed class NativeContractManifestTests
     private static int DeclaredContractCount()
     {
         var path = Path.Combine(
-            RepositoryPaths.RequireRoot(), "data", "native-contracts.json");
+            RepositorySources.Root, "data", "native-contracts.json");
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var declared = document.RootElement.GetProperty("contracts").GetArrayLength();
         Assert.True(declared > 0, $"The manifest at {path} declares no contracts.");

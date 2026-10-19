@@ -193,24 +193,3 @@ internal sealed class NativeSourceExemption
 
     public string Reason { get; set; } = string.Empty;
 }
-
-internal static class RepositoryPaths
-{
-    public static string RequireRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(current.FullName, "src")) &&
-                Directory.Exists(Path.Combine(current.FullName, "data")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository root from the test output.");
-    }
-}
