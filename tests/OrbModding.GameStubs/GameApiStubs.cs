@@ -2759,6 +2759,7 @@ public class SpellManager
     /// <summary>How often the native gate refused a removal the caller asked for anyway.</summary>
     public int RefusedRemovals { get; private set; }
     public int TryLevelAllCalls { get; private set; }
+    public bool SuppressLevelAll { get; set; }
     public ResourceCostList? CreateCostOverride { get; set; }
     public Func<IReadOnlyList<GlyphSO>, ResourceCostList>? CreateCostResolver { get; set; }
 
@@ -2863,6 +2864,7 @@ public class SpellManager
     public void TryLevelAllSpells()
     {
         TryLevelAllCalls++;
+        if (SuppressLevelAll) return;
         foreach (var recipe in availableSpellRecipes.value)
         {
             while (recipe.IsDiscovered() && recipe.levelingPrerequisites.Check() &&

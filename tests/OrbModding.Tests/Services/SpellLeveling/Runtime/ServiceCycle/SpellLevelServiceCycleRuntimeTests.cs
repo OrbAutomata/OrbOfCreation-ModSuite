@@ -149,6 +149,36 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
+    public void ABrokenLevelAllBacksOffItsOwnUpgradeWhileSingleLevelsKeepCommittingUntilItIsDue()
+    {
+        var behind = Spell(masteryLevel: 1);
+        var ahead = Spell(masteryLevel: 5);
+        LevelAllUpgrade().level = 1;
+        global::SpellManager.instance!.SuppressLevelAll = true;
+        using var harness = new Harness();
+
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var backOff = harness.RetryGate.Latest;
+        harness.Advance(OneSecond);
+        harness.PumpWorldsUntil(() => behind.masteryLevel == 2 && ahead.masteryLevel == 6);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        var batchesInTheWindow = global::SpellManager.instance.TryLevelAllCalls;
+        var stillBackingOff = harness.RetryGate.TryFind(LevelAllTarget, out _);
+        global::SpellManager.instance.SuppressLevelAll = false;
+        behind.readyToLevel = true;
+        ahead.readyToLevel = true;
+        harness.Advance(FirstWait);
+        harness.PumpWorldsUntil(() => global::SpellManager.instance.TryLevelAllCalls == 2);
+
+        Assert.Equal(LevelAllTarget, backOff.Target);
+        Assert.Equal(FirstWait, backOff.Backoff);
+        Assert.Equal(1, batchesInTheWindow);
+        Assert.True(stillBackingOff);
+        Assert.Equal(3, behind.masteryLevel);
+        Assert.Equal(7, ahead.masteryLevel);
+    }
+
+    [Fact]
     public void AProvenContractMismatchStaysBlockedPastEveryRetry()
     {
         var spell = Spell(masteryLevel: 1);
@@ -167,7 +197,12 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         Assert.Contains("WrongType", harness.RetryGate.Latest.Reason);
     }
 
+    private static readonly ServiceRetryTarget LevelAllTarget =
+        new(KnownEntities.UnlockLevelAllSpells.Uuid, ServiceActionNativeTypeId.UpgradeSO);
+
     private static Guid Id(global::SpellRecipeSO spell) => Guid.Parse(spell.uuid);
+
+    private static global::UpgradeSO LevelAllUpgrade() => global::UpgradeSO.All[0];
 
     private static global::SpellRecipeSO Spell(int masteryLevel)
     {
@@ -345,11 +380,31 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
                 spellSpecialMod: default,
                 spellXpMod: default,
                 hasAlertedThisMastery: false));
+        var levelAll = LevelAllUpgrade().level;
         return new GameWorldState
         {
             CollectedAtFrame = 10,
             CollectedAtEpoch = 1,
             SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(rows.ToArray()),
+            Upgrades = PublicationTable<WorldUpgrade>.Create(new[]
+            {
+                new WorldUpgrade(
+                    new RawUpgradeSample(
+                        KnownEntities.UnlockLevelAllSpells.Uuid,
+                        levelAll,
+                        maxLevel: 1,
+                        available: true,
+                        queuedLevels: 0,
+                        buildTime: default,
+                        developmentTime: 0d,
+                        cachedCostLevel: levelAll),
+                    isBounded: true,
+                    isExhausted: levelAll >= 1,
+                    remainingLevels: Math.Max(0, 1 - levelAll),
+                    committedLevel: levelAll,
+                    isDeveloping: false,
+                    developmentProgress: 0d),
+            }),
         };
     }
 }
