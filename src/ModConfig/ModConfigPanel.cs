@@ -412,30 +412,6 @@ internal sealed class ModConfigPanel : IDisposable
         UnityEngine.Object.Destroy(Root);
     }
 
-    internal static bool CanApplySelection(
-        ModConfigDescriptor selectedMod,
-        bool sessionDirty,
-        bool sessionValid) =>
-        ModSettingsPage.CanApplySelection(selectedMod, sessionDirty, sessionValid);
-
-    internal static float CalculateSettingRowHeight(float preferredDescriptionHeight) =>
-        ModSettingsLayout.CalculateSettingRowHeight(preferredDescriptionHeight);
-
-    internal static float ClampScrollOffset(float requestedOffset, float contentHeight, float viewportHeight) =>
-        ModSettingsLayout.ClampScrollOffset(requestedOffset, contentHeight, viewportHeight);
-
-    internal static float CalculateVerticalNormalizedPosition(
-        float scrollOffset,
-        float contentHeight,
-        float viewportHeight) =>
-        ModSettingsLayout.CalculateVerticalNormalizedPosition(scrollOffset, contentHeight, viewportHeight);
-
-    internal static float CalculateDescriptionWidth(float contentWidth) =>
-        ModSettingsLayout.CalculateDescriptionWidth(contentWidth);
-
-    internal static bool DescriptionWidthChanged(float previousWidth, float currentWidth) =>
-        ModSettingsLayout.DescriptionWidthChanged(previousWidth, currentWidth);
-
     private bool IsRuntimeSelected => _selectedTopPageIndex == 0;
 
     private void RebuildTopTabs()

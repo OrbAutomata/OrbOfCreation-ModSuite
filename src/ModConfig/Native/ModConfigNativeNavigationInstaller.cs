@@ -90,7 +90,7 @@ internal static class ModConfigNativeNavigationInstaller
             }
 
             button.onClick.RemoveAllListeners();
-            ClaimVisualOwnership(button);
+            ConfiguredIntentButtonVisualOwnership.Claim(button);
             var label = buttonObject.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label is null)
             {
@@ -136,9 +136,6 @@ internal static class ModConfigNativeNavigationInstaller
             UnityEngine.Object.Destroy(tooltip);
         }
     }
-
-    internal static void ClaimVisualOwnership(Button button) =>
-        ConfiguredIntentButtonVisualOwnership.Claim(button);
 
     private static void RemoveOwnedChild(Transform parent, string objectName)
     {

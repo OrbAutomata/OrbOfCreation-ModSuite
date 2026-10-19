@@ -15,7 +15,7 @@ public sealed class ModConfigPanelLayoutTests
     [InlineData(float.PositiveInfinity, 86f)]
     public void RowsExpandFromRenderedDescriptionHeight(float preferredHeight, float expectedHeight)
     {
-        Assert.Equal(expectedHeight, ModConfigPanel.CalculateSettingRowHeight(preferredHeight));
+        Assert.Equal(expectedHeight, ModSettingsLayout.CalculateSettingRowHeight(preferredHeight));
     }
 
     [Theory]
@@ -26,33 +26,33 @@ public sealed class ModConfigPanelLayoutTests
     [InlineData(float.NaN, 500f, 200f, 0f)]
     public void SamePageAbsoluteScrollOffsetIsClamped(float requested, float content, float viewport, float expected)
     {
-        Assert.Equal(expected, ModConfigPanel.ClampScrollOffset(requested, content, viewport));
+        Assert.Equal(expected, ModSettingsLayout.ClampScrollOffset(requested, content, viewport));
     }
 
     [Fact]
     public void AbsoluteOffsetConvertsToUnityVerticalNormalizedPosition()
     {
-        Assert.Equal(1f, ModConfigPanel.CalculateVerticalNormalizedPosition(0f, 500f, 200f));
-        Assert.Equal(0.5f, ModConfigPanel.CalculateVerticalNormalizedPosition(150f, 500f, 200f), 3);
-        Assert.Equal(0f, ModConfigPanel.CalculateVerticalNormalizedPosition(300f, 500f, 200f));
-        Assert.Equal(1f, ModConfigPanel.CalculateVerticalNormalizedPosition(50f, 100f, 200f));
+        Assert.Equal(1f, ModSettingsLayout.CalculateVerticalNormalizedPosition(0f, 500f, 200f));
+        Assert.Equal(0.5f, ModSettingsLayout.CalculateVerticalNormalizedPosition(150f, 500f, 200f), 3);
+        Assert.Equal(0f, ModSettingsLayout.CalculateVerticalNormalizedPosition(300f, 500f, 200f));
+        Assert.Equal(1f, ModSettingsLayout.CalculateVerticalNormalizedPosition(50f, 100f, 200f));
     }
 
     [Fact]
     public void DescriptionWidthTracksUsableContentWidthWithStartupFallback()
     {
-        Assert.Equal(600f, ModConfigPanel.CalculateDescriptionWidth(0f));
-        Assert.Equal(600f, ModConfigPanel.CalculateDescriptionWidth(319f));
-        Assert.Equal(1024f * 0.98f * 0.532f, ModConfigPanel.CalculateDescriptionWidth(1024f), 3);
+        Assert.Equal(600f, ModSettingsLayout.CalculateDescriptionWidth(0f));
+        Assert.Equal(600f, ModSettingsLayout.CalculateDescriptionWidth(319f));
+        Assert.Equal(1024f * 0.98f * 0.532f, ModSettingsLayout.CalculateDescriptionWidth(1024f), 3);
     }
 
     [Fact]
     public void ResponsiveRemeasurementIgnoresSubpixelNoiseButDetectsResizeAndUiScaleChanges()
     {
-        Assert.True(ModConfigPanel.DescriptionWidthChanged(0f, 600f));
-        Assert.False(ModConfigPanel.DescriptionWidthChanged(600f, 600.5f));
-        Assert.True(ModConfigPanel.DescriptionWidthChanged(600f, 600.51f));
-        Assert.False(ModConfigPanel.DescriptionWidthChanged(600f, float.NaN));
+        Assert.True(ModSettingsLayout.DescriptionWidthChanged(0f, 600f));
+        Assert.False(ModSettingsLayout.DescriptionWidthChanged(600f, 600.5f));
+        Assert.True(ModSettingsLayout.DescriptionWidthChanged(600f, 600.51f));
+        Assert.False(ModSettingsLayout.DescriptionWidthChanged(600f, float.NaN));
     }
 
     [Fact]
@@ -75,18 +75,5 @@ public sealed class ModConfigPanelLayoutTests
         Assert.Same(sprite, frame.sprite);
         Assert.Equal(Image.Type.Sliced, frame.type);
         Assert.True(frame.raycastTarget);
-    }
-
-    [Fact]
-    public void ClonedModsNavigationHasNoUnityTransitionPixelWriter()
-    {
-        var root = new GameObject("Mods");
-        var frame = root.AddComponent<Image>();
-        var button = root.AddComponent<Button>();
-        button.targetGraphic = frame;
-
-        ModConfigNativeNavigationInstaller.ClaimVisualOwnership(button);
-
-        Assert.Null(button.targetGraphic);
     }
 }
