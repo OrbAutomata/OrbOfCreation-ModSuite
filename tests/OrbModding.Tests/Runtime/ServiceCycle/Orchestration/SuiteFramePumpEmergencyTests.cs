@@ -28,9 +28,7 @@ public sealed class SuiteFramePumpEmergencyTests
         ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
         pump.SetEmergencyStop(true);
         ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        var stopped = pump.PumpFrame(frame++);
-        while (stopped.ResponsesAcquired == 0)
-            stopped = pump.PumpFrame(frame++);
+        var stopped = ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
 
         Assert.Equal(1, stopped.ResponsesAcquired);
         Assert.Equal(1, stopped.EmergencyBatchesRejected);
@@ -97,7 +95,7 @@ public sealed class SuiteFramePumpEmergencyTests
 
         // The turn order rotates one place a frame; this lines the action frame up to start with the
         // first service.
-        while (pump.PumpFrame(frame++).StartingOrdinal != 1) { }
+        ServiceCyclePumpTestWait.UntilStartingOrdinal(pump, ref frame, 1);
         TestWorldCollector.CollectedAt(registry, frame);
         Assert.Equal(2, pump.PumpFrame(frame++).CyclesStarted);
         ServiceRunnerTestWait.ForResponse(firstRegistration);

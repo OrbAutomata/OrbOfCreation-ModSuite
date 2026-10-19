@@ -1096,8 +1096,10 @@ public sealed class SuiteFramePumpSemanticTracingTests
         {
             Assert.True(pump.RequestLifecycleReplacement(new LifecycleGeneration(2)));
             var frame = 1L;
-            while (registration.LifecycleSnapshot.ConstructionContentionCount == 0)
-                pump.PumpFrame(frame++);
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump,
+                ref frame,
+                () => registration.LifecycleSnapshot.ConstructionContentionCount != 0);
 
             var deferredEvents = Drain(pump, ref cursor);
             var requested = Assert.Single(
@@ -1129,9 +1131,11 @@ public sealed class SuiteFramePumpSemanticTracingTests
             ledger.EndFactory(blocker);
             blocker = null!;
             clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
-            while (registration.LifecycleSnapshot.Position0.Lifecycle != new LifecycleGeneration(2) &&
-                   registration.LifecycleSnapshot.Position1.Lifecycle != new LifecycleGeneration(2))
-                pump.PumpFrame(frame++);
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump,
+                ref frame,
+                () => registration.LifecycleSnapshot.Position0.Lifecycle == new LifecycleGeneration(2) ||
+                    registration.LifecycleSnapshot.Position1.Lifecycle == new LifecycleGeneration(2));
 
             var activatedEvents = Drain(pump, ref cursor);
             var activated = Assert.Single(
