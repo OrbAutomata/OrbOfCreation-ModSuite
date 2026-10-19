@@ -61,7 +61,6 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
         ConfigurationPublication configuration,
         in ServiceStartDecisionFact startFact,
         in ServiceStartInvocationFact startInvocation,
-        bool nonBlockingProbe,
         int ordinal,
         IServiceCycleAttemptObserver? observer)
     {
@@ -136,8 +135,7 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
             in startFact,
             in startInvocation,
             in committedCapture,
-            in recoveredFault,
-            nonBlockingProbe);
+            in recoveredFault);
     }
 
     private ServiceCycleStartAttempt CaptureFaulted(

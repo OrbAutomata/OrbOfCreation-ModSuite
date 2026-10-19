@@ -8,26 +8,6 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Execution;
 
 internal sealed partial class ServiceCycleHandoff
 {
-    internal bool TryPublishRequest(
-        ConfigurationPublication configuration,
-        WorldPublication<GameWorldState> world,
-        StrategyPublication strategy,
-        in ServiceCycleContext context,
-        BatchId batch,
-        out long sequence)
-    {
-        lock (_gate)
-        {
-            return PublishRequestUnderGate(
-                configuration,
-                world,
-                strategy,
-                in context,
-                batch,
-                out sequence);
-        }
-    }
-
     internal bool TryPublishRequestNonBlocking(
         ConfigurationPublication configuration,
         WorldPublication<GameWorldState> world,
@@ -44,52 +24,35 @@ internal sealed partial class ServiceCycleHandoff
         }
         try
         {
-            return PublishRequestUnderGate(
+            if (_phase != ServiceHandoffPhase.Empty ||
+                _cleanupPending ||
+                Volatile.Read(ref _stopRequested))
+            {
+                sequence = 0;
+                return false;
+            }
+            if (_lifecycle.Value != 0 &&
+                context.Identity.Lifecycle != _lifecycle)
+            {
+                throw new InvalidOperationException(
+                    "The request belongs to another lifecycle generation.");
+            }
+            sequence = checked(++_nextSequence);
+            _request = new ServiceEvaluationRequest(
+                sequence,
                 configuration,
                 world,
                 strategy,
-                in context,
-                batch,
-                out sequence);
+                context,
+                batch);
+            TransitionTo(ServiceHandoffPhase.RequestReady);
+            _workerWake.Set();
+            return true;
         }
         finally
         {
             Monitor.Exit(_gate);
         }
-    }
-
-    private bool PublishRequestUnderGate(
-        ConfigurationPublication configuration,
-        WorldPublication<GameWorldState> world,
-        StrategyPublication strategy,
-        in ServiceCycleContext context,
-        BatchId batch,
-        out long sequence)
-    {
-        if (_phase != ServiceHandoffPhase.Empty ||
-            _cleanupPending ||
-            Volatile.Read(ref _stopRequested))
-        {
-            sequence = 0;
-            return false;
-        }
-        if (_lifecycle.Value != 0 &&
-            context.Identity.Lifecycle != _lifecycle)
-        {
-            throw new InvalidOperationException(
-                "The request belongs to another lifecycle generation.");
-        }
-        sequence = checked(++_nextSequence);
-        _request = new ServiceEvaluationRequest(
-            sequence,
-            configuration,
-            world,
-            strategy,
-            context,
-            batch);
-        TransitionTo(ServiceHandoffPhase.RequestReady);
-        _workerWake.Set();
-        return true;
     }
 
     internal ServiceWorkerWorkKind WaitForWorkerWork(
@@ -155,14 +118,6 @@ internal sealed partial class ServiceCycleHandoff
         }
     }
 
-    internal bool TryAcquireResponse(out ServiceWorkerResponse response)
-    {
-        lock (_gate)
-        {
-            return AcquireResponseUnderGate(out response);
-        }
-    }
-
     internal bool TryAcquireResponseNonBlocking(out ServiceWorkerResponse response)
     {
         if (PhaseHint != ServiceHandoffPhase.ResponseReady ||
@@ -173,7 +128,14 @@ internal sealed partial class ServiceCycleHandoff
         }
         try
         {
-            return AcquireResponseUnderGate(out response);
+            if (_phase != ServiceHandoffPhase.ResponseReady)
+            {
+                response = default;
+                return false;
+            }
+            response = _response;
+            TransitionTo(ServiceHandoffPhase.MainOwnedBatch);
+            return true;
         }
         finally
         {
@@ -213,17 +175,5 @@ internal sealed partial class ServiceCycleHandoff
         {
             Monitor.Exit(_gate);
         }
-    }
-
-    private bool AcquireResponseUnderGate(out ServiceWorkerResponse response)
-    {
-        if (_phase != ServiceHandoffPhase.ResponseReady)
-        {
-            response = default;
-            return false;
-        }
-        response = _response;
-        TransitionTo(ServiceHandoffPhase.MainOwnedBatch);
-        return true;
     }
 }

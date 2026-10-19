@@ -95,13 +95,8 @@ public sealed class ServiceCycleEvaluationInputTests
     }
 
     /// <summary>
-    /// The same guarantee on the pump's path, which publishes the request without blocking.
+    /// The same guarantee when the pump drives the cycle, as it does in the game.
     /// </summary>
-    /// <remarks>
-    /// There are two ways a cycle reaches the worker — the blocking publish and the pump's
-    /// non-blocking probe, which can also defer and retry later — and they are separate code. A rule
-    /// proved on one of them is proved on the path production does not use.
-    /// </remarks>
     [Fact]
     public void TheSamePinReachesTheWorkerOnThePumpsPath()
     {

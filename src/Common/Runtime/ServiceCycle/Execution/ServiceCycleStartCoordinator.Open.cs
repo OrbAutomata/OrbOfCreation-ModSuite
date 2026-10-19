@@ -58,8 +58,7 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         in ServiceStartDecisionFact startFact,
         in ServiceStartInvocationFact startInvocation,
         in ServiceCaptureFact captureFact,
-        in ServiceFaultRecoveryFact recoveredFault,
-        bool nonBlockingProbe)
+        in ServiceFaultRecoveryFact recoveredFault)
     {
         var world = opening.World;
         var strategy = opening.Strategy;
@@ -80,27 +79,16 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         var context = new ServiceCycleContext(identity, State.PreviousReceipt, decidedAt);
         State.CycleConfiguration = configuration;
         var queuedAt = Clock.Now;
-        var published = nonBlockingProbe
-            ? _handoff.TryPublishRequestNonBlocking(
-                configuration, world, strategy, in context, batch, out _)
-            : _handoff.TryPublishRequest(
-                configuration, world, strategy, in context, batch, out _);
-        if (!published)
+        if (!_handoff.TryPublishRequestNonBlocking(
+                configuration, world, strategy, in context, batch, out _))
         {
-            if (nonBlockingProbe)
-            {
-                _hasPendingRequest = true;
-                _pendingConfiguration = configuration;
-                _pendingWorld = world;
-                _pendingStrategy = strategy;
-                _pendingContext = context;
-                _pendingBatch = batch;
-                _pendingStart = startFact;
-            }
-            else
-            {
-                State.CycleConfiguration = null;
-            }
+            _hasPendingRequest = true;
+            _pendingConfiguration = configuration;
+            _pendingWorld = world;
+            _pendingStrategy = strategy;
+            _pendingContext = context;
+            _pendingBatch = batch;
+            _pendingStart = startFact;
             return new ServiceCycleStartAttempt(
                 false, startFact, captureFact, identity, batch, default,
                 recoveredFault: recoveredFault,

@@ -22,8 +22,7 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         string? attributionFailureReason,
         in ServiceFaultRecoveryFact pendingRecovery,
         MonotonicTimestamp observedAt,
-        bool committed,
-        bool nonBlockingHandoff)
+        bool committed)
     {
         _runtime.Actions.AdvanceCurrentAndClear();
         if (committed) _runtime.State.CommittedCount++;
@@ -41,8 +40,7 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
             _completion.CompleteBatch(
                 in completed,
                 observedAt,
-                rejectedOrFaulted: false,
-                nonBlockingHandoff);
+                rejectedOrFaulted: false);
             return new ServiceActionDispatch(
                 actionFact,
                 attribution,
@@ -88,7 +86,6 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         in ServiceFaultRecoveryFact pendingRecovery,
         int index,
         MonotonicTimestamp observedAt,
-        bool nonBlockingHandoff,
         string? executionFailureReason)
     {
         var terminal = BatchReceipt.Terminated(
@@ -104,8 +101,7 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         _completion.CompleteBatch(
             in terminal,
             observedAt,
-            rejectedOrFaulted: true,
-            nonBlockingHandoff);
+            rejectedOrFaulted: true);
         var fault = default(ServiceFault);
         var retryDue = default(MonotonicTimestamp);
         if (result.Disposition == ServiceActionDisposition.Faulted)

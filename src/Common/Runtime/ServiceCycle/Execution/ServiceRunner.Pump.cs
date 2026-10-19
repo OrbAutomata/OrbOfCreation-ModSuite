@@ -8,13 +8,6 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Execution;
 
 public sealed partial class ServiceRunner<TState, TAction>
 {
-    internal ServiceCycleStartAttempt TryStartCycle(MonotonicTimestamp now)
-    {
-        AssertOwnerThread();
-        ThrowIfDisposed();
-        return _lifetime.IsSuperseded ? default : _starts.TryStart(now);
-    }
-
     internal ServiceCycleStartAttempt TryStartCycleNonBlocking(
         MonotonicTimestamp now,
         int ordinal = 0,
@@ -24,14 +17,7 @@ public sealed partial class ServiceRunner<TState, TAction>
         ThrowIfDisposed();
         return _lifetime.IsSuperseded
             ? default
-            : _starts.TryStart(now, nonBlockingProbe: true, ordinal, observer);
-    }
-
-    internal bool TryAcquireResponse()
-    {
-        AssertOwnerThread();
-        ThrowIfDisposed();
-        return _responses.TryAcquire();
+            : _starts.TryStart(now, ordinal, observer);
     }
 
     internal ServiceResponseAcquisition TryAcquireResponseNonBlocking(
@@ -42,15 +28,6 @@ public sealed partial class ServiceRunner<TState, TAction>
         return _lifetime.IsSuperseded
             ? default
             : _responses.TryAcquireNonBlocking(now);
-    }
-
-    internal ServiceActionDispatch TryExecuteOne(MonotonicTimestamp now)
-    {
-        AssertOwnerThread();
-        ThrowIfDisposed();
-        return _lifetime.IsSuperseded
-            ? default
-            : _actionExecutor.TryExecuteOne(now);
     }
 
     internal ServiceActionDispatch TryExecuteOneNonBlocking(
@@ -122,7 +99,6 @@ public sealed partial class ServiceRunner<TState, TAction>
         return _batchCompletion.RejectForEmergencyStop(
             emergency,
             now,
-            nonBlockingHandoff: true,
             out receipt);
     }
 }

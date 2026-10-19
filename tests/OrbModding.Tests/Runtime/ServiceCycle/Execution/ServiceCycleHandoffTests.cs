@@ -48,7 +48,7 @@ public sealed class ServiceCycleHandoffTests
         var world = EmptyWorld();
         var strategy = NeutralStrategy();
 
-        Assert.True(handoff.TryPublishRequest(configuration, world, strategy, in context, batch, out var sequence));
+        Assert.True(handoff.TryPublishRequestNonBlocking(configuration, world, strategy, in context, batch, out var sequence));
         Assert.Equal(ServiceWorkerWorkKind.Evaluate, handoff.WaitForWorkerWork(out _, out _, out _));
         var wait = Task.Run(() => handoff.WaitForResponseReady(TimeSpan.FromSeconds(2)));
         Assert.True(SpinWait.SpinUntil(() => handoff.OfflineResponseWaiterCount == 1, ServiceCycleTestDeadline.Value));
@@ -70,9 +70,9 @@ public sealed class ServiceCycleHandoffTests
         Assert.True(handoff.TryPublishResponse(sequence, in response));
         Assert.True(await wait);
         Assert.Equal(1, handoff.OfflineResponseWakePulseCount);
-        Assert.True(handoff.TryAcquireResponse(out _));
+        Assert.True(handoff.TryAcquireResponseNonBlocking(out _));
         Assert.False(handoff.WaitForResponseReady(TimeSpan.FromMilliseconds(1)));
-        handoff.CompleteMainOwnership();
+        Assert.True(handoff.TryCompleteMainOwnershipNonBlocking());
         handoff.DisposeNeverStarted();
     }
 
@@ -98,7 +98,7 @@ public sealed class ServiceCycleHandoffTests
             1,
             new MonotonicTimestamp(11));
 
-        Assert.True(handoff.TryPublishRequest(configuration, world, strategy, in context, batch, out var sequence));
+        Assert.True(handoff.TryPublishRequestNonBlocking(configuration, world, strategy, in context, batch, out var sequence));
         using var responsePublished = new ManualResetEventSlim();
         using var allowWorkerToSettle = new ManualResetEventSlim();
         var worker = Task.Run(() =>
@@ -129,8 +129,12 @@ public sealed class ServiceCycleHandoffTests
 
         Assert.True(await wait);
         Assert.True(handoff.OfflineResponseWakePulseCount >= 1);
-        Assert.True(handoff.TryAcquireResponse(out _));
-        handoff.CompleteMainOwnership();
+        Assert.True(SpinWait.SpinUntil(
+            () => handoff.TryAcquireResponseNonBlocking(out _),
+            ServiceCycleTestDeadline.Value));
+        Assert.True(SpinWait.SpinUntil(
+            handoff.TryCompleteMainOwnershipNonBlocking,
+            ServiceCycleTestDeadline.Value));
         handoff.SignalStop();
         await worker.WaitAsync(ServiceCycleTestDeadline.Value);
         Assert.True(handoff.TryAcknowledgeWorkerExited());
@@ -199,7 +203,7 @@ public sealed class ServiceCycleHandoffTests
         var world = EmptyWorld();
         var strategy = NeutralStrategy();
 
-        Assert.True(handoff.TryPublishRequest(configuration, world, strategy, in context, batch, out var sequence));
+        Assert.True(handoff.TryPublishRequestNonBlocking(configuration, world, strategy, in context, batch, out var sequence));
         Assert.Equal(ServiceWorkerWorkKind.Evaluate, handoff.WaitForWorkerWork(out _, out _, out _));
         var fault = new ServiceFault(
             ServiceFaultCategory.Evaluation,
@@ -228,9 +232,9 @@ public sealed class ServiceCycleHandoffTests
             default);
         Assert.True(handoff.TryPublishResponse(sequence, in response));
         Assert.False(handoff.TryPublishResponse(sequence, in response));
-        Assert.True(handoff.TryAcquireResponse(out _));
-        Assert.False(handoff.TryAcquireResponse(out _));
-        handoff.CompleteMainOwnership();
+        Assert.True(handoff.TryAcquireResponseNonBlocking(out _));
+        Assert.False(handoff.TryAcquireResponseNonBlocking(out _));
+        Assert.True(handoff.TryCompleteMainOwnershipNonBlocking());
         Assert.Equal(ServiceHandoffPhase.Empty, handoff.Snapshot.Phase);
         handoff.DisposeNeverStarted();
         Assert.True(handoff.WorkerWakeDisposed);

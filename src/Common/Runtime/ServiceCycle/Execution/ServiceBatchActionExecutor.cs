@@ -23,21 +23,6 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
             completion);
     }
 
-    internal ServiceActionDispatch TryExecuteOne(MonotonicTimestamp now)
-    {
-#if SERVICE_CYCLE_PROFILE
-        var coordinates = default(ServiceCycleProfileCoordinates);
-        return TryExecute(
-            now,
-            nonBlockingHandoff: false,
-            ordinal: 0,
-            observer: null,
-            in coordinates);
-#else
-        return TryExecute(now, nonBlockingHandoff: false, ordinal: 0, observer: null);
-#endif
-    }
-
     internal ServiceActionDispatch TryExecuteOneNonBlocking(
         MonotonicTimestamp now,
         int ordinal,
@@ -47,12 +32,11 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         var coordinates = default(ServiceCycleProfileCoordinates);
         return TryExecute(
             now,
-            nonBlockingHandoff: true,
             ordinal,
             observer,
             in coordinates);
 #else
-        return TryExecute(now, nonBlockingHandoff: true, ordinal, observer);
+        return TryExecute(now, ordinal, observer);
 #endif
     }
 
@@ -64,7 +48,6 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         in ServiceCycleProfileCoordinates coordinates) =>
         TryExecute(
             now,
-            nonBlockingHandoff: true,
             ordinal,
             observer,
             in coordinates);
@@ -72,7 +55,6 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
 
     private ServiceActionDispatch TryExecute(
         MonotonicTimestamp now,
-        bool nonBlockingHandoff,
         int ordinal,
         IServiceCycleAttemptObserver? observer
 #if SERVICE_CYCLE_PROFILE
@@ -131,8 +113,7 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 attributionFailureReason,
                 in pendingRecovery,
                 observedAt,
-                result.Disposition == ServiceActionDisposition.Committed,
-                nonBlockingHandoff)
+                result.Disposition == ServiceActionDisposition.Committed)
             : _outcomes.Terminate(
                 in actionFact,
                 in attribution,
@@ -141,7 +122,6 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in pendingRecovery,
                 index,
                 observedAt,
-                nonBlockingHandoff,
                 executionFailureReason);
     }
 
