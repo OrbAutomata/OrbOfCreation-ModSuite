@@ -319,7 +319,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 ["offerUuid"] = offerId.ToString("D"),
             });
 
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(Tree(treeId, actionMode: 2), generation: 41),
             out var command,
@@ -444,7 +444,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 ["uuid"] = treeId.ToString("D"),
             });
 
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(
                 Tree(treeId, actionMode: 0, collectedAtUtcTicks: completedAt - 1),

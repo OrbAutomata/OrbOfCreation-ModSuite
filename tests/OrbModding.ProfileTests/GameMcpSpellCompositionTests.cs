@@ -136,7 +136,7 @@ public sealed class GameMcpSpellCompositionTests
 
         // Two dials share one screen, so the response can only name the one it moved if the
         // prepared command carries it. It reached the projection empty and printed an empty dial.
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World()),
             out var command,

@@ -703,7 +703,7 @@ public sealed class GameMcpSpellLoadoutTests
     {
         var operation = GameMcpProtocolRouter.BuildOperation(
             "game_spell_loadout", new JObject { ["mode"] = "remove", ["slot"] = 2 });
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World(), generation: 41),
             out var command,

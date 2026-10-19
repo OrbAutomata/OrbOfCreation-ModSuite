@@ -282,7 +282,7 @@ public sealed class GameMcpGenericLevelTests
             ["uuid"] = TimeRuneId.ToString("D"),
             ["amount"] = 2,
         });
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(before, generation: 906),
             out var command,

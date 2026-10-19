@@ -45,7 +45,7 @@ public sealed class GameMcpReturnToMenuTests
         Assert.Equal("game_return_to_menu",
             GameMcpCommandKinds.ToolName(GameMcpCommandKind.ReturnToMenu));
 
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(GameWorldStateDefaults.Empty),
             out var command,
