@@ -296,18 +296,42 @@ internal sealed class GameWorldCollector
         _boolVariables = Reader(new WorldBoolVariableBinder(), resolveType, static frame => frame.BoolVariables);
         _modifierVariables = Reader(new WorldModifierVariableBinder(), resolveType, static frame => frame.ModifierVariables);
         _statistics = Reader(new WorldStatisticBinder(), resolveType, static frame => frame.Statistics);
-        _attributeGroups = Reader(new WorldAttributeGroupBinder(), resolveType, static frame => frame.AttributeGroups);
+        _attributeGroups = Reader(
+            new WorldDescriptionBinder<WorldAttributeGroup>(
+                "attribute groups", "AttributeGroupSO", static (id, description) => new WorldAttributeGroup(id, description)),
+            resolveType,
+            static frame => frame.AttributeGroups);
         _attributeGroupMembers = new WorldAttributeGroupMemberReader(resolveType);
         _statusEffects = Reader(new WorldStatusEffectBinder(), resolveType, static frame => frame.StatusEffects);
         _characterAttributes = Reader(new WorldCharacterAttributeBinder(), resolveType, static frame => frame.CharacterAttributes);
         _damageTypes = Reader(new WorldDamageTypeBinder(), resolveType, static frame => frame.DamageTypes);
         _characterModifiers = Reader(new WorldCharacterModifierBinder(), resolveType, static frame => frame.CharacterModifiers);
         _characterActions = Reader(new WorldCharacterActionBinder(), resolveType, static frame => frame.CharacterActions);
-        _characterTypes = Reader(new WorldCharacterTypeBinder(), resolveType, static frame => frame.CharacterTypes);
-        _enchantments = Reader(new WorldEnchantmentBinder(), resolveType, static frame => frame.Enchantments);
-        _glyphTypes = Reader(new WorldGlyphTypeBinder(), resolveType, static frame => frame.GlyphTypes);
-        _runeStones = Reader(new WorldRuneStoneBinder(), resolveType, static frame => frame.RuneStones);
-        _displayTypes = Reader(new WorldDisplayTypeBinder(), resolveType, static frame => frame.DisplayTypes);
+        _characterTypes = Reader(
+            new WorldDescriptionBinder<WorldCharacterType>(
+                "character types", "CharacterTypeSO", static (id, description) => new WorldCharacterType(id, description)),
+            resolveType,
+            static frame => frame.CharacterTypes);
+        _enchantments = Reader(
+            new WorldDescriptionBinder<WorldEnchantment>(
+                "enchantments", "EnchantmentSO", static (id, description) => new WorldEnchantment(id, description)),
+            resolveType,
+            static frame => frame.Enchantments);
+        _glyphTypes = Reader(
+            new WorldDescriptionBinder<WorldGlyphType>(
+                "glyph types", "GlyphTypeSO", static (id, description) => new WorldGlyphType(id, description)),
+            resolveType,
+            static frame => frame.GlyphTypes);
+        _runeStones = Reader(
+            new WorldDescriptionBinder<WorldRuneStone>(
+                "rune stones", "RuneStoneSO", static (id, description) => new WorldRuneStone(id, description)),
+            resolveType,
+            static frame => frame.RuneStones);
+        _displayTypes = Reader(
+            new WorldDescriptionBinder<WorldDisplayType>(
+                "display types", "DisplayTypeSO", static (id, description) => new WorldDisplayType(id, description)),
+            resolveType,
+            static frame => frame.DisplayTypes);
         _alchemyRecipes = Reader(new WorldAlchemyRecipeBinder(), resolveType, static frame => frame.AlchemyRecipes);
         _alchemyTypes = Reader(new WorldAlchemyTypeBinder(), resolveType, static frame => frame.AlchemyTypes);
         _spellRecipes = Reader(new WorldSpellRecipeBinder(), resolveType, static frame => frame.SpellRecipes);
