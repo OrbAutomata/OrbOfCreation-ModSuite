@@ -36,7 +36,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             1, GameMcpCommandKind.Crafting, lifecycle, 1, "craft", RecipeId, Guid.Empty,
             "CraftingRecipeSO", 1, string.Empty, string.Empty, false);
 
-        var result = runtime.ExecuteGameMcp(command);
+        var result = runtime.GameMcp.ExecuteGameMcp(command);
 
         Assert.Equal("refused", result.Status);
         Assert.Equal("contract_unavailable", result.Code);
@@ -60,7 +60,7 @@ public sealed class GameMcpLifecycleGameActionsTests
             1, GameMcpCommandKind.Consumable, lifecycle, 1, "discard", RecipeId, Guid.Empty,
             "ConsumableSO", 1, string.Empty, string.Empty, false);
 
-        var consumable = runtime.ExecuteGameMcp(command);
+        var consumable = runtime.GameMcp.ExecuteGameMcp(command);
         var facts = runtime.CaptureFrameFacts(includeServices: false);
 
         Assert.Equal("refused", consumable.Status);

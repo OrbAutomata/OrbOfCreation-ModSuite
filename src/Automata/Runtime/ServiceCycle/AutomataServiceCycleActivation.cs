@@ -23,10 +23,7 @@ internal interface IAutomataServiceCycleRuntime : IDisposable
     AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics();
 #if SERVICE_CYCLE_PROFILE
     AutomataRuntimeFrameFacts CaptureFrameFacts(bool includeServices);
-    GameMcpCommandResult ExecuteGameMcp(GameMcpCommand command);
-    SpellWorkbenchLoadPreview PreviewSpellWorkbench(
-        in SpellWorkbenchLoadPreviewRequest request);
-    SpellWorkbenchStagedLayout ReadStagedSpellWorkbench();
+    GameMcpCommandDispatcher GameMcp { get; }
 #endif
 }
 
@@ -150,7 +147,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
                 "The suite is not running on this screen, so no action can be sent to the game.");
             return false;
         }
-        result = _runtime.ExecuteGameMcp(command);
+        result = _runtime.GameMcp.ExecuteGameMcp(command);
         return true;
     }
 
@@ -165,7 +162,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
                 "The suite is not running on this screen, so nothing can be previewed.");
             return false;
         }
-        preview = _runtime.PreviewSpellWorkbench(in request);
+        preview = _runtime.GameMcp.PreviewSpellWorkbench(in request);
         return true;
     }
 
@@ -178,7 +175,7 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
                 "The suite is not running on this screen, so nothing can be read here.");
             return false;
         }
-        layout = _runtime.ReadStagedSpellWorkbench();
+        layout = _runtime.GameMcp.ReadStagedSpellWorkbench();
         return true;
     }
 #endif

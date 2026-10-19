@@ -137,7 +137,7 @@ public sealed class GameMcpReturnToMenuTests
             Guid.Empty, Guid.Empty, "UIBackToMenuButton",
             1, string.Empty, string.Empty, false);
 
-        var result = runtime.ExecuteGameMcp(command);
+        var result = runtime.GameMcp.ExecuteGameMcp(command);
         var json = GameMcpTestHarness.Json(result.Project(command));
 
         Assert.Equal("committed", result.Status);

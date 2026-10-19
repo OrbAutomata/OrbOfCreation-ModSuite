@@ -188,8 +188,8 @@ live state between captures; authored rows survive and live verdicts change.
 
 The listener and an empty inbox acquire no action-family lease. A claimed gameplay operation asks
 `AutomataActionFamilyOwnership.TryBeginGameMcpOperation` for only its mapped family, holds that scope
-around one `AutomataServiceCycleRuntime.ExecuteGameMcp` call, and releases it immediately. Runtime
-execution delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout,
+around one `GameMcpCommandDispatcher.ExecuteGameMcp` call, and releases it immediately. The
+dispatcher delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout,
 crafting, equipment, research, challenge, prestige, targeting, or consumable GameAction used by
 features/tests. MCP capability registration is independent of whether an automation consumer is
 configured on. UUID category and expected native type come from the one
