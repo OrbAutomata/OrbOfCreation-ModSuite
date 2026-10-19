@@ -49,25 +49,4 @@ public sealed class EquipmentLoadoutContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UIEquipmentItem", "HasTypeRoom", "EquipmentTypeSO", "GetMaxTypeSlots"));
     }
-
-    [Fact]
-    public void Manifest_names_every_equipment_action_and_shared_decision_touch()
-    {
-        var manifest = NativeContractManifest.Load();
-        var expected = new[]
-        {
-            "equipment-loadout.equipment.type-action", "equipment-loadout.manager.type-action",
-            "equipment-loadout.list.type-action", "equipment-loadout.equipment-type.type-action",
-            "equipment-loadout.cost.type-action", "equipment-loadout.manager-instance-action",
-            "equipment-loadout.manager-equipped-list-action", "equipment-loadout.equipment-created-action",
-            "equipment-loadout.equipment-type-field-action", "equipment-loadout.equipment-maximum-action",
-            "equipment-loadout.equipment-cost-action", "equipment-loadout.list-stacks-action",
-            "equipment-loadout.list-maximum-action", "equipment-loadout.list-at-maximum",
-            "equipment-loadout.list-values-action", "equipment-loadout.list-type-count-action",
-            "equipment-loadout.type-maximum-action", "equipment-loadout.cost-enough-action",
-            "equipment-loadout.cost-maximum-times-action", "equipment-loadout.manager-equip-action",
-            "equipment-loadout.manager-unequip-action",
-        };
-        Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
-    }
 }

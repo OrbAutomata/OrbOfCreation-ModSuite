@@ -62,19 +62,9 @@ public sealed class PrestigeContractTests
     }
 
     [Fact]
-    public void Manifest_names_every_prestige_action_and_predecision_touch()
+    public void Manifest_names_the_prestige_touch_only_this_list_guards()
     {
         var manifest = NativeContractManifest.Load();
-        var expected = new[]
-        {
-            "prestige.reset-manager.type-action", "prestige.bool-variable.type-action",
-            "prestige.reset-manager-instance-action",
-            "prestige.reset-cycle-complete-action", "prestige.reset-fetched-action",
-            "prestige.bool-get-action", "prestige.reset-logic-action",
-            "prestige.persistent-resource-capture", "prestige.persist-value-capture",
-            "prestige.persist-value-new-capture", "prestige.persist-value-last-capture",
-            "prestige.reset-count-capture", "prestige.resource-guid-capture",
-        };
-        Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
+        Assert.Single(manifest.Contracts, contract => contract.Id == "prestige.resource-guid-capture");
     }
 }

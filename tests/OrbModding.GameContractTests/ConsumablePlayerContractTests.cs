@@ -96,29 +96,14 @@ public sealed class ConsumablePlayerContractTests
     }
 
     [Fact]
-    public void ManifestNamesEveryB006SpecificActionAndCaptureTouch()
+    public void ManifestNamesEveryB006TouchOnlyThisListGuards()
     {
         var manifest = NativeContractManifest.Load();
         var expected = new[]
         {
-            "consumable-player.consumable-cancel-usage-action",
-            "consumable-player.consumable-discard-action",
-            "consumable-player.consumable-next-usage-action",
-            "consumable-player.usage-result-info-action",
-            "consumable-player.result-info-is-cancelled-action",
-            "consumable-player.inventory-instance-action",
-            "consumable-player.inventory-list-action",
-            "consumable-player.hotbar-list-action",
-            "consumable-player.list-value-action",
-            "consumable-player.list-swap-action",
-            "consumable-player.list-set-at-action",
-            "consumable-player.list-update-action",
             "consumable-inventory.inventory-instance-capture",
-            "consumable-inventory.inventory-list-capture",
-            "consumable-inventory.hotbar-list-capture",
             "consumable-inventory.list-value-capture",
             "consumable-inventory.list-get-max-capture",
-            "consumable-inventory.can-use-capture",
             "consumable.cost-has-enough-capture",
             "consumable.cost-value-capture",
         };
