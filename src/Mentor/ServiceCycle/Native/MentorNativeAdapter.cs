@@ -94,17 +94,18 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var readExperience = spell ? native.SpellExperience : native.AlchemyExperience;
         var gain = spell ? native.SpellGain : native.AlchemyGain;
         var expected = new BigDouble(amount.Mantissa, amount.Exponent);
+        if (ChangesNothing(readExperience(recipient), expected)) return BelowResolution();
         var evidence = NativeMutationVerifier.Execute(
             "Mentor mastery XP grant",
             identity,
-            "mastery XP increased",
-            () => readExperience(recipient),
+            "mastery progress increased",
+            () => new MentorMasteryProgress(Mastery(native, recipient, domain), readExperience(recipient)),
             () =>
             {
                 using var ignored = MentorMasteryPatchBridge.Suppress();
                 gain(recipient, expected);
             },
-            (before, after) => after.CompareTo(before) > 0);
+            static (before, after) => after.IsAfter(before));
         return FromEvidence(evidence);
     }
 
@@ -117,12 +118,13 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var container = native.ExperienceElement(equipment) ??
                         throw new InvalidOperationException("artifact experience container is unavailable");
         var value = new BigDouble(amount.Mantissa, amount.Exponent);
+        if (ChangesNothing(native.ContainerExperience(container), value)) return BelowResolution();
 
         var evidence = NativeMutationVerifier.Execute(
             "Mentor artifact mastery XP grant",
             identity,
             "artifact mastery progress increased",
-            () => new MentorArtifactProgress(native.ContainerLevel(container), native.ContainerExperience(container)),
+            () => new MentorMasteryProgress(native.ContainerLevel(container), native.ContainerExperience(container)),
             () =>
             {
                 using var ignored = MentorMasteryPatchBridge.Suppress();
@@ -163,15 +165,23 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             _ => native.AlchemyMastery(recipient),
         };
 
+    private static bool ChangesNothing(BigDouble experience, BigDouble grant) =>
+        (experience + grant).CompareTo(experience) == 0;
+
+    private static NativeActionOutcome BelowResolution() =>
+        NativeActionOutcome.Reject(
+            CommonActionResultCodes.NativeRejected,
+            "the grant is too small to change the recipient's mastery XP at its magnitude");
+
     private static NativeActionOutcome Contract(string reason) =>
         NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
 
     private static NativeActionOutcome Identity(string reason) =>
         NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, reason);
 
-    private readonly struct MentorArtifactProgress
+    private readonly struct MentorMasteryProgress
     {
-        internal MentorArtifactProgress(int level, BigDouble experience)
+        internal MentorMasteryProgress(int level, BigDouble experience)
         {
             Level = level;
             Experience = experience;
@@ -180,7 +190,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         internal int Level { get; }
         internal BigDouble Experience { get; }
 
-        internal bool IsAfter(in MentorArtifactProgress before) =>
+        internal bool IsAfter(in MentorMasteryProgress before) =>
             Level > before.Level ||
             (Level == before.Level && Experience.CompareTo(before.Experience) > 0);
 

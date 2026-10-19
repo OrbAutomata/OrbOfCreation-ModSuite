@@ -81,6 +81,69 @@ public sealed class MentorNativeAdapterTests : IDisposable
 
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
+    public void ASpellGrantTooSmallToChangeAHugeXpIsRefusedWithoutCallingTheGame()
+    {
+        var experience = new BigDouble(7.5488, 128);
+        var spell = new SpellRecipeSO
+        {
+            uuid = Recipient.ToString("D"),
+            discovered = true,
+            masteryLevel = 2,
+            masteryExperience = experience,
+        };
+        IdScriptableObject.RuntimeLookup[Recipient] = spell;
+        using var adapter = new MentorNativeAdapter();
+        var action = Action(MasteryExperienceDomain.Spell, 5);
+
+        var result = adapter.Grant(in action);
+
+        Assert.Equal(CommonActionResultCodes.NativeRejected, result.Code);
+        Assert.Equal(
+            "the grant is too small to change the recipient's mastery XP at its magnitude",
+            result.Reason);
+        Assert.Equal(0, spell.MasteryGrantCalls);
+        Assert.Equal(experience, spell.masteryExperience);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AnArtifactGrantTooSmallToChangeAHugeXpIsRefusedWithoutCallingTheGame()
+    {
+        var equipment = new EquipmentSO { uuid = Recipient.ToString("D") };
+        equipment.SetMasteryState(2, new BigDouble(7.5488, 128), new BigDouble(1, 200));
+        IdScriptableObject.RuntimeLookup[Recipient] = equipment;
+        using var adapter = new MentorNativeAdapter();
+        var action = Action(MasteryExperienceDomain.Artifact, 5);
+
+        var result = adapter.Grant(in action);
+
+        Assert.Equal(CommonActionResultCodes.NativeRejected, result.Code);
+        Assert.Empty(((ExperienceContainer)equipment.GetExperienceElement()).Grants);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
+    public void AnAlchemyGrantThatLevelsTheRecipeUpVerifiesThoughItsXpReset()
+    {
+        RegisterConceptRecipes(Recipe(Guid.NewGuid(), AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid));
+        var recipe = Recipe(Recipient, AlchemyGameplayDomainClassifier.AlchemyTypeUuid);
+        recipe.discovered = true;
+        recipe.masteryLevel = 2;
+        recipe.masteryXp = new BigDouble(9);
+        recipe.SetRequiredMasteryExperience(new BigDouble(10));
+        IdScriptableObject.RuntimeLookup[Recipient] = recipe;
+        using var adapter = new MentorNativeAdapter();
+        var action = Action(MasteryExperienceDomain.Alchemy, 5);
+
+        var result = adapter.Grant(in action);
+
+        Assert.True(result.Verified, result.Reason);
+        Assert.Equal(3, recipe.masteryLevel);
+        Assert.Equal(new BigDouble(2), recipe.masteryXp);
+    }
+
+    [Fact]
+    [Trait("Category", "HeadlessIntegration")]
     public void Every_missing_member_disables_the_complete_mentor_binding_set()
     {
         foreach (var missing in MentorNativeBindings.ContractIds)
@@ -145,6 +208,24 @@ public sealed class MentorNativeAdapterTests : IDisposable
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
         Assert.Equal("injected discovery read failure", result.Reason);
         Assert.Equal(0, spell.MasteryGrantCalls);
+    }
+
+    private static AlchemyRecipeSO Recipe(Guid uuid, Guid typeUuid)
+    {
+        var type = new AlchemyTypeSO();
+        type.SetGuid(typeUuid);
+        var recipe = new AlchemyRecipeSO();
+        recipe.SetGuid(uuid);
+        recipe.alchemyTypes.Add(type);
+        return recipe;
+    }
+
+    private static void RegisterConceptRecipes(params AlchemyRecipeSO[] recipes)
+    {
+        var registry = new AlchemyRecipeListVariable();
+        registry.SetGuid(AlchemyGameplayDomainClassifier.ConceptRecipesUuid);
+        registry.value.AddRange(recipes);
+        IdScriptableObject.RuntimeLookup[AlchemyGameplayDomainClassifier.ConceptRecipesUuid] = registry;
     }
 
     private static MentorCycleAction Action(

@@ -46,8 +46,8 @@ Mentor is an ordinary ServiceCycle service. It never reads BepInEx
    grant actions.
 4. The Unity-thread action boundary resolves the recipient again, revalidates
    lifecycle, UUID/type, ownership, eligibility, and mastery ceiling, invokes
-   the native mastery path, and verifies one progress sentinel: spell/alchemy
-   XP increased, or artifact level/XP advanced.
+   the native mastery path, and verifies one progress sentinel: the
+   recipient's mastery level rose, or its XP rose at the same level.
 
 The spell and alchemy postfixes retain the exact native XP argument.
 `EquipmentSO.IncrementActive` prefix/finalizer plus the
@@ -72,11 +72,14 @@ the three sharing percentages, artifact/alchemy enablement, and diagnostics.
 
 ## Safety and lifecycle
 
-The game remains authoritative at the action boundary. Spell and alchemy grants
-verify that saved mastery XP increased. Artifact grants run the native
-`ExperienceContainer` gain, apply the levels it reports, write its residual XP
-back to the artifact, and verify that the container's level or XP advanced. A
-no-op or unobservable mutation faults the action rather than claiming success;
+The game remains authoritative at the action boundary. Every grant verifies
+that the recipient's mastery level rose, or its XP rose at the same level: an
+alchemy gain can level the recipe up inside the native call and reset its XP.
+Artifact grants run the native `ExperienceContainer` gain, apply the levels it
+reports, and write its residual XP back to the artifact. A grant the game's own
+number addition would absorb unchanged, because the recipient's XP is too large
+for it to register, is refused before the native call. Any other no-op or
+unobservable mutation faults the action rather than claiming success;
 a throw after the native call is a fault unless that progress is visible.
 
 The grant path binds every native member once, as one complete set; a missing
