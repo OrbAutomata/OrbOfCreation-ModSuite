@@ -64,10 +64,10 @@ flowchart LR
     ENCODE --> CLIENT
 ```
 
-`GameMcpFrameBatchExecutor.Drain` is the only claim site. It runs after
-`UpdateAutomata`, so the context observes the configuration and ServiceCycle publications accepted
-for that frame. The same `Plugin.Update` then continues to Mentor and UI maintenance after the MCP
-batch.
+`GameMcpFrameExecutor` owns the frame loop: `Plugin.Update` calls its `Drain` after
+`UpdateAutomata`, and the `GameMcpFrameBatchExecutor.Drain` inside it is the only claim site, so the
+context observes the configuration and ServiceCycle publications accepted for that frame. The same
+`Plugin.Update` then continues to Mentor and UI maintenance after the MCP batch.
 
 ## Exact frame and concurrency semantics
 
