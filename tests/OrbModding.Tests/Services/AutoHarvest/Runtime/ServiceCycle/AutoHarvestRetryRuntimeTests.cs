@@ -126,8 +126,11 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
         using var harness = new Harness();
 
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var latest = harness.RetryGate.Latest;
 
-        Assert.Equal(AutoHarvestServicePolicies.RetryTarget(AutoHarvestPair.FruitTree), harness.RetryGate.Latest.Target);
+        Assert.Equal(AutoHarvestServicePolicies.RetryTarget(AutoHarvestPair.FruitTree), latest.Target);
+        Assert.Equal(PairFirstWait, latest.Backoff);
+        Assert.Equal(AutoHarvestActionResultCodes.PairFaulted, latest.Code);
         Assert.False(game.IsRunning(AutoHarvestPair.FruitTree));
     }
 
