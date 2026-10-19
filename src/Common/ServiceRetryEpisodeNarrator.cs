@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common;
@@ -21,12 +22,29 @@ internal sealed class ServiceRetryEpisodeNarrator
     }
 
     internal ServiceRetryGateSnapshot Current { get; private set; } = ServiceRetryGateSnapshot.Empty;
+    internal MonotonicTimestamp ObservedAt { get; private set; }
 
-    /// <summary>Narrates the change from the last gate seen; answers whether anything changed.</summary>
-    internal bool Observe(ServiceRetryGateSnapshot gate)
+    /// <summary>The announced target still backing off when the gate was last observed.</summary>
+    internal bool TryGetBackingOff(out ServiceRetryEntry entry) =>
+        Current.TryGetLatestAnnounced(ObservedAt, out entry);
+
+    /// <summary>
+    /// Narrates the change from the last gate seen and moves the clock to <paramref name="now"/>;
+    /// answers whether the gate changed or the announced target backing off did.
+    /// </summary>
+    internal bool Observe(ServiceRetryGateSnapshot gate, MonotonicTimestamp now)
     {
         if (gate is null) throw new ArgumentNullException(nameof(gate));
-        if (ReferenceEquals(gate, Current)) return false;
+        var wasBackingOff = TryGetBackingOff(out var before);
+        var gateChanged = !ReferenceEquals(gate, Current);
+        if (gateChanged) Narrate(gate);
+        ObservedAt = now;
+        var backingOff = TryGetBackingOff(out var after);
+        return gateChanged || backingOff != wasBackingOff || backingOff && after.Target != before.Target;
+    }
+
+    private void Narrate(ServiceRetryGateSnapshot gate)
+    {
         for (var index = 0; index < Current.Count; index++)
         {
             var previous = Current[index];
@@ -48,7 +66,6 @@ internal sealed class ServiceRetryEpisodeNarrator
                 entry.Reason);
         }
         Current = gate;
-        return true;
     }
 
     /// <summary>A new lifecycle starts with no target backing off, and nothing to announce about the old one.</summary>

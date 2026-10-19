@@ -109,12 +109,16 @@ public sealed class ServiceRetryGateSnapshot
             ? throw new InvalidOperationException("No target is backing off.")
             : _entries[_entries.Length - 1];
 
-    /// <summary>The announced entry whose failure was recorded last; quiet entries are not reported.</summary>
-    public bool TryGetLatestAnnounced(out ServiceRetryEntry entry)
+    /// <summary>
+    /// The announced entry whose failure was recorded last among those still waiting at
+    /// <paramref name="now"/>. A quiet entry is not reported, and neither is one whose retry is due:
+    /// its target may be held by something else entirely, such as its price, and is no longer backing off.
+    /// </summary>
+    public bool TryGetLatestAnnounced(MonotonicTimestamp now, out ServiceRetryEntry entry)
     {
         for (var index = _entries.Length - 1; index >= 0; index--)
         {
-            if (_entries[index].IsQuiet) continue;
+            if (_entries[index].IsQuiet || now >= _entries[index].RetryDue) continue;
             entry = _entries[index];
             return true;
         }

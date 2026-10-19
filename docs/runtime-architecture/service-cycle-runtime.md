@@ -333,9 +333,12 @@ Each failure in a row doubles the wait from the service's fault-recovery initial
 maximum backoff. A reporter may name a cap of its own instead, on the mark or on `ReportFailure`; one
 shorter than the initial backoff is refused there and faults the action here. A mark may also ask for a
 quiet first failure: the entry stays quiet while every failure in a row comes from the world the first
-was planned from, and turns loud on the first failure planned from a fresher one. A committed action of that target ends an episode its own fault started; an
-episode the evaluator reported ends only on `ServiceActionWriter.EndRetry`, which the evaluator sends
-when it sees the target work again or stops considering it at all. The gate lives in the runner, so a
+was planned from, and turns loud on the first failure planned from a fresher one.
+
+A committed action of that target ends an episode its own fault or marked refusal started; an episode
+the evaluator reported ends only on `ServiceActionWriter.EndRetry`. The evaluator sends `EndRetry`
+when it sees the target work again or stops considering it at all, and it ends any episode, whatever
+started it. The gate lives in the runner, so a
 new lifecycle starts with none.
 
 A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is
@@ -344,8 +347,10 @@ that comes due, so the service wakes when a backed-off target may try again; a s
 backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
 diagnostics snapshot carries the gate. A narrating feature logs one warning when an episode is
 announced, with the attempt count, the wait and the reason, and one when it ends; failures in between
-stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason while
-any announced target waits.
+stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason only
+while an announced target is still backing off. Once that target's retry is due, the status no longer
+names it, even though its entry stays until a commit or `EndRetry` ends it: a target that is due may
+be held by something else, such as its price, and that wait is not a retry.
 
 ## Common frame pump
 

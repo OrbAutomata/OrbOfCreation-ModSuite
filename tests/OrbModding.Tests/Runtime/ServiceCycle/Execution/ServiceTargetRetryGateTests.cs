@@ -162,16 +162,16 @@ public sealed class ServiceTargetRetryGateTests
         var narrator = new OrbModding.Common.ServiceRetryEpisodeNarrator("Feature", warnings.Add);
 
         gate.Record(Second, Code, "first try gone", default, quietFirstFailure: true, plannedFrom: new WorldGeneration(1));
-        narrator.Observe(gate.Snapshot);
+        narrator.Observe(gate.Snapshot, default);
         gate.Clear(Second);
-        narrator.Observe(gate.Snapshot);
+        narrator.Observe(gate.Snapshot, default);
         for (var failures = 0; failures < 3; failures++)
         {
             gate.Record(First, Code, "no change", default);
-            narrator.Observe(gate.Snapshot);
+            narrator.Observe(gate.Snapshot, default);
         }
         gate.ClearOnCommit(First);
-        narrator.Observe(gate.Snapshot);
+        narrator.Observe(gate.Snapshot, default);
 
         Assert.Equal(2, warnings.Count);
         Assert.Contains("Feature backs off", warnings[0]);
@@ -180,6 +180,27 @@ public sealed class ServiceTargetRetryGateTests
         Assert.Contains("Feature stops backing off", warnings[1]);
         Assert.EndsWith("after 3 failed attempts in a row.", warnings[1]);
         Assert.DoesNotContain(warnings, line => line.Contains(Second.Id.ToString("D")));
+    }
+
+    [Fact]
+    public void AnAnnouncedTargetIsBackingOffOnlyUntilItsRetryIsDue()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var narrator = new OrbModding.Common.ServiceRetryEpisodeNarrator("Feature", static _ => { });
+        var entry = gate.Record(First, Code, "no change", new MonotonicTimestamp(100));
+
+        var recorded = narrator.Observe(gate.Snapshot, new MonotonicTimestamp(100));
+        var waiting = narrator.TryGetBackingOff(out _);
+        var stillWaiting = narrator.Observe(gate.Snapshot, new MonotonicTimestamp(109));
+        var due = narrator.Observe(gate.Snapshot, entry.RetryDue);
+
+        Assert.True(recorded);
+        Assert.True(waiting);
+        Assert.False(stillWaiting);
+        Assert.True(due);
+        Assert.False(narrator.TryGetBackingOff(out _));
+        Assert.True(gate.Snapshot.TryFind(First, out _));
+        Assert.Null(gate.TryGetLatestAnnouncedOrDefault(entry.RetryDue));
     }
 
     [Fact]
@@ -400,6 +421,8 @@ public sealed class ServiceTargetRetryGateTests
 
 internal static class ServiceTargetRetryGateTestExtensions
 {
-    internal static ServiceRetryEntry? TryGetLatestAnnouncedOrDefault(this ServiceTargetRetryGate gate) =>
-        gate.Snapshot.TryGetLatestAnnounced(out var entry) ? entry : null;
+    internal static ServiceRetryEntry? TryGetLatestAnnouncedOrDefault(
+        this ServiceTargetRetryGate gate,
+        MonotonicTimestamp now = default) =>
+        gate.Snapshot.TryGetLatestAnnounced(now, out var entry) ? entry : null;
 }

@@ -106,6 +106,29 @@ public sealed class AutoBuyRefusalRetryTests
     }
 
     /// <summary>
+    /// A candidate the world then reads as unaffordable never reaches the purchase that would end its
+    /// episode, so its entry stays; once its retry is due nothing is backing off, and Auto Buy is no
+    /// longer Degraded for it.
+    /// </summary>
+    [Fact]
+    public void AnAnnouncedCandidateThatTurnsUnaffordableIsOperationalOnceItsRetryIsDue()
+    {
+        var purchases = new Purchases(First, LevelCapRefusal());
+        using var harness = new Harness(purchases);
+
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        harness.PumpWorld(firstAffordable: false);
+        Assert.True(harness.RetryGate.TryFind(Target(First), out var entry));
+        var submissions = purchases.Submissions(First);
+        harness.PumpWorldsUntil(() => harness.Now >= entry.RetryDue, firstAffordable: false);
+        for (var index = 0; index < 5; index++) harness.PumpWorld(firstAffordable: false);
+
+        Assert.True(harness.RetryGate.TryFind(Target(First), out _));
+        Assert.Equal(submissions, purchases.Submissions(First));
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
+    }
+
+    /// <summary>
     /// A refusal every readable term says cannot happen holds Auto Buy back for the lifecycle, with
     /// the saved mode untouched; the next lifecycle clears it and probes the same candidate again.
     /// </summary>
@@ -131,6 +154,9 @@ public sealed class AutoBuyRefusalRetryTests
         Assert.Equal(heldStatus.Reason.Summary, Assert.Single(harness.Errors));
         Assert.False(harness.Latch.IsTripped);
     }
+
+    private static ServiceRetryTarget Target(Guid uuid) =>
+        AutoBuyServicePolicies.RetryTarget(AutoBuyCandidateKind.Structure, uuid);
 
     private static AutoBuyAdmissionDiagnosis LevelCapRefusal() =>
         new(

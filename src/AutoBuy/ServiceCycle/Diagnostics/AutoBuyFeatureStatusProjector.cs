@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -39,7 +40,8 @@ internal static class AutoBuyFeatureStatusProjector
         bool cycleObserved,
         AutoBuyDecisionBlockReason decisionBlock = AutoBuyDecisionBlockReason.None,
         string invariantViolation = "",
-        ServiceRetryGateSnapshot? retries = null)
+        ServiceRetryGateSnapshot? retries = null,
+        MonotonicTimestamp now = default)
     {
         if (emergencyDisabled)
         {
@@ -112,7 +114,7 @@ internal static class AutoBuyFeatureStatusProjector
                     "with more than one relation reason.");
         }
 
-        if (retries is not null && retries.TryGetLatestAnnounced(out var retry))
+        if (retries is not null && retries.TryGetLatestAnnounced(now, out var retry))
         {
             return new AutoBuyFeatureStatus(
                 FeatureStatusState.Degraded,

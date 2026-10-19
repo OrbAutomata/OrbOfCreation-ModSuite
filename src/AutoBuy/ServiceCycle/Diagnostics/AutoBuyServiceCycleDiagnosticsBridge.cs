@@ -69,7 +69,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
             ? ReadService(pump)
             : null;
-        conditionsChanged |= service.HasValue && _retries.Observe(service.Value.RetryGate);
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (_evaluationRefreshPending) service ??= ReadService(pump);
         if (_evaluationRefreshPending && service is { } observed && observed.LatestProjection.IsPresent)
         {
@@ -126,7 +126,8 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
             _cycleObserved,
             _decisionBlock,
             _latch.Summary,
-            _retries.Current);
+            _retries.Current,
+            _retries.ObservedAt);
         _featureStatus.ObserveRuntimeLifecycle(
             health.State,
             health.Reason,
