@@ -1920,7 +1920,6 @@ internal sealed class FakeResource
     public bool Visible = true;
     public bool ThrowOnRate;
     public Exception? QuantityFailure;
-    public Exception? GetGuidFailure;
     public FakeModifierRecord maxQuantity = new(-1d);
     public BigDouble lifetimeQuantity;
     public BigDouble discoveryTime;
