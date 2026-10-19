@@ -16,7 +16,9 @@ internal static class GameMcpDiscoveryTreeOfferCommand
                 state,
                 command.TargetId,
                 command.Mode,
-                command.SecondaryId)));
+                command.SecondaryId)),
+        nativeType: "DiscoveryTreeSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteDiscoveryTreeOffer(
         LifecycleGameActions gameActions,
@@ -24,7 +26,7 @@ internal static class GameMcpDiscoveryTreeOfferCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "DiscoveryTreeSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var discoveryTreeOffers = gameActions.Find<DiscoveryTreeOfferGameAction>();
         if (discoveryTreeOffers is null)
             return GameMcpCommandResult.Rejected(
@@ -69,5 +71,13 @@ internal static class GameMcpDiscoveryTreeOfferCommand
             "reroll" => GameMcpWorldQuery.ProjectDiscoveryRerollDelta(state, command),
             _ => GameMcpWorldQuery.ProjectPostState(state, "discovery-trees", command.TargetId),
         };
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.Mode = request.Mode.Substring("offer_".Length);
+    }
 }
 #endif

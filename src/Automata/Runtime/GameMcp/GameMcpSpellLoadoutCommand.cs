@@ -12,7 +12,9 @@ internal static class GameMcpSpellLoadoutCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)));
+                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)),
+        nativeType: "Spell",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteSpellLoadout(
         LifecycleGameActions gameActions,
@@ -20,7 +22,7 @@ internal static class GameMcpSpellLoadoutCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "Spell");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var spellLoadout = gameActions.Find<SpellLoadoutGameAction>();
         if (spellLoadout is null)
             return GameMcpCommandResult.Rejected(
@@ -55,6 +57,22 @@ internal static class GameMcpSpellLoadoutCommand
             lifecycle,
             configurationGeneration,
             GameMcpSpellLoadoutProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.Amount = request.Mode == "move" ? request.SlotIndex : 1;
+        if (context.World is null)
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "world_not_published", context.RuntimeNotAvailableReason);
+        else if (!GameMcpWorldQuery.TryEquippedSpellSlot(
+                     context.World.Snapshot, request.Amount,
+                     out draft.TargetId, out var spellSlotReason))
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "slot_unavailable", spellSlotReason);
     }
 }
 #endif

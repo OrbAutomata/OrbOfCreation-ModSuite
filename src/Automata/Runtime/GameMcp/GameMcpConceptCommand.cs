@@ -11,7 +11,8 @@ internal static class GameMcpConceptCommand
         GameMcpPostStateRule.Settled(
             static (state, command, _) => GameMcpWorldQuery.ProjectConceptDelta(state, command),
             ConceptAmountReached,
-            TimedOut));
+            TimedOut),
+        nativeType: "AlchemyRecipeSO");
 
     /// <summary>
     /// The game writes an Alchemy queue decrease straight through but holds an increase for a

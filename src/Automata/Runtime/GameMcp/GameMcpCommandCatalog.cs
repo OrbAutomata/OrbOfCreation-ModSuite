@@ -60,6 +60,11 @@ internal sealed class GameMcpCommandCatalog
 
     internal IReadOnlyList<GameMcpCommandDescriptor> Commands { get; }
 
+    internal GameMcpCommandDescriptor Descriptor(GameMcpCommandKind kind) =>
+        _commands.TryGetValue(kind, out var descriptor)
+            ? descriptor
+            : throw new InvalidOperationException("no command descriptor registers " + kind);
+
     internal GameMcpCommandExecutor Executor(GameMcpCommandKind kind) =>
         _commands.TryGetValue(kind, out var descriptor) && descriptor.Execute is { } execute
             ? execute
@@ -89,6 +94,9 @@ internal sealed class GameMcpCommandCatalog
                 problems.Add("command " + command.Kind + " has no executor");
             if (gameplay && command.PostState is null)
                 problems.Add("command " + command.Kind + " has no post-state rule");
+            if (gameplay && command.NativeType.Length == 0 && command.Prepare is null)
+                problems.Add("command " + command.Kind + " names no native type and prepares " +
+                    "none");
             if (!gameplay && command.PostState is not null)
                 problems.Add("command " + command.Kind + " is no gameplay action, but declares a " +
                     "post-state rule");

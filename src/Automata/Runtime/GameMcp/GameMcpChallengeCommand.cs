@@ -12,7 +12,9 @@ internal static class GameMcpChallengeCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectChallengePostState(state, command)));
+                GameMcpWorldQuery.ProjectChallengePostState(state, command)),
+        nativeType: "ChallengeSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteChallenge(
         LifecycleGameActions gameActions,
@@ -26,7 +28,7 @@ internal static class GameMcpChallengeCommand
                 "the shared challenge GameAction was not composed", lifecycle,
                 configurationGeneration);
         if (command.TargetId != Guid.Empty)
-            GameMcpNativeActionAdmission.AssertNativeType(command, "ChallengeSO");
+            GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "select" => ChallengeActionKind.Select,
@@ -42,6 +44,16 @@ internal static class GameMcpChallengeCommand
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpChallengeProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        if (request.Mode == "select" && context.World is not null)
+            draft.SecondaryId = GameMcpWorldQuery.ChallengeSelectionToReplace(
+                context.World.Snapshot, draft.TargetId);
     }
 }
 #endif

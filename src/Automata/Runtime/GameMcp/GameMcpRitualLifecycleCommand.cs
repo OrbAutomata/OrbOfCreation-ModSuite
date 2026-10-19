@@ -12,7 +12,8 @@ internal static class GameMcpRitualLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectRitualLifecycleDelta(state, command)));
+                GameMcpWorldQuery.ProjectRitualLifecycleDelta(state, command)),
+        nativeType: "RitualSO");
 
     private static GameMcpCommandResult ExecuteRitualLifecycle(
         LifecycleGameActions gameActions,
@@ -25,7 +26,7 @@ internal static class GameMcpRitualLifecycleCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared Ritual GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "RitualSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "select" => RitualLifecycleActionKind.Select,

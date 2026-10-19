@@ -19,36 +19,50 @@ internal delegate GameMcpCommandResult? GameMcpFrameCommandExecutor(
     GameMcpFrameContext context,
     GameMcpFrameCommandScope scope);
 
+internal delegate void GameMcpCommandPrepare(
+    GameMcpOperationRequest request,
+    GameMcpFrameContext context,
+    GameMcpCommandDraft draft);
+
 /// <summary>
-/// One command kind: how it executes on the main thread and, for a gameplay kind, how its
-/// committed answer settles against a later world.
+/// One command kind: how a request becomes its command, how it executes on the main thread and,
+/// for a gameplay kind, how its committed answer settles against a later world.
 /// </summary>
 internal sealed class GameMcpCommandDescriptor
 {
     internal GameMcpCommandDescriptor(
         GameMcpCommandKind kind,
         GameMcpCommandExecutor? execute,
-        GameMcpPostStateRule? postState)
+        GameMcpPostStateRule? postState,
+        string nativeType = "",
+        GameMcpCommandPrepare? prepare = null)
     {
         Kind = kind;
         Execute = execute;
         PostState = postState;
+        NativeType = nativeType ?? throw new ArgumentNullException(nameof(nativeType));
+        Prepare = prepare;
     }
 
     internal GameMcpCommandDescriptor(
         GameMcpCommandKind kind,
         GameMcpFrameCommandExecutor? executeInFrame,
-        GameMcpPostStateRule? postState = null)
+        GameMcpPostStateRule? postState = null,
+        GameMcpCommandPrepare? prepare = null)
     {
         Kind = kind;
         ExecuteInFrame = executeInFrame;
         PostState = postState;
+        NativeType = string.Empty;
+        Prepare = prepare;
     }
 
     internal GameMcpCommandKind Kind { get; }
     internal GameMcpCommandExecutor? Execute { get; }
     internal GameMcpFrameCommandExecutor? ExecuteInFrame { get; }
     internal GameMcpPostStateRule? PostState { get; }
+    internal string NativeType { get; }
+    internal GameMcpCommandPrepare? Prepare { get; }
 }
 
 internal sealed class GameMcpFrameCommandScope

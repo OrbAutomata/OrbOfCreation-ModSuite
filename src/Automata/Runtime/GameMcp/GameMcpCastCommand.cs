@@ -11,7 +11,9 @@ internal static class GameMcpCastCommand
         GameMcpPostStateRule.Settled(
             static (state, command, _) => GameMcpWorldQuery.ProjectCastDelta(state, command),
             RequestedOutcome,
-            TimedOut));
+            TimedOut),
+        nativeType: "SpellRecipeSO",
+        prepare: Prepare);
 
     private static bool RequestedOutcome(GameMcpFrameContext state, GameMcpCommand command)
     {
@@ -86,6 +88,15 @@ internal static class GameMcpCastCommand
             return GameMcpWorldQuery.FireWithoutSettledWorld(command);
         }
         return GameMcpPostStateSettlement.PostStateTimeout();
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.Amount = request.SlotIndex;
+        draft.PayloadValue = request.SerializedValue;
     }
 }
 #endif

@@ -12,7 +12,8 @@ internal static class GameMcpHarvestLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectHarvestLifecycleDelta(state, command)));
+                GameMcpWorldQuery.ProjectHarvestLifecycleDelta(state, command)),
+        nativeType: "HarvestElementSO");
 
     private static GameMcpCommandResult ExecuteHarvestLifecycle(
         LifecycleGameActions gameActions,
@@ -25,7 +26,7 @@ internal static class GameMcpHarvestLifecycleCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared harvest-list GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "HarvestElementSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "add_element" => HarvestLifecycleActionKind.AddElement,

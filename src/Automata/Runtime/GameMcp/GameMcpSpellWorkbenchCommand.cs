@@ -11,7 +11,9 @@ internal static class GameMcpSpellWorkbenchCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)));
+                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)),
+        nativeType: "SpellRecipeSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteSpellWorkbench(
         LifecycleGameActions gameActions,
@@ -19,7 +21,7 @@ internal static class GameMcpSpellWorkbenchCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "SpellRecipeSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var spellWorkbench = gameActions.Find<SpellWorkbenchGameAction>();
         if (spellWorkbench is null)
             return GameMcpCommandResult.Rejected(
@@ -43,6 +45,14 @@ internal static class GameMcpSpellWorkbenchCommand
             lifecycle,
             configurationGeneration,
             GameMcpSpellWorkbenchProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.Mode = "create";
     }
 }
 #endif

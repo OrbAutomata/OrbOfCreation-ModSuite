@@ -12,7 +12,8 @@ internal static class GameMcpPlotLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, committed) =>
-                GameMcpWorldQuery.ProjectHarvestDelta(state, command, committed)));
+                GameMcpWorldQuery.ProjectHarvestDelta(state, command, committed)),
+        nativeType: "PlotNodeSO");
 
     private static GameMcpCommandResult ExecutePlotLifecycle(
         LifecycleGameActions gameActions,
@@ -25,7 +26,7 @@ internal static class GameMcpPlotLifecycleCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared plot-action GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "PlotNodeSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "add_plot_action" => PlotLifecycleActionKind.Add,

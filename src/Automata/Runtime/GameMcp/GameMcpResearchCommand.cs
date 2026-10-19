@@ -18,7 +18,8 @@ internal static class GameMcpResearchCommand
         GameMcpPostStateRule.Settled(
             static (state, command, _) => GameMcpWorldQuery.ProjectResearchDelta(state, command),
             RequestedOutcome,
-            TimedOut));
+            TimedOut),
+        nativeType: "ResearchSO");
 
     private static GameMcpCommandResult ExecuteResearch(
         LifecycleGameActions gameActions,
@@ -27,7 +28,7 @@ internal static class GameMcpResearchCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "ResearchSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var researchAction = gameActions.Find<ResearchGameAction>();
         if (researchAction is null)
             return GameMcpCommandResult.Rejected("contract_unavailable",

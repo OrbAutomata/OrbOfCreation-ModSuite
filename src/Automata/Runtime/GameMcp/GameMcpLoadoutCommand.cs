@@ -11,7 +11,13 @@ internal static class GameMcpLoadoutCommand
         static (command, scope) => ExecuteLoadout(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectLoadoutDelta(state, command)));
+            static (state, command, _) => GameMcpWorldQuery.ProjectLoadoutDelta(state, command)),
+        prepare: Prepare);
+
+    internal const string PlayerLoadoutType = "PlayerLoadout";
+
+    internal static string SnapshotListType(bool alchemy) =>
+        alchemy ? "AlchemySnapshotListVariable" : "EquipmentSnapshotListVariable";
 
     private static GameMcpCommandResult ExecuteLoadout(
         LifecycleGameActions gameActions,
@@ -46,6 +52,47 @@ internal static class GameMcpLoadoutCommand
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpLoadoutProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        var snapshotMode = request.Mode.StartsWith("snapshot_", StringComparison.Ordinal);
+        if (context.World is null)
+        {
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "world_not_published", context.RuntimeNotAvailableReason);
+        }
+        else if (snapshotMode)
+        {
+            if (GameMcpWorldQuery.TrySnapshotList(
+                    context.World.Snapshot, request.Key, out draft.TargetId, out var listReason))
+                draft.NativeType = SnapshotListType(request.Key == "alchemy");
+            else
+                draft.Failure = GameMcpCommandResult.Rejected(
+                    "loadout_unavailable", listReason);
+        }
+        else if (GameMcpWorldQuery.TryPlayerLoadout(
+                     context.World.Snapshot, request.Amount,
+                     out draft.TargetId, out var loadoutReason))
+        {
+            draft.NativeType = PlayerLoadoutType;
+        }
+        else
+        {
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "loadout_unavailable", loadoutReason);
+        }
+        draft.Mode = request.Mode == "set_section"
+            ? request.Key == "equipment" ? "set_equipment" : "set_alchemy"
+            : request.Mode;
+        draft.PayloadKey = request.Key;
+        draft.PayloadValue = request.SerializedValue;
+        // Only a snapshot mode addresses a slot. A loadout position is resolved here into the
+        // identity the boundary acts on, so it must not also ride along as a slot number.
+        draft.Amount = snapshotMode ? request.SlotIndex : 1;
     }
 }
 #endif

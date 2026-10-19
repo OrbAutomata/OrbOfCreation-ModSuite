@@ -1,4 +1,6 @@
 #if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.World;
+
 namespace OrbAutomata.GameMcp;
 
 internal static class GameMcpPurchaseCommand
@@ -13,6 +15,29 @@ internal static class GameMcpPurchaseCommand
     internal static GameMcpCommandDescriptor Descriptor { get; } = new(
         GameMcpCommandKind.Purchase,
         GameMcpCommandDispatcher.FeatureExecutor,
-        GameMcpPostStateRule.FromPress);
+        GameMcpPostStateRule.FromPress,
+        prepare: Prepare);
+
+    internal static string NativeTypeFor(string mode) =>
+        mode == "structure" ? "StructureSO" : "UpgradeSO";
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        if (context.World is not null)
+        {
+            var structure = WorldLookup.TryFind(
+                context.World.Snapshot.Structures, request.Uuid, out _);
+            var upgrade = WorldLookup.TryFind(
+                context.World.Snapshot.Upgrades, request.Uuid, out _);
+            if (structure != upgrade)
+            {
+                draft.Mode = structure ? "structure" : "upgrade";
+                draft.NativeType = NativeTypeFor(draft.Mode);
+            }
+        }
+    }
 }
 #endif
