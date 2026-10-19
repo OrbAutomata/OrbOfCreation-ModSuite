@@ -315,7 +315,7 @@ public sealed class GameMcpGadgetTests
     [Fact]
     public void ScreenCatalogGroupsSubtabsUnderTheActiveNamedTab()
     {
-        var projected = Plugin.ProjectGameMcpScreenCatalog(
+        var projected = GameMcpScreenCatalogProjection.ProjectGameMcpScreenCatalog(
             "Main",
             navigationAvailable: true,
             new[]
@@ -360,7 +360,7 @@ public sealed class GameMcpGadgetTests
     [Fact]
     public void EveryScreenRowSaysWhetherTheGameHasUnlockedIt()
     {
-        var projected = Plugin.ProjectGameMcpScreenCatalog(
+        var projected = GameMcpScreenCatalogProjection.ProjectGameMcpScreenCatalog(
             "Main",
             navigationAvailable: true,
             new[]
