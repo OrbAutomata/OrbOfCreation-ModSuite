@@ -42,6 +42,18 @@ public sealed class GameMcpAffordabilityTests
     }
 
     [Fact]
+    public void The_affordable_argument_reaches_the_page_a_tool_call_returns()
+    {
+        var page = GameMcpAcceptanceFixture.CallText(
+            "world_list",
+            new JObject { ["category"] = "attributes", ["affordable"] = true },
+            World());
+
+        Assert.Contains(GameMcpTestHarness.Handle(Cheap), page, StringComparison.Ordinal);
+        Assert.DoesNotContain(GameMcpTestHarness.Handle(Dear), page, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void An_unfiltered_page_still_answers_for_the_whole_category()
     {
         var page = GameMcpTestHarness.Json(

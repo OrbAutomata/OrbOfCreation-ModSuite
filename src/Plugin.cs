@@ -1558,12 +1558,11 @@ public sealed class Plugin : BaseUnityPlugin
             : _modalOpenGameAction.BindingFailure;
     }
 
-    private bool TryExecuteGameMcpFrameOperation(
-        GameMcpFrameOperation operation,
+    internal static bool TryExecuteFrameRead(
+        GameMcpOperationRequest request,
         GameMcpFrameContext context,
         out GameMcpToolExecution execution)
     {
-        var request = operation.Request;
         switch (request.ToolName)
         {
             case "world_overview":
@@ -1612,12 +1611,6 @@ public sealed class Plugin : BaseUnityPlugin
             case "strategist":
                 execution = GameMcpStrategistQuery.Read(context, request.Section);
                 return true;
-            case "suite_check_game_math":
-                execution = RunGameMcpGameMathCheck();
-                return true;
-            case "game_screen_catalog":
-                execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
-                return true;
             case "suite_configuration":
                 execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(
                     context, request.Mode == "describe", request.Section));
@@ -1632,6 +1625,26 @@ public sealed class Plugin : BaseUnityPlugin
                 return true;
             case "trace_health":
                 execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+                return true;
+        }
+        execution = null!;
+        return false;
+    }
+
+    private bool TryExecuteGameMcpFrameOperation(
+        GameMcpFrameOperation operation,
+        GameMcpFrameContext context,
+        out GameMcpToolExecution execution)
+    {
+        var request = operation.Request;
+        if (TryExecuteFrameRead(request, context, out execution)) return true;
+        switch (request.ToolName)
+        {
+            case "suite_check_game_math":
+                execution = RunGameMcpGameMathCheck();
+                return true;
+            case "game_screen_catalog":
+                execution = GameMcpToolExecution.Read(CaptureScreenCatalogGameMcp());
                 return true;
             case "game_spell_loadout" when request.Mode == "preview":
                 var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];

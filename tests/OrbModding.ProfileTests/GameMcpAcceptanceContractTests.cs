@@ -1715,19 +1715,7 @@ internal static class GameMcpAcceptanceFixture
             {
                 ["name"] = tool,
                 ["arguments"] = arguments ?? new JObject(),
-            }), operation => operation.Request.ToolName switch
-            {
-                "suite_health" => GameMcpToolExecution.Text(
-                    Plugin.ProjectGameMcpHealthText(pinned)),
-                "suite_configuration" => GameMcpToolExecution.Read(
-                    Plugin.ProjectGameMcpConfiguration(
-                        pinned,
-                        operation.Request.Mode == "describe",
-                        operation.Request.Section)),
-                "trace_health" => GameMcpToolExecution.Text(
-                    Plugin.ProjectGameMcpTraceHealthText(pinned)),
-                _ => GameMcpTestHarness.ExecuteRead(operation, pinned),
-            });
+            }), operation => GameMcpTestHarness.ExecuteRead(operation, pinned));
         Assert.Equal(200, response.StatusCode);
         Assert.Null(response.Body?["error"]);
         Assert.Null(response.Body!["result"]!["structuredContent"]);
