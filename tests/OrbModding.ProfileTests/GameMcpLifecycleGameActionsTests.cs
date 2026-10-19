@@ -192,7 +192,8 @@ public sealed class GameMcpLifecycleGameActionsTests
                 tryCaptureMutationPermit: () => true,
                 readOwnershipFailure: () => string.Empty,
                 featureStatus: Status(
-                    AutomataFeatureStatuses.AutoItemsFeatureId, "Auto Items", lifecycle))),
+                    AutomataFeatureStatuses.AutoItemsFeatureId, "Auto Items", lifecycle),
+                warn: static _ => { })),
             new AutoScribeServiceCycleFeature(new AutoScribeFeatureDependencies(
                 resolver,
                 AutoScribeIdentityCatalog.Audited,

@@ -2894,8 +2894,8 @@ press itself answered a plain commit — `agent settings:` costs a line exactly 
 documented verb assumes, `<feature> reason:` costs a line for each feature the suite switched off itself
 (`invariant_violation`) and carries the sentence that stand-down logged — for Auto Buy, the
 candidate, the game's refusal, and the diagnostic bundle — and for each feature held
-`temporarily_blocked` or `locked` by anything but the emergency stop, carrying what it would do and
-why it did not (`auto_concept reason: Auto Concept would rotate Analyze Space out for Analyze
+`temporarily_blocked`, `locked` or `faulted` by anything but the emergency stop, carrying what it
+would do and why it did not (`auto_concept reason: Auto Concept would rotate Analyze Space out for Analyze
 Essence, but Psi is at zero.`), and feature and service names are grouped by state and reason code. Seven identical NotReady features
 therefore occupy one line, not seven objects. The whole roster is one `features ` line and the whole
 service list is one `services ` line, their groups separated by `; ` — `features

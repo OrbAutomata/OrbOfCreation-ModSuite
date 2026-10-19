@@ -31,8 +31,6 @@ internal static class AutoItemsFeatureStatusProjector
         string bindingFailure,
         bool cycleObserved,
         AutoItemsDecisionKind decisionKind,
-        Guid quarantinedTemporaryItem,
-        AutoItemsTemporaryQuarantineCause temporaryQuarantineCause,
         AutoItemsActionHealth health)
     {
         if (emergencyDisabled)
@@ -52,10 +50,6 @@ internal static class AutoItemsFeatureStatusProjector
                 string.IsNullOrWhiteSpace(bindingFailure)
                     ? "The lifecycle-scoped Auto Items native binding set is unavailable."
                     : bindingFailure);
-        if (temporaryQuarantineCause != AutoItemsTemporaryQuarantineCause.None)
-            return TemporaryQuarantine(
-                quarantinedTemporaryItem,
-                temporaryQuarantineCause);
         if (health.HasFailure)
             return FromActionFailure(health.Code, health.Reason);
         if (!cycleObserved)
@@ -79,26 +73,6 @@ internal static class AutoItemsFeatureStatusProjector
                     "Auto Items observed a pending or active temporary usage and is excluding every consumable use.",
                 _ => "Auto Items is active and waiting for an eligible Scroll, Relic, or exact allowlisted temporary item.",
             });
-    }
-
-    private static AutoItemsFeatureStatus TemporaryQuarantine(
-        Guid itemId,
-        AutoItemsTemporaryQuarantineCause cause)
-    {
-        var evidence = cause switch
-        {
-            AutoItemsTemporaryQuarantineCause.MultipleUsages =>
-                "more than one native usage appeared",
-            AutoItemsTemporaryQuarantineCause.PrematureExpiry =>
-                "its usage expired before the activation proof completed",
-            AutoItemsTemporaryQuarantineCause.MissingEngagementEvidence =>
-                "the usage disappeared without any observed engagement",
-            _ => "its activation evidence was invalid",
-        };
-        return new AutoItemsFeatureStatus(
-            FeatureStatusState.Faulted,
-            FeatureStatusReasonCode.MutationQuarantined,
-            $"Temporary item {EntityIdentityFormatter.Format(itemId)} is quarantined for this lifecycle because {evidence}.");
     }
 
     private static AutoItemsFeatureStatus FromActionFailure(

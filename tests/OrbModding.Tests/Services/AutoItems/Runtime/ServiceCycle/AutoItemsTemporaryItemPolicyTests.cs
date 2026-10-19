@@ -1,18 +1,29 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using BepInEx.Logging;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
+using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
+using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.World;
+using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems.Runtime.ServiceCycle;
 
-public sealed class AutoItemsTemporaryItemPolicyTests
+public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
 {
+    public AutoItemsTemporaryItemPolicyTests() => ResetNativeStubs();
+
+    public void Dispose() => ResetNativeStubs();
+
     [Fact]
     public void ExactAllowlistEntryPlansOneTemporaryConsumableUse()
     {
@@ -241,65 +252,126 @@ public sealed class AutoItemsTemporaryItemPolicyTests
         Assert.Equal(AutoItemsTemporaryActivationState.AwaitingActivation, pending.State);
         Assert.Equal(AutoItemsTemporaryActivationState.Active, active.State);
         Assert.Equal(AutoItemsTemporaryActivationState.Completed, completed.State);
-        Assert.False(state.IsTemporaryQuarantined(itemId));
+        Assert.Equal(Guid.Empty, state.PausedTemporaryItem);
         Assert.Equal(Guid.Empty, state.PendingTemporaryItem);
     }
 
     [Fact]
-    public void DoubleUsageQuarantinesOnlyTheExactTemporaryItem()
+    public void AUsageAutoItemsDidNotCreatePausesTheItemWhileAnyUsageOfItRemains()
     {
         var itemId = Guid.NewGuid();
-        var otherId = Guid.NewGuid();
         var state = SubmittedState(itemId, submittedFrame: 10);
 
-        var observation = AutoItemsTemporaryActivationPolicy.Observe(
+        var paused = AutoItemsTemporaryActivationPolicy.Observe(
             FollowUpWorld(
                 itemId,
                 frame: 11,
                 Usage(itemId, engaged: false, remaining: 60),
                 Usage(itemId, engaged: false, remaining: 60)),
             ref state);
-
-        Assert.Equal(AutoItemsTemporaryActivationState.Quarantined, observation.State);
-        Assert.Equal(AutoItemsTemporaryQuarantineCause.MultipleUsages, observation.QuarantineCause);
-        Assert.Equal(itemId, observation.ItemId);
-        Assert.True(state.IsTemporaryQuarantined(itemId));
-        Assert.False(state.IsTemporaryQuarantined(otherId));
-    }
-
-    [Fact]
-    public void PrematureExpiryQuarantinesWithTheExactCause()
-    {
-        var itemId = Guid.NewGuid();
-        var state = SubmittedState(itemId, submittedFrame: 10);
-
-        var observation = AutoItemsTemporaryActivationPolicy.Observe(
+        var stillPaused = AutoItemsTemporaryActivationPolicy.Observe(
             FollowUpWorld(
                 itemId,
-                frame: 11,
-                Usage(itemId, engaged: true, remaining: 0)),
+                frame: 12,
+                Usage(itemId, engaged: true, remaining: 30)),
+            ref state);
+        var resumed = AutoItemsTemporaryActivationPolicy.Observe(
+            FollowUpWorld(itemId, frame: 13),
             ref state);
 
-        Assert.Equal(AutoItemsTemporaryActivationState.Quarantined, observation.State);
-        Assert.Equal(AutoItemsTemporaryQuarantineCause.PrematureExpiry, observation.QuarantineCause);
-        Assert.True(state.IsTemporaryQuarantined(itemId));
+        Assert.Equal(AutoItemsTemporaryActivationState.Paused, paused.State);
+        Assert.Equal(AutoItemsTemporaryPauseCause.MultipleUsages, paused.PauseCause);
+        Assert.Equal(itemId, paused.ItemId);
+        Assert.Equal(AutoItemsTemporaryActivationState.Paused, stillPaused.State);
+        Assert.Equal(AutoItemsTemporaryActivationState.None, resumed.State);
+        Assert.Equal(Guid.Empty, state.PausedTemporaryItem);
+        Assert.Equal(AutoItemsTemporaryPauseCause.None, state.TemporaryPauseCause);
     }
 
     [Fact]
-    public void MissingEngagementEvidenceQuarantinesWithTheExactCause()
+    public void AQueuedUsageThatVanishesUnengagedPausesForOneWorldThenResumes()
     {
         var itemId = Guid.NewGuid();
         var state = SubmittedState(itemId, submittedFrame: 10);
 
-        var observation = AutoItemsTemporaryActivationPolicy.Observe(
+        var paused = AutoItemsTemporaryActivationPolicy.Observe(
             FollowUpWorld(itemId, frame: 11),
             ref state);
+        var resumed = AutoItemsTemporaryActivationPolicy.Observe(
+            FollowUpWorld(itemId, frame: 12),
+            ref state);
 
-        Assert.Equal(AutoItemsTemporaryActivationState.Quarantined, observation.State);
+        Assert.Equal(AutoItemsTemporaryActivationState.Paused, paused.State);
         Assert.Equal(
-            AutoItemsTemporaryQuarantineCause.MissingEngagementEvidence,
-            observation.QuarantineCause);
-        Assert.True(state.IsTemporaryQuarantined(itemId));
+            AutoItemsTemporaryPauseCause.MissingEngagementEvidence,
+            paused.PauseCause);
+        Assert.Equal(AutoItemsTemporaryActivationState.None, resumed.State);
+        Assert.Equal(Guid.Empty, state.PausedTemporaryItem);
+    }
+
+    [Fact]
+    public void APlayerUsageOfACommittedFruitPausesItLoudlyAndResumesWithoutFaulting()
+    {
+        var registry = new Dictionary<Guid, object>();
+        var fruit = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Fruit);
+        var itemId = fruit.GetGuid();
+        var warnings = new List<string>();
+        var status = FeatureStatus();
+        IDictionary source = registry;
+        var frame = 0L;
+        RegistryCapture capture;
+        using var runtime = AutomataServiceCycleComposition.Create(
+            Configuration(itemId.ToString("D")),
+            new ConfigGeneration(1),
+            new AutomataServiceCycleHostDependencies(
+                () => ++frame,
+                static () => 1,
+                new ServiceActionTimelineRegistry()),
+            new IAutomataServiceCycleFeature[]
+            {
+                capture = new RegistryCapture(new AutoItemsServiceCycleFeature(new AutoItemsFeatureDependencies(
+                    new TypedRegistryResolver(
+                        static () => 1,
+                        () => TypedRegistrySourceSnapshot.Ready(source),
+                        value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty),
+                    static () => 1,
+                    ownsActionFamily: static () => true,
+                    tryCaptureMutationPermit: static () => true,
+                    readOwnershipFailure: static () => string.Empty,
+                    featureStatus: status,
+                    warn: warnings.Add))),
+            },
+            new ManualLogSource());
+        var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+
+        var generation = world.CollectedAtFrame;
+        Publish(capture, world);
+        TickUntil(runtime, () => fruit.GetQueued() == 1);
+        var twoUsages = world with
+        {
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(
+                new[]
+                {
+                    Usage(itemId, engaged: false, remaining: 60),
+                    Usage(itemId, engaged: false, remaining: 60),
+                }),
+        };
+        CollectUntil(runtime, capture, twoUsages, ref generation, () => warnings.Count > 0);
+        var pausedStatus = status.Current;
+        var noUsage = TemporaryWorld(
+            itemId,
+            quantity: 0,
+            familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+        CollectUntil(runtime, capture, noUsage, ref generation, () => warnings.Count > 1);
+
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains(itemId.ToString("D"), warnings[0]);
+        Assert.Contains("more than one native usage appeared", warnings[0]);
+        Assert.Contains(itemId.ToString("D"), warnings[1]);
+        Assert.Contains("resumed", warnings[1]);
+        Assert.Equal(FeatureStatusState.Operational, pausedStatus.State);
+        Assert.Equal(FeatureStatusState.Operational, status.Current.State);
+        Assert.Equal(1, fruit.GetQueued());
     }
 
     [Fact]
@@ -527,6 +599,76 @@ public sealed class AutoItemsTemporaryItemPolicyTests
             isAtCapacity: false,
             trueQuantity,
             trueRate: BigDouble.Zero);
+    }
+
+    private static void ResetNativeStubs()
+    {
+        Inventory.Preparing = false;
+        TargetingManager.OpenRequests = 0;
+        ConsumableSO.All.Clear();
+        Inventory.ResetLists();
+        GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
+        NativeMultiBuyScope.ResetQuarantineForTests();
+    }
+
+    private static void Publish(RegistryCapture capture, GameWorldState world) =>
+        TestWorldCollector.CollectedAt(capture.Registry, world.CollectedAtFrame, world);
+
+    private static void CollectUntil(
+        AutomataServiceCycleRuntime runtime,
+        RegistryCapture capture,
+        GameWorldState world,
+        ref long generation,
+        Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + ServiceCycleTestDeadline.Value;
+        while (!condition())
+        {
+            Assert.True(
+                DateTime.UtcNow < deadline,
+                "The runtime did not reach the expected state before the test deadline.");
+            Publish(capture, world with { CollectedAtFrame = ++generation });
+            runtime.Tick(0);
+        }
+    }
+
+    private static void TickUntil(AutomataServiceCycleRuntime runtime, Func<bool> condition) =>
+        Assert.True(
+            SpinWait.SpinUntil(
+                () =>
+                {
+                    runtime.Tick(0);
+                    return condition();
+                },
+                ServiceCycleTestDeadline.Value),
+            "The runtime did not reach the expected state before the test deadline.");
+
+    private static AutomataFeatureStatusReporter FeatureStatus() =>
+        new(
+            new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoItemsFeatureId),
+                "Auto Items",
+                true,
+                FeatureStatusState.NotReady,
+                new FeatureStatusReason(FeatureStatusReasonCode.RegistryNotReady, "waiting"),
+                lifecycleGeneration: 1));
+
+    private sealed class RegistryCapture : IAutomataServiceCycleFeature
+    {
+        private readonly IAutomataServiceCycleFeature _feature;
+        private ServiceCycleRegistry? _registry;
+
+        internal RegistryCapture(IAutomataServiceCycleFeature feature) => _feature = feature;
+
+        internal ServiceCycleRegistry Registry =>
+            _registry ?? throw new InvalidOperationException("The runtime has not registered the feature.");
+
+        public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context)
+        {
+            _registry = context.Registry;
+            return _feature.Register(in context);
+        }
     }
 
     private static SuiteRuntimeConfiguration Configuration(

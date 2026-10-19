@@ -74,13 +74,10 @@ internal static class AutoItemsCandidateScanner
     internal static AutoItemsCandidateScan Scan(
         GameWorldState world,
         in SuiteRuntimeConfiguration configuration,
-        PublicationTable<Guid> quarantinedTemporaryItems,
         PublicationTable<Guid>? temporaryAllowlist,
         PublicationTable<Guid> targetlessScrolls)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
-        if (quarantinedTemporaryItems is null)
-            throw new ArgumentNullException(nameof(quarantinedTemporaryItems));
 
         var rows = world.Consumables.AsSpan();
         var rejected = 0;
@@ -118,9 +115,6 @@ internal static class AutoItemsCandidateScanner
                         profile.Family,
                         itemId,
                         temporaryAllowlist) ||
-                    AutoItemsTemporaryItemAllowlist.Contains(
-                        quarantinedTemporaryItems,
-                        itemId) ||
                     !IsBaseEligible(in profile) ||
                     !HasSafeTemporaryShape(in profile) ||
                     !HasCurrentToxicityHeadroom(in profile))

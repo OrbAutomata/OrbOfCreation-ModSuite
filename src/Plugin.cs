@@ -505,7 +505,8 @@ public sealed class Plugin : BaseUnityPlugin
                                     _automataActionFamilyOwnership!.OwnsItems,
                                 tryCaptureMutationPermit: itemsFamily.TryCapture,
                                 readOwnershipFailure: itemsFamily.Failure,
-                                featureStatus: featureStatuses.AutoItems)),
+                                featureStatus: featureStatuses.AutoItems,
+                                warn: message => Log.LogAutomataWarning(message))),
                         autoScribeFeature,
                         new AutoHarvestServiceCycleFeature(
                             new AutoHarvestFeatureDependencies(
@@ -2014,7 +2015,8 @@ public sealed class Plugin : BaseUnityPlugin
             result.Append("features ").Append(string.Join("; ", featureGroups)).Append('\n');
         foreach (var feature in context.FeatureStatuses)
         {
-            var held = feature.State is (FeatureStatusState.TemporarilyBlocked or FeatureStatusState.Locked) &&
+            var held = feature.State is (FeatureStatusState.TemporarilyBlocked or FeatureStatusState.Locked or
+                    FeatureStatusState.Faulted) &&
                 feature.Reason.Code != FeatureStatusReasonCode.EmergencyDisabled &&
                 feature.Reason.Summary.Length > 0;
             if (!held && feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;

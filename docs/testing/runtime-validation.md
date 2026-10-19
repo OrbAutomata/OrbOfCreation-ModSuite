@@ -88,7 +88,8 @@ retries.
   drain rollback, mastery limits, and assignment settlement.
 - **Auto Items:** Scroll, Relic, and explicitly approved temporary items;
   targeting/native-busy refusals, exact stock/queue/usage evidence, picker
-  whitelist behavior, and item-scoped quarantine.
+  whitelist behavior, item-scoped quarantine of an unverified submission, and
+  the pause and resume when the player eats an allowlisted item themselves.
 - **Auto Scribe:** role selection, cost rank, carry limit, payment-last ordering,
   queue/instant completion, and lifecycle quarantine.
 - **Mentor:** spells under both source-selection policies, artifacts, and
