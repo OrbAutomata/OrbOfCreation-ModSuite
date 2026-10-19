@@ -227,7 +227,7 @@ public sealed class ProductionSourceAuditTests
         };
         var logCalls = new[]
         {
-            "logerror", "logwarning", "logmessage", "loginfo", "logdebug", "logfatal",
+            "logerror", "logwarning", "logmessage", "loginfo", "logdebug", "logfatal", "logautomata",
         };
         const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
         const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
