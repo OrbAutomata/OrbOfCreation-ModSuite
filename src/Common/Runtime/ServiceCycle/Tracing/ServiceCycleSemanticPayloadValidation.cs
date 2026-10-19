@@ -107,12 +107,20 @@ internal static partial class ServiceCycleSemanticPayloadValidation
                     nameof(payload));
                 break;
             case ServiceCycleSemanticEventKind.PumpHeapSampled:
-                // The count only rises, and a heap that reads zero was never read.
+                // The count only rises, and a heap that reads zero was never read. A census is whole or
+                // absent, and a reservation smaller than its use was never read either.
+                var censusFields = payload.Fields & ServiceCycleSemanticPayload.CensusFields;
                 Require(
                     payload.CollectionsAtPumpEnd >= payload.CollectionsAtPumpStart &&
                     payload.HeapAtPumpStart > 0 && payload.HeapAtPumpEnd > 0 &&
                     payload.TotalDurationTicks == 0 &&
-                    (payload.CapturesMeasured > 0 || payload.CaptureHeapGrowth == 0),
+                    (payload.CapturesMeasured > 0 || payload.CaptureHeapGrowth == 0) &&
+                    (censusFields == 0 || censusFields == ServiceCycleSemanticPayload.CensusFields &&
+                        payload.HeapCensus is { } census && census.ReservedHeap >= payload.HeapAtPumpEnd &&
+                        census.LiveWorldSnapshots >= 0 && census.ScriptableObjects >= 0 &&
+                        census.GameObjects >= 0 && census.MonoBehaviours >= 0 && payload.CyclesStarted == 0 &&
+                        payload.WorldGateDeferrals == 0 && payload.EmergencyBatchesRejected == 0 &&
+                        payload.LifecycleTransitions == 0),
                     nameof(payload));
                 break;
         }

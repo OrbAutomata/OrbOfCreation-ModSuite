@@ -51,7 +51,7 @@ internal static class ManualFullTraceServiceView
         writer.WriteLine();
     }
 
-    private static Dictionary<ulong, string> Names(ManualFullTraceSession session)
+    internal static Dictionary<ulong, string> Names(ManualFullTraceSession session)
     {
         var names = new Dictionary<ulong, string>();
         foreach (var entry in session.Roster().Entries)
@@ -68,7 +68,7 @@ internal static class ManualFullTraceServiceView
     /// themselves say, so dropping it in favour of a name would break the reader's ability to follow
     /// one service across the report.
     /// </summary>
-    private static string Label(Dictionary<ulong, string> names, ulong service) =>
+    internal static string Label(Dictionary<ulong, string> names, ulong service) =>
         names.TryGetValue(service, out var name)
             ? name + " (" + service.ToString(CultureInfo.InvariantCulture) + ")"
             : service.ToString(CultureInfo.InvariantCulture);

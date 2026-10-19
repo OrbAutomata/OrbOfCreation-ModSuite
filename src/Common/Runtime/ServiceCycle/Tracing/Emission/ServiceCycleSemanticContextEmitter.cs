@@ -136,7 +136,8 @@ internal sealed class ServiceCycleSemanticContextEmitter
             sample.CaptureGrowth,
             sample.CapturesMeasured,
             sample.CapturesAcrossCollection,
-            sample.PreviousFrameAllocated);
+            sample.PreviousFrameAllocated,
+            sample.Census);
         _writer.AppendSuite(ServiceCycleSemanticEventKind.PumpHeapSampled, in payload);
     }
 #endif
