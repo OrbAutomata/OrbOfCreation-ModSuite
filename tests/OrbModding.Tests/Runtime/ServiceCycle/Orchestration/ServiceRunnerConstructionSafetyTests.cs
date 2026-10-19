@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -231,9 +230,7 @@ public sealed class ServiceRunnerConstructionSafetyTests
     public void CallbackCanObserveConcurrentStateFactoryFailFastWithoutDeadlock()
     {
         using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         var definition = new LifecycleServiceDefinition("lifecycle.worker-callback-state-claim");
         using var completed = new ManualResetEventSlim(false);
         var stateAdmission = default(ServiceResourceClaimResult);
@@ -270,9 +267,7 @@ public sealed class ServiceRunnerConstructionSafetyTests
         using var owner = registry.Register(
             new LifecycleServiceDefinition("lifecycle.worker-rollback-owner"),
             new LifecycleGeneration(1));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         var ownerClaims = ledger.LiveClaimCount;
         var definition = new LifecycleServiceDefinition("lifecycle.worker-rollback-contender");
 
@@ -299,9 +294,7 @@ public sealed class ServiceRunnerConstructionSafetyTests
     public void CapacityPreventsWorkerDefinitionFactoryCall()
     {
         using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         for (var index = 0; index < ledger.Capacity; index++)
         {
             Assert.Equal(
