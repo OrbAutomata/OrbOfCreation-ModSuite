@@ -27047,10 +27047,11 @@
       "owners": ["Automata challenge GameAction", "Common challenge world collection"], "usages": ["reflection"], "place": "action"
     },
     {
-      "id": "challenge.list-values-action", "assembly": "assembly-csharp",
+      "id": "challenge.list-values-capture", "assembly": "assembly-csharp",
       "type": "AbstractListVariable`1", "typeVisibility": "public", "kind": "field", "member": "value",
       "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<!0>",
-      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "action"
+      "owners": ["Common challenge world collection"], "usages": ["reflection"], "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field System.Collections.Generic.List`1<!0>"}
     },
     {
       "id": "challenge.list-empty-spot-action", "assembly": "assembly-csharp",
@@ -27266,34 +27267,34 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
-      "id": "research-action.globals.type-action",
+      "id": "research-action.globals.type-capture",
       "assembly": "assembly-csharp",
       "type": "GlobalVariables",
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata research GameAction",
         "Common research world collection"
       ],
       "usages": [
         "reflection"
       ],
-      "place": "action"
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
-      "id": "research-action.int-variable.type-action",
+      "id": "research-action.int-variable.type-capture",
       "assembly": "assembly-csharp",
       "type": "IntVariable",
       "typeVisibility": "public",
       "kind": "type",
       "owners": [
-        "Automata research GameAction",
         "Common research world collection"
       ],
       "usages": [
         "reflection"
       ],
-      "place": "action"
+      "place": "capture",
+      "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:type; the contract is a type resolution, not a member reading"}
     },
     {
       "id": "research-action.level-action",
@@ -27585,7 +27586,7 @@
       "place": "action"
     },
     {
-      "id": "research-action.multi-buy-action",
+      "id": "research-action.multi-buy-capture",
       "assembly": "assembly-csharp",
       "type": "GlobalVariables",
       "typeVisibility": "public",
@@ -27596,16 +27597,16 @@
       "returnType": "IntVariable",
       "parameters": [],
       "owners": [
-        "Automata research GameAction",
         "Common research world collection"
       ],
       "usages": [
         "reflection"
       ],
-      "place": "action"
+      "place": "capture",
+      "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning IntVariable; classified from its signature, no IL body audit"}
     },
     {
-      "id": "research-action.int-as-int-action",
+      "id": "research-action.int-as-int-capture",
       "assembly": "assembly-csharp",
       "type": "IntVariable",
       "typeVisibility": "public",
@@ -27616,13 +27617,13 @@
       "returnType": "System.Int32",
       "parameters": [],
       "owners": [
-        "Automata research GameAction",
         "Common research world collection"
       ],
       "usages": [
         "reflection"
       ],
-      "place": "action"
+      "place": "capture",
+      "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Int32; classified from its signature, no IL body audit"}
     },
     {
       "id": "research-action.purchase-action",

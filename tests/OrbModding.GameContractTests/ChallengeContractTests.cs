@@ -155,6 +155,6 @@ public sealed class ChallengeContractTests
     public void Manifest_names_the_challenge_touch_only_this_list_guards()
     {
         var manifest = NativeContractManifest.Load();
-        Assert.Single(manifest.Contracts, contract => contract.Id == "challenge.list-values-action");
+        Assert.Single(manifest.Contracts, contract => contract.Id == "challenge.list-values-capture");
     }
 }

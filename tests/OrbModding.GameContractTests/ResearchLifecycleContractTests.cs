@@ -77,8 +77,8 @@ public sealed class ResearchLifecycleContractTests
         var manifest = NativeContractManifest.Load();
         var expected = new[]
         {
-            "research-action.globals.type-action", "research-action.int-variable.type-action",
-            "research-action.multi-buy-action", "research-action.int-as-int-action",
+            "research-action.globals.type-capture", "research-action.int-variable.type-capture",
+            "research-action.multi-buy-capture", "research-action.int-as-int-capture",
             "research-decision.tuple.type-capture", "research-decision.resource.type-capture",
             "research-decision.fill.type-capture", "research-decision.fill-entry.type-capture",
             "research-decision.research-type.type-capture",
