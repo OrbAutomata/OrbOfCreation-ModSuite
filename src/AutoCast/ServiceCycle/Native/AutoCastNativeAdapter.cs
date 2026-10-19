@@ -70,8 +70,8 @@ internal readonly struct AutoCastSubmission
     /// sentence says what was pressed and what was missing, with every exception in the suite log.
     /// </summary>
     /// <param name="escaped">
-    /// What the press threw past the verifier, which leaves no after-state to read; the evidence is
-    /// then unset.
+    /// What the verifier rethrew once the after-state it read did not show the change; the evidence
+    /// is then unset.
     /// </param>
     /// <param name="purpose">What the press was for, after the spell's name; empty for a cast.</param>
     /// <param name="ownFailure">Why the suite itself stopped partway, which no exception explains.</param>
