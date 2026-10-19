@@ -205,7 +205,7 @@ public sealed class GameMcpTargetingTests
 
         // The verb exists and the target is fine; the screen simply has no selection open, and
         // "unsupported_action_target" sent a caller looking for a different target.
-        Assert.False(Plugin.TryPrepareGameMcpCommand(
+        Assert.False(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(world),
             out _,

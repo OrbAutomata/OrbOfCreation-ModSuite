@@ -44,7 +44,7 @@ public sealed class GameMcpLevelDialTests
             new JObject { ["mode"] = mode, ["level"] = 2 });
 
         Assert.Equal(GameMcpOperationClass.Gameplay, operation.Classification);
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World(unlocked: true)),
             out var command,

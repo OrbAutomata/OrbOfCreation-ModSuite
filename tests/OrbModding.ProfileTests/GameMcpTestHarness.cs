@@ -173,7 +173,7 @@ internal static class GameMcpTestHarness
         GameMcpFrameContext context)
     {
         var request = operation.Request;
-        if (!Plugin.TryExecuteFrameRead(request, context, out var execution))
+        if (!GameMcpFrameReads.TryExecuteFrameRead(request, context, out var execution))
         {
             execution = GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {
