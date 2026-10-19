@@ -103,7 +103,8 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
 #endif
         ObserveCapability(in action, in submission);
         _observeBoundaryStatus?.Invoke(submission);
-        return _guard.Finish(submission.Outcome, in action);
+        var result = _guard.Finish(submission.Outcome, in action);
+        return submission.PaidWithoutLevel ? result.BackingOffAfterPayment() : result;
     }
 
     /// <summary>

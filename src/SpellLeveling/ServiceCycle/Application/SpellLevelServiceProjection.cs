@@ -6,7 +6,7 @@ namespace OrbAutomata;
 /// Projects the worker's per-cycle decision cardinality onto the neutral journal surface.
 /// </summary>
 /// <remarks>
-/// Spell Leveling's ordinary output is no action at all, so a bare "0 planned" says nothing. The three
+/// Spell Leveling's ordinary output is no action at all, so a bare "0 planned" says nothing. The
 /// exclusion counters plus the ready count attribute every discovered spell to a term, and the
 /// captured count minus their sum is always the ready count — a term that starts silently swallowing
 /// spells cannot hide in a total.
@@ -21,6 +21,7 @@ internal static class SpellLevelServiceProjection
     internal const int ExcludedNotReadyKey = 15;
     internal const int ExcludedOutrankedKey = 16;
     internal const int ExcludedUnaffordableKey = 17;
+    internal const int ExcludedBackingOffKey = 18;
 
     public static void Write(
         in SpellLevelCycleState state,
@@ -37,6 +38,7 @@ internal static class SpellLevelServiceProjection
         output.Add(Key(ExcludedNotReadyKey), Integer(exclusions.NotReady));
         output.Add(Key(ExcludedUnaffordableKey), Integer(exclusions.Unaffordable));
         output.Add(Key(ExcludedOutrankedKey), Integer(exclusions.Outranked));
+        output.Add(Key(ExcludedBackingOffKey), Integer(exclusions.BackingOff));
     }
 
     private static ServiceProjectionKey Key(int value) => new(value);

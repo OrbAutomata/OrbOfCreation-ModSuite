@@ -245,6 +245,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool SuppressMasteryGain { get; set; }
     public bool SuppressLevelMutation { get; set; }
     public Exception? ThrowAfterLevelMutation { get; set; }
+    public int PlayerLevelsInTheSameFrame { get; set; }
     public int MasteryGrantCalls { get; private set; }
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
     public Prerequisites.Container levelingPrerequisites = new Prerequisites.Container();
@@ -336,7 +337,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
         if (!readyToLevel) return;
         if (!SuppressLevelMutation)
         {
-            masteryLevel++;
+            masteryLevel += 1 + PlayerLevelsInTheSameFrame;
             readyToLevel = false;
         }
         if (ThrowAfterLevelMutation is { } failure) throw failure;

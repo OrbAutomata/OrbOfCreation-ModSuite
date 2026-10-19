@@ -15,9 +15,13 @@ internal static class SpellLevelServicePolicies
 
     public static WakePolicy DefaultWakePolicy => WakePolicy.OnPublication;
 
-    // A spell-level fault is nearly always a contract that will not come back before the next
-    // lifecycle, so the ceiling climbs to ten seconds rather than Auto Buy's one. That keeps a
-    // permanently blocked runtime from re-probing every second forever.
+    // A fault backs its spell off on the retry gate from these waits; a level the game charged for
+    // without the level rising waits a minute instead, doubling to half an hour. The ten-second
+    // ceiling keeps a contract mismatch, which holds until the next lifecycle, from re-probing every
+    // second.
     public static ServiceFaultRecoveryPolicy FaultRecoveryPolicy =>
         new(InitialFaultBackoff, MaximumFaultBackoff);
+
+    internal static ServiceRetryTarget RetryTarget(Guid spellId) =>
+        new(spellId, ServiceActionNativeTypeId.SpellRecipeSO);
 }

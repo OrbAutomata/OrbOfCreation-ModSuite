@@ -13,19 +13,27 @@ namespace OrbAutomata;
 internal readonly struct SpellLevelSubmission
 {
     private SpellLevelSubmission(
-        NativeActionOutcome outcome
+        NativeActionOutcome outcome,
+        bool paidWithoutLevel = false
 #if SERVICE_CYCLE_PROFILE
         , ResourceCharge[]? charges = null
 #endif
         )
     {
         Outcome = outcome;
+        PaidWithoutLevel = paidWithoutLevel;
 #if SERVICE_CYCLE_PROFILE
         _charges = charges;
 #endif
     }
 
     public NativeActionOutcome Outcome { get; }
+
+    /// <summary>
+    /// The game was pressed past payment and no level rose, so the spell backs off as long as any
+    /// action the game charged for without delivering.
+    /// </summary>
+    public bool PaidWithoutLevel { get; }
 
 #if SERVICE_CYCLE_PROFILE
     private readonly ResourceCharge[]? _charges;
@@ -45,24 +53,40 @@ internal readonly struct SpellLevelSubmission
     public static SpellLevelSubmission ContractUnavailable(string reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
-    public static SpellLevelSubmission Attempted<TState>(
-        NativeMutationEvidence<TState> evidence
-#if SERVICE_CYCLE_PROFILE
-        , ResourceCharge[]? charges = null
-#endif
-        )
+    public static SpellLevelSubmission Attempted<TState>(NativeMutationEvidence<TState> evidence, string failure)
     {
         var calls = NativeMutationCallOutcome.FromEvidence(evidence);
+        if (evidence.IsVerified) return new(NativeActionOutcome.Commit(calls, string.Empty));
+        if (!evidence.MutationWasAttempted)
+            return new(NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format()));
         return new(
-            evidence.IsVerified
-                ? NativeActionOutcome.Commit(calls, string.Empty)
-                : NativeActionOutcome.Fault(
-                    CommonActionResultCodes.AdapterFault, evidence.Outcome, calls, evidence.Format())
-#if SERVICE_CYCLE_PROFILE
-            , charges
-#endif
-            );
+            NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault,
+                evidence.Outcome,
+                calls,
+                evidence.Exception is { } exception
+                    ? AfterThrow(failure, exception)
+                    : failure + ": " + evidence.Format()),
+            paidWithoutLevel: true);
     }
+
+    public static SpellLevelSubmission ThrewAfterPayment(string failure, Exception exception) =>
+        new(
+            NativeActionOutcome.Fault(
+                CommonActionResultCodes.AdapterFault,
+                NativeMutationOutcome.ExecutionThrew,
+                new NativeMutationCallOutcome(1, 1, 0),
+                AfterThrow(failure, exception)),
+            paidWithoutLevel: true);
+
+#if SERVICE_CYCLE_PROFILE
+    public SpellLevelSubmission WithCharges(ResourceCharge[]? charges) =>
+        new(Outcome, PaidWithoutLevel, charges);
+#endif
+
+    private static string AfterThrow(string failure, Exception exception) =>
+        failure + " after the game threw." + GameActionFaultLog.Record(exception, SpellLevelNativeAdapter.Feature);
 }
 
 /// <summary>
@@ -96,7 +120,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     private object? _availableRecipes;
     private object? _levelAllUpgrade;
     private TypedRegistryResolution? _levelAllResolution;
-    private string? _blockedReason;
+    private string? _contractMismatch;
+
+    internal const string Feature = "Spell Leveling";
 
     public SpellLevelNativeAdapter(TypedRegistryResolver? registryResolver = null)
         : this(registryResolver, resolveType: null, includeContract: null)
@@ -116,8 +142,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         _manager is not null &&
         _availableRecipes is not null &&
         _levelAllResolution is not null &&
-        _registryResolver.IsCurrent(_levelAllResolution) &&
-        _blockedReason is null;
+        _registryResolver.IsCurrent(_levelAllResolution);
 
     public SpellLevelSubmission Submit(SpellLevelActionKind kind, Guid uuid)
     {
@@ -173,7 +198,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return SpellLevelSubmission.ContractUnavailable(
-                $"spell-level mutation failed: {ex.GetBaseException().Message}");
+                "spell-level mutation failed." + GameActionFaultLog.Record(ex, Feature));
         }
     }
 
@@ -181,10 +206,10 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     /// What the game says the feature can currently do. The <c>All</c> half is snapshot-derivable and
     /// the worker derives it; this exists for the <c>Locked</c> half, which is not.
     /// </summary>
-    public bool TryReadCapability(out AutoSpellLevelCapability capability)
+    public bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure)
     {
         capability = AutoSpellLevelCapability.Locked;
-        if (!TryInitialize(out _)) return false;
+        if (!TryInitialize(out failure)) return false;
         var native = _bindings!;
 
         try
@@ -204,11 +229,12 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                 return true;
             }
 
+            failure = string.Empty;
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Block($"spell-level capability check failed: {ex.GetBaseException().Message}");
+            failure = "spell-level capability check failed." + GameActionFaultLog.Record(ex, Feature);
             return false;
         }
     }
@@ -217,11 +243,16 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
     public void InvalidateLifecycle()
     {
+        Unbind();
+        _contractMismatch = null;
+    }
+
+    private void Unbind()
+    {
         _manager = null;
         _availableRecipes = null;
         _levelAllUpgrade = null;
         _levelAllResolution = null;
-        _blockedReason = null;
     }
 
     private SpellLevelSubmission SubmitSingle(Guid uuid, object recipe, object cost)
@@ -230,24 +261,55 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 #if SERVICE_CYCLE_PROFILE
         var charges = ReadCharges(cost);
 #endif
-        var evidence = NativeMutationVerifier.Execute(
+        var submission = Mutate(
             "Spell level single",
             uuid.ToString("D"),
-            "mastery level exact delta +1",
+            $"{Feature} paid for a level of {EntityIdentityFormatter.PlayerName(uuid)} and the level did not rise",
             () => native.MasteryLevel(recipe),
             () =>
             {
                 native.PerformCost(cost);
                 native.PurchaseLevel(recipe);
-            },
-            (before, after) => after == before + 1,
-            BlockAttempted);
-        return SpellLevelSubmission.Attempted(
-            evidence
+            });
 #if SERVICE_CYCLE_PROFILE
-            , charges
+        submission = submission.WithCharges(charges);
 #endif
-            );
+        return submission;
+    }
+
+    /// <summary>
+    /// Presses the game and verifies one sentinel: the level rose. Any rise commits, so a level the
+    /// player bought by hand in the same frame is still this press landing. A press past payment that
+    /// did not raise it, an unexpected throw included, is a paid-without-level fault whose exception
+    /// goes whole to the suite log; a throw before the press escapes as it always did.
+    /// </summary>
+    private static SpellLevelSubmission Mutate(
+        string feature,
+        string identity,
+        string failure,
+        Func<long> readLevel,
+        Action press)
+    {
+        var pressed = false;
+        try
+        {
+            var evidence = NativeMutationVerifier.Execute(
+                feature,
+                identity,
+                "mastery level increased",
+                readLevel,
+                () =>
+                {
+                    pressed = true;
+                    press();
+                },
+                static (before, after) => after > before);
+            return SpellLevelSubmission.Attempted(evidence, failure);
+        }
+        catch (Exception ex) when (pressed && !ExceptionDetail.IsProcessFatal(ex))
+        {
+            return SpellLevelSubmission.ThrewAfterPayment(failure, ex);
+        }
     }
 
 #if SERVICE_CYCLE_PROFILE
@@ -316,28 +378,13 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
     {
         var native = _bindings!;
         var manager = _manager!;
-        var evidence = NativeMutationVerifier.Execute(
+        return Mutate(
             "Spell level all",
             uuid == Guid.Empty ? "all ready spells" : uuid.ToString("D"),
-            "total mastery level positive delta",
+            $"{Feature} pressed level all and no spell's level rose",
             ReadTotalMasteryLevels,
-            () => native.TryLevelAll(manager),
-            (before, after) => after > before,
-            BlockAttempted);
-        return SpellLevelSubmission.Attempted(evidence);
+            () => native.TryLevelAll(manager));
     }
-
-    /// <summary>
-    /// Blocks the contract until the next lifecycle when a mutation was attempted but could not be
-    /// verified.
-    /// </summary>
-    /// <remarks>
-    /// An attempted native call whose postcondition did not hold means the suite no longer understands
-    /// this contract, and the only safe thing to do with a mutation you cannot verify is stop making
-    /// it. A rejected preflight is not that — nothing was called — and does not block.
-    /// </remarks>
-    private void BlockAttempted<TState>(NativeMutationEvidence<TState> evidence) =>
-        Block($"native spell-level mutation blocked until the next lifecycle: {evidence.Format()}");
 
     private bool PrerequisitesPass(object recipe)
     {
@@ -369,9 +416,9 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
             return true;
         }
 
-        if (_blockedReason is not null)
+        if (_contractMismatch is not null)
         {
-            reason = _blockedReason;
+            reason = _contractMismatch;
             return false;
         }
 
@@ -408,7 +455,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Block($"spell-level contract initialization failed: {ex.GetBaseException().Message}", out reason);
+            Unbind();
+            return Retry("spell-level contract initialization failed." + GameActionFaultLog.Record(ex, Feature), out reason);
         }
     }
 
@@ -432,14 +480,7 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         out string reason)
     {
         var message = $"{label} resolution failed. {resolution.Format()}";
-        return resolution.IsRetryable ? Retry(message, out reason) : Block(message, out reason);
-    }
-
-    private void Block(string message) => _blockedReason = message;
-
-    private bool Block(string message, out string reason)
-    {
-        _blockedReason = message;
+        if (!resolution.IsRetryable) _contractMismatch = message;
         reason = message;
         return false;
     }

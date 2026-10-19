@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -8,10 +9,10 @@ using OrbModding.Common.Runtime.World;
 namespace OrbAutomata;
 
 /// <summary>
-/// The pure Spell Leveling worker policy: given the pinned world and the pinned configuration it
-/// plans at most one mastery-level purchase and waits for the next publication. It owns no state
-/// between cycles — no capability latch, no retry counter, no backoff — because a fresh world every
-/// generation is the only input it has ever needed.
+/// The pure Spell Leveling worker policy: given the pinned world, the pinned configuration and the
+/// runner's retry gate it plans at most one mastery-level purchase and waits for the next
+/// publication. It owns no state between cycles; a spell still backing off on the gate is passed
+/// over until its retry is due, and every other spell keeps being planned.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,9 +34,12 @@ internal static class SpellLevelCycleEvaluator
     public static WakePolicy Evaluate(
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<SpellLevelCycleAction> actions,
         out SpellLevelDecisionMetrics metrics)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
         var spells = world.SpellRecipes;
         metrics = new SpellLevelDecisionMetrics(
@@ -53,6 +57,7 @@ internal static class SpellLevelCycleEvaluator
         var undiscovered = 0;
         var notReady = 0;
         var unaffordable = 0;
+        var backingOff = 0;
         var ready = 0;
         var affordableReady = 0;
         var chosen = default(WorldSpellRecipe);
@@ -81,6 +86,12 @@ internal static class SpellLevelCycleEvaluator
                 continue;
             }
 
+            if (retryGate.IsWaiting(SpellLevelServicePolicies.RetryTarget(spell.SpellRecipeId), decisionAt))
+            {
+                backingOff++;
+                continue;
+            }
+
             affordableReady++;
             if (!hasChoice || Outranks(in spell, in chosen))
             {
@@ -93,7 +104,8 @@ internal static class SpellLevelCycleEvaluator
             undiscovered,
             notReady,
             unaffordable,
-            outranked: affordableReady == 0 ? 0 : affordableReady - 1);
+            outranked: affordableReady == 0 ? 0 : affordableReady - 1,
+            backingOff);
 
         if (!hasChoice)
         {

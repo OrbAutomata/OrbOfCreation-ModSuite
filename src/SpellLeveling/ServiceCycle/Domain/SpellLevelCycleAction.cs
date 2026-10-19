@@ -5,7 +5,7 @@ namespace OrbAutomata;
 /// <summary>Which of the game's two level purchases an action asks for.</summary>
 internal enum SpellLevelActionKind
 {
-    /// <summary>One level on one named spell, verified as an exact <c>masteryLevel + 1</c>.</summary>
+    /// <summary>One level on one named spell, verified by its mastery level rising.</summary>
     Single = 0,
 
     /// <summary>

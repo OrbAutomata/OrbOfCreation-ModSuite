@@ -44,7 +44,13 @@ internal sealed class SpellLevelWorkerDefinition :
         if (state.Lifecycle != context.Identity.Lifecycle)
             throw new InvalidOperationException("Spell Leveling state belongs to a different lifecycle.");
 
-        var wake = SpellLevelCycleEvaluator.Evaluate(world, in config, actions, out var decision);
+        var wake = SpellLevelCycleEvaluator.Evaluate(
+            world,
+            in config,
+            context.RetryGate,
+            context.DecisionAt,
+            actions,
+            out var decision);
         state.RecordDecision(decision);
         return wake;
     }

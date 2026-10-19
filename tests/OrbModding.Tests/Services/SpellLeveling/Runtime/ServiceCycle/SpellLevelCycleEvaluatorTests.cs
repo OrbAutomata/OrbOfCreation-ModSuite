@@ -283,7 +283,8 @@ public sealed class SpellLevelCycleEvaluatorTests
         var store = new ReusableActionStore<SpellLevelCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<SpellLevelCycleAction>(store);
-        wake = SpellLevelCycleEvaluator.Evaluate(world, in config, writer, out metrics);
+        wake = SpellLevelCycleEvaluator.Evaluate(
+            world, in config, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<SpellLevelCycleAction>(store.Count);
         while (!store.IsComplete)

@@ -854,9 +854,10 @@ public sealed class GameMcpSpellWorkbenchTests
         var level = 1;
         var submission = SpellLevelSubmission.Attempted(
             NativeMutationVerifier.Execute(
-                "Spell level single", RecipeId.ToString("D"), "mastery level exact delta +1",
-                () => level, () => level++, (previous, current) => current == previous + 1),
-            new[] { new ResourceCharge(SparkId, new BigDouble(4.5)) });
+                "Spell level single", RecipeId.ToString("D"), "mastery level increased",
+                () => level, () => level++, (previous, current) => current > previous),
+            "the level did not rise")
+            .WithCharges(new[] { new ResourceCharge(SparkId, new BigDouble(4.5)) });
         var committed = GameMcpCommandResult.Committed(
             "committed", 9, 3, GameMcpSpellLevelProjection.Project(in submission, before));
 
