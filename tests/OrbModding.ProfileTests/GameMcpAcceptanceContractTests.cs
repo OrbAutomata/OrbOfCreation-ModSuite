@@ -803,23 +803,23 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     /// <summary>
-    /// Auto Buy switching itself off read only "configuration_disabled (invariant_violation):
-    /// auto_buy", and the overnight purchases it stopped were noticed by accident. The sentence the
-    /// stand-down logged names the candidate, the refusal and the bundle, so health carries it.
+    /// An Auto Buy invariant trip read only "faulted (invariant_violation): auto_buy" would leave the
+    /// player guessing which purchase the game would not take. The sentence the latch logged names
+    /// the candidate, the refusal and the bundle, so health carries it.
     /// </summary>
     [Fact]
-    public void HealthSaysWhyAFeatureSwitchedItselfOff()
+    public void HealthSaysWhyAFeatureHoldsOffForTheLifecycle()
     {
         const string summary =
             "Auto Buy planned a purchase the game would not take (Upgrade Improved Brewing " +
-            "[ImprovedBrewing] (3357c64a-f19b-4a03-8819-c1622081dd7b)): refused by IsAvailable(). " +
-            "Diagnostic bundle: trace/diagnostics/autobuy-refusal-20261017-063254172.txt. " +
-            "Auto Buy disabled itself; re-enable in Mod Config after reviewing.";
+            "[ImprovedBrewing] (3357c64a-f19b-4a03-8819-c1622081dd7b)): refused by an unreadable " +
+            "admission term. Diagnostic bundle: trace/diagnostics/autobuy-refusal-20261017-063254172.txt. " +
+            "Auto Buy holds off until the next load, reset or prestige checks the game again.";
         var autoBuy = new FeatureStatusSnapshot(
             new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
             "Auto Buy",
-            configuredEnabled: false,
-            FeatureStatusState.ConfigurationDisabled,
+            configuredEnabled: true,
+            FeatureStatusState.Faulted,
             new FeatureStatusReason(FeatureStatusReasonCode.InvariantViolation, summary),
             lifecycleGeneration: 9);
         var autoHarvest = new FeatureStatusSnapshot(
@@ -835,7 +835,7 @@ public sealed class GameMcpProtocolSurfaceTests
 
         Assert.Matches(
             @"(?m)^features configuration_disabled: auto_harvest; " +
-            @"configuration_disabled \(invariant_violation\): auto_buy$",
+            @"faulted \(invariant_violation\): auto_buy$",
             health);
         Assert.Contains("\nauto_buy reason: " + summary, health, StringComparison.Ordinal);
         Assert.DoesNotContain("auto_harvest reason", health, StringComparison.Ordinal);

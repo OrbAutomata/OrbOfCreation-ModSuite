@@ -34,7 +34,7 @@ public sealed class AutoBuyServiceCompositionTests
         var candidate = Guid.NewGuid();
         var list = Guid.NewGuid();
         var view = Guid.NewGuid();
-        var definition = AutoBuyService.Define(new ActionPort(Thread.CurrentThread.ManagedThreadId));
+        var definition = AutoBuyService.Define(new ActionPort(Thread.CurrentThread.ManagedThreadId), new AutoBuyInvariantLatch());
         var action = new AutoBuyCycleAction(
             AutoBuyCandidateKind.Structure,
             candidate,
@@ -58,7 +58,7 @@ public sealed class AutoBuyServiceCompositionTests
     {
         var ownerThread = Thread.CurrentThread.ManagedThreadId;
         var actions = new ActionPort(ownerThread);
-        var definition = AutoBuyService.Define(actions);
+        var definition = AutoBuyService.Define(actions, new AutoBuyInvariantLatch());
         using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7));
         registry.ConfigurationPublication.Publish(Configuration());
         using var registration = registry.Register(definition);
@@ -89,7 +89,7 @@ public sealed class AutoBuyServiceCompositionTests
     {
         var ownerThread = Thread.CurrentThread.ManagedThreadId;
         var actions = new ActionPort(ownerThread);
-        var definition = AutoBuyService.Define(actions);
+        var definition = AutoBuyService.Define(actions, new AutoBuyInvariantLatch());
         using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7));
         registry.ConfigurationPublication.Publish(Configuration());
         using var registration = registry.Register(definition);
@@ -117,7 +117,7 @@ public sealed class AutoBuyServiceCompositionTests
     {
         var ownerThread = Thread.CurrentThread.ManagedThreadId;
         var actions = new SkipThenCommitActionPort(ownerThread);
-        var definition = AutoBuyService.Define(actions);
+        var definition = AutoBuyService.Define(actions, new AutoBuyInvariantLatch());
         using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7));
         registry.ConfigurationPublication.Publish(Configuration());
         using var registration = registry.Register(definition);

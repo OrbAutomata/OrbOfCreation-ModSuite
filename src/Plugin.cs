@@ -519,15 +519,9 @@ public sealed class Plugin : BaseUnityPlugin
                                         _configurationStore!.Current.AutoBuy),
                                 runtimeDiagnostics: RuntimeDiagnosticsRegistry.Shared,
                                 featureStatus: featureStatuses.AutoBuy,
-                                // Affordability drift skips and re-plans without a synchronous
-                                // bundle; structural contradictions capture once and stand down.
-                                refusalResponse: new AutoBuyRefusalResponder(
-                                    () => _configurationStore!.Current.AutoBuy.Mode ==
-                                        AutoBuyOperationMode.Active,
-                                    StandDownAutoBuy,
-                                    new AutoBuyRefusalBundleWriter(
-                                        () => AutomataTraceRunRoot.Stable("diagnostics")),
-                                    message => Log.LogAutomataError(message))
+                                refusalBundles: new AutoBuyRefusalBundleWriter(
+                                    () => AutomataTraceRunRoot.Stable("diagnostics")),
+                                reportInvariant: message => Log.LogAutomataError(message)
 #if SERVICE_CYCLE_PROFILE
                                 , gameMcpOwnership: kind =>
                                     _automataActionFamilyOwnership!.OwnsAutoBuy(kind)
@@ -4057,14 +4051,6 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
 #endif
-
-    private void StandDownAutoBuy(string summary)
-    {
-        if (!_configurationStore!.DisableAutoBuy()) return;
-        _featureStatuses!.ObserveAutoBuyInvariantStandDown(
-            summary,
-            _configurationStore.CurrentGeneration);
-    }
 
     private bool IsLifecycleReady() =>
         SceneManager.GetActiveScene().name == "Main" &&

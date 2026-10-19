@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -14,22 +15,23 @@ namespace OrbAutomata;
 /// purchase per eligible candidate in ranked order — the faithful replacement for the legacy
 /// engine's admission → reserve/affordability → ranked-pass → grouping pipeline — and waits for the
 /// next world or configuration publication. It owns no hidden control state: no
-/// ranked-pass cursor, no group/batch counter, no retry/backoff. Fairness and pacing come entirely
-/// from one-action-per-pump batch execution plus the wake cadence, so it can never re-plan stale
-/// facts. All magnitude math stays on the game's own <see cref="BigDouble"/> end to end — no copy,
+/// ranked-pass cursor, no group/batch counter. The one backoff it honours is the runner's per-target
+/// retry gate, handed in with the context: a candidate the game refused waits until its retry is due,
+/// and its episode ends once the world agrees the candidate cannot be bought. Otherwise fairness and
+/// pacing come from one-action-per-pump batch execution plus the wake cadence. All magnitude math stays on the game's own <see cref="BigDouble"/> end to end — no copy,
 /// no conversion — exactly as the raw quantities and costs were captured.
 /// </summary>
 /// <remarks>
 /// Pillar A plans ONE action per eligible candidate per cycle: a structural native rejection
-/// cascade-terminates the batch, while an affordability-only refusal skips that candidate and makes
-/// Common wait for fresh facts. Planning a candidate twice is therefore wasted work, and an
+/// cascade-terminates the batch and backs that candidate off, while an affordability-only refusal
+/// skips that candidate and makes Common wait for fresh facts. Planning a candidate twice is therefore wasted work, and an
 /// already-queued slot is retained. One action is not one queue slot: a Structure prefers the
 /// game's live Bulk Development count, while an Upgrade stays at one level. The worker chooses the
 /// largest exactly priced positive Structure count the remaining batch ledger can fund. Nothing
 /// here bounds the plan by the queue.
 /// The action adapter is
 /// the real-time authority that re-validates and submits each call, stopping the cascade the moment
-/// one is rejected; pacing comes from world publication, not per-item backoff. The adapter re-reads the
+/// one is rejected; pacing comes from world publication and the retry gate. The adapter re-reads the
 /// live queue room before every submission, rejects — cascade-terminating the batch — once only
 /// <see cref="AutoBuyConfiguration.LeaveQueueSlots"/> remain, and clamps a multi-level request to the
 /// room above that reserve, since the game queues one entry per level. So the plan is as long as the
@@ -49,9 +51,12 @@ internal static class AutoBuyCycleEvaluator
     public static WakePolicy Evaluate(
         in AutoBuyCycleFrame frame,
         in SuiteRuntimeConfiguration config,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<AutoBuyCycleAction> actions,
         out AutoBuyDecisionMetrics metrics)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
         metrics = new AutoBuyDecisionMetrics(
             frame.StructureCount,
@@ -84,13 +89,23 @@ internal static class AutoBuyCycleEvaluator
         // exactly one of them, so the histogram and the eligible count always add back up to the
         // captured count — a term that starts silently swallowing candidates cannot hide in a total.
         var excluded = new int[ExclusionTermCount];
+        var unseenRetries = UnseenRetries(retryGate);
         for (var i = 0; i < candidates.Length; i++)
         {
             ref readonly var candidate = ref candidates[i];
+            var target = AutoBuyServicePolicies.RetryTarget(candidate.Kind, candidate.Uuid);
+            unseenRetries?.Remove(target);
             var admission = Admit(in candidate, config);
             if (admission != AutoBuyExclusion.None)
             {
+                if (EndsRetry(admission) && retryGate.TryFind(target, out _)) actions.EndRetry(target);
                 excluded[(int)admission]++;
+                continue;
+            }
+
+            if (retryGate.IsWaiting(target, decisionAt))
+            {
+                excluded[(int)AutoBuyExclusion.BackingOff]++;
                 continue;
             }
 
@@ -117,6 +132,10 @@ internal static class AutoBuyCycleEvaluator
                 costRatio,
                 in admissionBelief));
         }
+
+        if (unseenRetries is not null)
+            foreach (var gone in unseenRetries)
+                actions.EndRetry(gone);
 
         if (eligible.Count == 0)
         {
@@ -209,7 +228,27 @@ internal static class AutoBuyCycleEvaluator
     }
 
     /// <summary>One more than the highest <see cref="AutoBuyExclusion"/> member.</summary>
-    private const int ExclusionTermCount = (int)AutoBuyExclusion.DestinationFull + 1;
+    private const int ExclusionTermCount = (int)AutoBuyExclusion.BackingOff + 1;
+
+    /// <summary>
+    /// Whether the world now agrees with the game that the candidate cannot be bought, which ends its
+    /// backoff. A price, a full destination or an unreadable route only makes it wait.
+    /// </summary>
+    private static bool EndsRetry(AutoBuyExclusion exclusion) =>
+        exclusion is AutoBuyExclusion.KindNotSelected or
+            AutoBuyExclusion.Unavailable or
+            AutoBuyExclusion.RequirementsUnmet or
+            AutoBuyExclusion.Terminal;
+
+    /// <summary>The backing-off targets this world has not shown yet; any it never shows are gone from the game.</summary>
+    private static HashSet<ServiceRetryTarget>? UnseenRetries(ServiceRetryGateSnapshot retryGate)
+    {
+        if (retryGate.Count == 0) return null;
+        var unseen = new HashSet<ServiceRetryTarget>();
+        for (var index = 0; index < retryGate.Count; index++)
+            unseen.Add(retryGate[index].Target);
+        return unseen;
+    }
 
     private static AutoBuyExclusionHistogram Histogram(int[] excluded) =>
         new(
@@ -223,7 +262,8 @@ internal static class AutoBuyCycleEvaluator
             excluded[(int)AutoBuyExclusion.OwningViewRelationMissing],
             excluded[(int)AutoBuyExclusion.OwningViewRelationUnreadable],
             excluded[(int)AutoBuyExclusion.OwningViewRelationContradictory],
-            excluded[(int)AutoBuyExclusion.DestinationFull]);
+            excluded[(int)AutoBuyExclusion.DestinationFull],
+            excluded[(int)AutoBuyExclusion.BackingOff]);
 
     /// <summary>
     /// Which admission term excluded this candidate, or <see cref="AutoBuyExclusion.None"/> when

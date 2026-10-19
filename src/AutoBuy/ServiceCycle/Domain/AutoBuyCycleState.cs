@@ -92,6 +92,9 @@ internal enum AutoBuyExclusion
     /// The list its reward is added to has no empty spot: every World > Aspects pedestal is taken.
     /// </summary>
     DestinationFull = 11,
+
+    /// <summary>The game refused it lately and its retry is not due yet.</summary>
+    BackingOff = 12,
 }
 
 /// <summary>How many candidates each exclusion term accounted for in one cycle.</summary>
@@ -112,7 +115,8 @@ internal readonly struct AutoBuyExclusionHistogram
         int owningViewRelationMissing,
         int owningViewRelationUnreadable,
         int owningViewRelationContradictory,
-        int destinationFull)
+        int destinationFull,
+        int backingOff)
     {
         KindNotSelected = kindNotSelected;
         Unavailable = unavailable;
@@ -125,6 +129,7 @@ internal readonly struct AutoBuyExclusionHistogram
         OwningViewRelationUnreadable = owningViewRelationUnreadable;
         OwningViewRelationContradictory = owningViewRelationContradictory;
         DestinationFull = destinationFull;
+        BackingOff = backingOff;
     }
 
     public int KindNotSelected { get; }
@@ -138,12 +143,13 @@ internal readonly struct AutoBuyExclusionHistogram
     public int OwningViewRelationUnreadable { get; }
     public int OwningViewRelationContradictory { get; }
     public int DestinationFull { get; }
+    public int BackingOff { get; }
 
     public int Total => KindNotSelected + Unavailable +
         RequirementsUnmet + Terminal + Unaffordable + Unpriceable +
         OwningViewUnavailable + OwningViewRelationMissing +
         OwningViewRelationUnreadable +
-        OwningViewRelationContradictory + DestinationFull;
+        OwningViewRelationContradictory + DestinationFull + BackingOff;
 
     public int For(AutoBuyExclusion exclusion) => exclusion switch
     {
@@ -158,6 +164,7 @@ internal readonly struct AutoBuyExclusionHistogram
         AutoBuyExclusion.OwningViewRelationUnreadable => OwningViewRelationUnreadable,
         AutoBuyExclusion.OwningViewRelationContradictory => OwningViewRelationContradictory,
         AutoBuyExclusion.DestinationFull => DestinationFull,
+        AutoBuyExclusion.BackingOff => BackingOff,
         _ => 0,
     };
 }

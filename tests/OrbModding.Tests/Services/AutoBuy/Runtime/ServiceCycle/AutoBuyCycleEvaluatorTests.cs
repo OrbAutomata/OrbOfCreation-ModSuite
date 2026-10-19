@@ -96,7 +96,7 @@ public sealed class AutoBuyCycleEvaluatorTests
         AutoBuyServiceProjection.Write(in state, output);
 
         var projection = output.CaptureSnapshot();
-        Assert.Equal(15, projection.Count);
+        Assert.Equal(16, projection.Count);
         Assert.Collection(
             Enumerable.Range(0, projection.Count).Select(projection.GetEntry),
             entry => AssertProjection(entry, AutoBuyServiceProjection.CapturedCandidatesKey, 3),
@@ -113,7 +113,8 @@ public sealed class AutoBuyCycleEvaluatorTests
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationMissingKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationUnreadableKey, 0),
             entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedOwningViewRelationContradictoryKey, 0),
-            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedDestinationFullKey, 0));
+            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedDestinationFullKey, 0),
+            entry => AssertProjection(entry, AutoBuyServiceProjection.ExcludedBackingOffKey, 0));
     }
 
     /// <summary>
@@ -1029,7 +1030,8 @@ public sealed class AutoBuyCycleEvaluatorTests
         var store = new ReusableActionStore<AutoBuyCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoBuyCycleAction>(store);
-        wake = AutoBuyCycleEvaluator.Evaluate(in frame, in config, writer, out metrics);
+        wake = AutoBuyCycleEvaluator.Evaluate(
+            in frame, in config, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<AutoBuyCycleAction>(store.Count);
         while (!store.IsComplete)

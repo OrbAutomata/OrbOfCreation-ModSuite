@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -36,7 +37,9 @@ internal static class AutoBuyFeatureStatusProjector
         bool emergencyDisabled,
         AutoBuyCandidateKinds owned,
         bool cycleObserved,
-        AutoBuyDecisionBlockReason decisionBlock = AutoBuyDecisionBlockReason.None)
+        AutoBuyDecisionBlockReason decisionBlock = AutoBuyDecisionBlockReason.None,
+        string invariantViolation = "",
+        ServiceRetryGateSnapshot? retries = null)
     {
         if (emergencyDisabled)
         {
@@ -44,6 +47,14 @@ internal static class AutoBuyFeatureStatusProjector
                 FeatureStatusState.TemporarilyBlocked,
                 FeatureStatusReasonCode.EmergencyDisabled,
                 "Emergency disable blocks Auto Buy.");
+        }
+
+        if (invariantViolation.Length != 0)
+        {
+            return new AutoBuyFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.InvariantViolation,
+                invariantViolation);
         }
 
         if (owned == AutoBuyCandidateKinds.None)
@@ -99,6 +110,15 @@ internal static class AutoBuyFeatureStatusProjector
                     FeatureStatusReasonCode.EvidenceUnavailable,
                     "Every captured Auto Buy candidate was excluded by purchase-view evidence, " +
                     "with more than one relation reason.");
+        }
+
+        if (retries is not null && retries.TryGetLatestAnnounced(out var retry))
+        {
+            return new AutoBuyFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.ContractMismatch,
+                $"Auto Buy is backing off {EntityIdentityFormatter.Format(retry.Target.Id)} after " +
+                $"{retry.ConsecutiveFailures} refused purchase(s) and retries it when due: {retry.Reason}");
         }
 
         return new AutoBuyFeatureStatus(

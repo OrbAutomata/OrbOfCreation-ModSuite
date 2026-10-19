@@ -128,7 +128,7 @@ internal static class GameMcpHealthProjection
                     FeatureStatusState.Faulted) &&
                 feature.Reason.Code != FeatureStatusReasonCode.EmergencyDisabled &&
                 feature.Reason.Summary.Length > 0;
-            if (!held && feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;
+            if (!held) continue;
             result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
                 .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
         }
