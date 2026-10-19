@@ -349,7 +349,11 @@ A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips
 due. The wake a finished batch or a successful evaluation schedules never outlasts the next target
 that comes due, so the service wakes when a backed-off target may try again; a service-wide fault
 backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
-diagnostics snapshot carries the gate. A narrating feature logs one warning when an episode is
+diagnostics snapshot carries the gate. A feature reads its service with
+`ServiceCycleDiagnostics.ReadAvailableService`, which answers nothing while the worker holds the
+handoff or the service has no current runner; the feature then keeps the gate and projection it last
+read, because a snapshot without runner evidence leaves both blank and an empty gate would end every
+episode. A narrating feature logs one warning when an episode is
 announced, with the attempt count, the wait and the reason, and one when it ends; failures in between
 stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason only
 while an announced target is still backing off. Once that target's retry is due, the status no longer
