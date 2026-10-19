@@ -225,7 +225,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 
                     sampled++;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
                     Skip(ref skipped, ref firstFailure,
                         "reading a " + owner.TypeName + " keyword row threw: " +
