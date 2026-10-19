@@ -9,6 +9,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
+using static OrbModding.ProfileTests.GameMcpTestHarness;
 
 namespace OrbModding.ProfileTests;
 
@@ -563,6 +564,127 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(2, (int)reported["observed"]!["repetitions"]!["after"]!);
     }
 
+    [Fact]
+    public void CraftingRecipeProjectionKeepsAuthoredEdgesAndNativeBlockerVerdicts()
+    {
+        var recipeId = Guid.Parse("b1b7d331-587a-4b4c-87cf-4a8f57c8256b");
+        var typeId = Guid.Parse("5d343cb8-d676-4561-9c46-4bc74de5fcfd");
+        var resourceId = Guid.Parse("4d4a9dd0-6b71-4ac2-89a1-7a4dde91ed54");
+        var consumableId = Guid.Parse("a969e17f-1e72-4e69-9149-603b5bac33e0");
+        var reading = new RawCraftingRecipeSample(
+            recipeId,
+            visible: false,
+            canBuyAtStartingQuantity: false,
+            startingQuantity: new BigDouble(2d),
+            useQuantityAsLevel: true,
+            timeToComplete: 9.5d,
+            outputWithinCapacity: false,
+            completionEffectCount: 1);
+        var recipe = new WorldCraftingRecipe(
+            in reading,
+            PublicationTable<WorldCraftingRecipeTypeLink>.Create(new[]
+            {
+                new WorldCraftingRecipeTypeLink(recipeId, typeId),
+            }),
+            PublicationTable<WorldCraftingRecipeResource>.Create(new[]
+            {
+                new WorldCraftingRecipeResource(
+                    recipeId,
+                    WorldCraftingRecipeResourceKind.AuthoredInput,
+                    resourceId,
+                    new BigDouble(3d),
+                    resourceStateAvailable: true,
+                    visible: true,
+                    bandwidthResource: true,
+                    trueQuantity: new BigDouble(80d),
+                    isCapped: true,
+                    capacity: new BigDouble(100d),
+                    usage: new BigDouble(4d),
+                    drain: new BigDouble(1.5d)),
+            }),
+            PublicationTable<WorldCraftingRecipeConsumableOutput>.Create(new[]
+            {
+                new WorldCraftingRecipeConsumableOutput(recipeId, 0, 1, consumableId),
+            }),
+            PublicationTable<WorldCraftingRecipeDrainBlock>.Create(new[]
+            {
+                new WorldCraftingRecipeDrainBlock(recipeId, 0, new BigDouble(0.75d)),
+            }));
+        var world = new GameWorldState
+        {
+            CraftingRecipes = PublicationTable<WorldCraftingRecipe>.Create(new[] { recipe }),
+            Resources = PublicationTable<WorldResource>.Create(new[]
+            {
+                GameMcpTestHarness.BandwidthResource(
+                    resourceId, new BigDouble(80), new BigDouble(100)),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[]
+                {
+                    Clean("crafting-recipes"),
+                    Clean("crafting-recipe-state"),
+                    Clean("crafting-decisions"),
+                    Clean("resources"),
+                }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var state = GameMcpTestHarness.Context(world);
+
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            state,
+            "crafting-recipes",
+            recipeId.ToString("D")));
+
+        Assert.Equal("available", (string?)result["status"]);
+        Assert.Null(result["worldGeneration"]);
+        var row = (JObject)result["row"]!;
+        Assert.Equal(GameMcpTestHarness.Handle(recipeId), (string?)result["uuid"]);
+        Assert.False((bool)row["visible"]!);
+        Assert.False((bool)row["canStart"]!);
+        Assert.Equal(
+            new[]
+            {
+                "hidden_or_undiscovered",
+                "native_purchase_refused",
+                "output_capacity_blocked",
+            },
+            row["blockers"]!.Values<string>());
+        Assert.Equal(GameMcpTestHarness.Handle(typeId),
+            (string?)Assert.Single(row["types"]!)!["uuid"]);
+        var input = Assert.Single(row["inputs"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(resourceId), (string?)input["resource"]!["uuid"]);
+        Assert.True((bool)input["bandwidth"]!);
+        Assert.Equal("3", (string?)input["cost"]);
+        Assert.Equal("20", (string?)input["spendableAmount"]);
+        Assert.Equal("100", (string?)input["capacity"]);
+        Assert.True((bool)input["affordable"]!);
+        var output = Assert.Single(row["consumableOutputs"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(consumableId), (string?)output["uuid"]);
+        var drain = Assert.Single(row["drainBlockers"]!.Values<JObject>())!;
+        Assert.Null(drain["reasonCode"]);
+        Assert.Equal("0.750", (string?)drain["availableRatio"]);
+
+        var incompleteWorld = new GameWorldState
+        {
+            CraftingRecipes = world.CraftingRecipes,
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[] { Clean("crafting-recipes") }),
+            CollectedAtEpoch = 26,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var unavailable = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(incompleteWorld),
+            "crafting-recipes",
+            recipeId.ToString("D")));
+        Assert.Equal("unavailable", (string?)unavailable["status"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
+        Assert.Contains(
+            "crafting-recipe-state",
+            (string?)unavailable["reason"],
+            StringComparison.Ordinal);
+    }
+
     private static GameMcpCommand CraftCommand(int amount) => new(
         1, GameMcpCommandKind.Crafting, 15, 8, "craft", RecipeId, Guid.Empty,
         "CraftingRecipeSO", amount, string.Empty, string.Empty, false,
@@ -692,7 +814,4 @@ public sealed class GameMcpCraftingTests
                 "Auto Sigil Queue", "autoSigilQueue"),
             new EntityIdentityName(
                 ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"));
-
-    private static WorldCollectionCategoryStatus Clean(string category) =>
-        new(category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
 }

@@ -170,6 +170,14 @@ internal static class GameMcpTestHarness
                 name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
             .ToArray();
 
+    internal static WorldCollectionCategoryStatus Clean(string category) =>
+        new(
+            category,
+            WorldCategoryOutcome.Collected,
+            sampled: 0,
+            skipped: 0,
+            firstFailure: string.Empty);
+
     internal static JObject Json(GameMcpObjectBuilder value) =>
         Json(value.Freeze(), EntityCatalog);
 
