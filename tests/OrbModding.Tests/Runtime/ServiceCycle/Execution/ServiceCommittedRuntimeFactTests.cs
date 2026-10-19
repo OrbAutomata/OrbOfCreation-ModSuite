@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -113,9 +112,7 @@ public sealed class ServiceCommittedRuntimeFactTests
             definition,
             new LifecycleGeneration(1));
         var runner = registration.Runner;
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));

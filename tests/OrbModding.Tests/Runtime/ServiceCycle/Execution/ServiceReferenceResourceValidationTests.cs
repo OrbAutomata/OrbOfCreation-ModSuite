@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -54,9 +53,7 @@ public sealed class ServiceReferenceResourceValidationTests
             definition,
             new LifecycleGeneration(1));
         var runner = registration.Runner;
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
 
         var retryDue = default(MonotonicTimestamp);
         for (var attempt = 1; attempt <= 4; attempt++)

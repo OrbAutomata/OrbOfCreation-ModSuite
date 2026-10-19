@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -38,9 +37,7 @@ public sealed class ServiceWorkerFaultTransactionTests
 
         ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(actionsAppended.Wait(ServiceCycleTestDeadline.Value));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
@@ -103,9 +100,7 @@ public sealed class ServiceWorkerFaultTransactionTests
 
         ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(actionsAppended.Wait(ServiceCycleTestDeadline.Value));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));

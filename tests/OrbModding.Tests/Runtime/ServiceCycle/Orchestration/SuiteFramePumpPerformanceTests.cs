@@ -40,10 +40,7 @@ public sealed class SuiteFramePumpPerformanceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
         var frameIdentity = 1L;
-        ServiceCyclePumpTestWait.UntilStart(pump, ref frameIdentity);
-        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frameIdentity);
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        ServiceCyclePumpTestWait.UntilResponse(pump, ref frameIdentity);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frameIdentity);
         pump.PumpFrame(frameIdentity++);
 
         var actionFrames = 0;
@@ -94,7 +91,9 @@ public sealed class SuiteFramePumpPerformanceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
         var frame = 1L;
-        RunSuccessfulCycle(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
         // The action changed the game, so the next cycle waits for a reading that contains it.
         TestWorldCollector.CollectedAt(registry, frame);
 
@@ -126,7 +125,8 @@ public sealed class SuiteFramePumpPerformanceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
         var frame = 1L;
-        RunZeroActionCycle(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
 
         var captureAllocation = MeasurePump(pump, ref frame, out var capture);
         ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
@@ -158,7 +158,10 @@ public sealed class SuiteFramePumpPerformanceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
         var frame = 1L;
-        RunRejectedCycle(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.ForCleanup(registration.Runner);
         // Rejection proves that the pinned world diverged from native reality. Warm the next
         // cycle only after the collector has published facts from beyond that attempt.
         TestWorldCollector.CollectedAt(registry, frame);
@@ -193,9 +196,16 @@ public sealed class SuiteFramePumpPerformanceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
         var frame = 1L;
-        RunEmergencyResponseRejection(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
+        pump.SetEmergencyStop(true);
+        ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
+        pump.SetEmergencyStop(false);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.ForCleanup(registration.Runner);
 
-        CaptureAndWaitForResponse(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
         pump.SetEmergencyStop(true);
         var rejectionAllocation = MeasurePump(pump, ref frame, out var rejection);
         pump.SetEmergencyStop(false);
@@ -209,62 +219,6 @@ public sealed class SuiteFramePumpPerformanceTests
         Assert.Equal(0, rejectionAllocation);
         Assert.Equal(0, handbackAllocation);
         Assert.Equal(0, definition.ActionExecutionCount);
-    }
-
-    private static void RunSuccessfulCycle(
-        SuiteFramePump pump,
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ref long frame)
-    {
-        CaptureAndWaitForResponse(pump, runner, ref frame);
-        ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
-        Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
-        pump.PumpFrame(frame++);
-    }
-
-    private static void RunZeroActionCycle(
-        SuiteFramePump pump,
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ref long frame)
-    {
-        CaptureAndWaitForResponse(pump, runner, ref frame);
-        ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
-        pump.PumpFrame(frame++);
-    }
-
-    private static void RunRejectedCycle(
-        SuiteFramePump pump,
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ref long frame)
-    {
-        CaptureAndWaitForResponse(pump, runner, ref frame);
-        ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
-        Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
-        pump.PumpFrame(frame++);
-        ServiceRunnerTestWait.ForCleanup(runner);
-    }
-
-    private static void RunEmergencyResponseRejection(
-        SuiteFramePump pump,
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ref long frame)
-    {
-        CaptureAndWaitForResponse(pump, runner, ref frame);
-        pump.SetEmergencyStop(true);
-        ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
-        pump.SetEmergencyStop(false);
-        pump.PumpFrame(frame++);
-        ServiceRunnerTestWait.ForCleanup(runner);
-    }
-
-    private static void CaptureAndWaitForResponse(
-        SuiteFramePump pump,
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ref long frame)
-    {
-        ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
-        ServiceRunnerTestWait.PublishDeferredRequest(pump, runner, ref frame);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
     }
 
     private static long MeasurePump(

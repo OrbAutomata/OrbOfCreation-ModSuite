@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
@@ -102,9 +101,7 @@ public sealed class ServiceCycleRegistryTests
             new ThreadSafeTestClock(100),
             false,
             new FailFirstWorkerStarter());
-        var claims = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var claims = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
 
         var exception = Assert.Throws<InvalidOperationException>(() => registry.Register(
             definition, new RuntimeLifecycleGeneration(1)));
