@@ -91,7 +91,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     /// Where this pass's list membership goes. Held for the pass rather than threaded through eight
     /// signatures whose subject is the condition graph rather than the lists hanging off two of them.
     /// </summary>
-    private WorldRequirementListBuffer? _lists;
+    private WorldRelationBuffer<WorldRequirementListMember>? _lists;
 
     internal WorldEntityRequirementReader(
         Type? upgradeType,
@@ -314,7 +314,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
     private void WalkPrerequisiteLinks(
         IList? links,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int sampled,
         ref int unmodelled,
         ref string firstFailure)
@@ -369,7 +369,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         WorldRequirementOwnerKind kind,
         Func<object, Guid> identity,
         Func<object, object?>? container,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int sampled,
         ref int unmodelled,
         ref string firstFailure,
@@ -436,7 +436,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Guid ownerId,
         WorldRequirementOwnerKind kind,
         Func<object, object?>? container,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure,
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
@@ -486,7 +486,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Guid ownerId,
         WorldRequirementOwnerKind kind,
         object? held,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         int ordinalBase,
         ref int groupOrdinalBase,
         ref int unmodelled,
@@ -515,7 +515,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         int containerIndex,
         object held,
         bool publishContainerRoot,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure)
     {
@@ -564,7 +564,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         int parentOrdinal,
         int depth,
         ref int nextOrdinal,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure)
     {
@@ -624,7 +624,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         WorldRequirementProgramKind program,
         WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> identities,
         Func<object, object?> container,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int sampled,
         ref int unmodelled,
         ref string firstFailure)
@@ -669,7 +669,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         WorldRequirementOwnerKind kind,
         WorldRequirementProgramKind program,
         Func<object, object?> container,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure)
     {
@@ -687,7 +687,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         Guid ownerId,
         WorldRequirementOwnerKind ownerKind,
         WorldRequirementProgramKind program,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure)
     {
@@ -726,7 +726,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         WorldRequirementOwnerKind ownerKind,
         WorldRequirementProgramKind program,
         IList? conditions,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int unmodelled,
         ref string firstFailure,
         BigDouble adjustment = default,
@@ -820,7 +820,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         int groupOrdinal,
         ConditionAccessors branchAccessors,
         object branch,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int appended,
         ref int unmodelled,
         ref string firstFailure,
@@ -858,7 +858,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
 
     private static void Append(
         in WorldEntityRequirement row,
-        WorldEntityRequirementBuffer buffer,
+        WorldRelationBuffer<WorldEntityRequirement> buffer,
         ref int appended,
         ref int unmodelled,
         ref string firstFailure)

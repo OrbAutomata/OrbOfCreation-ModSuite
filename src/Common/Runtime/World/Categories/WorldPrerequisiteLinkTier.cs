@@ -36,6 +36,13 @@ internal readonly struct WorldPrerequisiteLinkTier
 
 internal static class WorldPrerequisiteLinkTierLookup
 {
+    internal static readonly Comparison<WorldPrerequisiteLinkTier> Order =
+        static (left, right) =>
+        {
+            var byLink = left.LinkId.CompareTo(right.LinkId);
+            return byLink != 0 ? byLink : left.TierIndex.CompareTo(right.TierIndex);
+        };
+
     internal static bool TryFind(
         PublicationTable<WorldPrerequisiteLinkTier> table,
         Guid linkId,
@@ -63,41 +70,6 @@ internal static class WorldPrerequisiteLinkTierLookup
 
         row = default;
         return false;
-    }
-}
-
-internal sealed class WorldPrerequisiteLinkTierBuffer
-{
-    private WorldPrerequisiteLinkTier[] _samples = new WorldPrerequisiteLinkTier[64];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldPrerequisiteLinkTier this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldPrerequisiteLinkTier sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldPrerequisiteLinkTierDeriver
-{
-    internal static PublicationTable<WorldPrerequisiteLinkTier> Build(
-        WorldPrerequisiteLinkTierBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldPrerequisiteLinkTier>.Empty;
-
-        var rows = new WorldPrerequisiteLinkTier[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) =>
-        {
-            var byLink = left.LinkId.CompareTo(right.LinkId);
-            return byLink != 0 ? byLink : left.TierIndex.CompareTo(right.TierIndex);
-        });
-        return PublicationTable<WorldPrerequisiteLinkTier>.Create(rows, rows.Length);
     }
 }
 

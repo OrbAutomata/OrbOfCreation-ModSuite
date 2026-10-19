@@ -44,11 +44,15 @@ internal sealed class WorldAuthoredTables
             frame.DiscoveryTreeBooks, WorldDiscoveryTreeBookLookup.Order);
         ResourceBar = WorldRelationTable.Publish(frame.ResourceBar);
         LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects);
-        PlotAuthoring = WorldPlotAuthoringDeriver.Build(frame.PlotAuthoring);
-        PlotPhaseDescriptors = WorldPlotPhaseDescriptorDeriver.Build(frame.PlotPhaseDescriptors);
-        EffectBlocks = WorldEffectBlockDeriver.Build(frame.EffectBlocks);
-        EntityRequirements = WorldEntityRequirementDeriver.Build(frame.EntityRequirements);
-        RequirementListMembers = WorldRequirementListDeriver.Build(frame.RequirementLists);
+        PlotAuthoring = WorldRelationTable.Build(
+            frame.PlotAuthoring, WorldPlotAuthoringLookup.Order);
+        PlotPhaseDescriptors = WorldRelationTable.Build(
+            frame.PlotPhaseDescriptors, WorldPlotPhaseDescriptorLookup.Order);
+        EffectBlocks = WorldRelationTable.Build(frame.EffectBlocks, WorldEffectBlockLookup.Order);
+        EntityRequirements = WorldRelationTable.Build(
+            frame.EntityRequirements, WorldEntityRequirementLookup.Order);
+        RequirementListMembers = WorldRelationTable.Build(
+            frame.RequirementLists, WorldRequirementListLookup.Order);
     }
 
     internal long StructuralGeneration { get; }

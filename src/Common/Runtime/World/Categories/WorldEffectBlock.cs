@@ -123,6 +123,13 @@ internal readonly struct WorldEffectBlock
 /// </remarks>
 internal static class WorldEffectBlockLookup
 {
+    internal static readonly Comparison<WorldEffectBlock> Order =
+        static (left, right) =>
+        {
+            var byOwner = left.OwnerId.CompareTo(right.OwnerId);
+            return byOwner != 0 ? byOwner : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldEffectBlock> table,
         Guid ownerId,
@@ -156,54 +163,6 @@ internal static class WorldEffectBlockLookup
         start = found;
         while (start + count < rows.Length && rows[start + count].OwnerId == ownerId) count++;
         return true;
-    }
-}
-
-/// <summary>Every authored completion block as read, held where a cycle can own them.</summary>
-internal sealed class WorldEffectBlockBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldEffectBlock[] _samples = new WorldEffectBlock[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldEffectBlock this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldEffectBlock sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>Publishes the block readings, sorted by owner and then position.</summary>
-internal static class WorldEffectBlockDeriver
-{
-    internal static PublicationTable<WorldEffectBlock> Build(WorldEffectBlockBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldEffectBlock>.Empty;
-
-        var derived = new WorldEffectBlock[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, BlockComparer.ByOwnerThenOrdinal);
-        return PublicationTable<WorldEffectBlock>.Create(derived, derived.Length);
-    }
-
-    private sealed class BlockComparer : IComparer<WorldEffectBlock>
-    {
-        internal static readonly IComparer<WorldEffectBlock> ByOwnerThenOrdinal = new BlockComparer();
-
-        public int Compare(WorldEffectBlock left, WorldEffectBlock right)
-        {
-            var byOwner = left.OwnerId.CompareTo(right.OwnerId);
-            return byOwner != 0 ? byOwner : left.Ordinal.CompareTo(right.Ordinal);
-        }
     }
 }
 
@@ -323,7 +282,7 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
-    private int Read(object action, WorldEffectBlockBuffer buffer)
+    private int Read(object action, WorldRelationBuffer<WorldEffectBlock> buffer)
     {
         var actionId = _actionId!(action);
         if (actionId == Guid.Empty) return 0;

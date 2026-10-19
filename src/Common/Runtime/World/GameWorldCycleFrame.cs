@@ -67,21 +67,21 @@ internal sealed class GameWorldCycleFrame
     /// The authored cost entries, which are one-to-many per entity and so cannot share the
     /// one-row-per-entity buffer every other category uses.
     /// </summary>
-    internal WorldPurchaseCostBuffer PurchaseCosts { get; } = new();
+    internal WorldRelationBuffer<RawPurchaseCost> PurchaseCosts { get; } = new(64);
 
     /// <summary>Each upgrade's per-level cost modifiers, split into modifiers and exponents.</summary>
-    internal WorldLevelCostModifierBuffer LevelCostModifiers { get; } = new();
+    internal WorldRelationBuffer<RawLevelCostModifier> LevelCostModifiers { get; } = new(64);
 
     /// <summary>
     /// Every plot-and-action pair. Not one row per entity either: a pair belongs to neither side.
     /// </summary>
-    internal WorldPlotActionBuffer PlotActions { get; } = new();
+    internal WorldRelationBuffer<RawPlotAction> PlotActions { get; } = new(64);
 
     /// <summary>
     /// Every runtime instance of an action a plot holds. A pair can have several, so they cannot
     /// ride on the pair's own buffer.
     /// </summary>
-    internal WorldPlotActionInstanceBuffer PlotActionInstances { get; } = new();
+    internal WorldRelationBuffer<WorldPlotActionInstance> PlotActionInstances { get; } = new(32);
 
     internal WorldRelationBuffer<WorldPlotActionDrain> PlotActionDrains { get; } = new();
 
@@ -91,7 +91,7 @@ internal sealed class GameWorldCycleFrame
     /// </summary>
     internal WorldSampleBuffer<RawWorldActionQueue, WorldActionQueue> ActionQueues { get; } = new();
 
-    internal WorldActionQueueSlotBuffer ActionQueueSlots { get; } = new();
+    internal WorldRelationBuffer<WorldActionQueueSlot> ActionQueueSlots { get; } = new(32);
 
     /// <summary>
     /// The equipped spell loadout, and what casting out of it costs. One reader fills both, because
@@ -138,24 +138,24 @@ internal sealed class GameWorldCycleFrame
     /// What each plot's author decided, and the phases it authors. Keyed by the plot rather than
     /// carrying its identity, so the plot is claimed once.
     /// </summary>
-    internal WorldPlotAuthoringBuffer PlotAuthoring { get; } = new();
+    internal WorldRelationBuffer<WorldPlotAuthoring> PlotAuthoring { get; } = new(32);
 
-    internal WorldPlotPhaseDescriptorBuffer PlotPhaseDescriptors { get; } = new();
+    internal WorldRelationBuffer<WorldPlotPhaseDescriptor> PlotPhaseDescriptors { get; } = new(64);
 
     /// <summary>Every authored effect block, keyed by the entity whose completion applies it.</summary>
-    internal WorldEffectBlockBuffer EffectBlocks { get; } = new();
+    internal WorldRelationBuffer<WorldEffectBlock> EffectBlocks { get; } = new(32);
 
     /// <summary>
     /// Every authored condition on an entity's next level, keyed by the entity it gates. One-to-many
     /// and not one row per entity, so it cannot ride on the category buffers.
     /// </summary>
-    internal WorldEntityRequirementBuffer EntityRequirements { get; } = new();
+    internal WorldRelationBuffer<WorldEntityRequirement> EntityRequirements { get; } = new(32);
 
     /// <summary>
     /// The membership of every list variable a requirement compares against. Filled by the same
     /// structural reader, because a list is only reachable through the condition that names it.
     /// </summary>
-    internal WorldRequirementListBuffer RequirementLists { get; } = new();
+    internal WorldRelationBuffer<WorldRequirementListMember> RequirementLists { get; } = new(32);
 
     /// <summary>
     /// Exact candidate-to-list/view routes for Auto Buy. Authored structure, so the collector keeps
@@ -199,7 +199,7 @@ internal sealed class GameWorldCycleFrame
     internal WorldRelationBuffer<WorldLevelEffect> LevelEffects { get; } = new();
 
     /// <summary>The volatile active/passive gates around the structural prerequisite-link graph.</summary>
-    internal WorldPrerequisiteLinkTierBuffer PrerequisiteLinkTiers { get; } = new();
+    internal WorldRelationBuffer<WorldPrerequisiteLinkTier> PrerequisiteLinkTiers { get; } = new(64);
     internal WorldSampleBuffer<WorldAlchemyRecipe, WorldAlchemyRecipe> AlchemyRecipes { get; } = new();
     internal WorldSampleBuffer<WorldAlchemyType, WorldAlchemyType> AlchemyTypes { get; } = new();
     internal WorldSampleBuffer<RawSpellRecipeSample, WorldSpellRecipe> SpellRecipes { get; } = new();
@@ -588,11 +588,13 @@ internal static class GameWorldFrameDeriver
             RecipeBooks = frame.RecipeBooks.Build(WorldIdentityDeriver<WorldRecipeBook>.Shared),
             PlotNodes = plotNodes,
             PlotActions = plotActions,
-            PlotActionInstances = WorldPlotActionInstanceDeriver.Build(frame.PlotActionInstances),
+            PlotActionInstances = WorldRelationTable.Build(
+                frame.PlotActionInstances, WorldPlotActionInstanceLookup.Order),
             PlotActionDrains = WorldRelationTable.Build(
                 frame.PlotActionDrains, WorldPlotActionDrainDeriver.Order),
             ActionQueues = frame.ActionQueues.Build(new WorldActionQueueDeriver(intVariables)),
-            ActionQueueSlots = WorldActionQueueSlotDeriver.Build(frame.ActionQueueSlots),
+            ActionQueueSlots = WorldRelationTable.Build(
+                frame.ActionQueueSlots, WorldActionQueueSlotLookup.Order),
             SpellSlots = spellSlots,
             SpellCosts = WorldSpellCostDeriver.Build(frame.SpellCosts),
             MasteryExperience = WorldMasteryExperienceDeriver.Build(frame.MasteryExperience),
@@ -609,8 +611,8 @@ internal static class GameWorldFrameDeriver
             EffectBlocks = authored.EffectBlocks,
             EntityRequirements = authored.EntityRequirements,
             RequirementListMembers = authored.RequirementListMembers,
-            PrerequisiteLinkTiers =
-                WorldPrerequisiteLinkTierDeriver.Build(frame.PrerequisiteLinkTiers),
+            PrerequisiteLinkTiers = WorldRelationTable.Build(
+                frame.PrerequisiteLinkTiers, WorldPrerequisiteLinkTierLookup.Order),
             TreasurePools = frame.TreasurePools.Build(WorldIdentityDeriver<WorldTreasurePool>.Shared),
         };
     }

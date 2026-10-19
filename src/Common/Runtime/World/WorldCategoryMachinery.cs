@@ -117,6 +117,7 @@ internal sealed class WorldRelationBuffer<TRow> where TRow : struct
     internal ref readonly TRow this[int index] => ref _rows[index];
     internal void Reset() => Count = 0;
     internal void Truncate(int count) => Count = count;
+    internal void Replace(int index, in TRow row) => _rows[index] = row;
 
     internal void Append(in TRow row)
     {
