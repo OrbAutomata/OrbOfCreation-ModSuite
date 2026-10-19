@@ -217,7 +217,7 @@ public sealed class GameMcpCorrectnessCoreTests
             "UpgradeSO", 1, string.Empty, string.Empty, false);
         var action = ServiceActionResult.Skipped(CommonActionResultCodes.Skipped);
 
-        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        var result = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command, world, in action, 1, 1);
 
         Assert.NotNull(result);
@@ -389,7 +389,7 @@ public sealed class GameMcpCorrectnessCoreTests
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
             "UpgradeSO", 1, string.Empty, string.Empty, false);
 
-        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        var result = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command,
             world,
             ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected),
@@ -408,7 +408,7 @@ public sealed class GameMcpCorrectnessCoreTests
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
             "UpgradeSO", 1, string.Empty, string.Empty, false);
 
-        Assert.Null(AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        Assert.Null(GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command,
             new GameWorldState(),
             ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected),
@@ -501,7 +501,7 @@ public sealed class GameMcpCorrectnessCoreTests
                 new AutoBuyLiveCostRow(knowledge, false, new BigDouble(41), new BigDouble(39.6)),
             }));
 
-        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        var result = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
             1, 1, live);
 
@@ -528,7 +528,7 @@ public sealed class GameMcpCorrectnessCoreTests
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
             "UpgradeSO", 1, string.Empty, string.Empty, false);
 
-        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        var result = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
             1, 1);
 
@@ -566,7 +566,7 @@ public sealed class GameMcpCorrectnessCoreTests
             1, GameMcpCommandKind.Purchase, 1, 1, "upgrade", target, Guid.Empty,
             "UpgradeSO", 1, string.Empty, string.Empty, false);
 
-        var result = AutomataServiceCycleRuntime.ProjectPurchaseRefusal(
+        var result = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
             command, world, ServiceActionResult.Skipped(CommonActionResultCodes.Skipped),
             1, 1);
 
