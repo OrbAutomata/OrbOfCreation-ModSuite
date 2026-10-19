@@ -424,7 +424,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             {
                 sampled += ReadGlyphSlots(glyph, variableIds, factors);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
@@ -444,7 +444,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             {
                 sampled += ReadPermanentEffects(upgrade, levels);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
@@ -467,7 +467,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             {
                 sampled += ReadStructureProperties(structure, levels);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
@@ -495,7 +495,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
                 {
                     sampled += ReadBlocks(in _holders[holder], owner, levels);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
                     skipped++;
                     if (firstFailure.Length == 0)

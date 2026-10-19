@@ -796,18 +796,15 @@ internal sealed class FakeModifierVariable
 /// The statistic glossary's stand-in. Its display type sits two references deep, and the reference
 /// that names nothing is the shape one shipped record really has.
 /// </summary>
-internal sealed class FakeStatistic
+internal sealed class FakeStatistic : FakeIdRegistry
 {
     public static readonly List<FakeStatistic> All = new();
 
-    public Guid Identity = Guid.NewGuid();
     public FakeDisplayTypeReference displayTypeRef = new();
     public string globalDefinition = string.Empty;
     public bool isPercent;
     public bool useBigTooltip;
     public string description = string.Empty;
-
-    public Guid GetGuid() => Identity;
 }
 
 internal sealed class FakeDisplayTypeReference
@@ -1371,11 +1368,8 @@ internal sealed class FakeAlchemyType
 /// <summary>
 /// Something a reference edge can point at. Answers <c>GetGuid()</c> like every game entity does.
 /// </summary>
-internal sealed class FakeReferencedEntity
+internal sealed class FakeReferencedEntity : FakeIdRegistry
 {
-    public Guid Identity = Guid.NewGuid();
-
-    public Guid GetGuid() => Identity;
 }
 
 /// <summary>The game's other reference shape: an identity already held as one.</summary>
@@ -2614,11 +2608,8 @@ internal sealed class FakeEffectBlock
 /// The entity an authored effect points at, modelled only as far as the reference edge reads it:
 /// the identity the published row carries instead of the object.
 /// </summary>
-internal sealed class FakeUpgradeableObject
+internal sealed class FakeUpgradeableObject : FakeIdRegistry
 {
-    public Guid Identity = Guid.NewGuid();
-
-    public Guid GetGuid() => Identity;
 }
 
 /// <summary>One effect's modification of one named property of one upgradeable object.</summary>

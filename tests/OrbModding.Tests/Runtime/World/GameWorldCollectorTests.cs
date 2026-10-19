@@ -2749,6 +2749,169 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
 
+    /// <summary>
+    /// A cost entry whose resource throws something the game is not known to throw faults the pass
+    /// rather than costing its structure's row.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingAStructureCostFaultsThePass()
+    {
+        var failure = new NullReferenceException("cost resource was destroyed");
+        var structure = new FakeStructure();
+        structure.baseCost.costs.Add(new FakeCostEntry
+        {
+            resource = new FakeReferencedEntity { GetGuidFailure = failure },
+            valueBig = new BigDouble(100d),
+        });
+        FakeStructure.All.Add(structure);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// An upgrade cost entry whose resource throws unexpectedly faults the pass rather than costing
+    /// its upgrade's row.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingAnUpgradeCostFaultsThePass()
+    {
+        var failure = new NullReferenceException("cost resource was destroyed");
+        var upgrade = new FakeUpgrade();
+        upgrade.resourceCost.costs.Add(new FakeCostEntry
+        {
+            resource = new FakeReferencedEntity { GetGuidFailure = failure },
+            valueBig = new BigDouble(50d),
+        });
+        FakeUpgrade.All.Add(upgrade);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// An authored effect whose target throws unexpectedly faults the pass from each owner the level
+    /// effects are walked on: an upgrade's permanent effects, a structure's per-rank properties and
+    /// an effect block.
+    /// </summary>
+    [Theory]
+    [InlineData("upgrade")]
+    [InlineData("structure")]
+    [InlineData("research")]
+    public void AnUnexpectedThrowReadingALevelEffectFaultsThePass(string owner)
+    {
+        var failure = new NullReferenceException("effect target was destroyed");
+        var effect = new FakeObjectPropertyEffect
+        {
+            upgradeableObject = new FakeUpgradeableObject { GetGuidFailure = failure },
+            propertyType = "power",
+            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+        };
+        switch (owner)
+        {
+            case "upgrade":
+                var upgrade = new FakeUpgrade();
+                upgrade.permanentEffects.upgradeableObjectEffects.Add(effect);
+                FakeUpgrade.All.Add(upgrade);
+                break;
+            case "structure":
+                var properties = new FakePermanentEffects();
+                properties.upgradeableObjectEffects.Add(effect);
+                var structure = new FakeStructure();
+                structure.structureProperties.Add(properties);
+                FakeStructure.All.Add(structure);
+                break;
+            default:
+                var block = new FakeEffectBlock();
+                block.effectScripts.Add(effect);
+                var research = new FakeResearch();
+                research.researchEffectBlocks.Add(block);
+                FakeResearch.All.Add(research);
+                break;
+        }
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A stat group member whose target throws unexpectedly faults the pass rather than costing its
+    /// group's rows.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingAStatGroupMemberFaultsThePass()
+    {
+        var failure = new NullReferenceException("member statistic was destroyed");
+        var group = new FakeAttributeGroup();
+        group.recordReferences.Add(new FakeAttributeGroupReference
+        {
+            upgradeableObject = new FakeStatistic { GetGuidFailure = failure },
+            propertyType = "power",
+        });
+        FakeAttributeGroup.All.Add(group);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A type's subtype that throws unexpectedly faults the pass rather than costing the type's
+    /// modifier row.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingATypeModifierRowFaultsThePass()
+    {
+        var failure = new NullReferenceException("subtype was destroyed");
+        FakeStructureType.All.Add(new FakeStructureType
+        {
+            subTypes = { new FakeStructureType { GetGuidFailure = failure } },
+        });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A modifier on a type whose source throws unexpectedly faults the pass rather than costing the
+    /// type's contribution row.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingATypeModifierContributionFaultsThePass()
+    {
+        var failure = new NullReferenceException("modifier source was destroyed");
+        var type = new FakeStructureType();
+        type.structurePower.activeModifiers[Guid.NewGuid()] = new FakeValueModifier(
+            FakeModifierKind.Raw, 1d, 0, new global::IdScriptableObject { GetGuidFailure = failure });
+        FakeStructureType.All.Add(type);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A keyword on an entity that throws unexpectedly faults the pass rather than costing the
+    /// entity's keyword rows.
+    /// </summary>
+    [Fact]
+    public void AnUnexpectedThrowReadingAnEntityKeywordFaultsThePass()
+    {
+        var failure = new NullReferenceException("keyword was destroyed");
+        FakeStructure.All.Add(new FakeStructure
+        {
+            structureSubTypes = { new FakeStructureType { GetGuidFailure = failure } },
+        });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
     // The member shape each binder requires, stated once. Field names that a binder reads as fields
     // are spelled exactly as the game spells them; everything else is reached through an accessor, so
     // the property names here are free to read well.

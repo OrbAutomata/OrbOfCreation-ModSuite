@@ -1155,7 +1155,7 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
             {
                 sampled += Read(structure, buffer);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
