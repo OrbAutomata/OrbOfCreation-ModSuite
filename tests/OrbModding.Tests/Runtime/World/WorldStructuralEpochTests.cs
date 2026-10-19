@@ -138,6 +138,53 @@ public sealed class WorldStructuralEpochTests : IDisposable
     }
 
     /// <summary>
+    /// Rows nobody re-read derive to the same tables, so every world published from one read shares
+    /// them instead of copying and sorting them again on each pass.
+    /// </summary>
+    [Fact]
+    public void WorldsPublishedFromOneReadShareTheirAuthoredTables()
+    {
+        Author();
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        collector.Collect(frame);
+        var first = GameWorldFrameDeriver.Build(frame);
+
+        collector.Collect(frame);
+        var second = GameWorldFrameDeriver.Build(frame);
+
+        Assert.Same(first.PlotAuthoring, second.PlotAuthoring);
+        Assert.Same(first.PlotPhaseDescriptors, second.PlotPhaseDescriptors);
+        Assert.Same(first.EffectBlocks, second.EffectBlocks);
+        Assert.Same(first.EntityRequirements, second.EntityRequirements);
+        Assert.NotSame(first.PlotNodes, second.PlotNodes);
+    }
+
+    /// <summary>
+    /// A read can bring different rows under the same counts, so a table kept from before it would
+    /// publish the last run's authored content as this run's.
+    /// </summary>
+    [Fact]
+    public void AuthoredTablesAreDerivedAgainAfterEveryRead()
+    {
+        Author();
+        var collector = new GameWorldCollector();
+        var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
+        collector.Collect(frame);
+        var first = GameWorldFrameDeriver.Build(frame);
+
+        frame.CollectedAtEpoch = 6;
+        collector.Collect(frame);
+        var second = GameWorldFrameDeriver.Build(frame);
+
+        Assert.Equal(first.EntityRequirements.Count, second.EntityRequirements.Count);
+        Assert.NotSame(first.PlotAuthoring, second.PlotAuthoring);
+        Assert.NotSame(first.PlotPhaseDescriptors, second.PlotPhaseDescriptors);
+        Assert.NotSame(first.EffectBlocks, second.EffectBlocks);
+        Assert.NotSame(first.EntityRequirements, second.EntityRequirements);
+    }
+
+    /// <summary>
     /// A lifecycle boundary is the one thing that can change authored content, and it is the one thing
     /// that makes the collector look again.
     /// </summary>
