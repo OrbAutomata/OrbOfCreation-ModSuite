@@ -212,12 +212,9 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
             }
             catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                {
-                    firstFailure = "reading a stat group's members threw: " +
-                        exception.GetBaseException().Message;
-                }
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                    "reading a stat group's members threw: " +
+                    exception.GetBaseException().Message);
             }
         }
 
