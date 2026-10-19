@@ -28,8 +28,8 @@ public static class AutomationCycleGuard
 /// Only faults reach the log. Refusals are frequent and ordinary, so their reasons travel on the
 /// result to the wire and the health surface instead. A fault repeating on the same target with
 /// the same code and sentence is warned about once until an action lands, whatever reference each
-/// attempt's cause was logged under. An unreadable epoch is one fault of the game whichever target
-/// met it, so it is warned about once across targets.
+/// attempt's cause was logged under, or until a new run is admitted. An unreadable epoch is one
+/// fault of the game whichever target met it, so it is warned about once across targets.
 /// </remarks>
 public sealed class AutomationCycleGuard<TAction>
 {
@@ -38,6 +38,7 @@ public sealed class AutomationCycleGuard<TAction>
     private readonly Func<TAction, string> _describe;
     private readonly Action<string> _warn;
     private readonly RepeatedFailure _warned = new();
+    private long _admittedEpoch;
 
     public AutomationCycleGuard(string feature, Func<TAction, string> describe, Action<string> warn)
     {
@@ -50,7 +51,8 @@ public sealed class AutomationCycleGuard<TAction>
 
     /// <summary>
     /// Whether the game is still the run the action was planned for. Zero matches nothing, so an
-    /// unstamped plan refuses; an epoch the game cannot answer is a fault, not a replaced run.
+    /// unstamped plan refuses; an epoch the game cannot answer is a fault, not a replaced run. The
+    /// first admission in a new run forgets what was warned about in the last one.
     /// </summary>
     public bool TryAdmitEpoch(
         Func<long> readLifecycleEpoch,
@@ -72,6 +74,8 @@ public sealed class AutomationCycleGuard<TAction>
 
         if (current > 0 && current == plannedEpoch)
         {
+            if (current != _admittedEpoch) _warned.Clear();
+            _admittedEpoch = current;
             refusal = default;
             return true;
         }

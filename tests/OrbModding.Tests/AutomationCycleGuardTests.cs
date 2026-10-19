@@ -113,6 +113,23 @@ public sealed class AutomationCycleGuardTests : IDisposable
     }
 
     [Fact]
+    public void TheSameFaultInANewRunIsWarnedAboutAgain()
+    {
+        var guard = Guard();
+
+        foreach (var epoch in new long[] { 7, 7, 8 })
+        {
+            Assert.True(guard.TryAdmitEpoch(() => epoch, epoch, "slot 1", out _));
+            var fault = guard.Fault(new InvalidOperationException("native list was null"), "slot 1");
+            guard.Finish(in fault, "slot 1");
+        }
+
+        Assert.Equal(3, _faults.Count);
+        Assert.Equal(2, _warnings.Count);
+        Assert.All(_warnings, warning => Assert.StartsWith("Test failed on slot 1: adapter fault", warning));
+    }
+
+    [Fact]
     public void RefusalsAndSkipsReachTheResultAndNeverTheLog()
     {
         var guard = Guard();
