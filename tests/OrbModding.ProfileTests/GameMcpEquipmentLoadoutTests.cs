@@ -181,17 +181,15 @@ public sealed class GameMcpEquipmentLoadoutTests
         var equipment = new WorldEquipment(EquipmentId, true, 0, BigDouble.Zero, 3, false,
             BigDouble.One, BigDouble.One, BigDouble.One, 1, 0, -1, BigDouble.Zero,
             loadout: decision);
-        var identityRows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identityRows = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(EquipmentId, "EquipmentSO", "Prismatic Lens", "prismaticLens"),
             new EntityIdentityName(TypeId, "EquipmentTypeSO", "Focus", "focus"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Focus", "focusResource"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Focus", "focusResource"));
         return new GameWorldState
         {
             CollectedAtEpoch = 19,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(19, identityRows),
+            EntityIdentities = identityRows,
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             Equipment = PublicationTable<WorldEquipment>.Create(new[] { equipment }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]

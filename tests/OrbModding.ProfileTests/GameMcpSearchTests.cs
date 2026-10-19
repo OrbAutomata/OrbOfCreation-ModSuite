@@ -560,14 +560,12 @@ public sealed class GameMcpSearchTests
                 new WorldEntityKeyword(
                     Concept, WorldKeywordOwnerKind.AlchemyRecipe,
                     WorldKeywordSource.TypeList, 1, StructureFocus))),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(861));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     /// <summary>
@@ -585,14 +583,12 @@ public sealed class GameMcpSearchTests
                 new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
                 new EntityIdentityName(Failed, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
             }),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 62,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(862));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     /// <summary>
@@ -632,22 +628,6 @@ public sealed class GameMcpSearchTests
         });
         return rows;
     }
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     /// <summary>
     /// One alchemy recipe on the gate every authored recipe of the pinned build carries, where

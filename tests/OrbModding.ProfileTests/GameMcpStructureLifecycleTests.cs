@@ -110,15 +110,13 @@ public sealed class GameMcpStructureLifecycleTests
             false, disabled, 0, false, 0, Guid.Empty, in modifiers);
         var structure = new WorldStructure(
             in reading, new BigDouble(2), false, new BigDouble(2), 0d);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
-            new EntityIdentityName(StructureId, "StructureSO", "Focus", "focus"),
-        }).OrderBy(row => row.EntityId).ToArray();
+        var identities = GameMcpTestHarness.CatalogWith(
+            new EntityIdentityName(StructureId, "StructureSO", "Focus", "focus"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Structures = PublicationTable<WorldStructure>.Create(new[] { structure }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {

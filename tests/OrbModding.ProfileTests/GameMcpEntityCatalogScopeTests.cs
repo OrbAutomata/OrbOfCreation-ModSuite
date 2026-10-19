@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
@@ -21,7 +20,8 @@ namespace OrbModding.ProfileTests;
 /// </remarks>
 public sealed class GameMcpEntityCatalogScopeTests
 {
-    private static readonly IReadOnlyList<EntityIdentityName> BuildRows = LoadBuildRows();
+    private static readonly IReadOnlyList<EntityIdentityName> BuildRows =
+        GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray();
 
     /// <summary>
     /// The verdict is on the type, and the types are this build's. A name nothing loads would be a
@@ -221,17 +221,5 @@ public sealed class GameMcpEntityCatalogScopeTests
 
         Assert.True(GameMcpEntityCatalogScope.IsMachinery("MusicTrackSO"));
         Assert.Equal("Nocturne", GameMcpKeywordIndex.Build(world).Line(owner));
-    }
-
-    private static IReadOnlyList<EntityIdentityName> LoadBuildRows()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "data", "entity-mappings.tsv");
-        return File.ReadLines(path)
-            .Skip(1)
-            .Where(static line => line.Length > 0)
-            .Select(static line => line.Split('\t'))
-            .Select(static cells => new EntityIdentityName(
-                Guid.Parse(cells[0]), cells[2], string.Empty, cells[1]))
-            .ToArray();
     }
 }

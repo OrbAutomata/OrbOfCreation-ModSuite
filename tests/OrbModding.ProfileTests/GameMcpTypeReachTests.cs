@@ -165,7 +165,8 @@ public sealed class GameMcpTypeReachTests
                 "c0c000 | Arcanist | 0",
             }),
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "structure-types", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "structure-types", 0, 50, limitFromCaller: false))));
     }
 
     /// <summary>
@@ -196,7 +197,8 @@ public sealed class GameMcpTypeReachTests
                 "c4a000 | Weave | plot-node-action-types | - | nativeType",
             }),
             Render(Json(GameMcpWorldQuery.Search(
-                Context(World()), "ar", 0, 50, string.Empty, string.Empty, string.Empty,
+                GameMcpTestHarness.Context(World()),
+                "ar", 0, 50, string.Empty, string.Empty, string.Empty,
                 limitFromCaller: false))));
     }
 
@@ -245,7 +247,8 @@ public sealed class GameMcpTypeReachTests
         // The word a parent is spelled with is on none of its children's members, so the query this
         // filter replaces answers nothing at all.
         Assert.Empty(Json(GameMcpWorldQuery.Search(
-            Context(World()), "Primal", 0, 50, "attributes", limitFromCaller: false))
+            GameMcpTestHarness.Context(World()),
+            "Primal", 0, 50, "attributes", limitFromCaller: false))
             ["rows"]!.Values<JObject>());
 
         Assert.Equal(
@@ -370,7 +373,8 @@ public sealed class GameMcpTypeReachTests
                 "c4c000 | Plant | 125 | 100 | 90",
             }),
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "agromancy-actions", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "agromancy-actions", 0, 50, limitFromCaller: false))));
 
         Assert.Equal(
             string.Join('\n', new[]
@@ -423,7 +427,8 @@ public sealed class GameMcpTypeReachTests
     public void A_keyword_filter_naming_something_with_no_members_is_refused_by_name()
     {
         var refused = Json(GameMcpWorldQuery.Search(
-            Context(World()), string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
+            GameMcpTestHarness.Context(World()),
+            string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
             Insight.ToString("D"), limitFromCaller: false));
 
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
@@ -450,7 +455,8 @@ public sealed class GameMcpTypeReachTests
         Assert.Equal(byId, Render(Walk("workshop", "attributes")));
 
         var refused = Json(GameMcpWorldQuery.Search(
-            Context(World()), string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
+            GameMcpTestHarness.Context(World()),
+            string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
             "Workshopp", limitFromCaller: false));
 
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
@@ -466,7 +472,8 @@ public sealed class GameMcpTypeReachTests
 
     private static JObject Walk(string keyword, string category) =>
         Json(GameMcpWorldQuery.Search(
-            Context(World()), string.Empty, 0, 200, category, string.Empty, string.Empty,
+            GameMcpTestHarness.Context(World()),
+            string.Empty, 0, 200, category, string.Empty, string.Empty,
             keyword, limitFromCaller: false));
 
     /// <summary>
@@ -495,7 +502,8 @@ public sealed class GameMcpTypeReachTests
         Assert.Equal(
             "rows: Aura c1d000",
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "passive-ability-types", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "passive-ability-types", 0, 50, limitFromCaller: false))));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
@@ -503,7 +511,7 @@ public sealed class GameMcpTypeReachTests
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
@@ -533,13 +541,6 @@ public sealed class GameMcpTypeReachTests
             new EntityIdentityName(Create, "HarvestActionSO", "Create", "createHarvestAction"),
             new EntityIdentityName(Plant, "HarvestActionSO", "Plant", "plantHarvestAction"),
         });
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(905));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     /// <summary>
     /// Three structure types — one worn by two structures, one parent, one child worn by a third —
@@ -658,8 +659,8 @@ public sealed class GameMcpTypeReachTests
             TypeSubtypes = subtypes,
             KeywordModifiers = WorldKeywordModifierDeriver.Build(
                 totals, keywords, research, consumableTypes, subtypes),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 62,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -814,21 +815,4 @@ public sealed class GameMcpTypeReachTests
         });
         return PublicationTable<WorldTypeModifierContribution>.Create(rows, rows.Length);
     }
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-
-                // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 }

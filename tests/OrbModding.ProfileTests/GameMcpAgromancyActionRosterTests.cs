@@ -59,7 +59,8 @@ public sealed class GameMcpAgromancyActionRosterTests
                 "f3f0d9 | Expand",
             }),
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "agromancy-actions", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "agromancy-actions", 0, 50, limitFromCaller: false))));
     }
 
     /// <summary>
@@ -87,7 +88,7 @@ public sealed class GameMcpAgromancyActionRosterTests
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
@@ -119,13 +120,6 @@ public sealed class GameMcpAgromancyActionRosterTests
         return rows;
     }
 
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(907));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
-
     private static GameWorldState World()
     {
         var keywords = Keywords(
@@ -143,8 +137,8 @@ public sealed class GameMcpAgromancyActionRosterTests
                 Action(Create), Action(Expand), Action(Mining),
                 Action(Plant), Action(Transmorgify), Action(Woodcutting))),
             EntityKeywords = keywords,
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 63,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -174,21 +168,4 @@ public sealed class GameMcpAgromancyActionRosterTests
         });
         return PublicationTable<WorldEntityKeyword>.Create(rows);
     }
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-
-                // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 }

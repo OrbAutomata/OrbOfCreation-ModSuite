@@ -73,10 +73,8 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
 
     private static JObject Row(GameWorldState world)
     {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(983));
         var page = GameMcpWorldQuery.GetRows(
-            GameMcpTestHarness.Context(publisher.ReadLatest()),
+            GameMcpTestHarness.Context(world),
             "alchemy-recipes",
             new[] { ExtractThaumicScrolls.ToString("D") });
         var json = Assert.IsType<JObject>(
@@ -122,21 +120,19 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
             default,
             default,
             WorldRequirementProgramKind.Usage);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(
                 ExtractThaumicScrolls, "AlchemyRecipeSO", "Extract Thaumic Scrolls",
                 "DismantleThaumicScrolls"),
             new EntityIdentityName(Alchemy, "AlchemyTypeSO", "Alchemy", "Alchemy"),
             new EntityIdentityName(ExpertAlchemy, "ResearchSO", "Expert Alchemy", "ExpertAlchemy"),
             new EntityIdentityName(
-                AlchemicalCapacity, "ResourceSO", "Alchemical Capacity", "BandwidthAlch"),
-        }).OrderBy(row => row.EntityId).ToArray();
+                AlchemicalCapacity, "ResourceSO", "Alchemical Capacity", "BandwidthAlch"));
         return new GameWorldState
         {
             CollectedAtEpoch = 91,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[] { recipe }),
             AlchemyTypes = PublicationTable<WorldAlchemyType>.Create(new[]
             {
@@ -151,10 +147,7 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
                     (int)GameValueModifierType.Raw, new BigDouble(8), 0),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
-                GameMcpWorldQuery.RegisteredCategoryNames()
-                    .Select(name => new WorldCollectionCategoryStatus(
-                        name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-                    .ToArray()),
+                GameMcpTestHarness.AllCategoriesCollected()),
         };
     }
 }

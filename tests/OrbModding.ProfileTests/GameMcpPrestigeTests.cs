@@ -177,7 +177,8 @@ public sealed class GameMcpPrestigeTests
     public void Committed_poststate_returns_the_fresh_scene_prestige_and_challenge_decisions()
     {
         var world = World(worldComplete: false, fetched: false);
-        var response = Json(GameMcpWorldQuery.ProjectPrestigePostState(Context(world, 2602)), world);
+        var response = Json(GameMcpWorldQuery.ProjectPrestigePostState(
+            GameMcpTestHarness.Context(world, 2602)), world);
 
         Assert.Equal("Main", (string?)response["scene"]);
         Assert.NotNull(response["lifecycleGeneration"]);
@@ -246,17 +247,15 @@ public sealed class GameMcpPrestigeTests
             new WorldChallenge(Reward, 3, 2, true, true, 5, 10, 15, 40,
                 true, true, false, new BigDouble(15), new BigDouble(40)),
         };
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ResourceId, "ResourceSO", "Persistent Light", "persistentLight"),
             new EntityIdentityName(Queued, "ChallengeSO", "Prismatic Trial", "prismaticTrial"),
-            new EntityIdentityName(Reward, "ChallengeSO", "Reward Trial", "rewardTrial"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(Reward, "ChallengeSO", "Reward Trial", "rewardTrial"));
         return new GameWorldState
         {
             CollectedAtEpoch = 31,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(31, identities),
+            EntityIdentities = identities,
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             Challenges = PublicationTable<WorldChallenge>.Create(challenges),
             ChallengeContext = new WorldChallengeContext(true, string.Empty,
@@ -274,9 +273,6 @@ public sealed class GameMcpPrestigeTests
             }),
         };
     }
-
-    private static GameMcpFrameContext Context(GameWorldState world, ulong generation)
-        => GameMcpTestHarness.Context(world, generation);
 
     private static JObject Json(GameMcpValue value, GameWorldState world) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));

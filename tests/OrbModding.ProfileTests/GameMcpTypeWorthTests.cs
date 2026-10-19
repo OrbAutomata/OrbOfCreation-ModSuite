@@ -158,7 +158,8 @@ public sealed class GameMcpTypeWorthTests
     public void A_spell_type_word_walks_to_the_spells_its_page_counts()
     {
         var page = Render(Json(GameMcpWorldQuery.Search(
-            Context(World()), string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
+            GameMcpTestHarness.Context(World()),
+            string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
             "Ember", limitFromCaller: false)));
 
         Assert.StartsWith("rows 2/2\n", page, StringComparison.Ordinal);
@@ -250,7 +251,7 @@ public sealed class GameMcpTypeWorthTests
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
         var results = Json(GameMcpWorldQuery.GetRows(
-            Context(World(SpellTypeRecords(property))),
+            GameMcpTestHarness.Context(World(SpellTypeRecords(property))),
             string.Empty,
             new[] { Ember.ToString("D") }))["results"]!;
         var block = Assert.Single(results.Values<JObject>())!;
@@ -389,7 +390,8 @@ public sealed class GameMcpTypeWorthTests
                 "a1c000 | Focus Ward | augment-glyphs | - | name",
             }),
             Render(Json(GameMcpWorldQuery.Search(
-                Context(World()), "focus", 0, 50, string.Empty, string.Empty, string.Empty,
+                GameMcpTestHarness.Context(World()),
+                "focus", 0, 50, string.Empty, string.Empty, string.Empty,
                 limitFromCaller: false))));
     }
 
@@ -398,7 +400,7 @@ public sealed class GameMcpTypeWorthTests
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
@@ -420,13 +422,6 @@ public sealed class GameMcpTypeWorthTests
             new EntityIdentityName(Scorch, "SpellRecipeSO", "Scorch", "scorch"),
             new EntityIdentityName(Hush, "SpellRecipeSO", "Hush", "hush"),
         });
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(904));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     /// <summary>
     /// One world holding all five detail-readable type classes, their records, and the modifiers
@@ -532,8 +527,8 @@ public sealed class GameMcpTypeWorthTests
                 PublicationTable<WorldResearch>.Empty,
                 PublicationTable<WorldConsumableType>.Empty,
                 PublicationTable<WorldTypeSubtype>.Empty),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -616,20 +611,4 @@ public sealed class GameMcpTypeWorthTests
             id, true, 1, BigDouble.Zero, 0, false, false, false, 0, 1d, 1, false,
             BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One,
             false);
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 }

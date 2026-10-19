@@ -65,7 +65,8 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                     "use or purchase.",
             }),
             Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "statistics", 0, 50, limitFromCaller: false))));
+                GameMcpTestHarness.Context(World()),
+                "statistics", 0, 50, limitFromCaller: false))));
     }
 
     /// <summary>
@@ -109,7 +110,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     [Fact]
     public void A_statistic_the_game_authors_no_sentence_for_is_a_row_with_no_sentence()
     {
-        var context = Context(World());
+        var context = GameMcpTestHarness.Context(World());
         var listed = Json(GameMcpWorldQuery.ListRows(context, "statistics", 0, 50))["rows"]!
             .Values<JObject>()
             .Single(row => (string?)row!["name"] == "Artifact Experience")!;
@@ -141,7 +142,8 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 "[id | name | category | keywords | matchedOn]",
                 "399623 | Elemental Resonance | statistics | - | name",
             }),
-            Render(Json(GameMcpWorldQuery.Search(Context(World()), "Resonance", 0, 10))));
+            Render(Json(GameMcpWorldQuery.Search(
+                GameMcpTestHarness.Context(World()), "Resonance", 0, 10))));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
@@ -149,7 +151,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static JObject Json(GameMcpObjectBuilder value) =>
@@ -175,13 +177,6 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     {
         Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
         return rows;
-    }
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(981));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
 
     private static GameWorldState World() =>
@@ -228,30 +223,11 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                     isPercent: true,
                     "How much elemental modifications affect this spell.",
                     "ElementalResonance"))),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 81,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-
-    /// <summary>
-    /// Every category read clean, so a search page carries its hits rather than a list of the
-    /// categories this fixture happens not to populate.
-    /// </summary>
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static WorldStatistic Row(
         Guid id,

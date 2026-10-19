@@ -513,19 +513,17 @@ public sealed class GameMcpGenericLevelTests
             in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8,
             false, new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(EquipmentTypeId, "EquipmentTypeSO", "Artifacts", "artifacts"),
             new EntityIdentityName(GlyphId, "GlyphSO", "Echo Glyph", "echo_glyph"),
             new EntityIdentityName(ResourceTypeId, "ResourceTypeSO", "Alchemy Materials", "alchemy_materials"),
             new EntityIdentityName(TimeRuneId, "TimeRuneSO", "Quickening", "quickening"),
-            new EntityIdentityName(CostResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(CostResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new[] { equipmentType }),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[] { glyph }),
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new[] { resourceType }),

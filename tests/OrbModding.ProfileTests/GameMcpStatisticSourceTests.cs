@@ -114,24 +114,18 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
     private static JObject Block(string category, Guid uuid) =>
         Assert.Single(
             Json(GameMcpWorldQuery.GetRows(
-                Context(), category, new[] { uuid.ToString("D") }))
+                GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }))
             ["results"]!.Values<JObject>())!;
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query = "", string modifies = "") =>
         Json(GameMcpWorldQuery.Search(
-            Context(), query, 0, 50, limitFromCaller: false, modifiesFilter: modifies));
+            GameMcpTestHarness.Context(World()),
+            query, 0, 50, limitFromCaller: false, modifiesFilter: modifies));
 
     private static JObject Json(GameMcpObjectBuilder value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
-    private static GameMcpFrameContext Context()
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(World(), new WorldGeneration(611));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     private static GameWorldState World() =>
         new()
@@ -159,26 +153,11 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
                 Effect(WeakenedChoices, 0, DiscoveryOptions, -1d, "while"),
                 Effect(WeakenedChoices, 1, DiscoveryRerolls, -99d, "while"),
             })),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static WorldResearch Research(Guid id) =>
         new(

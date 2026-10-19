@@ -299,17 +299,12 @@ public sealed class GameMcpConsumableTests
             BigDouble.Zero);
     }
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ConsumableId, "ConsumableSO", "Swift Thread", "swiftThread"),
             new EntityIdentityName(
                 OtherConsumableId, "ConsumableSO", "Other Relic", "otherRelic"),
-            new EntityIdentityName(UsageId, "ConsumableUsage", "Thread Usage", "threadUsage"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(9, rows);
-    }
+            new EntityIdentityName(UsageId, "ConsumableUsage", "Thread Usage", "threadUsage"));
 
     private static JObject Json(GameMcpValue value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));

@@ -589,18 +589,14 @@ public sealed class GameMcpCraftingTests
         int automationRepetitions = 3,
         bool canAutomate = true,
         string automationReasonCode = "automation_full",
-        bool withQueueEntries = true)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
+        bool withQueueEntries = true) =>
+        GameMcpTestHarness.Context(
             World(
                 queuedAmount, automationRepetitions, canAutomate, automationReasonCode,
                 withQueueEntries),
-            new WorldGeneration(2201));
-        return GameMcpTestHarness.Context(
-            publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
-    }
+            2201,
+            configurationGeneration: 8,
+            lifecycleGeneration: 15);
 
     private static GameWorldState World(
         double queuedAmount = 4,
@@ -683,10 +679,8 @@ public sealed class GameMcpCraftingTests
     private static int AutomationBadgeAmount(int repetitions) =>
         repetitions <= 0 ? 0 : 1 << (repetitions - 1);
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(
                 RecipeId, "CraftingRecipeSO", "Craft Sigils", "craftSigils"),
             new EntityIdentityName(
@@ -695,10 +689,7 @@ public sealed class GameMcpCraftingTests
                 AutomationQueueId, "CraftingInstanceListVariable",
                 "Auto Sigil Queue", "autoSigilQueue"),
             new EntityIdentityName(
-                ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(15, rows);
-    }
+                ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"));
 
     private static WorldCollectionCategoryStatus Clean(string category) =>
         new(category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);

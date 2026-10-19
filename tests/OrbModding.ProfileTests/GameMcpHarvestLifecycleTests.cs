@@ -216,17 +216,15 @@ public sealed class GameMcpHarvestLifecycleTests
             false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(80), 0.2, false,
             new BigDouble(20), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ElementId, "HarvestElementSO", "Fire", "fire"),
             new EntityIdentityName(ActionId, "HarvestActionSO", "Grow", "grow"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Mana", "mana"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Mana", "mana"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             HarvestElements = PublicationTable<WorldHarvestElement>.Create(new[] { element }),
             HarvestElementControls = PublicationTable<WorldHarvestElementControl>.Create(
                 new[] { elementControl }),

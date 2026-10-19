@@ -840,11 +840,8 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 1,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(2));
-
         var overview = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(Snapshot(publisher.ReadLatest())));
+            GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(world)));
 
         Assert.Null(overview["running"]?["occupiedActionQueueSlots"]);
         var queues = (JArray?)overview["running"]?["actionQueues"];
@@ -999,10 +996,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 51,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(951));
-        var context = Snapshot(publisher.ReadLatest());
+        var context = GameMcpTestHarness.Context(world);
 
         var listed = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
@@ -1077,9 +1071,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 1,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(3));
-        return Snapshot(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     [Fact]
@@ -1135,12 +1127,8 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(912));
-
         var result = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            Snapshot(publisher.ReadLatest()), "purchase-costs", 0, 10));
+            GameMcpTestHarness.Context(world), "purchase-costs", 0, 10));
 
         Assert.Null(result["status"]);
         Assert.Null(result["worldGeneration"]);
@@ -1177,13 +1165,14 @@ public sealed class GameMcpWorldEnvelopeTests
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
                 new[] { Clean("bool-variables") }),
+            EntityIdentities = GameMcpTestHarness.EntityCatalog,
             CollectedAtEpoch = 31,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         using var publisher =
             new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(original, new WorldGeneration(909));
-        var pinned = Snapshot(publisher.ReadLatest());
+        var pinned = GameMcpTestHarness.Context(publisher.ReadLatest());
 
         var replacement = new GameWorldState
         {
@@ -1268,10 +1257,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 17,
             CollectedAtUtcTicks = new DateTime(2026, 7, 30, 0, 30, 0, DateTimeKind.Utc).Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(901));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
         Assert.Null(categories["status"]);
@@ -1319,10 +1305,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 18,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(902));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var unknown = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "does-not-exist", 0, 10));
@@ -1357,10 +1340,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 19,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(903));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
         var resources = categories["categories"]!
@@ -1409,26 +1389,9 @@ public sealed class GameMcpWorldEnvelopeTests
             baseValue: 0d,
             in noScaling,
             in noScaling);
-        var reports = GameMcpWorldQuery.RegisteredCategoryNames()
-            .Concat(new[]
-            {
-                "structure-costs",
-                "upgrade-costs",
-                "crafting-recipe-state",
-                "crafting-decisions",
-                "concept-instances",
-                "consumable-inventory",
-                "loadouts",
-                "harvest-elements",
-                "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(category => string.Equals(
-                    category,
+        var reports = GameMcpTestHarness.AllCategoriesCollected()
+            .Select(report => string.Equals(
+                    report.Category,
                     "entity-requirements",
                     StringComparison.Ordinal)
                 ? new WorldCollectionCategoryStatus(
@@ -1439,7 +1402,7 @@ public sealed class GameMcpWorldEnvelopeTests
                     firstFailure:
                         "this build authors a condition this suite does not model: " +
                         "ListRequirement. Entities gated by one are never planned.")
-                : Clean(category))
+                : report)
             .ToArray();
         var world = new GameWorldState
         {
@@ -1454,10 +1417,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 20,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(904));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var unaffectedSearch = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             state,
@@ -1624,26 +1584,7 @@ public sealed class GameMcpWorldEnvelopeTests
     [Fact]
     public void WorldSearchCountsOnlyRowsItCanReturn()
     {
-        var reports = GameMcpWorldQuery.RegisteredCategoryNames()
-            .Concat(new[]
-            {
-                "structure-costs",
-                "upgrade-costs",
-                "crafting-recipe-state",
-                "crafting-decisions",
-                "concept-instances",
-                "consumable-inventory",
-                "harvest-elements",
-                "plot-actions",
-                "action-queue-slots",
-                "loadouts",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(Clean)
-            .ToArray();
+        var reports = GameMcpTestHarness.AllCategoriesCollected();
         var world = new GameWorldState
         {
             Upgrades = PublicationTable<WorldUpgrade>.Create(new[] { Upgrade(Guid.Empty) }),
@@ -1651,12 +1592,8 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 45,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(949));
-
         var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
-            Snapshot(publisher.ReadLatest()),
+            GameMcpTestHarness.Context(world),
             "00000000",
             0,
             10));
@@ -1683,26 +1620,9 @@ public sealed class GameMcpWorldEnvelopeTests
             baseValue: 0d,
             in scaling,
             in scaling);
-        var reports = GameMcpWorldQuery.RegisteredCategoryNames()
-            .Concat(new[]
-            {
-                "structure-costs",
-                "upgrade-costs",
-                "crafting-recipe-state",
-                "crafting-decisions",
-                "concept-instances",
-                "consumable-inventory",
-                "harvest-elements",
-                "plot-actions",
-                "action-queue-slots",
-                "loadouts",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(category => string.Equals(
-                    category,
+        var reports = GameMcpTestHarness.AllCategoriesCollected()
+            .Select(report => string.Equals(
+                    report.Category,
                     "entity-requirements",
                     StringComparison.Ordinal)
                 ? new WorldCollectionCategoryStatus(
@@ -1711,7 +1631,7 @@ public sealed class GameMcpWorldEnvelopeTests
                     sampled: 180,
                     skipped: 1,
                     firstFailure: "ListRequirement is not modeled")
-                : Clean(category))
+                : report)
             .ToArray();
         var world = new GameWorldState
         {
@@ -1721,10 +1641,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 44,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(948));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             state,
@@ -1774,10 +1691,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 20,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(904));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
@@ -1817,10 +1731,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 21,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(905));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
         var purchaseCosts = categories["categories"]!
@@ -1869,10 +1780,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 22,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(906));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
         var purchaseCosts = categories["categories"]!
@@ -1914,10 +1822,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 23,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(907));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
         foreach (var name in new[] { "resources", "purchase-costs" })
@@ -1997,13 +1902,9 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 24,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(908));
-
         var result = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
             GameMcpWorldQuery.GetRow(
-                Snapshot(publisher.ReadLatest()),
+                GameMcpTestHarness.Context(world),
                 "research",
                 researchId.ToString("D")).Freeze(),
             world.EntityIdentities));
@@ -2100,10 +2001,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(911));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             state,
@@ -2147,9 +2045,8 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 26,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        publisher.Publish(incompleteWorld, new WorldGeneration(912));
         var unavailable = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
-            Snapshot(publisher.ReadLatest()),
+            GameMcpTestHarness.Context(incompleteWorld),
             "crafting-recipes",
             recipeId.ToString("D")));
         Assert.Equal("unavailable", (string?)unavailable["status"]);
@@ -2158,23 +2055,6 @@ public sealed class GameMcpWorldEnvelopeTests
             "crafting-recipe-state",
             (string?)unavailable["reason"],
             StringComparison.Ordinal);
-    }
-
-    private static GameMcpFrameContext Snapshot(
-        WorldPublication<GameWorldState> publication)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
-            publication.Snapshot with
-            {
-                EntityIdentities = GameMcpTestHarness.EntityCatalog,
-            },
-            publication.Generation);
-        return GameMcpTestHarness.Context(
-            publisher.ReadLatest(),
-            configurationGeneration: 12,
-            lifecycleGeneration: 17);
     }
 
     /// <summary>
@@ -2206,10 +2086,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 21,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(921));
-        var state = Snapshot(publisher.ReadLatest());
+        var state = GameMcpTestHarness.Context(world);
 
         var page = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "mastery-experience", 0, 50));
@@ -2252,12 +2129,8 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 47,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(947));
-
         var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            Snapshot(publisher.ReadLatest()), "int-variables", 0, 10))["rows"]!
+            GameMcpTestHarness.Context(world), "int-variables", 0, 10))["rows"]!
             .Values<JObject>()
             .ToArray();
 
@@ -2301,10 +2174,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 48,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(948));
-        var context = Snapshot(publisher.ReadLatest());
+        var context = GameMcpTestHarness.Context(world);
 
         var page = GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));

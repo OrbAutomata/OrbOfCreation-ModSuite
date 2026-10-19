@@ -411,16 +411,12 @@ public sealed class GameMcpDiscoverableRowTests
 
     private static GameMcpFrameContext Context(
         bool spellHidden = false,
-        Guid treeHoldsOffer = default)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
+        Guid treeHoldsOffer = default) =>
+        GameMcpTestHarness.Context(
             World(spellHidden: spellHidden, treeHoldsOffer: treeHoldsOffer),
-            new WorldGeneration(2301));
-        return GameMcpTestHarness.Context(
-            publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
-    }
+            2301,
+            configurationGeneration: 8,
+            lifecycleGeneration: 15);
 
     private static GameWorldState World(
         bool spellDiscovered = false,
@@ -602,18 +598,13 @@ public sealed class GameMcpDiscoverableRowTests
             maximumUsages: maximumUsages,
             discovery: decision);
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(GlyphId, "GlyphSO", "Amplify", "amplify"),
             new EntityIdentityName(ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"),
             new EntityIdentityName(ComponentId, "GlyphSO", "Focus", "focus"),
             new EntityIdentityName(SpellRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
-            new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(15, rows);
-    }
+            new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"));
 
     private static JObject Json(GameMcpValue value) =>
         Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));
