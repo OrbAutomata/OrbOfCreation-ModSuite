@@ -183,8 +183,8 @@ internal sealed class NativeModifierRecordAccess
         if (readAmount is null)
         {
             var lossy = MemberReader(modifierType, "adjust", typeof(double), asEnum: false);
-            readAmount = lossy is null ? null : Widen(modifierType, lossy);
-            if (readAmount is null) return null;
+            if (lossy is null) return null;
+            readAmount = Widen(modifierType, lossy);
 
             reconstruct = true;
             degradation =
@@ -195,7 +195,6 @@ internal sealed class NativeModifierRecordAccess
 
         var copyPassive = Copier(modifierType, passive, readType, readOrder, readAmount, reconstruct);
         var copyActive = Copier(modifierType, active, readType, readOrder, readAmount, reconstruct);
-        if (copyPassive is null || copyActive is null) return null;
 
         return new NativeModifierRecordAccess(
             calculatedValue, calculationDirty, baseValue, passiveCount, activeCount,
@@ -232,36 +231,22 @@ internal sealed class NativeModifierRecordAccess
         Expression body = Expression.Field(source, field);
         if (asEnum) body = Expression.Convert(body, typeof(int));
 
-        try
-        {
-            return Expression.Lambda(
-                typeof(Func<,>).MakeGenericType(modifierType, result), body, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda(
+            typeof(Func<,>).MakeGenericType(modifierType, result), body, source).Compile();
     }
 
     /// <summary>Wraps a <c>Func&lt;TModifier, double&gt;</c> as a <c>Func&lt;TModifier, BigDouble&gt;</c>.</summary>
-    private static Delegate? Widen(Type modifierType, Delegate readDouble)
+    private static Delegate Widen(Type modifierType, Delegate readDouble)
     {
         var source = Expression.Parameter(modifierType, "modifier");
         var call = Expression.Invoke(Expression.Constant(readDouble), source);
         var body = Expression.Convert(call, typeof(BigDouble));
 
-        try
-        {
-            return Expression.Lambda(
-                typeof(Func<,>).MakeGenericType(modifierType, typeof(BigDouble)), body, source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda(
+            typeof(Func<,>).MakeGenericType(modifierType, typeof(BigDouble)), body, source).Compile();
     }
 
-    private static Func<object, GameValueModifier[], int, int>? Copier(
+    private static Func<object, GameValueModifier[], int, int> Copier(
         Type modifierType,
         Func<object, object?> readDictionary,
         Delegate readType,
@@ -270,23 +255,12 @@ internal sealed class NativeModifierRecordAccess
         bool reconstruct)
     {
         var factory = typeof(NativeModifierRecordAccess)
-            .GetMethod(nameof(MakeCopier), BindingFlags.NonPublic | BindingFlags.Static)?
+            .GetMethod(nameof(MakeCopier), BindingFlags.NonPublic | BindingFlags.Static)!
             .MakeGenericMethod(modifierType);
-        if (factory is null) return null;
 
-        try
-        {
-            return factory.Invoke(
-                    null,
-                    new object[] { readDictionary, readType, readOrder, readAmount, reconstruct })
-                as Func<object, GameValueModifier[], int, int>;
-        }
-        catch (Exception)
-        {
-            // A runtime without dynamic code generation cannot close this method. That is an
-            // unbound accessor like any other, and the caller's degrade path already covers it.
-            return null;
-        }
+        return (Func<object, GameValueModifier[], int, int>)factory.Invoke(
+            null,
+            new object[] { readDictionary, readType, readOrder, readAmount, reconstruct })!;
     }
 
     /// <summary>

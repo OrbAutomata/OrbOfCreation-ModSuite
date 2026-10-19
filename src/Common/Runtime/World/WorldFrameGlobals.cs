@@ -113,9 +113,6 @@ internal sealed class WorldFrameGlobalsReader
         var variableValue = resourceOverflow?.ReturnType.GetField("value", Instances);
         _record = NativeModifierRecordAccess.For(variableValue?.FieldType);
 
-        // Discovery stays where it was; only the reading changes. A member that resolves but will
-        // not compile leaves its accessor null, which is the same unavailability a renamed accessor
-        // produces and degrades through the same per-term neutral values.
         _resourceOverflow = NativeAccessorBinder.CallStaticValue(resourceOverflow);
         _resourceOverflowLoss = NativeAccessorBinder.CallStaticValue(
             StaticNoArg(player, "GetResourceOverflowLoss"));
