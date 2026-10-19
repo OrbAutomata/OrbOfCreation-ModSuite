@@ -14,33 +14,27 @@ internal static class MentorCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref MentorCycleState state,
-        ServiceActionWriter<MentorCycleAction> actions,
-        out MentorDecisionMetrics metrics)
+        ServiceActionWriter<MentorCycleAction> actions)
     {
         var inputs = world.MasteryExperience.AsSpan();
         if (!MentorConfigurationPolicy.IsOperational(config))
         {
             if (inputs.Length > 0) state.DiscardThrough(inputs[^1].Sequence);
-            metrics = default;
             return WakePolicy.AfterDecision(MentorConfigurationPolicy.IdleInterval);
         }
 
         var inputIndex = FirstAfter(inputs, state.LastInputSequence);
         if (inputIndex < 0)
-        {
-            metrics = default;
             return WakePolicy.AfterDecision(MentorConfigurationPolicy.IdleInterval);
-        }
 
         ref readonly var input = ref inputs[inputIndex];
         var missed = Math.Max(0, input.Sequence - state.LastInputSequence - 1);
-        var candidates = 0;
         var recipients = new List<Guid>();
         if (MentorConfigurationPolicy.DomainEnabled(config, input.Domain) &&
             input.SourceEligible &&
             IsUnlocked(world, input.Domain))
         {
-            SelectRecipients(world, in config, in input, recipients, out candidates);
+            SelectRecipients(world, in config, in input, recipients);
         }
 
         var fraction = MentorConfigurationPolicy.ShareFraction(config, input.Domain);
@@ -61,14 +55,7 @@ internal static class MentorCycleEvaluator
             }
         }
 
-        metrics = new MentorDecisionMetrics(
-            input.Domain,
-            input.Sequence,
-            candidates,
-            recipients.Count,
-            actions.Count,
-            missed);
-        state.Observe(input.Sequence, missed, in metrics);
+        state.Observe(input.Sequence, missed, actions.Count, recipients.Count);
         return inputIndex + 1 < inputs.Length
             ? WakePolicy.OnPublication
             : WakePolicy.AfterDecision(MentorConfigurationPolicy.IdleInterval);
@@ -101,19 +88,18 @@ internal static class MentorCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         in WorldMasteryExperience input,
-        List<Guid> recipients,
-        out int candidates)
+        List<Guid> recipients)
     {
         switch (input.Domain)
         {
             case MasteryExperienceDomain.Spell:
-                SelectSpellRecipients(world, in config, in input, recipients, out candidates);
+                SelectSpellRecipients(world, in config, in input, recipients);
                 return;
             case MasteryExperienceDomain.Artifact:
-                SelectArtifactRecipients(world, in input, recipients, out candidates);
+                SelectArtifactRecipients(world, in input, recipients);
                 return;
             default:
-                SelectAlchemyRecipients(world, in input, recipients, out candidates);
+                SelectAlchemyRecipients(world, in input, recipients);
                 return;
         }
     }
@@ -122,10 +108,8 @@ internal static class MentorCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         in WorldMasteryExperience input,
-        List<Guid> recipients,
-        out int candidates)
+        List<Guid> recipients)
     {
-        candidates = 0;
         if (!WorldLookup.TryFind(world.SpellRecipes, input.SourceId, out var source) ||
             !source.Discovered ||
             source.MasteryLevel != input.SourceMastery)
@@ -153,7 +137,6 @@ internal static class MentorCycleEvaluator
         {
             ref readonly var recipe = ref recipes[index];
             if (!recipe.Discovered) continue;
-            candidates++;
             if (recipe.SpellRecipeId != input.SourceId &&
                 recipe.MasteryLevel < input.SourceMastery)
                 recipients.Add(recipe.SpellRecipeId);
@@ -163,10 +146,8 @@ internal static class MentorCycleEvaluator
     private static void SelectArtifactRecipients(
         GameWorldState world,
         in WorldMasteryExperience input,
-        List<Guid> recipients,
-        out int candidates)
+        List<Guid> recipients)
     {
-        candidates = 0;
         if (!WorldLookup.TryFind(world.Equipment, input.SourceId, out var source) ||
             !source.IsCreated ||
             source.MasteryLevel != input.SourceMastery)
@@ -180,7 +161,6 @@ internal static class MentorCycleEvaluator
         {
             ref readonly var equipment = ref rows[index];
             if (!equipment.IsCreated) continue;
-            candidates++;
             if (equipment.EquipmentId != input.SourceId &&
                 equipment.MasteryLevel < input.SourceMastery)
                 recipients.Add(equipment.EquipmentId);
@@ -190,10 +170,8 @@ internal static class MentorCycleEvaluator
     private static void SelectAlchemyRecipients(
         GameWorldState world,
         in WorldMasteryExperience input,
-        List<Guid> recipients,
-        out int candidates)
+        List<Guid> recipients)
     {
-        candidates = 0;
         if (!WorldLookup.TryFind(world.AlchemyRecipes, input.SourceId, out var source) ||
             !source.Discovered ||
             source.MasteryLevel != input.SourceMastery ||
@@ -209,7 +187,6 @@ internal static class MentorCycleEvaluator
         {
             ref readonly var recipe = ref rows[index];
             if (!recipe.Discovered || !IsOrdinaryAlchemy(world, in recipe)) continue;
-            candidates++;
             if (recipe.RecipeId != input.SourceId &&
                 recipe.MasteryLevel < input.SourceMastery)
                 recipients.Add(recipe.RecipeId);

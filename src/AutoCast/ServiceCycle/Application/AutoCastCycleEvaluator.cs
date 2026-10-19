@@ -161,12 +161,7 @@ internal static class AutoCastCycleEvaluator
             pick.SlotIndex,
             pick.SpellRecipeId,
             world.CollectedAtEpoch,
-            new AutoCastPlanBelief(
-                pick.CastReady,
-                pick.Chargeable,
-                pick.CurrentCharges,
-                pick.MaximumCharges,
-                eligible),
+            pick.Chargeable,
             ritual: ritual.ConditionFor(in pick, world)));
 
         state.RecordPlannedCast(pick.SlotIndex, pick.SpellRecipeId, holdsCharge);

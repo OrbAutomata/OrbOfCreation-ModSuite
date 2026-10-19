@@ -125,7 +125,7 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         var serviceHold = requireAutomationPolicy &&
             action.Kind == AutoCastActionKind.Fire &&
             AutoCastConfigurationPolicy.HoldsFullCharge(config) &&
-            action.Belief.Chargeable;
+            action.Chargeable;
         AutoCastSubmission submission;
         try
         {

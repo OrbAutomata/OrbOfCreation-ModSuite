@@ -1253,8 +1253,7 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                     slotIndex,
                     command.TargetId,
                     world.CollectedAtEpoch,
-                    default,
-                    chargeHold);
+                    chargeHold: chargeHold);
                 return ((AutoCastFeatureRuntime)feature).TryExecuteGameMcp(
                     in action, in config, in context);
             }

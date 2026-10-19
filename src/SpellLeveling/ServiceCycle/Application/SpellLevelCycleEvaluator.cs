@@ -111,14 +111,7 @@ internal static class SpellLevelCycleEvaluator
         actions.Add(new SpellLevelCycleAction(
             kind,
             chosen.SpellRecipeId,
-            world.CollectedAtEpoch,
-            new SpellLevelPlanBelief(
-                chosen.Discovered,
-                chosen.MasteryLevelReady,
-                chosen.MasteryLevelAffordable,
-                chosen.MasteryLevel,
-                ready,
-                ReadLevelAllUpgradeLevel(world))));
+            world.CollectedAtEpoch));
 
         metrics = new SpellLevelDecisionMetrics(
             spells.Count, ready, plannedActions: 1, capability, in histogram);

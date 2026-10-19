@@ -16,47 +16,6 @@ internal enum SpellLevelActionKind
 }
 
 /// <summary>
-/// What the planner believed about a spell when it decided to buy its next mastery level, carried to
-/// the boundary so a native refusal can be read against the snapshot that produced it.
-/// </summary>
-/// <remarks>
-/// Spell Leveling's planner sees strictly less than its boundary does: prerequisites remain live-only,
-/// while published readiness and affordability are repeated at the action boundary before spending.
-/// The belief records the facts needed to make a refusal legible — a spell refused for "no ready mastery
-/// level" while the plan believed <see cref="MasteryLevelReady"/> is a capture bug, and the same
-/// refusal against a belief of "not ready" would be a planner bug.
-/// </remarks>
-internal readonly struct SpellLevelPlanBelief
-{
-    public SpellLevelPlanBelief(
-        bool discovered,
-        bool masteryLevelReady,
-        bool masteryLevelAffordable,
-        int masteryLevel,
-        int readySpellCount,
-        int levelAllUpgradeLevel)
-    {
-        Discovered = discovered;
-        MasteryLevelReady = masteryLevelReady;
-        MasteryLevelAffordable = masteryLevelAffordable;
-        MasteryLevel = masteryLevel;
-        ReadySpellCount = readySpellCount;
-        LevelAllUpgradeLevel = levelAllUpgradeLevel;
-    }
-
-    public bool Discovered { get; }
-    public bool MasteryLevelReady { get; }
-    public bool MasteryLevelAffordable { get; }
-    public int MasteryLevel { get; }
-
-    /// <summary>How many spells the snapshot showed as ready, which is what an <c>All</c> would spend on.</summary>
-    public int ReadySpellCount { get; }
-
-    /// <summary>The committed level of the level-all upgrade, which is what promoted the capability.</summary>
-    public int LevelAllUpgradeLevel { get; }
-}
-
-/// <summary>
 /// One planned mastery-level purchase. A <see cref="SpellLevelActionKind.Single"/> names the spell it
 /// buys; an <see cref="SpellLevelActionKind.All"/> names the spell that made the cycle worth acting on
 /// at all, because the native batch takes no argument and the identity is what the mutation evidence
@@ -68,15 +27,6 @@ internal readonly struct SpellLevelCycleAction
         SpellLevelActionKind kind,
         Guid uuid,
         long collectedAtEpoch)
-        : this(kind, uuid, collectedAtEpoch, default)
-    {
-    }
-
-    public SpellLevelCycleAction(
-        SpellLevelActionKind kind,
-        Guid uuid,
-        long collectedAtEpoch,
-        SpellLevelPlanBelief belief)
     {
         if (kind is not (SpellLevelActionKind.Single or SpellLevelActionKind.All))
             throw new ArgumentOutOfRangeException(nameof(kind));
@@ -86,15 +36,11 @@ internal readonly struct SpellLevelCycleAction
         Kind = kind;
         Uuid = uuid;
         CollectedAtEpoch = collectedAtEpoch;
-        Belief = belief;
     }
 
     public SpellLevelActionKind Kind { get; }
 
     public Guid Uuid { get; }
-
-    /// <summary>What the planner believed about this spell when it chose it.</summary>
-    public SpellLevelPlanBelief Belief { get; }
 
     /// <summary>
     /// The lifecycle epoch the world this purchase was planned from was collected under.

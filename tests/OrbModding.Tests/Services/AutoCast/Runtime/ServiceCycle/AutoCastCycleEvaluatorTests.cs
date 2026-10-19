@@ -367,22 +367,6 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     [Fact]
-    public void ThePlanCarriesWhatItBelievedSoARefusalCanBeReadAgainstIt()
-    {
-        var world = World(
-            Slot(0, Ember, castReady: true, chargeable: true, currentCharges: 2, maximumCharges: 3),
-            Slot(1, Frost, castReady: true));
-
-        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
-        var belief = Assert.Single(Plan(world, Config(), ref state, out _)).Belief;
-        Assert.True(belief.CastReady);
-        Assert.True(belief.Chargeable);
-        Assert.Equal(2, belief.CurrentCharges);
-        Assert.Equal(3, belief.MaximumCharges);
-        Assert.Equal(2, belief.EligibleSlots);
-    }
-
-    [Fact]
     public void AChargeableSpellIsHeldAtFullChargeAndWakesOnTheNextWorld()
     {
         var world = World(Slot(0, Ember, castReady: true, chargeable: true));
@@ -391,6 +375,7 @@ public sealed class AutoCastCycleEvaluatorTests
         var action = Assert.Single(Plan(world, Config(fullCharge: true), ref state, out var wake, out var metrics));
 
         Assert.Equal(AutoCastActionKind.Fire, action.Kind);
+        Assert.True(action.Chargeable);
         Assert.True(metrics.HoldingCharge);
         Assert.Equal(0, state.HeldChargeSlot);
         Assert.Equal(Ember, state.HeldChargeSpellId);

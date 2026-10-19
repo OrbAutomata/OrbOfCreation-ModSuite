@@ -9,13 +9,15 @@ internal struct MentorCycleState
         Lifecycle = lifecycle;
         LastInputSequence = 0;
         TotalMissedInputs = 0;
-        Decision = default;
+        PlannedActions = 0;
+        Recipients = 0;
     }
 
     public LifecycleGeneration Lifecycle { get; private set; }
     public long LastInputSequence { get; private set; }
     public long TotalMissedInputs { get; private set; }
-    public MentorDecisionMetrics Decision { get; private set; }
+    public int PlannedActions { get; private set; }
+    public int Recipients { get; private set; }
 
     internal static MentorCycleState Create(LifecycleGeneration lifecycle) => new(lifecycle);
 
@@ -24,10 +26,11 @@ internal struct MentorCycleState
         if (sequence > LastInputSequence) LastInputSequence = sequence;
     }
 
-    internal void Observe(long sequence, long missedInputs, in MentorDecisionMetrics decision)
+    internal void Observe(long sequence, long missedInputs, int plannedActions, int recipients)
     {
         LastInputSequence = sequence;
         TotalMissedInputs += missedInputs;
-        Decision = decision;
+        PlannedActions = plannedActions;
+        Recipients = recipients;
     }
 }
