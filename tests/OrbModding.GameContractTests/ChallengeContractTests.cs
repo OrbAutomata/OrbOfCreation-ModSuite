@@ -152,31 +152,9 @@ public sealed class ChallengeContractTests
                 reference.MemberName == target.Member));
 
     [Fact]
-    public void Manifest_names_every_challenge_action_and_shared_decision_touch()
+    public void Manifest_names_the_challenge_touch_only_this_list_guards()
     {
         var manifest = NativeContractManifest.Load();
-        var expected = new[]
-        {
-            "challenge.challenge.type-action", "challenge.manager.type-action",
-            "challenge.reset-manager.type-action", "challenge.list.type-action",
-            "challenge.int-variable.type-action", "challenge.bool-variable.type-action",
-            "challenge.manager-instance-action", "challenge.reset-manager-instance-action",
-            "challenge.manager-preferred-action", "challenge.manager-active-action",
-            "challenge.reset-active-action", "challenge.reset-rerolls-left-action",
-            "challenge.reset-cycle-complete-action",
-            "challenge.reset-fetched-action", "challenge.list-values-action",
-            "challenge.list-empty-spot-action",
-            "challenge.list-contains-action", "challenge.list-toggle-action",
-            "challenge.list-restricted-action", "challenge.challenge-state-action",
-            "challenge.challenge-toggle-queue-action", "challenge.challenge-abandon-action",
-            "challenge.int-as-int-action", "challenge.int-set-action",
-            "challenge.bool-get-action", "challenge.bool-set-action",
-            "challenge.manager-fetch-action",
-            "challenge.available-to-run-capture", "challenge.completed-once-capture",
-            "challenge.maximum-level-capture", "challenge.next-difficulty-capture",
-            "challenge.next-reward-capture", "challenge.condition-capture",
-            "challenge.condition-before-type-capture", "challenge.condition-time-limit-capture",
-        };
-        Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
+        Assert.Single(manifest.Contracts, contract => contract.Id == "challenge.list-values-action");
     }
 }

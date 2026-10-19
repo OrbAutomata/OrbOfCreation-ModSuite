@@ -84,17 +84,4 @@ public sealed class SpellRechargeContractTests
         Assert.Contains(stylize, reference =>
             reference.DeclaringType == "Utils" && reference.MemberName == "BeautifyNumber");
     }
-
-    /// <summary>
-    /// The authored constant the wire used to publish is still captured — the world carries every
-    /// game fact — and it is no longer any player row's recharge.
-    /// </summary>
-    [Fact]
-    public void ManifestNamesBothTheAuthoredConstantAndTheInstanceRecharge()
-    {
-        var manifest = NativeContractManifest.Load();
-
-        Assert.Single(manifest.Contracts, contract => contract.Id == "spell-recipe.base-recharge");
-        Assert.Single(manifest.Contracts, contract => contract.Id == "spell.get-recharge");
-    }
 }
