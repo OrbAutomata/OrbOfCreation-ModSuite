@@ -33,6 +33,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         using var server = GameMcpHttpServer.TryStart(
             inbox,
             GameMcpToolCatalog.Shipping,
+            GameMcpCommandCatalog.Shipping,
             _ => { },
             _ => { },
             port);
@@ -533,6 +534,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         using var server = GameMcpHttpServer.TryStart(
             new GameMcpFrameInbox(),
             GameMcpToolCatalog.Shipping,
+            GameMcpCommandCatalog.Shipping,
             messages.Add,
             messages.Add,
             port);

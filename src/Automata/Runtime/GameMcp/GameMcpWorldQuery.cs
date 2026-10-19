@@ -2352,84 +2352,12 @@ internal static class GameMcpWorldQuery
     }
 
     /// <summary>
-    /// Projects the smallest changed fact after any gameplay mutation. This is the only
-    /// command-to-world-projection switch; transport code only waits and delegates here.
-    /// </summary>
-    /// <remarks>
-    /// A committed answer used to carry what it charged and what the next level asks. Both were
-    /// wire-only bookkeeping: the paid rows priced the game's multi-buy variable rather than the
-    /// count the call committed, so a two-level buy reported one level's price as though it were the
-    /// whole charge, and the caller that most needed the number got the one running in the
-    /// dangerous direction. The world publication still holds every cost curve — Auto Buy plans off
-    /// it — and a refusal that cannot afford something still names what it needs and what is held.
-    /// A live caller gets the outcome.
-    /// </remarks>
-    internal static GameMcpValue ProjectGameplayPostState(
-        GameMcpFrameContext state,
-        GameMcpCommand command,
-        GameMcpCommandResult committed) => ProjectChangedFact(state, command, committed);
-
-    private static GameMcpValue ProjectChangedFact(
-        GameMcpFrameContext state,
-        GameMcpCommand command,
-        GameMcpCommandResult committed) => command.Kind switch
-        {
-            GameMcpCommandKind.SpellWorkbench => ProjectSpellLoadoutDelta(state, command),
-            GameMcpCommandKind.SpellComposition =>
-                ProjectCastingDialDelta(state, command),
-            GameMcpCommandKind.SpellLoadout => ProjectSpellLoadoutDelta(state, command),
-            GameMcpCommandKind.Targeting => ProjectTargetingPostState(
-                state,
-                GameMcpTargetingProjection.SubmittedTarget(committed.Details)),
-            GameMcpCommandKind.Consumable =>
-                ProjectConsumableDelta(state, command),
-            GameMcpCommandKind.Challenge =>
-                ProjectChallengePostState(state, command),
-            GameMcpCommandKind.Prestige => ProjectPrestigePostState(state),
-            GameMcpCommandKind.SpellLevel when string.Equals(
-                command.Mode,
-                "all",
-                StringComparison.Ordinal) => ProjectSpellLevelAllPostState(state, command),
-            GameMcpCommandKind.Cast => ProjectCastDelta(state, command),
-            GameMcpCommandKind.Concept => ProjectConceptDelta(state, command),
-            GameMcpCommandKind.Harvest => ProjectHarvestDelta(state, command, committed),
-            GameMcpCommandKind.SpellLevel => ProjectSpellLevelDelta(state, command),
-            GameMcpCommandKind.Crafting => ProjectCraftingDelta(state, command, committed),
-            GameMcpCommandKind.EquipmentLoadout => ProjectEquipmentDelta(state, command),
-            GameMcpCommandKind.AlchemyLoadout => ProjectAlchemyLoadoutDelta(state, command),
-            GameMcpCommandKind.RitualLifecycle => ProjectRitualLifecycleDelta(state, command),
-            GameMcpCommandKind.GenericLevel => ProjectGenericLevelDelta(state, command),
-            GameMcpCommandKind.Loadout => ProjectLoadoutDelta(state, command),
-            GameMcpCommandKind.HarvestLifecycle => ProjectHarvestLifecycleDelta(state, command),
-            GameMcpCommandKind.StructureLifecycle => ProjectStructureLifecycleDelta(state, command),
-            GameMcpCommandKind.Research => ProjectResearchDelta(state, command),
-            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
-                command.Mode,
-                "select",
-                StringComparison.Ordinal) => WithoutOffers(
-                    ProjectPostState(state, PostStateCategory(command), command.TargetId)),
-            // The mode reaching this switch is the one the request's `offer_` prefix was stripped
-            // from, the same word the settlement rule waits on. Matching the tool's spelling here
-            // meant every live confirm and reroll fell through to the plain tree row while the
-            // fixtures that spelled it the other way went on passing.
-            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
-                command.Mode,
-                "confirm",
-                StringComparison.Ordinal) => ProjectDiscoveryOfferConfirmDelta(state, command),
-            GameMcpCommandKind.DiscoveryTreeOffer when string.Equals(
-                command.Mode,
-                "reroll",
-                StringComparison.Ordinal) => ProjectDiscoveryRerollDelta(state, command),
-            _ => ProjectPostState(state, PostStateCategory(command), command.TargetId),
-        };
-
-    /// <summary>
     /// What a confirmed offer produced. The press permanently spends a discovery choice, and the
     /// answer used to be a bare count with nothing naming what was taken — so a caller could not
     /// confirm the discovery landed, and read the tree again to learn what it had got. The tool
     /// held that identity in its own request the whole time.
     /// </summary>
-    private static GameMcpValue ProjectDiscoveryOfferConfirmDelta(
+    internal static GameMcpValue ProjectDiscoveryOfferConfirmDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2476,7 +2404,7 @@ internal static class GameMcpWorldQuery
     /// and the offers themselves. It answered with a bare post-value and no offers, so the caller
     /// re-read the whole tree to learn whether the press had done anything.
     /// </summary>
-    private static GameMcpValue ProjectDiscoveryRerollDelta(
+    internal static GameMcpValue ProjectDiscoveryRerollDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2522,7 +2450,7 @@ internal static class GameMcpWorldQuery
     /// says its mode, its budget, and the offer it now holds by name; the list the caller just
     /// picked from is the one thing it already has.
     /// </summary>
-    private static GameMcpValue WithoutOffers(GameMcpValue projected)
+    internal static GameMcpValue WithoutOffers(GameMcpValue projected)
     {
         if (projected is not GameMcpObject row) return projected;
         var result = new JObject();
@@ -2538,7 +2466,7 @@ internal static class GameMcpWorldQuery
     private static GameWorldState? Before(GameMcpCommand command) =>
         command.FrameContext?.World?.Snapshot;
 
-    private static GameMcpValue ProjectCastDelta(
+    internal static GameMcpValue ProjectCastDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2630,7 +2558,7 @@ internal static class GameMcpWorldQuery
     private static bool HoldsCharge(GameMcpCommand command) =>
         string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal);
 
-    private static GameMcpValue ProjectCastingDialDelta(
+    internal static GameMcpValue ProjectCastingDialDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2661,7 +2589,7 @@ internal static class GameMcpWorldQuery
             _ => (workbench.AlchemyLevel, workbench.MaximumAlchemyLevel),
         };
 
-    private static GameMcpValue ProjectStructureLifecycleDelta(
+    internal static GameMcpValue ProjectStructureLifecycleDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2680,7 +2608,7 @@ internal static class GameMcpWorldQuery
             "enabled");
     }
 
-    private static GameMcpValue ProjectConceptDelta(
+    internal static GameMcpValue ProjectConceptDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2698,7 +2626,7 @@ internal static class GameMcpWorldQuery
         return Change(command.TargetId, before, after, "activeCount");
     }
 
-    private static GameMcpValue ProjectAlchemyLoadoutDelta(
+    internal static GameMcpValue ProjectAlchemyLoadoutDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2734,7 +2662,7 @@ internal static class GameMcpWorldQuery
             "activeCount");
     }
 
-    private static GameMcpValue ProjectRitualLifecycleDelta(
+    internal static GameMcpValue ProjectRitualLifecycleDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2819,7 +2747,7 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    private static GameMcpValue ProjectHarvestLifecycleDelta(
+    internal static GameMcpValue ProjectHarvestLifecycleDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2874,7 +2802,7 @@ internal static class GameMcpWorldQuery
         }.Freeze();
     }
 
-    private static GameMcpValue ProjectGenericLevelDelta(
+    internal static GameMcpValue ProjectGenericLevelDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -2956,7 +2884,7 @@ internal static class GameMcpWorldQuery
         return result.Freeze();
     }
 
-    private static GameMcpValue ProjectLoadoutDelta(
+    internal static GameMcpValue ProjectLoadoutDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -3434,7 +3362,7 @@ internal static class GameMcpWorldQuery
         return false;
     }
 
-    private static GameMcpValue ProjectHarvestDelta(
+    internal static GameMcpValue ProjectHarvestDelta(
         GameMcpFrameContext state,
         GameMcpCommand command,
         GameMcpCommandResult committed)
@@ -3521,7 +3449,7 @@ internal static class GameMcpWorldQuery
         return quantity;
     }
 
-    private static GameMcpValue ProjectSpellLevelDelta(
+    internal static GameMcpValue ProjectSpellLevelDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -3542,7 +3470,7 @@ internal static class GameMcpWorldQuery
         }.Freeze();
     }
 
-    private static GameMcpValue ProjectEquipmentDelta(
+    internal static GameMcpValue ProjectEquipmentDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -3557,7 +3485,7 @@ internal static class GameMcpWorldQuery
         return Change(command.TargetId, before, current.EquippedLevel, "equippedCount");
     }
 
-    private static GameMcpValue ProjectResearchDelta(
+    internal static GameMcpValue ProjectResearchDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -3725,7 +3653,7 @@ internal static class GameMcpWorldQuery
         }
     }
 
-    private static GameMcpValue ProjectConsumableDelta(
+    internal static GameMcpValue ProjectConsumableDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -3794,7 +3722,7 @@ internal static class GameMcpWorldQuery
         return null;
     }
 
-    private static GameMcpValue ProjectCraftingDelta(
+    internal static GameMcpValue ProjectCraftingDelta(
         GameMcpFrameContext state,
         GameMcpCommand command,
         GameMcpCommandResult committed)
@@ -3996,7 +3924,7 @@ internal static class GameMcpWorldQuery
     private static string WithheldCount(int withheld) =>
         withheld == 1 ? "1 was" : withheld + " were";
 
-    private static GameMcpValue ProjectSpellLoadoutDelta(
+    internal static GameMcpValue ProjectSpellLoadoutDelta(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {
@@ -4136,35 +4064,7 @@ internal static class GameMcpWorldQuery
         return false;
     }
 
-    private static string PostStateCategory(GameMcpCommand command) => command.Kind switch
-    {
-        GameMcpCommandKind.Purchase => command.Mode == "structure" ? "attributes" : "upgrades",
-        GameMcpCommandKind.Cast => "spell-recipes",
-        GameMcpCommandKind.Concept => GameMcpWorldCategories.ConceptsCategory,
-        GameMcpCommandKind.Harvest => "plot-nodes",
-        GameMcpCommandKind.SpellLevel => "spell-recipes",
-        GameMcpCommandKind.DiscoveryTreeOffer => "discovery-trees",
-        GameMcpCommandKind.SpellWorkbench => "spell-recipes",
-        GameMcpCommandKind.Crafting => "crafting-recipes",
-        GameMcpCommandKind.EquipmentLoadout => "equipment",
-        GameMcpCommandKind.AlchemyLoadout => "alchemy-recipes",
-        GameMcpCommandKind.RitualLifecycle => "rituals",
-        GameMcpCommandKind.GenericLevel => command.DerivedNativeType switch
-        {
-            "EquipmentTypeSO" => "equipment-types",
-            "GlyphSO" => "augment-glyphs",
-            "ResourceTypeSO" => "resource-types",
-            "TimeRuneSO" => "time-runes",
-            _ => string.Empty,
-        },
-        GameMcpCommandKind.Loadout => command.DerivedNativeType == "PlayerLoadout"
-            ? "player-loadouts"
-            : "snapshot-loadouts",
-        GameMcpCommandKind.Research => "research",
-        _ => throw new ArgumentOutOfRangeException(nameof(command.Kind)),
-    };
-
-    private static GameMcpValue ProjectSpellLevelAllPostState(
+    internal static GameMcpValue ProjectSpellLevelAllPostState(
         GameMcpFrameContext state,
         GameMcpCommand command)
     {

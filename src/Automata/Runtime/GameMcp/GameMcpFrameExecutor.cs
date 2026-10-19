@@ -104,6 +104,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         _gameMcpServer = GameMcpHttpServer.TryStart(
             _gameMcpOperations,
             GameMcpToolCatalog.Shipping,
+            GameMcpCommandCatalog.Shipping,
             message => _log.LogInfo(message),
             message => _log.LogError(message));
     }
@@ -336,7 +337,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         }
         if (string.Equals(result.Status, "committed", StringComparison.Ordinal))
         {
-            if (!GameMcpCommandKinds.RequiresPostStateSettlement(command.Kind))
+            if (!GameMcpPostStateSettlement.Settles(command))
             {
                 execution = GameMcpFrameReads.ProjectGameMcpCommand(command, result);
                 return true;
@@ -368,10 +369,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
             while (Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
-                latest = CaptureGameMcpFrameContext(
-                    command.Kind == GameMcpCommandKind.Prestige
-                        ? GameMcpFrameData.World | GameMcpFrameData.Scene
-                        : GameMcpFrameData.World);
+                latest = CaptureGameMcpFrameContext(GameMcpPostStateSettlement.Data(command));
                 if (GameMcpPostStateSettlement.IsReady(
                         latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
                     break;
@@ -386,7 +384,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         if (GameMcpPostStateSettlement.IsReady(
                 latest, actionWorldGeneration, actionCompletedAtUtcTicks, command))
         {
-            state = GameMcpWorldQuery.ProjectGameplayPostState(
+            state = GameMcpPostStateSettlement.Project(
                 latest!, command, committed);
         }
         else

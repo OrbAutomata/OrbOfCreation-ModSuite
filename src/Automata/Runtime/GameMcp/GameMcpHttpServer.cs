@@ -56,16 +56,18 @@ internal sealed class GameMcpHttpServer : IDisposable
     internal static GameMcpHttpServer? TryStart(
         GameMcpFrameInbox operations,
         GameMcpToolCatalog catalog,
+        GameMcpCommandCatalog commands,
         Action<string> logInfo,
         Action<string> logError,
         int port = DefaultPort)
     {
-        var problems = catalog.Problems();
+        var problems = new List<string>(catalog.Problems());
+        problems.AddRange(commands.Problems());
         if (problems.Count > 0)
         {
             logError(
-                "Game MCP server refuses to start because its tool catalog is malformed; " +
-                "gameplay remains active: " + string.Join("; ", problems));
+                "Game MCP server refuses to start because its tool or command catalog is " +
+                "malformed; gameplay remains active: " + string.Join("; ", problems));
             return null;
         }
         try

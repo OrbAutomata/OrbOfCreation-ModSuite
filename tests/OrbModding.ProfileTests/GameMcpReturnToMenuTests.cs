@@ -76,9 +76,9 @@ public sealed class GameMcpReturnToMenuTests
         Assert.Equal("Start", (string?)json["scene"]);
         Assert.Equal(new[] { "status", "scene" },
             json.Properties().Select(property => property.Name));
-        Assert.False(GameMcpCommandKinds.RequiresPostStateSettlement(command.Kind));
-        Assert.True(GameMcpCommandKinds.RequiresPostStateSettlement(
-            GameMcpCommandKind.StructureLifecycle));
+        Assert.False(GameMcpPostStateSettlement.Settles(command));
+        Assert.True(GameMcpCommandCatalog.Shipping.PostState(
+            GameMcpCommandKind.StructureLifecycle).Settles);
     }
 
     [Fact]

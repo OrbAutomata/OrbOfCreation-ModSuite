@@ -114,10 +114,10 @@ public sealed class GameMcpGenericLevelTests
         var purchase = Command("purchase", before);
         var bonus = Command("bonus", before);
 
-        var paidDelta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var paidDelta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(afterPaid, generation: 902), purchase,
             GameMcpCommandResult.Committed("committed", 9, 3)), afterPaid);
-        var bonusDelta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var bonusDelta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(afterBonus, generation: 903), bonus,
             GameMcpCommandResult.Committed("committed", 9, 3)), afterBonus);
 
@@ -297,7 +297,7 @@ public sealed class GameMcpGenericLevelTests
             GameMcpGenericLevelProjection.Project(in submission, before));
 
         var wire = GameMcpTestHarness.Json(
-            committed.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
+            committed.WithSettledPostState(GameMcpPostStateSettlement.Project(
                     GameMcpTestHarness.Context(after, generation: 907), command, committed))
                 .Project(command),
             after);
@@ -417,7 +417,7 @@ public sealed class GameMcpGenericLevelTests
         var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
         var asked = Command("purchase", before, amount: 2);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 904), asked,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -438,7 +438,7 @@ public sealed class GameMcpGenericLevelTests
         var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
         var asked = Command("purchase", before);
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 905), asked,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 

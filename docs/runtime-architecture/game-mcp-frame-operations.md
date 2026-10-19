@@ -89,9 +89,11 @@ context observes the configuration and ServiceCycle publications accepted for th
    (navigation and end-of-frame framebuffer capture) retain their original pinned context and own
    completion until their terminal callback.
 8. A committed gameplay operation retains terminal ownership while one shared settlement coroutine
-   waits up to one second for a world strictly newer than its admission world. All gameplay tools
-   use the same readiness predicate and command-to-world projector; only event-driven discovery
-   offers strengthen readiness by requiring their requested mode/offer transition to be published.
+   waits up to one second for a world strictly newer than its admission world. Every gameplay kind
+   settles through the post-state rule its `GameMcpCommandCatalog` descriptor registers: the shared
+   readiness predicate, strengthened only where the requested outcome itself must be visible
+   (casting dials, cast fires, structure toggles, concept and research amounts, discovery offer
+   transitions), and the kind's own command-to-world projector.
    If the deadline expires, one shared `postStateUnavailable / post_state_timeout` shape replaces
    the otherwise empty committed body, except a cast fire, which answers with the facts its own
    boundary sentinel proved; ordinary fresh responses carry no settlement marker.
@@ -154,7 +156,7 @@ claimed operation on Unity's main thread; it is never retained as an MCP snapsho
 | Surface and exact fields | Lifetime | Owner and collection rule |
 | --- | --- | --- |
 | Entity catalog: `uuid`, `name`, optional differing `internalName`, `nativeType`, and addressable `category` | Lifecycle-structural | Common enumerates `IdScriptableObject.RuntimeLookup` once on Unity at the first shared Playing capture after `RuntimeReady`, validates stable generation/count and `value.GetGuid() == key`, and attaches the one UUID-sorted immutable snapshot to every world in the lifecycle. MCP only filters the exact snapshot reference pinned by the answering world; hidden loaded entities remain searchable, while pre-bind/failed bind is explicitly unavailable. |
-| Tool/resource schemas, protocol versions, operation classification, entity category/native-type/capability descriptors | Build-time | One `GameMcpToolCatalog` descriptor per tool and resource (tools/list schema and prose, binder, classification, frame data, validation, route), checked when the listener starts; `GameMcpEntityCapabilityMap`. |
+| Tool/resource schemas, protocol versions, operation classification, entity category/native-type/capability descriptors | Build-time | One `GameMcpToolCatalog` descriptor per tool and resource (tools/list schema and prose, binder, classification, frame data, validation, route) and one `GameMcpCommandCatalog` descriptor per gameplay command kind (executor, post-state rule), both checked when the listener starts; `GameMcpEntityCapabilityMap`. |
 | Writable configuration metadata: section, key, setting type, description, accepted constraint/domain | Lifecycle-structural | Created once from bound BepInEx entries at perf-debug startup. No request enumerates settings or properties. |
 | Configuration values | Request-time | One existing immutable `ConfigurationPublication` pinned in the frame context. Each writable value is selected by the static typed mapping; no mutable `ConfigEntry` value is read and no caller generation is required. |
 | Requirement authoring: owner UUID/type/level, container/group/condition order, `AND`/`OR`, condition kind, requirement UUID/type, comparison/value selector, base requirement, per-level scaling, modifier-per-level scaling, prerequisite-link target and expanded tier/link order | Lifecycle-structural | `WorldEntityRequirementReader` and prerequisite-link structural readers traverse once per lifecycle. |
@@ -189,8 +191,9 @@ live state between captures; authored rows survive and live verdicts change.
 The listener and an empty inbox acquire no action-family lease. A claimed gameplay operation asks
 `AutomataActionFamilyOwnership.TryBeginGameMcpOperation` for only its mapped family, holds that scope
 around one `GameMcpCommandDispatcher.ExecuteGameMcp` call, and releases it immediately. The
-dispatcher delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout,
-crafting, equipment, research, challenge, prestige, targeting, or consumable GameAction used by
+dispatcher runs the executor the kind's `GameMcpCommandCatalog` descriptor registers, which
+delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout, crafting,
+equipment, research, challenge, prestige, targeting, or consumable GameAction used by
 features/tests. MCP capability registration is independent of whether an automation consumer is
 configured on. UUID category and expected native type come from the one
 `GameMcpEntityCapabilityMap` used by both read validation and action admission.

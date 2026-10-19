@@ -160,7 +160,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 81));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 82), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 

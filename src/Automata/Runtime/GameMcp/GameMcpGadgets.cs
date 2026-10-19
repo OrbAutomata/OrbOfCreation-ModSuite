@@ -173,8 +173,6 @@ internal sealed class GameMcpGadgets
         result = access switch
         {
             GameMcpGadgetAccess.Probe => ScreenReader.ProbeGameMcp(command),
-            GameMcpGadgetAccess.ScreenCatalog => throw new InvalidOperationException(
-                "the screen catalog is executed as a text read before gadget dispatch"),
             GameMcpGadgetAccess.TooltipCatalog =>
                 ScreenReader.CaptureTooltipCatalogGameMcp(command),
             GameMcpGadgetAccess.TooltipRead => ScreenReader.ReadTooltipGameMcp(command),

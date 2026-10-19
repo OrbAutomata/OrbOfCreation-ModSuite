@@ -301,7 +301,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 92), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -334,10 +334,10 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(after, generation: 98));
 
-        var started = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var started = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 98), activate,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
-        var finished = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var finished = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(before, generation: 99), end,
             GameMcpCommandResult.Committed("committed", 9, 3)), before);
 
@@ -359,7 +359,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 93));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 94), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -383,7 +383,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 95));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 96), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -415,7 +415,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 97));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 98), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -437,7 +437,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 99));
 
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpPostStateSettlement.Project(
             GameMcpTestHarness.Context(after, generation: 100), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 

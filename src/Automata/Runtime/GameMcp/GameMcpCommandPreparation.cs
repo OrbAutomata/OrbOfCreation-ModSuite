@@ -195,8 +195,6 @@ internal static class GameMcpCommandPreparation
             mode = "navigate";
         else if (kind == GameMcpCommandKind.Probe)
             mode = request.Probe;
-        else if (kind == GameMcpCommandKind.ScreenCatalog)
-            mode = "catalog";
         else if (kind == GameMcpCommandKind.TooltipCatalog)
         {
             mode = "catalog";

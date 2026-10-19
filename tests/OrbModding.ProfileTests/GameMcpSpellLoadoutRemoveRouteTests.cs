@@ -113,7 +113,7 @@ public sealed class GameMcpSpellLoadoutRemoveRouteTests : IDisposable
             readAutoCastOn: () => autoCastOn);
         Assert.True(action.BindingsAvailable, action.BindingFailure);
 
-        return GameMcpTestHarness.Json(GameMcpCommandDispatcher
+        return GameMcpTestHarness.Json(GameMcpSpellLoadoutCommand
             .SubmitSpellLoadout(action, command, 9, 3)
             .Project(command));
     }
