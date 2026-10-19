@@ -134,7 +134,7 @@ public sealed class GameMcpConceptCategoryTests
     {
         var context = GameMcpTestHarness.Context(World(), generation: 5106);
 
-        var inventory = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(context))
+        var inventory = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(context))
             ["categories"]!.Values<JObject>()
             .ToDictionary(row => (string?)row!["category"] ?? string.Empty, row => row!);
 
@@ -162,7 +162,7 @@ public sealed class GameMcpConceptCategoryTests
         var context = GameMcpTestHarness.Context(World(), generation: 5107);
 
         var progression = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(context))["progression"]!;
+            GameMcpWorldOverview.Overview(context))["progression"]!;
 
         Assert.Equal(3, (int)progression["discoveredConcepts"]!);
         Assert.Equal(1, (int)progression["discoveredAlchemyRecipes"]!);

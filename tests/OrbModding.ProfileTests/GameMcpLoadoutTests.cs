@@ -280,7 +280,7 @@ public sealed class GameMcpLoadoutTests
         var world = World(selected: true, populatedSnapshot: false, equippedSpells: 2);
 
         var running = (JObject)GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(world, 98)))["running"]!;
+            GameMcpWorldOverview.Overview(GameMcpTestHarness.Context(world, 98)))["running"]!;
 
         Assert.Null(running["equippedSpellSlots"]);
         Assert.Equal(2, (int)running["equippedSpells"]!);

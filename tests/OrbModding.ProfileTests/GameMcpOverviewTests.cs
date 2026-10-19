@@ -54,7 +54,7 @@ public sealed class GameMcpOverviewTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         var overview = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(world)));
+            GameMcpWorldOverview.Overview(GameMcpTestHarness.Context(world)));
 
         Assert.Null(overview["running"]?["occupiedActionQueueSlots"]);
         var queues = (JArray?)overview["running"]?["actionQueues"];
@@ -112,7 +112,7 @@ public sealed class GameMcpOverviewTests
             var internalName = (string)entity.GetType()
                 .GetProperty("DiagnosticName")!.GetValue(entity)!;
 
-            var printed = GameMcpWorldQuery.QueueName(uuid, GameMcpTestHarness.EntityCatalog);
+            var printed = GameMcpWorldOverview.QueueName(uuid, GameMcpTestHarness.EntityCatalog);
 
             Assert.NotEqual(string.Empty, printed);
             Assert.NotEqual(internalName, printed);
@@ -156,7 +156,7 @@ public sealed class GameMcpOverviewTests
     public void The_overview_prints_the_runs_own_clock_the_way_the_game_does(
         double seconds, string expected)
     {
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(Clock(
             new WorldNumberVariable(
                 KnownEntities.TimePlayed.Uuid,
                 new BigDouble(seconds),
@@ -234,7 +234,7 @@ public sealed class GameMcpOverviewTests
     [Fact]
     public void The_overview_prints_the_resets_clock_beside_the_runs()
     {
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(Clock(
             new WorldNumberVariable(
                 KnownEntities.TimePlayed.Uuid,
                 new BigDouble(7661d),
@@ -260,8 +260,8 @@ public sealed class GameMcpOverviewTests
     [Fact]
     public void An_unpublished_clock_is_absent_rather_than_zero()
     {
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock()));
-        var neverReset = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(Clock(
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(Clock()));
+        var neverReset = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(Clock(
             new WorldNumberVariable(
                 KnownEntities.TimePlayed.Uuid,
                 new BigDouble(7661d),

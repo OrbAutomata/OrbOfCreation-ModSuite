@@ -325,10 +325,10 @@ public sealed class GameMcpCollectorAccountabilityTests
         Categories(context).Select(row => (string)row["category"]!).ToList();
 
     private static string? Unlistable(GameMcpFrameContext context) =>
-        (string?)GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(context))["unlistable"];
+        (string?)GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(context))["unlistable"];
 
     private static List<JObject> Categories(GameMcpFrameContext context) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(context))["categories"]!
+        GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(context))["categories"]!
             .Values<JObject>()
             .OfType<JObject>()
             .ToList();

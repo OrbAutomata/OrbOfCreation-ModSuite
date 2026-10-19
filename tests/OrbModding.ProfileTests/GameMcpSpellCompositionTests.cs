@@ -82,7 +82,7 @@ public sealed class GameMcpSpellCompositionTests
             RecipeId.ToString("D")));
         var row = (JObject)response["row"]!;
         var equipped = Assert.Single(row["equipped"]!.Values<JObject>())!;
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(context));
 
         // The two dials the Casting screen shows, under the words it prints beside them.
         Assert.Equal(4, (int)overview["castingDials"]!["outputLevel"]!["current"]!);

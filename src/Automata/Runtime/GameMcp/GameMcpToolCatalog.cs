@@ -209,12 +209,12 @@ internal sealed class GameMcpToolCatalog
     internal static GameMcpToolExecution Overview(
         GameMcpOperationRequest request,
         GameMcpFrameContext context) =>
-        GameMcpToolExecution.Read(GameMcpWorldQuery.Overview(context).Freeze());
+        GameMcpToolExecution.Read(GameMcpWorldOverview.Overview(context).Freeze());
 
     internal static GameMcpToolExecution Categories(
         GameMcpOperationRequest request,
         GameMcpFrameContext context) =>
-        GameMcpToolExecution.Read(GameMcpWorldQuery.ListCategories(context).Freeze());
+        GameMcpToolExecution.Read(GameMcpWorldOverview.ListCategories(context).Freeze());
 
     internal static GameMcpToolExecution SuiteHealth(
         GameMcpOperationRequest request,

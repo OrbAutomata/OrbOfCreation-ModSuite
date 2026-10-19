@@ -20,7 +20,7 @@ internal static class GameMcpWorldCategories
     /// The collector runs more categories than this surface lists, and a listable category is often
     /// built from several of them, so the two counts never matched and nothing said which collectors
     /// the difference was. A collector missing from this set publishes no table of its own, and
-    /// <see cref="GameMcpWorldQuery.ListCategories"/> gives it a row saying exactly that rather than
+    /// <see cref="GameMcpWorldOverview.ListCategories"/> gives it a row saying exactly that rather than
     /// leaving it to be inferred from arithmetic in a diagnostic nobody runs.
     /// </remarks>
     internal static readonly HashSet<string> ListedReportCategories = CollectReportCategories();
@@ -116,7 +116,7 @@ internal static class GameMcpWorldCategories
 
     /// <summary>
     /// Records that <paramref name="page"/> is built from <paramref name="report"/>. The pages
-    /// arrive in the order <see cref="GameMcpWorldQuery.ListCategories"/> prints them, so a report
+    /// arrive in the order <see cref="GameMcpWorldOverview.ListCategories"/> prints them, so a report
     /// feeding several names them in the order a reader will find them on that page.
     /// </summary>
     private static void Feeds(
