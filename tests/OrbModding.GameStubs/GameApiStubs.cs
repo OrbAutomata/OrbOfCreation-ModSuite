@@ -630,10 +630,19 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     }
     public void ApplyMastery() => masteryLevel++;
 
+    public void SetRequiredMasteryExperience(BigDouble perLevel) =>
+        experienceContainer.SetState(masteryLevel, masteryXp, perLevel);
+
     public void GainMasteryXp(BigDouble amount)
     {
         GrantedMasteryExperience.Add(amount);
         masteryXp = Add(masteryXp, amount);
+        var required = experienceContainer.GetRequiredExperience();
+        while (masteryXp.CompareTo(required) >= 0)
+        {
+            masteryXp -= required;
+            masteryLevel++;
+        }
     }
 
     private static BigDouble Add(BigDouble left, BigDouble right) => left + right;
