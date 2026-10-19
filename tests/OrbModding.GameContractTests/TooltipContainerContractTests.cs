@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -20,9 +21,7 @@ public sealed class TooltipContainerContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var render = assembly.GetMethodBodyDefinitionReferences("UITooltip", "Render")
-            .Concat(assembly.GetMethodBodyMemberReferences("UITooltip", "Render"))
-            .ToArray();
+        var render = References(assembly, "UITooltip", "Render");
         Assert.Contains(render, reference =>
             reference.DeclaringType == "UITooltip" && reference.MemberName == "IsUsingAltTooltip");
         Assert.Contains(render, reference =>
@@ -49,9 +48,7 @@ public sealed class TooltipContainerContractTests
 
         foreach (var owner in new[] { "UITooltip", "UITooltipContainer" })
         {
-            var decision = assembly.GetMethodBodyDefinitionReferences(owner, "IsUsingAltTooltip")
-                .Concat(assembly.GetMethodBodyMemberReferences(owner, "IsUsingAltTooltip"))
-                .ToArray();
+            var decision = References(assembly, owner, "IsUsingAltTooltip");
             Assert.Contains(decision, reference =>
                 reference.DeclaringType == "ITooltipable" &&
                 reference.MemberName == "HasAltTooltips");
@@ -98,9 +95,7 @@ public sealed class TooltipContainerContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var render = assembly.GetMethodBodyDefinitionReferences("UITooltipNode", "Render")
-            .Concat(assembly.GetMethodBodyMemberReferences("UITooltipNode", "Render"))
-            .ToArray();
+        var render = References(assembly, "UITooltipNode", "Render");
         Assert.Contains(render, reference =>
             reference.DeclaringType == "TooltipNode" && reference.MemberName == "children");
         Assert.DoesNotContain(render, reference =>
@@ -109,9 +104,7 @@ public sealed class TooltipContainerContractTests
                 reference.MemberName == "subTooltips" ||
                 reference.MemberName == "GetSubTooltips"));
 
-        var setup = assembly.GetMethodBodyDefinitionReferences("UITooltipNode", "Setup")
-            .Concat(assembly.GetMethodBodyMemberReferences("UITooltipNode", "Setup"))
-            .ToArray();
+        var setup = References(assembly, "UITooltipNode", "Setup");
         Assert.Contains(setup, reference =>
             reference.DeclaringType == "TooltipNode" && reference.MemberName == "tooltipable");
         Assert.Contains(setup, reference =>

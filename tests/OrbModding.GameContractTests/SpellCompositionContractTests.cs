@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -97,21 +97,4 @@ public sealed class SpellCompositionContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UISpellRecipeButton", "AttachSpell", "Spell", "SetAugmentGlyphs"));
     }
-
-    private static MethodBodyDefinitionReference[] References(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName) =>
-        assembly.GetMethodBodyDefinitionReferences(typeName, methodName)
-            .Concat(assembly.GetMethodBodyMemberReferences(typeName, methodName))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
-
-    private static int Offset(
-        MethodBodyDefinitionReference[] references,
-        string declaringType,
-        string memberName) =>
-        references.Single(reference =>
-            reference.DeclaringType == declaringType && reference.MemberName == memberName)
-        .Offset;
 }

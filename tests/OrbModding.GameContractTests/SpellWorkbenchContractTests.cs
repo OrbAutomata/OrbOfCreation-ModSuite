@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -59,14 +60,14 @@ public sealed class SpellWorkbenchContractTests
             "SpellManager", "CreateRecipe", "SpellRecipeSO", "CreateWith");
         var add = assembly.MethodReferenceOffset(
             "SpellManager", "CreateRecipe", "SpellManager", "AddSpell");
-        var clear = ConstructedMemberOffset(
-            assembly, "SpellManager", "CreateRecipe", "AbstractListVariable`1<GlyphSO>", "Empty");
+        var clear = Offset(
+            References(assembly, "SpellManager", "CreateRecipe"), "AbstractListVariable`1<GlyphSO>", "Empty");
         Assert.True(create >= 0, "CreateRecipe must construct from the exact recipe argument.");
         Assert.True(add > create, "The constructed spell must be added to the live loadout.");
         Assert.True(
             clear > add,
             "Selection cleanup must happen only after the new spell is added. Native references: " +
-            string.Join("; ", References(assembly, "SpellManager", "CreateRecipe")));
+            string.Join("; ", References(assembly, "SpellManager", "CreateRecipe").Select(Describe)));
     }
 
     [GameAssemblyFact]
@@ -100,27 +101,4 @@ public sealed class SpellWorkbenchContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UISpellRecipeButton", "ComputeListCompare", "Spell", "IsUniqueSpell"));
     }
-
-    private static string[] References(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName) =>
-        assembly.GetMethodBodyDefinitionReferences(typeName, methodName)
-            .Concat(assembly.GetMethodBodyMemberReferences(typeName, methodName))
-            .OrderBy(reference => reference.Offset)
-            .Select(reference =>
-                $"IL_{reference.Offset:X4} 0x{reference.Token:X8} {reference.Kind} " +
-                $"{reference.DeclaringType}.{reference.MemberName}")
-            .ToArray();
-
-    private static int ConstructedMemberOffset(
-        GameAssemblyMetadata assembly,
-        string sourceType,
-        string sourceMethod,
-        string declaringType,
-        string memberName) =>
-        assembly.GetMethodBodyMemberReferences(sourceType, sourceMethod)
-            .Single(reference =>
-                reference.DeclaringType == declaringType && reference.MemberName == memberName)
-            .Offset;
 }

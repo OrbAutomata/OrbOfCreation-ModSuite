@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -851,20 +852,5 @@ public sealed class InstalledGameContractTests
         Assert.Equal(
             "UnityEngine.Transform",
             unity.GetBaseType("UnityEngine.RectTransform"));
-    }
-
-    private static void AssertMethod(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName,
-        bool isStatic,
-        string returnType,
-        params string[] parameterTypes)
-    {
-        var matches = assembly.GetMethods(typeName, methodName);
-        Assert.Contains(matches, method =>
-            method.IsStatic == isStatic &&
-            method.ReturnType == returnType &&
-            method.ParameterTypes.SequenceEqual(parameterTypes));
     }
 }

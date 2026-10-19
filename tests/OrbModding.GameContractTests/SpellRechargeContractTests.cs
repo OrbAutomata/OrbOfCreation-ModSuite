@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -48,10 +48,7 @@ public sealed class SpellRechargeContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "Spell", "GetRechargeRemaining", "Spell", "GetCooldownTimeRemaining"));
 
-        var headline = assembly
-            .GetMethodBodyDefinitionReferences("SpellRecipeSO", "GetRealTooltipNodes")
-            .Concat(assembly.GetMethodBodyMemberReferences("SpellRecipeSO", "GetRealTooltipNodes"))
-            .ToArray();
+        var headline = References(assembly, "SpellRecipeSO", "GetRealTooltipNodes");
         Assert.Contains(headline, reference =>
             reference.DeclaringType == "Spell" && reference.MemberName == "GetRecharge");
         Assert.Contains(headline, reference =>
@@ -81,10 +78,7 @@ public sealed class SpellRechargeContractTests
         Assert.True(assembly.MethodReferencesField(
             "Duration+Processor", "GetCoreType", "Duration+MicroProcessor", "t"));
 
-        var stylize = assembly
-            .GetMethodBodyDefinitionReferences("Duration", "StylizeAccurateText")
-            .Concat(assembly.GetMethodBodyMemberReferences("Duration", "StylizeAccurateText"))
-            .ToArray();
+        var stylize = References(assembly, "Duration", "StylizeAccurateText");
         Assert.Contains(stylize, reference =>
             reference.DeclaringType == "Utils" && reference.MemberName == "BeautifyTimeAccurate");
         Assert.Contains(stylize, reference =>

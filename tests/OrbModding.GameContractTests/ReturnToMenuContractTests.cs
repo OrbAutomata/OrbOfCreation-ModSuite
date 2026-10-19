@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -105,12 +105,4 @@ public sealed class ReturnToMenuContractTests
         Assert.True(Offset(fade, "UIScreenFlash", "isActive") <
             Offset(fade, "UIScreenFlash", "AnimateAlpha"));
     }
-
-    private static int Offset(
-        System.Collections.Generic.IReadOnlyList<MethodBodyDefinitionReference> references,
-        string declaringType,
-        string memberName) =>
-        references.Single(reference =>
-            reference.DeclaringType == declaringType &&
-            reference.MemberName == memberName).Offset;
 }

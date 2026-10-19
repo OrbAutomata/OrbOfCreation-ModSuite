@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -41,13 +42,8 @@ public sealed class TargetingContractTests
     public void SubmitTarget_AssignsTheExactObjectBeforeRemovingTheCurrentRequest()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
-        var references = assembly.GetMethodBodyDefinitionReferences("TargetingManager", "SubmitTarget")
-            .Concat(assembly.GetMethodBodyMemberReferences("TargetingManager", "SubmitTarget"))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
-        var assign = references.Single(reference =>
-            reference.DeclaringType == "TargetingManager+TargetLink" &&
-            reference.MemberName == "AssignTarget").Offset;
+        var references = References(assembly, "TargetingManager", "SubmitTarget");
+        var assign = Offset(references, "TargetingManager+TargetLink", "AssignTarget");
         var remove = references.Single(reference => reference.MemberName == "RemoveAt").Offset;
         Assert.True(remove > assign);
     }

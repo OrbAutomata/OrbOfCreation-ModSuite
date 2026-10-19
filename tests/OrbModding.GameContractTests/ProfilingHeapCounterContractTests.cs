@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -39,19 +39,5 @@ public sealed class ProfilingHeapCounterContractTests
         AssertMethod(unity, "Unity.Profiling.ProfilerRecorder", "get_Valid", isStatic: false, "System.Boolean");
         AssertMethod(unity, "Unity.Profiling.ProfilerRecorder", "get_LastValue", isStatic: false, "System.Int64");
         AssertMethod(unity, "Unity.Profiling.ProfilerRecorder", "Dispose", isStatic: false, "System.Void");
-    }
-
-    private static void AssertMethod(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName,
-        bool isStatic,
-        string returnType,
-        params string[] parameters)
-    {
-        Assert.Contains(assembly.GetMethods(typeName, methodName), method =>
-            method.IsStatic == isStatic &&
-            method.ReturnType == returnType &&
-            method.ParameterTypes.SequenceEqual(parameters));
     }
 }

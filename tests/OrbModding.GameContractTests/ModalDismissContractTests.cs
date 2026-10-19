@@ -1,6 +1,6 @@
 using System;
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -56,14 +56,4 @@ public sealed class ModalDismissContractTests
             reference =>
             reference.DeclaringType == "UIModal" && reference.MemberName == "modalTitle");
     }
-
-    private static MethodBodyDefinitionReference[] References(
-        GameAssemblyMetadata assembly,
-        string type,
-        string method,
-        params string[] parameters) =>
-        assembly.GetMethodBodyDefinitionReferences(type, method, parameters)
-            .Concat(assembly.GetMethodBodyMemberReferences(type, method, parameters))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
 }
