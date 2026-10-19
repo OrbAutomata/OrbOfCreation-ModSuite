@@ -1349,7 +1349,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 string.Empty,
                 false);
 
-            var result = runtime.ExecuteGameMcp(command);
+            var result = runtime.GameMcp.ExecuteGameMcp(command);
             var projected = GameMcpTestHarness.Json(result.Project(command));
 
             Assert.Equal("committed", result.Status);
@@ -1457,7 +1457,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                         false,
                         operation,
                         pinned);
-                    var result = runtime.ExecuteGameMcp(command);
+                    var result = runtime.GameMcp.ExecuteGameMcp(command);
                     terminals.Add(result);
                     return new GameMcpToolExecution(
                         result.Project(command),

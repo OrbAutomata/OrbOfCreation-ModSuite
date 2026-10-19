@@ -7,6 +7,9 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.HostTrace;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
+#if SERVICE_CYCLE_PROFILE
+using OrbAutomata.GameMcp;
+#endif
 
 namespace OrbAutomata;
 
@@ -120,13 +123,18 @@ internal static class AutomataServiceCycleComposition
             for (var index = 0; index < featureRuntimes.Count; index++)
                 featureRuntimes[index].ActivateDiagnostics();
             composeGameActions?.Invoke(gameActions);
+            var runtimes = featureRuntimes.ToArray();
             return new AutomataServiceCycleRuntime(
                 hostDependencies.ReadLifecycleEpoch,
                 configurationPublication,
                 host,
-                featureRuntimes.ToArray(),
+                runtimes,
                 configurationGeneration,
-                gameActions);
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+                , new GameMcpCommandDispatcher(host, configurationPublication, gameActions, runtimes)
+#endif
+                );
         }
         catch
         {
