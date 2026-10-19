@@ -64,10 +64,12 @@ public sealed class SuiteFramePumpSchedulingTests
         TestWorldCollector.CollectedAt(registry, frame);
 
         Assert.Equal(3, pump.PumpFrame(frame++).CyclesStarted);
-        while (firstRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
-               secondRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
-               thirdRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty)
-            pump.PumpFrame(frame++);
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => firstRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty &&
+                secondRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty &&
+                thirdRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty);
         ServiceRunnerTestWait.ForPhase(firstRegistration.Runner, ServiceHandoffPhase.ResponseReady);
         ServiceRunnerTestWait.ForPhase(secondRegistration.Runner, ServiceHandoffPhase.ResponseReady);
         ServiceRunnerTestWait.ForPhase(thirdRegistration.Runner, ServiceHandoffPhase.ResponseReady);
@@ -160,17 +162,13 @@ public sealed class SuiteFramePumpSchedulingTests
         TestWorldCollector.CollectedAtActivation(registry);
 
         var frame = 1L;
-        var capture = pump.PumpFrame(frame++);
-        while (capture.CyclesStarted == 0)
-            capture = pump.PumpFrame(frame++);
+        var capture = ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
         Assert.Equal(1, capture.CyclesStarted);
         Assert.Equal(0, capture.ActionsAttempted);
         ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
         ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
 
-        var response = pump.PumpFrame(frame++);
-        while (response.ResponsesAcquired == 0)
-            response = pump.PumpFrame(frame++);
+        var response = ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
         Assert.Equal(1, response.ResponsesAcquired);
         Assert.Equal(0, response.ActionsAttempted);
         Assert.Equal(0, response.CyclesStarted);
@@ -182,9 +180,7 @@ public sealed class SuiteFramePumpSchedulingTests
 
         // The action changed the game, so the next capture waits on a reading that contains it.
         TestWorldCollector.CollectedAt(registry, frame);
-        var nextCapture = pump.PumpFrame(frame++);
-        while (nextCapture.CyclesStarted == 0)
-            nextCapture = pump.PumpFrame(frame++);
+        var nextCapture = ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
         Assert.Equal(1, nextCapture.CyclesStarted);
         Assert.Equal(2, definition.StartCount);
     }
@@ -253,10 +249,12 @@ public sealed class SuiteFramePumpSchedulingTests
             (rejected, rejectedRegistration.Runner));
         TestWorldCollector.CollectedAt(registry, frame);
 
-        while (activeRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
-               emptyRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
-               rejectedRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty)
-            pump.PumpFrame(frame++);
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => activeRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty &&
+                emptyRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty &&
+                rejectedRegistration.Runner.HandoffPhaseHint != ServiceHandoffPhase.Empty);
         ServiceRunnerTestWait.ForPhase(activeRegistration.Runner, ServiceHandoffPhase.ResponseReady);
         ServiceRunnerTestWait.ForPhase(emptyRegistration.Runner, ServiceHandoffPhase.ResponseReady);
         ServiceRunnerTestWait.ForPhase(rejectedRegistration.Runner, ServiceHandoffPhase.ResponseReady);

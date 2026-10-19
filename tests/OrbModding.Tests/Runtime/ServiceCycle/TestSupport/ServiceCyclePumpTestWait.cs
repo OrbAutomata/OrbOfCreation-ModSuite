@@ -22,27 +22,43 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 /// </remarks>
 internal static class ServiceCyclePumpTestWait
 {
-    /// <summary>Pumps until a cycle starts, yielding between frames.</summary>
-    internal static void UntilStart(SuiteFramePump pump, ref long frame) =>
+    /// <summary>
+    /// Pumps until a cycle starts, yielding between frames, and returns that frame's report.
+    /// </summary>
+    internal static SuiteFramePumpReport UntilStart(SuiteFramePump pump, ref long frame) =>
         Until(pump, ref frame, report => report.CyclesStarted != 0, "a started cycle");
 
-    /// <summary>Pumps until a worker response is acquired, yielding between frames.</summary>
-    internal static void UntilResponse(SuiteFramePump pump, ref long frame) =>
+    /// <summary>
+    /// Pumps until a worker response is acquired, yielding between frames, and returns that frame's report.
+    /// </summary>
+    internal static SuiteFramePumpReport UntilResponse(SuiteFramePump pump, ref long frame) =>
         Until(pump, ref frame, report => report.ResponsesAcquired != 0, "an acquired response");
 
     /// <summary>Pumps until an action is attempted, yielding between frames.</summary>
     internal static void UntilAction(SuiteFramePump pump, ref long frame) =>
         Until(pump, ref frame, report => report.ActionsAttempted != 0, "an attempted action");
 
-    private static void Until(
+    /// <summary>
+    /// Pumps until a frame starts its turn order at <paramref name="ordinal"/>, yielding between frames.
+    /// </summary>
+    internal static void UntilStartingOrdinal(SuiteFramePump pump, ref long frame, int ordinal) =>
+        Until(
+            pump,
+            ref frame,
+            report => report.StartingOrdinal == ordinal,
+            $"a frame starting at ordinal {ordinal}");
+
+    private static SuiteFramePumpReport Until(
         SuiteFramePump pump,
         ref long frame,
         Func<SuiteFramePumpReport, bool> reached,
         string expectation)
     {
         var deadline = Stopwatch.StartNew();
-        while (!reached(pump.PumpFrame(frame++)))
+        while (true)
         {
+            var report = pump.PumpFrame(frame++);
+            if (reached(report)) return report;
             if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
                 throw new TimeoutException($"The pump never reported {expectation}.");
             Thread.Yield();
