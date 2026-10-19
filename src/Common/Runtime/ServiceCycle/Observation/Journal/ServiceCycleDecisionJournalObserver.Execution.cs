@@ -82,12 +82,14 @@ internal sealed partial class ServiceCycleDecisionJournalObserver
         try
         {
             ref var service = ref BoundService(ordinal);
+            var actionFact = dispatch.ActionFact;
+            // The recovery happened when the action completed, which the pump stamps before its
+            // own later observation time.
             ObserveFaultTransition(
                 ref service,
                 dispatch.RecoveredFault,
                 dispatch.Fault,
-                observedAt);
-            var actionFact = dispatch.ActionFact;
+                actionFact.CompletedAt);
             var attribution = dispatch.Attribution;
             var action = new DecisionJournalActionObservation(
                 service.Service,
