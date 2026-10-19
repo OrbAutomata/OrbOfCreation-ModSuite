@@ -36,12 +36,6 @@ internal static class AutoItemsCycleEvaluator
             metrics = EmptyMetrics(world, AutoItemsDecisionKind.AwaitingTemporaryActivation);
             return WakePolicy.OnPublication;
         }
-        if (activation.State == AutoItemsTemporaryActivationState.Quarantined)
-        {
-            metrics = EmptyMetrics(world, AutoItemsDecisionKind.TemporaryItemQuarantined);
-            return WakePolicy.OnPublication;
-        }
-
         if (!AutoItemsConfigurationPolicy.IsOperational(configuration))
         {
             metrics = EmptyMetrics(world, AutoItemsDecisionKind.Disabled);
@@ -51,7 +45,6 @@ internal static class AutoItemsCycleEvaluator
         var scan = AutoItemsCandidateScanner.Scan(
             world,
             in configuration,
-            state.QuarantinedTemporaryItems,
             state.TemporaryAllowlist,
             state.TargetlessScrolls);
         if (scan.TemporaryUsagePending)
@@ -89,7 +82,8 @@ internal static class AutoItemsCycleEvaluator
                 out metrics);
         }
         var temporaryEffectActive =
-            activation.State == AutoItemsTemporaryActivationState.Active ||
+            activation.State is AutoItemsTemporaryActivationState.Active or
+                AutoItemsTemporaryActivationState.Paused ||
             scan.TemporaryUsagePresent;
         if (temporaryEffectActive)
         {

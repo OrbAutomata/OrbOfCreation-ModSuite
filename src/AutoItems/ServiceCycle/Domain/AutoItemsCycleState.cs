@@ -13,7 +13,6 @@ internal enum AutoItemsDecisionKind
     TemporaryItem = 4,
     AwaitingTemporaryActivation = 5,
     TemporaryEffectActive = 6,
-    TemporaryItemQuarantined = 7,
 }
 
 internal readonly struct AutoItemsDecisionMetrics
@@ -56,34 +55,31 @@ internal struct AutoItemsCycleState
         Decision = default;
         _allowlistConfiguration = default;
         _temporaryAllowlist = null;
-        _quarantinedTemporaryItems = PublicationTable<Guid>.Empty;
         _targetlessScrolls = PublicationTable<Guid>.Empty;
         PendingReceiptAction = default;
         HasPendingReceipt = false;
         PendingTemporaryItem = Guid.Empty;
         TemporarySubmittedFromFrame = 0;
         TemporaryActivationSeen = false;
-        LastQuarantinedTemporaryItem = Guid.Empty;
-        LastTemporaryQuarantineCause = AutoItemsTemporaryQuarantineCause.None;
+        PausedTemporaryItem = Guid.Empty;
+        TemporaryPauseCause = AutoItemsTemporaryPauseCause.None;
     }
 
     private ConfigGeneration _allowlistConfiguration;
     private PublicationTable<Guid>? _temporaryAllowlist;
-    private PublicationTable<Guid> _quarantinedTemporaryItems;
     private PublicationTable<Guid> _targetlessScrolls;
 
     internal LifecycleGeneration Lifecycle { get; }
     internal AutoItemsDecisionMetrics Decision { get; private set; }
     internal PublicationTable<Guid>? TemporaryAllowlist => _temporaryAllowlist;
-    internal PublicationTable<Guid> QuarantinedTemporaryItems => _quarantinedTemporaryItems;
     internal PublicationTable<Guid> TargetlessScrolls => _targetlessScrolls;
     internal AutoItemsCycleAction PendingReceiptAction { get; private set; }
     internal bool HasPendingReceipt { get; private set; }
     internal Guid PendingTemporaryItem { get; private set; }
     internal long TemporarySubmittedFromFrame { get; private set; }
     internal bool TemporaryActivationSeen { get; private set; }
-    internal Guid LastQuarantinedTemporaryItem { get; private set; }
-    internal AutoItemsTemporaryQuarantineCause LastTemporaryQuarantineCause { get; private set; }
+    internal Guid PausedTemporaryItem { get; private set; }
+    internal AutoItemsTemporaryPauseCause TemporaryPauseCause { get; private set; }
 
     internal static AutoItemsCycleState Create(LifecycleGeneration lifecycle) => new(lifecycle);
     internal void RecordDecision(in AutoItemsDecisionMetrics decision) => Decision = decision;
@@ -112,7 +108,6 @@ internal struct AutoItemsCycleState
 
     internal void RecordSubmittedTemporary(in AutoItemsCycleAction action)
     {
-        if (IsTemporaryQuarantined(action.ItemId)) return;
         PendingTemporaryItem = action.ItemId;
         TemporarySubmittedFromFrame = action.CollectedAtFrame;
         TemporaryActivationSeen = false;
@@ -133,22 +128,24 @@ internal struct AutoItemsCycleState
         TemporaryActivationSeen = false;
     }
 
-    internal bool IsTemporaryQuarantined(Guid itemId) =>
-        AutoItemsTemporaryItemAllowlist.Contains(_quarantinedTemporaryItems, itemId);
-
-    internal void QuarantinePendingTemporary(AutoItemsTemporaryQuarantineCause cause)
+    internal void PausePendingTemporary(AutoItemsTemporaryPauseCause cause)
     {
-        if (cause == AutoItemsTemporaryQuarantineCause.None)
+        if (cause == AutoItemsTemporaryPauseCause.None)
             throw new ArgumentOutOfRangeException(nameof(cause));
         var itemId = PendingTemporaryItem;
         if (itemId == Guid.Empty)
             throw new InvalidOperationException(
-                "A temporary-item quarantine requires a pending exact item.");
+                "A temporary-item pause requires a pending exact item.");
 
-        _quarantinedTemporaryItems = With(_quarantinedTemporaryItems, itemId);
-        LastQuarantinedTemporaryItem = itemId;
-        LastTemporaryQuarantineCause = cause;
+        PausedTemporaryItem = itemId;
+        TemporaryPauseCause = cause;
         ClearPendingTemporary();
+    }
+
+    internal void ResumePausedTemporary()
+    {
+        PausedTemporaryItem = Guid.Empty;
+        TemporaryPauseCause = AutoItemsTemporaryPauseCause.None;
     }
 
     private static PublicationTable<Guid> With(PublicationTable<Guid> values, Guid itemId)

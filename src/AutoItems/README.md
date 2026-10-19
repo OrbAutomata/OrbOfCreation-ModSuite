@@ -24,10 +24,12 @@ parallel postconditions. An absent Scroll/Relic transition quarantines the whole
 temporary-item transition quarantines only that exact UUID.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
-Exactly one usage must engage before disappearing. Multiple usages, premature expiry, or missing
-engagement evidence quarantines the exact item loudly. A temporary item still preparing holds every
-use back; once its effect is active, only another temporary use waits, and Relics and Scrolls keep
-firing. Native Scroll/Relic preparation excludes a temporary use.
+Exactly one usage must engage before disappearing. A usage Auto Items did not create belongs to the
+player: a second usage of the item, or its queued usage vanishing before it engaged, pauses that
+exact item until no usage of it remains, then the item resumes. Each pause and resume logs one
+warning naming the item and the cause, and the feature stays Operational. A temporary item still
+preparing holds every use back; once its effect is active, only another temporary use waits, and
+Relics and Scrolls keep firing. Native Scroll/Relic preparation excludes a temporary use.
 
 Configuration is additive and uses the suite's committed publication:
 

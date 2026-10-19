@@ -10,15 +10,14 @@ internal enum AutoItemsTemporaryActivationState
     AwaitingActivation = 1,
     Active = 2,
     Completed = 3,
-    Quarantined = 4,
+    Paused = 4,
 }
 
-internal enum AutoItemsTemporaryQuarantineCause
+internal enum AutoItemsTemporaryPauseCause
 {
     None = 0,
     MultipleUsages = 1,
-    PrematureExpiry = 2,
-    MissingEngagementEvidence = 3,
+    MissingEngagementEvidence = 2,
 }
 
 internal readonly struct AutoItemsTemporaryActivationObservation
@@ -26,22 +25,26 @@ internal readonly struct AutoItemsTemporaryActivationObservation
     internal AutoItemsTemporaryActivationObservation(
         AutoItemsTemporaryActivationState state,
         Guid itemId,
-        AutoItemsTemporaryQuarantineCause quarantineCause)
+        AutoItemsTemporaryPauseCause pauseCause)
     {
         State = state;
         ItemId = itemId;
-        QuarantineCause = quarantineCause;
+        PauseCause = pauseCause;
     }
 
     internal AutoItemsTemporaryActivationState State { get; }
     internal Guid ItemId { get; }
-    internal AutoItemsTemporaryQuarantineCause QuarantineCause { get; }
+    internal AutoItemsTemporaryPauseCause PauseCause { get; }
 }
 
 /// <summary>
 /// Reconciles one committed temporary ConsumableUse with later immutable world publications.
 /// No timer participates: disappearance is evidence only after a later collected frame.
 /// </summary>
+/// <remarks>
+/// A usage Auto Items did not create pauses that item while any usage of it remains, then the
+/// item resumes. The player owns those usages; the pause is never a lifecycle latch.
+/// </remarks>
 internal static class AutoItemsTemporaryActivationPolicy
 {
     internal static void ReconcileReceipt(
@@ -70,16 +73,26 @@ internal static class AutoItemsTemporaryActivationPolicy
         ref AutoItemsCycleState state)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
+        var pausedItem = state.PausedTemporaryItem;
+        if (pausedItem != Guid.Empty)
+        {
+            if (WorldConsumableUsageLookup.TryFindRange(world.ConsumableUsages, pausedItem, out _, out _))
+                return new AutoItemsTemporaryActivationObservation(
+                    AutoItemsTemporaryActivationState.Paused,
+                    pausedItem,
+                    state.TemporaryPauseCause);
+            state.ResumePausedTemporary();
+        }
+
         var itemId = state.PendingTemporaryItem;
         if (itemId == Guid.Empty)
             return new AutoItemsTemporaryActivationObservation(
                 AutoItemsTemporaryActivationState.None,
                 Guid.Empty,
-                AutoItemsTemporaryQuarantineCause.None);
+                AutoItemsTemporaryPauseCause.None);
 
         var usageCount = 0;
         var engaged = false;
-        var expired = false;
         if (WorldConsumableUsageLookup.TryFindRange(
                 world.ConsumableUsages,
                 itemId,
@@ -88,21 +101,13 @@ internal static class AutoItemsTemporaryActivationPolicy
         {
             usageCount = count;
             for (var index = 0; index < count; index++)
-            {
-                var usage = world.ConsumableUsages[start + index];
-                engaged |= usage.Engaged;
-                expired |= usage.Expired;
-            }
+                engaged |= world.ConsumableUsages[start + index].Engaged;
         }
 
         if (usageCount > 1)
-            return Quarantine(
+            return Pause(
                 ref state,
-                AutoItemsTemporaryQuarantineCause.MultipleUsages);
-        if (expired)
-            return Quarantine(
-                ref state,
-                AutoItemsTemporaryQuarantineCause.PrematureExpiry);
+                AutoItemsTemporaryPauseCause.MultipleUsages);
         if (usageCount == 1)
         {
             if (engaged)
@@ -111,19 +116,19 @@ internal static class AutoItemsTemporaryActivationPolicy
                 return new AutoItemsTemporaryActivationObservation(
                     AutoItemsTemporaryActivationState.Active,
                     itemId,
-                    AutoItemsTemporaryQuarantineCause.None);
+                    AutoItemsTemporaryPauseCause.None);
             }
             return new AutoItemsTemporaryActivationObservation(
                 AutoItemsTemporaryActivationState.AwaitingActivation,
                 itemId,
-                AutoItemsTemporaryQuarantineCause.None);
+                AutoItemsTemporaryPauseCause.None);
         }
 
         if (world.CollectedAtFrame <= state.TemporarySubmittedFromFrame)
             return new AutoItemsTemporaryActivationObservation(
                 AutoItemsTemporaryActivationState.AwaitingActivation,
                 itemId,
-                AutoItemsTemporaryQuarantineCause.None);
+                AutoItemsTemporaryPauseCause.None);
         if (WorldLookup.TryFind(world.Consumables, itemId, out var consumable) &&
             (consumable.QueuedQuantity > 0 ||
              consumable.CurrentPrepTime.CompareTo(BigDouble.Zero) > 0))
@@ -131,29 +136,29 @@ internal static class AutoItemsTemporaryActivationPolicy
             return new AutoItemsTemporaryActivationObservation(
                 AutoItemsTemporaryActivationState.AwaitingActivation,
                 itemId,
-                AutoItemsTemporaryQuarantineCause.None);
+                AutoItemsTemporaryPauseCause.None);
         }
 
         if (!state.TemporaryActivationSeen)
-            return Quarantine(
+            return Pause(
                 ref state,
-                AutoItemsTemporaryQuarantineCause.MissingEngagementEvidence);
+                AutoItemsTemporaryPauseCause.MissingEngagementEvidence);
 
         state.ClearPendingTemporary();
         return new AutoItemsTemporaryActivationObservation(
             AutoItemsTemporaryActivationState.Completed,
             itemId,
-            AutoItemsTemporaryQuarantineCause.None);
+            AutoItemsTemporaryPauseCause.None);
     }
 
-    private static AutoItemsTemporaryActivationObservation Quarantine(
+    private static AutoItemsTemporaryActivationObservation Pause(
         ref AutoItemsCycleState state,
-        AutoItemsTemporaryQuarantineCause cause)
+        AutoItemsTemporaryPauseCause cause)
     {
         var itemId = state.PendingTemporaryItem;
-        state.QuarantinePendingTemporary(cause);
+        state.PausePendingTemporary(cause);
         return new AutoItemsTemporaryActivationObservation(
-            AutoItemsTemporaryActivationState.Quarantined,
+            AutoItemsTemporaryActivationState.Paused,
             itemId,
             cause);
     }

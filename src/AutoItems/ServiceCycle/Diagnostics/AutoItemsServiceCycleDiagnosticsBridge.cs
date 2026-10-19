@@ -16,8 +16,8 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     private bool _emergencyDisabled;
     private bool _cycleObserved;
     private AutoItemsDecisionKind _decisionKind;
-    private Guid _quarantinedTemporaryItem;
-    private AutoItemsTemporaryQuarantineCause _temporaryQuarantineCause;
+    private Guid _pausedTemporaryItem;
+    private AutoItemsTemporaryPauseCause _temporaryPauseCause;
     private long _publishedHealthRevision = -1;
     private ServiceCycleServiceDiagnosticsSnapshot[] _services =
         new ServiceCycleServiceDiagnosticsSnapshot[8];
@@ -45,18 +45,19 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             TryReadLatestDecision(
                 pump,
                 out var decisionKind,
-                out var quarantinedTemporaryItem,
-                out var temporaryQuarantineCause))
+                out var pausedTemporaryItem,
+                out var temporaryPauseCause))
         {
+            if (_pausedTemporaryItem != pausedTemporaryItem ||
+                _temporaryPauseCause != temporaryPauseCause)
+                WarnPauseTransition(pausedTemporaryItem, temporaryPauseCause);
             changed = changed ||
                 !_cycleObserved ||
-                _decisionKind != decisionKind ||
-                _quarantinedTemporaryItem != quarantinedTemporaryItem ||
-                _temporaryQuarantineCause != temporaryQuarantineCause;
+                _decisionKind != decisionKind;
             _cycleObserved = true;
             _decisionKind = decisionKind;
-            _quarantinedTemporaryItem = quarantinedTemporaryItem;
-            _temporaryQuarantineCause = temporaryQuarantineCause;
+            _pausedTemporaryItem = pausedTemporaryItem;
+            _temporaryPauseCause = temporaryPauseCause;
         }
         if (_publishedHealthRevision != _health.Revision)
         {
@@ -72,8 +73,6 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
         _decisionKind = AutoItemsDecisionKind.Disabled;
-        _quarantinedTemporaryItem = Guid.Empty;
-        _temporaryQuarantineCause = AutoItemsTemporaryQuarantineCause.None;
     }
 
     internal void ObserveLifecycle(
@@ -85,8 +84,8 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
         _decisionKind = AutoItemsDecisionKind.Disabled;
-        _quarantinedTemporaryItem = Guid.Empty;
-        _temporaryQuarantineCause = AutoItemsTemporaryQuarantineCause.None;
+        _pausedTemporaryItem = Guid.Empty;
+        _temporaryPauseCause = AutoItemsTemporaryPauseCause.None;
         _health.InvalidateLifecycle();
         _publishedHealthRevision = _health.Revision;
         Publish();
@@ -102,8 +101,6 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _gameAction.BindingFailure,
             _cycleObserved,
             _decisionKind,
-            _quarantinedTemporaryItem,
-            _temporaryQuarantineCause,
             _health);
         _dependencies.FeatureStatus.ObserveRuntimeLifecycle(
             status.State,
@@ -113,11 +110,31 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _configurationGeneration);
     }
 
+    private void WarnPauseTransition(Guid pausedItem, AutoItemsTemporaryPauseCause cause)
+    {
+        if (_pausedTemporaryItem != Guid.Empty && _pausedTemporaryItem != pausedItem)
+            _dependencies.Warn(
+                $"Auto Items resumed temporary item {EntityIdentityFormatter.Format(_pausedTemporaryItem)}: " +
+                "no usage of it remains.");
+        if (cause == AutoItemsTemporaryPauseCause.None) return;
+        var evidence = cause switch
+        {
+            AutoItemsTemporaryPauseCause.MultipleUsages =>
+                "more than one native usage appeared and Auto Items creates only one",
+            AutoItemsTemporaryPauseCause.MissingEngagementEvidence =>
+                "the usage it queued disappeared before it engaged",
+            _ => throw new ArgumentOutOfRangeException(nameof(cause), cause, null),
+        };
+        _dependencies.Warn(
+            $"Auto Items paused temporary item {EntityIdentityFormatter.Format(pausedItem)} " +
+            $"because {evidence}; it resumes once no usage of it remains.");
+    }
+
     private bool TryReadLatestDecision(
         SuiteFramePump pump,
         out AutoItemsDecisionKind decisionKind,
-        out Guid quarantinedTemporaryItem,
-        out AutoItemsTemporaryQuarantineCause temporaryQuarantineCause)
+        out Guid pausedTemporaryItem,
+        out AutoItemsTemporaryPauseCause temporaryPauseCause)
     {
         var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
         if (copy.RequiredCount > _services.Length)
@@ -135,12 +152,12 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             return AutoItemsServiceProjection.TryReadDecision(
                 in projection,
                 out decisionKind,
-                out quarantinedTemporaryItem,
-                out temporaryQuarantineCause);
+                out pausedTemporaryItem,
+                out temporaryPauseCause);
         }
         decisionKind = AutoItemsDecisionKind.Disabled;
-        quarantinedTemporaryItem = Guid.Empty;
-        temporaryQuarantineCause = AutoItemsTemporaryQuarantineCause.None;
+        pausedTemporaryItem = Guid.Empty;
+        temporaryPauseCause = AutoItemsTemporaryPauseCause.None;
         return false;
     }
 }

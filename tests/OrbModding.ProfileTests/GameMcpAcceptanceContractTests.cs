@@ -654,6 +654,28 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     [Fact]
+    public void HealthSaysWhyAFaultedAutomationStopped()
+    {
+        var mentor = new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, "Mentor"),
+            "Orb Mentor",
+            configuredEnabled: true,
+            FeatureStatusState.Faulted,
+            new FeatureStatusReason(
+                FeatureStatusReasonCode.PostconditionFailed,
+                "The experience grant left Mentor experience unchanged."),
+            lifecycleGeneration: 9);
+
+        var compact = Plugin.ProjectGameMcpHealthText(
+            GameMcpTestHarness.Context(features: new[] { mentor }));
+
+        Assert.Contains(
+            "\nmentor reason: The experience grant left Mentor experience unchanged.",
+            compact,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HealthHasOneCanonicalShapeAndRejectsDetailOptions()
     {
         var feature = new FeatureStatusSnapshot(

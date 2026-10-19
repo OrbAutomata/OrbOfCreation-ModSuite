@@ -14,9 +14,9 @@ internal static class AutoItemsServiceProjection
     internal const int DecisionKindKey = 15;
     internal const int TemporaryItemsKey = 16;
     internal const int EligibleTemporaryItemsKey = 17;
-    internal const int TemporaryQuarantineCauseKey = 18;
-    internal const int TemporaryQuarantineGuidLowKey = 19;
-    internal const int TemporaryQuarantineGuidHighKey = 20;
+    internal const int TemporaryPauseCauseKey = 18;
+    internal const int TemporaryPauseGuidLowKey = 19;
+    internal const int TemporaryPauseGuidHighKey = 20;
 
     internal static void Write(
         in AutoItemsCycleState state,
@@ -34,31 +34,31 @@ internal static class AutoItemsServiceProjection
             new ServiceProjectionKey(EligibleTemporaryItemsKey),
             Integer(decision.EligibleTemporaryItems));
         output.Add(
-            new ServiceProjectionKey(TemporaryQuarantineCauseKey),
-            Integer((int)state.LastTemporaryQuarantineCause));
+            new ServiceProjectionKey(TemporaryPauseCauseKey),
+            Integer((int)state.TemporaryPauseCause));
         Span<byte> itemBytes = stackalloc byte[16];
-        if (!state.LastQuarantinedTemporaryItem.TryWriteBytes(itemBytes))
+        if (!state.PausedTemporaryItem.TryWriteBytes(itemBytes))
             throw new InvalidOperationException(
-                "Auto Items could not project its exact quarantined temporary-item UUID.");
+                "Auto Items could not project its exact paused temporary-item UUID.");
         output.Add(
-            new ServiceProjectionKey(TemporaryQuarantineGuidLowKey),
+            new ServiceProjectionKey(TemporaryPauseGuidLowKey),
             Integer(BinaryPrimitives.ReadInt64LittleEndian(itemBytes.Slice(0, 8))));
         output.Add(
-            new ServiceProjectionKey(TemporaryQuarantineGuidHighKey),
+            new ServiceProjectionKey(TemporaryPauseGuidHighKey),
             Integer(BinaryPrimitives.ReadInt64LittleEndian(itemBytes.Slice(8, 8))));
     }
 
     internal static bool TryReadDecision(
         in ServiceStateProjectionSnapshot projection,
         out AutoItemsDecisionKind kind,
-        out Guid quarantinedItem,
-        out AutoItemsTemporaryQuarantineCause quarantineCause)
+        out Guid pausedItem,
+        out AutoItemsTemporaryPauseCause pauseCause)
     {
         var foundKind = false;
-        var quarantineLow = 0L;
-        var quarantineHigh = 0L;
+        var pausedLow = 0L;
+        var pausedHigh = 0L;
         kind = AutoItemsDecisionKind.Disabled;
-        quarantineCause = AutoItemsTemporaryQuarantineCause.None;
+        pauseCause = AutoItemsTemporaryPauseCause.None;
         for (var index = 0; index < projection.Count; index++)
         {
             var entry = projection.GetEntry(index);
@@ -67,28 +67,27 @@ internal static class AutoItemsServiceProjection
             {
                 case DecisionKindKey when entry.Value.Integer is
                     >= (int)AutoItemsDecisionKind.Disabled and
-                    <= (int)AutoItemsDecisionKind.TemporaryItemQuarantined:
+                    <= (int)AutoItemsDecisionKind.TemporaryEffectActive:
                     kind = (AutoItemsDecisionKind)entry.Value.Integer;
                     foundKind = true;
                     break;
-                case TemporaryQuarantineCauseKey when entry.Value.Integer is
-                    >= (int)AutoItemsTemporaryQuarantineCause.None and
-                    <= (int)AutoItemsTemporaryQuarantineCause.MissingEngagementEvidence:
-                    quarantineCause =
-                        (AutoItemsTemporaryQuarantineCause)entry.Value.Integer;
+                case TemporaryPauseCauseKey when entry.Value.Integer is
+                    >= (int)AutoItemsTemporaryPauseCause.None and
+                    <= (int)AutoItemsTemporaryPauseCause.MissingEngagementEvidence:
+                    pauseCause = (AutoItemsTemporaryPauseCause)entry.Value.Integer;
                     break;
-                case TemporaryQuarantineGuidLowKey:
-                    quarantineLow = entry.Value.Integer;
+                case TemporaryPauseGuidLowKey:
+                    pausedLow = entry.Value.Integer;
                     break;
-                case TemporaryQuarantineGuidHighKey:
-                    quarantineHigh = entry.Value.Integer;
+                case TemporaryPauseGuidHighKey:
+                    pausedHigh = entry.Value.Integer;
                     break;
             }
         }
         Span<byte> itemBytes = stackalloc byte[16];
-        BinaryPrimitives.WriteInt64LittleEndian(itemBytes.Slice(0, 8), quarantineLow);
-        BinaryPrimitives.WriteInt64LittleEndian(itemBytes.Slice(8, 8), quarantineHigh);
-        quarantinedItem = new Guid(itemBytes);
+        BinaryPrimitives.WriteInt64LittleEndian(itemBytes.Slice(0, 8), pausedLow);
+        BinaryPrimitives.WriteInt64LittleEndian(itemBytes.Slice(8, 8), pausedHigh);
+        pausedItem = new Guid(itemBytes);
         return foundKind;
     }
 
