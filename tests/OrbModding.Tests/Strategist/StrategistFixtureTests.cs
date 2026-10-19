@@ -56,7 +56,7 @@ public sealed class StrategistFixtureTests
 
     private static StrategistBulletin Derive(string facts)
     {
-        var (parsed, window) = StrategistFactsText.Parse(facts);
+        var (parsed, window) = StrategistFactsParser.Parse(facts);
         return StrategistDerivation.Derive(parsed, window);
     }
 
@@ -186,7 +186,7 @@ public sealed class StrategistFixtureTests
         const double harvest = 10d;
         const double growth = 120d;
         const double cycle = harvest + growth;
-        var (facts, _) = StrategistFactsText.Parse(Fixture);
+        var (facts, _) = StrategistFactsParser.Parse(Fixture);
         for (var phase = 0d; phase < cycle; phase += 5d)
         {
             var window = new StrategistIncomeWindow();
@@ -219,7 +219,7 @@ public sealed class StrategistFixtureTests
     {
         var id = Guid.Parse(Mana);
         var window = new StrategistIncomeWindow();
-        var (facts, _) = StrategistFactsText.Parse(Fixture);
+        var (facts, _) = StrategistFactsParser.Parse(Fixture);
         const double required = StrategistIncomeWindow.MinimumSeconds;
 
         window.Observe(1000d, required, new[] { Sample(id, 0d) });
