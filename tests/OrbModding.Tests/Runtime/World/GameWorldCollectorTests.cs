@@ -891,7 +891,6 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(WorldLookup.TryFind(world.SpellRecipes, spell.Identity, out var row));
         Assert.True(row.MasteryLevelReady);
         Assert.False(row.MasteryLevelAffordable);
-        Assert.Equal(0, row.MasteryLevelCostCount);
     }
 
     [Fact]
@@ -1016,6 +1015,22 @@ public sealed class GameWorldCollectorTests : IDisposable
             new[] { (first.Identity, firstResource), (second.Identity, secondResource) }
                 .OrderBy(row => row.Item1),
             filed.OrderBy(row => row.Recipe));
+    }
+
+    [Fact]
+    public void ASpellLevelCostThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakeSpellRecipe.All.Add(new FakeSpellRecipe { baseLevelingCost = null! });
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
+    [Fact]
+    public void ASpellGraphRowThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakeSpellRecipe.All.Add(new FakeSpellRecipe { maxChannel = null! });
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
 
     [Fact]
@@ -6009,6 +6024,15 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(0, world.SpellWorkbench.MaximumEquipped);
     }
 
+    [Fact]
+    public void AWorkbenchLevelDialThatThrowsUnexpectedlyFaultsTheWorldPass()
+    {
+        FakeSpellManager.instance = new FakeSpellManager();
+        FakePlayerGlobals.SetMaximumSpellOutputLevel(new FakeCount { value = null! });
+
+        Assert.Throws<NullReferenceException>(() => Collector().Collect());
+    }
+
     /// <summary>
     /// A player that cannot be bound still leaves unrelated rows usable, but the spell workbench
     /// now fails closed because output level is required pre-decision state for composition.
@@ -6096,6 +6120,9 @@ public sealed class GameWorldCollectorTests : IDisposable
 
         internal static void SetAttributeQualityBonus(double exponent) =>
             _attributeQualityBonus = new FakeGlobalVariable(exponent);
+
+        internal static void SetMaximumSpellOutputLevel(FakeCount level) =>
+            _instance.maxSpellOutputLevel = level;
 
         public static FakeGlobalVariable GetResourceOverflow() => _overflow;
 

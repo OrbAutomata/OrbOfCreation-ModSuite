@@ -299,7 +299,7 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
                 _asInt!(maximumAlchemy));
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return WorldCategoryReport.Missing(
                 Category,
