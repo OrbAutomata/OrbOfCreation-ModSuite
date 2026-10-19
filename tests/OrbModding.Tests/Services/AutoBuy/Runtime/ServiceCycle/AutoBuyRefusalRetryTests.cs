@@ -25,7 +25,6 @@ namespace OrbModding.Tests.Services.AutoBuy.Runtime.ServiceCycle;
 /// </summary>
 public sealed class AutoBuyRefusalRetryTests
 {
-    private const long Epoch = 5;
     private static readonly Guid First = Guid.Parse("11111111-0000-0000-0000-000000000000");
     private static readonly Guid Second = Guid.Parse("22222222-0000-0000-0000-000000000000");
     private static readonly MonotonicDuration InitialBackoff =
@@ -113,7 +112,7 @@ public sealed class AutoBuyRefusalRetryTests
         for (var index = 0; index < 40; index++) harness.PumpWorld();
         var submissionsWhileHeld = purchases.TotalSubmissions;
         purchases.Refusing = false;
-        harness.Runtime.ObserveLifecycle(8, new ConfigGeneration(1));
+        harness.LoadSave();
         harness.PumpWorldsUntil(() => purchases.Commits(First) == 1);
 
         Assert.Equal(FeatureStatusReasonCode.InvariantViolation, heldStatus.Reason.Code);
@@ -145,14 +144,19 @@ public sealed class AutoBuyRefusalRetryTests
             AutoBuyAdmissionTerm.Passed,
             AutoBuyAdmissionTerm.Passed);
 
+    /// <summary>
+    /// The shipping Automata runtime and host around the shipping Auto Buy feature runtime, with only
+    /// the native purchase and queue ports, the clock and the world source standing in for the game.
+    /// </summary>
     private sealed class Harness : IDisposable
     {
         private readonly ServiceCycleRegistry _registry;
         private readonly ServiceRegistration<AutoBuyCycleState, AutoBuyCycleAction> _registration;
-        private readonly SuiteFramePump _pump;
+        private readonly AutomataServiceCycleRuntime _runtime;
         private readonly FeatureStatusRegistry _statuses = new();
         private readonly ThreadSafeTestClock _clock = new(1_000);
         private long _frame = 10;
+        private long _epoch = 7;
         private ulong _generation = 2;
 
         internal Harness(Purchases purchases)
@@ -166,67 +170,81 @@ public sealed class AutoBuyRefusalRetryTests
                     true,
                     FeatureStatusState.NotReady,
                     new FeatureStatusReason(FeatureStatusReasonCode.GameplayNotReady, "not ready"),
-                    7));
+                    _epoch));
             var bundles = new Bundles();
             var responder = new AutoBuyRefusalResponder(Latch, bundles, Errors.Add);
             var actions = new AutoBuyCycleActionAdapter(
                 purchases,
                 new RoomyQueue(),
-                () => Epoch,
+                () => _epoch,
                 () => AutoBuyCandidateKinds.All,
                 responder);
-            _registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7), _clock);
-            _registry.ConfigurationPublication.Publish(Configuration());
+            _registry = new ServiceCycleRegistry(
+                1,
+                Configuration(),
+                new ConfigGeneration(1),
+                new LifecycleGeneration((ulong)_epoch),
+                _clock);
             _registration = _registry.Register(AutoBuyService.Define(actions, Latch));
-            _registry.WorldPublication.Publish(World(firstUnlocked: true), new WorldGeneration(_generation));
-            _registry.Seal();
-            _pump = new SuiteFramePump(_registry);
-            Runtime = new AutoBuyFeatureRuntime(
+            _registry.WorldPublication.Publish(World(_epoch, firstUnlocked: true, firstAffordable: true), new WorldGeneration(_generation));
+            var feature = new AutoBuyFeatureRuntime(
                 new AutoBuyFeatureDependencies(
-                    () => Epoch,
+                    () => _epoch,
                     () => AutoBuyCandidateKinds.All,
                     runtimeDiagnostics: null,
                     Status,
                     bundles,
                     Errors.Add),
                 _registration,
-                7,
+                _epoch,
                 new ConfigGeneration(1),
                 actions,
                 Latch);
-            Runtime.ActivateDiagnostics();
+            _runtime = new AutomataServiceCycleRuntime(
+                () => _epoch,
+                _registry.Configuration,
+                new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null),
+                new IAutomataServiceCycleFeatureRuntime[] { feature },
+                new ConfigGeneration(1),
+                new LifecycleGameActions());
+            feature.ActivateDiagnostics();
         }
 
         internal AutomataFeatureStatusReporter Status { get; }
         internal AutoBuyInvariantLatch Latch { get; } = new();
         internal List<string> Errors { get; } = new();
-        internal AutoBuyFeatureRuntime Runtime { get; }
         internal ServiceRetryGateSnapshot RetryGate => _registration.Runner.Snapshot.RetryGate;
+        internal MonotonicTimestamp Now => _clock.Now;
 
-        internal void PumpWorldsUntil(Func<bool> condition, bool firstUnlocked = true)
+        /// <summary>A save load, reset or prestige: the game reports a new lifecycle and the runtime moves to it.</summary>
+        internal void LoadSave()
+        {
+            _epoch++;
+            _runtime.InvalidateLifecycle();
+        }
+
+        internal void PumpWorldsUntil(Func<bool> condition, bool firstUnlocked = true, bool firstAffordable = true)
         {
             var deadline = Stopwatch.StartNew();
             while (!condition())
             {
-                PumpWorld(firstUnlocked);
+                PumpWorld(firstUnlocked, firstAffordable);
                 if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
                     throw new TimeoutException("Auto Buy did not reach the expected state.");
                 Thread.Yield();
             }
         }
 
-        internal void PumpWorld(bool firstUnlocked = true)
+        internal void PumpWorld(bool firstUnlocked = true, bool firstAffordable = true)
         {
-            _registry.WorldPublication.Publish(World(firstUnlocked), new WorldGeneration(++_generation));
-            var report = _pump.PumpFrame(_frame++);
-            Runtime.ObserveFrame(_pump, in report);
+            _registry.WorldPublication.Publish(World(_epoch, firstUnlocked, firstAffordable), new WorldGeneration(++_generation));
+            _runtime.Tick(0);
             _clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
         }
 
         public void Dispose()
         {
-            _pump.Dispose();
-            _registration.Dispose();
+            _runtime.Dispose();
             _registry.Dispose();
             Status.Dispose();
         }
@@ -297,7 +315,7 @@ public sealed class AutoBuyRefusalRetryTests
     }
 
     /// <summary>Two structures priced at one unit of a resource the player holds plenty of.</summary>
-    private static GameWorldState World(bool firstUnlocked)
+    private static GameWorldState World(long epoch, bool firstUnlocked, bool firstAffordable)
     {
         var structureTypeId = Guid.Parse("33333333-0000-0000-0000-000000000000");
         var listId = Guid.Parse("44444444-0000-0000-0000-000000000000");
@@ -310,7 +328,10 @@ public sealed class AutoBuyRefusalRetryTests
         var structures = new WorldStructure[ids.Length];
         for (var index = 0; index < ids.Length; index++)
         {
-            costs[index] = new WorldPurchaseCost(ids[index], resourceId, new BigDouble(1.0, 0));
+            costs[index] = new WorldPurchaseCost(
+                ids[index],
+                resourceId,
+                index == 0 && !firstAffordable ? new BigDouble(1.0, 9) : new BigDouble(1.0, 0));
             relations[index] = new WorldPurchaseViewRelation(
                 ids[index],
                 WorldPurchaseCandidateKind.Structure,
@@ -326,7 +347,7 @@ public sealed class AutoBuyRefusalRetryTests
         }
         return new GameWorldState
         {
-            CollectedAtEpoch = Epoch,
+            CollectedAtEpoch = epoch,
             Structures = WorldTable.Create(structures),
             Views = WorldTable.Create(new[] { new WorldView(viewId, false, false, true) }),
             PurchaseViewRelations = PublicationTable<WorldPurchaseViewRelation>.Create(relations, relations.Length),
