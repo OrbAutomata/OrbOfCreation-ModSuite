@@ -271,7 +271,6 @@ public sealed class AutoCastCycleEvaluatorTests
         var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
         Assert.Equal(0, Assert.Single(Plan(world, Config(), ref state, out _, out var first)).SlotIndex);
         Assert.Equal(3, first.EligibleSlots);
-        Assert.Equal(2, first.Exclusions.Outranked);
 
         Assert.Equal(1, Assert.Single(Plan(world, Config(), ref state, out _)).SlotIndex);
         Assert.Equal(2, Assert.Single(Plan(world, Config(), ref state, out _)).SlotIndex);
@@ -477,7 +476,7 @@ public sealed class AutoCastCycleEvaluatorTests
         Assert.Equal(5, metrics.CapturedSlots);
         Assert.Equal(
             metrics.CapturedSlots,
-            metrics.PlannedActions + metrics.Exclusions.Total);
+            metrics.EligibleSlots + metrics.Exclusions.Total);
     }
 
     private static AutoCastCycleState HoldingEmberInSlotZero()
@@ -649,7 +648,8 @@ public sealed class AutoCastCycleEvaluatorTests
         var store = new ReusableActionStore<AutoCastCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoCastCycleAction>(store);
-        wake = AutoCastCycleEvaluator.Evaluate(world, in config, ref state, writer, out metrics);
+        wake = AutoCastCycleEvaluator.Evaluate(
+            world, in config, ref state, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<AutoCastCycleAction>(store.Count);
         while (!store.IsComplete)

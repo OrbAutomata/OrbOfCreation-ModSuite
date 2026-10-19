@@ -83,7 +83,8 @@ retries.
   room, Bulk Development count, rising costs, Single/All capability, and
   queued-versus-completed unlock state.
 - **Auto Cast:** resource deduction, charge hold/release, targets, manual pause,
-  and audited fire evidence.
+  audited fire evidence, and a faulted cast backing off only that spell while
+  the rest of the loadout keeps casting.
 - **Auto Concept:** breadth, depth, rotation, training, manual preservation,
   drain rollback, mastery limits, and assignment settlement.
 - **Auto Items:** Scroll, Relic, and explicitly approved temporary items;

@@ -35,7 +35,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
         SpellManager.instance!.activeSpells.value.Add(
             new Spell(recipe) { NativeReadyingCast = true });
         SpellManager.NativeCanCast = false;
-        using var adapter = new AutoCastNativeAdapter();
+        var adapter = new AutoCastNativeAdapter();
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
 
@@ -50,7 +50,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     {
         var recipe = Recipe(Block(Request(new UnreadableSelection())));
         var spell = Equip(recipe);
-        using var adapter = new AutoCastNativeAdapter();
+        var adapter = new AutoCastNativeAdapter();
 
         Assert.Throws<InvalidCastException>(() => adapter.Fire(0, RecipeId, holdFullCharge: false));
         Assert.Equal(0, spell.FireCalls);
@@ -61,7 +61,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     {
         var spell = Equip(Recipe());
         TargetingManager.IsTargetingFault = new NullReferenceException("injected targeting read failure");
-        using var adapter = new AutoCastNativeAdapter();
+        var adapter = new AutoCastNativeAdapter();
 
         Assert.Throws<NullReferenceException>(() => adapter.Fire(0, RecipeId, holdFullCharge: false));
         Assert.Equal(0, spell.FireCalls);
@@ -74,7 +74,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
         {
             SpellManager.instance = new SpellManager();
             var spell = Equip(Recipe());
-            using var adapter = new AutoCastNativeAdapter(resolveType: null, includeContract: id => id != missing);
+            var adapter = new AutoCastNativeAdapter(resolveType: null, includeContract: id => id != missing);
 
             foreach (var submission in new[]
                      {
@@ -101,7 +101,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     public void A_battle_member_the_game_lacks_disables_casting_at_bind_time()
     {
         var spell = Equip(Recipe());
-        using var adapter = new AutoCastNativeAdapter(
+        var adapter = new AutoCastNativeAdapter(
             resolveType: null, includeContract: id => id != "ritual-lifecycle.battle-active-action");
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
@@ -122,7 +122,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
         spell.RequestsOnFire = 1;
         var target = new Target();
         TargetingManager.AvailableTarget = target;
-        using var adapter = new AutoCastNativeAdapter(DecoyTargetingTypes, includeContract: null);
+        var adapter = new AutoCastNativeAdapter(DecoyTargetingTypes, includeContract: null);
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
 
@@ -143,7 +143,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
         var offered = new Target();
         TargetingManager.AvailableTarget = offered;
         DecoyTargetingManager.HandOutDerivedLinks = true;
-        using var adapter = new AutoCastNativeAdapter(DecoyTargetingTypes, includeContract: null);
+        var adapter = new AutoCastNativeAdapter(DecoyTargetingTypes, includeContract: null);
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
 
@@ -164,7 +164,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     public void The_target_preflight_answers_every_effect_shape_as_before(string shape, bool casts)
     {
         var spell = Equip(EffectShape(shape));
-        using var adapter = new AutoCastNativeAdapter();
+        var adapter = new AutoCastNativeAdapter();
 
         var submission = adapter.Fire(0, RecipeId, holdFullCharge: false);
 

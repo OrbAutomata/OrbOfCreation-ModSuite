@@ -13,12 +13,21 @@ internal sealed class ServiceRetryEpisodeNarrator
 {
     private readonly string _feature;
     private readonly Action<string> _warn;
+    private readonly Func<ServiceRetryTarget, string> _describe;
 
-    internal ServiceRetryEpisodeNarrator(string feature, Action<string> warn)
+    /// <param name="describe">
+    /// Names a target in a sentence; a service whose targets take several action kinds says which.
+    /// The entity's identity alone when omitted.
+    /// </param>
+    internal ServiceRetryEpisodeNarrator(
+        string feature,
+        Action<string> warn,
+        Func<ServiceRetryTarget, string>? describe = null)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("The feature name is required.", nameof(feature));
         _feature = feature;
         _warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        _describe = describe ?? (static target => EntityIdentityFormatter.Format(target.Id));
     }
 
     internal ServiceRetryGateSnapshot Current { get; private set; } = ServiceRetryGateSnapshot.Empty;
@@ -50,7 +59,7 @@ internal sealed class ServiceRetryEpisodeNarrator
             var previous = Current[index];
             if (!previous.IsQuiet && !gate.TryFind(previous.Target, out _))
                 _warn(
-                    $"{_feature} stops backing off {EntityIdentityFormatter.Format(previous.Target.Id)} after " +
+                    $"{_feature} stops backing off {_describe(previous.Target)} after " +
                     $"{Attempts(previous.ConsecutiveFailures)}.");
         }
         for (var index = 0; index < gate.Count; index++)
@@ -60,7 +69,7 @@ internal sealed class ServiceRetryEpisodeNarrator
                 Current.TryFind(entry.Target, out var previous) && !previous.IsQuiet)
                 continue;
             _warn(
-                $"{_feature} backs off {EntityIdentityFormatter.Format(entry.Target.Id)} after " +
+                $"{_feature} backs off {_describe(entry.Target)} after " +
                 $"{Attempts(entry.ConsecutiveFailures)} and tries again in " +
                 $"{entry.Backoff.ToTimeSpan().TotalSeconds.ToString("0.##", CultureInfo.InvariantCulture)} s: " +
                 entry.Reason);

@@ -148,7 +148,7 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            failureReason = RootMessage(exception);
+            failureReason = Logged("the action threw before it reported an outcome.", exception);
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
     }
@@ -170,17 +170,12 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            failureReason = RootMessage(exception);
+            failureReason = Logged("describing the action threw.", exception);
             return ServiceActionJournalAttribution.Failed;
         }
     }
 
-    private static string RootMessage(Exception exception)
-    {
-        var root = exception.GetBaseException();
-        return string.IsNullOrWhiteSpace(root.Message)
-            ? root.GetType().FullName ?? root.GetType().Name
-            : root.Message;
-    }
+    private string Logged(string sentence, Exception exception) =>
+        GameActionFaultLog.Reason(sentence, exception, _runtime.Definition.ServiceId.Value).Text;
 
 }

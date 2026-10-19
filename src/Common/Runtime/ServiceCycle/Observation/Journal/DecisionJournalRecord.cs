@@ -125,7 +125,7 @@ internal readonly struct DecisionJournalRecord
 
     internal static DecisionJournalRecord Decision(in DecisionJournalObservation observation)
     {
-        // Schema 3 deliberately compacts a cycle to one lossy outcome sentinel. Priority is fault,
+        // The journal deliberately compacts a cycle to one lossy outcome sentinel. Priority is fault,
         // then terminal batch, capture, and start; any lower-priority outcome is unrecoverable.
         var fault = observation.Fault;
         var outcomeKind = DecisionJournalDecisionOutcomeKind.None;

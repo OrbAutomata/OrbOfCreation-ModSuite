@@ -173,7 +173,8 @@ public sealed class ProductionSourceAuditTests
 
     /// <summary>
     /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
-    /// transport, every feature's GameAction, and the plugin that answers with them.
+    /// transport, every feature's GameAction, the shared service-cycle runtime, and the plugin that
+    /// answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -185,7 +186,9 @@ public sealed class ProductionSourceAuditTests
     /// thirty-four that used to, and only a sweep tells the two apart. Enumerating
     /// <c>*GameAction.cs</c> alone was too narrow to say that: it left
     /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
-    /// tooltip words a caller reads, so the roots are the whole transport.
+    /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
+    /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
+    /// reason, which every narrating feature prints in its status.
     /// </para>
     /// <para>
     /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
@@ -269,6 +272,7 @@ public sealed class ProductionSourceAuditTests
         var candidates = new List<string>();
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
         candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
