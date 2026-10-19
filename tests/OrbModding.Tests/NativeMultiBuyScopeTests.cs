@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -10,12 +11,14 @@ using Xunit;
 namespace OrbModding.Tests;
 
 [Trait("Category", "AutoBuyReliability")]
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class NativeMultiBuyScopeTests : IDisposable
 {
     private static readonly MonotonicDuration FirstRetry = MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
     private static readonly MonotonicDuration OneTick = new(1);
     private readonly VirtualMonotonicClock _clock = new();
     private readonly List<string> _logged = new();
+    private readonly List<string> _faults = new();
 
     public NativeMultiBuyScopeTests()
     {
@@ -260,6 +263,90 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
         AssertEntersAndRestores(4);
     }
 
+    [Fact]
+    public void AnEntrySetterThrowWhoseRestoreFailsLogsTheEntrysOwnException()
+    {
+        LogFaults();
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 1;
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 7;
+
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        var fault = FaultNamedBy(Assert.Single(_logged));
+        Assert.Contains("setter rejected 1 after write", fault, StringComparison.Ordinal);
+        Assert.Contains("setter rejected 7 before write", fault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARefusedEntryWhoseRestoreRecoveredLogsTheRestoreSettersException()
+    {
+        LogFaults();
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 1;
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 7;
+
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        var fault = FaultNamedBy(Assert.Single(_logged));
+        Assert.Contains("setter rejected 1 before write", fault, StringComparison.Ordinal);
+        Assert.Contains("setter rejected 7 after write", fault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnUnexpectedEntryThrowWhoseRestoreRecoveredLogsTheRestoreSettersException()
+    {
+        LogFaults();
+        GlobalVariables.MultiBuy.SetFailure = message => message.Contains(" 1 ", StringComparison.Ordinal)
+            ? new NullReferenceException(message)
+            : new InvalidOperationException(message);
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = 1;
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 7;
+
+        Assert.Throws<NullReferenceException>(() => NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.Equal(7, GlobalVariables.MultiBuy.Value);
+        var fault = FaultNamedBy(Assert.Single(_logged));
+        Assert.Contains("setter rejected 7 after write", fault, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARetryWhoseSetterThrewButVerifiedLogsThatException()
+    {
+        FailTheRestore();
+        LogFaults();
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = null;
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = 7;
+        _clock.Advance(FirstRetry);
+
+        Assert.True(NativeMultiBuyScope.TryEnterOne(out var scope, out var reason), reason);
+        GlobalVariables.MultiBuy.ThrowAfterWriteFor = null;
+        scope.Dispose();
+
+        var retried = Assert.Single(_logged);
+        Assert.Contains("restoration setter threw but value 7 was verified", retried, StringComparison.Ordinal);
+        Assert.Contains("setter rejected 7 after write", FaultNamedBy(retried), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowReadingTheSettingForARetryEscapesAndTheRetryStillWaits()
+    {
+        FailTheRestore();
+        GlobalVariables.MultiBuy.ThrowBeforeWriteFor = null;
+        GlobalVariables.MultiBuy.ReadFailure = new NullReferenceException("injected read failure");
+        GlobalVariables.MultiBuy.ReadFailureWhileValueIs = 1;
+        _clock.Advance(FirstRetry);
+
+        Assert.Throws<NullReferenceException>(() => NativeMultiBuyScope.TryEnterOne(out _, out _));
+
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out var reason));
+        Assert.Contains("restoration to 7 is outstanding", reason, StringComparison.Ordinal);
+        GlobalVariables.MultiBuy.ReadFailure = null;
+        _clock.Advance(FirstRetry);
+        Assert.False(NativeMultiBuyScope.TryEnterOne(out _, out _));
+        _clock.Advance(FirstRetry);
+        AssertEntersAndRestores(7);
+    }
+
     public static IEnumerable<object[]> ContractIds() =>
         NativeMultiBuyBindings.ContractIds.Select(id => new object[] { id });
 
@@ -279,9 +366,24 @@ public sealed class NativeMultiBuyScopeTests : IDisposable
 
     public void Dispose()
     {
+        GameActionFaultLog.ConfigureLog(null);
         NativeMultiBuyScope.ConfigureFailureLog(null);
         GlobalVariables.MultiBuy = new IntVariable();
         NativeMultiBuyScope.ResetForTests();
+    }
+
+    private void LogFaults()
+    {
+        _logged.Clear();
+        NativeMultiBuyScope.ConfigureFailureLog(_logged.Add);
+        GameActionFaultLog.ConfigureLog(_faults.Add);
+    }
+
+    private string FaultNamedBy(string line)
+    {
+        var reference = Regex.Match(line, "MCP-[0-9A-F]{8}");
+        Assert.True(reference.Success, line);
+        return Assert.Single(_faults, fault => fault.Contains(reference.Value, StringComparison.Ordinal));
     }
 
     private static void FailTheRestore()
