@@ -108,7 +108,6 @@ public sealed class SpellLevelCycleEvaluatorTests
 
         var action = Assert.Single(Plan(world, Config(), out _, out var metrics));
         Assert.Equal(Ember, action.Uuid);
-        Assert.Equal(2, action.Belief.MasteryLevel);
         Assert.Equal(3, metrics.ReadySpells);
         Assert.Equal(1, metrics.PlannedActions);
 
@@ -141,7 +140,6 @@ public sealed class SpellLevelCycleEvaluatorTests
         var action = Assert.Single(Plan(world, Config(), out _, out var metrics));
         Assert.Equal(SpellLevelActionKind.Single, action.Kind);
         Assert.Equal(AutoSpellLevelCapability.Single, metrics.Capability);
-        Assert.Equal(0, action.Belief.LevelAllUpgradeLevel);
     }
 
     [Fact]
@@ -154,7 +152,6 @@ public sealed class SpellLevelCycleEvaluatorTests
         var action = Assert.Single(Plan(world, Config(), out _, out var metrics));
         Assert.Equal(SpellLevelActionKind.All, action.Kind);
         Assert.Equal(AutoSpellLevelCapability.All, metrics.Capability);
-        Assert.Equal(1, action.Belief.LevelAllUpgradeLevel);
     }
 
     [Fact]

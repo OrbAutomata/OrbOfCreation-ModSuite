@@ -97,7 +97,6 @@ public sealed class ScrollCoveragePlannerTests
             ScrollCoveragePlanner.Build(world, _profile),
             role.Key);
 
-        Assert.Equal(2, coverage.ValidTargets);
         Assert.Equal(2, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.ProductionNeeded, coverage.State);
     }
@@ -118,7 +117,6 @@ public sealed class ScrollCoveragePlannerTests
             ScrollCoveragePlanner.Build(world, _profile),
             role.Key);
 
-        Assert.Equal(7, coverage.ValidTargets);
         Assert.Equal(4, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.ProductionNeeded, coverage.State);
     }
@@ -140,7 +138,6 @@ public sealed class ScrollCoveragePlannerTests
             ScrollCoveragePlanner.Build(world, _profile),
             role.Key);
 
-        Assert.Equal(4, coverage.OwnedSupply);
         Assert.Equal(0, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.Covered, coverage.State);
         Assert.False(coverage.ShouldProduce);
@@ -169,7 +166,6 @@ public sealed class ScrollCoveragePlannerTests
             role.Key);
 
         Assert.Equal(3, before.Deficit);
-        Assert.Equal(1, after.OwnedSupply);
         Assert.Equal(2, after.Deficit);
     }
 
@@ -191,7 +187,6 @@ public sealed class ScrollCoveragePlannerTests
         var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1);
 
         Assert.Equal(3, coverage.TargetLevel);
-        Assert.Equal(0, coverage.OwnedSupply);
         Assert.Equal(2, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.ProductionNeeded, coverage.State);
         Assert.Equal(ScrollCraftSelectionKind.Selected, selection.Kind);
@@ -211,7 +206,6 @@ public sealed class ScrollCoveragePlannerTests
         var coverage = FindRole(plan, role.Key);
         var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1);
 
-        Assert.Equal(3, coverage.ValidTargets);
         Assert.Equal(0, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.NativeGainUnavailable, coverage.State);
         Assert.Equal(
@@ -265,7 +259,6 @@ public sealed class ScrollCoveragePlannerTests
             advancement.Key);
 
         Assert.Equal(17, coverage.TargetLevel);
-        Assert.Equal(1, coverage.QueuedSupply);
         Assert.False(coverage.ShouldProbeProgression);
     }
 

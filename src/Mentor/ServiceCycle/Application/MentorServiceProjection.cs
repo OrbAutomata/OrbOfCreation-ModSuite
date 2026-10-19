@@ -19,9 +19,9 @@ internal static class MentorServiceProjection
             ServiceProjectionValue.FromInteger(state.TotalMissedInputs));
         output.Add(
             new ServiceProjectionKey(PlannedActionsKey),
-            ServiceProjectionValue.FromInteger(state.Decision.PlannedActions));
+            ServiceProjectionValue.FromInteger(state.PlannedActions));
         output.Add(
             new ServiceProjectionKey(RecipientsKey),
-            ServiceProjectionValue.FromInteger(state.Decision.Recipients));
+            ServiceProjectionValue.FromInteger(state.Recipients));
     }
 }

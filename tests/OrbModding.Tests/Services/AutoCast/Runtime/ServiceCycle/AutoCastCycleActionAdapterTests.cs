@@ -567,7 +567,7 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
             slotIndex,
             spellId,
             PlannedEpoch,
-            new AutoCastPlanBelief(true, chargeable, 1, 1, 1),
+            chargeable,
             ritual: ritual);
 
     private static void StartRitual()

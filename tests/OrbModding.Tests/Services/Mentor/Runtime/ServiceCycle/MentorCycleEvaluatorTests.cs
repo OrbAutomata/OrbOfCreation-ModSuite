@@ -28,13 +28,12 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        var actions = Plan(world, Config(), ref state, out var metrics);
+        var actions = Plan(world, Config(), ref state);
 
         var action = Assert.Single(actions);
         Assert.Equal(Lower, action.RecipientId);
         Assert.Equal(new MentorAmount(1, 1), action.Amount);
         Assert.Equal(5, action.MasteryCeilingExclusive);
-        Assert.Equal(3, metrics.Candidates);
     }
 
     [Fact]
@@ -49,7 +48,7 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        var actions = Plan(world, Config(economy: MentorEconomyMode.SharedPool), ref state, out _);
+        var actions = Plan(world, Config(economy: MentorEconomyMode.SharedPool), ref state);
 
         Assert.Equal(2, actions.Count);
         Assert.All(actions, action => Assert.Equal(new MentorAmount(5, 0), action.Amount));
@@ -68,8 +67,7 @@ public sealed class MentorCycleEvaluatorTests
         var actions = Plan(
             world,
             Config(spellPolicy: MentorSpellSourcePolicy.HighestDiscovered),
-            ref state,
-            out _);
+            ref state);
 
         Assert.Empty(actions);
     }
@@ -84,12 +82,12 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        Assert.Empty(Plan(world, Config(), ref state, out _));
+        Assert.Empty(Plan(world, Config(), ref state));
         world = world with
         {
             MasteryExperience = Table(Input(2, MasteryExperienceDomain.Artifact, Source, 5, 100)),
         };
-        Assert.Single(Plan(world, Config(artifacts: true), ref state, out _));
+        Assert.Single(Plan(world, Config(artifacts: true), ref state));
     }
 
     [Fact]
@@ -107,7 +105,7 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        var action = Assert.Single(Plan(world, Config(alchemy: true), ref state, out _));
+        var action = Assert.Single(Plan(world, Config(alchemy: true), ref state));
 
         Assert.Equal(Lower, action.RecipientId);
     }
@@ -123,9 +121,8 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        Assert.Single(Plan(world, Config(), ref state, out var first));
-        Assert.Empty(Plan(world, Config(), ref state, out _));
-        Assert.Equal(2, first.MissedInputs);
+        Assert.Single(Plan(world, Config(), ref state));
+        Assert.Empty(Plan(world, Config(), ref state));
         Assert.Equal(2, state.TotalMissedInputs);
     }
 
@@ -140,7 +137,7 @@ public sealed class MentorCycleEvaluatorTests
         };
         var state = MentorCycleState.Create(new LifecycleGeneration(1));
 
-        var actions = PlanWithWake(world, Config(), ref state, out _, out var wake);
+        var actions = PlanWithWake(world, Config(), ref state, out var wake);
 
         Assert.Empty(actions);
         Assert.Equal(1, state.LastInputSequence);
@@ -190,22 +187,20 @@ public sealed class MentorCycleEvaluatorTests
     private static IReadOnlyList<MentorCycleAction> Plan(
         GameWorldState world,
         SuiteRuntimeConfiguration config,
-        ref MentorCycleState state,
-        out MentorDecisionMetrics metrics) =>
-        PlanWithWake(world, config, ref state, out metrics, out _);
+        ref MentorCycleState state) =>
+        PlanWithWake(world, config, ref state, out _);
 
     private static IReadOnlyList<MentorCycleAction> PlanWithWake(
         GameWorldState world,
         SuiteRuntimeConfiguration config,
         ref MentorCycleState state,
-        out MentorDecisionMetrics metrics,
         out WakePolicy wake)
     {
         var store = new ReusableActionStore<MentorCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<MentorCycleAction>(store);
         wake = MentorCycleEvaluator.Evaluate(
-            world, in config, ref state, writer, out metrics);
+            world, in config, ref state, writer);
         var result = new List<MentorCycleAction>();
         while (!store.IsComplete)
         {

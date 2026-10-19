@@ -26,7 +26,7 @@ internal sealed class MentorWorkerDefinition :
     {
         if (state.Lifecycle != context.Identity.Lifecycle)
             throw new InvalidOperationException("Mentor state belongs to a different lifecycle.");
-        return MentorCycleEvaluator.Evaluate(world, in config, ref state, actions, out _);
+        return MentorCycleEvaluator.Evaluate(world, in config, ref state, actions);
     }
 
     public void ProjectState(

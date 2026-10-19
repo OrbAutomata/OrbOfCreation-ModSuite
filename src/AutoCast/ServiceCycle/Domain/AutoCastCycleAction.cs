@@ -19,17 +19,6 @@ internal enum AutoCastActionKind
     ToggleOff = 2,
 }
 
-/// <summary>
-/// What the planner believed about a slot when it chose it, carried to the boundary so a native
-/// refusal can be read against the snapshot that produced it.
-/// </summary>
-/// <remarks>
-/// The planner sees strictly less than the boundary does. Whether a target exists, whether the native
-/// caster is free, and whether a target request is already open are all live-only facts (W60), so a
-/// refusal on one of them is the design working. A refusal on something the belief recorded — a slot
-/// the plan believed ready that the game says is not — is a capture bug, and the two are only
-/// separable if the belief travels with the action.
-/// </remarks>
 /// <summary>Whether a ritual battle has to be running, or not running, for a planned cast to still be wanted.</summary>
 internal enum AutoCastRitualCondition
 {
@@ -40,35 +29,6 @@ internal enum AutoCastRitualCondition
 
     /// <summary>A channel planned while an attack spell is equipped: during a ritual it would block that attack.</summary>
     OutsideRitual = 2,
-}
-
-internal readonly struct AutoCastPlanBelief
-{
-    public AutoCastPlanBelief(
-        bool castReady,
-        bool chargeable,
-        int currentCharges,
-        int maximumCharges,
-        int eligibleSlots)
-    {
-        CastReady = castReady;
-        Chargeable = chargeable;
-        CurrentCharges = currentCharges;
-        MaximumCharges = maximumCharges;
-        EligibleSlots = eligibleSlots;
-    }
-
-    /// <summary>What the game's own <c>CanCast()</c> said when the world was collected.</summary>
-    public bool CastReady { get; }
-
-    /// <summary>Whether the snapshot showed the spell as holdable at charge.</summary>
-    public bool Chargeable { get; }
-
-    public int CurrentCharges { get; }
-    public int MaximumCharges { get; }
-
-    /// <summary>How many slots cleared every admission term this cycle, of which this was the turn.</summary>
-    public int EligibleSlots { get; }
 }
 
 /// <summary>
@@ -88,17 +48,8 @@ internal readonly struct AutoCastCycleAction
         AutoCastActionKind kind,
         int slotIndex,
         Guid spellRecipeId,
-        long collectedAtEpoch)
-        : this(kind, slotIndex, spellRecipeId, collectedAtEpoch, default)
-    {
-    }
-
-    public AutoCastCycleAction(
-        AutoCastActionKind kind,
-        int slotIndex,
-        Guid spellRecipeId,
         long collectedAtEpoch,
-        AutoCastPlanBelief belief,
+        bool chargeable = false,
         bool chargeHold = false,
         AutoCastRitualCondition ritual = AutoCastRitualCondition.None)
     {
@@ -112,7 +63,7 @@ internal readonly struct AutoCastCycleAction
         SlotIndex = slotIndex;
         SpellRecipeId = spellRecipeId;
         CollectedAtEpoch = collectedAtEpoch;
-        Belief = belief;
+        Chargeable = chargeable;
         ChargeHold = chargeHold;
         Ritual = ritual;
     }
@@ -129,8 +80,8 @@ internal readonly struct AutoCastCycleAction
     /// </summary>
     public Guid SpellRecipeId { get; }
 
-    /// <summary>What the planner believed about the slot when it chose it.</summary>
-    public AutoCastPlanBelief Belief { get; }
+    /// <summary>Whether the snapshot showed the spell as holdable at charge.</summary>
+    public bool Chargeable { get; }
 
     /// <summary>
     /// Whether the caller asked for this fire to be held at charge rather than released at once.
