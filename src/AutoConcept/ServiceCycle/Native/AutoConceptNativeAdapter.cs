@@ -68,6 +68,9 @@ internal sealed class AutoConceptNativeAdapter :
         _registryResolver.IsCurrent(_conceptRecipesResolution) &&
         _contractMismatch is null;
     public int ScopedRecipeCount => _recipes.Count;
+
+    /// <summary>The contract mismatch the game proved this lifecycle, or empty while it proved none.</summary>
+    public string ContractMismatch => _contractMismatch?.Text ?? string.Empty;
     public NativeMutationCallOutcome LastNativeMutationOutcome => _lastNativeMutationOutcome;
 
     public AutoConceptNativeAdapter(
@@ -249,6 +252,8 @@ internal sealed class AutoConceptNativeAdapter :
         if (!TryResolveCandidate(action.RecipeId, out var candidate, out var refusal, out var reason) ||
             candidate is null)
         {
+            if (_contractMismatch is { } mismatch)
+                return AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.ContractUnavailable, mismatch);
             var missing = string.IsNullOrWhiteSpace(reason.Sentence)
                 ? "the planned recipe is no longer in ConceptRecipes"
                 : reason;

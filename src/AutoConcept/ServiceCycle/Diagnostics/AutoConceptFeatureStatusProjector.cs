@@ -28,7 +28,8 @@ internal static class AutoConceptFeatureStatusProjector
         bool owned,
         bool cycleObserved,
         AutoConceptIdle idle = default,
-        ServiceRetryEntry? backingOff = null)
+        ServiceRetryEntry? backingOff = null,
+        string contractMismatch = "")
     {
         var idleReason = idle.Reason;
         if (emergencyDisabled)
@@ -36,6 +37,11 @@ internal static class AutoConceptFeatureStatusProjector
                 FeatureStatusState.TemporarilyBlocked,
                 FeatureStatusReasonCode.EmergencyDisabled,
                 "Automata Emergency Disable is active.");
+        if (contractMismatch.Length != 0)
+            return new AutoConceptFeatureStatus(
+                FeatureStatusState.Faulted,
+                FeatureStatusReasonCode.InvariantViolation,
+                contractMismatch);
         if (!owned)
             return new AutoConceptFeatureStatus(
                 FeatureStatusState.TemporarilyBlocked,

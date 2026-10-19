@@ -77,6 +77,8 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
             return _guard.Fault(ex, in action).ToResult();
         }
 
-        return _guard.Finish(submission.Outcome, in action);
+        return submission.Outcome.Code == AutoConceptActionResultCodes.ContractUnavailable
+            ? _guard.Hold(submission.Outcome, in action)
+            : _guard.Finish(submission.Outcome, in action);
     }
 }

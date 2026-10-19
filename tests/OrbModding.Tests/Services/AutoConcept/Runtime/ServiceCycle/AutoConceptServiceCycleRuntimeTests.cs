@@ -20,16 +20,18 @@ namespace OrbModding.Tests.Services.AutoConcept.Runtime.ServiceCycle;
 
 /// <summary>
 /// A Concept add or remove that did not land backs that Concept's action of that kind off on the
-/// retry gate and hands the turn to the next Concept, and the status says which Concept and why. A commit or a Concept that stops being a candidate
-/// ends the episode. Only a contract mismatch the game proved holds until the next lifecycle; a list
-/// that is empty or unreadable during load is retried. The test clock moves only when a test means
-/// to bring a wait due.
+/// retry gate and hands the turn to the next Concept, and the status says which Concept and why. A
+/// commit or a Concept that stops being a candidate ends the episode. Only a contract mismatch the
+/// game proved faults the feature until the next lifecycle, refusing every action without backing
+/// one off; a list that is empty or unreadable during load is retried. The test clock moves only
+/// when a test means to bring a wait due.
 /// </summary>
 [Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 {
     private static readonly Guid Thought = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid Insight = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid Notion = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly MonotonicDuration FirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250));
     private static readonly MonotonicDuration PastTheServiceWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(300));
     private static readonly MonotonicDuration PastEveryWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(30));
@@ -281,26 +283,35 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
-    public void AProvenConceptContractMismatchHoldsForTheLifecycleAndTheNextOneProbesAgain()
+    public void AProvenConceptContractMismatchFaultsTheFeatureForTheLifecycleAndTheNextOneProbesAgain()
     {
+        const string held = "until the next scene or load";
         var thought = Concept(Thought, "Thought");
+        var notion = Concept(Notion, "Notion");
         var impostor = new AlchemyRecipeSO(
             Insight.ToString("D"), "Impostor", new[] { new AlchemyTypeSO("ordinary-alchemy") });
-        using var harness = new Harness(thought);
+        using var harness = new Harness(thought, notion);
         harness.Recipes.value = new List<AlchemyRecipeSO> { impostor };
 
-        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Faulted);
         var status = harness.Status.Current;
-        harness.Recipes.value = new List<AlchemyRecipeSO> { thought };
+        harness.Recipes.value = new List<AlchemyRecipeSO> { thought, notion };
         harness.Advance(PastEveryWait);
-        harness.PumpWorldsUntil(() => harness.RetryGate.Latest.ConsecutiveFailures == 2);
-        var heldAfterTheWait = harness.Queued(thought);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        var heldAfterTheWait = harness.Queued(thought) + harness.Queued(notion);
+        var gateWhileHeld = harness.RetryGate.Count;
+        var stateWhileHeld = harness.Status.Current.State;
         harness.ReplaceLifecycle();
-        harness.PumpWorldsUntil(() => harness.Queued(thought) == 1);
+        harness.PumpWorldsUntil(() => harness.Queued(thought) == 1 && harness.Queued(notion) == 1);
         harness.PumpUntilTheNewestWorldIsEvaluated();
 
-        Assert.Contains("until the next scene or load", status.Reason.Summary);
+        Assert.Equal(FeatureStatusReasonCode.InvariantViolation, status.Reason.Code);
+        Assert.Contains(held, status.Reason.Summary);
         Assert.Equal(0, heldAfterTheWait);
+        Assert.Equal(0, gateWhileHeld);
+        Assert.Equal(FeatureStatusState.Faulted, stateWhileHeld);
+        Assert.Single(harness.Warnings, warning => warning.Contains(held, StringComparison.Ordinal));
         Assert.Equal(0, harness.RetryGate.Count);
         Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
     }

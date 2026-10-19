@@ -9,7 +9,8 @@ namespace OrbAutomata;
 /// <summary>
 /// Projects Auto Concept's service evidence onto its feature status. A Concept action backing off on
 /// the service's retry gate is narrated here and keeps the feature Degraded, naming the Concept, what
-/// the service was doing with it and why, until its episode ends.
+/// the service was doing with it and why, until its episode ends. A contract mismatch the game
+/// proved faults the feature ahead of any back-off until the next lifecycle.
 /// </summary>
 internal sealed class AutoConceptServiceCycleDiagnosticsBridge
 {
@@ -21,6 +22,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
     private bool _owned;
     private bool _cycleObserved;
     private AutoConceptIdle _idle;
+    private string _contractMismatch = string.Empty;
 
     internal AutoConceptServiceCycleDiagnosticsBridge(
         long lifecycle,
@@ -38,11 +40,13 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         Publish();
     }
 
-    internal void Observe(SuiteFramePump pump, in SuiteFramePumpReport report, bool owned)
+    internal void Observe(SuiteFramePump pump, in SuiteFramePumpReport report, bool owned, string contractMismatch)
     {
-        var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged || _owned != owned;
+        var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged || _owned != owned ||
+                      !string.Equals(_contractMismatch, contractMismatch, StringComparison.Ordinal);
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
+        _contractMismatch = contractMismatch;
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId)
             : null;
@@ -75,6 +79,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         _configurationGeneration = configurationGeneration;
         _owned = owned;
         _retries.InvalidateLifecycle();
+        _contractMismatch = string.Empty;
         _cycleObserved = false;
         _idle = default;
         Publish();
@@ -87,7 +92,8 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             _owned,
             _cycleObserved,
             _idle,
-            _retries.TryGetBackingOff(out var retry) ? retry : null);
+            _retries.TryGetBackingOff(out var retry) ? retry : null,
+            _contractMismatch);
         _featureStatus.ObserveRuntimeLifecycle(
             status.State,
             status.Reason,
