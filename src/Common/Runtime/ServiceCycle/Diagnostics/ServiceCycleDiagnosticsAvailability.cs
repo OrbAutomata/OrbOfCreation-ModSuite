@@ -1,19 +1,5 @@
 namespace OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 
-public enum ServiceCycleDiagnosticsAvailability
-{
-    Available = 1,
-    HandoffContended = 2,
-    NoCurrentRunner = 3,
-    Disposed = 4,
-}
-
-public enum ServiceCycleDiagnosticsValueAvailability
-{
-    NotAvailable = 0,
-    Available = 1,
-}
-
 public enum ServiceCycleEvaluationTimingAvailability
 {
     NotAvailable = 0,
@@ -29,12 +15,6 @@ public enum ServiceCycleStorageDiagnosticsAvailability
     HandoffContended = 3,
 }
 
-public enum ServiceCycleLifecycleEvidenceKind
-{
-    Current = 1,
-    RetainedAtDisposal = 2,
-}
-
 public enum ServiceCycleOperationalPhase
 {
     Idle = 1,
@@ -44,9 +24,6 @@ public enum ServiceCycleOperationalPhase
     RetryBackoff = 5,
     EmergencyStopped = 6,
     Faulted = 7,
-    Orphaned = 8,
-    Disposed = 9,
-    Unavailable = 10,
 }
 
 /// <summary>Neutral public projection of the internal half-duplex handoff phase.</summary>

@@ -53,20 +53,22 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
             Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
         ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
 
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        Assert.Equal(ServiceCycleOperationalPhase.Idle, buffer[0].Phase);
-        Assert.False(buffer[0].ActiveBatch.IsPresent);
-        Assert.Equal(ServiceCycleStorageDiagnosticsAvailability.Exact, buffer[0].Storage.Availability);
-        Assert.True(buffer[0].Storage.Capacity >= 5);
-        Assert.Equal(5, buffer[0].Storage.HighWater);
-        Assert.Equal(buffer[0].Storage.Capacity, buffer[0].Storage.RetainedSlots);
+        var id = new ServiceId("diagnostics.storage");
+        var idle = AvailableServiceDiagnostics.Await(pump, id);
+        Assert.Equal(ServiceCycleOperationalPhase.Idle, idle.Phase);
+        Assert.False(idle.ActiveBatch.IsPresent);
+        Assert.Equal(ServiceCycleStorageDiagnosticsAvailability.Exact, idle.Storage.Availability);
+        Assert.True(idle.Storage.Capacity >= 5);
+        Assert.Equal(5, idle.Storage.HighWater);
+        Assert.Equal(idle.Storage.Capacity, idle.Storage.RetainedSlots);
 
         Assert.True(pump.RequestLifecycleReplacement(new LifecycleGeneration(2)));
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var retired = buffer[0].Lifecycle.Position0.Lifecycle == new LifecycleGeneration(1)
-            ? buffer[0].Lifecycle.Position0
-            : buffer[0].Lifecycle.Position1;
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump, ref frame, () => ServiceCycleDiagnostics.ReadAvailableService(pump, id) is not null);
+        var replaced = AvailableServiceDiagnostics.Await(pump, id);
+        var retired = replaced.Lifecycle.Position0.Lifecycle == new LifecycleGeneration(1)
+            ? replaced.Lifecycle.Position0
+            : replaced.Lifecycle.Position1;
         Assert.Equal(ServiceRunnerPositionState.Retiring, retired.State);
         Assert.True(retired.Storage.HasEvidence);
         Assert.True(retired.Storage.Capacity >= 5);
@@ -104,9 +106,7 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
         ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
 
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var snapshot = buffer[0];
+        var snapshot = AvailableServiceDiagnostics.Await(pump, new ServiceId("diagnostics.timing"));
         Assert.Equal(ServiceCycleOperationalPhase.Idle, snapshot.Phase);
         Assert.True(snapshot.LastStartDecision.IsPresent);
         Assert.True(snapshot.LastStartDecision.Decision.ShouldStart);
@@ -140,21 +140,19 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
+        var id = new ServiceId("diagnostics.operational");
 
         var frame = TestWorldCollector.ActivationFrame + 1;
         ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
         ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        Assert.Equal(ServiceCycleOperationalPhase.RetryBackoff, buffer[0].Phase);
+        var backingOff = AvailableServiceDiagnostics.Await(pump, id);
+        Assert.Equal(ServiceCycleOperationalPhase.RetryBackoff, backingOff.Phase);
 
-        clock.AdvanceTo(buffer[0].NextWakeDue);
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        Assert.Equal(ServiceCycleOperationalPhase.Faulted, buffer[0].Phase);
+        clock.AdvanceTo(backingOff.NextWakeDue);
+        Assert.Equal(ServiceCycleOperationalPhase.Faulted, AvailableServiceDiagnostics.Await(pump, id).Phase);
 
         pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        Assert.Equal(ServiceCycleOperationalPhase.EmergencyStopped, buffer[0].Phase);
+        Assert.Equal(ServiceCycleOperationalPhase.EmergencyStopped, AvailableServiceDiagnostics.Await(pump, id).Phase);
     }
 
     [Fact]
@@ -251,8 +249,7 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         Assert.True(pump.RequestLifecycleReplacement(new LifecycleGeneration(2)));
         Assert.True(SpinWait.SpinUntil(() => oldRunner.WorkerExitPrepared, ServiceCycleTestDeadline.Value));
         Assert.Equal(ServiceHandoffPhase.Stopping, oldRunner.DiagnosticsHandoffPhaseHint);
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
+        ServiceCycleDiagnostics.ReadAvailableService(pump, new ServiceId("diagnostics.exit"));
 
         Assert.Equal(ServiceHandoffPhase.Stopping, oldRunner.DiagnosticsHandoffPhaseHint);
         Assert.True(oldRunner.TryAcknowledgeWorkerExit());

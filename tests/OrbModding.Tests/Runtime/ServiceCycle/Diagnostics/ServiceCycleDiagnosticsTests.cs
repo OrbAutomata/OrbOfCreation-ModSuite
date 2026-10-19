@@ -19,7 +19,7 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.Diagnostics;
 public sealed class ServiceCycleDiagnosticsTests
 {
     [Fact]
-    public void CallerBufferReportsExactCapacityOrderAndUnavailableSlots()
+    public void AReadFindsTheNamedServiceAndHasNothingForAReleasedOrUnknownOne()
     {
         using var registry = new ServiceCycleRegistry(3);
         using var first = registry.Register(
@@ -34,42 +34,19 @@ public sealed class ServiceCycleDiagnosticsTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var beforeDisposal = new ServiceCycleServiceDiagnosticsSnapshot[3];
-        ServiceCycleDiagnostics.CopyServices(pump, beforeDisposal);
-        var secondInstance = beforeDisposal[1].RegistrationInstance;
+        var secondId = new ServiceId("diagnostics.order.b");
+        var beforeRelease = AvailableServiceDiagnostics.Await(pump, secondId);
 
         second.Dispose();
-        var completeBuffer = new ServiceCycleServiceDiagnosticsSnapshot[3];
-        var complete = ServiceCycleDiagnostics.CopyServices(pump, completeBuffer);
+        var thirdRead = AvailableServiceDiagnostics.Await(pump, new ServiceId("diagnostics.order.c"));
 
-        Assert.Equal(3, complete.RequiredCount);
-        Assert.Equal(3, complete.WrittenCount);
-        Assert.Equal(1, complete.UnavailableCount);
-        Assert.True(complete.IsComplete);
-        Assert.Equal(new[] { 0, 1, 2 }, completeBuffer.Select(snapshot => snapshot.Ordinal));
-        Assert.Equal(
-            new[] { "diagnostics.order.a", "diagnostics.order.b", "diagnostics.order.c" },
-            completeBuffer.Select(snapshot => snapshot.ServiceId.Value));
-        Assert.Equal(ServiceCycleDiagnosticsAvailability.Disposed, completeBuffer[1].Availability);
-        Assert.Equal(ServiceCycleOperationalPhase.Disposed, completeBuffer[1].Phase);
-        Assert.True(completeBuffer[1].Lifecycle.IsHistorical);
-        Assert.Equal(secondInstance, completeBuffer[1].RegistrationInstance);
-        Assert.Equal(ServiceRunnerPositionState.Retiring, completeBuffer[1].Lifecycle.Position0.State);
-
-        var shortBuffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        var shortCopy = ServiceCycleDiagnostics.CopyServices(pump, shortBuffer);
-        Assert.Equal(3, shortCopy.RequiredCount);
-        Assert.Equal(1, shortCopy.WrittenCount);
-        Assert.Equal(1, shortCopy.UnavailableCount);
-        Assert.False(shortCopy.IsComplete);
-        Assert.Equal(0, shortBuffer[0].Ordinal);
-
-        var empty = ServiceCycleDiagnostics.CopyServices(
-            pump,
-            Span<ServiceCycleServiceDiagnosticsSnapshot>.Empty);
-        Assert.Equal(3, empty.RequiredCount);
-        Assert.Equal(0, empty.WrittenCount);
-        Assert.Equal(1, empty.UnavailableCount);
+        Assert.Equal(1, beforeRelease.Ordinal);
+        Assert.Equal(secondId, beforeRelease.ServiceId);
+        Assert.Null(ServiceCycleDiagnostics.ReadAvailableService(pump, secondId));
+        Assert.Null(ServiceCycleDiagnostics.ReadAvailableService(pump, new ServiceId("diagnostics.order.missing")));
+        Assert.Equal(2, thirdRead.Ordinal);
+        Assert.Equal("diagnostics.order.c", thirdRead.ServiceId.Value);
+        Assert.NotEqual(beforeRelease.RegistrationInstance, thirdRead.RegistrationInstance);
     }
 
     [Fact]
@@ -99,24 +76,14 @@ public sealed class ServiceCycleDiagnosticsTests
             Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
             registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
 
-            var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-            var copy = ServiceCycleDiagnostics.CopyServices(pump, buffer);
-            var snapshot = buffer[0];
+            var snapshot = AvailableServiceDiagnostics.Await(pump, new ServiceId("diagnostics.context"));
 
-            Assert.True(copy.IsComplete);
-            Assert.Equal(ServiceCycleDiagnosticsAvailability.Available, snapshot.Availability);
             Assert.Equal(ServiceCycleOperationalPhase.Evaluating, snapshot.Phase);
             Assert.Equal(ServiceCycleHandoffDiagnosticsPhase.Evaluating, snapshot.Handoff.Phase);
             Assert.True(snapshot.Context.HasCurrentCycle);
             Assert.Equal((ulong)1, snapshot.Context.CurrentCycle.Config.Value);
             Assert.Equal((ulong)1, snapshot.Context.CurrentCycle.Strategy.Value);
             Assert.Equal((ulong)2, snapshot.Context.LatestConfiguration.Value);
-            Assert.Equal(
-                ServiceCycleDiagnosticsValueAvailability.Available,
-                snapshot.Context.LatestConfigurationAvailability);
-            Assert.Equal(
-                ServiceCycleDiagnosticsValueAvailability.Available,
-                snapshot.Context.LatestStrategyAvailability);
             Assert.Equal(1UL, snapshot.Context.LatestStrategy.Value);
             Assert.True(snapshot.Worker.IsBackground);
             Assert.True(snapshot.Worker.ThreadId > 0);
@@ -132,7 +99,7 @@ public sealed class ServiceCycleDiagnosticsTests
 
     [Fact]
     [Trait("Category", "PerformanceSimulation")]
-    public void ProjectionIsNonBlockingUnderHandoffContentionAndAllocatesNothingAfterWarmup()
+    public void AReadUnderHandoffContentionHasNothingWithoutBlockingAndNoReadAllocatesAfterWarmup()
     {
         using var registry = new ServiceCycleRegistry(1);
         using var registration = registry.Register(
@@ -141,40 +108,31 @@ public sealed class ServiceCycleDiagnosticsTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        registry.Configuration.Publish(TestSuiteConfiguration.WithSetting(2));
-        registry.StrategyPublication.Publish(TestSuiteStrategy.WithSetting(2));
+        var id = new ServiceId("diagnostics.contention");
+        AvailableServiceDiagnostics.Await(pump, id);
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
         var contended = HeldGate.AssertReturnsWhileHeld(
-            () => ServiceCycleDiagnostics.CopyServices(pump, buffer),
+            () => ServiceCycleDiagnostics.ReadAvailableService(pump, id),
             contention.Release);
-
-        Assert.Equal(1, contended.UnavailableCount);
-        Assert.Equal(ServiceCycleDiagnosticsAvailability.HandoffContended, buffer[0].Availability);
-        Assert.Equal(ServiceCycleOperationalPhase.Unavailable, buffer[0].Phase);
-        Assert.Equal(ServiceRunnerPositionState.Current, buffer[0].Lifecycle.Position0.State);
-        Assert.Equal((ulong)2, buffer[0].Context.LatestConfiguration.Value);
-        Assert.Equal(
-            ServiceCycleDiagnosticsValueAvailability.Available,
-            buffer[0].Context.LatestConfigurationAvailability);
-        Assert.Equal(2UL, buffer[0].Context.LatestStrategy.Value);
-        Assert.Equal(
-            ServiceCycleDiagnosticsValueAvailability.Available,
-            buffer[0].Context.LatestStrategyAvailability);
-        var contendedObserved = 0;
-        var contendedAllocated = AllocationProbe.MeasureRepeated(
-            1_000,
-            () => contendedObserved += ServiceCycleDiagnostics.CopyServices(pump, buffer).UnavailableCount);
-        Assert.Equal(2_000, contendedObserved);
-        Assert.Equal(0, contendedAllocated);
+        var contendedMissing = 0;
+        var contendedAllocated = AllocationProbe.MeasureRepeated(1_000, () =>
+        {
+            if (ServiceCycleDiagnostics.ReadAvailableService(pump, id) is null) contendedMissing++;
+        });
         contention.Release();
+        AvailableServiceDiagnostics.Await(pump, id);
 
-        var observed = 0;
+        var available = 0;
         var allocated = AllocationProbe.MeasureRepeated(1_000, () =>
-            observed += ServiceCycleDiagnostics.CopyServices(pump, buffer).WrittenCount);
+        {
+            if (ServiceCycleDiagnostics.ReadAvailableService(pump, id) is not null) available++;
+        });
 
-        Assert.Equal(2_000, observed);
+        Assert.Null(contended);
+        Assert.Equal(2_000, contendedMissing);
+        Assert.Equal(0, contendedAllocated);
+        Assert.Equal(2_000, available);
         Assert.Equal(0, allocated);
     }
 
@@ -195,9 +153,7 @@ public sealed class ServiceCycleDiagnosticsTests
         Assert.Equal(1, pump.PumpFrame(frame).ActionsAttempted);
         clock.Advance(new MonotonicDuration(5));
 
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var snapshot = buffer[0];
+        var snapshot = AvailableServiceDiagnostics.Await(pump, new ServiceId("diagnostics.batch"));
 
         Assert.Equal(ServiceCycleOperationalPhase.DrainingBatch, snapshot.Phase);
         Assert.Equal(ServiceCycleHandoffDiagnosticsPhase.MainOwnedBatch, snapshot.Handoff.Phase);
@@ -217,7 +173,7 @@ public sealed class ServiceCycleDiagnosticsTests
     }
 
     [Fact]
-    public void LifecycleStormProjectsRunnerlessStateAndLatestTerminalSequenceTruthfully()
+    public void ALifecycleStormHasNoReadUntilACurrentRunnerCarriesTheLatestTerminal()
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
@@ -229,6 +185,7 @@ public sealed class ServiceCycleDiagnosticsTests
             new LifecycleGeneration(1));
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
+        var id = new ServiceId("diagnostics.lifecycle");
         var frame = 2L;
 
         ServiceCyclePumpTestWait.PumpUntil(
@@ -237,29 +194,21 @@ public sealed class ServiceCycleDiagnosticsTests
         ServiceCyclePumpTestWait.PumpUntil(
             pump, ref frame, () => secondGate.Entered.IsSet, collector: registry);
         Assert.True(pump.RequestLifecycleReplacement(new LifecycleGeneration(3)));
-
-        var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, buffer);
-        var snapshot = buffer[0];
-
-        Assert.Equal(1, copy.UnavailableCount);
-        Assert.Equal(ServiceCycleDiagnosticsAvailability.NoCurrentRunner, snapshot.Availability);
-        Assert.Equal(ServiceCycleOperationalPhase.Orphaned, snapshot.Phase);
-        Assert.Equal(ServiceRunnerPositionState.Retiring, snapshot.Lifecycle.Position0.State);
-        Assert.Equal(ServiceRunnerPositionState.Retiring, snapshot.Lifecycle.Position1.State);
-        Assert.Equal(
-            ServiceCycleStorageDiagnosticsAvailability.LastPublished,
-            snapshot.Lifecycle.Position0.Storage.Availability);
-        Assert.Equal(
-            ServiceCycleStorageDiagnosticsAvailability.LastPublished,
-            snapshot.Lifecycle.Position1.Storage.Availability);
-        Assert.Equal((ulong)3, snapshot.Lifecycle.DesiredLifecycle.Value);
-        Assert.True(snapshot.Lifecycle.LatestTerminal.IsPresent);
-        Assert.Equal(snapshot.Lifecycle.LatestTerminal.Sequence, snapshot.Lifecycle.LatestTerminalSequence);
-        Assert.Equal(2, snapshot.Lifecycle.LatestTerminalSequence);
-
+        var duringStorm = ServiceCycleDiagnostics.ReadAvailableService(pump, id);
         firstGate.Release.Set();
         secondGate.Release.Set();
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => ServiceCycleDiagnostics.ReadAvailableService(pump, id) is not null,
+            collector: registry);
+        var settled = AvailableServiceDiagnostics.Await(pump, id);
+
+        Assert.Null(duringStorm);
+        Assert.Equal((ulong)3, settled.Lifecycle.DesiredLifecycle.Value);
+        Assert.True(settled.Lifecycle.LatestTerminal.IsPresent);
+        Assert.Equal(settled.Lifecycle.LatestTerminal.Sequence, settled.Lifecycle.LatestTerminalSequence);
+        Assert.True(settled.Lifecycle.LatestTerminalSequence >= 2);
     }
 
     [Fact]
