@@ -327,7 +327,8 @@ other service keeps the fault handling its own page describes.
 The gate is fed from three places:
 
 - a `Faulted` action records its target with the result's code and reason, under any waits its mark
-  names;
+  names; an action that threw past the service records the sentence that it threw, and the exception
+  goes to the suite log under the reference that sentence ends with;
 - a `Skipped` or `Rejected` result marked with `ServiceActionResult.BackingOffTarget` records its
   target the same way, so a refusal the service can tell apart from an ordinary one retries instead of
   waiting for a new world only;
