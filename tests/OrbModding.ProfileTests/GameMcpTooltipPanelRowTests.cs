@@ -106,7 +106,8 @@ public sealed class GameMcpTooltipPanelRowTests
         Assert.True(GameMcpTooltipPanelRow.TrySoleSpellSlot(world, BeamBurst, out var beam));
         Assert.Equal(6, beam);
 
-        var row = Encoded(GameMcpTooltipPanelRow.Project("Button[0]", "Ralochs's Cube", Cube, world));
+        var row = GameMcpTestHarness.Json(
+            GameMcpTooltipPanelRow.Project("Button[0]", "Ralochs's Cube", Cube, world), Catalog);
         Assert.Null(row["slot"]);
         Assert.Equal(GameMcpEntityHandle.Format(Cube), (string?)row["uuid"]);
     }
@@ -123,8 +124,8 @@ public sealed class GameMcpTooltipPanelRowTests
 
         foreach (var state in new GameWorldState?[] { world, null })
         {
-            var row = Encoded(
-                GameMcpTooltipPanelRow.Project("Button[0]", "Beam Burst", BeamBurst, state));
+            var row = GameMcpTestHarness.Json(
+                GameMcpTooltipPanelRow.Project("Button[0]", "Beam Burst", BeamBurst, state), Catalog);
             Assert.Null(row["slot"]);
             Assert.Equal(GameMcpEntityHandle.Format(BeamBurst), (string?)row["uuid"]);
         }
@@ -284,9 +285,6 @@ public sealed class GameMcpTooltipPanelRowTests
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
-
-    private static JObject Encoded(GameMcpObjectBuilder row) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(row.Freeze(), Catalog));
 
     private static GameMcpObjectBuilder Row(string path, string name, Guid entityId) =>
         GameMcpTooltipPanelRow.Project(path, name, entityId, World(

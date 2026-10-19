@@ -81,8 +81,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void An_undiscovered_row_names_the_roll_that_gives_it_and_no_price()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
-            Context(), "augment-glyphs", GlyphId.ToString("D")));
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            Context(), "augment-glyphs", GlyphId.ToString("D")), Identities());
         var discover = row["row"]!["discover"]!;
 
         Assert.False((bool)discover["available"]!);
@@ -102,8 +102,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void A_hidden_spell_row_names_the_recipe_book_its_pool_is_waiting_on()
     {
-        var row = Json(GameMcpWorldQuery.ProjectPostState(
-            Context(spellHidden: true), "spell-recipes", SpellRecipeId));
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+            Context(spellHidden: true), "spell-recipes", SpellRecipeId), Identities());
         var discover = row["discover"]!;
 
         Assert.False((bool)discover["available"]!);
@@ -173,8 +173,8 @@ public sealed class GameMcpDiscoverableRowTests
     public void A_discovery_row_names_the_screen_its_tree_is_drawn_under(
         string category, string uuid, string path)
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
-            ScreenContext(), category, uuid))["row"]!["discover"]!;
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(), category, uuid), Identities())["row"]!["discover"]!;
 
         Assert.False((bool)discover["available"]!);
         Assert.Equal(
@@ -189,8 +189,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void An_alchemy_row_belonging_to_neither_screen_names_no_screen()
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
-            ScreenContext(), "alchemy-recipes", OrphanRecipeId.ToString("D")))["row"]!["discover"]!;
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(), "alchemy-recipes", OrphanRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.Equal(
             "Only a discovery tree's roll gives this, and it is in that roll's pool.",
@@ -203,10 +203,10 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void A_row_on_offer_says_to_pick_it_on_its_tree()
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             ScreenContext(onOffer: ConceptRecipeId),
             "concepts",
-            ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+            ConceptRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.Equal(
             "Only the roll on Scholar > Concepts > Discover gives this, and it is on offer there " +
@@ -227,8 +227,8 @@ public sealed class GameMcpDiscoverableRowTests
     {
         var context = ScreenContext(treeHoldsOffer: ConceptRecipeId);
 
-        var held = Json(GameMcpWorldQuery.GetRow(
-            context, "concepts", ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+        var held = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "concepts", ConceptRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.False((bool)held["available"]!);
         Assert.Equal(
@@ -240,8 +240,8 @@ public sealed class GameMcpDiscoverableRowTests
             GameMcpTestHarness.Handle(ConceptTreeId), (string?)held["offeredBy"]!["uuid"]);
 
         // The spell row writes its own `discover` block, so the rule has to hold on both producers.
-        var spell = Json(GameMcpWorldQuery.ProjectPostState(
-            Context(treeHoldsOffer: SpellRecipeId), "spell-recipes", SpellRecipeId))["discover"]!;
+        var spell = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+            Context(treeHoldsOffer: SpellRecipeId), "spell-recipes", SpellRecipeId), Identities())["discover"]!;
 
         Assert.Equal("ERR_STATE", (string?)spell["reasonCode"]);
         Assert.Equal(
@@ -605,9 +605,4 @@ public sealed class GameMcpDiscoverableRowTests
             new EntityIdentityName(ComponentId, "GlyphSO", "Focus", "focus"),
             new EntityIdentityName(SpellRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
             new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"));
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
 }

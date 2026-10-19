@@ -58,9 +58,9 @@ public sealed class GameMcpAgromancyActionRosterTests
                 "b7033a | Woodcutting",
                 "f3f0d9 | Expand",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
                 GameMcpTestHarness.Context(World()),
-                "agromancy-actions", 0, 50, limitFromCaller: false))));
+                "agromancy-actions", 0, 50, limitFromCaller: false), Catalog)));
     }
 
     /// <summary>
@@ -87,15 +87,12 @@ public sealed class GameMcpAgromancyActionRosterTests
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
     private static readonly EntityIdentityCatalogSnapshot Catalog =
-        EntityIdentityCatalogSnapshot.Bound(1, SortedNames(new[]
+        EntityIdentityCatalogSnapshot.Bound(1, GameMcpTestHarness.SortedByEntityId(new[]
         {
             new EntityIdentityName(Create, "HarvestActionSO", "Create", "CreateHarvestAction"),
             new EntityIdentityName(Expand, "HarvestActionSO", "Expand", "ExpandHarvestAction"),
@@ -114,12 +111,6 @@ public sealed class GameMcpAgromancyActionRosterTests
     /// The catalog is binary-searched by id, so real ids have to be written in the order the game's
     /// own registry would hand them over rather than in the order a reader lists the verbs.
     /// </summary>
-    private static EntityIdentityName[] SortedNames(EntityIdentityName[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
-
     private static GameWorldState World()
     {
         var keywords = Keywords(
@@ -133,7 +124,7 @@ public sealed class GameMcpAgromancyActionRosterTests
         return new GameWorldState
         {
             EntityIdentities = Catalog,
-            HarvestActions = PublicationTable<WorldHarvestAction>.Create(Sorted(
+            HarvestActions = PublicationTable<WorldHarvestAction>.Create(GameMcpTestHarness.SortedByEntityId(
                 Action(Create), Action(Expand), Action(Mining),
                 Action(Plant), Action(Transmorgify), Action(Woodcutting))),
             EntityKeywords = keywords,
@@ -150,12 +141,6 @@ public sealed class GameMcpAgromancyActionRosterTests
 
     private static WorldEntityKeyword Keyword(Guid action, Guid type) => new(
         action, WorldKeywordOwnerKind.HarvestAction, WorldKeywordSource.TypeList, 0, type);
-
-    private static WorldHarvestAction[] Sorted(params WorldHarvestAction[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
 
     private static PublicationTable<WorldEntityKeyword> Keywords(params WorldEntityKeyword[] rows)
     {

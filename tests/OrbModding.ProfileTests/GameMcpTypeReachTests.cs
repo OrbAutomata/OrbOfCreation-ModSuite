@@ -164,9 +164,9 @@ public sealed class GameMcpTypeReachTests
                 "c0b000 | Primal | 0",
                 "c0c000 | Arcanist | 0",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
                 GameMcpTestHarness.Context(World()),
-                "structure-types", 0, 50, limitFromCaller: false))));
+                "structure-types", 0, 50, limitFromCaller: false), Catalog)));
     }
 
     /// <summary>
@@ -196,10 +196,10 @@ public sealed class GameMcpTypeReachTests
                 "c1f000 | Metallurgy | research | Technology | category",
                 "c4a000 | Weave | plot-node-action-types | - | nativeType",
             }),
-            Render(Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
                 GameMcpTestHarness.Context(World()),
                 "ar", 0, 50, string.Empty, string.Empty, string.Empty,
-                limitFromCaller: false))));
+                limitFromCaller: false), Catalog)));
     }
 
     /// <summary>
@@ -246,9 +246,9 @@ public sealed class GameMcpTypeReachTests
 
         // The word a parent is spelled with is on none of its children's members, so the query this
         // filter replaces answers nothing at all.
-        Assert.Empty(Json(GameMcpWorldQuery.Search(
+        Assert.Empty(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             GameMcpTestHarness.Context(World()),
-            "Primal", 0, 50, "attributes", limitFromCaller: false))
+            "Primal", 0, 50, "attributes", limitFromCaller: false), Catalog)
             ["rows"]!.Values<JObject>());
 
         Assert.Equal(
@@ -372,9 +372,9 @@ public sealed class GameMcpTypeReachTests
                 "c4b000 | Create | 125 | 100 | 100",
                 "c4c000 | Plant | 125 | 100 | 90",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
                 GameMcpTestHarness.Context(World()),
-                "agromancy-actions", 0, 50, limitFromCaller: false))));
+                "agromancy-actions", 0, 50, limitFromCaller: false), Catalog)));
 
         Assert.Equal(
             string.Join('\n', new[]
@@ -426,10 +426,10 @@ public sealed class GameMcpTypeReachTests
     [Fact]
     public void A_keyword_filter_naming_something_with_no_members_is_refused_by_name()
     {
-        var refused = Json(GameMcpWorldQuery.Search(
+        var refused = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
-            Insight.ToString("D"), limitFromCaller: false));
+            Insight.ToString("D"), limitFromCaller: false), Catalog);
 
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
         Assert.Equal(
@@ -454,10 +454,10 @@ public sealed class GameMcpTypeReachTests
         Assert.Equal(byId, Render(Walk("Workshop", "attributes")));
         Assert.Equal(byId, Render(Walk("workshop", "attributes")));
 
-        var refused = Json(GameMcpWorldQuery.Search(
+        var refused = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
-            "Workshopp", limitFromCaller: false));
+            "Workshopp", limitFromCaller: false), Catalog);
 
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
         Assert.Equal(
@@ -471,10 +471,10 @@ public sealed class GameMcpTypeReachTests
         Walk(keyword.ToString("D"), category);
 
     private static JObject Walk(string keyword, string category) =>
-        Json(GameMcpWorldQuery.Search(
+        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 200, category, string.Empty, string.Empty,
-            keyword, limitFromCaller: false));
+            keyword, limitFromCaller: false), Catalog);
 
     /// <summary>
     /// Two of the nine store no scalar and no value record whatever, so their page carries no
@@ -501,21 +501,18 @@ public sealed class GameMcpTypeReachTests
             Render(Detail(Aura)));
         Assert.Equal(
             "rows: Aura c1d000",
-            Render(Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
                 GameMcpTestHarness.Context(World()),
-                "passive-ability-types", 0, 50, limitFromCaller: false))));
+                "passive-ability-types", 0, 50, limitFromCaller: false), Catalog)));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
-
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]
@@ -620,7 +617,7 @@ public sealed class GameMcpTypeReachTests
                     Technology, false, false, false, false, false, 0, 0, 0, 0, 0, 0, 0,
                     BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
             }),
-            StructureTypes = PublicationTable<WorldStructureType>.Create(Sorted(
+            StructureTypes = PublicationTable<WorldStructureType>.Create(GameMcpTestHarness.SortedByEntityId(
                 new WorldStructureType(Workshop, 1, 12d, overrideRankDefault: false, 0),
                 new WorldStructureType(Primal, 0, 0d, overrideRankDefault: true, 3),
                 new WorldStructureType(Arcanist, 0, 0d, overrideRankDefault: false, 0))),
@@ -751,26 +748,8 @@ public sealed class GameMcpTypeReachTests
             PublicationTable<WorldResearchTypeDecision>.Create(
                 types.Select(type => new WorldResearchTypeDecision(type, 0, 0, 0)).ToArray())));
 
-    private static WorldStructureType[] Sorted(params WorldStructureType[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
-
-    private static WorldEntityKeyword[] SortedKeywords(params WorldEntityKeyword[] rows)
-    {
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            if (owner != 0) return owner;
-            var source = ((int)left.Source).CompareTo((int)right.Source);
-            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return rows;
-    }
-
     private static PublicationTable<WorldEntityKeyword> Keywords(params WorldEntityKeyword[] rows) =>
-        PublicationTable<WorldEntityKeyword>.Create(SortedKeywords(rows));
+        PublicationTable<WorldEntityKeyword>.Create(GameMcpTestHarness.SortedByOwnerSourceAndOrdinal(rows));
 
     private static PublicationTable<WorldTypeModifier> Records(
         params (Guid TypeId, WorldTypeModifierOwnerKind Kind, string Property,

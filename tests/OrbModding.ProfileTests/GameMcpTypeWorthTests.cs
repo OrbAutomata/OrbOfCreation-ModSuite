@@ -157,10 +157,10 @@ public sealed class GameMcpTypeWorthTests
     [Fact]
     public void A_spell_type_word_walks_to_the_spells_its_page_counts()
     {
-        var page = Render(Json(GameMcpWorldQuery.Search(
+        var page = Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
-            "Ember", limitFromCaller: false)));
+            "Ember", limitFromCaller: false), Catalog));
 
         Assert.StartsWith("rows 2/2\n", page, StringComparison.Ordinal);
         Assert.Contains("a1d000 | Kindle", page, StringComparison.Ordinal);
@@ -250,10 +250,10 @@ public sealed class GameMcpTypeWorthTests
     [MemberData(nameof(LiveSpellTypeRecords))]
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
-        var results = Json(GameMcpWorldQuery.GetRows(
+        var results = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
             GameMcpTestHarness.Context(World(SpellTypeRecords(property))),
             string.Empty,
-            new[] { Ember.ToString("D") }))["results"]!;
+            new[] { Ember.ToString("D") }), Catalog)["results"]!;
         var block = Assert.Single(results.Values<JObject>())!;
         var row = Assert.Single(block["worth"]!["properties"]!.Values<JObject>())!;
 
@@ -364,8 +364,8 @@ public sealed class GameMcpTypeWorthTests
     public void An_equipment_type_list_row_names_the_level_it_carries_the_way_its_page_does()
     {
         var world = World();
-        var listed = Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50));
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50), Catalog);
         var row = Assert.Single(listed["rows"]!.Values<JObject>())!;
         var page = Detail(Focus);
 
@@ -389,22 +389,19 @@ public sealed class GameMcpTypeWorthTests
                 "a0a000 | Focus | equipment-types | - | name",
                 "a1c000 | Focus Ward | augment-glyphs | - | name",
             }),
-            Render(Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
                 GameMcpTestHarness.Context(World()),
                 "focus", 0, 50, string.Empty, string.Empty, string.Empty,
-                limitFromCaller: false))));
+                limitFromCaller: false), Catalog)));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
-
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]
@@ -469,7 +466,7 @@ public sealed class GameMcpTypeWorthTests
             (Focus, "masteryLevel", GameValueModifierType.Raw, 2d, Insight),
             (Ember, "power", GameValueModifierType.MultiDiminishing, 50d, Insight));
 
-        var keywords = PublicationTable<WorldEntityKeyword>.Create(Sorted(
+        var keywords = PublicationTable<WorldEntityKeyword>.Create(GameMcpTestHarness.SortedByOwnerSourceAndOrdinal(
             new WorldEntityKeyword(
                 Wand, WorldKeywordOwnerKind.Equipment, WorldKeywordSource.PrimaryType, 0, Focus),
             new WorldEntityKeyword(
@@ -580,18 +577,6 @@ public sealed class GameMcpTypeWorthTests
                 : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
         });
         return PublicationTable<WorldTypeModifierContribution>.Create(rows, rows.Length);
-    }
-
-    private static WorldEntityKeyword[] Sorted(params WorldEntityKeyword[] rows)
-    {
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            if (owner != 0) return owner;
-            var source = ((int)left.Source).CompareTo((int)right.Source);
-            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return rows;
     }
 
     /// <summary>
