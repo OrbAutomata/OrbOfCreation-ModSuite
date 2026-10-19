@@ -56,7 +56,7 @@ public sealed class WorldUpgradeScreenMembershipTests
         buffer.Append(new WorldUpgradeListMembership(first, WorldUpgradeScreenLists.All[1]));
         buffer.Append(new WorldUpgradeListMembership(first, WorldUpgradeScreenLists.All[0]));
 
-        var table = WorldUpgradeListMembershipDeriver.Build(buffer);
+        var table = WorldRelationTable.Build(buffer, WorldUpgradeListMembershipLookup.Order);
 
         Assert.True(WorldUpgradeListMembershipLookup.TryFindRange(table, first, out var start, out var count));
         Assert.Equal(0, start);

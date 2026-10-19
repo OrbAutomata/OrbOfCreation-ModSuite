@@ -311,6 +311,27 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
 /// </summary>
 internal static class WorldSpellGraphLookup
 {
+    internal static readonly Comparison<WorldSpellRecipeAuthoring> AuthoringOrder =
+        static (left, right) => left.RecipeId.CompareTo(right.RecipeId);
+
+    internal static readonly Comparison<WorldSpellAuthoredCost> CostOrder =
+        static (left, right) =>
+        {
+            var recipe = left.RecipeId.CompareTo(right.RecipeId);
+            if (recipe != 0) return recipe;
+            var kind = ((int)left.Kind).CompareTo((int)right.Kind);
+            return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
+    internal static readonly Comparison<WorldSpellRelation> RelationOrder =
+        static (left, right) =>
+        {
+            var recipe = left.RecipeId.CompareTo(right.RecipeId);
+            if (recipe != 0) return recipe;
+            var kind = ((int)left.Kind).CompareTo((int)right.Kind);
+            return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFindAuthoring(
         PublicationTable<WorldSpellRecipeAuthoring> table,
         Guid recipeId,
@@ -367,19 +388,5 @@ internal static class WorldSpellGraphLookup
             else high = middle - 1;
         }
         return low;
-    }
-}
-
-/// <summary>Sorts one relation buffer into its published table. Shared by every relation category.</summary>
-internal static class WorldRelationTableDeriver
-{
-    internal static PublicationTable<T> Build<T>(WorldRelationBuffer<T> buffer, Comparison<T> comparison)
-        where T : struct
-    {
-        if (buffer.Count == 0) return PublicationTable<T>.Empty;
-        var rows = new T[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, comparison);
-        return PublicationTable<T>.Create(rows, rows.Length);
     }
 }

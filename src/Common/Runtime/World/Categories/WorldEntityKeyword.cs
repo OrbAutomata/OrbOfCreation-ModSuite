@@ -502,6 +502,15 @@ internal sealed class WorldKeywordMembership
 /// <summary>Range lookups over the keyword table, which is sorted by owner first.</summary>
 internal static class WorldEntityKeywordLookup
 {
+    internal static readonly Comparison<WorldEntityKeyword> Order =
+        static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            if (owner != 0) return owner;
+            var source = ((int)left.Source).CompareTo((int)right.Source);
+            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFind(
         PublicationTable<WorldEntityKeyword> table,
         Guid ownerId,

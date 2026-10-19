@@ -61,7 +61,8 @@ public sealed class StrategistFactsProjectionTests
         return new GameWorldState
         {
             Upgrades = WorldTable.Create(new[] { upgrade }),
-            UpgradeListMemberships = WorldUpgradeListMembershipDeriver.Build(buffer),
+            UpgradeListMemberships =
+                WorldRelationTable.Build(buffer, WorldUpgradeListMembershipLookup.Order),
             Views = WorldTable.Create(new[] { new WorldView(KnownEntities.ScreenMagic.Uuid, false, false, true) }),
             Resources = WorldTable.Create(new[]
             {

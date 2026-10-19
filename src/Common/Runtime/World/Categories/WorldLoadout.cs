@@ -446,39 +446,33 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
     }
 }
 
-internal static class WorldLoadoutDeriver
+internal static class WorldLoadoutLookup
 {
-    internal static PublicationTable<WorldLoadoutEntry> BuildEntries(
-        WorldRelationBuffer<WorldLoadoutEntry> source) =>
-        WorldScribeRelationDeriver.Build(source, static (left, right) =>
+    internal static readonly Comparison<WorldLoadoutEntry> EntryOrder =
+        static (left, right) =>
         {
             var owner = left.OwnerId.CompareTo(right.OwnerId);
             if (owner != 0) return owner;
             var kind = left.Kind.CompareTo(right.Kind);
             return kind != 0 ? kind : left.EntryId.CompareTo(right.EntryId);
-        });
+        };
 
-    internal static PublicationTable<WorldSnapshotSlot> BuildSlots(
-        WorldRelationBuffer<WorldSnapshotSlot> source) =>
-        WorldScribeRelationDeriver.Build(source, static (left, right) =>
+    internal static readonly Comparison<WorldSnapshotSlot> SlotOrder =
+        static (left, right) =>
         {
             var owner = left.OwnerId.CompareTo(right.OwnerId);
             return owner != 0 ? owner : left.Slot.CompareTo(right.Slot);
-        });
+        };
 
-    internal static PublicationTable<WorldSnapshotEntry> BuildSnapshotEntries(
-        WorldRelationBuffer<WorldSnapshotEntry> source) =>
-        WorldScribeRelationDeriver.Build(source, static (left, right) =>
+    internal static readonly Comparison<WorldSnapshotEntry> SnapshotEntryOrder =
+        static (left, right) =>
         {
             var owner = left.OwnerId.CompareTo(right.OwnerId);
             if (owner != 0) return owner;
             var slot = left.Slot.CompareTo(right.Slot);
             return slot != 0 ? slot : left.EntryId.CompareTo(right.EntryId);
-        });
-}
+        };
 
-internal static class WorldLoadoutLookup
-{
     internal static bool TryFindPlayer(PublicationTable<WorldPlayerLoadout> rows,
         Guid id, out WorldPlayerLoadout value) => WorldLookup.TryFind(rows, id, out value);
 

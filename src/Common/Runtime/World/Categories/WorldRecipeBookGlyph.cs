@@ -25,17 +25,11 @@ internal readonly struct WorldRecipeBookGlyph
     internal Guid RecipeBookId { get; }
 }
 
-internal static class WorldRecipeBookGlyphDeriver
-{
-    internal static PublicationTable<WorldRecipeBookGlyph> Build(
-        WorldRelationBuffer<WorldRecipeBookGlyph> buffer) =>
-        WorldScribeRelationDeriver.Build(
-            buffer,
-            static (left, right) => left.GlyphId.CompareTo(right.GlyphId));
-}
-
 internal static class WorldRecipeBookGlyphLookup
 {
+    internal static readonly Comparison<WorldRecipeBookGlyph> Order =
+        static (left, right) => left.GlyphId.CompareTo(right.GlyphId);
+
     /// <summary>The Recipe Book this retired glyph id is the internal half of.</summary>
     internal static bool TryFindBook(
         PublicationTable<WorldRecipeBookGlyph> table,

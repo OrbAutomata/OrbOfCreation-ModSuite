@@ -403,40 +403,14 @@ internal static class GameWorldFrameDeriver
         // entries, what a keyword is worth joins that total to the membership and the subtype chain,
         // and the spell type layer is a product over an effective set that spans three tables. All of
         // it is the fold the capture path deliberately left undone.
-        var typeModifiers = WorldRelationTableDeriver.Build(
-            frame.TypeModifiers,
-            static (left, right) =>
-            {
-                var type = left.TypeId.CompareTo(right.TypeId);
-                return type != 0
-                    ? type
-                    : string.CompareOrdinal(left.Property, right.Property);
-            });
-        var typeModifierContributions = WorldRelationTableDeriver.Build(
-            frame.TypeModifierContributions,
-            static (left, right) =>
-            {
-                var type = left.TypeId.CompareTo(right.TypeId);
-                if (type != 0) return type;
-                var property = string.CompareOrdinal(left.Property, right.Property);
-                return property != 0
-                    ? property
-                    : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
-            });
-        var typeSubtypes = WorldRelationTableDeriver.Build(
-            frame.TypeSubtypes,
-            static (left, right) =>
-            {
-                var type = left.TypeId.CompareTo(right.TypeId);
-                return type != 0 ? type : left.Ordinal.CompareTo(right.Ordinal);
-            });
-        var spellSlotTypes = WorldRelationTableDeriver.Build(
-            frame.SpellSlotTypes,
-            static (left, right) =>
-            {
-                var slot = left.SlotIndex.CompareTo(right.SlotIndex);
-                return slot != 0 ? slot : left.Ordinal.CompareTo(right.Ordinal);
-            });
+        var typeModifiers = WorldRelationTable.Build(
+            frame.TypeModifiers, WorldTypeModifierLookup.Order);
+        var typeModifierContributions = WorldRelationTable.Build(
+            frame.TypeModifierContributions, WorldTypeModifierContributionLookup.Order);
+        var typeSubtypes = WorldRelationTable.Build(
+            frame.TypeSubtypes, WorldTypeSubtypeLookup.Order);
+        var spellSlotTypes = WorldRelationTable.Build(
+            frame.SpellSlotTypes, WorldSpellSlotTypeLookup.Order);
         var spellSlots = WorldSpellSlotDeriver.Build(frame.SpellSlots);
         var spellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared);
         var research = frame.Research.Build(WorldIdentityDeriver<WorldResearch>.Shared);
@@ -475,13 +449,8 @@ internal static class GameWorldFrameDeriver
             Statistics = statistics,
             AttributeGroups = frame.AttributeGroups.Build(
                 WorldIdentityDeriver<WorldAttributeGroup>.Shared),
-            AttributeGroupMembers = WorldRelationTableDeriver.Build(
-                frame.AttributeGroupMembers,
-                static (left, right) =>
-                {
-                    var group = left.AttributeGroupId.CompareTo(right.AttributeGroupId);
-                    return group != 0 ? group : left.Ordinal.CompareTo(right.Ordinal);
-                }),
+            AttributeGroupMembers = WorldRelationTable.Build(
+                frame.AttributeGroupMembers, WorldAttributeGroupMemberLookup.Order),
             StatusEffects = frame.StatusEffects.Build(
                 WorldIdentityDeriver<WorldStatusEffect>.Shared),
             CharacterAttributes = frame.CharacterAttributes.Build(
@@ -513,16 +482,10 @@ internal static class GameWorldFrameDeriver
             TypeModifierTotals = typeModifierTotals,
             KeywordModifiers = keywordModifiers,
             SpellTypeResonance = spellTypeResonance,
-            ChallengeTypes = WorldRelationTableDeriver.Build(
-                frame.ChallengeTypes,
-                static (left, right) => left.ChallengeTypeId.CompareTo(right.ChallengeTypeId)),
-            ChallengeTypeMemberships = WorldRelationTableDeriver.Build(
-                frame.ChallengeTypeMemberships,
-                static (left, right) =>
-                {
-                    var challenge = left.ChallengeId.CompareTo(right.ChallengeId);
-                    return challenge != 0 ? challenge : left.Ordinal.CompareTo(right.Ordinal);
-                }),
+            ChallengeTypes = WorldRelationTable.Build(
+                frame.ChallengeTypes, WorldChallengeTypeLookup.BucketOrder),
+            ChallengeTypeMemberships = WorldRelationTable.Build(
+                frame.ChallengeTypeMemberships, WorldChallengeTypeLookup.MembershipOrder),
             SpellSlotTypes = spellSlotTypes,
             MasteryCosts = spellLevelCosts,
             ModifierPrograms = modifierPrograms,
@@ -550,39 +513,31 @@ internal static class GameWorldFrameDeriver
                 frame.CraftingRecipeConsumableOutputs,
                 frame.CraftingRecipeDrainBlocks,
                 resources),
-            CraftingDecisions = WorldScribeRelationDeriver.Build(
-                frame.CraftingDecisions,
-                static (left, right) => left.RecipeId.CompareTo(right.RecipeId)),
-            CraftingDecisionCosts = WorldScribeRelationDeriver.Build(
-                frame.CraftingDecisionCosts,
-                static (left, right) =>
-                {
-                    var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                    return recipe != 0 ? recipe : left.Cost.ResourceId.CompareTo(right.Cost.ResourceId);
-                }),
-            CraftingQueueEntries = WorldScribeRelationDeriver.Build(
-                frame.CraftingQueueEntries,
-                static (left, right) =>
-                {
-                    var queue = left.QueueId.CompareTo(right.QueueId);
-                    return queue != 0 ? queue : left.Slot.CompareTo(right.Slot);
-                }),
+            CraftingDecisions = WorldRelationTable.Build(
+                frame.CraftingDecisions, WorldCraftingDecisionLookup.Order),
+            CraftingDecisionCosts = WorldRelationTable.Build(
+                frame.CraftingDecisionCosts, WorldCraftingDecisionLookup.CostOrder),
+            CraftingQueueEntries = WorldRelationTable.Build(
+                frame.CraftingQueueEntries, WorldCraftingDecisionLookup.QueueOrder),
             PlayerLoadouts = frame.PlayerLoadouts.Build(
                 WorldIdentityDeriver<WorldPlayerLoadout>.Shared),
-            PlayerLoadoutEntries = WorldLoadoutDeriver.BuildEntries(frame.PlayerLoadoutEntries),
+            PlayerLoadoutEntries = WorldRelationTable.Build(
+                frame.PlayerLoadoutEntries, WorldLoadoutLookup.EntryOrder),
             SnapshotLoadouts = frame.SnapshotLoadouts.Build(
                 WorldIdentityDeriver<WorldSnapshotLoadout>.Shared),
-            SnapshotSlots = WorldLoadoutDeriver.BuildSlots(frame.SnapshotSlots),
-            SnapshotEntries = WorldLoadoutDeriver.BuildSnapshotEntries(frame.SnapshotEntries),
+            SnapshotSlots = WorldRelationTable.Build(
+                frame.SnapshotSlots, WorldLoadoutLookup.SlotOrder),
+            SnapshotEntries = WorldRelationTable.Build(
+                frame.SnapshotEntries, WorldLoadoutLookup.SnapshotEntryOrder),
             HarvestElements = frame.HarvestElements.Build(WorldIdentityDeriver<WorldHarvestElement>.Shared),
             HarvestActions = frame.HarvestActions.Build(WorldIdentityDeriver<WorldHarvestAction>.Shared),
             HarvestResources = frame.HarvestResources.Build(new WorldHarvestResourceDeriver(frame.FrameGlobals)),
-            HarvestElementControls = WorldHarvestLifecycleDeriver.BuildElements(
-                frame.HarvestElementControls),
-            HarvestActionControls = WorldHarvestLifecycleDeriver.BuildActions(
-                frame.HarvestActionControls),
-            HarvestLifecycleCosts = WorldHarvestLifecycleDeriver.BuildCosts(
-                frame.HarvestLifecycleCosts),
+            HarvestElementControls = WorldRelationTable.Build(
+                frame.HarvestElementControls, WorldHarvestLifecycleLookup.ElementOrder),
+            HarvestActionControls = WorldRelationTable.Build(
+                frame.HarvestActionControls, WorldHarvestLifecycleLookup.ActionOrder),
+            HarvestLifecycleCosts = WorldRelationTable.Build(
+                frame.HarvestLifecycleCosts, WorldHarvestLifecycleLookup.CostOrder),
             TimeRunes = frame.TimeRunes.Build(WorldIdentityDeriver<WorldTimeRune>.Shared),
             AugmentGlyphs = frame.AugmentGlyphs.Build(WorldIdentityDeriver<WorldGlyph>.Shared),
             Consumables = frame.Consumables.Build(new WorldConsumableDeriver(
@@ -599,50 +554,17 @@ internal static class GameWorldFrameDeriver
             ConsumableUsages = WorldConsumableRelationDeriver.Build(frame.ConsumableUsages),
             ConsumableCounts = WorldConsumableRelationDeriver.Build(frame.ConsumableCounts),
             ConsumableInventory = frame.ConsumableInventory.Build(),
-            ScribeRecipes = WorldScribeRelationDeriver.Build(
-                frame.ScribeRecipes,
-                static (left, right) => left.RecipeId.CompareTo(right.RecipeId)),
-            ScribeQueues = WorldScribeRelationDeriver.Build(
-                frame.ScribeQueues,
-                static (left, right) => left.QueueId.CompareTo(right.QueueId)),
-            ScribeWork = WorldScribeRelationDeriver.Build(
-                frame.ScribeWork,
-                static (left, right) =>
-                {
-                    var queue = left.QueueId.CompareTo(right.QueueId);
-                    if (queue != 0) return queue;
-                    var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                    return recipe != 0 ? recipe : left.Level.CompareTo(right.Level);
-                }),
-            StructureEnchantments = WorldScribeRelationDeriver.Build(
-                frame.StructureEnchantments,
-                static (left, right) =>
-                {
-                    var structure = left.StructureId.CompareTo(right.StructureId);
-                    return structure != 0
-                        ? structure
-                        : left.EnchantmentId.CompareTo(right.EnchantmentId);
-                }),
-            ScrollTargets = WorldScribeRelationDeriver.Build(
-                frame.ScrollTargets,
-                static (left, right) =>
-                {
-                    var item = left.ConsumableId.CompareTo(right.ConsumableId);
-                    if (item != 0) return item;
-                    var enchantment = left.EnchantmentId.CompareTo(right.EnchantmentId);
-                    return enchantment != 0
-                        ? enchantment
-                        : left.StructureId.CompareTo(right.StructureId);
-                }),
-            ScrollTargetEvidence = WorldScribeRelationDeriver.Build(
-                frame.ScrollTargetEvidence,
-                static (left, right) =>
-                {
-                    var item = left.ConsumableId.CompareTo(right.ConsumableId);
-                    return item != 0
-                        ? item
-                        : left.EnchantmentId.CompareTo(right.EnchantmentId);
-                }),
+            ScribeRecipes = WorldRelationTable.Build(
+                frame.ScribeRecipes, WorldScribeLookup.RecipeOrder),
+            ScribeQueues = WorldRelationTable.Build(
+                frame.ScribeQueues, WorldScribeLookup.QueueOrder),
+            ScribeWork = WorldRelationTable.Build(frame.ScribeWork, WorldScribeLookup.WorkOrder),
+            StructureEnchantments = WorldRelationTable.Build(
+                frame.StructureEnchantments, WorldScribeLookup.StructureEnchantmentOrder),
+            ScrollTargets = WorldRelationTable.Build(
+                frame.ScrollTargets, WorldScribeLookup.ScrollTargetOrder),
+            ScrollTargetEvidence = WorldRelationTable.Build(
+                frame.ScrollTargetEvidence, WorldScribeLookup.TargetEvidenceOrder),
             Rituals = WorldRitualDeriver.Build(frame.Rituals),
             Achievements = frame.Achievements.Build(WorldIdentityDeriver<WorldAchievement>.Shared),
             Advancements = frame.Advancements.Build(WorldIdentityDeriver<WorldAdvancement>.Shared),
@@ -667,7 +589,8 @@ internal static class GameWorldFrameDeriver
             PlotNodes = plotNodes,
             PlotActions = plotActions,
             PlotActionInstances = WorldPlotActionInstanceDeriver.Build(frame.PlotActionInstances),
-            PlotActionDrains = WorldPlotActionDrainDeriver.Build(frame.PlotActionDrains),
+            PlotActionDrains = WorldRelationTable.Build(
+                frame.PlotActionDrains, WorldPlotActionDrainDeriver.Order),
             ActionQueues = frame.ActionQueues.Build(new WorldActionQueueDeriver(intVariables)),
             ActionQueueSlots = WorldActionQueueSlotDeriver.Build(frame.ActionQueueSlots),
             SpellSlots = spellSlots,
@@ -677,16 +600,10 @@ internal static class GameWorldFrameDeriver
             AlchemyInstances = WorldAlchemyRowDeriver.Build(frame.AlchemyInstances),
             ConceptDrainBasis = conceptDrainBasis,
             AlchemyCosts = alchemyCosts,
-            AlchemyLoadout = WorldScribeRelationDeriver.Build(
-                frame.AlchemyLoadout,
-                static (left, right) => left.RecipeId.CompareTo(right.RecipeId)),
-            AlchemyUsageCosts = WorldScribeRelationDeriver.Build(
-                frame.AlchemyUsageCosts,
-                static (left, right) =>
-                {
-                    var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                    return recipe != 0 ? recipe : left.ResourceId.CompareTo(right.ResourceId);
-                }),
+            AlchemyLoadout = WorldRelationTable.Build(
+                frame.AlchemyLoadout, WorldAlchemyLoadoutLookup.Order),
+            AlchemyUsageCosts = WorldRelationTable.Build(
+                frame.AlchemyUsageCosts, WorldAlchemyLoadoutLookup.CostOrder),
             PlotAuthoring = authored.PlotAuthoring,
             PlotPhaseDescriptors = authored.PlotPhaseDescriptors,
             EffectBlocks = authored.EffectBlocks,

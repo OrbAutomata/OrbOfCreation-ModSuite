@@ -25,9 +25,7 @@ public sealed class WorldIdentityAuditTests
         foreach (var recipeId in recipeIds)
             buffer.Append(new WorldSpellRecipeAuthoring(recipeId, 0, 0d, 1d, 0, 0d, 0d));
 
-        return WorldRelationTableDeriver.Build(
-            buffer,
-            static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
+        return WorldRelationTable.Build(buffer, WorldSpellGraphLookup.AuthoringOrder);
     }
 
     private static GameWorldState WorldWith(

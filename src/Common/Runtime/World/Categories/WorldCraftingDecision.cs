@@ -126,6 +126,23 @@ internal readonly struct WorldCraftingQueueEntry
 
 internal static class WorldCraftingDecisionLookup
 {
+    internal static readonly Comparison<WorldCraftingDecision> Order =
+        static (left, right) => left.RecipeId.CompareTo(right.RecipeId);
+
+    internal static readonly Comparison<WorldCraftingDecisionCost> CostOrder =
+        static (left, right) =>
+        {
+            var recipe = left.RecipeId.CompareTo(right.RecipeId);
+            return recipe != 0 ? recipe : left.Cost.ResourceId.CompareTo(right.Cost.ResourceId);
+        };
+
+    internal static readonly Comparison<WorldCraftingQueueEntry> QueueOrder =
+        static (left, right) =>
+        {
+            var queue = left.QueueId.CompareTo(right.QueueId);
+            return queue != 0 ? queue : left.Slot.CompareTo(right.Slot);
+        };
+
     internal static bool TryFind(
         PublicationTable<WorldCraftingDecision> decisions,
         Guid recipeId,

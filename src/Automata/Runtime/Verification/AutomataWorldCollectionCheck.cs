@@ -2381,7 +2381,7 @@ internal static class WorldIdentityWalk
 /// </para>
 /// <para>
 /// The narrow claim that remains is worth having and is live. Relation tables reach publication
-/// through <c>WorldRelationTableDeriver.Build</c>, which calls <c>PublicationTable.Create</c>
+/// through <c>WorldRelationTable.Build</c>, which calls <c>PublicationTable.Create</c>
 /// directly and so bypasses the sort-and-reject guard in <see cref="WorldTable.Create"/> that every
 /// catalog table passes through. A within-table repeat or an unidentified row there would reach a
 /// consumer, and nothing else in the suite would notice.
