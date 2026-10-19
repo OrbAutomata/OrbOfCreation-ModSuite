@@ -20,8 +20,6 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     private Guid _pausedTemporaryItem;
     private AutoItemsTemporaryPauseCause _temporaryPauseCause;
     private long _publishedHealthRevision = -1;
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
 
     internal AutoItemsServiceCycleDiagnosticsBridge(
         AutoItemsFeatureDependencies dependencies,
@@ -49,7 +47,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             PublishIfChanged(changed);
             return;
         }
-        var service = ReadService(pump);
+        var service = ServiceCycleDiagnostics.ReadAvailableService(pump, AutoItemsServicePolicies.ServiceId);
         changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0 &&
             service.HasValue &&
@@ -142,20 +140,6 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             $"Auto Items paused temporary item {EntityIdentityFormatter.Format(pausedItem)} " +
             "because more than one native usage appeared and Auto Items creates only one; " +
             "it resumes once no usage of it remains.");
-    }
-
-    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
-    {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-            if (_services[index].ServiceId.Equals(AutoItemsServicePolicies.ServiceId))
-                return _services[index];
-        return null;
     }
 
     private static bool TryReadLatestDecision(

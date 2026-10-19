@@ -9,8 +9,7 @@ internal static class ServiceCycleLifecycleDiagnosticsProjector
 {
     internal static ServiceCycleLifecycleDiagnosticsSnapshot Project(
         in ServiceLifecycleSlotSnapshot source,
-        long transitionCount,
-        ServiceCycleLifecycleEvidenceKind evidenceKind) => new(
+        long transitionCount) => new(
             source.DesiredLifecycle,
             ProjectPosition(source.Position0),
             ProjectPosition(source.Position1),
@@ -20,28 +19,7 @@ internal static class ServiceCycleLifecycleDiagnosticsProjector
             source.ConstructionAttemptCount,
             source.ConstructionContentionCount,
             transitionCount,
-            source.LivePositionCount,
-            evidenceKind);
-
-    internal static bool HasCurrentPosition(in ServiceCycleLifecycleDiagnosticsSnapshot lifecycle) =>
-        lifecycle.Position0.State == ServiceRunnerPositionState.Current ||
-        lifecycle.Position1.State == ServiceRunnerPositionState.Current;
-
-    internal static ServiceCycleOperationalPhase ProjectRunnerlessPhase(
-        in ServiceCycleLifecycleDiagnosticsSnapshot lifecycle,
-        MonotonicTimestamp observedAt)
-    {
-        if (lifecycle.Position0.State == ServiceRunnerPositionState.Retiring ||
-            lifecycle.Position1.State == ServiceRunnerPositionState.Retiring)
-            return ServiceCycleOperationalPhase.Orphaned;
-        if (lifecycle.LatestConstructionFault.IsValid)
-            return lifecycle.ConstructionRetryDue > observedAt
-                ? ServiceCycleOperationalPhase.RetryBackoff
-                : ServiceCycleOperationalPhase.Faulted;
-        if (lifecycle.ConstructionRetryDue > observedAt)
-            return ServiceCycleOperationalPhase.RetryBackoff;
-        return ServiceCycleOperationalPhase.Unavailable;
-    }
+            source.LivePositionCount);
 
     internal static ServiceCycleHandoffDiagnosticsPhase ProjectPhase(ServiceHandoffPhase phase) => phase switch
     {

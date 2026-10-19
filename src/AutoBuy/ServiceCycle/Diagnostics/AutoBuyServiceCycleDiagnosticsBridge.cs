@@ -24,9 +24,6 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
     private readonly Action<string> _warn;
     private readonly ServiceRetryEpisodeNarrator _retries;
     private int _publishedLatchRevision;
-    // Sized for the Automata host's registered services so the ordinary frame copies nothing extra and
-    // allocates nothing; a host that grows past it resizes once and carries on.
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services = new ServiceCycleServiceDiagnosticsSnapshot[4];
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -67,10 +64,11 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         _owned = owned;
         if (report.ResponsesAcquired != 0) _evaluationRefreshPending = true;
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
-            ? ReadService(pump)
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoBuyServicePolicies.ServiceId)
             : null;
         conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
-        if (_evaluationRefreshPending) service ??= ReadService(pump);
+        if (_evaluationRefreshPending)
+            service ??= ServiceCycleDiagnostics.ReadAvailableService(pump, AutoBuyServicePolicies.ServiceId);
         if (_evaluationRefreshPending && service is { } observed && observed.LatestProjection.IsPresent)
         {
             var projection = observed.LatestProjection;
@@ -135,20 +133,6 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
             _lifecycle,
             _configurationGeneration);
         NarrateDecisionBlock(health);
-    }
-
-    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
-    {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-            if (_services[index].ServiceId.Equals(AutoBuyServicePolicies.ServiceId))
-                return _services[index];
-        return null;
     }
 
     internal static AutoBuyDecisionBlockReason TotalRelationBlock(

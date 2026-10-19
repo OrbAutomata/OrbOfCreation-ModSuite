@@ -30,8 +30,6 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
     private bool _cycleObserved;
     private AutoCastExclusion _heldFor;
     private Guid _heldSpellId;
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
 
     public AutoCastServiceCycleDiagnosticsBridge(
         long lifecycle,
@@ -58,9 +56,9 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
         _manualPaused = paused;
-        if (report.ResponsesAcquired != 0)
+        if (report.ResponsesAcquired != 0 &&
+            TryReadLatestHold(pump, out var heldFor, out var heldSpellId))
         {
-            ReadLatestHold(pump, out var heldFor, out var heldSpellId);
             conditionsChanged = conditionsChanged || !_cycleObserved ||
                 _heldFor != heldFor || _heldSpellId != heldSpellId;
             _cycleObserved = true;
@@ -116,29 +114,18 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
             _configurationGeneration);
     }
 
-    private void ReadLatestHold(SuiteFramePump pump, out AutoCastExclusion heldFor, out Guid heldSpellId)
+    private static bool TryReadLatestHold(SuiteFramePump pump, out AutoCastExclusion heldFor, out Guid heldSpellId)
     {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-
-        for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            var service = _services[index];
-            if (!service.ServiceId.Equals(AutoCastServicePolicies.ServiceId) ||
-                !service.LatestProjection.IsPresent) continue;
-            var projection = service.LatestProjection.Snapshot;
-            heldSpellId = ServiceProjectionGuid.Read(in projection, AutoCastServiceProjection.HeldSpellKey);
-            heldFor = AutoCastDecisionMetrics.HeldReason(
-                heldSpellId, ReadInteger(in projection, AutoCastServiceProjection.ExcludedOutsideRitualKey));
-            return;
-        }
-
         heldFor = AutoCastExclusion.None;
         heldSpellId = Guid.Empty;
+        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoCastServicePolicies.ServiceId) is not { } service)
+            return false;
+        if (!service.LatestProjection.IsPresent) return true;
+        var projection = service.LatestProjection.Snapshot;
+        heldSpellId = ServiceProjectionGuid.Read(in projection, AutoCastServiceProjection.HeldSpellKey);
+        heldFor = AutoCastDecisionMetrics.HeldReason(
+            heldSpellId, ReadInteger(in projection, AutoCastServiceProjection.ExcludedOutsideRitualKey));
+        return true;
     }
 
     private static long ReadInteger(in ServiceStateProjectionSnapshot projection, int key)

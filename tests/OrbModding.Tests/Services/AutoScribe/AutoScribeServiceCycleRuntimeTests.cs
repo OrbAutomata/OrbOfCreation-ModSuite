@@ -144,18 +144,8 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
         internal AutomataFeatureStatusReporter Status { get; }
         internal ServiceRetryGateSnapshot RetryGate => Service.RetryGate;
 
-        private ServiceCycleServiceDiagnosticsSnapshot Service
-        {
-            get
-            {
-                var services = new ServiceCycleServiceDiagnosticsSnapshot[8];
-                var copy = ServiceCycleDiagnostics.CopyServices(_host.Pump, services);
-                for (var index = 0; index < copy.WrittenCount; index++)
-                    if (services[index].ServiceId.Equals(AutoScribeServicePolicies.ServiceId))
-                        return services[index];
-                throw new InvalidOperationException("Auto Scribe is not registered.");
-            }
-        }
+        private ServiceCycleServiceDiagnosticsSnapshot Service =>
+            AvailableServiceDiagnostics.Await(_host.Pump, AutoScribeServicePolicies.ServiceId);
 
         internal void Advance(MonotonicDuration duration) => _clock.Advance(duration);
 

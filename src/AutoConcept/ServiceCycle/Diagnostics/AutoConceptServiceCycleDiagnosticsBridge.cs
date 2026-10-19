@@ -15,8 +15,6 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
     private bool _owned;
     private bool _cycleObserved;
     private AutoConceptIdle _idle;
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
 
     internal AutoConceptServiceCycleDiagnosticsBridge(
         long lifecycle,
@@ -83,39 +81,28 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             _configurationGeneration);
     }
 
-    private bool TryReadLatestDecision(
+    private static bool TryReadLatestDecision(
         SuiteFramePump pump,
         out AutoConceptIdle idle)
     {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-
-        for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            var service = _services[index];
-            if (!service.ServiceId.Equals(AutoConceptServicePolicies.ServiceId) ||
-                !service.LatestProjection.IsPresent) continue;
-            var projection = service.LatestProjection.Snapshot;
-            var reason = ReadInteger(in projection, AutoConceptServiceProjection.IdleReasonKey);
-            var move = ReadInteger(in projection, AutoConceptServiceProjection.IdleMoveKey);
-            if (reason is not (>= 0 and <= int.MaxValue) || move is not (>= 0 and <= int.MaxValue) ||
-                !Enum.IsDefined(typeof(AutoConceptIdleReason), (int)reason.Value) ||
-                !Enum.IsDefined(typeof(AutoConceptIdleMove), (int)move.Value)) break;
-            idle = new AutoConceptIdle(
-                (AutoConceptIdleReason)reason.Value,
-                (AutoConceptIdleMove)move.Value,
-                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleRecipeKey),
-                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleDisplacedKey),
-                ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleResourceKey));
-            return true;
-        }
-
         idle = default;
-        return false;
+        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId) is not
+            { LatestProjection.IsPresent: true } service)
+            return false;
+        var projection = service.LatestProjection.Snapshot;
+        var reason = ReadInteger(in projection, AutoConceptServiceProjection.IdleReasonKey);
+        var move = ReadInteger(in projection, AutoConceptServiceProjection.IdleMoveKey);
+        if (reason is not (>= 0 and <= int.MaxValue) || move is not (>= 0 and <= int.MaxValue) ||
+            !Enum.IsDefined(typeof(AutoConceptIdleReason), (int)reason.Value) ||
+            !Enum.IsDefined(typeof(AutoConceptIdleMove), (int)move.Value))
+            return false;
+        idle = new AutoConceptIdle(
+            (AutoConceptIdleReason)reason.Value,
+            (AutoConceptIdleMove)move.Value,
+            ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleRecipeKey),
+            ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleDisplacedKey),
+            ServiceProjectionGuid.Read(in projection, AutoConceptServiceProjection.IdleResourceKey));
+        return true;
     }
 
     private static long? ReadInteger(in ServiceStateProjectionSnapshot projection, int key)

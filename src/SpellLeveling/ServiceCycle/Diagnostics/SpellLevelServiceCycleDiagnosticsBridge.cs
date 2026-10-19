@@ -35,8 +35,6 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
     private readonly ISpellLevelCapabilityPort _capabilityPort;
     private readonly ServiceRetryEpisodeNarrator _retries =
         new("Spell Leveling", static message => Plugin.Log?.LogAutomataWarning(message));
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -79,7 +77,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
-            ? ReadService(pump)
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, SpellLevelServicePolicies.ServiceId)
             : null;
         conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0) _evaluationRefreshPending = true;
@@ -145,20 +143,6 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _capabilityFailure = failure;
         var reference = GameActionFaultLog.Record(cause, CapabilityScreen);
         Plugin.Log?.LogAutomataWarning("Spell Leveling could not read what the game lets it do: " + failure + reference);
-    }
-
-    private ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump)
-    {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-            if (_services[index].ServiceId.Equals(SpellLevelServicePolicies.ServiceId))
-                return _services[index];
-        return null;
     }
 
     private void PublishFeatureStatus()
