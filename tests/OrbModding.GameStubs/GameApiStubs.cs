@@ -3353,6 +3353,15 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
 
     /// <summary>The write lands, then the game throws and its instances stop reading.</summary>
     public bool BreakAfterMutation { get; set; }
+
+    /// <summary>An add of this one recipe returns without writing anything.</summary>
+    public AlchemyRecipeSO? SuppressAddMutationOf { get; set; }
+
+    /// <summary>The game throws on an add before writing it.</summary>
+    public Exception? AddFailure { get; set; }
+
+    /// <summary>The add lands, then the game throws while its instances keep reading.</summary>
+    public Exception? AddFailureAfterWrite { get; set; }
     public int TypelessSlots { get; set; } = 16;
     public Dictionary<AlchemyTypeSO, int> TypeSlots { get; } =
         new Dictionary<AlchemyTypeSO, int>();
@@ -3389,7 +3398,8 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
 
     public void AddAlchemyInstances(AlchemyRecipeSO recipe, int delta)
     {
-        if (SuppressAddMutation) return;
+        if (SuppressAddMutation || ReferenceEquals(recipe, SuppressAddMutationOf)) return;
+        if (AddFailure is { } failure) throw failure;
         var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
         if (instance is null)
         {
@@ -3398,6 +3408,7 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
         }
         instance.queuedQuantity += delta;
         if (BreakAfterMutation) Break();
+        if (AddFailureAfterWrite is { } after) throw after;
     }
 
     private void Break()
