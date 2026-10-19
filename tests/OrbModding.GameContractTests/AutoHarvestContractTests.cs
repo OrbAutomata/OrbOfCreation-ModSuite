@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -300,21 +300,6 @@ public sealed class AutoHarvestContractTests
             "System.Collections.Generic.List`1<TreasurePoolSO+TreasurePoolResult>",
             "ScalingInfo",
             "BigDouble");
-    }
-
-    private static void AssertMethod(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName,
-        bool isStatic,
-        string returnType,
-        params string[] parameterTypes)
-    {
-        var matches = assembly.GetMethods(typeName, methodName);
-        Assert.Contains(matches, method =>
-            method.IsStatic == isStatic &&
-            method.ReturnType == returnType &&
-            method.ParameterTypes.SequenceEqual(parameterTypes));
     }
 
     private static void AssertEnum(

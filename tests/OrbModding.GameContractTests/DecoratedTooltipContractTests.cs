@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -17,8 +17,7 @@ public sealed class DecoratedTooltipContractTests
 
         Assert.Equal("ITooltipable", assembly.GetFieldType("OverwriteTooltip", "tooltipable"));
         Assert.Contains(
-            assembly.GetMethodBodyDefinitionReferences("OverwriteTooltip", "GetName")
-                .Concat(assembly.GetMethodBodyMemberReferences("OverwriteTooltip", "GetName")),
+            References(assembly, "OverwriteTooltip", "GetName"),
             reference => reference.DeclaringType == "OverwriteTooltip" &&
                 reference.MemberName == "tooltipable");
     }
@@ -32,18 +31,12 @@ public sealed class DecoratedTooltipContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var tooltip = assembly
-            .GetMethodBodyDefinitionReferences("UIGlyphListItem", "GetTotalModifierTooltip")
-            .Concat(assembly.GetMethodBodyMemberReferences(
-                "UIGlyphListItem", "GetTotalModifierTooltip"))
-            .ToArray();
+        var tooltip = References(assembly, "UIGlyphListItem", "GetTotalModifierTooltip");
         Assert.Contains(tooltip, reference =>
             reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == ".ctor");
         Assert.Contains(tooltip, reference => reference.MemberName == "item");
 
-        var setup = assembly.GetMethodBodyDefinitionReferences("UIGlyphListItem", "PostSetup")
-            .Concat(assembly.GetMethodBodyMemberReferences("UIGlyphListItem", "PostSetup"))
-            .ToArray();
+        var setup = References(assembly, "UIGlyphListItem", "PostSetup");
         Assert.Contains(setup, reference =>
             reference.DeclaringType == "UIGlyphListItem" &&
             reference.MemberName == "GetTotalModifierTooltip");
@@ -61,9 +54,7 @@ public sealed class DecoratedTooltipContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var draw = assembly.GetMethodBodyDefinitionReferences("OverwriteTooltip", "GetTooltipNodes")
-            .Concat(assembly.GetMethodBodyMemberReferences("OverwriteTooltip", "GetTooltipNodes"))
-            .ToArray();
+        var draw = References(assembly, "OverwriteTooltip", "GetTooltipNodes");
         var handed = Assert.Single(draw, reference =>
             reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == "tooltipNodes");
         var computed = Assert.Single(draw, reference =>
@@ -95,10 +86,7 @@ public sealed class DecoratedTooltipContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var preview = assembly
-            .GetMethodBodyDefinitionReferences("RatingReport", "CreateRatingUpgradeTooltip")
-            .Concat(assembly.GetMethodBodyMemberReferences("RatingReport", "CreateRatingUpgradeTooltip"))
-            .ToArray();
+        var preview = References(assembly, "RatingReport", "CreateRatingUpgradeTooltip");
         Assert.Contains(preview, reference =>
             reference.DeclaringType == "GlobalVariables" && reference.MemberName == "GetAttribute");
         Assert.Contains(preview, reference =>
@@ -107,10 +95,7 @@ public sealed class DecoratedTooltipContractTests
             reference.DeclaringType == "OverwriteTooltip" && reference.MemberName == "SetTooltipNodes");
         Assert.Equal("AttributeSO", Assert.Single(assembly.GetMethods("GlobalVariables", "GetAttribute")).ReturnType);
 
-        var row = assembly
-            .GetMethodBodyDefinitionReferences("NumberVariable+PersistentEffect", "GetTooltipNodes")
-            .Concat(assembly.GetMethodBodyMemberReferences("NumberVariable+PersistentEffect", "GetTooltipNodes"))
-            .ToArray();
+        var row = References(assembly, "NumberVariable+PersistentEffect", "GetTooltipNodes");
         Assert.Contains(row, reference =>
             reference.DeclaringType == "RatingReport" &&
             reference.MemberName == "CreateRatingUpgradeTooltip");

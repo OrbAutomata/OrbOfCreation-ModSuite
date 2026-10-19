@@ -1,6 +1,5 @@
-using System;
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -46,11 +45,7 @@ public sealed class ResearchLifecycleContractTests
     public void Queue_route_accumulates_exact_cost_and_range_before_committing_waiting_levels()
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
-        var references = assembly.GetMethodBodyDefinitionReferences(
-                "ResearchSO", "QueueDevelopment")
-            .Concat(assembly.GetMethodBodyMemberReferences("ResearchSO", "QueueDevelopment"))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
+        var references = References(assembly, "ResearchSO", "QueueDevelopment");
         Assert.True(Offset(references, "GlobalVariables", "GetMultiBuy") <
                     Offset(references, "ResourceCostList", "Add"));
         Assert.True(Offset(references, "ResourceCostList", "Add") <
@@ -115,10 +110,4 @@ public sealed class ResearchLifecycleContractTests
         Assert.Equal(51, expected.Length);
         Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
     }
-
-    private static int Offset(MethodBodyDefinitionReference[] references,
-        string type, string member) => references.Where(reference =>
-            reference.DeclaringType.StartsWith(type, StringComparison.Ordinal) &&
-            reference.MemberName == member).Select(reference => reference.Offset)
-            .DefaultIfEmpty(-1).Min();
 }

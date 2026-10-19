@@ -1,6 +1,6 @@
-using System;
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -165,25 +165,4 @@ public sealed class RitualLifecycleContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UIRitual", "RenderContent", "RitualSO", "GetMaxSelectedLevel"));
     }
-
-    private static MethodBodyDefinitionReference[] References(
-        GameAssemblyMetadata assembly,
-        string type,
-        string method,
-        params string[] parameterTypes) =>
-        assembly.GetMethodBodyDefinitionReferences(type, method, parameterTypes)
-            .Concat(assembly.GetMethodBodyMemberReferences(type, method, parameterTypes))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
-
-    private static int Offset(
-        MethodBodyDefinitionReference[] references,
-        string type,
-        string member) =>
-        references.Where(reference =>
-                reference.DeclaringType.StartsWith(type, StringComparison.Ordinal) &&
-                reference.MemberName == member)
-            .Select(reference => reference.Offset)
-            .DefaultIfEmpty(-1)
-            .Min();
 }

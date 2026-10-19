@@ -1,6 +1,6 @@
 using System;
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -112,13 +112,4 @@ public sealed class GenericLevelContractTests
             manifest.Contracts,
             contract => contract.Id == id));
     }
-
-    private static MethodBodyDefinitionReference[] References(
-        GameAssemblyMetadata assembly,
-        string type,
-        string method) =>
-        assembly.GetMethodBodyDefinitionReferences(type, method)
-            .Concat(assembly.GetMethodBodyMemberReferences(type, method))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
 }
