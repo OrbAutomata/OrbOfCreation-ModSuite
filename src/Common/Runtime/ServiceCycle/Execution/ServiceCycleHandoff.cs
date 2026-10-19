@@ -29,7 +29,7 @@ internal sealed partial class ServiceCycleHandoff
     private int _responseWaiterCount;
     private int _workerReadyWaiterCount;
     private int _responseWakePulseCount;
-    private LifecycleGeneration _lifecycle;
+    private readonly LifecycleGeneration _lifecycle;
 
     internal ServiceCycleHandoff(LifecycleGeneration lifecycle = default)
     {
@@ -49,18 +49,6 @@ internal sealed partial class ServiceCycleHandoff
         Volatile.Read(ref _responseWaiterCount);
     internal int OfflineResponseWakePulseCount =>
         Volatile.Read(ref _responseWakePulseCount);
-
-    internal void BindLifecycle(LifecycleGeneration lifecycle)
-    {
-        if (lifecycle.Value == 0)
-            throw new ArgumentException(
-                "A valid lifecycle generation is required.",
-                nameof(lifecycle));
-        if (_lifecycle.Value != 0 && _lifecycle != lifecycle)
-            throw new InvalidOperationException(
-                "The handoff belongs to another lifecycle generation.");
-        _lifecycle = lifecycle;
-    }
 
     internal ServiceHandoffSnapshot Snapshot
     {

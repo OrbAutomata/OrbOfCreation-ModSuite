@@ -19,34 +19,6 @@ internal sealed class ServiceOrdinaryRunnerFactory<TState, TAction> :
         : base(definition, in parts) =>
         _definition = definition;
 
-    internal ServiceOrdinaryRunnerFactory(
-        IServiceCycleDefinition<TState, TAction> definition,
-        ServiceConfigurationPublisher configuration,
-        ServiceId serviceId,
-        WakePolicy defaultWakePolicy,
-        ServiceFaultRecoveryPolicy faultRecoveryPolicy,
-        IMonotonicClock clock,
-        bool measureWorkerAllocations,
-        ServiceResourceClaimLedger resourceClaims,
-        IServiceCycleWorkerStarter? workerStarter,
-        IServiceCycleWorkerExitObserver? workerExitObserver,
-        ServiceStrategyPublisher? strategy = null,
-        ServiceWorldPublisher<GameWorldState>? world = null)
-        : base(
-            definition,
-            configuration,
-            serviceId,
-            defaultWakePolicy,
-            faultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations,
-            resourceClaims,
-            workerStarter,
-            workerExitObserver,
-            strategy,
-            world) =>
-        _definition = definition;
-
     private protected override IServiceCycleWorkerStateDefinition<TState> CreateWorkerDefinition() =>
         _definition.CreateWorkerDefinition();
 

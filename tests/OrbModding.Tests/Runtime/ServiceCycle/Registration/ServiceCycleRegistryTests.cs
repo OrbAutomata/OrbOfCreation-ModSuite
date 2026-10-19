@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
@@ -85,59 +86,55 @@ public sealed class ServiceCycleRegistryTests
     }
 
     /// <summary>
-    /// A worker thread that never started releases its claim and its wake handle.
+    /// A worker thread that never started releases its claim.
     /// </summary>
     /// <remarks>
-    /// The second construction is the proof, not decoration: the ledger is sized to one claim here,
-    /// so a claim the failed attempt kept would turn the retry into a capacity failure rather than a
-    /// runner.
+    /// The second registration is the proof, not decoration: the same definition registers again and
+    /// mints a fresh worker definition, so the failed attempt left nothing behind in the registry or
+    /// the ledger.
     /// </remarks>
     [Fact]
-    public void WorkerStartFailureReleasesTheClaimAndNeverStartedWakeHandle()
+    public void WorkerStartFailureReleasesTheClaim()
     {
         var definition = new SyntheticServiceDefinition("test.start-failure");
-        using var configuration = new ServiceConfigurationPublisher(TestSuiteConfiguration.WithSetting(1));
-        var handoff = new ServiceCycleHandoff();
-        var claims = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(
+            1,
+            new ThreadSafeTestClock(100),
+            false,
+            new FailFirstWorkerStarter());
+        var claims = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
+            "_resourceClaims",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
 
-        var exception = Assert.Throws<InvalidOperationException>(() =>
-            ServiceRunnerFactory<SyntheticState, SyntheticAction>.CreateRequired(
-                definition,
-                configuration,
-                new RuntimeLifecycleGeneration(1),
-                definition.ServiceId,
-                WakePolicy.Immediate,
-                definition.FaultRecoveryPolicy,
-                new ThreadSafeTestClock(100),
-                measureWorkerAllocations: false,
-                handoff: handoff,
-                resourceClaims: claims,
-                workerStarter: new ThrowingWorkerStarter()));
+        var exception = Assert.Throws<InvalidOperationException>(() => registry.Register(
+            definition, new RuntimeLifecycleGeneration(1)));
 
         Assert.Contains("thread start failure", exception.Message, StringComparison.Ordinal);
-        Assert.True(handoff.WorkerWakeDisposed);
         Assert.Equal(1, definition.WorkerDefinitionCreateCount);
         Assert.Equal(0, definition.StateCreateCount);
         Assert.Equal(0, definition.StateReleaseCount);
         Assert.Equal(0, claims.LiveClaimCount);
+        Assert.Equal(0, registry.Count);
 
-        using var recovered = ServiceRunnerFactory<SyntheticState, SyntheticAction>.CreateRequired(
-            definition,
-            configuration,
-            new RuntimeLifecycleGeneration(1),
-            definition.ServiceId,
-            WakePolicy.Immediate,
-            definition.FaultRecoveryPolicy,
-            new ThreadSafeTestClock(100),
-            measureWorkerAllocations: false,
-            resourceClaims: claims);
+        using var recovered = registry.Register(
+            definition, new RuntimeLifecycleGeneration(1));
         Assert.Equal(2, definition.WorkerDefinitionCreateCount);
+        Assert.Equal(1, claims.LiveClaimCount);
     }
 
-    private sealed class ThrowingWorkerStarter : IServiceCycleWorkerStarter
+    private sealed class FailFirstWorkerStarter : IServiceCycleWorkerStarter
     {
-        public void Start(Thread thread) =>
-            throw new InvalidOperationException("synthetic thread start failure");
+        private bool _failed;
+
+        public void Start(Thread thread)
+        {
+            if (!_failed)
+            {
+                _failed = true;
+                throw new InvalidOperationException("synthetic thread start failure");
+            }
+            thread.Start();
+        }
     }
 
     [Fact]

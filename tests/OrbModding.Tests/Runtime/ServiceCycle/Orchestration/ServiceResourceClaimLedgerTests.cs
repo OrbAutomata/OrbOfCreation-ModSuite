@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
-using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
@@ -24,15 +23,20 @@ public sealed class ServiceResourceClaimLedgerTests
         var claims = new ServiceResourceClaim[ledger.Capacity];
         for (var index = 0; index < claims.Length; index++)
         {
-            claims[index] = ledger.Claim(
-                new object(),
-                (ServiceResourceRole)((index % 2) + 1));
+            Assert.Equal(
+                ServiceResourceClaimResult.Claimed,
+                TryClaim(
+                    ledger,
+                    new object(),
+                    (ServiceResourceRole)((index % 2) + 1),
+                    out claims[index]));
         }
         Assert.Equal(ServiceResourceClaimLedger.ClaimsPerService, ledger.Capacity);
         Assert.Equal(ledger.Capacity, ledger.LiveClaimCount);
         Assert.Equal(
             ServiceResourceClaimResult.CapacityExhausted,
-            ledger.TryClaim(
+            TryClaim(
+                ledger,
                 new object(),
                 ServiceResourceRole.State,
                 out _));
@@ -40,13 +44,20 @@ public sealed class ServiceResourceClaimLedgerTests
         var stale = claims[0];
         Assert.True(ledger.Release(stale));
         var replacementIdentity = new object();
-        var replacement = ledger.Claim(replacementIdentity, ServiceResourceRole.WorkerDefinition);
+        Assert.Equal(
+            ServiceResourceClaimResult.Claimed,
+            TryClaim(
+                ledger,
+                replacementIdentity,
+                ServiceResourceRole.WorkerDefinition,
+                out var replacement));
         Assert.NotEqual(stale.Token, replacement.Token);
         Assert.False(ledger.Release(stale));
         Assert.True(ledger.Release(claims[1]));
         Assert.Equal(
             ServiceResourceClaimResult.Aliased,
-            ledger.TryClaim(
+            TryClaim(
+                ledger,
                 replacementIdentity,
                 ServiceResourceRole.WorkerDefinition,
                 out _));
@@ -92,24 +103,19 @@ public sealed class ServiceResourceClaimLedgerTests
     public void CapacityPreventsReferenceStateFactoryCall()
     {
         var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
-        for (var index = 0; index < ServiceResourceClaimLedger.ClaimsPerService - 1; index++)
-            ledger.Claim(new object(), ServiceResourceRole.State);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var ledger = RegistryClaims(registry);
+        for (var index = 0; index < ledger.Capacity - 1; index++)
+        {
+            Assert.Equal(
+                ServiceResourceClaimResult.Claimed,
+                TryClaim(ledger, new object(), ServiceResourceRole.State, out _));
+        }
         var definition = new CrossRoleServiceDefinition("lifecycle.claim-capacity");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
-        using var runner = ServiceRunnerFactory<
-            CrossRoleResource,
-            CrossRoleAction>.CreateRequired(
+        using var registration = registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger);
+            new LifecycleGeneration(1));
+        var runner = registration.Runner;
 
         Assert.Equal(ledger.Capacity, ledger.LiveClaimCount);
         Assert.True(runner.TryStartCycle(clock.Now).Queued);
@@ -264,14 +270,14 @@ public sealed class ServiceResourceClaimLedgerTests
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var owner));
         Assert.Equal(
             ServiceResourceClaimResult.Contended,
-            ledger.TryClaim(identity, ServiceResourceRole.State, out _));
+            TryClaim(ledger, identity, ServiceResourceRole.State, out _));
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.FinalizeFactory(owner, identity));
         ledger.EndFactory(owner);
         Assert.Equal(
             ServiceResourceClaimResult.Aliased,
-            ledger.TryClaim(identity, ServiceResourceRole.State, out _));
+            TryClaim(ledger, identity, ServiceResourceRole.State, out _));
         Assert.Equal(1, ledger.LiveClaimCount);
         Assert.True(ledger.Release(owner));
     }
@@ -296,38 +302,26 @@ public sealed class ServiceResourceClaimLedgerTests
 
             Assert.Equal(ServiceResourceClaimResult.Contended, admission);
             Assert.Equal(0, callbackCount);
-            Assert.Equal(2, ledger.ClaimAllocationCount);
+            Assert.Equal(1, ledger.LiveClaimCount);
             ledger.EndFactory(owner);
             Assert.Equal(0, ledger.LiveClaimCount);
         }
     }
 
     [Fact]
-    public void BusyTokenReturnsTypedRunnerContentionBeforeWorkerDefinitionFactoryCall()
+    public void BusyTokenRejectsRegistrationWithTypedContentionBeforeWorkerDefinitionFactoryCall()
     {
-        var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
+        var ledger = RegistryClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.State, out var blocker));
         var definition = new LifecycleServiceDefinition("lifecycle.token-worker-admission");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
 
-        var construction = ServiceRunnerFactory<
-            LifecycleState,
-            LifecycleAction>.TryCreate(
+        Assert.Throws<ServiceRunnerResourceContentionException>(() => registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger);
-        Assert.True(construction.Contended);
-        Assert.Null(construction.Runner);
+            new LifecycleGeneration(1)));
+        Assert.Equal(0, registry.Count);
         Assert.Equal(0, definition.WorkerDefinitionCreateCount);
         ledger.EndFactory(blocker);
         Assert.Equal(0, ledger.LiveClaimCount);
@@ -345,9 +339,7 @@ public sealed class ServiceResourceClaimLedgerTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = RegistryClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.State, out var blocker));
@@ -383,22 +375,13 @@ public sealed class ServiceResourceClaimLedgerTests
     public void WorkerStateFactoryRetriesTokenContentionWithoutSpinningOrFaulting()
     {
         var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var ledger = RegistryClaims(registry);
         var definition = new CrossRoleServiceDefinition("lifecycle.token-state-retry");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
-        using var runner = ServiceRunnerFactory<
-            CrossRoleResource,
-            CrossRoleAction>.CreateRequired(
+        using var registration = registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger);
+            new LifecycleGeneration(1));
+        var runner = registration.Runner;
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
@@ -433,22 +416,13 @@ public sealed class ServiceResourceClaimLedgerTests
     public void StopRemainsPromptAfterWorkerStateFactoryContention()
     {
         var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var ledger = RegistryClaims(registry);
         var definition = new CrossRoleServiceDefinition("lifecycle.token-state-stop");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
-        var runner = ServiceRunnerFactory<
-            CrossRoleResource,
-            CrossRoleAction>.CreateRequired(
+        using var registration = registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger);
+            new LifecycleGeneration(1));
+        var runner = registration.Runner;
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
@@ -469,7 +443,9 @@ public sealed class ServiceResourceClaimLedgerTests
     {
         var ledger = new ServiceResourceClaimLedger(1);
         var identity = new object();
-        var owner = ledger.Claim(identity, ServiceResourceRole.State);
+        Assert.Equal(
+            ServiceResourceClaimResult.Claimed,
+            TryClaim(ledger, identity, ServiceResourceRole.State, out var owner));
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var contender));
@@ -489,7 +465,9 @@ public sealed class ServiceResourceClaimLedgerTests
     public void RetirementAfterFactoryClearRemovesExactClaimImmediately()
     {
         var ledger = new ServiceResourceClaimLedger(1);
-        var owner = ledger.Claim(new object(), ServiceResourceRole.State);
+        Assert.Equal(
+            ServiceResourceClaimResult.Claimed,
+            TryClaim(ledger, new object(), ServiceResourceRole.State, out var owner));
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var factory));
@@ -508,7 +486,9 @@ public sealed class ServiceResourceClaimLedgerTests
     public void RetirementImmediatelyBeforeFactoryClosingIsSweptBeforeTokenClear()
     {
         var ledger = new ServiceResourceClaimLedger(1);
-        var owner = ledger.Claim(new object(), ServiceResourceRole.State);
+        Assert.Equal(
+            ServiceResourceClaimResult.Claimed,
+            TryClaim(ledger, new object(), ServiceResourceRole.State, out var owner));
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var factory));
@@ -528,7 +508,9 @@ public sealed class ServiceResourceClaimLedgerTests
     public void RetirementAfterFactoryClosingSelfRemovesBeforeSuccessorCanStart()
     {
         var ledger = new ServiceResourceClaimLedger(1);
-        var owner = ledger.Claim(new object(), ServiceResourceRole.State);
+        Assert.Equal(
+            ServiceResourceClaimResult.Claimed,
+            TryClaim(ledger, new object(), ServiceResourceRole.State, out var owner));
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var factory));
@@ -549,4 +531,28 @@ public sealed class ServiceResourceClaimLedgerTests
         Assert.Equal(0, ledger.LiveClaimCount);
     }
 
+    private static ServiceResourceClaimLedger RegistryClaims(ServiceCycleRegistry registry) =>
+        (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
+            "_resourceClaims",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+
+    private static ServiceResourceClaimResult TryClaim(
+        ServiceResourceClaimLedger ledger,
+        object identity,
+        ServiceResourceRole role,
+        out ServiceResourceClaim claim)
+    {
+        var admission = ledger.TryBeginFactory(role, out claim);
+        if (admission != ServiceResourceClaimResult.Claimed) return admission;
+        ServiceResourceClaimResult result;
+        try
+        {
+            result = ledger.FinalizeFactory(claim, identity);
+        }
+        finally
+        {
+            ledger.EndFactory(claim);
+        }
+        return result;
+    }
 }

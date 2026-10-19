@@ -2,7 +2,6 @@ using System;
 using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
-using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
@@ -231,39 +230,27 @@ public sealed class ServiceRunnerConstructionSafetyTests
     [Fact]
     public void CallbackCanObserveConcurrentStateFactoryFailFastWithoutDeadlock()
     {
-        var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
+        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
+            "_resourceClaims",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
         var definition = new LifecycleServiceDefinition("lifecycle.worker-callback-state-claim");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
         using var completed = new ManualResetEventSlim(false);
         var stateAdmission = default(ServiceResourceClaimResult);
         definition.WorkerDefinitionFactoryCallback = () =>
         {
             var claimant = new Thread(() =>
             {
-                stateAdmission = ledger.TryClaim(
-                    new object(),
-                    ServiceResourceRole.State,
-                    out _);
+                stateAdmission = ledger.TryBeginFactory(ServiceResourceRole.State, out _);
                 completed.Set();
             }) { IsBackground = true };
             claimant.Start();
             Assert.True(completed.Wait(ServiceCycleTestDeadline.Value));
         };
 
-        using var runner = ServiceRunnerFactory<
-            LifecycleState,
-            LifecycleAction>.CreateRequired(
+        using var registration = registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger);
+            new LifecycleGeneration(1));
 
         Assert.True(completed.IsSet);
         Assert.Equal(ServiceResourceClaimResult.Contended, stateAdmission);
@@ -311,26 +298,26 @@ public sealed class ServiceRunnerConstructionSafetyTests
     [Fact]
     public void CapacityPreventsWorkerDefinitionFactoryCall()
     {
-        var clock = new ThreadSafeTestClock(100);
-        var ledger = new ServiceResourceClaimLedger(1);
+        using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
+        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
+            "_resourceClaims",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
         for (var index = 0; index < ledger.Capacity; index++)
-            ledger.Claim(new object(), ServiceResourceRole.State);
+        {
+            Assert.Equal(
+                ServiceResourceClaimResult.Claimed,
+                ledger.TryBeginFactory(ServiceResourceRole.State, out var claim));
+            Assert.Equal(
+                ServiceResourceClaimResult.Claimed,
+                ledger.FinalizeFactory(claim, new object()));
+            ledger.EndFactory(claim);
+        }
         var definition = new LifecycleServiceDefinition("lifecycle.worker-capacity");
-        using var configuration = new ServiceConfigurationPublisher(
-            TestSuiteConfiguration.WithSetting(1));
 
-        Assert.Throws<InvalidOperationException>(() => ServiceRunnerFactory<
-            LifecycleState,
-            LifecycleAction>.CreateRequired(
+        Assert.Throws<InvalidOperationException>(() => registry.Register(
             definition,
-            configuration,
-            new LifecycleGeneration(1),
-            definition.ServiceId,
-            definition.DefaultWakePolicy,
-            definition.FaultRecoveryPolicy,
-            clock,
-            measureWorkerAllocations: false,
-            resourceClaims: ledger));
+            new LifecycleGeneration(1)));
+        Assert.Equal(0, registry.Count);
         Assert.Equal(0, definition.WorkerDefinitionCreateCount);
         Assert.Equal(ledger.Capacity, ledger.LiveClaimCount);
     }
