@@ -42,9 +42,8 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
         var first = harness.RetryGate.Latest;
         var status = harness.Status.Current;
-        for (var index = 0; index < 20; index++) harness.PumpWorld();
         harness.Advance(FirstWait - MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)));
-        for (var index = 0; index < 20; index++) harness.PumpWorld();
+        harness.PumpUntilTheNewestWorldIsEvaluated();
         var purchasesBeforeDue = harness.Native.Recipe.PurchaseCalls;
         harness.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(2)));
         harness.PumpWorldsUntil(() => harness.Native.Recipe.PurchaseCalls == 2);
@@ -77,7 +76,7 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
         var entry = harness.RetryGate.Latest;
         harness.Advance(FirstWait - MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)));
-        for (var index = 0; index < 20; index++) harness.PumpWorld();
+        harness.PumpUntilTheNewestWorldIsEvaluated();
 
         Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, entry.Code);
         Assert.Equal(FirstWait, entry.Backoff);
@@ -143,7 +142,9 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
 
         internal AutoScribeNativeFixtureState Native { get; }
         internal AutomataFeatureStatusReporter Status { get; }
-        internal ServiceRetryGateSnapshot RetryGate
+        internal ServiceRetryGateSnapshot RetryGate => Service.RetryGate;
+
+        private ServiceCycleServiceDiagnosticsSnapshot Service
         {
             get
             {
@@ -151,7 +152,7 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
                 var copy = ServiceCycleDiagnostics.CopyServices(_host.Pump, services);
                 for (var index = 0; index < copy.WrittenCount; index++)
                     if (services[index].ServiceId.Equals(AutoScribeServicePolicies.ServiceId))
-                        return services[index].RetryGate;
+                        return services[index];
                 throw new InvalidOperationException("Auto Scribe is not registered.");
             }
         }
@@ -170,9 +171,27 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
             }
         }
 
+        internal void PumpUntilTheNewestWorldIsEvaluated()
+        {
+            PumpWorld();
+            var newest = new WorldGeneration(_generation);
+            var deadline = Stopwatch.StartNew();
+            while (!EvaluatedAndDrained(Service, newest))
+            {
+                _runtime.Tick(0);
+                if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
+                    throw new TimeoutException("Auto Scribe did not evaluate the newest world.");
+                Thread.Yield();
+            }
+        }
+
+        private static bool EvaluatedAndDrained(ServiceCycleServiceDiagnosticsSnapshot service, WorldGeneration world) =>
+            service.LatestProjection.Context.Cycle.World == world && !service.ActiveBatch.IsPresent;
+
         internal void PumpWorld()
         {
-            _registry.WorldPublication.Publish(World(_profile, Epoch), new WorldGeneration(++_generation));
+            _generation = Math.Max(_generation + 1, checked((ulong)_frame));
+            _registry.WorldPublication.Publish(World(_profile, Epoch), new WorldGeneration(_generation));
             _runtime.Tick(0);
         }
 
