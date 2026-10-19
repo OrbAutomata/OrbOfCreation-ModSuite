@@ -194,14 +194,14 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
                 var element = elements![index];
                 if (element is null || element.GetType() != _elementType)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a harvest element registry entry had an unexpected native type");
                     continue;
                 }
                 var elementId = _elementId!(element);
                 if (elementId == Guid.Empty)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a harvest element had no stable identity");
                     continue;
                 }
@@ -229,14 +229,14 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
                     if (prototype is null || prototype.GetType() != _instanceType ||
                         _instanceElementId!(prototype) != elementId)
                     {
-                        Skip(ref skipped, ref firstFailure,
+                        WorldSkipTally.Skip(ref skipped, ref firstFailure,
                             "a harvest action prototype had an unexpected type or owner");
                         continue;
                     }
                     var actionId = _instanceActionId!(prototype);
                     if (actionId == Guid.Empty)
                     {
-                        Skip(ref skipped, ref firstFailure,
+                        WorldSkipTally.Skip(ref skipped, ref firstFailure,
                             "a harvest action prototype had no action identity");
                         continue;
                     }
@@ -340,12 +340,6 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         _instanceBaseCost is not null && _instanceScaling is not null &&
         _drainCostMod is not null && _costEntries is not null &&
         _costResource is not null && _costAmount is not null && _costEnough is not null;
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
-    }
 }
 
 internal static class WorldHarvestLifecycleDeriver

@@ -356,7 +356,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
         if (glyph.Failure.Length > 0) missing.Add(glyph.Failure);
         if (upgrade.Failure.Length > 0) missing.Add(upgrade.Failure);
-        _unavailable = missing.Count == 0 ? string.Empty : string.Join("; ", missing);
+        _unavailable = WorldFailures.Join(missing.ToArray());
     }
 
     private const System.Reflection.BindingFlags PublicStatic =
@@ -426,9 +426,10 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "reading a glyph's factors threw: " + ex.GetBaseException().Message;
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    "reading a glyph's factors threw: " + ex.GetBaseException().Message);
             }
         }
 
@@ -446,12 +447,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                {
-                    firstFailure = "reading an upgrade's permanent effects threw: " +
-                        ex.GetBaseException().Message;
-                }
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    "reading an upgrade's permanent effects threw: " +
+                        ex.GetBaseException().Message);
             }
         }
 
@@ -469,12 +469,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                {
-                    firstFailure = "reading an attribute's properties threw: " +
-                        ex.GetBaseException().Message;
-                }
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    "reading an attribute's properties threw: " +
+                        ex.GetBaseException().Message);
             }
         }
 
@@ -497,12 +496,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
                 }
                 catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
-                    skipped++;
-                    if (firstFailure.Length == 0)
-                    {
-                        firstFailure = "reading a " + _holders[holder].TypeName +
-                            "'s level effects threw: " + ex.GetBaseException().Message;
-                    }
+                    WorldSkipTally.Skip(
+                        ref skipped,
+                        ref firstFailure,
+                        "reading a " + _holders[holder].TypeName +
+                            "'s level effects threw: " + ex.GetBaseException().Message);
                 }
             }
         }

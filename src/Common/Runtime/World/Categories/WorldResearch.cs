@@ -524,15 +524,11 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
             _typeCurrentInvestment is null || _typeMaximumInvestment is null
                 ? TypeName + " did not expose the complete research decision binding set"
                 : string.Empty;
-        var baseFailure = bind.Failure.Length == 0
-            ? decisionFailure
-            : decisionFailure.Length == 0 ? bind.Failure : bind.Failure + "; " + decisionFailure;
+        var baseFailure = WorldFailures.Join(bind.Failure, decisionFailure);
         if (_requirementAdjustmentFailure.Length == 0) return baseFailure;
         var adjustmentFailure = TypeName + " did not expose " +
             _requirementAdjustmentFailure + " on this build";
-        return baseFailure.Length == 0
-            ? adjustmentFailure
-            : baseFailure + "; " + adjustmentFailure;
+        return WorldFailures.Join(baseFailure, adjustmentFailure);
     }
 
     internal override WorldResearch Read(object entity)

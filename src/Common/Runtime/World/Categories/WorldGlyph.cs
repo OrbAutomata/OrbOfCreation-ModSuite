@@ -158,7 +158,7 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
         _associatedRecipeBook = bind.ReferenceGuid("associatedRecipeBook");
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _levelDecision = new WorldLevelableDecisionBinding(type, true, _resolveType);
-        return Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
+        return WorldFailures.Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
     }
 
     /// <summary>
@@ -191,12 +191,4 @@ internal sealed class WorldGlyphBinder : WorldPlainBinder<WorldGlyph>
             _maximumFreeUsages!(entity),
             _discovery!.Read(entity),
             _levelDecision!.Read(entity));
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        foreach (var value in values)
-            if (value.Length > 0) result = result.Length == 0 ? value : result + "; " + value;
-        return result;
-    }
 }

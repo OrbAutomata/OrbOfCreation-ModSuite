@@ -138,7 +138,7 @@ internal sealed class WorldDiscoverableBinding
         var glyph = new WorldMemberBinding(glyphRecipeType!, "GlyphSO");
         _glyphIdentity = glyph.StableUuid();
 
-        Failure = Join(
+        Failure = WorldFailures.Join(
             item.Failure,
             cost.Failure,
             tuple.Failure,
@@ -212,16 +212,5 @@ internal sealed class WorldDiscoverableBinding
             match = candidate;
         }
         return match;
-    }
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
-        }
-        return result;
     }
 }

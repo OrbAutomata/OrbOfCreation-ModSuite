@@ -188,10 +188,11 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "reading a prerequisite-link live gate threw: " +
-                        ex.GetBaseException().Message;
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    "reading a prerequisite-link live gate threw: " +
+                        ex.GetBaseException().Message);
             }
         }
 

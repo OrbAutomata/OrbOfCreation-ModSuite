@@ -423,7 +423,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 slots.Reset();
-                Skip(ref skipped, ref firstFailure, Threw("plot-action", ex));
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("plot-action", ex));
             }
         }
 
@@ -441,7 +441,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                Skip(ref skipped, ref firstFailure, Threw("attribute", ex));
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("attribute", ex));
             }
         }
 
@@ -457,7 +457,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         ref string firstFailure)
     {
         if (failure.Length == 0) sampled++;
-        else Skip(ref skipped, ref firstFailure, $"the {name} queue {failure}");
+        else WorldSkipTally.Skip(ref skipped, ref firstFailure, $"the {name} queue {failure}");
     }
 
     private static string Threw(string name, Exception ex) =>
@@ -550,11 +550,5 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             emptySlots: 0,
             slotsWereWalked: false));
         return string.Empty;
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }

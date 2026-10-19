@@ -247,7 +247,7 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         _hasRequiredDiscovery = bind.Field<bool>("hasRequiredDiscovery");
         _hasRemainingDiscovery = bind.Field<bool>("hasRemainingDiscovery");
         _hasCompletedAllDiscoveries = bind.Field<bool>("hasCompletedAllDiscoveries");
-        return JoinFailures(bind.Failure, cost.Failure, tuple.Failure, resource.Failure);
+        return WorldFailures.Join(bind.Failure, cost.Failure, tuple.Failure, resource.Failure);
     }
 
     internal override WorldDiscoveryTree Read(object entity)
@@ -334,17 +334,6 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
                 resourceId,
                 _costValue!(tuple),
                 _resourceQuantity!(resource));
-        }
-        return result;
-    }
-
-    private static string JoinFailures(params string[] failures)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < failures.Length; index++)
-        {
-            if (string.IsNullOrWhiteSpace(failures[index])) continue;
-            result = result.Length == 0 ? failures[index] : result + "; " + failures[index];
         }
         return result;
     }

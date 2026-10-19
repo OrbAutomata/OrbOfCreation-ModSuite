@@ -87,7 +87,7 @@ internal sealed class WorldEquipmentTypeBinder : WorldPlainBinder<WorldEquipment
         _masteryLevel = bind.ModifierRecord("masteryLevel");
         _maxTypeSlots = bind.ModifierRecord("maxTypeSlots");
         _levelDecision = new WorldLevelableDecisionBinding(type, true, _resolveType);
-        return Join(bind.Failure, _levelDecision.Failure);
+        return WorldFailures.Join(bind.Failure, _levelDecision.Failure);
     }
 
     internal override WorldEquipmentType Read(object entity) =>
@@ -99,7 +99,4 @@ internal sealed class WorldEquipmentTypeBinder : WorldPlainBinder<WorldEquipment
             _masteryLevel!(entity),
             _maxTypeSlots!(entity),
             _levelDecision!.Read(entity));
-
-    private static string Join(string left, string right) =>
-        left.Length == 0 ? right : right.Length == 0 ? left : left + "; " + right;
 }

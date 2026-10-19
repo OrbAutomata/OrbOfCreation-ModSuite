@@ -528,7 +528,7 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _decision = new WorldRitualDecisionBinding(type, _resolveType);
         _completionFormula = new WorldRitualCompletionFormulaBinding(type, _resolveType);
-        return Join(
+        return WorldFailures.Join(
             bind.Failure, spoilResource.Failure,
             _discovery.Failure, _decision.Failure, _completionFormula.Failure);
     }
@@ -595,17 +595,6 @@ internal sealed class WorldRitualBinder : WorldPlainBinder<WorldRitual>
                 throw new InvalidOperationException(
                     "SpoilsRecordEntry.resource had no stable UUID");
             result[index] = new WorldRitualSpoil(resourceId, _spoilQuantity!(entry));
-        }
-        return result;
-    }
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
         }
         return result;
     }
@@ -760,7 +749,7 @@ internal sealed class WorldRitualDecisionBinding
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
         _resourceId = resource.StableUuid();
 
-        Failure = Join(
+        Failure = WorldFailures.Join(
             _manager is null ? "RitualManager.instance was unavailable" : string.Empty,
             _selectedVariable is null ? "RitualManager.selectedRitual was unavailable" : string.Empty,
             _isSelected is null ? "RitualVariable.IsItem was unavailable" : string.Empty,
@@ -815,16 +804,5 @@ internal sealed class WorldRitualDecisionBinding
                 _resourceId!(resource), _costValue!(entry));
         }
         return PublicationTable<WorldRitualCost>.Create(rows);
-    }
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
-        }
-        return result;
     }
 }

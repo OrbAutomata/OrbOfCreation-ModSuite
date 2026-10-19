@@ -724,7 +724,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
             var entity = entities[index];
             if (entity is null)
             {
-                Skip(ref skipped, ref firstFailure, "a registry entry was null");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, "a registry entry was null");
                 continue;
             }
 
@@ -740,13 +740,13 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
 
                 if (id == Guid.Empty)
                 {
-                    Skip(ref skipped, ref firstFailure, "an entity carried an empty identity");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, "an entity carried an empty identity");
                     continue;
                 }
 
                 if (!claimed.Add(id))
                 {
-                    Skip(ref skipped, ref firstFailure, $"entity {id} appeared more than once");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"entity {id} appeared more than once");
                     continue;
                 }
 
@@ -755,7 +755,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                Skip(
+                WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
                     $"reading a {_binder.TypeName} threw: {ex.GetBaseException().Message}");
@@ -764,11 +764,5 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
 
         return new WorldCategoryReport(
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }

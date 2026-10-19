@@ -116,7 +116,7 @@ internal sealed class WorldEquipmentBinder : WorldPlainBinder<WorldEquipment>
         _baseXpRate = bind.Field<BigDouble>("baseXpRate");
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _loadout = new WorldEquipmentDecisionBinding(type, _resolveType);
-        return Join(Join(bind.Failure, _discovery.Failure), _loadout.Failure);
+        return WorldFailures.Join(bind.Failure, _discovery.Failure, _loadout.Failure);
     }
 
     internal override WorldEquipment Read(object entity) =>
@@ -136,7 +136,4 @@ internal sealed class WorldEquipmentBinder : WorldPlainBinder<WorldEquipment>
             _baseXpRate!(entity),
             _discovery!.Read(entity),
             _loadout!.Read(entity));
-
-    private static string Join(string left, string right) =>
-        left.Length == 0 ? right : right.Length == 0 ? left : left + "; " + right;
 }
