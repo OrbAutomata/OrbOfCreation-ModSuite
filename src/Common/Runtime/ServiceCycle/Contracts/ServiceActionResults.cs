@@ -356,6 +356,20 @@ public readonly struct ServiceActionResult
             true, maximumBackoff, quietFirstFailure, initialBackoff);
     }
 
+    /// <summary>
+    /// The same fault, backing off a target the game charged for without delivering: a minute before
+    /// it is tried again, doubling to half an hour, so a broken target cannot drain the player's
+    /// resources.
+    /// </summary>
+    public ServiceActionResult BackingOffAfterPayment() =>
+        BackingOffTarget(PaidWithoutResultBackoffCap, initialBackoff: PaidWithoutResultFirstWait);
+
+    private static readonly MonotonicDuration PaidWithoutResultFirstWait =
+        MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1));
+
+    private static readonly MonotonicDuration PaidWithoutResultBackoffCap =
+        MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(30));
+
     private static ServiceActionResult Create(
         ServiceActionDisposition disposition,
         ServiceActionResultCode code,
