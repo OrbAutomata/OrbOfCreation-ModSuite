@@ -9,9 +9,8 @@ internal sealed class SuiteFramePumpTraceSession
     private readonly ServiceCycleRegistry _registry;
     private readonly int _serviceCapacity;
     private ServiceCycleSemanticRuntimeTraceMultiplexer? _dispatch;
-    private ServiceCycleSemanticRuntimeTrace? _host;
+    private readonly ServiceCycleSemanticRuntimeTrace? _host;
     private ServiceCycleSemanticRuntimeTrace? _manual;
-    private bool _hostInvalidated;
 
     internal SuiteFramePumpTraceSession(
         ServiceCycleRegistry registry,
@@ -28,41 +27,8 @@ internal sealed class SuiteFramePumpTraceSession
         RebuildDispatch();
     }
 
-    internal bool HasHostTrace => _host is not null;
     internal ServiceCycleSemanticRuntimeTraceMultiplexer? Dispatch => _dispatch;
     internal ServiceCycleSemanticTraceSource? HostTraceSource => _host?.Source;
-
-    internal ServiceCycleSemanticTraceCloseResult TryCloseHostTraceAtSettledBoundary()
-    {
-        if (_hostInvalidated)
-        {
-            _host = null;
-            RebuildDispatch();
-            return ServiceCycleSemanticTraceCloseResult.Invalidated;
-        }
-        if (_host is null) return ServiceCycleSemanticTraceCloseResult.Closed;
-        for (var ordinal = 0; ordinal < _serviceCapacity; ordinal++)
-        {
-            var slot = _registry.GetSlot(ordinal);
-            if (slot.IsDisposed)
-            {
-                _host = null;
-                RebuildDispatch();
-                return ServiceCycleSemanticTraceCloseResult.Invalidated;
-            }
-            if (!slot.IsBetweenCycles) return ServiceCycleSemanticTraceCloseResult.Pending;
-        }
-        _host = null;
-        RebuildDispatch();
-        return ServiceCycleSemanticTraceCloseResult.Closed;
-    }
-
-    internal void DiscardHostTrace()
-    {
-        _host = null;
-        RebuildDispatch();
-        _hostInvalidated = false;
-    }
 
     internal bool TryAttachManual(
         ServiceCycleSemanticRecorder recorder,
@@ -107,8 +73,6 @@ internal sealed class SuiteFramePumpTraceSession
         _manual = null;
         RebuildDispatch();
     }
-
-    internal void InvalidateHostTrace() => _hostInvalidated = true;
 
     private void EnsureManualAttached(ServiceCycleSemanticRuntimeTrace attached)
     {

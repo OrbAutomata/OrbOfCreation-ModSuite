@@ -67,18 +67,6 @@ public sealed class SuiteFramePump : IDisposable
     public ServiceCycleSemanticTraceSource? SemanticTrace => _state.Traces.HostTraceSource;
     internal int ServiceCapacity => _state.Transitioned.Length;
 
-    internal ServiceCycleSemanticTraceCloseResult TryCloseSemanticTraceAtSettledBoundary()
-    {
-        EnsureIdle("Semantic trace admission cannot close while a frame is being pumped.");
-        return _state.Traces.TryCloseHostTraceAtSettledBoundary();
-    }
-
-    internal void DiscardSemanticTrace()
-    {
-        EnsureIdle("Semantic trace admission cannot close while a frame is being pumped.");
-        _state.Traces.DiscardHostTrace();
-    }
-
     internal bool TryAttachManualSemanticTrace(
         ServiceCycleSemanticRecorder recorder,
         out ServiceCycleSemanticRuntimeTrace? attached)

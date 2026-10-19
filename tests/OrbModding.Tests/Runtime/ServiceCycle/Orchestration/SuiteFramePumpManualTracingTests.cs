@@ -38,32 +38,6 @@ public sealed class SuiteFramePumpManualTracingTests
     }
 
     [Fact]
-    public void ClosingTheHostTraceLeavesTheIndependentlyOwnedManualTraceAttached()
-    {
-        using var registry = Registry("trace.manual.with-host-trace");
-        var host = new ServiceCycleSemanticRecorder(new ServiceCycleTraceSessionId(301), 64, 1);
-        using var pump = new SuiteFramePump(registry, host);
-        var hostSource = Assert.IsType<ServiceCycleSemanticTraceSource>(pump.SemanticTrace);
-        var observer = new RecordingObserver();
-        var manual = Recorder(new ServiceCycleTraceSessionId(302), observer);
-        Assert.True(pump.TryAttachManualSemanticTrace(manual, out var attached));
-
-        pump.PumpFrame(1);
-        var hostCursor = hostSource.Cursor;
-        var manualCount = observer.Events.Count;
-
-        Assert.Equal(
-            ServiceCycleSemanticTraceCloseResult.Closed,
-            pump.TryCloseSemanticTraceAtSettledBoundary());
-        Assert.Null(pump.SemanticTrace);
-        pump.PumpFrame(2);
-
-        Assert.Equal(hostCursor, hostSource.Cursor);
-        Assert.True(observer.Events.Count > manualCount);
-        Assert.True(pump.TryDetachManualSemanticTrace(attached!));
-    }
-
-    [Fact]
     public void ManualTraceWaitsForEmergencyClearInsteadOfInventingAnEntryTransition()
     {
         using var registry = Registry("trace.manual.emergency-boundary");
