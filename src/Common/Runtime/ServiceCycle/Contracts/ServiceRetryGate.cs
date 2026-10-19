@@ -44,6 +44,7 @@ public readonly struct ServiceRetryEntry
 {
     internal ServiceRetryEntry(
         ServiceRetryTarget target,
+        ServiceActionResultCode code,
         string reason,
         int consecutiveFailures,
         MonotonicTimestamp failedAt,
@@ -51,6 +52,7 @@ public readonly struct ServiceRetryEntry
         bool awaitsObservation)
     {
         Target = target;
+        Code = code;
         Reason = reason;
         ConsecutiveFailures = consecutiveFailures;
         FailedAt = failedAt;
@@ -59,6 +61,7 @@ public readonly struct ServiceRetryEntry
     }
 
     public ServiceRetryTarget Target { get; }
+    public ServiceActionResultCode Code { get; }
     public string Reason { get; }
     public int ConsecutiveFailures { get; }
     public MonotonicTimestamp FailedAt { get; }
@@ -66,8 +69,8 @@ public readonly struct ServiceRetryEntry
     public MonotonicDuration Backoff => RetryDue - FailedAt;
 
     /// <summary>
-    /// The failure was seen in a later world rather than at the action, so only the evaluator seeing
-    /// the target work again ends it; a commit alone does not.
+    /// The failure was seen in a later world rather than at the action, so only the evaluator ends it,
+    /// when it sees the target work again or stops considering it; a commit alone does not.
     /// </summary>
     public bool AwaitsObservation { get; }
 }

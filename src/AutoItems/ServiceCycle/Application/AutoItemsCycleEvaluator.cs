@@ -41,14 +41,16 @@ internal static class AutoItemsCycleEvaluator
         {
             actions.ReportFailure(
                 AutoItemsServicePolicies.RetryTarget(activation.ItemId),
+                AutoItemsActionResultCodes.UseNotVerified,
                 $"the usage Auto Items queued for {EntityIdentityFormatter.PlayerName(activation.ItemId)} " +
                 "disappeared before it engaged.");
             metrics = EmptyMetrics(world, AutoItemsDecisionKind.Idle);
             return WakePolicy.OnPublication;
         }
-        if (activation.State == AutoItemsTemporaryActivationState.Active &&
+        if (activation.State is AutoItemsTemporaryActivationState.Active or
+                AutoItemsTemporaryActivationState.Paused &&
             context.RetryGate.TryFind(AutoItemsServicePolicies.RetryTarget(activation.ItemId), out _))
-            actions.ReportVerified(AutoItemsServicePolicies.RetryTarget(activation.ItemId));
+            actions.EndRetry(AutoItemsServicePolicies.RetryTarget(activation.ItemId));
         if (!AutoItemsConfigurationPolicy.IsOperational(configuration))
         {
             metrics = EmptyMetrics(world, AutoItemsDecisionKind.Disabled);
@@ -61,7 +63,8 @@ internal static class AutoItemsCycleEvaluator
             state.TemporaryAllowlist,
             state.TargetlessScrolls,
             context.RetryGate,
-            context.DecisionAt);
+            context.DecisionAt,
+            actions);
         if (scan.TemporaryUsagePending)
         {
             metrics = scan.ToMetrics(AutoItemsDecisionKind.AwaitingTemporaryActivation);

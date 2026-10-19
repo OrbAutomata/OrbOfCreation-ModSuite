@@ -53,7 +53,7 @@ internal static class AutoItemsFeatureStatusProjector
                     : bindingFailure);
         if (health.HasFailure)
             return FromActionFailure(health.Code, health.Reason);
-        if (retries.Count != 0)
+        if (retries.Count != 0 && decisionKind != AutoItemsDecisionKind.Disabled)
             return BackingOff(retries.Latest);
         if (!cycleObserved)
             return new AutoItemsFeatureStatus(
@@ -108,7 +108,10 @@ internal static class AutoItemsFeatureStatusProjector
     private static AutoItemsFeatureStatus BackingOff(in ServiceRetryEntry entry) =>
         new(
             FeatureStatusState.Degraded,
-            FeatureStatusReasonCode.NativeMutationFailed,
+            entry.Code == AutoItemsActionResultCodes.ContractUnavailable ||
+            entry.Code == AutoItemsActionResultCodes.MultiBuyUnavailable
+                ? FeatureStatusReasonCode.ContractUnavailable
+                : FeatureStatusReasonCode.NativeMutationFailed,
             $"Auto Items is backing off {EntityIdentityFormatter.Format(entry.Target.Id)} after " +
             $"{entry.ConsecutiveFailures} failed attempt(s) and retries it on a later world: {entry.Reason}");
 

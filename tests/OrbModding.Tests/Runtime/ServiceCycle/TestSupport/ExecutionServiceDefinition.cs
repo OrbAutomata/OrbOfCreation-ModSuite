@@ -107,7 +107,7 @@ internal class ExecutionServiceDefinition :
 
     internal int LastContextRetryFailures => _worker.LastContextRetryFailures;
     internal void ReportFailureOnNextEvaluations(int count) => _worker.ReportFailureOnNextEvaluations(count);
-    internal void ReportVerifiedOnNextEvaluation() => _worker.ReportVerifiedOnNextEvaluation();
+    internal void EndRetryOnNextEvaluation() => _worker.EndRetryOnNextEvaluation();
     internal void FailNextEvaluations(int count) => _worker.FailNextEvaluations(count);
     internal void FailNextProjections(int count) => _worker.FailNextProjections(count);
     internal void FailNextStateFactories(int count) => _worker.FailNextStateFactories(count);

@@ -95,6 +95,7 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         {
             _runtime.State.RetryGate.Record(
                 target,
+                result.Code,
                 FailureReason(in result, executionFailureReason),
                 observedAt);
         }

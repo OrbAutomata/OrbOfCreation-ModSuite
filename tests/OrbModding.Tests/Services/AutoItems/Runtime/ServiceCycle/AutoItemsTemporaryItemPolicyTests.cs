@@ -336,7 +336,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
             capture,
             engaged,
             ref generation,
-            () => warnings.Exists(line => line.Contains("resumed")));
+            () => warnings.Exists(line => line.Contains("stops backing off")));
 
         var calls = fruit.SelectAndFireTimestamps;
         Assert.True(
@@ -349,7 +349,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         Assert.Contains("after 1 failed attempt", warnings[0]);
         Assert.Contains("disappeared before it engaged", warnings[0]);
         Assert.Contains("after 2 failed attempts in a row", warnings[1]);
-        Assert.Contains("resumed", warnings[2]);
+        Assert.Contains("stops backing off", warnings[2]);
         Assert.All(warnings, line => Assert.Contains(itemId.ToString("D"), line));
         Assert.Equal(FeatureStatusState.Operational, status.Current.State);
     }
@@ -424,21 +424,55 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
             engaged,
             ref generation,
             () => status.Current.State == FeatureStatusState.Operational &&
-                warnings.Exists(line => line.Contains("resumed")));
+                warnings.Exists(line => line.Contains("stops backing off")));
 
-        var calls = fruit.SelectAndFireTimestamps;
-        Assert.Equal(3, calls.Count);
-        Assert.True(
-            Elapsed(calls[0], calls[1]) >= TimeSpan.FromMilliseconds(250),
-            $"The first retry came {Elapsed(calls[0], calls[1])} after the failed use.");
-        Assert.True(
-            Elapsed(calls[1], calls[2]) >= TimeSpan.FromMilliseconds(500),
-            $"The second retry came {Elapsed(calls[1], calls[2])} after the second failed use.");
+        Assert.Equal(3, fruit.SelectAndFireTimestamps.Count);
         Assert.Contains(itemId.ToString("D"), warnings[0]);
         Assert.Contains("backs off", warnings[0]);
+        Assert.Contains("after 2 failed attempts in a row", warnings[1]);
         Assert.Equal(FeatureStatusState.Degraded, backingOffStatus.State);
+        Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, backingOffStatus.Reason.Code);
         Assert.Contains(itemId.ToString("D"), backingOffStatus.Reason.Summary);
         Assert.Equal(1, fruit.GetQueued());
+    }
+
+    [Fact]
+    public void ABackedOffFruitTheAllowlistNoLongerNamesStopsBackingOff()
+    {
+        var registry = new Dictionary<Guid, object>();
+        var fruit = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Fruit);
+        fruit.SelectionNoOp = true;
+        var itemId = fruit.GetGuid();
+        var warnings = new List<string>();
+        var status = FeatureStatus();
+        using var runtime = ComposeAutoItems(registry, itemId, status, warnings, out var capture);
+        var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+        var generation = world.CollectedAtFrame;
+
+        Publish(capture, world);
+        CollectUntil(
+            runtime,
+            capture,
+            world,
+            ref generation,
+            () => status.Current.State == FeatureStatusState.Degraded);
+        runtime.PublishSavedConfiguration(
+            Configuration(string.Empty, useRelics: true),
+            new ConfigGeneration(2));
+        CollectUntil(
+            runtime,
+            capture,
+            world,
+            ref generation,
+            () => status.Current.State == FeatureStatusState.Operational &&
+                warnings.Exists(line => line.Contains("stops backing off")));
+
+        Assert.Single(fruit.SelectAndFireTimestamps);
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("backs off", warnings[0]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.Contains(itemId.ToString("D"), warnings[1]);
+        Assert.EndsWith("after 1 failed attempt.", warnings[1]);
     }
 
     [Fact]

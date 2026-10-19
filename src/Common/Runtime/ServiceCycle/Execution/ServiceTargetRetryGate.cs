@@ -24,6 +24,7 @@ internal sealed class ServiceTargetRetryGate
 
     internal ServiceRetryEntry Record(
         ServiceRetryTarget target,
+        ServiceActionResultCode code,
         string reason,
         MonotonicTimestamp failedAt,
         bool awaitsObservation = false,
@@ -45,6 +46,7 @@ internal sealed class ServiceTargetRetryGate
         var backoff = _policy.BackoffAfter(failures, maximumBackoff ?? _policy.MaximumBackoff);
         var entry = new ServiceRetryEntry(
             target,
+            code,
             reason,
             failures,
             failedAt,
@@ -66,7 +68,7 @@ internal sealed class ServiceTargetRetryGate
         if (index >= 0 && !Snapshot[index].AwaitsObservation) Remove(index);
     }
 
-    /// <summary>The evaluator saw the target work again, which ends any episode.</summary>
+    /// <summary>The evaluator saw the target work again, or stopped considering it; either ends any episode.</summary>
     internal void Clear(ServiceRetryTarget target)
     {
         var index = Snapshot.IndexOf(target);
@@ -78,10 +80,16 @@ internal sealed class ServiceTargetRetryGate
         if (reports is null) return;
         foreach (var report in reports)
         {
-            if (report.IsVerified)
+            if (report.EndsEpisode)
                 Clear(report.Target);
             else
-                Record(report.Target, report.Reason, observedAt, awaitsObservation: true, report.MaximumBackoff);
+                Record(
+                    report.Target,
+                    report.Code,
+                    report.Reason,
+                    observedAt,
+                    awaitsObservation: true,
+                    report.MaximumBackoff);
         }
     }
 
@@ -110,39 +118,57 @@ internal readonly struct ServiceRetryReport
 {
     private ServiceRetryReport(
         ServiceRetryTarget target,
-        bool isVerified,
+        bool endsEpisode,
+        ServiceActionResultCode code,
         string reason,
         MonotonicDuration? maximumBackoff)
     {
         Target = target;
-        IsVerified = isVerified;
+        EndsEpisode = endsEpisode;
+        Code = code;
         Reason = reason;
         MaximumBackoff = maximumBackoff;
     }
 
     internal ServiceRetryTarget Target { get; }
-    internal bool IsVerified { get; }
+    internal bool EndsEpisode { get; }
+    internal ServiceActionResultCode Code { get; }
     internal string Reason { get; }
     internal MonotonicDuration? MaximumBackoff { get; }
 
     internal static ServiceRetryReport Failed(
         ServiceRetryTarget target,
+        ServiceActionResultCode code,
         string reason,
         MonotonicDuration? maximumBackoff) =>
-        new(target, false, reason, maximumBackoff);
+        new(target, false, code, reason, maximumBackoff);
 
-    internal static ServiceRetryReport Verified(ServiceRetryTarget target) =>
-        new(target, true, string.Empty, null);
+    internal static ServiceRetryReport End(ServiceRetryTarget target) =>
+        new(target, true, default, string.Empty, null);
 }
 
 /// <summary>The worker's reports for the evaluation in progress, reset before each one.</summary>
 internal sealed class ServiceRetryReportBuffer
 {
     private readonly List<ServiceRetryReport> _reports = new();
+    private readonly ServiceFaultRecoveryPolicy _policy;
+
+    internal ServiceRetryReportBuffer(ServiceFaultRecoveryPolicy policy)
+    {
+        if (!policy.IsValid) throw new ArgumentException("A valid fault recovery policy is required.", nameof(policy));
+        _policy = policy;
+    }
 
     internal void Reset() => _reports.Clear();
 
-    internal void Add(in ServiceRetryReport report) => _reports.Add(report);
+    internal void Add(in ServiceRetryReport report)
+    {
+        if (report.MaximumBackoff is { } cap && cap < _policy.InitialBackoff)
+            throw new ArgumentOutOfRangeException(
+                nameof(report),
+                "A retry cap cannot be shorter than the service's initial fault backoff.");
+        _reports.Add(report);
+    }
 
     internal ServiceRetryReport[]? ToArrayOrNull() => _reports.Count == 0 ? null : _reports.ToArray();
 }

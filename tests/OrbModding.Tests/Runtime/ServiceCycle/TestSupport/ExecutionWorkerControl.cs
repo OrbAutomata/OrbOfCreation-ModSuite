@@ -18,7 +18,7 @@ internal sealed class ExecutionWorkerControl
     private int _stateReleaseCount;
     private int _evaluationCount;
     private int _failureReports;
-    private int _verifiedReports;
+    private int _endRetryReports;
     private int _lastContextRetryFailures;
 
     internal ExecutionWorkerControl(int signalId) => SignalId = signalId;
@@ -54,7 +54,7 @@ internal sealed class ExecutionWorkerControl
     internal int LastContextRetryFailures => Volatile.Read(ref _lastContextRetryFailures);
 
     internal void ReportFailureOnNextEvaluations(int count) => Volatile.Write(ref _failureReports, count);
-    internal void ReportVerifiedOnNextEvaluation() => Volatile.Write(ref _verifiedReports, 1);
+    internal void EndRetryOnNextEvaluation() => Volatile.Write(ref _endRetryReports, 1);
 
     internal void FailNextEvaluations(int count) => Volatile.Write(ref _evaluationFaults, count);
     internal void FailNextProjections(int count) => Volatile.Write(ref _projectionFaults, count);
@@ -88,9 +88,12 @@ internal sealed class ExecutionWorkerControl
                 ? retry.ConsecutiveFailures
                 : 0);
         if (ConsumeOne(ref _failureReports))
-            actions.ReportFailure(ExecutionServiceDefinition.Target, "synthetic surprise");
-        if (ConsumeOne(ref _verifiedReports))
-            actions.ReportVerified(ExecutionServiceDefinition.Target);
+            actions.ReportFailure(
+                ExecutionServiceDefinition.Target,
+                CommonActionResultCodes.AdapterFault,
+                "synthetic surprise");
+        if (ConsumeOne(ref _endRetryReports))
+            actions.EndRetry(ExecutionServiceDefinition.Target);
         LastEvaluatedSetting = TestSuiteConfiguration.SettingOf(config);
         LastEvaluatedStrategySetting = TestSuiteStrategy.SettingOf(strategy);
         Volatile.Write(ref _lastProjectedStructures, world.Structures.AsSpan().Length);

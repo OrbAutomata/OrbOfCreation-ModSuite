@@ -6,7 +6,7 @@ namespace OrbModding.Common;
 
 /// <summary>
 /// Says out loud what a service's retry gate is doing: one line each time a target fails and backs
-/// off, and one when it works again.
+/// off, and one when the episode ends.
 /// </summary>
 internal sealed class ServiceRetryEpisodeNarrator
 {
@@ -32,7 +32,7 @@ internal sealed class ServiceRetryEpisodeNarrator
             var previous = Current[index];
             if (!gate.TryFind(previous.Target, out _))
                 _warn(
-                    $"{_feature} resumed {EntityIdentityFormatter.Format(previous.Target.Id)} after " +
+                    $"{_feature} stops backing off {EntityIdentityFormatter.Format(previous.Target.Id)} after " +
                     $"{Attempts(previous.ConsecutiveFailures)}.");
         }
         for (var index = 0; index < gate.Count; index++)

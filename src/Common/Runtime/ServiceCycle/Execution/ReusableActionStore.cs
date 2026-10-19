@@ -174,21 +174,26 @@ public readonly ref struct ServiceActionWriter<TAction>
 
     /// <summary>
     /// A target whose committed action this world shows did not take: it backs off with doubling
-    /// until the evaluator reports it working again.
+    /// until the evaluator ends the episode. A cap of the caller's own replaces the service's maximum
+    /// backoff and may not be shorter than its initial backoff.
     /// </summary>
     public void ReportFailure(
         ServiceRetryTarget target,
+        ServiceActionResultCode code,
         string reason,
         MonotonicDuration? maximumBackoff = null)
     {
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("A failure report names why the target failed.", nameof(reason));
-        RetryReports.Add(ServiceRetryReport.Failed(target, reason, maximumBackoff));
+        RetryReports.Add(ServiceRetryReport.Failed(target, code, reason, maximumBackoff));
     }
 
-    /// <summary>A target this world shows working again, which ends its backoff.</summary>
-    public void ReportVerified(ServiceRetryTarget target) =>
-        RetryReports.Add(ServiceRetryReport.Verified(target));
+    /// <summary>
+    /// Ends the target's backoff: this world shows it working again, or the evaluator no longer
+    /// considers it.
+    /// </summary>
+    public void EndRetry(ServiceRetryTarget target) =>
+        RetryReports.Add(ServiceRetryReport.End(target));
 
     private ServiceRetryReportBuffer RetryReports =>
         _retryReports ?? throw new InvalidOperationException(

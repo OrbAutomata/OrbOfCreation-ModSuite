@@ -23,15 +23,18 @@ entered the native preparation queue. It does not snapshot stock, randomization,
 parallel postconditions. An absent transition is a `use_not_verified` fault for that exact item: it
 backs off through the shared
 [per-target retry gate](../../docs/runtime-architecture/service-cycle-runtime.md#per-target-retry-gate)
-and is tried again once due, while every other item keeps firing.
+and is tried again once due. The scan ends an item's backoff when it stops considering the item at
+all: not approved, not visible, out of stock, or no longer of a usable shape.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
 Exactly one usage must engage before disappearing. A queued usage that vanishes before it engaged is
 cancelled: the worker reports it to the retry gate, so the item backs off with doubling until one of
 its usages engages. A second usage of the item belongs to the player and pauses that exact item until
-no usage of it remains, then the item resumes; that pause logs one warning each way and the feature
-stays Operational. While any item backs off, the feature reports Degraded with the latest item and
-reason, and each back-off and resume logs one warning. A temporary item still
+no usage of it remains, then the item resumes; that pause logs one warning each way, ends any backoff
+of the item, and the feature stays Operational. While any item backs off and Auto Items is on, the
+feature reports Degraded with the latest item and reason, under a contract reason when the fault was a
+contract or multi-buy failure before the native call. Each failure logs one warning and the end of the
+backoff logs one more. A temporary item still
 preparing holds every use back; once its effect is active, only another temporary use waits, and
 Relics and Scrolls keep firing. Native Scroll/Relic preparation excludes a temporary use.
 

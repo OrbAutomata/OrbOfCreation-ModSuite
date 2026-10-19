@@ -314,26 +314,31 @@ off without logging until the service recovers. A process-fatal exception is nev
 
 ### Per-target retry gate
 
-A failed or surprising action never latches its target or its feature for the lifecycle; it backs that
-one target off and tries again on a later world. Each runner owns one gate, keyed by the target the
-action is attributed to in the decision journal: stable UUID plus native type. The gate is fed from two
-places:
+Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
+journal: stable UUID plus native type. A target in the gate waits and is tried again on a later world;
+the gate itself never latches. Auto Items is the service that plans from the gate and narrates it;
+every other service keeps the fault handling its own page describes.
 
-- a `Faulted` action records its target with the result's reason;
+The gate is fed from two places:
+
+- a `Faulted` action records its target with the result's code and reason;
 - an evaluator that sees, in a later world, that an already committed action did not do what it should
-  reports it through `ServiceActionWriter.ReportFailure`, and `ReportVerified` once the target works.
+  reports it through `ServiceActionWriter.ReportFailure`.
 
 Each failure in a row doubles the wait from the service's fault-recovery initial backoff up to its
-maximum backoff, or a lower cap the reporter names. A committed action of that target ends an episode
-its own fault started; an episode the evaluator reported ends only on its `ReportVerified`. The gate
-lives in the runner, so a new lifecycle starts with none.
+maximum backoff. A reporter may name a cap of its own instead; `ReportFailure` refuses one shorter than
+the initial backoff. A committed action of that target ends an episode its own fault started; an
+episode the evaluator reported ends only on `ServiceActionWriter.EndRetry`, which the evaluator sends
+when it sees the target work again or stops considering it at all. The gate lives in the runner, so a
+new lifecycle starts with none.
 
-Planning reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is due. The
-runner never polls for it: every wake it schedules is clamped to the next target that comes due, so
-the service wakes exactly when a backed-off target may try again. The runner diagnostics snapshot
-carries the gate, and the feature narrates each episode as one warning when it backs off and one when
-it resumes, and degrades its status with the latest reason while any target waits. Only invariant
-violations and the emergency stop latch.
+A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is
+due. The wake a finished batch or a successful evaluation schedules never outlasts the next target
+that comes due, so the service wakes when a backed-off target may try again; a service-wide fault
+backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
+diagnostics snapshot carries the gate. A narrating feature logs one warning per failure, with the
+attempt count and the wait, and one when the episode ends, and degrades its status with the latest
+reason while any target waits.
 
 ## Common frame pump
 

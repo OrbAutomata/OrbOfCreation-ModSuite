@@ -15,6 +15,8 @@ public sealed class ServiceTargetRetryGateTests
         new MonotonicDuration(10),
         new MonotonicDuration(80));
 
+    private static readonly ServiceActionResultCode Code = CommonActionResultCodes.AdapterFault;
+
     private static readonly ServiceRetryTarget First = new(
         new Guid("22222222-2222-2222-2222-222222222222"),
         ServiceActionNativeTypeId.ConsumableSO);
@@ -30,7 +32,7 @@ public sealed class ServiceTargetRetryGateTests
 
         var waits = new long[6];
         for (var index = 0; index < waits.Length; index++)
-            waits[index] = gate.Record(First, "no change", new MonotonicTimestamp(100)).Backoff.Ticks;
+            waits[index] = gate.Record(First, Code, "no change", new MonotonicTimestamp(100)).Backoff.Ticks;
 
         Assert.Equal(new long[] { 10, 20, 40, 80, 80, 80 }, waits);
         Assert.Equal(6, gate.Snapshot.Latest.ConsecutiveFailures);
@@ -45,17 +47,40 @@ public sealed class ServiceTargetRetryGateTests
 
         var waits = new long[4];
         for (var index = 0; index < waits.Length; index++)
-            waits[index] = gate.Record(First, "no change", default, maximumBackoff: cap).Backoff.Ticks;
+            waits[index] = gate.Record(First, Code, "no change", default, maximumBackoff: cap).Backoff.Ticks;
 
         Assert.Equal(new long[] { 10, 20, 30, 30 }, waits);
+    }
+
+    [Fact]
+    public void AReporterCapMayExceedThePolicyCapButNotUndercutTheFirstWait()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+        var store = new ReusableActionStore<ExecutionAction>();
+        var buffer = new ServiceRetryReportBuffer(Policy);
+        var writer = new ServiceActionWriter<ExecutionAction>(store, buffer);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => new ServiceActionWriter<ExecutionAction>(store, buffer)
+                .ReportFailure(First, Code, "too eager", new MonotonicDuration(5)));
+        var waits = new long[6];
+        for (var index = 0; index < waits.Length; index++)
+        {
+            buffer.Reset();
+            writer.ReportFailure(First, Code, "slow target", new MonotonicDuration(200));
+            gate.Apply(buffer.ToArrayOrNull(), new MonotonicTimestamp(100));
+            waits[index] = gate.Snapshot.Latest.Backoff.Ticks;
+        }
+
+        Assert.Equal(new long[] { 10, 20, 40, 80, 160, 200 }, waits);
     }
 
     [Fact]
     public void ACommitEndsOnlyThatTargetsEpisode()
     {
         var gate = new ServiceTargetRetryGate(Policy);
-        gate.Record(First, "first failed", new MonotonicTimestamp(100));
-        gate.Record(Second, "second failed", new MonotonicTimestamp(100));
+        gate.Record(First, Code, "first failed", new MonotonicTimestamp(100));
+        gate.Record(Second, Code, "second failed", new MonotonicTimestamp(100));
         var before = gate.Snapshot;
 
         gate.ClearOnCommit(First);
@@ -64,17 +89,17 @@ public sealed class ServiceTargetRetryGateTests
         Assert.True(gate.Snapshot.TryFind(Second, out var remaining));
         Assert.Equal("second failed", remaining.Reason);
         Assert.Equal(2, before.Count);
-        Assert.Equal(1, gate.Record(First, "first failed again", new MonotonicTimestamp(200)).ConsecutiveFailures);
+        Assert.Equal(1, gate.Record(First, Code, "first failed again", new MonotonicTimestamp(200)).ConsecutiveFailures);
     }
 
     [Fact]
     public void AFailureSeenInALaterWorldOutlastsCommitsAndEndsWhenTheTargetWorks()
     {
         var gate = new ServiceTargetRetryGate(Policy);
-        gate.Record(First, "cancelled", new MonotonicTimestamp(100), awaitsObservation: true);
+        gate.Record(First, Code, "cancelled", new MonotonicTimestamp(100), awaitsObservation: true);
 
         gate.ClearOnCommit(First);
-        var second = gate.Record(First, "cancelled again", new MonotonicTimestamp(200), awaitsObservation: true);
+        var second = gate.Record(First, Code, "cancelled again", new MonotonicTimestamp(200), awaitsObservation: true);
         gate.Clear(First);
 
         Assert.Equal(2, second.ConsecutiveFailures);
@@ -86,7 +111,7 @@ public sealed class ServiceTargetRetryGateTests
     public void PlanningWaitsUntilTheTargetIsDue()
     {
         var gate = new ServiceTargetRetryGate(Policy);
-        gate.Record(First, "no change", new MonotonicTimestamp(100));
+        gate.Record(First, Code, "no change", new MonotonicTimestamp(100));
 
         Assert.True(gate.Snapshot.IsWaiting(First, new MonotonicTimestamp(109)));
         Assert.False(gate.Snapshot.IsWaiting(First, new MonotonicTimestamp(110)));
@@ -97,9 +122,9 @@ public sealed class ServiceTargetRetryGateTests
     public void AWaitNeverOutlastsTheNextTargetThatIsStillToComeDue()
     {
         var gate = new ServiceTargetRetryGate(Policy);
-        gate.Record(First, "no change", new MonotonicTimestamp(100));
-        gate.Record(Second, "no change", new MonotonicTimestamp(100));
-        gate.Record(Second, "no change", new MonotonicTimestamp(100));
+        gate.Record(First, Code, "no change", new MonotonicTimestamp(100));
+        gate.Record(Second, Code, "no change", new MonotonicTimestamp(100));
+        gate.Record(Second, Code, "no change", new MonotonicTimestamp(100));
         var forever = new MonotonicTimestamp(long.MaxValue);
 
         Assert.Equal(new MonotonicTimestamp(110), gate.WakeNoLaterThanNextRetry(forever, new MonotonicTimestamp(100)));
@@ -213,7 +238,7 @@ public sealed class ServiceTargetRetryGateTests
         ServiceRunnerTestWait.RunAndDrain(runner, clock, 1);
         var afterCommit = runner.Snapshot.RetryGate;
         service.ActionCount = 0;
-        service.ReportVerifiedOnNextEvaluation();
+        service.EndRetryOnNextEvaluation();
         ServiceRunnerTestWait.RunZeroActionCycle(runner, clock);
 
         Assert.Equal("synthetic surprise", entry.Reason);

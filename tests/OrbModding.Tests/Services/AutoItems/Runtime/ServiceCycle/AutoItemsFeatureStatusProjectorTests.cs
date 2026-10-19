@@ -42,6 +42,7 @@ public sealed class AutoItemsFeatureStatusProjectorTests
         var gate = new ServiceTargetRetryGate(AutoItemsServicePolicies.FaultRecoveryPolicy);
         gate.Record(
             AutoItemsServicePolicies.RetryTarget(itemId),
+            AutoItemsActionResultCodes.UseNotVerified,
             "Relic did not enter native preparation.",
             new MonotonicTimestamp(10));
         var health = new AutoItemsActionHealth();
@@ -68,6 +69,32 @@ public sealed class AutoItemsFeatureStatusProjectorTests
         Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, status.Reason);
         Assert.Contains(itemId.ToString("D"), status.Summary);
         Assert.Contains("Relic did not enter native preparation.", status.Summary);
+    }
+
+    [Fact]
+    public void AnItemBackingOffFromAContractFaultKeepsTheContractReason()
+    {
+        var itemId = Guid.NewGuid();
+        var gate = new ServiceTargetRetryGate(AutoItemsServicePolicies.FaultRecoveryPolicy);
+        gate.Record(
+            AutoItemsServicePolicies.RetryTarget(itemId),
+            AutoItemsActionResultCodes.MultiBuyUnavailable,
+            "Native multi-buy could not be held at one.",
+            new MonotonicTimestamp(10));
+
+        var status = AutoItemsFeatureStatusProjector.Project(
+            emergencyDisabled: false,
+            owned: true,
+            ownershipReason: string.Empty,
+            bindingsAvailable: true,
+            bindingFailure: string.Empty,
+            cycleObserved: true,
+            AutoItemsDecisionKind.Idle,
+            new AutoItemsActionHealth(),
+            gate.Snapshot);
+
+        Assert.Equal(FeatureStatusState.Degraded, status.State);
+        Assert.Equal(FeatureStatusReasonCode.ContractUnavailable, status.Reason);
     }
 
     [Fact]

@@ -21,7 +21,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
     private readonly ReusableActionStore<TAction> _actions;
     private readonly ServiceCycleHandoff _handoff;
     private readonly ServiceStateProjectionWriteBuffer _projectionScratch;
-    private readonly ServiceRetryReportBuffer _retryReports = new();
+    private readonly ServiceRetryReportBuffer _retryReports;
     private readonly ServiceFaultTracker _faults;
     private readonly IMonotonicClock _clock;
     private readonly WakePolicy _defaultWakePolicy;
@@ -69,6 +69,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
         _actions.ValidateLifecycle(lifecycle);
         _projectionScratch = new ServiceStateProjectionWriteBuffer(ServiceStateProjectionSnapshot.MaximumEntryCount);
         _faults = new ServiceFaultTracker(faultRecoveryPolicy);
+        _retryReports = new ServiceRetryReportBuffer(faultRecoveryPolicy);
         _measureAllocations = measureAllocations;
         _workerState = new ServiceCycleWorkerState<TState>(
             _definition,
