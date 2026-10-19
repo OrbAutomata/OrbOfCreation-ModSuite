@@ -82,8 +82,7 @@ public static class NativeMutationVerifier
         string expectedChange,
         Func<TState> capture,
         Action execute,
-        Func<TState, TState, bool> verify,
-        Action<NativeMutationEvidence<TState>>? quarantine = null)
+        Func<TState, TState, bool> verify)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
         if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("A mutation identity is required.", nameof(identity));
@@ -119,21 +118,18 @@ public static class NativeMutationVerifier
             before,
             capture,
             execute,
-            verify,
-            quarantine);
+            verify);
     }
 
     /// <summary>
     /// Makes the native call and classifies it from the after-state.
     /// </summary>
     /// <remarks>
-    /// Every throw after the call is classified first: the after-state is read, the outcome is
-    /// decided and, when the call was attempted and did not verify, <paramref name="quarantine"/>
-    /// runs. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
-    /// suite defect stays loud and the caller's quarantine still holds for the next submission. A
-    /// change that landed before such a throw commits instead, the throw is logged with a
-    /// reference, and in a perf-debug build that reference becomes the feature's latest on
-    /// <c>suite_health</c>.
+    /// Every throw after the call is classified first: the after-state is read and the outcome is
+    /// decided. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
+    /// suite defect stays loud. A change that landed before such a throw commits instead, the throw is
+    /// logged with a reference, and in a perf-debug build that reference becomes the feature's latest
+    /// on <c>suite_health</c>.
     /// <para>
     /// <paramref name="putBackOnThrow"/> runs only when <paramref name="execute"/> threw, before the
     /// after-state is read. The call's exception stays the cause; what the put-back throws is carried
@@ -148,7 +144,6 @@ public static class NativeMutationVerifier
         Func<TState> captureAfter,
         Action execute,
         Func<TState, TState, bool> verify,
-        Action<NativeMutationEvidence<TState>>? quarantine = null,
         Action? putBackOnThrow = null)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
@@ -161,7 +156,6 @@ public static class NativeMutationVerifier
         var evidence = Classify(
             feature, identity, expectedChange, before, captureAfter, execute, verify, putBackOnThrow,
             out var unexpected);
-        if (evidence.MutationWasAttempted && !evidence.IsVerified) quarantine?.Invoke(evidence);
         if (unexpected is not null && !evidence.IsVerified)
         {
             if (evidence.PutBackException is { } putBackException)
