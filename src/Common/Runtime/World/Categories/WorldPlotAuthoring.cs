@@ -331,9 +331,10 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = $"reading a plot's authoring threw: {ex.GetBaseException().Message}";
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    $"reading a plot's authoring threw: {ex.GetBaseException().Message}");
             }
         }
 

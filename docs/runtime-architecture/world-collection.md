@@ -527,7 +527,8 @@ MCP reads use the latest publication, so at a slow pace they can be up to one in
 
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
-readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
+readers, derivers), `WorldFailures.cs` (the failure join and skip tally the readers share),
+`NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
 owner of the 63-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node). Derivation that reads more than one published table is assembled in
 `GameWorldCycleFrame.cs`, where such tables are built as locals before the snapshot is composed:

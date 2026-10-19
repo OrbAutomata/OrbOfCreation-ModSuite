@@ -330,7 +330,7 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
         _cachedCompletionTime = bind.Field<BigDouble>("cachedCompletionTime");
         _requiredExperience = bind.Call<BigDouble>("GetRequiredExperience");
         _discovery = new WorldDiscoverableBinding(type, TypeName);
-        return Join(bind.Failure, _discovery.Failure);
+        return WorldFailures.Join(bind.Failure, _discovery.Failure);
     }
 
     internal override WorldAlchemyRecipe Read(object entity) =>
@@ -368,7 +368,4 @@ internal sealed class WorldAlchemyRecipeBinder : WorldPlainBinder<WorldAlchemyRe
             _discovery!.Read(entity),
             currentLevel: 1,
             visibilityGate: _visibilityGate!(entity));
-
-    private static string Join(string left, string right) =>
-        left.Length == 0 ? right : right.Length == 0 ? left : left + "; " + right;
 }

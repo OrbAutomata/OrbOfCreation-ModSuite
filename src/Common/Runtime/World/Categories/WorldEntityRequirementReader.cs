@@ -355,12 +355,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                unmodelled++;
-                if (firstFailure.Length == 0)
-                {
-                    firstFailure = "reading a prerequisite-link tier threw: " +
-                        ex.GetBaseException().Message;
-                }
+                WorldSkipTally.Skip(
+                    ref unmodelled,
+                    ref firstFailure,
+                    "reading a prerequisite-link tier threw: " +
+                        ex.GetBaseException().Message);
             }
         }
     }
@@ -408,12 +407,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 buffer.Truncate(start);
-                unmodelled++;
-                if (firstFailure.Length == 0)
-                {
-                    firstFailure = "reading a per-level prerequisite threw: " +
-                        ex.GetBaseException().Message;
-                }
+                WorldSkipTally.Skip(
+                    ref unmodelled,
+                    ref firstFailure,
+                    "reading a per-level prerequisite threw: " +
+                        ex.GetBaseException().Message);
                 if (ownerId == Guid.Empty) continue;
                 if (container is not null)
                 {
@@ -578,10 +576,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                 WorldRequirementNodeKind.Leaf, WorldRequirementOperator.None,
                 WorldRequirementConditionKind.Unknown, "RequirementGraphDepthExceeded",
                 Guid.Empty, -1, 0d, default, default);
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = $"a prerequisite graph exceeded {MaximumGraphDepth} nested nodes. " +
-                    "Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                $"a prerequisite graph exceeded {MaximumGraphDepth} nested nodes. " +
+                    "Entities gated by one are never planned.");
             buffer.Append(in unknown);
             return 1;
         }
@@ -595,10 +594,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         if (row.Kind == WorldRequirementConditionKind.Unknown &&
             row.NodeKind == WorldRequirementNodeKind.Leaf)
         {
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = "this build authors a condition this suite does not model: " +
-                    $"{row.ConditionTypeName}. Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                "this build authors a condition this suite does not model: " +
+                    $"{row.ConditionTypeName}. Entities gated by one are never planned.");
         }
 
         buffer.Append(in row);
@@ -654,10 +654,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     identities[index].EntityId, kind, program, UnreadableUsageRequirements);
                 buffer.Append(in row);
                 sampled++;
-                unmodelled++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "reading a usage prerequisite threw: " +
-                        ex.GetBaseException().Message;
+                WorldSkipTally.Skip(
+                    ref unmodelled,
+                    ref firstFailure,
+                    "reading a usage prerequisite threw: " +
+                        ex.GetBaseException().Message);
             }
         }
     }
@@ -692,9 +693,10 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     {
         var row = Unreadable(ownerId, ownerKind, program, UnreadableUsageRequirements);
         buffer.Append(in row);
-        unmodelled++;
-        if (firstFailure.Length == 0)
-            firstFailure = "an AlchemyRecipeSO usage-prerequisite container was unreadable";
+        WorldSkipTally.Skip(
+            ref unmodelled,
+            ref firstFailure,
+            "an AlchemyRecipeSO usage-prerequisite container was unreadable");
         return 1;
     }
 
@@ -863,10 +865,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
     {
         if (row.Kind == WorldRequirementConditionKind.Unknown)
         {
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = "this build authors a condition this suite does not model: " +
-                    $"{row.ConditionTypeName}. Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                "this build authors a condition this suite does not model: " +
+                    $"{row.ConditionTypeName}. Entities gated by one are never planned.");
         }
 
         buffer.Append(in row);
@@ -912,29 +915,32 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         var list = accessors.ReadListVariable(condition);
         if (list is null)
         {
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = "a list requirement names no list variable. " +
-                    "Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                "a list requirement names no list variable. " +
+                    "Entities gated by one are never planned.");
             return;
         }
 
         var binding = ListAccessorsFor(list.GetType());
         if (!binding.IsBound)
         {
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = $"this build's {list.GetType().Name} did not expose its membership. " +
-                    "Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                $"this build's {list.GetType().Name} did not expose its membership. " +
+                    "Entities gated by one are never planned.");
             return;
         }
 
         if (!binding.IsStatic(list))
         {
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = "this build compares against a list the run plays into: " +
-                    $"{list.GetType().Name}. Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                "this build compares against a list the run plays into: " +
+                    $"{list.GetType().Name}. Entities gated by one are never planned.");
             return;
         }
 
@@ -944,10 +950,11 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
         {
             var member = members![index];
             if (member is null || MemberIdentityFor(member.GetType()) is not null) continue;
-            unmodelled++;
-            if (firstFailure.Length == 0)
-                firstFailure = $"a list requirement names a {member.GetType().Name} with no readable " +
-                    "identity. Entities gated by one are never planned.";
+            WorldSkipTally.Skip(
+                ref unmodelled,
+                ref firstFailure,
+                $"a list requirement names a {member.GetType().Name} with no readable " +
+                    "identity. Entities gated by one are never planned.");
             return;
         }
 

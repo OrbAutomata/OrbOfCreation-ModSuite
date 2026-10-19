@@ -213,8 +213,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
             var spell = spells[index];
             if (spell is null || index >= frame.SpellRecipes.Count)
             {
-                skipped++;
-                if (firstFailure.Length == 0) firstFailure = "spell registry identity snapshot was incomplete";
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, "spell registry identity snapshot was incomplete");
                 continue;
             }
 
@@ -259,9 +258,10 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = $"reading a spell graph row threw: {ex.GetBaseException().Message}";
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    $"reading a spell graph row threw: {ex.GetBaseException().Message}");
             }
         }
 

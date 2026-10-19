@@ -789,7 +789,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             if (entry is null) continue;
             if (entry.GetType() != _spellType)
             {
-                Skip(ref skipped, ref firstFailure, $"slot {index} held an entry that is not a spell");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, $"slot {index} held an entry that is not a spell");
                 continue;
             }
 
@@ -806,7 +806,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
                 slots.Truncate(slotCount);
                 costs.Truncate(costCount);
                 slotTypes.Truncate(slotTypeCount);
-                Skip(
+                WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
                     $"reading slot {index} threw: {ex.GetBaseException().Message}");
@@ -938,11 +938,5 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         }
         rows.Sort(static (left, right) => left.GlyphId.CompareTo(right.GlyphId));
         return PublicationTable<WorldSpellSlotGlyph>.Create(rows.ToArray());
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }

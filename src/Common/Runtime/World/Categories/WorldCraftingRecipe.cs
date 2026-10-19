@@ -286,15 +286,15 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             .ReferenceGuid("consumable");
 
         var failure = bind.Failure;
-        if (_all is null) failure = Append(failure, "CraftingRecipeSO.All was unavailable");
+        if (_all is null) failure = WorldFailures.Join(failure, "CraftingRecipeSO.All was unavailable");
         if (inputCostType != outputCostType || _resourceTupleType != outputTupleType)
-            failure = Append(failure, "recipeCost and generatedResources did not share one ResourceTuple type");
+            failure = WorldFailures.Join(failure, "recipeCost and generatedResources did not share one ResourceTuple type");
         if (_consumableGainType is null)
-            failure = Append(failure, "ConsumableSO+ConsumableGainEffect was unavailable");
+            failure = WorldFailures.Join(failure, "ConsumableSO+ConsumableGainEffect was unavailable");
         if (_effectBlockType is null || _engagementEffectType is null ||
             !_effectBlockType.IsAssignableFrom(_engagementEffectType))
         {
-            failure = Append(
+            failure = WorldFailures.Join(
                 failure,
                 "CraftingRecipeSO.engagementEffects[] was not assignable to EffectBlock");
         }
@@ -338,7 +338,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             }
             catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
-                Skip(
+                WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
                     "reading live CraftingRecipeSO state threw: " +
@@ -378,7 +378,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             var entity = entities[index];
             if (entity is null || entity.GetType() != _nativeType)
             {
-                Skip(ref skipped, ref firstFailure, "a registry entry had an unexpected native type");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, "a registry entry had an unexpected native type");
                 continue;
             }
 
@@ -387,7 +387,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                 var id = _id!(entity);
                 if (id == Guid.Empty || !claimed.Add(id))
                 {
-                    Skip(ref skipped, ref firstFailure, "a crafting recipe had an empty or duplicate identity");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, "a crafting recipe had an empty or duplicate identity");
                     continue;
                 }
 
@@ -428,7 +428,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
             }
             catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
-                Skip(
+                WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
                     "reading a CraftingRecipeSO threw: " + exception.GetBaseException().Message);
@@ -549,15 +549,6 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
 
     private static IList RequireList(IList? value, string field) =>
         value ?? throw new InvalidOperationException(field + " was null");
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
-    }
-
-    private static string Append(string first, string second) =>
-        first.Length == 0 ? second : first + "; " + second;
 
     private readonly struct RecipeSource
     {
