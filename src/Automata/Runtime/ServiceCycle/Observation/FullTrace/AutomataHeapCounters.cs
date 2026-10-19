@@ -2,6 +2,7 @@
 using System;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using Unity.Profiling;
+using UnityEngine;
 using UnityEngine.Profiling;
 
 namespace OrbAutomata;
@@ -37,6 +38,14 @@ internal sealed class AutomataHeapCounters : ISuiteFramePumpHeapCounters, IDispo
     public int ReadCollectionCount() => GC.CollectionCount(0);
 
     public long ReadUsedHeapBytes() => Profiler.GetMonoUsedSizeLong();
+
+    public long ReadReservedHeapBytes() => Profiler.GetMonoHeapSizeLong();
+
+    public NativeObjectCounts CountNativeObjects() =>
+        new(
+            Resources.FindObjectsOfTypeAll(typeof(ScriptableObject)).Length,
+            Resources.FindObjectsOfTypeAll(typeof(GameObject)).Length,
+            Resources.FindObjectsOfTypeAll(typeof(MonoBehaviour)).Length);
 
     public bool TryReadPreviousFrameAllocated(out long bytes)
     {

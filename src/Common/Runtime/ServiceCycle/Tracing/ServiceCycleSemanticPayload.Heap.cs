@@ -16,6 +16,10 @@ public readonly partial struct ServiceCycleSemanticPayload
     /// only readings.
     /// </para>
     /// <para>
+    /// A census rides the pump-count, occurrence and duration slots on one sample per census
+    /// interval, all three or none.
+    /// </para>
+    /// <para>
     /// The counts at both ends are what attribute a collection: one that completed between this
     /// pump's ends ran inside the suite's frame work, and one that completed between the previous
     /// pump's end and this one's start ran inside the game's.
@@ -31,7 +35,8 @@ public readonly partial struct ServiceCycleSemanticPayload
         long captureHeapGrowth,
         int capturesMeasured,
         int capturesAcrossCollection,
-        long? previousFrameAllocated) =>
+        long? previousFrameAllocated,
+        PumpHeapCensus? census = null) =>
         new(
             ServiceCycleSemanticFields.FrameIdentity | ServiceCycleSemanticFields.Timestamp |
             ServiceCycleSemanticFields.Code | ServiceCycleSemanticFields.ActionCount |
@@ -39,7 +44,8 @@ public readonly partial struct ServiceCycleSemanticPayload
             ServiceCycleSemanticFields.UntouchedSuffixCount |
             (previousFrameAllocated is null
                 ? ServiceCycleSemanticFields.None
-                : ServiceCycleSemanticFields.Fingerprint),
+                : ServiceCycleSemanticFields.Fingerprint) |
+            (census is null ? ServiceCycleSemanticFields.None : CensusFields),
             service: 0,
             lifecycle: 0,
             configuration: 0,
@@ -50,7 +56,7 @@ public readonly partial struct ServiceCycleSemanticPayload
             action: 0,
             statePublication: 0,
             timestampTicks: timestampTicks,
-            durationTicks: 0,
+            durationTicks: census?.ReservedHeap ?? 0,
             deadlineTicks: 0,
             frameIdentity: frameIdentity,
             fingerprint: previousFrameAllocated is { } allocated ? (ulong)allocated : 0,
@@ -60,13 +66,13 @@ public readonly partial struct ServiceCycleSemanticPayload
             actionCount: collectionsAtEnd,
             committedCount: capturesMeasured,
             untouchedSuffixCount: capturesAcrossCollection,
-            occurrenceCount: 0,
+            occurrenceCount: census?.LiveWorldSnapshots ?? 0,
             nativeCallsAttempted: 0,
             mutationAttempts: 0,
             mutationsCommitted: 0,
-            responsesAcquired: 0,
-            actionsAttempted: 0,
-            capturesAttempted: 0,
+            responsesAcquired: census?.ScriptableObjects ?? 0,
+            actionsAttempted: census?.GameObjects ?? 0,
+            capturesAttempted: census?.MonoBehaviours ?? 0,
             emergencyBatchesRejected: 0,
             lifecycleTransitions: 0,
             responseDurationTicks: heapAtStart,
@@ -74,6 +80,10 @@ public readonly partial struct ServiceCycleSemanticPayload
             captureDurationTicks: captureHeapGrowth,
             totalDurationTicks: 0,
             nativeOutcome: 0);
+
+    internal const ServiceCycleSemanticFields CensusFields =
+        ServiceCycleSemanticFields.Duration | ServiceCycleSemanticFields.OccurrenceCount |
+        ServiceCycleSemanticFields.PumpCounts;
 
     /// <summary>Collections the runtime had completed when the pump began.</summary>
     public int CollectionsAtPumpStart => Code;
@@ -107,4 +117,26 @@ public readonly partial struct ServiceCycleSemanticPayload
     /// </summary>
     public long? PreviousFrameAllocated =>
         (Fields & ServiceCycleSemanticFields.Fingerprint) != 0 ? (long)Fingerprint : null;
+
+    /// <summary>What the heap held, on the samples that took a census.</summary>
+    public PumpHeapCensus? HeapCensus =>
+        (Fields & CensusFields) == CensusFields
+            ? new PumpHeapCensus(
+                DurationTicks,
+                OccurrenceCount,
+                ResponsesAcquired,
+                ActionsAttempted,
+                CapturesAttempted)
+            : null;
 }
+
+/// <summary>
+/// What the heap held at one census: the bytes reserved from the OS, the world snapshots still
+/// reachable, and the live host objects that carry managed fields or that an instantiation creates.
+/// </summary>
+public readonly record struct PumpHeapCensus(
+    long ReservedHeap,
+    int LiveWorldSnapshots,
+    int ScriptableObjects,
+    int GameObjects,
+    int MonoBehaviours);

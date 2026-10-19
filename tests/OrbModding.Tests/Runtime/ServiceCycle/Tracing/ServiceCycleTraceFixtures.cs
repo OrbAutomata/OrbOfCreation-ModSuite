@@ -141,7 +141,10 @@ internal static class ServiceCycleTraceFixtures
             ServiceCycleSemanticPayload.PumpHeapFact(
                 frameIdentity: 12, timestampTicks: 100, collectionsAtStart: 40, collectionsAtEnd: 41,
                 heapAtStart: 300_000_000, heapAtEnd: 290_000_000, captureHeapGrowth: 65_536,
-                capturesMeasured: 1, capturesAcrossCollection: 1, previousFrameAllocated: 4_096),
+                capturesMeasured: 1, capturesAcrossCollection: 1, previousFrameAllocated: 4_096,
+                census: new PumpHeapCensus(
+                    ReservedHeap: 400_000_000, LiveWorldSnapshots: 2, ScriptableObjects: 9_000,
+                    GameObjects: 3_000, MonoBehaviours: 2_500)),
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 

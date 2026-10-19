@@ -4868,6 +4868,10 @@ namespace UnityEngine.Profiling
         public static long MonoUsedSize { get; set; }
 
         public static long GetMonoUsedSizeLong() => MonoUsedSize;
+
+        public static long MonoHeapSize { get; set; }
+
+        public static long GetMonoHeapSizeLong() => MonoHeapSize;
     }
 }
 

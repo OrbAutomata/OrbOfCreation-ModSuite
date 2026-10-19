@@ -3,6 +3,7 @@ using System.Threading;
 using System;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
@@ -28,9 +29,9 @@ public sealed class SuiteFramePumpHeapSamplerTests
     {
         var sampler = new SuiteFramePumpHeapSampler();
 
-        Assert.False(sampler.TryAttach(new FakeHeap(), out var unavailable));
+        Assert.False(sampler.TryAttach(new FakeHeap(), NoWorlds, out var unavailable));
         Assert.Equal("the used-heap reading did not grow with a 1 MiB allocation", unavailable);
-        Assert.True(sampler.TryAttach(new FakeHeap { GrowthPerRead = Megabyte }, out unavailable));
+        Assert.True(sampler.TryAttach(new FakeHeap { GrowthPerRead = Megabyte }, NoWorlds, out unavailable));
         Assert.Empty(unavailable);
     }
 
@@ -39,7 +40,7 @@ public sealed class SuiteFramePumpHeapSamplerTests
     {
         var sampler = new SuiteFramePumpHeapSampler();
 
-        Assert.False(sampler.TryAttach(new FakeHeap { GrowthPerRead = Megabyte, CollectionsPerRead = 1 }, out var unavailable));
+        Assert.False(sampler.TryAttach(new FakeHeap { GrowthPerRead = Megabyte, CollectionsPerRead = 1 }, NoWorlds, out var unavailable));
         Assert.Equal("a collection interrupted both witness allocations", unavailable);
     }
 
@@ -52,7 +53,7 @@ public sealed class SuiteFramePumpHeapSamplerTests
     {
         var heap = new FakeHeap { GrowthPerRead = Megabyte };
         var sampler = new SuiteFramePumpHeapSampler();
-        Assert.True(sampler.TryAttach(heap, out _));
+        Assert.True(sampler.TryAttach(heap, NoWorlds, out _));
         heap.GrowthPerRead = 0;
 
         sampler.BeginPump(tracing: true);
@@ -65,7 +66,7 @@ public sealed class SuiteFramePumpHeapSamplerTests
         var swept = sampler.BeginCapture();
         heap.Heap -= Megabyte;
         sampler.EndCapture(in swept);
-        Assert.True(sampler.TryEndPump(7, out var sample));
+        Assert.True(sampler.TryEndPump(7, new MonotonicTimestamp(1), out var sample));
 
         Assert.Equal(7, sample.FrameIdentity);
         Assert.Equal(1, sample.CollectionsAtEnd - sample.CollectionsAtStart);
@@ -80,14 +81,14 @@ public sealed class SuiteFramePumpHeapSamplerTests
     {
         var heap = new FakeHeap { GrowthPerRead = Megabyte };
         var sampler = new SuiteFramePumpHeapSampler();
-        Assert.True(sampler.TryAttach(heap, out _));
+        Assert.True(sampler.TryAttach(heap, NoWorlds, out _));
         var reads = heap.Reads;
 
         sampler.BeginPump(tracing: false);
         var capture = sampler.BeginCapture();
         sampler.EndCapture(in capture);
 
-        Assert.False(sampler.TryEndPump(1, out _));
+        Assert.False(sampler.TryEndPump(1, new MonotonicTimestamp(1), out _));
         Assert.Equal(reads, heap.Reads);
     }
 
@@ -110,6 +111,64 @@ public sealed class SuiteFramePumpHeapSamplerTests
         Assert.Equal(3, sampled.Payload.FrameIdentity);
         Assert.True(sampled.Payload.HeapAtPumpEnd > sampled.Payload.HeapAtPumpStart);
         Assert.Equal(2_048, sampled.Payload.PreviousFrameAllocated);
+        Assert.Equal(
+            new PumpHeapCensus(sampled.Payload.HeapAtPumpEnd + Megabyte, 0, 40, 12, 30),
+            sampled.Payload.HeapCensus);
+    }
+
+    /// <summary>
+    /// The census walks every live host object, so it rides one sample per interval rather than every
+    /// pump, and the first traced pump takes one so a capture starts with a reading.
+    /// </summary>
+    [Fact]
+    public void ACensusRidesTheFirstSampleAndThenOnePerInterval()
+    {
+        var heap = new FakeHeap { GrowthPerRead = Megabyte };
+        var sampler = new SuiteFramePumpHeapSampler();
+        var published = 0;
+        Assert.True(sampler.TryAttach(heap, () => ++published, out _));
+        heap.GrowthPerRead = 0;
+
+        var censuses = new[] { 1_000L, 1_001L, 1_000 + SuiteFramePumpHeapSampler.CensusIntervalTicks - 1,
+                1_000 + SuiteFramePumpHeapSampler.CensusIntervalTicks }
+            .Select(ticks =>
+            {
+                sampler.BeginPump(tracing: true);
+                Assert.True(sampler.TryEndPump(1, new MonotonicTimestamp(ticks), out var sample));
+                return sample.Census;
+            })
+            .ToArray();
+
+        Assert.Equal(new PumpHeapCensus(heap.Heap + Megabyte, 1, 40, 12, 30), censuses[0]);
+        Assert.Null(censuses[1]);
+        Assert.Null(censuses[2]);
+        Assert.Equal(2, censuses[3]?.LiveWorldSnapshots);
+        Assert.Equal(2, heap.Censuses);
+    }
+
+    /// <summary>
+    /// The world census counts what is still reachable, so a reading the suite let go of drops out at
+    /// the next collection and one something still holds does not.
+    /// </summary>
+    [Fact]
+    public void TheWorldCensusCountsOnlySnapshotsSomethingStillHolds()
+    {
+        using var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
+        var held = new GameWorldState();
+        publisher.Publish(held);
+        PublishUnheld(publisher, 200);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.Equal(2, publisher.CountLiveSnapshots());
+        GC.KeepAlive(held);
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void PublishUnheld(ServiceWorldPublisher<GameWorldState> publisher, int count)
+    {
+        for (var index = 0; index < count; index++) publisher.Publish(new GameWorldState());
     }
 
     [Fact]
@@ -156,12 +215,24 @@ public sealed class SuiteFramePumpHeapSamplerTests
             return Heap += GrowthPerRead;
         }
 
+        public long ReadReservedHeapBytes() => Heap + Megabyte;
+
         public bool TryReadPreviousFrameAllocated(out long bytes)
         {
             bytes = Allocated ?? 0;
             return Allocated is not null;
         }
+
+        internal int Censuses;
+
+        public NativeObjectCounts CountNativeObjects()
+        {
+            Censuses++;
+            return new NativeObjectCounts(40, 12, 30);
+        }
     }
+
+    private static int NoWorlds() => 0;
 
     private sealed class IdleService : IServiceCycleDefinition<int, int>
     {
