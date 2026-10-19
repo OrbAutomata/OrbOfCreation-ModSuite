@@ -59,7 +59,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
                 break;
             case "manual-pause":
                 AutoCastManualSignal.NotifySpellFire();
-                fixture.PublishWorld(4);
+                fixture.PublishWorldPastTheLastFrame();
                 fixture.Frame();
                 fixture.Frame();
                 break;
