@@ -420,7 +420,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
                     ref skipped,
                     ref firstFailure);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 slots.Reset();
                 Skip(ref skipped, ref firstFailure, Threw("plot-action", ex));
@@ -439,7 +439,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
                     ref skipped,
                     ref firstFailure);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 Skip(ref skipped, ref firstFailure, Threw("attribute", ex));
             }

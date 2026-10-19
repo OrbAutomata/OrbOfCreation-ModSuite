@@ -5352,6 +5352,62 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     /// <summary>
+    /// A plot whose authoring read throws anything but an expected native failure faults the pass
+    /// instead of costing one plot.
+    /// </summary>
+    [Fact]
+    public void APlotWhoseAuthoringThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("autoAction was destroyed");
+        FakePlotNode.All.Add(new FakePlotNode
+        {
+            Identity = Guid.NewGuid(),
+            autoAction = new FakePlotNodeAction { GetGuidFailure = failure },
+        }.With(FakePlotPhase.Idle, 4));
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A plot whose actions read throws anything but an expected native failure faults the pass
+    /// instead of costing one plot.
+    /// </summary>
+    [Fact]
+    public void APlotWhoseActionsThrowUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("offered action was destroyed");
+        FakePlotNode.All.Add(new FakePlotNode { Identity = Guid.NewGuid() }
+            .With(FakePlotPhase.Idle, 4)
+            .Offering(new FakePlotNodeAction { GetGuidFailure = failure }));
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// An action whose effect blocks throw anything but an expected native failure faults the pass
+    /// instead of costing one action.
+    /// </summary>
+    [Fact]
+    public void AnActionWhoseEffectsThrowUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("scaling weight was destroyed");
+        var block = new FakeEffectBlock();
+        block.effectMods.Add(new FakeScalingWeightMod
+        {
+            scalingWeightRef = { scalingWeight = new FakeScalingWeight { GetGuidFailure = failure } },
+        });
+        FakePlotNodeAction.All.Add(new FakePlotNodeAction { completeEffects = { block } });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
     /// A queue whose walk throws part-way publishes none of its slots: the slots already read would
     /// otherwise stand without their queue and undercount what is running.
     /// </summary>
@@ -5376,6 +5432,36 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.StartsWith("reading the plot-action queue threw: ", report.For("action queues").FirstFailure);
         Assert.False(WorldLookup.TryFind(world.ActionQueues, queue.Identity, out _));
         Assert.Equal(0, world.ActionQueueSlots.Count);
+    }
+
+    /// <summary>
+    /// A plot-action queue walk that throws anything but an expected native failure faults the pass
+    /// instead of costing the queue.
+    /// </summary>
+    [Fact]
+    public void APlotActionQueueWhoseWalkThrowsUnexpectedlyFaultsThePass()
+    {
+        var collecting = new FakePlotNodeAction();
+        FakePlotNodeAction.All.Add(collecting);
+        var orchard = new FakePlotNode { Identity = Guid.NewGuid() }.With(FakePlotPhase.Idle, 4);
+        FakePlotNode.All.Add(orchard);
+
+        var failure = new NullReferenceException("slot was destroyed");
+        var queue = new FakeActionQueue();
+        queue.value.Add(new FakeQueueSlot { quantity = 3, plot = orchard, action = collecting });
+        queue.value.Add(new FakeQueueSlot
+        {
+            quantity = 1,
+            plot = orchard,
+            action = collecting,
+            throwsOnEngaged = true,
+            engagedFailure = failure,
+        });
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
     }
 
     /// <summary>
@@ -5781,6 +5867,25 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(6d, capacity.Value.ToDouble());
 
         Assert.Equal(0, world.ActionQueueSlots.Count);
+    }
+
+    /// <summary>
+    /// An attribute queue whose read throws anything but an expected native failure faults the pass
+    /// instead of costing the queue.
+    /// </summary>
+    [Fact]
+    public void AnAttributeQueueWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("capacity variable was destroyed");
+        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveActionables.Uuid] = new FakeAttributeQueue
+        {
+            maxQueuedItems = new FakeQueueCapacity { GetGuidFailure = failure },
+            value = { new object() },
+        };
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
     }
 
     /// <summary>
