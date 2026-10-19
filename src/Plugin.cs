@@ -517,7 +517,8 @@ public sealed class Plugin : BaseUnityPlugin
                             new AutoConceptFeatureDependencies(
                                 readLifecycleEpoch,
                                 ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsConcept,
-                                featureStatus: featureStatuses.AutoConcept)),
+                                featureStatus: featureStatuses.AutoConcept,
+                                warn: message => Log.LogAutomataWarning(message))),
                         new MentorServiceCycleFeature(
                             new MentorFeatureDependencies(
                                 readLifecycleEpoch,

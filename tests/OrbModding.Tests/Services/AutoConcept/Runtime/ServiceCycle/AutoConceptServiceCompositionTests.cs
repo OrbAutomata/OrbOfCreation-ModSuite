@@ -106,7 +106,8 @@ public sealed class AutoConceptServiceCompositionTests
             lifecycle: 7,
             configurationGeneration: new ConfigGeneration(1),
             owned: true,
-            featureStatus: status);
+            featureStatus: status,
+            warn: static _ => { });
 
         ServiceRunnerTestWait.ForWorkerReady(registration);
         Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);

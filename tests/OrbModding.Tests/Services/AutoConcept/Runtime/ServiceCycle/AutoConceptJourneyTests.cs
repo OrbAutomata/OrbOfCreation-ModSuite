@@ -374,7 +374,8 @@ public sealed class AutoConceptHeadlessJourneyTests
             _actions = new AutoConceptCycleActionAdapter(
                 new SimulatedNativePort(_candidates, _activeSlots),
                 () => 1,
-                () => true);
+                () => true,
+                static _ => { });
         }
 
         internal Guid InitiallyActiveId => _candidates[0].Id;

@@ -175,7 +175,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         Func<long>? readEpoch = null)
     {
         var adapter = new AutoConceptCycleActionAdapter(
-            native, readEpoch ?? (() => nativeEpoch), () => ownsActionFamily);
+            native, readEpoch ?? (() => nativeEpoch), () => ownsActionFamily, static _ => { });
         var config = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },

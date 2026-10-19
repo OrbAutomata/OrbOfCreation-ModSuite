@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -296,7 +297,8 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
                 new AutoConceptFeatureDependencies(
                     () => _epoch,
                     static () => true,
-                    Status)).Register(
+                    Status,
+                    Warnings.Enqueue)).Register(
                 new AutomataServiceCycleFeatureContext(
                     _registry, new ConfigGeneration(1), _epoch, new LifecycleGameActions()));
             _registry.WorldPublication.Publish(World(), new WorldGeneration(_generation));
@@ -314,6 +316,7 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
         internal AlchemyInstanceListVariable Active { get; }
         internal AlchemyRecipeListVariable Recipes { get; }
         internal AutomataFeatureStatusReporter Status { get; }
+        internal ConcurrentQueue<string> Warnings { get; } = new();
         internal BigDouble DrainRatio { get; set; } = new(1);
         internal ServiceRetryGateSnapshot RetryGate => Service.RetryGate;
 

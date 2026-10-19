@@ -1,5 +1,4 @@
 using System;
-using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -15,10 +14,7 @@ namespace OrbAutomata;
 internal sealed class AutoConceptServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
-    private readonly ServiceRetryEpisodeNarrator _retries = new(
-        AutoConceptNativeAdapter.Feature,
-        static message => Plugin.Log?.LogAutomataWarning(message),
-        AutoConceptServicePolicies.Describe);
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -30,9 +26,12 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         long lifecycle,
         ConfigGeneration configurationGeneration,
         bool owned,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string> warn)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _retries = new ServiceRetryEpisodeNarrator(
+            AutoConceptNativeAdapter.Feature, warn, AutoConceptServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
