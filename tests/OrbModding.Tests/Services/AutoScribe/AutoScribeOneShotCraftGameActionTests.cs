@@ -186,6 +186,37 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
+    public void APriceThatWillNotReadBackAfterWorkThatNeverShowedIsLoggedUnderTheAnswersReference()
+    {
+        var fixture = Fixture();
+        fixture.Active.SuppressAdd = true;
+        fixture.Recipe.TotalCost.EntriesFault = new InvalidOperationException("injected price read failure");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+
+            var failed = Submit(actionBoundary, fixture.Action);
+
+            Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, failed.Outcome.Code);
+            var entry = Assert.Single(log);
+            Assert.Contains("Reading the price back then threw: System.InvalidOperationException: " +
+                "injected price read failure", entry);
+            Assert.StartsWith(
+                "Auto Scribe paid a price the game could not read back for " +
+                $"{EntityIdentityFormatter.PlayerName(fixture.Action.RecipeId)} and saw no work after Verification:",
+                failed.Outcome.Reason);
+            Assert.EndsWith(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected", failed.Outcome.Reason);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
     public void FailureDuringConstructionWithoutWorkOutcomeNamesItsStage()
     {
         var fixture = Fixture();
