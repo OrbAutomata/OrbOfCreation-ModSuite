@@ -60,7 +60,7 @@ internal sealed class GameMcpHttpServer : IDisposable
         Action<string> logError,
         int port = DefaultPort)
     {
-        var problems = catalog.Problems(GameMcpProtocolRouter.AdvertisedToolNames());
+        var problems = catalog.Problems();
         if (problems.Count > 0)
         {
             logError(

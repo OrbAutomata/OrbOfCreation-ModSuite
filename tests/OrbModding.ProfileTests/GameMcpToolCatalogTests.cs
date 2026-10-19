@@ -17,6 +17,7 @@ public sealed class GameMcpToolCatalogTests
                 ? tool
                 : new GameMcpToolDescriptor(
                     purchase.Name,
+                    purchase.Listing,
                     purchase.Bind,
                     GameMcpToolRoute.Command(
                         GameMcpOperationClass.ReadOnly,
@@ -41,6 +42,5 @@ public sealed class GameMcpToolCatalogTests
 
     [Fact]
     public void TheShippingCatalogPassesTheStartCheck() =>
-        Assert.Empty(GameMcpToolCatalog.Shipping.Problems(
-            GameMcpProtocolRouter.AdvertisedToolNames()));
+        Assert.Empty(GameMcpToolCatalog.Shipping.Problems());
 }
