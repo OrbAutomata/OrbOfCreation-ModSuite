@@ -214,7 +214,8 @@ internal sealed class GameMcpCommandDispatcher
         {
             return GameMcpCommandResult.Faulted(
                 "main_thread_execution_fault",
-                exception.GetBaseException().Message,
+                "server defect: the " + command.Kind + " command did not finish on the main thread." +
+                GameActionFaultLog.Record(exception, command.Kind + " command"),
                 lifecycle,
                 configuration.Generation.Value);
         }
