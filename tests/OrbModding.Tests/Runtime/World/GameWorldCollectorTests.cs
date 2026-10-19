@@ -2568,6 +2568,38 @@ public sealed class GameWorldCollectorTests : IDisposable
     }
 
     [Fact]
+    public void AnExpectedNativeFailureCostsOneRowAndTheRestOfThePassPublishes()
+    {
+        FakeResource.All.Add(new FakeResource { QuantityFailure = new InvalidOperationException("quantity unavailable") });
+        FakeResource.All.Add(new FakeResource { Quantity = 7d });
+        FakeStructure.All.Add(new FakeStructure { Identity = Guid.NewGuid() });
+
+        var collector = Collector();
+        var report = collector.Collect();
+        var world = collector.Build();
+        var resources = report.For("resources");
+
+        Assert.Equal(WorldCategoryOutcome.Collected, resources.Outcome);
+        Assert.Equal(1, resources.Skipped);
+        Assert.Equal("reading a ResourceSO threw: quantity unavailable", resources.FirstFailure);
+        Assert.Equal(1, world.Resources.Count);
+        Assert.Equal(7d, world.Resources[0].Reading.Quantity.ToDouble());
+        Assert.Equal(1, world.Structures.Count);
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowInABinderCategoryFaultsThePass()
+    {
+        var failure = new NullReferenceException("resource was destroyed");
+        FakeResource.All.Add(new FakeResource { QuantityFailure = failure });
+        FakeResource.All.Add(new FakeResource { Quantity = 7d });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    [Fact]
     public void TheUnusedNativeRateAnswerIsNeverInvoked()
     {
         FakeResource.All.Add(new FakeResource { Identity = Guid.NewGuid(), ThrowOnRate = true });

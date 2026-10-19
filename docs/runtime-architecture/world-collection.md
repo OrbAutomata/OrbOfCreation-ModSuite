@@ -80,11 +80,16 @@ boundary destroys, so keeping it answers for a run that no longer exists. Loadin
 nothing, and "before the first run" and "after the run ended" are the same reading. The flush lives
 in the registry's own lifecycle request, so no caller can forget it.
 
-**A missing member degrades one category, not the pass.** Binding failures are reported per category in
-`WorldCollectionReport` with the member that could not be found, and a build that renamed one field
-still publishes the other fifty-nine. Degradation is per-term and never neutral-by-default
-([W28](world-collection-decisions.md)). A category that fails withdraws the rows it had already
-read, and a frame-global accessor that did not bind is named in the report's modifier-folding row.
+**An expected native failure degrades one row or one category; anything else faults the pass.**
+Binding failures are reported per category in `WorldCollectionReport` with the member that could not
+be found, and a build that renamed one field still publishes the other fifty-nine. At read time, an
+exception `NativeFailureClassifier.IsExpected` accepts, which includes a reader's own
+`InvalidOperationException` shape checks, costs the row or the category it hit. Any other exception is
+a suite defect: it leaves `GameWorldCollector.Collect`, the world service records a capture fault and
+retries with backoff, and no world publishes until a pass succeeds. Degradation is per-term and never
+neutral-by-default ([W28](world-collection-decisions.md)). A category that fails withdraws the rows it
+had already read, and a frame-global accessor that did not bind is named in the report's
+modifier-folding row.
 
 ## D16 — The suite owns transcribed economy math, gated by an assembly hash
 
@@ -542,12 +547,13 @@ native requirement verdicts, crafting visibility/purchase/capacity/drain verdict
 modifier inputs, and affordability. The field-by-field ownership table is in
 [Game MCP frame operations](game-mcp-frame-operations.md#data-lifetime-and-owner-inventory).
 
-The epoch is recorded only when the structural readers actually delivered. A bound reader that threw
-left its buffer reset, and recording that pass as read would claim the frame holds this run's
-authored rows when it holds none — with no further epoch until the next lifecycle, recovery took a
-prestige. A reader that never bound is the opposite fact and does not hold the epoch open: nothing on
-this build will make it deliver, and waiting for it would re-walk every other structural category
-on every pass.
+The epoch is recorded only when the structural readers actually delivered. A bound reader that hit an
+expected native failure left its buffer reset, and recording that pass as read would claim the frame
+holds this run's authored rows when it holds none — with no further epoch until the next lifecycle,
+recovery took a prestige. An unexpected throw leaves the collector before the epoch is recorded, so
+the retried pass re-reads. A reader that never bound is the opposite fact and does not hold the epoch
+open: nothing on this build will make it deliver, and waiting for it would re-walk every other
+structural category on every pass.
 
 `WorldScribeRelations.cs` is the reader that belongs in that structural set and is not in it yet. Its
 enchantment-role half is authored data and it re-reads it every pass, while its target sweep

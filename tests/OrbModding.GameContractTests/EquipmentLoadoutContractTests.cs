@@ -63,7 +63,7 @@ public sealed class EquipmentLoadoutContractTests
             "equipment-loadout.manager-equipped-list-action", "equipment-loadout.equipment-created-action",
             "equipment-loadout.equipment-type-field-action", "equipment-loadout.equipment-maximum-action",
             "equipment-loadout.equipment-cost-action", "equipment-loadout.list-stacks-action",
-            "equipment-loadout.list-maximum-action", "equipment-loadout.list-at-maximum-action",
+            "equipment-loadout.list-maximum-action", "equipment-loadout.list-at-maximum",
             "equipment-loadout.list-values-action", "equipment-loadout.list-type-count-action",
             "equipment-loadout.type-maximum-action", "equipment-loadout.cost-enough-action",
             "equipment-loadout.cost-maximum-times-action", "equipment-loadout.manager-equip-action",

@@ -42,11 +42,14 @@ namespace OrbModding.Common.Runtime.World;
 /// Auto Buy's 23.7 ms collect; see <see cref="NativeAccessorBinder"/>.
 /// </para>
 /// <para>
-/// <b>Failure is per category, then per entity.</b> A build that renamed one research member still
-/// yields resources, structures, and upgrades, and a single unreadable entity costs one row rather
-/// than the pass. Every shortfall is reported through <see cref="WorldCollectionReport"/>, because a
-/// partial snapshot that reports itself as complete would have consumers read "no research" as a fact
-/// about the save rather than a fact about the read.
+/// <b>An expected native failure costs one row or one category; anything else faults the pass.</b>
+/// A build that renamed one research member still yields resources, structures, and upgrades, and a
+/// read that fails the way <see cref="NativeFailureClassifier"/> expects costs the row or category it
+/// hit rather than the pass. Every such shortfall is reported through
+/// <see cref="WorldCollectionReport"/>, because a partial snapshot that reports itself as complete
+/// would have consumers read "no research" as a fact about the save rather than a fact about the read.
+/// Any other throw is a suite defect: it leaves <c>Collect</c>, the world service records a capture
+/// fault and retries with backoff, and nothing publishes until a pass succeeds.
 /// </para>
 /// <para>
 /// <b>Adding a category is a binder, a row type, and one line here.</b> Traversal, identity claiming,
@@ -578,12 +581,12 @@ internal sealed class GameWorldCollector
         }
 
         // The gate says the structural rows in this frame describe this run of the game, so it may
-        // only close over rows a read actually delivered. A bound reader that threw left its buffer
-        // reset, and calling that "already read for this epoch" is how one transient native
-        // exception used to disable a whole lifecycle's worth of admissions — recovery needed a
-        // prestige. A reader that did not bind at all is a different fact: nothing on this build
-        // will ever make it deliver, and holding the gate open for it would re-walk every other
-        // structural category four times a second for an answer that cannot arrive.
+        // only close over rows a read actually delivered. A bound reader that hit an expected native
+        // failure left its buffer reset, and calling that "already read for this epoch" is how one
+        // transient native exception used to disable a whole lifecycle's worth of admissions —
+        // recovery needed a prestige. A reader that did not bind at all is a different fact: nothing
+        // on this build will ever make it deliver, and holding the gate open for it would re-walk
+        // every other structural category four times a second for an answer that cannot arrive.
         if (!structuralIsCurrent && structuralWasRead)
         {
             _structuralFrame = frame;
