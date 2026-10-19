@@ -43,7 +43,8 @@ internal static class GameActionFaultLog
     /// Writes the whole exception to the suite log under a fresh reference and returns the sentence
     /// fragment naming that reference, or an empty string when there is nothing to record or
     /// nowhere to record it. It suits a one-off answer; an answer whose repeats something compares
-    /// keeps the reference apart through <see cref="Reason"/>.
+    /// keeps the reference apart through <see cref="Reason"/>. Its result never goes into a
+    /// GameAction reason, which would take it whole as the sentence and see every attempt as new.
     /// </summary>
     internal static string Record(Exception? exception, string screen) =>
         Sentence(RecordReference(exception, screen));
