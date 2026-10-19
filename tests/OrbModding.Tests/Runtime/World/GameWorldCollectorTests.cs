@@ -545,8 +545,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(1, row.Decision.LevelsAvailable);
         var cost = Assert.Single(row.Decision.DevelopmentCosts.AsSpan().ToArray());
         Assert.Equal(resource.Identity, cost.ResourceId);
-        Assert.Equal(20d, cost.Cost.ToDouble());
-        Assert.Equal(80d, cost.Amount.ToDouble());
+        Assert.Equal(20d, cost.Price.ToDouble());
+        Assert.Equal(80d, cost.Held.ToDouble());
         var investment = Assert.Single(row.Decision.Investment.AsSpan().ToArray());
         Assert.Equal(40d, investment.Invested.ToDouble());
         var typeDecision = Assert.Single(row.Decision.ResearchTypes.AsSpan().ToArray());
@@ -581,8 +581,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(row.Decision.QueueMode);
         Assert.Equal(1, row.Decision.LevelsAvailable);
         var cost = Assert.Single(row.Decision.DevelopmentCosts.AsSpan().ToArray());
-        Assert.Equal(10d, cost.Cost.ToDouble());
-        Assert.Equal(15d, cost.Amount.ToDouble());
+        Assert.Equal(10d, cost.Price.ToDouble());
+        Assert.Equal(15d, cost.Held.ToDouble());
     }
 
     [Fact]
@@ -1017,8 +1017,8 @@ public sealed class GameWorldCollectorTests : IDisposable
             recipeRow.CoreGlyphs.AsSpan().ToArray().Select(glyph => glyph.GlyphId));
         var discoveryCost = Assert.Single(recipeRow.DiscoveryCosts.AsSpan().ToArray());
         Assert.Equal(discoveryResource.Identity, discoveryCost.ResourceId);
-        Assert.Equal(4400d, discoveryCost.Cost.ToDouble());
-        Assert.Equal(9e6, discoveryCost.AvailableAmount.ToDouble());
+        Assert.Equal(4400d, discoveryCost.Price.ToDouble());
+        Assert.Equal(9e6, discoveryCost.Held.ToDouble());
         Assert.True(recipeRow.DiscoveryAffordable);
 
         Assert.Equal(1, world.SpellWorkbench.EquippedCount);
@@ -3785,8 +3785,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(idleRow.NextItemAffordable);
         Assert.Equal(1, idleRow.NextItemCosts.Count);
         Assert.Equal(currency.Identity, idleRow.NextItemCosts[0].ResourceId);
-        Assert.Equal(new BigDouble(11, 23), idleRow.NextItemCosts[0].Amount);
-        Assert.Equal(new BigDouble(563, 22), idleRow.NextItemCosts[0].AvailableAmount);
+        Assert.Equal(new BigDouble(11, 23), idleRow.NextItemCosts[0].Price);
+        Assert.Equal(new BigDouble(563, 22), idleRow.NextItemCosts[0].Held);
 
         // The cached count is a count of the tree's own list, so the list's size travels with it:
         // three of four is progress a caller can read, three on its own is not.

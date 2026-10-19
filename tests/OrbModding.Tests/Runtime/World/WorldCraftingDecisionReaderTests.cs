@@ -44,10 +44,10 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(new BigDouble(2, 0), decision.PurchaseAmount);
         Assert.True(decision.CanStart);
         Assert.Equal("ready", decision.ReasonCode);
-        ref readonly var cost = ref frame.CraftingDecisionCosts[0];
+        var cost = frame.CraftingDecisionCosts[0].Cost;
         Assert.Equal(resource.GetGuid(), cost.ResourceId);
-        Assert.Equal(new BigDouble(8, 0), cost.Cost);
-        Assert.Equal(new BigDouble(19, 0), cost.Amount);
+        Assert.Equal(new BigDouble(8, 0), cost.Price);
+        Assert.Equal(new BigDouble(19, 0), cost.Held);
         Assert.True(cost.Affordable);
     }
 
@@ -69,10 +69,10 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(BigDouble.One, decision.PurchaseAmount);
         Assert.False(decision.CanStart);
         Assert.Equal("native_purchase_refused", decision.ReasonCode);
-        ref readonly var cost = ref frame.CraftingDecisionCosts[0];
+        var cost = frame.CraftingDecisionCosts[0].Cost;
         Assert.Equal(wood.GetGuid(), cost.ResourceId);
-        Assert.Equal(new BigDouble(4, 0), cost.Cost);
-        Assert.Equal(BigDouble.Zero, cost.Amount);
+        Assert.Equal(new BigDouble(4, 0), cost.Price);
+        Assert.Equal(BigDouble.Zero, cost.Held);
         Assert.False(cost.Affordable);
     }
 

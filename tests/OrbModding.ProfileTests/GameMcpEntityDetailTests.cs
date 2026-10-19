@@ -877,7 +877,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
                 canApplyBonusLevel: false,
                 freeBonusLevels: 0,
                 developmentCostAffordable: true,
-                developmentCosts: PublicationTable<WorldResearchCost>.Empty,
+                developmentCosts: PublicationTable<WorldResourceCost>.Empty,
                 investment: PublicationTable<WorldResearchInvestment>.Empty,
                 researchTypes: PublicationTable<WorldResearchTypeDecision>.Empty));
         var world = new GameWorldState

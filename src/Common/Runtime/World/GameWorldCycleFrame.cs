@@ -558,7 +558,7 @@ internal static class GameWorldFrameDeriver
                 static (left, right) =>
                 {
                     var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                    return recipe != 0 ? recipe : left.ResourceId.CompareTo(right.ResourceId);
+                    return recipe != 0 ? recipe : left.Cost.ResourceId.CompareTo(right.Cost.ResourceId);
                 }),
             CraftingQueueEntries = WorldScribeRelationDeriver.Build(
                 frame.CraftingQueueEntries,

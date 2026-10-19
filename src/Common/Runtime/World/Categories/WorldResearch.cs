@@ -209,14 +209,14 @@ internal readonly struct WorldResearch : IWorldEntity
 
 internal readonly struct WorldResearchDecision
 {
-    private readonly PublicationTable<WorldResearchCost>? _developmentCosts;
+    private readonly PublicationTable<WorldResourceCost>? _developmentCosts;
     private readonly PublicationTable<WorldResearchInvestment>? _investment;
     private readonly PublicationTable<WorldResearchTypeDecision>? _researchTypes;
 
     internal WorldResearchDecision(bool queueMode, int multiBuy, int queuedLevels,
         int levelsAvailable, int currentInvestmentLevel, BigDouble currentTime, BigDouble remainingTime,
         BigDouble timeRatio, bool canApplyBonusLevel, int freeBonusLevels,
-        bool developmentCostAffordable, PublicationTable<WorldResearchCost> developmentCosts,
+        bool developmentCostAffordable, PublicationTable<WorldResourceCost> developmentCosts,
         PublicationTable<WorldResearchInvestment> investment,
         PublicationTable<WorldResearchTypeDecision> researchTypes)
     {
@@ -233,7 +233,7 @@ internal readonly struct WorldResearchDecision
         CanApplyBonusLevel = canApplyBonusLevel;
         FreeBonusLevels = Math.Max(freeBonusLevels, 0);
         DevelopmentCostAffordable = developmentCostAffordable;
-        _developmentCosts = developmentCosts ?? PublicationTable<WorldResearchCost>.Empty;
+        _developmentCosts = developmentCosts ?? PublicationTable<WorldResourceCost>.Empty;
         _investment = investment ?? PublicationTable<WorldResearchInvestment>.Empty;
         _researchTypes = researchTypes ?? PublicationTable<WorldResearchTypeDecision>.Empty;
     }
@@ -258,23 +258,14 @@ internal readonly struct WorldResearchDecision
     /// this whole struct at <c>default</c>, which no constructor guard can reach, and a reader
     /// walking the tables then faulted on a row the world had deliberately published without one.
     /// </summary>
-    internal PublicationTable<WorldResearchCost> DevelopmentCosts =>
-        _developmentCosts ?? PublicationTable<WorldResearchCost>.Empty;
+    internal PublicationTable<WorldResourceCost> DevelopmentCosts =>
+        _developmentCosts ?? PublicationTable<WorldResourceCost>.Empty;
 
     internal PublicationTable<WorldResearchInvestment> Investment =>
         _investment ?? PublicationTable<WorldResearchInvestment>.Empty;
 
     internal PublicationTable<WorldResearchTypeDecision> ResearchTypes =>
         _researchTypes ?? PublicationTable<WorldResearchTypeDecision>.Empty;
-}
-
-internal readonly struct WorldResearchCost
-{
-    internal WorldResearchCost(Guid resourceId, BigDouble cost, BigDouble amount)
-    { ResourceId = resourceId; Cost = cost; Amount = amount; }
-    internal Guid ResourceId { get; }
-    internal BigDouble Cost { get; }
-    internal BigDouble Amount { get; }
 }
 
 internal readonly struct WorldResearchInvestment
@@ -641,21 +632,21 @@ internal sealed class WorldResearchBinder : WorldPlainBinder<WorldResearch>
         return (accepted!, levels, true);
     }
 
-    private PublicationTable<WorldResearchCost> ReadCosts(object cost)
+    private PublicationTable<WorldResourceCost> ReadCosts(object cost)
     {
         var entries = _costEntries!(cost) ??
             throw new InvalidOperationException("Research development cost entries were null");
-        var rows = new WorldResearchCost[entries.Count];
+        var rows = new WorldResourceCost[entries.Count];
         for (var index = 0; index < rows.Length; index++)
         {
             var entry = entries[index] ??
                 throw new InvalidOperationException("Research development cost contained null");
             var resource = _costResource!(entry) ??
                 throw new InvalidOperationException("Research development cost had no resource");
-            rows[index] = new WorldResearchCost(
+            rows[index] = new WorldResourceCost(
                 _resourceId!(resource), _costValue!(entry), _resourceAmount!(resource));
         }
-        return PublicationTable<WorldResearchCost>.Create(rows);
+        return PublicationTable<WorldResourceCost>.Create(rows);
     }
 
     private PublicationTable<WorldResearchInvestment> ReadInvestment(object fill)

@@ -743,7 +743,7 @@ public sealed class GameMcpTypeReachTests
             canApplyBonusLevel: false,
             freeBonusLevels: 0,
             developmentCostAffordable: false,
-            PublicationTable<WorldResearchCost>.Empty,
+            PublicationTable<WorldResourceCost>.Empty,
             PublicationTable<WorldResearchInvestment>.Empty,
             PublicationTable<WorldResearchTypeDecision>.Create(
                 types.Select(type => new WorldResearchTypeDecision(type, 0, 0, 0)).ToArray())));

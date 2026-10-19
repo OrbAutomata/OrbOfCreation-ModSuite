@@ -921,9 +921,9 @@ public sealed class GameMcpSpellWorkbenchTests
             new WorldSpellRecipeGlyph(0, FirstGlyphId),
             new WorldSpellRecipeGlyph(1, SecondGlyphId),
         });
-        var discoveryCosts = PublicationTable<WorldDiscoverableCost>.Create(new[]
+        var discoveryCosts = PublicationTable<WorldResourceCost>.Create(new[]
         {
-            new WorldDiscoverableCost(
+            new WorldResourceCost(
                 ResourceId,
                 new BigDouble(4.4d, 3),
                 new BigDouble(9d, 6)),

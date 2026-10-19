@@ -482,9 +482,9 @@ public sealed class GameMcpResearchTests
             1,
             new BigDouble(30), new BigDouble(30), new BigDouble(0.5), true, 2,
             developmentCostAffordable,
-            PublicationTable<WorldResearchCost>.Create(new[]
+            PublicationTable<WorldResourceCost>.Create(new[]
             {
-                new WorldResearchCost(
+                new WorldResourceCost(
                     ResourceId,
                     new BigDouble(price),
                     new BigDouble(spendableAmount)),

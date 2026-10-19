@@ -663,7 +663,8 @@ public sealed class GameMcpCraftingTests
             CraftingDecisionCosts = PublicationTable<WorldCraftingDecisionCost>.Create(new[]
             {
                 new WorldCraftingDecisionCost(
-                    RecipeId, ResourceId, new BigDouble(75), new BigDouble(heldDust)),
+                    RecipeId,
+                    new WorldResourceCost(ResourceId, new BigDouble(75), new BigDouble(heldDust))),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {

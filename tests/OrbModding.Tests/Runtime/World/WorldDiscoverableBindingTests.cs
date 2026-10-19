@@ -35,8 +35,8 @@ public sealed class WorldDiscoverableBindingTests
         Assert.Equal(1, decision.Costs.Count);
         var cost = decision.Costs[0];
         Assert.Equal(resource.GetGuid(), cost.ResourceId);
-        Assert.Equal(0, cost.Cost.CompareTo(new BigDouble(5, 0)));
-        Assert.Equal(0, cost.Amount.CompareTo(new BigDouble(8, 0)));
+        Assert.Equal(0, cost.Price.CompareTo(new BigDouble(5, 0)));
+        Assert.Equal(0, cost.Held.CompareTo(new BigDouble(8, 0)));
         Assert.True(cost.Affordable);
     }
 
