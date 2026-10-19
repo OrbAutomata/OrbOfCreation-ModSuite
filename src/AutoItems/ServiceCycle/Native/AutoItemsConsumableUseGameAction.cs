@@ -143,12 +143,18 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 AutoItemsActionResultCodes.UseNotVerified,
                 evidence.Outcome,
                 callOutcome,
-                $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} did not enter " +
-                $"native preparation: {evidence.Format()}");
+                GameActionFaultLog.Reason(
+                    $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} did not enter " +
+                    (evidence.Exception is null ? "native preparation." : "native preparation after the game threw."),
+                    evidence.Exception,
+                    "Auto Items"));
         return NativeActionOutcome.FaultBeforeCall(
             AutoItemsActionResultCodes.ContractUnavailable,
-            "Auto Items could not read the consumable preparation queue for " +
-            $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}");
+            GameActionFaultLog.Reason(
+                "Auto Items could not read the consumable preparation queue for " +
+                $"{EntityIdentityFormatter.PlayerName(action.ItemId)}.",
+                evidence.Exception,
+                "Auto Items"));
     }
 
     internal void InvalidateLifecycle()
