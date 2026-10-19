@@ -29,7 +29,7 @@ public sealed class GameMcpGenericLevelTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "purchase", "bonus" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",
             ["uuid"] = GlyphId.ToString("D"),
@@ -276,7 +276,7 @@ public sealed class GameMcpGenericLevelTests
     {
         var before = World(total: 0, bonus: 0, purchaseAffordable: true);
         var after = World(total: 2, bonus: 0, purchaseAffordable: true);
-        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",
             ["uuid"] = TimeRuneId.ToString("D"),

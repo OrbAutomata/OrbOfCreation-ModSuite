@@ -56,7 +56,7 @@ public sealed class GameMcpSpellCompositionTests
     [Fact]
     public void MissingDialValueIsNamedAtSchemaValidation()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -130,7 +130,7 @@ public sealed class GameMcpSpellCompositionTests
     [InlineData("reserve")]
     public void ThePreparedCommandCarriesTheDialTheCallerNamed(string dial)
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_casting_dial",
             new JObject { ["dial"] = dial, ["value"] = 5 });
 

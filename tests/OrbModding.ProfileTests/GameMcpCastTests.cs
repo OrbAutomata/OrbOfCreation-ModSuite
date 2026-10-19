@@ -59,14 +59,14 @@ public sealed class GameMcpCastTests
             .ToArray();
         Assert.Equal(new[] { "release", "toggle_off" }, forbidden);
 
-        var charged = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        var charged = GameMcpToolCatalog.Shipping.BuildOperation("game_cast", new JObject
         {
             ["mode"] = "fire",
             ["slot"] = 1,
             ["uuid"] = RecipeId.ToString("D"),
             ["charge"] = true,
         });
-        var plain = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        var plain = GameMcpToolCatalog.Shipping.BuildOperation("game_cast", new JObject
         {
             ["mode"] = "fire",
             ["slot"] = 1,

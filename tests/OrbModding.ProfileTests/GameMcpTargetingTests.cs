@@ -32,7 +32,7 @@ public sealed class GameMcpTargetingTests
     [Fact]
     public void ConditionalTargetValidationNamesTheExactField()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = Call(router, 1, new JObject { ["mode"] = "submit" });
         var unexpected = Call(router, 2, new JObject
         {
@@ -195,7 +195,7 @@ public sealed class GameMcpTargetingTests
     [Fact]
     public void NothingPendingIsItsOwnRefusalRatherThanAnUnsupportedTarget()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_targeting", new JObject { ["mode"] = "randomize" });
         var world = World() with
         {

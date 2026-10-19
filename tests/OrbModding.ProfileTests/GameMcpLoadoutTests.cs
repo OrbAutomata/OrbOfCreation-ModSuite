@@ -46,7 +46,7 @@ public sealed class GameMcpLoadoutTests
     [Fact]
     public void Mode_specific_fields_are_required_and_unrelated_fields_are_rejected()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

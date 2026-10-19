@@ -47,7 +47,7 @@ public sealed class GameMcpConsumableTests
     [InlineData("move", "list")]
     public void ConditionalInputsNameTheExactMissingArgument(string mode, string field)
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",

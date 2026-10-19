@@ -48,8 +48,7 @@ internal sealed class GameMcpOperationRequest
         if (string.IsNullOrWhiteSpace(source.ToolName))
             throw new ArgumentException("A tool name is required.", nameof(source));
         ToolName = source.ToolName;
-        Classification = source.Classification;
-        RequiredData = source.RequiredData;
+        Route = source.Route ?? throw new ArgumentException("A route is required.", nameof(source));
         Category = source.Category ?? string.Empty;
         Query = source.Query ?? string.Empty;
         Uuid = source.Uuid;
@@ -83,8 +82,9 @@ internal sealed class GameMcpOperationRequest
     }
 
     internal string ToolName { get; }
-    internal GameMcpOperationClass Classification { get; }
-    internal GameMcpFrameData RequiredData { get; }
+    internal GameMcpToolRoute Route { get; }
+    internal GameMcpOperationClass Classification => Route.Classification;
+    internal GameMcpFrameData RequiredData => Route.RequiredData;
     internal string Category { get; }
     internal string Query { get; }
     internal Guid Uuid { get; }
@@ -143,8 +143,7 @@ internal sealed class GameMcpOperationRequest
 internal sealed class GameMcpOperationRequestBuilder
 {
     internal string ToolName { get; set; } = string.Empty;
-    internal GameMcpOperationClass Classification { get; set; }
-    internal GameMcpFrameData RequiredData { get; set; }
+    internal GameMcpToolRoute? Route { get; set; }
     internal string Category { get; set; } = string.Empty;
     internal string Query { get; set; } = string.Empty;
     internal Guid Uuid { get; set; }

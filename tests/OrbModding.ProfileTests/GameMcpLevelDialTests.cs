@@ -39,7 +39,7 @@ public sealed class GameMcpLevelDialTests
         string mode,
         string dial)
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             tool,
             new JObject { ["mode"] = mode, ["level"] = 2 });
 
@@ -58,7 +58,7 @@ public sealed class GameMcpLevelDialTests
     [Fact]
     public void TheLevelModeTakesALevelAndNothingTheListModesNeed()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
 
         Assert.Equal(
             "refused (ERR_INPUT): tool arguments failed schema validation: required field " +

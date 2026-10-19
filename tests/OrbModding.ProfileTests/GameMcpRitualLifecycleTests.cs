@@ -28,7 +28,7 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Equal(
             new[] { "select", "deselect", "set_level", "activate", "cancel_duration", "end" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_ritual", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_ritual", new JObject
         {
             ["mode"] = "activate",
             ["uuid"] = RitualId.ToString("D"),
@@ -39,7 +39,7 @@ public sealed class GameMcpRitualLifecycleTests
     [Fact]
     public void Set_level_requires_level_and_other_modes_reject_it()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -77,7 +77,7 @@ public sealed class GameMcpRitualLifecycleTests
             candidate => (string?)candidate["name"] == "game_ritual");
         Assert.Equal(1, (int)tool["inputSchema"]!["properties"]!["level"]!["minimum"]!);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

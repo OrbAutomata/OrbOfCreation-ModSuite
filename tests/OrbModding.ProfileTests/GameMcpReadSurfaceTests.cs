@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -30,9 +29,10 @@ public sealed class GameMcpStreamableHttpProtocolTests
     public async Task FaultedGameActionReceiptSurvivesTheHttpProtocolExactlyOnce()
     {
         var inbox = new GameMcpFrameInbox();
-        var port = FreeLoopbackPort();
+        var port = GameMcpTestHarness.FreeLoopbackPort();
         using var server = GameMcpHttpServer.TryStart(
             inbox,
+            GameMcpToolCatalog.Shipping,
             _ => { },
             _ => { },
             port);
@@ -153,22 +153,18 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     [Theory]
-    [InlineData(2, 6)]
-    [InlineData(3, 1)]
-    public void AdministrativeAndGameplayTerminalsOmitShadowAndSchedulerNoise(
-        int classificationValue,
-        int kindValue)
+    [InlineData(6)]
+    [InlineData(1)]
+    public void AdministrativeAndGameplayTerminalsOmitShadowAndSchedulerNoise(int kindValue)
     {
-        var classification = (GameMcpOperationClass)classificationValue;
         var kind = (GameMcpCommandKind)kindValue;
+        var tool = kind == GameMcpCommandKind.Purchase ? "game_purchase" : "suite_config_set";
         var source = new GameMcpFrameOperation(
             1,
             new GameMcpOperationRequestBuilder
             {
-                ToolName = kind == GameMcpCommandKind.Purchase
-                    ? "game_purchase"
-                    : "suite_config_set",
-                Classification = classification,
+                ToolName = tool,
+                Route = GameMcpTestHarness.Route(tool),
             }.Freeze());
         var command = new GameMcpCommand(
             1,
@@ -312,7 +308,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     public void RouterImplementsInitializeDiscoveryResourceAndToolSemantics()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
 
         var initialize = router.Handle(Request(
             1,
@@ -407,7 +403,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void TheRetiredCatalogVerbIsNoLongerAToolThisServerHas()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(
             100,
             "tools/call",
@@ -430,7 +426,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void WrongUuidIsRejectedByToolBoundary()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(
             8,
             "tools/call",
@@ -459,7 +455,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void A_well_formed_uuid_that_names_nothing_refuses_as_unknown_rather_than_malformed()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(
             8,
             "tools/call",
@@ -486,7 +482,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void A_handle_after_teardown_says_the_lifecycle_fact_rather_than_calling_it_malformed()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(
             8,
             "tools/call",
@@ -510,7 +506,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void ArgumentValidationRetainsMissingRequiredAndUnexpectedFieldErrors()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(
             9,
             "tools/call",
@@ -532,10 +528,11 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public async Task HttpTransportIsLoopbackOnlyAndEnforcesStreamableHttpHeaders()
     {
-        var port = FreeLoopbackPort();
+        var port = GameMcpTestHarness.FreeLoopbackPort();
         var messages = new System.Collections.Generic.List<string>();
         using var server = GameMcpHttpServer.TryStart(
             new GameMcpFrameInbox(),
+            GameMcpToolCatalog.Shipping,
             messages.Add,
             messages.Add,
             port);
@@ -605,15 +602,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
         request.Headers.Accept.ParseAdd("application/json");
         request.Headers.Accept.ParseAdd("text/event-stream");
         return request;
-    }
-
-    private static int FreeLoopbackPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 
     private static JObject Request(int id, string method, JObject parameters) => new()
@@ -741,7 +729,7 @@ public sealed class GameMcpWorldEnvelopeTests
         publisher.Publish(replacement, new WorldGeneration(910));
 
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var response = GameMcpTestHarness.Handle(
             router,
             inbox,

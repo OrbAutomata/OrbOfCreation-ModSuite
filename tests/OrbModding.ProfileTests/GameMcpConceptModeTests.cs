@@ -28,7 +28,7 @@ public sealed class GameMcpConceptModeTests
         Assert.Equal(new[] { "add", "remove" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var retired = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

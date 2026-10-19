@@ -30,7 +30,7 @@ public sealed class GameMcpPlotLifecycleTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Contains("add_plot_action",
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_agromancy", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_agromancy", new JObject
         {
             ["mode"] = "add_plot_action",
             ["uuid"] = PlotId.ToString("D"),

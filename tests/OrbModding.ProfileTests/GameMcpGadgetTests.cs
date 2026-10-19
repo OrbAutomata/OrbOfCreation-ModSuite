@@ -453,13 +453,13 @@ public sealed class GameMcpGadgetTests
         var readOperation = inbox.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "game_probe",
-            Classification = GameMcpOperationClass.ReadOnly,
+            Route = GameMcpTestHarness.Route("game_probe"),
             Mode = "runtime",
         }.Freeze());
         var mutationOperation = inbox.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "game_navigate",
-            Classification = GameMcpOperationClass.UiState,
+            Route = GameMcpTestHarness.Route("game_navigate"),
             Mode = "navigate",
         }.Freeze());
         var read = Command(GameMcpCommandKind.Probe, "runtime", readOperation);
@@ -500,7 +500,7 @@ public sealed class GameMcpGadgetTests
 
     private static JObject[] Tools()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/list",

@@ -334,7 +334,7 @@ public sealed class GameMcpAutomationTests
     [Fact]
     public void Setting_one_feature_names_the_feature_and_the_flip_it_made()
     {
-        var request = GameMcpProtocolRouter.BuildOperation(
+        var request = GameMcpToolCatalog.Shipping.BuildOperation(
             "suite_breakers",
             new JObject
             {
@@ -354,7 +354,7 @@ public sealed class GameMcpAutomationTests
     [Fact]
     public void Listing_never_claims_mutation_ownership()
     {
-        var request = GameMcpProtocolRouter.BuildOperation(
+        var request = GameMcpToolCatalog.Shipping.BuildOperation(
             "suite_breakers",
             new JObject { ["mode"] = "list" });
 
@@ -366,15 +366,15 @@ public sealed class GameMcpAutomationTests
     public void A_set_that_names_no_feature_and_a_list_that_names_one_are_both_refused()
     {
         Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "suite_breakers",
                 new JObject { ["mode"] = "set", ["on"] = true }));
         Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "suite_breakers",
                 new JObject { ["mode"] = "set", ["feature"] = "auto_buy" }));
         Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "suite_breakers",
                 new JObject { ["mode"] = "set", ["feature"] = "auto_everything", ["on"] = true }));
     }

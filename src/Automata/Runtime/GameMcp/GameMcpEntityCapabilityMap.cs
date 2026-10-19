@@ -414,7 +414,7 @@ internal static class GameMcpEntityCapabilityMap
         for (var index = 0; index < descriptor.Capabilities.Count; index++)
         {
             var capability = descriptor.Capabilities[index];
-            var candidate = GameMcpCommandKinds.ToolName(capability);
+            var candidate = GameMcpToolCatalog.Shipping.ToolFor(capability);
             if (candidate.Length == 0 || names.Contains(candidate)) continue;
             names.Add(candidate);
         }

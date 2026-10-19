@@ -34,7 +34,7 @@ public sealed class GameMcpEquipmentLoadoutTests
     public void Validation_names_missing_mode_and_rejects_removed_generation_metadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var id = Guid.NewGuid().ToString("D");
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject { ["name"] = "game_equipment", ["arguments"] = new JObject { ["uuid"] = id } }));

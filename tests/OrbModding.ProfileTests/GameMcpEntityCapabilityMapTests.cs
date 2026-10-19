@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 using Xunit;
 
@@ -46,12 +48,12 @@ public sealed class GameMcpEntityCapabilityMapTests
                 name.StartsWith("time_", StringComparison.Ordinal) ||
                 name is "suite_config_set" or "suite_breakers" or "suite_emergency_stop")
             .ToArray();
-        var mappings = commandTools
-            .Select(name => (Name: name, Kind: GameMcpCommandKinds.FromToolName(name)))
-            .ToArray();
+        var mappings = new List<(string Name, GameMcpCommandKind Kind)>();
+        foreach (var name in commandTools)
+            if (GameMcpTestHarness.Route(name).Kind is { } kind) mappings.Add((name, kind));
 
-        Assert.Equal(32, mappings.Length);
-        Assert.Equal(32, mappings.Select(mapping => mapping.Kind).Distinct().Count());
+        Assert.Equal(31, mappings.Count);
+        Assert.Equal(31, mappings.Select(mapping => mapping.Kind).Distinct().Count());
         Assert.Equal(
             new[]
             {
@@ -86,18 +88,31 @@ public sealed class GameMcpEntityCapabilityMapTests
                 GameMcpEntityCapabilityMap.Entries,
                 descriptor => descriptor.Capabilities.Contains(mapping.Kind)));
         Assert.Equal("game_discover",
-            GameMcpCommandKinds.ToolName(GameMcpCommandKind.DiscoveryTreeOffer));
+            GameMcpToolCatalog.Shipping.ToolFor(GameMcpCommandKind.DiscoveryTreeOffer));
         Assert.Equal("game_spell_loadout",
-            GameMcpCommandKinds.ToolName(GameMcpCommandKind.SpellWorkbench));
-        Assert.Equal(GameMcpCommandKind.Harvest,
-            GameMcpCommandKinds.FromRequest(
-                "game_agromancy", "add_plot_action", string.Empty));
-        Assert.Equal(GameMcpCommandKind.HarvestLifecycle,
-            GameMcpCommandKinds.FromRequest(
-                "game_agromancy", "add_element", string.Empty));
-        Assert.Throws<ArgumentException>(() =>
-            GameMcpCommandKinds.FromToolName("game_arbitrary_reflection"));
+            GameMcpToolCatalog.Shipping.ToolFor(GameMcpCommandKind.SpellWorkbench));
+        Assert.Equal("game_casting_dial",
+            GameMcpToolCatalog.Shipping.ToolFor(GameMcpCommandKind.SpellComposition));
+        Assert.Equal(GameMcpCommandKind.Harvest, Agromancy("add_plot_action").Route.Kind);
+        Assert.Equal(GameMcpCommandKind.HarvestLifecycle, Agromancy("add_element").Route.Kind);
+        Assert.Equal(
+            "unknown_tool",
+            Assert.Throws<GameMcpInvalidParamsException>(() =>
+                GameMcpToolCatalog.Shipping.BuildOperation(
+                    "game_arbitrary_reflection",
+                    new JObject())).Code);
     }
+
+    private static GameMcpOperationRequest Agromancy(string mode) =>
+        GameMcpToolCatalog.Shipping.BuildOperation(
+            "game_agromancy",
+            new JObject
+            {
+                ["mode"] = mode,
+                ["uuid"] = Guid.NewGuid().ToString("D"),
+                ["actionUuid"] = Guid.NewGuid().ToString("D"),
+                ["amount"] = 1,
+            });
 
     /// <summary>
     /// A category naming several native types answers for each of them. The catalog called the two

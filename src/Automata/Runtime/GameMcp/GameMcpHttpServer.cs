@@ -27,6 +27,7 @@ internal sealed class GameMcpHttpServer : IDisposable
 
     private GameMcpHttpServer(
         GameMcpFrameInbox operations,
+        GameMcpToolCatalog catalog,
         int port,
         Action<string> logInfo,
         Action<string> logError)
@@ -34,7 +35,7 @@ internal sealed class GameMcpHttpServer : IDisposable
         if (port is <= 0 or > 65535) throw new ArgumentOutOfRangeException(nameof(port));
         _logInfo = logInfo ?? throw new ArgumentNullException(nameof(logInfo));
         _logError = logError ?? throw new ArgumentNullException(nameof(logError));
-        _router = new GameMcpProtocolRouter(operations, _logError);
+        _router = new GameMcpProtocolRouter(operations, catalog, _logError);
         Port = port;
         Endpoint = "http://127.0.0.1:" + port + EndpointPath;
         _listener = new HttpListener();
@@ -54,13 +55,22 @@ internal sealed class GameMcpHttpServer : IDisposable
 
     internal static GameMcpHttpServer? TryStart(
         GameMcpFrameInbox operations,
+        GameMcpToolCatalog catalog,
         Action<string> logInfo,
         Action<string> logError,
         int port = DefaultPort)
     {
+        var problems = catalog.Problems(GameMcpProtocolRouter.AdvertisedToolNames());
+        if (problems.Count > 0)
+        {
+            logError(
+                "Game MCP server refuses to start because its tool catalog is malformed; " +
+                "gameplay remains active: " + string.Join("; ", problems));
+            return null;
+        }
         try
         {
-            var server = new GameMcpHttpServer(operations, port, logInfo, logError);
+            var server = new GameMcpHttpServer(operations, catalog, port, logInfo, logError);
             logInfo(
                 "Game MCP streamable HTTP server listening on " + server.Endpoint +
                 " (loopback only, protocol " + GameMcpProtocolRouter.LatestProtocolVersion + ").");

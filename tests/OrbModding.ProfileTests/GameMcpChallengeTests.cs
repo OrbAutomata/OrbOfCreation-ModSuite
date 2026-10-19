@@ -32,7 +32,7 @@ public sealed class GameMcpChallengeTests
     [Fact]
     public void Validation_names_uuid_missing_or_forbidden_by_mode()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
