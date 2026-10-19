@@ -404,6 +404,55 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedThrowReadingAnOwnersConditionsFaultsThePass()
+    {
+        var gated = Author(new global::UpgradeSO { maxLevel = 1 });
+        gated.prerequisitesPerLevel.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = new global::UpgradeSO { GetGuidFailure = new NullReferenceException("GetGuid failed") },
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+        });
+        var collector = new GameWorldCollector();
+
+        Assert.Throws<NullReferenceException>(
+            () => collector.Collect(new GameWorldCycleFrame { CollectedAtEpoch = 1 }));
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowReadingAPrerequisiteLinkTierFaultsThePass()
+    {
+        var link = new global::PrerequisiteLinkSO();
+        global::PrerequisiteLinkSO.All.Add(link);
+        var tier = new global::PrerequisiteLinkSO.LinkDefinition();
+        tier.prerequisites.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = new global::UpgradeSO { GetGuidFailure = new NullReferenceException("GetGuid failed") },
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+        });
+        link.linkTiers.Add(tier);
+        var collector = new GameWorldCollector();
+
+        Assert.Throws<NullReferenceException>(
+            () => collector.Collect(new GameWorldCycleFrame { CollectedAtEpoch = 1 }));
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowReadingAUsagePrerequisiteFaultsThePass()
+    {
+        var recipe = new global::AlchemyRecipeSO();
+        global::AlchemyRecipeSO.All.Add(recipe);
+        recipe.usagePrerequisites.prerequisites.Add(new Requirements.UpgradeRequirement
+        {
+            item = new global::UpgradeSO { GetGuidFailure = new NullReferenceException("GetGuid failed") },
+            reqType = Requirements.UpgradeRequirementType.AtLeast,
+        });
+        var collector = new GameWorldCollector();
+
+        Assert.Throws<NullReferenceException>(
+            () => collector.Collect(new GameWorldCycleFrame { CollectedAtEpoch = 1 }));
+    }
+
+    [Fact]
     public void ACompositeNestedInsideACompositeIsOneBranchOfItsGroup()
     {
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });

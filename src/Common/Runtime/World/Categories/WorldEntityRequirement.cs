@@ -767,7 +767,7 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
                     sampled++;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
@@ -1129,7 +1129,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                         ref firstFailure);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 unmodelled++;
                 if (firstFailure.Length == 0)
@@ -1181,7 +1181,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     unlockContainer: unlockContainer,
                     secondUnlockContainer: secondUnlockContainer);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 buffer.Truncate(start);
                 unmodelled++;
@@ -1423,7 +1423,7 @@ internal sealed class WorldEntityRequirementReader : IWorldCategoryReader
                     owner, identities[index].EntityId, kind, program, container, buffer,
                     ref unmodelled, ref firstFailure);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 buffer.Truncate(start);
                 var row = Unreadable(
