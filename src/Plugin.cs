@@ -521,7 +521,8 @@ public sealed class Plugin : BaseUnityPlugin
                                 featureStatus: featureStatuses.AutoBuy,
                                 refusalBundles: new AutoBuyRefusalBundleWriter(
                                     () => AutomataTraceRunRoot.Stable("diagnostics")),
-                                reportInvariant: message => Log.LogAutomataError(message)
+                                reportInvariant: message => Log.LogAutomataError(message),
+                                warn: message => Log.LogAutomataWarning(message)
 #if SERVICE_CYCLE_PROFILE
                                 , gameMcpOwnership: kind =>
                                     _automataActionFamilyOwnership!.OwnsAutoBuy(kind)

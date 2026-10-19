@@ -92,7 +92,8 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
             _initialConfigurationGeneration,
             _dependencies.OwnershipMask(),
             _dependencies.FeatureStatus,
-            _latch);
+            _latch,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)

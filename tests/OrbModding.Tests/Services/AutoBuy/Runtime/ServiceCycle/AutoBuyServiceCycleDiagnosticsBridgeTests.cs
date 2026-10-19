@@ -30,7 +30,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
             status,
-            new AutoBuyInvariantLatch());
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.True(status.Current.ConfiguredEnabled);
         Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
@@ -58,7 +59,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
             status,
-            latch);
+            latch,
+            static _ => { });
 
         bridge.ObserveConfiguration(new ConfigGeneration(2));
         var tripped = status.Current;
@@ -82,7 +84,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.None,
             status,
-            new AutoBuyInvariantLatch());
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.True(status.Current.ConfiguredEnabled);
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.Current.State);
@@ -108,7 +111,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
             status,
-            new AutoBuyInvariantLatch());
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
         Assert.Equal(FeatureStatusReasonCode.Initializing, status.Current.Reason.Code);

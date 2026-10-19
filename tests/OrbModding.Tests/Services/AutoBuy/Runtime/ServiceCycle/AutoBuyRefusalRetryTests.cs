@@ -66,12 +66,21 @@ public sealed class AutoBuyRefusalRetryTests
         var first = harness.RetryGate.Latest;
         harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1);
         var quietStatus = harness.Status.Current.State;
+        var quietWarnings = harness.Warnings.ToArray();
         harness.PumpWorldsUntil(() => purchases.Submissions(First) == 2);
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var announced = harness.RetryGate.Latest;
+        var startWarnings = harness.Warnings.ToArray();
+        harness.PumpWorldsUntil(() => harness.RetryGate.Count == 0, firstUnlocked: false);
+        harness.PumpWorld(firstUnlocked: false);
 
         Assert.True(first.IsQuiet);
         Assert.Equal(FeatureStatusState.Operational, quietStatus);
-        Assert.False(harness.RetryGate.Latest.IsQuiet);
+        Assert.Empty(quietWarnings);
+        Assert.False(announced.IsQuiet);
+        Assert.StartsWith("Auto Buy backs off ", Assert.Single(startWarnings));
+        Assert.Equal(2, harness.Warnings.Count);
+        Assert.StartsWith("Auto Buy stops backing off ", harness.Warnings[1]);
         Assert.Empty(harness.Errors);
     }
 
@@ -194,7 +203,8 @@ public sealed class AutoBuyRefusalRetryTests
                     runtimeDiagnostics: null,
                     Status,
                     bundles,
-                    Errors.Add),
+                    Errors.Add,
+                    Warnings.Add),
                 _registration,
                 _epoch,
                 new ConfigGeneration(1),
@@ -213,6 +223,7 @@ public sealed class AutoBuyRefusalRetryTests
         internal AutomataFeatureStatusReporter Status { get; }
         internal AutoBuyInvariantLatch Latch { get; } = new();
         internal List<string> Errors { get; } = new();
+        internal List<string> Warnings { get; } = new();
         internal ServiceRetryGateSnapshot RetryGate => _registration.Runner.Snapshot.RetryGate;
         internal MonotonicTimestamp Now => _clock.Now;
 

@@ -21,8 +21,8 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly AutoBuyInvariantLatch _latch;
-    private readonly ServiceRetryEpisodeNarrator _retries =
-        new("Auto Buy", static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly Action<string> _warn;
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private int _publishedLatchRevision;
     // Sized for the Automata host's registered services so the ordinary frame copies nothing extra and
     // allocates nothing; a host that grows past it resizes once and carries on.
@@ -41,10 +41,13 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         ConfigGeneration configurationGeneration,
         AutoBuyCandidateKinds owned,
         AutomataFeatureStatusReporter featureStatus,
-        AutoBuyInvariantLatch latch)
+        AutoBuyInvariantLatch latch,
+        Action<string> warn)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
         _latch = latch ?? throw new ArgumentNullException(nameof(latch));
+        _warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        _retries = new ServiceRetryEpisodeNarrator("Auto Buy", warn);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
@@ -192,7 +195,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         }
         else
         {
-            Plugin.Log?.LogAutomataWarning("Auto Buy is temporarily blocked: " + health.Summary);
+            _warn("Auto Buy is temporarily blocked: " + health.Summary);
         }
         _narratedDecisionBlock = _decisionBlock;
     }
