@@ -81,10 +81,10 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
         Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, entry.Code);
         Assert.Equal(FirstWait, entry.Backoff);
         Assert.Equal(1, harness.Native.Recipe.PurchaseCalls);
-        Assert.Contains(
-            "System.NullReferenceException: injected failure after purchase",
-            harness.Status.Current.Reason.Summary);
-        Assert.Contains("System.NullReferenceException: injected failure after purchase", Assert.Single(log));
+        var logged = Assert.Single(log);
+        Assert.Contains("System.NullReferenceException: injected failure after purchase", logged);
+        Assert.DoesNotContain("injected failure", harness.Status.Current.Reason.Summary);
+        Assert.Contains(" Reference " + logged.Split(' ')[3] + " is in the suite log.", harness.Status.Current.Reason.Summary);
     }
 
     private sealed class Harness : IDisposable

@@ -239,7 +239,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
-                (expected ? string.Empty : $"{ex.GetType().FullName}: {ex.Message}. ") +
                 GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
     }
@@ -278,7 +277,10 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         }
         catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
-            return "a price the game could not read back (" + ex.GetBaseException().Message + ")";
+            var reference = GameActionFaultLog.RecordReference(ex, "Scholar > Scribe price");
+            return reference.Length == 0
+                ? "a price the game could not read back"
+                : "a price the game could not read back (reference " + reference + " is in the suite log)";
         }
     }
 

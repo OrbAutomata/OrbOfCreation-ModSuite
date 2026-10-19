@@ -336,7 +336,7 @@ the caller's quarantine, and only then does an unexpected exception escape, so t
 loud and the quarantine already holds when the fault tracker retries the batch. Auto Scribe rereads
 the after-state the same way, and a visible craft commits with the throw logged. Its one exception
 is a paid craft whose work is not visible: the unexpected exception is written whole to the suite
-log and returned as a post-payment fault naming its type and message, so the recipe backs off for a
+log under the reference the post-payment fault names, so the recipe backs off for a
 minute instead of the service retrying a paid craft within seconds.
 
 ## MCP responses: worked, or why not

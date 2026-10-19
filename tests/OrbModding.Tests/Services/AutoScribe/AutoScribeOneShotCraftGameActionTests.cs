@@ -125,7 +125,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
-    public void AnUnexpectedThrowAfterPaymentIsAFaultThatNamesTheExceptionAndLogsItWhole()
+    public void AnUnexpectedThrowAfterPaymentIsAFaultThatLogsTheExceptionWholeUnderItsReference()
     {
         var fixture = Fixture();
         fixture.Recipe.AfterPurchaseFault = new NullReferenceException("injected failure after purchase");
@@ -139,10 +139,11 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
             Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, failed.Outcome.Code);
             Assert.Equal(NativeMutationOutcome.ExecutionThrew, failed.Outcome.Mutation);
-            Assert.Contains(
-                "after Payment: System.NullReferenceException: injected failure after purchase.",
-                failed.Outcome.Reason);
-            Assert.Contains("System.NullReferenceException: injected failure after purchase", Assert.Single(log));
+            Assert.Contains("saw no work after Payment:", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected failure", failed.Outcome.Reason);
+            var entry = Assert.Single(log);
+            Assert.Contains("System.NullReferenceException: injected failure after purchase", entry);
+            Assert.Contains(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
             Assert.Contains(" at ", log[0]);
             Assert.Equal(1, fixture.Recipe.PurchaseCalls);
         }
