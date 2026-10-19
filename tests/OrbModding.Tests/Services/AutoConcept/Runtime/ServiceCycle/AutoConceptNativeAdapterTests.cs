@@ -286,7 +286,6 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
-        Assert.Equal(1, submission.AppliedDelta);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -341,7 +340,6 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
-        Assert.Equal(-1, submission.AppliedDelta);
         Assert.Empty(active.value);
     }
 

@@ -153,7 +153,6 @@ internal sealed class AutoConceptNativeAdapter :
                 _recipes.Add(recipe);
                 _recipeUuids.Add(recipe, uuid);
             }
-            if (_recipes.Count == 0) return Retry("ConceptRecipes runtime list is empty", out reason);
             _activeConcepts = active;
             reason = string.Empty;
             return true;
@@ -280,10 +279,8 @@ internal sealed class AutoConceptNativeAdapter :
                 return AutoConceptSubmission.Rejected(
                     AutoConceptActionResultCodes.OwnershipChanged,
                     "the rotation no longer owns the exact live assignment");
-            if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason, out var unreadable))
-                return unreadable
-                    ? AutoConceptSubmission.FaultBeforeCall(reason)
-                    : AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason);
+            if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason))
+                return AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason);
             return SubmitRemove(action.RecipeId, candidate, action.TargetOrDelta, exact: true);
         }
 
@@ -346,8 +343,7 @@ internal sealed class AutoConceptNativeAdapter :
             candidate,
             "add " + Stacks(delta),
             () => native.AddInstances(_activeConcepts!, candidate.Recipe, delta),
-            static (before, after) => after > before,
-            delta);
+            static (before, after) => after > before);
     }
 
     private AutoConceptSubmission SubmitRemove(
@@ -374,18 +370,15 @@ internal sealed class AutoConceptNativeAdapter :
             candidate,
             "remove " + Stacks(delta),
             () => native.RemoveInstances(_activeConcepts!, candidate.Recipe, delta),
-            static (before, after) => after < before,
-            -delta);
+            static (before, after) => after < before);
     }
 
     private bool TryValidateReplacement(
         Guid replacementId,
         NativeConceptCandidate active,
         AutoConceptResourceLimits? limits,
-        out GameActionReason reason,
-        out bool unreadable)
+        out GameActionReason reason)
     {
-        unreadable = false;
         if (replacementId == Guid.Empty)
         {
             reason = "the rotation no longer names a replacement";
@@ -399,9 +392,7 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "the replacement identity, prospective slot, unlock, or quantity changed";
             return false;
         }
-        var safe = TryFindSafeTarget(replacement, 1, limits, out _, out reason, out var refusal);
-        unreadable = refusal == AutoConceptProjectionRefusal.ReadFailed;
-        return safe;
+        return TryFindSafeTarget(replacement, 1, limits, out _, out reason, out _);
     }
 
     private bool CanReplaceAfterRemoval(
@@ -447,8 +438,7 @@ internal sealed class AutoConceptNativeAdapter :
         NativeConceptCandidate candidate,
         string change,
         Action execute,
-        Func<int, int, bool> moved,
-        int delta)
+        Func<int, int, bool> moved)
     {
         var evidence = NativeMutationVerifier.Execute(
             Feature,
@@ -460,12 +450,12 @@ internal sealed class AutoConceptNativeAdapter :
         _lastNativeMutationOutcome = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified)
             return AutoConceptSubmission.Attempted(
-                _lastNativeMutationOutcome, evidence.Outcome, string.Empty, delta);
+                _lastNativeMutationOutcome, evidence.Outcome, string.Empty);
 
         var concept = EntityIdentityFormatter.PlayerName(recipeId);
-        var pressed = $"Auto Concept asked the game to {change} of {concept}";
+        var pressed = $"The game was asked to {change} of {concept}";
         var sentence = !evidence.MutationWasAttempted
-            ? $"Auto Concept could not read the queued stacks of {concept} before the press."
+            ? $"The queued stacks of {concept} could not be read before the press."
             : !evidence.HasAfter
                 ? $"{pressed} and could not read its queued stacks afterwards."
                 : $"{pressed}, and its queued stacks went from {evidence.Before} to {evidence.After}" +
@@ -473,8 +463,7 @@ internal sealed class AutoConceptNativeAdapter :
         return AutoConceptSubmission.Attempted(
             _lastNativeMutationOutcome,
             evidence.Outcome,
-            GameActionFaultLog.Reason(sentence, evidence.Exception, Feature),
-            delta);
+            GameActionFaultLog.Reason(sentence, evidence.Exception, Feature));
     }
 
     private static string Stacks(int count) => count + (count == 1 ? " stack" : " stacks");
@@ -573,7 +562,7 @@ internal sealed class AutoConceptNativeAdapter :
         {
             refusal = AutoConceptProjectionRefusal.ReadFailed;
             return FailProjection(
-                GameActionFaultLog.Reason("Auto Concept could not project the drain of " + candidate.DisplayName + ".", ex, Feature),
+                GameActionFaultLog.Reason("The drain of " + candidate.DisplayName + " could not be projected.", ex, Feature),
                 out reason);
         }
     }

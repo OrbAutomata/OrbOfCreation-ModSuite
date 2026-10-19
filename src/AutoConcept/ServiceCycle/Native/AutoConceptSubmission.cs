@@ -7,18 +7,13 @@ namespace OrbAutomata;
 
 internal readonly struct AutoConceptSubmission
 {
-    private AutoConceptSubmission(
-        NativeActionOutcome outcome,
-        int appliedDelta = 0,
-        int maximumAmount = 0)
+    private AutoConceptSubmission(NativeActionOutcome outcome, int maximumAmount = 0)
     {
         Outcome = outcome;
-        AppliedDelta = appliedDelta;
         MaximumAmount = maximumAmount;
     }
 
     public NativeActionOutcome Outcome { get; }
-    public int AppliedDelta { get; }
     public int MaximumAmount { get; }
 
     internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, GameActionReason reason) =>
@@ -35,14 +30,12 @@ internal readonly struct AutoConceptSubmission
     internal static AutoConceptSubmission Attempted(
         NativeMutationCallOutcome outcome,
         NativeMutationOutcome mutationOutcome,
-        GameActionReason reason,
-        int appliedDelta) =>
+        GameActionReason reason) =>
         new(
             outcome.MutationAttempts == 1 && mutationOutcome == NativeMutationOutcome.Verified
                 ? NativeActionOutcome.Commit(outcome, reason)
                 : NativeActionOutcome.Fault(
-                    CommonActionResultCodes.AdapterFault, mutationOutcome, outcome, reason),
-            appliedDelta);
+                    CommonActionResultCodes.AdapterFault, mutationOutcome, outcome, reason));
 }
 
 internal interface IAutoConceptNativePort
