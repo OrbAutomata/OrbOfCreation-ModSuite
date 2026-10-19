@@ -254,8 +254,11 @@ that throws partway is put back by the shell when it supplies a put-back: the ca
 stays the cause its log reference names, a throw from the put-back is logged in the same entry, and
 the answer says so when the put-back does not read back. Zero attempts means no press was made. A
 press is a press of the player's controls: pinning the game's multi-buy multiplier around one is
-scaffolding, guarded by the scope's verified restore and its suite-wide quarantine, and counts no
-attempt. A GameAction not yet on the shell is migration debt, except the Modal pair
+scaffolding, guarded by the scope's verified restore, and counts no attempt. A restore that does
+not read back stays outstanding: every entry is refused, the first entry after each doubling wait
+puts the player's remembered value back, and only a verified read-back ends it. The scope never
+takes its own leftover for the player's value, and a setting that reads otherwise than the suite
+left it stands. A GameAction not yet on the shell is migration debt, except the Modal pair
 (`ModalOpenGameAction`, `ModalDismissGameAction`): perf-debug UI chrome that stays outside the shell
 because putting a panel up or taking it down is no run-scoped transaction, the suite owns no permit
 family for it, and it has no lifecycle epoch to admit. The pair still touches the game only on the

@@ -534,7 +534,7 @@ public sealed class AutoBuyProfileTests : IDisposable
         owningView.relevantLists.Add(structureList);
         owningView.relevantLists.Add(upgradeList);
         global::ViewSO.All.Add(owningView);
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
         NativePurchaseViewAdmissionResolver.ResetProductionForTests();
     }
 }

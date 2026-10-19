@@ -189,13 +189,17 @@ public sealed class ProductionSourceAuditTests
     /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
     /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
     /// reason, which every narrating feature prints in its status. Auto Concept's service cycle is
-    /// one because its init, registry and press reasons are those retry reasons.
+    /// one because its init, registry and press reasons are those retry reasons. So is the multi-buy
+    /// scope, whose refusal every GameAction that pins the multiplier quotes.
     /// </para>
     /// <para>
-    /// A GameAction and Auto Concept's service cycle author the reasons a mutation answers with, so
-    /// there the sweep also catches the other shapes that carry the same text:
-    /// <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation verifier's
-    /// evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception it caught.
+    /// A GameAction, Auto Concept's service cycle and the multi-buy scope author the reasons a
+    /// mutation answers with, so there the sweep also catches the other shapes that carry the same
+    /// text: <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation
+    /// verifier's evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception
+    /// it caught. Everywhere, besides <c>GetBaseException</c>, the sweep reads the <c>Message</c> of
+    /// any exception a file caught through <c>NativeFailureClassifier.IsExpected</c>, which is the
+    /// game's own text by definition.
     /// </para>
     /// <para>
     /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
@@ -241,7 +245,11 @@ public sealed class ProductionSourceAuditTests
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
             var authorsMutationReasons =
                 relativePath.EndsWith("GameAction.cs", StringComparison.Ordinal) ||
-                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal);
+                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal) ||
+                string.Equals(relativePath, "Common/NativeMultiBuyScope.cs", StringComparison.Ordinal);
+            var nativeMessages = new List<Regex>();
+            foreach (Match caught in NativeCatch.Matches(File.ReadAllText(path)))
+                nativeMessages.Add(new Regex(@"\b" + caught.Groups[1].Value + @"\.Message\b"));
             var lineNumber = 0;
             var allowedStatement = false;
             foreach (var line in File.ReadLines(path))
@@ -264,6 +272,7 @@ public sealed class ProductionSourceAuditTests
 
                 var carriesExceptionText =
                     line.Contains("GetBaseException", StringComparison.Ordinal) ||
+                    nativeMessages.Exists(message => message.IsMatch(line)) ||
                     authorsMutationReasons && exceptionText.IsMatch(line);
                 if (carriesExceptionText && !allowedStatement)
                 {
@@ -282,6 +291,9 @@ public sealed class ProductionSourceAuditTests
             string.Join(", ", offenders));
     }
 
+    private static readonly Regex NativeCatch =
+        new(@"catch \(\w*Exception (\w+)\) when \(NativeFailureClassifier\.IsExpected\(\1\)\)");
+
     private static IEnumerable<string> FilesWhoseTextCanReachACaller(string sourceRoot)
     {
         var candidates = new List<string>();
@@ -290,6 +302,7 @@ public sealed class ProductionSourceAuditTests
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoConcept/ServiceCycle"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
+        candidates.Add(Path.Combine(sourceRoot, "Common", "NativeMultiBuyScope.cs"));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in candidates)

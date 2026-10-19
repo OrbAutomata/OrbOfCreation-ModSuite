@@ -72,8 +72,12 @@ means writing a global:
    exception path.
 
 If entry or restoration cannot be verified, do not mutate at all — a multiplier left set is a
-global change to the player's manual purchases. Take a process-wide lease on it so two features
-cannot interleave writes.
+global change to the player's manual purchases. Remember the player's value from before the entry
+and retry the restoration on a back-off; never capture the value you left behind as the player's.
+Take a process-wide lease on it so two features cannot interleave writes.
+
+The multiplier is the `MultiBuy` `IntVariable` asset. It has `saveValue` set and `dontResetValue`
+clear, so the save carries it and `ResetData` clears it to its base value of 1.
 
 `IntVariable.AsInt()` reaches `GetValue()`, which recalculates and re-stamps an observable when the
 record is dirty — a write on a call that reads like a plain scalar. It is acceptable at this

@@ -1,5 +1,7 @@
 using System;
-using System.Diagnostics;
+using System.Linq;
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common;
 
@@ -52,31 +54,40 @@ internal sealed class NativeMultiBuyBindings
 /// <remarks>
 /// The set binds once per process: it holds types and compiled delegates only. The multiplier
 /// variable itself is fetched from the game on every entry and held only for the one call the scope
-/// wraps, so no native instance outlives a lifecycle. Whenever the game may have accepted a write
-/// and the player's value cannot be shown restored, every further entry is refused until restart.
+/// wraps, so no native instance outlives a lifecycle. When the player's value cannot be shown put
+/// back, the restore stays outstanding: every entry is refused, and the first entry after each
+/// doubling wait reads the setting fresh and puts the remembered value back. Only a verified
+/// read-back ends it. A setting that no longer reads as the suite left it was changed by the player
+/// or a save, and that value stands.
 /// </remarks>
 internal sealed class NativeMultiBuyScope : IDisposable
 {
-    private static readonly TimeSpan FailureLogInterval = TimeSpan.FromSeconds(30);
-    private static readonly Stopwatch Lifetime = Stopwatch.StartNew();
+    private const string Screen = "the game's multi-buy setting";
+    private static readonly MonotonicDuration FailureLogInterval =
+        MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(30));
+    private static readonly ServiceFaultRecoveryPolicy RestoreRetry = new(
+        MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1)),
+        MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)));
+    private static IMonotonicClock _clock = new StopwatchMonotonicClock();
     private static Action<string>? _failureLog;
-    private static TimeSpan? _failureLoggedAt;
+    private static MonotonicTimestamp? _failureLoggedAt;
     private static Func<string, Type?>? _resolveType;
     private static Func<string, bool>? _includeContract;
     private static NativeMultiBuyBindings? _bindings;
     private static string? _bindReason;
-    private static bool _mutationQuarantined;
-    private static string _quarantineReason = string.Empty;
+    private static OutstandingRestore? _outstandingRestore;
     private readonly NativeMultiBuyBindings _set;
     private readonly object _variable;
     private readonly int _originalValue;
+    private readonly int _target;
     private bool _disposed;
 
-    private NativeMultiBuyScope(NativeMultiBuyBindings set, object variable, int originalValue)
+    private NativeMultiBuyScope(NativeMultiBuyBindings set, object variable, int originalValue, int target)
     {
         _set = set;
         _variable = variable;
         _originalValue = originalValue;
+        _target = target;
     }
 
     public static bool TryEnterOne(out NativeMultiBuyScope scope, out string reason) =>
@@ -97,16 +108,22 @@ internal sealed class NativeMultiBuyScope : IDisposable
             return false;
         }
 
-        if (_mutationQuarantined)
+        if (!TryBind(out var set, out reason) ||
+            _outstandingRestore is { } outstanding && !TrySettle(set, outstanding, out reason))
         {
-            reason = $"global multi-buy mutation is quarantined: {_quarantineReason}";
             return false;
         }
 
-        if (!TryBind(out var set, out reason) ||
-            !TryGetVariable(set, out var variable, out reason) ||
-            !TryRead(set, variable, out var originalValue, out reason))
+        if (!TryGetVariable(set, out var variable, out reason, out var fetchFailure))
         {
+            LogFailure(reason, fetchFailure);
+            return false;
+        }
+
+        if (!TryRead(set, variable, out var originalValue, out var readFailure))
+        {
+            reason = "the global multi-buy value could not be read";
+            LogFailure(reason, readFailure);
             return false;
         }
 
@@ -117,22 +134,28 @@ internal sealed class NativeMultiBuyScope : IDisposable
             if (!TrySet(set, variable, target, out var setterFailure))
             {
                 settled = true;
-                return Refuse(set, variable, originalValue, $"{context} failed: {setterFailure}", out reason);
+                return Refuse(set, variable, originalValue, target, $"{context} threw", setterFailure, out reason);
             }
 
-            if (!TryRead(set, variable, out var enteredValue, out _) || enteredValue != target)
+            if (!TryRead(set, variable, out var enteredValue, out readFailure) || enteredValue != target)
             {
                 settled = true;
-                return Refuse(set, variable, originalValue, $"{context} could not be verified", out reason);
+                return Refuse(set, variable, originalValue, target, $"{context} could not be verified", readFailure,
+                    out reason);
             }
 
             settled = true;
-            scope = new NativeMultiBuyScope(set, variable, originalValue);
+            scope = new NativeMultiBuyScope(set, variable, originalValue, target);
             return true;
         }
         finally
         {
-            if (!settled) TryRestore(set, variable, originalValue, $"{context} threw", out _);
+            if (!settled &&
+                TryRestore(set, variable, originalValue, target, $"{context} threw", null, out var detail,
+                    out var recoveredFrom) && recoveredFrom is not null)
+            {
+                LogFailure($"{context} threw; {detail}", null, recoveredFrom);
+            }
         }
     }
 
@@ -144,16 +167,16 @@ internal sealed class NativeMultiBuyScope : IDisposable
         }
 
         _disposed = true;
-        if (TryRestore(_set, _variable, _originalValue, "global multi-buy cleanup failed", out var detail) &&
-            detail.Contains("threw", StringComparison.OrdinalIgnoreCase))
+        if (TryRestore(_set, _variable, _originalValue, _target, "global multi-buy cleanup failed", null,
+                out var detail, out var recoveredFrom) && recoveredFrom is not null)
         {
-            LogFailure($"global multi-buy cleanup recovered after an exception: {detail}");
+            LogFailure($"global multi-buy cleanup recovered after an exception: {detail}", null, recoveredFrom);
         }
     }
 
     /// <summary>
-    /// Names where a refused entry or a recovered cleanup is reported, at most once every thirty
-    /// seconds.
+    /// Names where a failed restore is reported on every attempt, and a refused entry or a recovered
+    /// cleanup at most once every thirty seconds.
     /// </summary>
     internal static void ConfigureFailureLog(Action<string>? log)
     {
@@ -161,14 +184,14 @@ internal sealed class NativeMultiBuyScope : IDisposable
         _failureLoggedAt = null;
     }
 
-    internal static bool IsMutationQuarantined => _mutationQuarantined;
-
-    internal static void ResetQuarantineForTests(
+    internal static void ResetForTests(
         Func<string, Type?>? resolveType = null,
-        Func<string, bool>? includeContract = null)
+        Func<string, bool>? includeContract = null,
+        IMonotonicClock? clock = null)
     {
-        _mutationQuarantined = false;
-        _quarantineReason = string.Empty;
+        _outstandingRestore = null;
+        _failureLoggedAt = null;
+        _clock = clock ?? new VirtualMonotonicClock();
         _resolveType = resolveType;
         _includeContract = includeContract;
         _bindings = null;
@@ -188,8 +211,66 @@ internal sealed class NativeMultiBuyScope : IDisposable
         return _bindings is not null;
     }
 
-    private static bool TryGetVariable(NativeMultiBuyBindings set, out object variable, out string reason)
+    /// <summary>
+    /// Refuses while the outstanding restore waits; once its retry is due, reads the setting fresh
+    /// and puts the player's value back, and lets the entry through only on a verified read-back.
+    /// </summary>
+    private static bool TrySettle(NativeMultiBuyBindings set, OutstandingRestore outstanding, out string reason)
     {
+        reason = outstanding.Reason;
+        if (_clock.Now < outstanding.RetryAt) return false;
+
+        object variable = null!;
+        var current = 0;
+        Exception? fetchFailure = null;
+        Exception? readFailure = null;
+        var read = false;
+        try
+        {
+            read = TryGetVariable(set, out variable, out _, out fetchFailure) &&
+                TryRead(set, variable, out current, out readFailure);
+        }
+        finally
+        {
+            if (!read)
+                Outstanding(outstanding.PlayerValue, outstanding.Leftover,
+                    "global multi-buy restoration retry could not read the setting", fetchFailure ?? readFailure);
+        }
+
+        if (!read)
+        {
+            reason = _outstandingRestore!.Reason;
+            return false;
+        }
+
+        if (current != outstanding.Leftover)
+        {
+            _outstandingRestore = null;
+            Warn(current == outstanding.PlayerValue
+                ? $"global multi-buy reads {current} again; restoration to {current} verified"
+                : $"global multi-buy reads {current}, not the {outstanding.Leftover} the suite left; " +
+                  $"that value stands and restoration to {outstanding.PlayerValue} is dropped", null);
+            return true;
+        }
+
+        if (!TryRestore(set, variable, outstanding.PlayerValue, outstanding.Leftover,
+                "global multi-buy restoration retry failed", null, out var detail, out var recoveredFrom))
+        {
+            reason = _outstandingRestore!.Reason;
+            return false;
+        }
+
+        Warn($"global multi-buy {detail} on attempt {outstanding.Attempts + 1}", null, recoveredFrom);
+        return true;
+    }
+
+    private static bool TryGetVariable(
+        NativeMultiBuyBindings set,
+        out object variable,
+        out string reason,
+        out Exception? failure)
+    {
+        failure = null;
         try
         {
             variable = set.GetMultiBuy()!;
@@ -197,7 +278,8 @@ internal sealed class NativeMultiBuyScope : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             variable = null!;
-            reason = ex.Message;
+            failure = ex;
+            reason = "the game did not hand out its global multi-buy value";
             return false;
         }
 
@@ -205,33 +287,33 @@ internal sealed class NativeMultiBuyScope : IDisposable
         return variable is not null;
     }
 
-    private static bool TryRead(NativeMultiBuyBindings set, object variable, out int value, out string reason)
+    private static bool TryRead(NativeMultiBuyBindings set, object variable, out int value, out Exception? failure)
     {
         try
         {
             value = set.AsInt(variable);
-            reason = string.Empty;
+            failure = null;
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             value = 0;
-            reason = ex.Message;
+            failure = ex;
             return false;
         }
     }
 
-    private static bool TrySet(NativeMultiBuyBindings set, object variable, int value, out string reason)
+    private static bool TrySet(NativeMultiBuyBindings set, object variable, int value, out Exception? failure)
     {
         try
         {
             set.SetValue(variable, value);
-            reason = string.Empty;
+            failure = null;
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            reason = ex.Message;
+            failure = ex;
             return false;
         }
     }
@@ -240,57 +322,128 @@ internal sealed class NativeMultiBuyScope : IDisposable
         NativeMultiBuyBindings set,
         object variable,
         int originalValue,
+        int target,
         string failure,
+        Exception? cause,
         out string reason)
     {
-        var restored = TryRestore(set, variable, originalValue, failure, out var detail);
+        var restored = TryRestore(set, variable, originalValue, target, failure, cause, out var detail,
+            out var recoveredFrom);
         reason = $"{failure}; {detail}";
-        if (restored) LogFailure(reason);
+        if (restored) LogFailure(reason, cause, recoveredFrom);
         return false;
     }
 
     /// <summary>
-    /// Puts <paramref name="originalValue"/> back and reads it again; anything short of that read,
-    /// including a throw this does not expect, leaves further mutation quarantined.
+    /// Puts <paramref name="playerValue"/> back and reads it again. A verified read-back ends any
+    /// outstanding restore; anything short of it, including a throw this does not expect, leaves
+    /// the restore outstanding until its next retry, logged under <paramref name="cause"/> first.
     /// </summary>
     private static bool TryRestore(
         NativeMultiBuyBindings set,
         object variable,
-        int originalValue,
+        int playerValue,
+        int pinned,
         string context,
-        out string detail)
+        Exception? cause,
+        out string detail,
+        out Exception? recoveredFrom)
     {
-        detail = $"restoration to {originalValue} did not complete";
+        detail = $"restoration to {playerValue} did not complete";
+        recoveredFrom = null;
         var verified = false;
+        int? readBack = null;
+        Exception? setterFailure = null;
+        Exception? readFailure = null;
         try
         {
-            var setterFailed = !TrySet(set, variable, originalValue, out var setterFailure);
-            verified = TryRead(set, variable, out var restoredValue, out _) && restoredValue == originalValue;
+            var setterFailed = !TrySet(set, variable, playerValue, out setterFailure);
+            if (TryRead(set, variable, out var restoredValue, out readFailure)) readBack = restoredValue;
+            verified = readBack == playerValue;
             detail = (setterFailed, verified) switch
             {
-                (false, true) => $"restoration to {originalValue} verified",
-                (true, true) => $"restoration setter threw ({setterFailure}) but value {originalValue} was verified",
-                (false, false) => $"restoration to {originalValue} could not be verified",
-                (true, false) =>
-                    $"restoration setter threw ({setterFailure}) and value {originalValue} could not be verified",
+                (false, true) => $"restoration to {playerValue} verified",
+                (true, true) => $"restoration setter threw but value {playerValue} was verified",
+                (false, false) => $"restoration to {playerValue} could not be verified",
+                (true, false) => $"restoration setter threw and value {playerValue} could not be verified",
             };
+            if (verified) recoveredFrom = setterFailure;
             return verified;
         }
         finally
         {
-            if (!verified)
-            {
-                _mutationQuarantined = true;
-                _quarantineReason = $"{context}; {detail}";
-            }
+            if (verified) _outstandingRestore = null;
+            else
+                Outstanding(playerValue, readBack ?? pinned, $"{context}; {detail}", cause, setterFailure,
+                    readFailure);
         }
     }
 
-    private static void LogFailure(string message)
+    private static void Outstanding(
+        int playerValue,
+        int leftover,
+        string failure,
+        Exception? cause,
+        Exception? setterFailure = null,
+        Exception? readFailure = null)
     {
-        var now = Lifetime.Elapsed;
+        var attempts = _outstandingRestore is { } previous ? previous.Attempts + 1 : 1;
+        var wait = RestoreRetry.BackoffAfter(attempts);
+        _outstandingRestore = new OutstandingRestore(
+            playerValue,
+            leftover,
+            attempts,
+            _clock.Now.AddSaturated(wait),
+            $"global multi-buy restoration to {playerValue} is outstanding: {failure}");
+        Warn($"{failure} (attempt {attempts}); the suite tries again in {wait.ToTimeSpan().TotalSeconds:0.#} s",
+            cause, setterFailure, readFailure);
+    }
+
+    private static void LogFailure(string message, Exception? cause, Exception? restoreSetterFailure = null)
+    {
+        var now = _clock.Now;
         if (_failureLoggedAt is { } last && now - last < FailureLogInterval) return;
         _failureLoggedAt = now;
-        _failureLog?.Invoke(message);
+        Warn(message, cause, restoreSetterFailure);
+    }
+
+    /// <summary>
+    /// Writes <paramref name="message"/>, naming one suite-log reference that holds whichever of
+    /// the attempt's exceptions were thrown, the cause first.
+    /// </summary>
+    private static void Warn(
+        string message,
+        Exception? cause,
+        Exception? restoreSetterFailure = null,
+        Exception? readBackFailure = null)
+    {
+        var log = _failureLog;
+        if (log is null) return;
+        var detail = string.Join(Environment.NewLine, new[]
+        {
+            cause?.ToString(),
+            restoreSetterFailure is null ? null : "Putting the value back then threw: " + restoreSetterFailure,
+            readBackFailure is null ? null : "Reading it back then threw: " + readBackFailure,
+        }.Where(part => part is not null));
+        log(message + GameActionFaultLog.Sentence(GameActionFaultLog.RecordDetail(detail, Screen)));
+    }
+
+    private sealed class OutstandingRestore
+    {
+        internal OutstandingRestore(int playerValue, int leftover, int attempts, MonotonicTimestamp retryAt,
+            string reason)
+        {
+            PlayerValue = playerValue;
+            Leftover = leftover;
+            Attempts = attempts;
+            RetryAt = retryAt;
+            Reason = reason;
+        }
+
+        internal int PlayerValue { get; }
+        internal int Leftover { get; }
+        internal int Attempts { get; }
+        internal MonotonicTimestamp RetryAt { get; }
+        internal string Reason { get; }
     }
 }

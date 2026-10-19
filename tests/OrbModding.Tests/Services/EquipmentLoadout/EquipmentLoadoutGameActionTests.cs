@@ -26,7 +26,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         EquipmentManager.instance = new EquipmentManager();
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
         GameActionFaultLog.ConfigureLog(null);
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
     }
 
     [Fact]
-    public void A_landed_equip_whose_multi_buy_restore_throws_commits_and_quarantines_the_strip()
+    public void A_landed_equip_whose_multi_buy_restore_throws_commits_and_holds_the_strip_until_it_is_restored()
     {
         var logged = new List<string>();
         GameActionFaultLog.ConfigureLog(logged.Add);
@@ -188,7 +188,6 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         var line = Assert.Single(logged);
         Assert.Matches("MCP-[0-9A-F]{8}", line);
         Assert.Contains(typeof(NullReferenceException).FullName!, line);
-        Assert.True(NativeMultiBuyScope.IsMutationQuarantined);
         Assert.Equal(EquipmentLoadoutActionResultCodes.MultiBuyUnavailable, next.Outcome.Code);
         Assert.Equal(1, EquipmentManager.instance.EquipCalls);
     }
@@ -206,7 +205,8 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
 
         Assert.Equal(0, EquipmentManager.instance.equippedEquipment.GetStacks(target));
         Assert.Equal(2, GlobalVariables.MultiBuy.Value);
-        Assert.False(NativeMultiBuyScope.IsMutationQuarantined);
+        Assert.True(NativeMultiBuyScope.TryEnterOne(out var scope, out var reason), reason);
+        scope.Dispose();
     }
 
     [Fact]
