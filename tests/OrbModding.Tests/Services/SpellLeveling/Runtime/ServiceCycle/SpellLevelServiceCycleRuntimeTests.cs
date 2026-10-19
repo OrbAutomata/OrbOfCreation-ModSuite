@@ -26,6 +26,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
 {
     private static readonly MonotonicDuration FirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1));
     private static readonly MonotonicDuration OneSecond = MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
+    private static readonly MonotonicDuration HalfSecond = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(500));
 
     public SpellLevelServiceCycleRuntimeTests() => ResetNativeState();
 
@@ -160,22 +161,81 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
         var backOff = harness.RetryGate.Latest;
         harness.Advance(OneSecond);
-        harness.PumpWorldsUntil(() => behind.masteryLevel == 2 && ahead.masteryLevel == 6);
-        harness.PumpUntilTheNewestWorldIsEvaluated();
-        var batchesInTheWindow = global::SpellManager.instance.TryLevelAllCalls;
-        var stillBackingOff = harness.RetryGate.TryFind(LevelAllTarget, out _);
+        harness.PumpWorldsUntil(() => behind.masteryLevel == 2);
+        var batchesWhileASpellIsStillReady = global::SpellManager.instance.TryLevelAllCalls;
+        var aheadStillReady = ahead.readyToLevel;
+        harness.PumpWorldsUntil(() => ahead.masteryLevel == 6);
         global::SpellManager.instance.SuppressLevelAll = false;
         behind.readyToLevel = true;
         ahead.readyToLevel = true;
         harness.Advance(FirstWait);
         harness.PumpWorldsUntil(() => global::SpellManager.instance.TryLevelAllCalls == 2);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
 
         Assert.Equal(LevelAllTarget, backOff.Target);
         Assert.Equal(FirstWait, backOff.Backoff);
-        Assert.Equal(1, batchesInTheWindow);
-        Assert.True(stillBackingOff);
+        Assert.True(aheadStillReady);
+        Assert.Equal(1, batchesWhileASpellIsStillReady);
         Assert.Equal(3, behind.masteryLevel);
         Assert.Equal(7, ahead.masteryLevel);
+        Assert.False(harness.RetryGate.TryFind(LevelAllTarget, out _));
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
+    }
+
+    [Fact]
+    public void ABatchDueAgainRaisesASpellStillBackingOffWhileSinglesInTheWindowPassItOver()
+    {
+        var stuck = Spell(masteryLevel: 1);
+        stuck.SuppressLevelMutation = true;
+        var other = Spell(masteryLevel: 5);
+        var stuckTarget = SpellLevelServicePolicies.RetryTarget(Id(stuck));
+        LevelAllUpgrade().level = 1;
+        global::SpellManager.instance!.SuppressLevelAll = true;
+        using var harness = new Harness();
+
+        harness.PumpWorldsUntil(() => harness.RetryGate.TryFind(LevelAllTarget, out _));
+        harness.Advance(OneSecond);
+        harness.PumpWorldsUntil(() => harness.RetryGate.TryFind(stuckTarget, out _));
+        harness.Advance(OneSecond);
+        harness.PumpWorldsUntil(() => other.masteryLevel == 6);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        var stuckPaymentsInTheWindow = stuck.levelCost.PerformCalls;
+        stuck.SuppressLevelMutation = false;
+        global::SpellManager.instance.SuppressLevelAll = false;
+        harness.Advance(FirstWait - OneSecond - OneSecond + HalfSecond);
+        harness.PumpWorldsUntil(() => global::SpellManager.instance.TryLevelAllCalls == 2);
+        var stuckStillBackingOff = harness.RetryGate.TryFind(stuckTarget, out _);
+
+        Assert.Equal(1, stuckPaymentsInTheWindow);
+        Assert.Equal(2, stuck.masteryLevel);
+        Assert.True(stuckStillBackingOff);
+    }
+
+    [Fact]
+    public void ARepeatingCapabilityProbeFailureIsLoggedOnceAndAChangedOneIsLoggedAgain()
+    {
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        var throwing = Spell(masteryLevel: 1);
+        throwing.readyToLevel = false;
+        var healthy = Spell(masteryLevel: 5);
+        var recipes = global::SpellManager.instance!.availableSpellRecipes.value;
+        global::SpellManager.instance.availableSpellRecipes.value = null!;
+        using var harness = new Harness();
+
+        harness.PumpWorldsUntil(() => ProbeEntries(log).Count == 1);
+        global::SpellManager.instance.availableSpellRecipes.value = recipes;
+        throwing.levelingPrerequisites.CheckFailure = new InvalidOperationException("injected prerequisite failure");
+        harness.Advance(OneSecond);
+        harness.PumpWorldsUntil(() => healthy.masteryLevel == 6);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+
+        var probes = ProbeEntries(log);
+        Assert.Equal(2, probes.Count);
+        Assert.Contains("available spell recipe contents are unavailable", probes[0]);
+        Assert.Contains("injected prerequisite failure", probes[1]);
     }
 
     [Fact]
@@ -196,6 +256,10 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         Assert.Equal(0, spell.levelCost.PerformCalls);
         Assert.Contains("WrongType", harness.RetryGate.Latest.Reason);
     }
+
+    private static List<string> ProbeEntries(List<string> log) =>
+        log.FindAll(static entry => entry.Contains(
+            " on " + SpellLevelServiceCycleDiagnosticsBridge.CapabilityScreen + ": ", StringComparison.Ordinal));
 
     private static readonly ServiceRetryTarget LevelAllTarget =
         new(KnownEntities.UnlockLevelAllSpells.Uuid, ServiceActionNativeTypeId.UpgradeSO);
@@ -289,13 +353,26 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         {
             get
             {
-                var services = new ServiceCycleServiceDiagnosticsSnapshot[8];
-                var copy = ServiceCycleDiagnostics.CopyServices(_host.Pump, services);
-                for (var index = 0; index < copy.WrittenCount; index++)
-                    if (services[index].ServiceId.Equals(SpellLevelServicePolicies.ServiceId))
-                        return services[index];
-                throw new InvalidOperationException("Spell Leveling is not registered.");
+                var deadline = Stopwatch.StartNew();
+                while (true)
+                {
+                    var service = Find();
+                    if (service.Availability == ServiceCycleDiagnosticsAvailability.Available) return service;
+                    if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
+                        throw new TimeoutException("Spell Leveling's diagnostics stayed " + service.Availability + ".");
+                    Thread.Yield();
+                }
             }
+        }
+
+        private ServiceCycleServiceDiagnosticsSnapshot Find()
+        {
+            var services = new ServiceCycleServiceDiagnosticsSnapshot[8];
+            var copy = ServiceCycleDiagnostics.CopyServices(_host.Pump, services);
+            for (var index = 0; index < copy.WrittenCount; index++)
+                if (services[index].ServiceId.Equals(SpellLevelServicePolicies.ServiceId))
+                    return services[index];
+            throw new InvalidOperationException("Spell Leveling is not registered.");
         }
 
         internal void Advance(MonotonicDuration duration) => _clock.Advance(duration);
