@@ -52,7 +52,8 @@ public sealed class TypedRegistryResolution
         object? value,
         EvidenceAssessment evidence,
         long lifecycleGeneration,
-        string reason)
+        string reason,
+        bool readThrew = false)
     {
         Uuid = uuid;
         ExpectedType = expectedType;
@@ -61,7 +62,10 @@ public sealed class TypedRegistryResolution
         Evidence = evidence;
         LifecycleGeneration = lifecycleGeneration;
         Reason = reason;
+        _readThrew = readThrew;
     }
+
+    private readonly bool _readThrew;
 
     public Guid Uuid { get; }
     public Type ExpectedType { get; }
@@ -76,6 +80,16 @@ public sealed class TypedRegistryResolution
         TypedRegistryResolutionStatus.RegistryNotReady or
         TypedRegistryResolutionStatus.NotFound or
         TypedRegistryResolutionStatus.StaleGeneration;
+
+    /// <summary>
+    /// The game answered with something its contract rules out: the wrong type, contradictory
+    /// identity, or a registry whose shape does not bind. A read that threw proves none of that, so
+    /// it is neither this nor <see cref="IsRetryable"/>.
+    /// </summary>
+    public bool IsProvenMismatch => Status is
+        TypedRegistryResolutionStatus.WrongType or
+        TypedRegistryResolutionStatus.AmbiguousEvidence ||
+        Status == TypedRegistryResolutionStatus.ContractUnavailable && !_readThrew;
 
     public bool IsCurrent(GameLifecycleMonitor monitor) =>
         monitor.IsCurrent(LifecycleGeneration);
@@ -167,11 +181,9 @@ public sealed class TypedRegistryResolver
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Result(
+            return Threw(
                 uuid,
                 expectedType,
-                TypedRegistryResolutionStatus.ContractUnavailable,
-                null,
                 EvidenceAssessment.Unresolved(EvidenceSource.StaticContract),
                 generation,
                 "runtime registry source failed: " + ex.GetBaseException().Message);
@@ -212,11 +224,9 @@ public sealed class TypedRegistryResolver
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Result(
+            return Threw(
                 uuid,
                 expectedType,
-                TypedRegistryResolutionStatus.ContractUnavailable,
-                null,
                 EvidenceAssessment.Unresolved(EvidenceSource.StaticContract),
                 generation,
                 "runtime registry lookup failed: " + ex.GetBaseException().Message);
@@ -255,11 +265,9 @@ public sealed class TypedRegistryResolver
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Result(
+            return Threw(
                 uuid,
                 expectedType,
-                TypedRegistryResolutionStatus.ContractUnavailable,
-                null,
                 EvidenceAssessment.Unresolved(
                     EvidenceSource.StaticContract |
                     EvidenceSource.RuntimeNativeType |
@@ -306,6 +314,22 @@ public sealed class TypedRegistryResolver
             result.LifecycleGeneration,
             $"lifecycle generation changed during resolution; captured={result.LifecycleGeneration}; current={current}");
     }
+
+    private TypedRegistryResolution Threw(
+        Guid uuid,
+        Type expectedType,
+        EvidenceAssessment evidence,
+        long generation,
+        string reason) =>
+        EnsureCurrent(new TypedRegistryResolution(
+            uuid,
+            expectedType,
+            TypedRegistryResolutionStatus.ContractUnavailable,
+            null,
+            evidence,
+            generation,
+            reason,
+            readThrew: true));
 
     private TypedRegistryResolution Result(
         Guid uuid,

@@ -20,6 +20,30 @@ public sealed class TypedRegistryResolverTests
     }
 
     [Fact]
+    public void AReadThatThrowsProvesNoMismatchWhileAnUnboundRegistryAndAWrongTypeDo()
+    {
+        var uuid = Guid.NewGuid();
+        var sourceThrew = Resolver(() => throw new InvalidOperationException("registry not loaded"));
+        var lookupThrew = Resolver(Ready(new ThrowingRegistry()));
+        var accessorThrew = new TypedRegistryResolver(
+            () => 1,
+            Ready(new Hashtable { [uuid] = new Entity(uuid) }),
+            _ => throw new InvalidOperationException("guid unreadable"));
+        var unbound = Resolver(() => TypedRegistrySourceSnapshot.ContractUnavailable("field missing"));
+        var wrongType = Resolver(Ready(new Hashtable { [uuid] = new OtherEntity(uuid) }));
+
+        foreach (var resolver in new[] { sourceThrew, lookupThrew, accessorThrew })
+        {
+            var threw = resolver.Resolve(uuid, typeof(Entity));
+            Assert.Equal(TypedRegistryResolutionStatus.ContractUnavailable, threw.Status);
+            Assert.False(threw.IsProvenMismatch);
+            Assert.False(threw.IsRetryable);
+        }
+        Assert.True(unbound.Resolve(uuid, typeof(Entity)).IsProvenMismatch);
+        Assert.True(wrongType.Resolve(uuid, typeof(Entity)).IsProvenMismatch);
+    }
+
+    [Fact]
     public void MissingUuidReturnsStructuredRuntimeEvidence()
     {
         var uuid = Guid.NewGuid();
@@ -244,6 +268,11 @@ public sealed class TypedRegistryResolverTests
         public OtherEntity(Guid id) => Id = id;
         public Guid Id { get; }
         public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class ThrowingRegistry : Hashtable
+    {
+        public override bool Contains(object key) => throw new InvalidOperationException("lookup failed");
     }
 
     private sealed class NearMatchRegistryContract
