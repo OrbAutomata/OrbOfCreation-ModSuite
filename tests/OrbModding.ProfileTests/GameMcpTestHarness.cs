@@ -171,12 +171,63 @@ internal static class GameMcpTestHarness
             .ToArray();
 
     internal static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value.Freeze(), EntityCatalog));
+        Json(value.Freeze(), EntityCatalog);
 
     internal static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value, EntityCatalog));
+        Json(value, EntityCatalog);
+
+    /// <summary>
+    /// A page encoded with the world's own identity catalog, the way a live frame is. The pinned
+    /// build's catalog would leave a sentence composed at read time naming a UUID the normalizer
+    /// then resolves for every other field.
+    /// </summary>
+    internal static JObject Json(GameMcpValue value, GameWorldState world) =>
+        Json(value, world.EntityIdentities);
+
+    internal static JObject Json(
+        GameMcpObjectBuilder value,
+        EntityIdentityCatalogSnapshot identities) =>
+        Json(value.Freeze(), identities);
+
+    internal static JObject Json(GameMcpValue value, EntityIdentityCatalogSnapshot identities) =>
+        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, identities));
+
+    internal static T[] SortedByEntityId<T>(params T[] rows)
+        where T : IWorldEntity
+    {
+        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
+        return rows;
+    }
+
+    internal static EntityIdentityName[] SortedByEntityId(params EntityIdentityName[] rows)
+    {
+        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
+        return rows;
+    }
+
+    internal static WorldLevelEffect[] SortedByOwnerAndOrdinal(params WorldLevelEffect[] rows)
+    {
+        Array.Sort(rows, static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            return owner != 0 ? owner : left.Ordinal.CompareTo(right.Ordinal);
+        });
+        return rows;
+    }
+
+    /// <summary>The publication order the deriver guarantees: owner, then source, then ordinal.</summary>
+    internal static WorldEntityKeyword[] SortedByOwnerSourceAndOrdinal(
+        params WorldEntityKeyword[] rows)
+    {
+        Array.Sort(rows, static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            if (owner != 0) return owner;
+            var source = ((int)left.Source).CompareTo((int)right.Source);
+            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
+        });
+        return rows;
+    }
 
     /// <summary>
     /// One id's block of the detail read, resolved the way a caller with only an id resolves it.

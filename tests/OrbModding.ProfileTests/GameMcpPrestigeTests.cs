@@ -71,7 +71,7 @@ public sealed class GameMcpPrestigeTests
     public void The_challenge_screen_carries_complete_named_prestige_decision_and_current_holding()
     {
         var world = World();
-        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
         Assert.Equal("7 (next reset's start)", (string?)advancements["starting"]);
         Assert.Equal("5 (this run's start)", (string?)advancements["previous"]);
@@ -96,7 +96,7 @@ public sealed class GameMcpPrestigeTests
     public void The_reset_gain_is_the_games_own_figure_and_reads_as_one_line()
     {
         var world = World();
-        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
 
         Assert.Null(prestige["currentTimeAdvancements"]);
@@ -123,7 +123,7 @@ public sealed class GameMcpPrestigeTests
     public void Every_time_advancement_figure_names_the_run_it_belongs_to()
     {
         var world = World();
-        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
         var line = Assert.Single(
             GameMcpTextPage.Render(prestige).Split('\n'),
             candidate => candidate.Contains("timeAdvancements", StringComparison.Ordinal));
@@ -160,8 +160,8 @@ public sealed class GameMcpPrestigeTests
     [Fact]
     public void An_unsettled_reset_still_says_which_lifecycle_it_replaced_and_where_to_read_it()
     {
-        var replaced = Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 10, "Main"), World());
-        var nothing = Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 9, null), World());
+        var replaced = GameMcpTestHarness.Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 10, "Main"), World());
+        var nothing = GameMcpTestHarness.Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 9, null), World());
 
         Assert.Equal(9, (int)replaced["lifecycleGeneration"]!["before"]!);
         Assert.Equal(10, (int)replaced["lifecycleGeneration"]!["after"]!);
@@ -177,7 +177,7 @@ public sealed class GameMcpPrestigeTests
     public void Committed_poststate_returns_the_fresh_scene_prestige_and_challenge_decisions()
     {
         var world = World(worldComplete: false, fetched: false);
-        var response = Json(GameMcpWorldQuery.ProjectPrestigePostState(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigePostState(
             GameMcpTestHarness.Context(world, 2602)), world);
 
         Assert.Equal("Main", (string?)response["scene"]);
@@ -200,8 +200,8 @@ public sealed class GameMcpPrestigeTests
                 context.RerollsLeft, context.RerollsMaximum, context.SelectionMaximum,
                 context.Selected, context.TimeOffers, context.PrestigeOffers),
         };
-        var response = Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
-        var prestige = Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
 
         Assert.Equal("Prismatic Trial", (string?)response["resetOffers"]![0]!["name"]);
         Assert.Null(response["prestige"]);
@@ -221,8 +221,8 @@ public sealed class GameMcpPrestigeTests
             new NativeMutationCallOutcome(1, 1, 1),
             "done");
 
-        var failure = Json(GameMcpPrestigeProjection.Project(in failed), World());
-        var committed = Json(GameMcpPrestigeProjection.Project(in success), World());
+        var failure = GameMcpTestHarness.Json(GameMcpPrestigeProjection.Project(in failed), World());
+        var committed = GameMcpTestHarness.Json(GameMcpPrestigeProjection.Project(in success), World());
 
         Assert.Equal("next lifecycle", (string?)failure["missingOutcome"]);
         Assert.Single(failure.Properties());
@@ -273,7 +273,4 @@ public sealed class GameMcpPrestigeTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

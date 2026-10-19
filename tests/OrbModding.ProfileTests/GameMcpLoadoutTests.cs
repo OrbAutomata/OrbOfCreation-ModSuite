@@ -81,9 +81,9 @@ public sealed class GameMcpLoadoutTests
     public void Detail_names_every_saved_entry_and_snapshot_slot()
     {
         var world = World(selected: true, populatedSnapshot: true);
-        var playerResponse = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
+        var playerResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
-        var snapshotResponse = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
+        var snapshotResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
             "snapshot-loadouts", SnapshotId.ToString("D")).Freeze(), world);
         var player = Assert.IsType<JObject>(playerResponse["row"]);
         var snapshot = Assert.IsType<JObject>(snapshotResponse["row"]);
@@ -107,7 +107,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_that_saved_nothing_still_carries_every_section_as_an_empty_list()
     {
         var world = World(selected: true, populatedSnapshot: false, anySavedEntries: false);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 902),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 902),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var sections = Assert.IsType<JObject>(response["row"]!["sections"]);
 
@@ -126,7 +126,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_the_manager_will_not_swap_to_is_a_state_rather_than_an_unexplained_no()
     {
         var world = World(selected: false, populatedSnapshot: false, canSwitchNow: false);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 903),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 903),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var row = Assert.IsType<JObject>(response["row"]);
 
@@ -149,10 +149,10 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 91));
 
-        var selected = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var selected = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, 92),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
-        var cleared = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var cleared = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, 92),
             clear, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -207,13 +207,13 @@ public sealed class GameMcpLoadoutTests
         var context = GameMcpTestHarness.Context(world, 93);
 
         var slot = Assert.Single(
-            Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)slot["slot"]!);
         Assert.True((bool)slot["populated"]!);
 
         var entry = Assert.Single(
-            Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)entry["slot"]!);
         Assert.Equal("Aegis", (string?)entry["entry"]!["name"]);
@@ -235,7 +235,7 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 94));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, 95),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -261,7 +261,7 @@ public sealed class GameMcpLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, 96));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, 97),
             select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -383,7 +383,4 @@ public sealed class GameMcpLoadoutTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

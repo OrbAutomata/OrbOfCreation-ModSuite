@@ -65,8 +65,10 @@ public sealed class GameMcpEquipmentLoadoutTests
         var success = new EquipmentLoadoutSubmission(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1), "stack changed"));
 
-        var failed = Json(GameMcpEquipmentLoadoutProjection.Project(in failure));
-        var committed = Json(GameMcpEquipmentLoadoutProjection.Project(in success));
+        var failed = GameMcpTestHarness.Json(
+            GameMcpEquipmentLoadoutProjection.Project(in failure), World().EntityIdentities);
+        var committed = GameMcpTestHarness.Json(
+            GameMcpEquipmentLoadoutProjection.Project(in success), World().EntityIdentities);
 
         Assert.Equal("requested equipped stack count", (string?)failed["missingOutcome"]);
         Assert.Single(failed.Properties());
@@ -77,8 +79,8 @@ public sealed class GameMcpEquipmentLoadoutTests
     public void Equipment_row_is_a_named_complete_next_decision_with_live_usage_holdings()
     {
         var context = GameMcpTestHarness.Context(World(), generation: 2401);
-        var response = Json(GameMcpWorldQuery.GetRow(
-            context, "equipment", EquipmentId.ToString("D")));
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "equipment", EquipmentId.ToString("D")), World().EntityIdentities);
 
         var row = response["row"]!;
         Assert.Equal("Prismatic Lens", (string?)response["name"]);
@@ -99,21 +101,21 @@ public sealed class GameMcpEquipmentLoadoutTests
     [Fact]
     public void EquipmentAmountRefusalCarriesTheCeilingItsOwnSentenceNames()
     {
-        var refused = Json(Assert.IsType<GameMcpObject>(
+        var refused = GameMcpTestHarness.Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
                     EquipmentLoadoutActionResultCodes.AmountUnavailable,
                     "This artifact can equip at most 2 more stacks with the current " +
                     "capacity and resources.",
-                    2))));
+                    2))), World().EntityIdentities);
 
         Assert.Equal(2, (int)refused["maximumAmount"]!);
 
-        var noCeiling = Json(Assert.IsType<GameMcpObject>(
+        var noCeiling = GameMcpTestHarness.Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
                     EquipmentLoadoutActionResultCodes.NotCreated,
-                    "The artifact has not been created."))));
+                    "The artifact has not been created."))), World().EntityIdentities);
 
         Assert.Null(noCeiling["maximumAmount"]);
     }
@@ -199,11 +201,4 @@ public sealed class GameMcpEquipmentLoadoutTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value,
-            World().EntityIdentities));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
 }
