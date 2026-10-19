@@ -147,10 +147,11 @@ The first shared world capture after `RuntimeReady` in a Playing generation enum
 once on Unity's main thread. The pass records lifecycle generation and registry count before and
 after enumeration, requires every value's `GetGuid()` to equal its dictionary key, and copies only
 UUID, exact runtime type, `TooltipableObject.GetName()` when applicable, and the Unity asset name.
-One entity's name accessor may fail without discarding other identity-correct rows. Any lifecycle or
+An expected native failure reading one entity's name costs that name and keeps the other
+identity-correct rows; any other throw from a name read faults the world pass. Any lifecycle or
 count instability discards the entire candidate and retries on a later ordinary capture; an identity
 contradiction or total binding failure publishes an empty unavailable catalog and reports one error
-for that lifecycle. Names never block world publication, a feature, or a mutation.
+for that lifecycle. An empty name never blocks world publication, a feature, or a mutation.
 
 The successful table is UUID-sorted and immutable. One snapshot reference is attached to every
 `GameWorldState` in that lifecycle and placed in a Common latest-wins holder for non-world

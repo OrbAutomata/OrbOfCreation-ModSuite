@@ -1920,7 +1920,6 @@ internal sealed class FakeResource
     public bool Visible = true;
     public bool ThrowOnRate;
     public Exception? QuantityFailure;
-    public Exception? GetGuidFailure;
     public FakeModifierRecord maxQuantity = new(-1d);
     public BigDouble lifetimeQuantity;
     public BigDouble discoveryTime;
@@ -1981,6 +1980,7 @@ internal sealed class FakeResource
     public bool inLossMode;
     public bool inRestMode;
     public bool inRallyMode;
+    public Exception? GetGuidFailure;
 
     public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 
@@ -2849,8 +2849,9 @@ internal sealed class FakeRecipeBook
     public Guid Identity = Guid.NewGuid();
     public bool Available;
     public FakePrerequisites prerequisites = new();
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
     public bool IsAvailable() => Available;
 }
 

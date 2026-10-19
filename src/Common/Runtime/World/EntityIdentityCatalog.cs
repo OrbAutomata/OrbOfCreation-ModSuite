@@ -279,10 +279,8 @@ internal sealed class EntityIdentityCatalog
             var name = read(value);
             return string.IsNullOrWhiteSpace(name) ? string.Empty : name;
         }
-        catch (Exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            // Names are diagnostic metadata. One broken/localization-sensitive asset never discards
-            // an otherwise identity-correct catalog or blocks world publication.
             return string.Empty;
         }
     }

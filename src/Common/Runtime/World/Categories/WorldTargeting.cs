@@ -210,7 +210,7 @@ internal sealed class WorldTargetingReader : IWorldCategoryReader
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             buffer.Reset();
             return WorldCategoryReport.Missing(Category, ex.GetBaseException().Message);
