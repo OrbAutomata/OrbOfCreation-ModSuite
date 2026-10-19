@@ -317,12 +317,13 @@ off without logging until the service recovers. A process-fatal exception is nev
 
 Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
 journal: stable UUID plus native type. A target in the gate waits and is tried again on a later world;
-the gate itself never latches. Auto Items and Auto Buy plan from the gate and narrate it; every other
-service keeps the fault handling its own page describes.
+the gate itself never latches. Auto Items, Auto Buy and Auto Scribe plan from the gate and narrate it;
+every other service keeps the fault handling its own page describes.
 
 The gate is fed from three places:
 
-- a `Faulted` action records its target with the result's code and reason;
+- a `Faulted` action records its target with the result's code and reason, under any waits its mark
+  names;
 - a `Skipped` or `Rejected` result marked with `ServiceActionResult.BackingOffTarget` records its
   target the same way, so a refusal the service can tell apart from an ordinary one retries instead of
   waiting for a new world only;
@@ -330,8 +331,9 @@ The gate is fed from three places:
   reports it through `ServiceActionWriter.ReportFailure`.
 
 Each failure in a row doubles the wait from the service's fault-recovery initial backoff up to its
-maximum backoff. A reporter may name a cap of its own instead, on the mark or on `ReportFailure`; one
-shorter than the initial backoff is refused there and faults the action here. A mark may also ask for a
+maximum backoff. A reporter may name a cap of its own instead, on the mark or on `ReportFailure`, and a
+mark may name a first wait of its own; a first wait shorter than the initial backoff, or a cap shorter
+than the first wait, is refused there and faults the action here. A mark may also ask for a
 quiet first failure: the entry stays quiet while every failure in a row comes from the world the first
 was planned from, and turns loud on the first failure planned from a fresher one.
 

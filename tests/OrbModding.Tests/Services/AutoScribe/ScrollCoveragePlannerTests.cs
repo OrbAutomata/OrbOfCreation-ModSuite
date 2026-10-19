@@ -21,7 +21,9 @@ public sealed class ScrollCoveragePlannerTests
 
         var selection = plan.ChooseCraft(
             enabledRoles: null,
-            afterCraftCostOrder: -1);
+            afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default);
         var selected = selection.SelectedScroll;
 
         Assert.Equal(ScrollCraftSelectionKind.Selected, selection.Kind);
@@ -49,7 +51,9 @@ public sealed class ScrollCoveragePlannerTests
         {
             var selection = plan.ChooseCraft(
                 enabledRoles: null,
-                cursor);
+                cursor,
+                ServiceRetryGateSnapshot.Empty,
+                default);
             var selected = selection.SelectedScroll;
             Assert.Equal(ScrollCraftSelectionKind.Selected, selection.Kind);
             Assert.Equal(expected[index], selected.Role.Value);
@@ -184,7 +188,9 @@ public sealed class ScrollCoveragePlannerTests
 
         var plan = ScrollCoveragePlanner.Build(world, _profile);
         var coverage = FindRole(plan, role.Key);
-        var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1);
+        var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(3, coverage.TargetLevel);
         Assert.Equal(2, coverage.Deficit);
@@ -204,7 +210,9 @@ public sealed class ScrollCoveragePlannerTests
             World(candidateCount: 3, maximumCarryLoad: maximumCarryLoad),
             _profile);
         var coverage = FindRole(plan, role.Key);
-        var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1);
+        var selection = plan.ChooseCraft(Table(role.Key), afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(0, coverage.Deficit);
         Assert.Equal(ScrollCoverageState.NativeGainUnavailable, coverage.State);
@@ -291,7 +299,9 @@ public sealed class ScrollCoveragePlannerTests
 
         var selection = plan.ChooseCraft(
             enabledRoles: null,
-            afterCraftCostOrder: -1);
+            afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default);
         var blocked = plan.Roles[selection.BlockedRoleOrdinal];
 
         Assert.Equal(ScrollCraftSelectionKind.EvidenceBlocked, selection.Kind);
@@ -317,7 +327,9 @@ public sealed class ScrollCoveragePlannerTests
         var world = World(candidateCount: 0, maxCreatedLevel: int.MaxValue);
         var selection = ScrollCoveragePlanner.Build(world, _profile).ChooseCraft(
             enabledRoles: null,
-            afterCraftCostOrder: -1);
+            afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default);
         var active = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
@@ -337,6 +349,8 @@ public sealed class ScrollCoveragePlannerTests
             _profile,
             enabledRoles: null,
             afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default,
             new ServiceActionWriter<AutoScribeCycleAction>(store),
             out var metrics);
 
@@ -457,6 +471,8 @@ public sealed class ScrollCoveragePlannerTests
             _profile,
             enabledRoles: null,
             afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default,
             new ServiceActionWriter<AutoScribeCycleAction>(store),
             out var metrics);
 
@@ -479,6 +495,8 @@ public sealed class ScrollCoveragePlannerTests
             _profile,
             enabledRoles: null,
             afterCraftCostOrder: -1,
+            ServiceRetryGateSnapshot.Empty,
+            default,
             new ServiceActionWriter<AutoScribeCycleAction>(store),
             out _);
         actionCount = store.Count;
