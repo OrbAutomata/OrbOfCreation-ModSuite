@@ -92,9 +92,9 @@ public sealed class GameMcpLevelDialTests
     [Fact]
     public void TheOverviewPublishesEachDialWhileItsAdjusterIsDrawn()
     {
-        var unlocked = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        var unlocked = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(World(unlocked: true))));
-        var locked = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        var locked = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(World(unlocked: false))));
 
         Assert.Equal(2, (int)unlocked["druidryLevel"]!["current"]!);

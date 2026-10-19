@@ -68,7 +68,7 @@ public sealed class GameMcpLifecycleBoundaryTests
             lifecycleState: state,
             sceneName: "Start");
 
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(context));
 
         Assert.Equal("unavailable", (string?)overview["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)overview["reasonCode"]);
@@ -87,7 +87,7 @@ public sealed class GameMcpLifecycleBoundaryTests
 
         var readers = new[]
         {
-            GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context)),
+            GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(context)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "attributes", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldSearch.Search(context, "orb", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
@@ -182,7 +182,7 @@ public sealed class GameMcpLifecycleBoundaryTests
     public void APlayingLifecycleWithNoCollectionYetStillReadsAsNotPublished()
     {
         var overview = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(FlushedWorld())));
+            GameMcpWorldOverview.Overview(GameMcpTestHarness.Context(FlushedWorld())));
 
         Assert.Equal("ERR_UNAVAILABLE", (string?)overview["reasonCode"]);
         Assert.Equal("Playing", (string?)overview["lifecycleState"]);

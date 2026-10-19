@@ -29,7 +29,7 @@ public sealed class GameMcpResourceBarTests
     [Fact]
     public void The_overview_reads_the_resource_panel_in_its_own_order_and_figures()
     {
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(World()));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(World()));
 
         Assert.Equal(
             new[]
@@ -51,7 +51,7 @@ public sealed class GameMcpResourceBarTests
     [Fact]
     public void A_lossy_resource_has_no_clock_and_undrawn_resources_are_absent()
     {
-        var lines = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(World()))["resources"]!
+        var lines = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(World()))["resources"]!
             .Values<string>().ToArray();
 
         Assert.Contains("Ember: 10/100 +1/s", lines);

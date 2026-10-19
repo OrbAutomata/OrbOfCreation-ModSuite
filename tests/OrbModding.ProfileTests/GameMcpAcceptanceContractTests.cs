@@ -337,7 +337,7 @@ public sealed class GameMcpWorldQueryTests
     public void OverviewIsCompactAndExactReadDerivesNativeType()
     {
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(state));
         Assert.Equal("available", (string?)overview["status"]);
         Assert.NotNull(overview["economy"]);
         Assert.NotNull(overview["progression"]);

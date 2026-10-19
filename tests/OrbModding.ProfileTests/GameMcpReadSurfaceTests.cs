@@ -802,7 +802,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
+        var categories = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(state));
         Assert.Null(categories["status"]);
         Assert.Null(categories["worldGeneration"]);
         Assert.Null(categories["lifecycleGeneration"]);
@@ -885,7 +885,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
+        var categories = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(state));
         var resources = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "resources")!;
@@ -905,7 +905,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.NotEmpty(search["unavailableCategories"]!.Values<JObject>());
         Assert.Empty(search["rows"]!);
 
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(state));
         Assert.False((bool)overview["collection"]!["complete"]!);
         Assert.Equal(3, (int)overview["collection"]!["read"]!);
         Assert.Equal(1, (int)overview["collection"]!["skipped"]!);
@@ -1085,7 +1085,7 @@ public sealed class GameMcpWorldEnvelopeTests
         // Which conditions this build authors that the suite cannot model does not change between
         // calls, and the overview is read far more often than the rows are. It says how many, of
         // what, on whom, and which read holds the leaves themselves.
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(state));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(state));
         var gap = (string?)overview["collection"]!["gap"];
         Assert.NotNull(gap);
         Assert.Equal(
@@ -1276,7 +1276,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
+        var categories = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(state));
         var purchaseCosts = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "purchase-costs")!;
@@ -1325,7 +1325,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
+        var categories = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(state));
         var purchaseCosts = categories["categories"]!
             .Values<JObject>()
             .Single(item => (string?)item!["category"] == "purchase-costs")!;
@@ -1367,7 +1367,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var categories = GameMcpTestHarness.Json(GameMcpWorldQuery.ListCategories(state));
+        var categories = GameMcpTestHarness.Json(GameMcpWorldOverview.ListCategories(state));
         foreach (var name in new[] { "resources", "purchase-costs" })
         {
             var category = categories["categories"]!

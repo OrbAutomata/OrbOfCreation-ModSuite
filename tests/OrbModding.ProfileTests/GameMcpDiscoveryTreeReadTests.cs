@@ -474,7 +474,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(world, generation: 90)));
 
         var roll = Assert.Single(overview["requiredRolls"]!.Values<JObject>())!;
@@ -489,7 +489,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             GameMcpTextPage.Render(overview),
             StringComparison.Ordinal);
 
-        var quiet = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(
+        var quiet = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(GameMcpTestHarness.Context(
             new GameWorldState
             {
                 DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new[]
@@ -519,7 +519,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             true, true,
             new[] { new WorldResourceCost(control, new BigDouble(1, 2), new BigDouble(5, 2)) },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
-        JObject Overview(bool screenAvailable) => GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        JObject Overview(bool screenAvailable) => GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(
                 new GameWorldState
                 {

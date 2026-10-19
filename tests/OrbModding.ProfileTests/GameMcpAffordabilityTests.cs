@@ -22,7 +22,7 @@ public sealed class GameMcpAffordabilityTests
     {
         // The overview named how many structures are unlocked, which is not the question a caller
         // asks it, and answering "how many can I buy" meant paging the whole category.
-        var overview = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(World()));
+        var overview = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(World()));
 
         Assert.Equal(2, (int)overview["economy"]!["unlockedStructures"]!);
         Assert.Equal(1, (int)overview["economy"]!["affordableStructures"]!);

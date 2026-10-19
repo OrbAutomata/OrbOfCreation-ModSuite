@@ -455,10 +455,10 @@ public sealed class GameMcpRitualLifecycleTests
     [Fact]
     public void The_overview_names_a_running_battle_and_what_it_gates()
     {
-        var quiet = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        var quiet = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(
                 World(selected: true, level: 4, activeInstances: 0), generation: 101)));
-        var fighting = GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(
+        var fighting = GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(
             GameMcpTestHarness.Context(
                 World(selected: true, level: 4, activeInstances: 0, inBattle: true),
                 generation: 102)));
