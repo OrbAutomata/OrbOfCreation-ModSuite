@@ -174,13 +174,15 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
             owned: true,
             manualPause,
             status);
-        var frame = 1L;
 
         ServiceRunnerTestWait.ForWorkerReady(registration);
-        var first = ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
+        Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);
+        ServiceRunnerTestWait.ForResponse(registration);
+        var first = pump.PumpFrame(2);
         bridge.Observe(pump, in first, owned: true);
         var named = status.Current;
         registry.WorldPublication.Publish(FireboltOutsideARitualWorld(), new WorldGeneration(3));
+        var frame = 3L;
         var second = ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
         using var contention = new HandoffGateContention(registration.Runner);
         contention.Acquire();
