@@ -20,8 +20,7 @@ namespace OrbModding.Tests.Services.AutoConcept.Runtime.ServiceCycle;
 
 /// <summary>
 /// A Concept add or remove that did not land backs that Concept's action of that kind off on the
-/// retry gate, doubling from a second, while every other Concept and action takes its turn once the
-/// service's own quarter-second wait passes, and the status says which Concept and why. A commit or a Concept that stops being a candidate
+/// retry gate and hands the turn to the next Concept, and the status says which Concept and why. A commit or a Concept that stops being a candidate
 /// ends the episode. Only a contract mismatch the game proved holds until the next lifecycle; a list
 /// that is empty or unreadable during load is retried. The test clock moves only when a test means
 /// to bring a wait due.
@@ -31,9 +30,8 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 {
     private static readonly Guid Thought = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid Insight = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    private static readonly MonotonicDuration FirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
+    private static readonly MonotonicDuration FirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250));
     private static readonly MonotonicDuration PastTheServiceWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(300));
-    private static readonly MonotonicDuration PastTheFirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(1100));
     private static readonly MonotonicDuration PastEveryWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(30));
     private readonly List<string> _faultLog = new();
 
@@ -66,14 +64,57 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 
         Assert.Equal(AutoConceptServicePolicies.RetryTarget(AutoConceptActionKind.Add, Thought), faulted.Target);
         Assert.Equal(FirstWait, faulted.Backoff);
-        Assert.True(harness.RetryGate.TryFind(faulted.Target, out var waiting));
-        Assert.Equal(1, waiting.ConsecutiveFailures);
+        Assert.True(harness.RetryGate.TryFind(faulted.Target, out _));
         Assert.Equal(0, harness.Queued(thought));
         Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, status.Reason.Code);
         Assert.Contains(
             "is backing off adding " + EntityIdentityFormatter.Format(Thought) + " after 1 failed attempt(s)",
             status.Reason.Summary);
         Assert.Contains("queued stacks went from 0 to 0", status.Reason.Summary);
+    }
+
+    [Fact]
+    public void AnUnexpectedThrowBeforeAnAddLandsStillLetsTheNextConceptBeSlotted()
+    {
+        const string cause = "injected defect before the add landed";
+        var thought = Concept(Thought, "Thought");
+        var insight = Concept(Insight, "Insight");
+        using var harness = new Harness(thought, insight);
+        harness.Active.AddFailure = new NullReferenceException(cause);
+        harness.Active.AddFailureFor = thought;
+
+        harness.PumpWorldsUntil(() => harness.RetryGate.Count == 1);
+        var faulted = harness.RetryGate.Latest.Target;
+        harness.Advance(PastTheServiceWait);
+        harness.PumpWorldsUntil(() => harness.Queued(insight) == 1);
+
+        Assert.Equal(AutoConceptServicePolicies.RetryTarget(AutoConceptActionKind.Add, Thought), faulted);
+        Assert.Equal(0, harness.Queued(thought));
+        Assert.Contains(_faultLog, entry => entry.Contains(cause, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ARemoveThatDidNotLandHandsTheTurnToTheNextConceptBeforeItIsTriedAgain()
+    {
+        var thought = Concept(Thought, "Thought");
+        var insight = Concept(Insight, "Insight");
+        insight.discovered = false;
+        using var harness = new Harness(thought, insight);
+        harness.PumpWorldsUntil(() => harness.Queued(thought) == 1);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
+        harness.Active.SuppressRemoveMutation = true;
+        harness.DrainRatio = new BigDouble(0.5);
+
+        harness.PumpWorldsUntil(() => harness.RetryGate.Count == 1);
+        var remove = harness.RetryGate.Latest.Target;
+        insight.discovered = true;
+        harness.Advance(PastTheServiceWait);
+        harness.PumpWorldsUntil(() =>
+            harness.Queued(insight) == 1 ||
+            harness.RetryGate.TryFind(remove, out var retried) && retried.ConsecutiveFailures > 1);
+
+        Assert.Equal(AutoConceptServicePolicies.RetryTarget(AutoConceptActionKind.RemoveOwned, Thought), remove);
+        Assert.Equal(1, harness.Queued(insight));
     }
 
     [Fact]
@@ -85,7 +126,7 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
         harness.Active.SuppressAddMutationOf = null;
-        harness.Advance(PastTheFirstWait);
+        harness.Advance(PastTheServiceWait);
         harness.PumpWorldsUntil(() => harness.Queued(thought) == 1);
         harness.PumpUntilTheNewestWorldIsEvaluated();
 
@@ -111,8 +152,7 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
         harness.PumpUntilTheNewestWorldIsEvaluated();
 
         Assert.Equal(AutoConceptServicePolicies.RetryTarget(AutoConceptActionKind.Add, Thought), add);
-        Assert.True(harness.RetryGate.TryFind(add, out var stillWaiting));
-        Assert.Equal(1, stillWaiting.ConsecutiveFailures);
+        Assert.True(harness.RetryGate.TryFind(add, out _));
         Assert.False(harness.RetryGate.TryFind(
             AutoConceptServicePolicies.RetryTarget(AutoConceptActionKind.RemoveOwned, Thought), out _));
     }

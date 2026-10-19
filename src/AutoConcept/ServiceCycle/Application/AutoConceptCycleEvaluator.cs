@@ -42,6 +42,7 @@ internal static class AutoConceptCycleEvaluator
         if (!AutoConceptConfigurationPolicy.IsOperational(config))
             return WakePolicy.OnPublication;
 
+        state.TurnHandedOn = default;
         var candidates = Project(world, in config);
         SettleRetries(candidates, in context, actions);
         ReconcileReceipt(candidates, in config, in context, ref state);
@@ -201,6 +202,8 @@ internal static class AutoConceptCycleEvaluator
             if (!context.PreviousReceipt.IsPresent) return;
             if (context.PreviousReceipt.CommittedCount != 1)
             {
+                if (context.PreviousReceipt.Disposition == BatchTerminalDisposition.Faulted)
+                    state.TurnHandedOn = state.PendingReceiptAction;
                 state.ClearPendingReceipt();
                 return;
             }
@@ -287,7 +290,7 @@ internal static class AutoConceptCycleEvaluator
         {
             if (!state.Ownership.TryGet(candidate.Key, out var ownership) ||
                 ownership.AutomatedDelta <= 0 || candidate.DrainSafe ||
-                IsWaiting(in context, AutoConceptActionKind.RemoveOwned, candidate)) continue;
+                IsWaiting(in context, in state, AutoConceptActionKind.RemoveOwned, candidate)) continue;
             action = Action(AutoConceptActionKind.RemoveOwned, candidate, ownership.AutomatedDelta,
                 Guid.Empty, world.CollectedAtEpoch);
             return true;
@@ -311,7 +314,7 @@ internal static class AutoConceptCycleEvaluator
             var index = Normalize(state.CandidateCursor + offset, ranked.Count);
             var candidate = byId[ranked[index].Uuid];
             if (!candidate.IsSettled || candidate.Quantity != 0 || !CanAdd(candidate) ||
-                IsWaiting(in context, AutoConceptActionKind.Add, candidate)) continue;
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate)) continue;
             if (!TryFindSafeTarget(world, candidate, 1, in config, out var target, out var refusal, out var resource))
             {
                 Block(ref blocked, refusal, AutoConceptIdleMove.Slot, candidate.Id, Guid.Empty, resource);
@@ -343,7 +346,7 @@ internal static class AutoConceptCycleEvaluator
             var desired = byId[desiredProgress.Uuid];
             if (!desired.IsSettled || desired.Quantity != 0 ||
                 desired.CoreTypeId == Guid.Empty || desired.MaximumQuantity <= 0 ||
-                IsWaiting(in context, AutoConceptActionKind.Add, desired)) continue;
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, desired)) continue;
             var safe = TryFindSafeTarget(world, desired, 1, in config, out _, out var refusal, out var resource);
             if (!safe && blocked.Reason != AutoConceptIdleReason.None) continue;
             if (safe && timedCycle &&
@@ -385,7 +388,7 @@ internal static class AutoConceptCycleEvaluator
             if (!active.IsSettled || active.Quantity <= 0 ||
                 (!timedCycle && active.CoreTypeId != desired.CoreTypeId) ||
                 state.TrainingSessions.Contains(active.Key) ||
-                IsWaiting(in context, AutoConceptActionKind.RotateOut, active)) continue;
+                IsWaiting(in context, in state, AutoConceptActionKind.RotateOut, active)) continue;
 
             if (AutoConceptBalancer.UsesFullRotation(mode))
             {
@@ -421,7 +424,7 @@ internal static class AutoConceptCycleEvaluator
             var candidate = byId[ranked[index].Uuid];
             if (!candidate.IsSettled || candidate.Quantity <= 0 ||
                 candidate.Quantity >= candidate.MaximumQuantity ||
-                IsWaiting(in context, AutoConceptActionKind.Add, candidate)) continue;
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate)) continue;
             var desired = candidate.MaximumQuantity;
             if (!TryFindSafeTarget(world, candidate, desired, in config, out var target, out var refusal, out var resource))
             {
@@ -452,7 +455,7 @@ internal static class AutoConceptCycleEvaluator
         }
         if (!byId.TryGetValue(state.PreferredReplacement.ToString(), out var candidate) ||
             candidate.Quantity > 0 ||
-            IsWaiting(in context, AutoConceptActionKind.Add, candidate))
+            IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate))
         {
             state.PreferredReplacement = Guid.Empty;
             return false;
@@ -604,8 +607,21 @@ internal static class AutoConceptCycleEvaluator
         return WakePolicy.Immediate;
     }
 
-    private static bool IsWaiting(in ServiceCycleContext context, AutoConceptActionKind kind, Candidate candidate) =>
-        context.RetryGate.IsWaiting(AutoConceptServicePolicies.RetryTarget(kind, candidate.Id), context.DecisionAt);
+    /// <summary>
+    /// Whether this evaluation plans past the Concept's action: it is backing off, or its batch just
+    /// faulted and hands the turn to the next candidate before it is tried again.
+    /// </summary>
+    private static bool IsWaiting(
+        in ServiceCycleContext context,
+        in AutoConceptCycleState state,
+        AutoConceptActionKind kind,
+        Candidate candidate)
+    {
+        var target = AutoConceptServicePolicies.RetryTarget(kind, candidate.Id);
+        var handedOn = state.TurnHandedOn.RecipeId == candidate.Id &&
+                       target == AutoConceptServicePolicies.RetryTarget(state.TurnHandedOn.Kind, candidate.Id);
+        return handedOn || context.RetryGate.IsWaiting(target, context.DecisionAt);
+    }
 
     /// <summary>
     /// Ends the retry episode of every Concept action the service no longer considers: a Concept the

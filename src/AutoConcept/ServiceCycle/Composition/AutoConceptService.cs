@@ -46,19 +46,6 @@ internal static class AutoConceptServicePolicies
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250)),
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(10)));
 
-    // Slotting a Concept spends nothing, so a faulted one waits a second. That outlasts the
-    // service's own quarter-second wait, so the next Concept takes its turn before this one is due.
-    private static readonly MonotonicDuration ConceptFirstWait =
-        MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(1));
-    private static readonly MonotonicDuration ConceptWaitCap =
-        MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(10));
-
-    /// <summary>The same result, backing its Concept's add or remove off on the Concept's own waits when it faulted.</summary>
-    internal static ServiceActionResult BackingOffTheConcept(in ServiceActionResult result) =>
-        result.Disposition == ServiceActionDisposition.Faulted
-            ? result.BackingOffTarget(ConceptWaitCap, initialBackoff: ConceptFirstWait)
-            : result;
-
     private const byte AddKind = 0;
     private const byte RemoveKind = 1;
 

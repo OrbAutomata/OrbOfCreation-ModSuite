@@ -3360,6 +3360,9 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     /// <summary>The game throws on an add before writing it.</summary>
     public Exception? AddFailure { get; set; }
 
+    /// <summary>When set, <see cref="AddFailure"/> is thrown only on an add of this one recipe.</summary>
+    public AlchemyRecipeSO? AddFailureFor { get; set; }
+
     /// <summary>The add lands, then the game throws while its instances keep reading.</summary>
     public Exception? AddFailureAfterWrite { get; set; }
     public int TypelessSlots { get; set; } = 16;
@@ -3399,7 +3402,8 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public void AddAlchemyInstances(AlchemyRecipeSO recipe, int delta)
     {
         if (SuppressAddMutation || ReferenceEquals(recipe, SuppressAddMutationOf)) return;
-        if (AddFailure is { } failure) throw failure;
+        if (AddFailure is { } failure && (AddFailureFor is null || ReferenceEquals(recipe, AddFailureFor)))
+            throw failure;
         var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
         if (instance is null)
         {
