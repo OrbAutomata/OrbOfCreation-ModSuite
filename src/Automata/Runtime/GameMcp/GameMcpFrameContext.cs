@@ -68,6 +68,9 @@ internal sealed class GameMcpFrameContext
     internal AutomataRuntimeFrameFacts? Runtime { get; }
     internal ConfigurationPublication Configuration { get; }
     internal ConfigGeneration ConfigurationGeneration => Configuration.Generation;
+    internal EntityIdentityCatalogSnapshot EntityIdentities =>
+        World?.Snapshot.EntityIdentities ??
+        EntityIdentityCatalogPublication.Current;
     internal long LifecycleGeneration { get; }
 
     /// <summary>
