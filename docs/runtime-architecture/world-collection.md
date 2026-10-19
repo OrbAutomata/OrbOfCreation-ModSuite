@@ -540,9 +540,10 @@ effect tuple, about two thousand lines), spell authoring, entity requirement gra
 relations, recipe-book glyphs, discovery-tree books, crafting recipe types, crafting recipe authored
 edges, structure costs, upgrade costs, and entity keywords describe what the game's authors wrote
 rather than what the player has done, so they re-read only when the frame
-arrives under a lifecycle epoch this collector has not already read for. Immutable output tables are
-still derived on the worker for every publication — only the repeated Unity/native traversal is
-skipped. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
+arrives under a lifecycle epoch this collector has not already read for. A table derived from
+structural rows alone is derived once per read and shared by every publication until the next one;
+`WorldAuthoredTables` owns which tables those are. A table that joins a structural row to anything
+read every pass is derived for every publication. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
 native requirement verdicts, crafting visibility/purchase/capacity/drain verdicts, resources, active
 modifier inputs, and affordability. The field-by-field ownership table is in
 [Game MCP frame operations](game-mcp-frame-operations.md#data-lifetime-and-owner-inventory).

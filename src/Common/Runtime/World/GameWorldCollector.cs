@@ -537,7 +537,11 @@ internal sealed class GameWorldCollector
 
         // Two readers append here, so neither may reset it: whichever ran second would discard the
         // other's rows, and which that is depends on traversal order rather than on anything stated.
-        if (!structuralIsCurrent) frame.PurchaseCosts.Reset();
+        if (!structuralIsCurrent)
+        {
+            frame.PurchaseCosts.Reset();
+            frame.StructuralGeneration++;
+        }
         frame.ModifierPrograms.Reset();
         frame.ModifierProgramEntries.Reset();
 
@@ -610,10 +614,9 @@ internal sealed class GameWorldCollector
     /// game, and the same run has the same authors' work in it.
     /// </para>
     /// <para>
-    /// Skipping means skipping the <em>native reads</em>, not the derivation. The buffers are left
-    /// alone rather than reset, so the tables are rebuilt each cycle from unchanged samples — a few
-    /// hundred rows of arithmetic off the Unity thread, which is where the whole design wants that
-    /// work to be.
+    /// Skipping means skipping the <em>native reads</em>. The buffers are left alone rather than
+    /// reset, and every pass that does read them moves the frame's structural generation, which is
+    /// what tells <see cref="WorldAuthoredTables"/> to derive its tables again.
     /// </para>
     /// <para>
     /// The frame is compared by identity as well as by epoch because a collector may be handed more
