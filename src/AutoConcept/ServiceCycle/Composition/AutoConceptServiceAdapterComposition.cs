@@ -27,7 +27,8 @@ internal sealed class AutoConceptServiceAdapterComposition
         var actions = new AutoConceptCycleActionAdapter(
             natives,
             dependencies.ReadLifecycleEpoch,
-            dependencies.OwnsActionFamily);
+            dependencies.OwnsActionFamily,
+            dependencies.Warn);
         return new AutoConceptServiceAdapterComposition(
             AutoConceptService.Define(actions), natives, actions);
     }

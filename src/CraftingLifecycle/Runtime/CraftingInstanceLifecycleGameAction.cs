@@ -52,7 +52,7 @@ internal sealed class CraftingInstanceLifecycleGameAction
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return CraftingInstanceLifecycleSubmission.Refused(
                 CraftingInstanceLifecycleActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("recipe") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("recipe") : resolution.Cause);
         var recipe = resolution.Value!;
         if (!TryResolvePage(native, recipe, out var page, out var pageReason))
             return CraftingInstanceLifecycleSubmission.Refused(

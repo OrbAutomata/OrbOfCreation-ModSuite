@@ -205,6 +205,7 @@ internal struct AutoConceptCycleState
         HasPendingReceipt = false;
         PendingReceiptCommitted = false;
         PendingReceiptAction = default;
+        TurnHandedOn = default;
         Decision = default;
     }
 
@@ -223,6 +224,9 @@ internal struct AutoConceptCycleState
     internal bool HasPendingReceipt;
     internal bool PendingReceiptCommitted;
     internal AutoConceptCycleAction PendingReceiptAction;
+
+    /// <summary>The action whose batch just faulted. The evaluation that reads that receipt plans past it.</summary>
+    internal AutoConceptCycleAction TurnHandedOn;
     public AutoConceptDecisionMetrics Decision { get; private set; }
 
     public static AutoConceptCycleState Create(LifecycleGeneration lifecycle) => new(lifecycle);

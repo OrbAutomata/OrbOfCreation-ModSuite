@@ -7,42 +7,35 @@ namespace OrbAutomata;
 
 internal readonly struct AutoConceptSubmission
 {
-    private AutoConceptSubmission(
-        NativeActionOutcome outcome,
-        int appliedDelta = 0,
-        int maximumAmount = 0)
+    private AutoConceptSubmission(NativeActionOutcome outcome, int maximumAmount = 0)
     {
         Outcome = outcome;
-        AppliedDelta = appliedDelta;
         MaximumAmount = maximumAmount;
     }
 
     public NativeActionOutcome Outcome { get; }
-    public int AppliedDelta { get; }
     public int MaximumAmount { get; }
 
-    internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, string reason) =>
+    internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 
-    internal static AutoConceptSubmission Backpressure(string reason, int maximumAmount = 0) =>
+    internal static AutoConceptSubmission Backpressure(GameActionReason reason, int maximumAmount = 0) =>
         new(
             NativeActionOutcome.Skip(AutoConceptActionResultCodes.AmountUnavailable, reason),
             maximumAmount: maximumAmount);
 
-    internal static AutoConceptSubmission ContractUnavailable(string reason) =>
+    internal static AutoConceptSubmission FaultBeforeCall(GameActionReason reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     internal static AutoConceptSubmission Attempted(
         NativeMutationCallOutcome outcome,
         NativeMutationOutcome mutationOutcome,
-        string reason,
-        int appliedDelta) =>
+        GameActionReason reason) =>
         new(
             outcome.MutationAttempts == 1 && mutationOutcome == NativeMutationOutcome.Verified
                 ? NativeActionOutcome.Commit(outcome, reason)
                 : NativeActionOutcome.Fault(
-                    CommonActionResultCodes.AdapterFault, mutationOutcome, outcome, reason),
-            appliedDelta);
+                    CommonActionResultCodes.AdapterFault, mutationOutcome, outcome, reason));
 }
 
 internal interface IAutoConceptNativePort

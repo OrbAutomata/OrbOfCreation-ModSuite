@@ -382,6 +382,33 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void ARegistryReadThatKeepsThrowingUnderAFreshReferenceIsWarnedAboutOnce()
+    {
+        const string cause = "injected registry outage";
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var warnings = new List<string>();
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        var registry = new TypedRegistryResolver(
+            () => 1,
+            () => throw new InvalidOperationException(cause),
+            _ => Guid.Empty);
+        var adapter = new SpellLevelCycleActionAdapter(
+            new SpellLevelNativeAdapter(registry), () => PlannedEpoch, () => true, warnings.Add);
+
+        var first = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
+        var repeated = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, repeated.Disposition);
+        Assert.Equal(2, logged.Count);
+        Assert.NotEqual(first.Reason, repeated.Reason);
+        Assert.DoesNotContain(cause, first.Reason);
+        Assert.Single(warnings);
+        Assert.Equal(1, spell.masteryLevel);
+    }
+
+    [Fact]
     public void AnExpectedThrowAfterPaymentWithNoLevelFaultsAfterTheGameThrewUnderItsLogReference()
     {
         var logged = new List<string>();

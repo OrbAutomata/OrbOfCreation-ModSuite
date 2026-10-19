@@ -106,13 +106,14 @@ public sealed class AutoConceptServiceCompositionTests
             lifecycle: 7,
             configurationGeneration: new ConfigGeneration(1),
             owned: true,
-            featureStatus: status);
+            featureStatus: status,
+            warn: static _ => { });
 
         ServiceRunnerTestWait.ForWorkerReady(registration);
         Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);
         ServiceRunnerTestWait.ForResponse(registration);
         var training = pump.PumpFrame(2);
-        bridge.Observe(pump, in training, owned: true);
+        bridge.Observe(pump, in training, owned: true, contractMismatch: "");
 
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.Current.State);
         Assert.Equal(FeatureStatusReasonCode.NativeBusy, status.Current.Reason.Code);
@@ -124,7 +125,7 @@ public sealed class AutoConceptServiceCompositionTests
         Assert.Equal(1, pump.PumpFrame(4).CyclesStarted);
         ServiceRunnerTestWait.ForResponse(registration);
         var idle = pump.PumpFrame(5);
-        bridge.Observe(pump, in idle, owned: true);
+        bridge.Observe(pump, in idle, owned: true, contractMismatch: "");
 
         Assert.Equal(FeatureStatusState.Locked, status.Current.State);
         Assert.Equal(FeatureStatusReasonCode.ProgressionLocked, status.Current.Reason.Code);

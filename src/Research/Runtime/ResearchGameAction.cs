@@ -42,7 +42,7 @@ internal sealed class ResearchGameAction : NativeGameAction<ResearchNativeBindin
         var resolution = _registry.Resolve(action.TargetId, native.ResearchType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return ResearchSubmission.Reject(ResearchActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("research") : resolution.Cause);
         var target = resolution.Value!;
         var before = Capture(native, target, action.Amount);
         var preflight = Preflight(action.Kind, in before, out var reason);

@@ -42,7 +42,9 @@ internal static class AutoConceptCycleEvaluator
         if (!AutoConceptConfigurationPolicy.IsOperational(config))
             return WakePolicy.OnPublication;
 
+        state.TurnHandedOn = default;
         var candidates = Project(world, in config);
+        SettleRetries(candidates, in context, actions);
         ReconcileReceipt(candidates, in config, in context, ref state);
         if (state.HasPendingReceipt)
         {
@@ -77,7 +79,7 @@ internal static class AutoConceptCycleEvaluator
                 ownership.AutomatedDelta > 0) owned++;
         }
 
-        if (TryUnsafeRollback(candidates, world, in config, ref state, out var action))
+        if (TryUnsafeRollback(candidates, world, in context, ref state, out var action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.UnsafeRollback,
                 actions, ref state, out metrics);
 
@@ -97,15 +99,15 @@ internal static class AutoConceptCycleEvaluator
                     actions, ref state, out metrics);
 
         var blocked = default(AutoConceptIdle);
-        if (TryBreadth(ranked, byId, world, in config, ref state, ref blocked, out action))
+        if (TryBreadth(ranked, byId, world, in config, in context, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Breadth,
                 actions, ref state, out metrics);
 
-        if (TryRebalance(ranked, byId, world, in config, ref state, ref blocked, out action))
+        if (TryRebalance(ranked, byId, world, in config, in context, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Rebalance,
                 actions, ref state, out metrics);
 
-        if (TryDepth(ranked, byId, world, in config, ref state, ref blocked, out action))
+        if (TryDepth(ranked, byId, world, in config, in context, ref state, ref blocked, out action))
             return Plan(action, candidates.Count, active, owned, AutoConceptDecisionKind.Depth,
                 actions, ref state, out metrics);
 
@@ -200,6 +202,8 @@ internal static class AutoConceptCycleEvaluator
             if (!context.PreviousReceipt.IsPresent) return;
             if (context.PreviousReceipt.CommittedCount != 1)
             {
+                if (context.PreviousReceipt.Disposition == BatchTerminalDisposition.Faulted)
+                    state.TurnHandedOn = state.PendingReceiptAction;
                 state.ClearPendingReceipt();
                 return;
             }
@@ -278,14 +282,15 @@ internal static class AutoConceptCycleEvaluator
     private static bool TryUnsafeRollback(
         IReadOnlyList<Candidate> candidates,
         GameWorldState world,
-        in SuiteRuntimeConfiguration config,
+        in ServiceCycleContext context,
         ref AutoConceptCycleState state,
         out AutoConceptCycleAction action)
     {
         foreach (var candidate in candidates)
         {
             if (!state.Ownership.TryGet(candidate.Key, out var ownership) ||
-                ownership.AutomatedDelta <= 0 || candidate.DrainSafe) continue;
+                ownership.AutomatedDelta <= 0 || candidate.DrainSafe ||
+                IsWaiting(in context, in state, AutoConceptActionKind.RemoveOwned, candidate)) continue;
             action = Action(AutoConceptActionKind.RemoveOwned, candidate, ownership.AutomatedDelta,
                 Guid.Empty, world.CollectedAtEpoch);
             return true;
@@ -299,6 +304,7 @@ internal static class AutoConceptCycleEvaluator
         IReadOnlyDictionary<string, Candidate> byId,
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
+        in ServiceCycleContext context,
         ref AutoConceptCycleState state,
         ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
@@ -307,7 +313,8 @@ internal static class AutoConceptCycleEvaluator
         {
             var index = Normalize(state.CandidateCursor + offset, ranked.Count);
             var candidate = byId[ranked[index].Uuid];
-            if (!candidate.IsSettled || candidate.Quantity != 0 || !CanAdd(candidate)) continue;
+            if (!candidate.IsSettled || candidate.Quantity != 0 || !CanAdd(candidate) ||
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate)) continue;
             if (!TryFindSafeTarget(world, candidate, 1, in config, out var target, out var refusal, out var resource))
             {
                 Block(ref blocked, refusal, AutoConceptIdleMove.Slot, candidate.Id, Guid.Empty, resource);
@@ -325,6 +332,7 @@ internal static class AutoConceptCycleEvaluator
         IReadOnlyDictionary<string, Candidate> byId,
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
+        in ServiceCycleContext context,
         ref AutoConceptCycleState state,
         ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
@@ -337,12 +345,13 @@ internal static class AutoConceptCycleEvaluator
             var desiredProgress = ranked[desiredIndex];
             var desired = byId[desiredProgress.Uuid];
             if (!desired.IsSettled || desired.Quantity != 0 ||
-                desired.CoreTypeId == Guid.Empty || desired.MaximumQuantity <= 0) continue;
+                desired.CoreTypeId == Guid.Empty || desired.MaximumQuantity <= 0 ||
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, desired)) continue;
             var safe = TryFindSafeTarget(world, desired, 1, in config, out _, out var refusal, out var resource);
             if (!safe && blocked.Reason != AutoConceptIdleReason.None) continue;
             if (safe && timedCycle &&
                 !IsNextTimed(desired, ranked, byId, ref state)) continue;
-            if (!TryFindDisplaced(desired, desiredProgress, ranked, byId, in config, ref state,
+            if (!TryFindDisplaced(desired, desiredProgress, ranked, byId, in config, in context, ref state,
                     out var active, out var kind, out var amount)) continue;
             if (!safe)
             {
@@ -362,6 +371,7 @@ internal static class AutoConceptCycleEvaluator
         IReadOnlyList<ConceptProgress> ranked,
         IReadOnlyDictionary<string, Candidate> byId,
         in SuiteRuntimeConfiguration config,
+        in ServiceCycleContext context,
         ref AutoConceptCycleState state,
         out Candidate active,
         out AutoConceptActionKind kind,
@@ -377,7 +387,8 @@ internal static class AutoConceptCycleEvaluator
             active = byId[activeProgress.Uuid];
             if (!active.IsSettled || active.Quantity <= 0 ||
                 (!timedCycle && active.CoreTypeId != desired.CoreTypeId) ||
-                state.TrainingSessions.Contains(active.Key)) continue;
+                state.TrainingSessions.Contains(active.Key) ||
+                IsWaiting(in context, in state, AutoConceptActionKind.RotateOut, active)) continue;
 
             if (AutoConceptBalancer.UsesFullRotation(mode))
             {
@@ -402,6 +413,7 @@ internal static class AutoConceptCycleEvaluator
         IReadOnlyDictionary<string, Candidate> byId,
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
+        in ServiceCycleContext context,
         ref AutoConceptCycleState state,
         ref AutoConceptIdle blocked,
         out AutoConceptCycleAction action)
@@ -411,7 +423,8 @@ internal static class AutoConceptCycleEvaluator
             var index = Normalize(state.CandidateCursor + offset, ranked.Count);
             var candidate = byId[ranked[index].Uuid];
             if (!candidate.IsSettled || candidate.Quantity <= 0 ||
-                candidate.Quantity >= candidate.MaximumQuantity) continue;
+                candidate.Quantity >= candidate.MaximumQuantity ||
+                IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate)) continue;
             var desired = candidate.MaximumQuantity;
             if (!TryFindSafeTarget(world, candidate, desired, in config, out var target, out var refusal, out var resource))
             {
@@ -441,7 +454,8 @@ internal static class AutoConceptCycleEvaluator
             return false;
         }
         if (!byId.TryGetValue(state.PreferredReplacement.ToString(), out var candidate) ||
-            candidate.Quantity > 0)
+            candidate.Quantity > 0 ||
+            IsWaiting(in context, in state, AutoConceptActionKind.Add, candidate))
         {
             state.PreferredReplacement = Guid.Empty;
             return false;
@@ -591,6 +605,47 @@ internal static class AutoConceptCycleEvaluator
         state.RecordPlanned(in action);
         metrics = new AutoConceptDecisionMetrics(candidates, candidates, active, owned, 1, kind);
         return WakePolicy.Immediate;
+    }
+
+    /// <summary>
+    /// Whether this evaluation plans past the Concept's action: it is backing off, or its batch just
+    /// faulted and hands the turn to the next candidate before it is tried again.
+    /// </summary>
+    private static bool IsWaiting(
+        in ServiceCycleContext context,
+        in AutoConceptCycleState state,
+        AutoConceptActionKind kind,
+        Candidate candidate)
+    {
+        var target = AutoConceptServicePolicies.RetryTarget(kind, candidate.Id);
+        var handedOn = state.TurnHandedOn.RecipeId == candidate.Id &&
+                       target == AutoConceptServicePolicies.RetryTarget(state.TurnHandedOn.Kind, candidate.Id);
+        return handedOn || context.RetryGate.IsWaiting(target, context.DecisionAt);
+    }
+
+    /// <summary>
+    /// Ends the retry episode of every Concept action the service no longer considers: a Concept the
+    /// world stopped offering, an add to a Concept at its full quantity, a remove from one with no
+    /// stack left.
+    /// </summary>
+    private static void SettleRetries(
+        IReadOnlyList<Candidate> candidates,
+        in ServiceCycleContext context,
+        ServiceActionWriter<AutoConceptCycleAction> actions)
+    {
+        var gate = context.RetryGate;
+        for (var index = 0; index < gate.Count; index++)
+        {
+            var target = gate[index].Target;
+            Candidate? candidate = null;
+            foreach (var item in candidates)
+                if (item.Id == target.Id) { candidate = item; break; }
+            if (candidate is null ||
+                (AutoConceptServicePolicies.IsRemove(target)
+                    ? candidate.QueuedQuantity <= 0
+                    : candidate.QueuedQuantity >= candidate.MaximumQuantity))
+                actions.EndRetry(target);
+        }
     }
 
     private static bool CanAdd(Candidate candidate) =>

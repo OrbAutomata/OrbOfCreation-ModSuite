@@ -173,8 +173,8 @@ public sealed class ProductionSourceAuditTests
 
     /// <summary>
     /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
-    /// transport, every feature's GameAction, the shared service-cycle runtime, and the plugin that
-    /// answers with them.
+    /// transport, every feature's GameAction, the shared service-cycle runtime, Auto Concept's service
+    /// cycle, and the plugin that answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -188,7 +188,14 @@ public sealed class ProductionSourceAuditTests
     /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
     /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
     /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
-    /// reason, which every narrating feature prints in its status.
+    /// reason, which every narrating feature prints in its status. Auto Concept's service cycle is
+    /// one because its init, registry and press reasons are those retry reasons.
+    /// </para>
+    /// <para>
+    /// A GameAction and Auto Concept's service cycle author the reasons a mutation answers with, so
+    /// there the sweep also catches the other shapes that carry the same text:
+    /// <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation verifier's
+    /// evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception it caught.
     /// </para>
     /// <para>
     /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
@@ -220,15 +227,21 @@ public sealed class ProductionSourceAuditTests
         };
         var logCalls = new[]
         {
-            "logerror", "logwarning", "logmessage", "loginfo", "logdebug", "logfatal",
+            "logerror", "logwarning", "logmessage", "loginfo", "logdebug", "logfatal", "logautomata",
         };
         const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
         const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
+        var exceptionText = new Regex(
+            @"ExceptionDetail\.Describe|\.Message\b|\.Detail\b|\b(?:evidence|attempted)\.Format\(",
+            RegexOptions.CultureInvariant);
 
         var offenders = new List<string>();
         foreach (var path in FilesWhoseTextCanReachACaller(sourceRoot))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            var authorsMutationReasons =
+                relativePath.EndsWith("GameAction.cs", StringComparison.Ordinal) ||
+                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal);
             var lineNumber = 0;
             var allowedStatement = false;
             foreach (var line in File.ReadLines(path))
@@ -249,8 +262,10 @@ public sealed class ProductionSourceAuditTests
                     allowedStatement = true;
                 }
 
-                if (line.Contains("GetBaseException", StringComparison.Ordinal) &&
-                    !allowedStatement)
+                var carriesExceptionText =
+                    line.Contains("GetBaseException", StringComparison.Ordinal) ||
+                    authorsMutationReasons && exceptionText.IsMatch(line);
+                if (carriesExceptionText && !allowedStatement)
                 {
                     offenders.Add(relativePath + ":" + lineNumber);
                 }
@@ -273,6 +288,7 @@ public sealed class ProductionSourceAuditTests
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
         candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoConcept/ServiceCycle"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);

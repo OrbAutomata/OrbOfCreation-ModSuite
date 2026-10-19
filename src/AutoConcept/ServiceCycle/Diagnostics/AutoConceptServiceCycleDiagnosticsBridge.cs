@@ -6,36 +6,53 @@ using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
 namespace OrbAutomata;
 
+/// <summary>
+/// Projects Auto Concept's service evidence onto its feature status. A Concept action backing off on
+/// the service's retry gate is narrated here and keeps the feature Degraded, naming the Concept, what
+/// the service was doing with it and why, until its episode ends. A contract mismatch the game
+/// proved faults the feature ahead of any back-off until the next lifecycle.
+/// </summary>
 internal sealed class AutoConceptServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
     private bool _owned;
     private bool _cycleObserved;
     private AutoConceptIdle _idle;
+    private string _contractMismatch = string.Empty;
 
     internal AutoConceptServiceCycleDiagnosticsBridge(
         long lifecycle,
         ConfigGeneration configurationGeneration,
         bool owned,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string> warn)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _retries = new ServiceRetryEpisodeNarrator(
+            AutoConceptNativeAdapter.Feature, warn, AutoConceptServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
         Publish();
     }
 
-    internal void Observe(SuiteFramePump pump, in SuiteFramePumpReport report, bool owned)
+    internal void Observe(SuiteFramePump pump, in SuiteFramePumpReport report, bool owned, string contractMismatch)
     {
-        var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged || _owned != owned;
+        var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged || _owned != owned ||
+                      !string.Equals(_contractMismatch, contractMismatch, StringComparison.Ordinal);
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
-        if (report.ResponsesAcquired != 0 &&
-            TryReadLatestDecision(pump, out var idle))
+        _contractMismatch = contractMismatch;
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId)
+            : null;
+        changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        if (report.ResponsesAcquired != 0 && service is { } available &&
+            TryReadLatestDecision(in available, out var idle))
         {
             changed = changed || !_cycleObserved || !_idle.Equals(idle);
             _cycleObserved = true;
@@ -61,6 +78,8 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
+        _retries.InvalidateLifecycle();
+        _contractMismatch = string.Empty;
         _cycleObserved = false;
         _idle = default;
         Publish();
@@ -72,7 +91,9 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             _emergencyDisabled,
             _owned,
             _cycleObserved,
-            _idle);
+            _idle,
+            _retries.TryGetBackingOff(out var retry) ? retry : null,
+            _contractMismatch);
         _featureStatus.ObserveRuntimeLifecycle(
             status.State,
             status.Reason,
@@ -82,13 +103,11 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
     }
 
     private static bool TryReadLatestDecision(
-        SuiteFramePump pump,
+        in ServiceCycleServiceDiagnosticsSnapshot service,
         out AutoConceptIdle idle)
     {
         idle = default;
-        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId) is not
-            { LatestProjection.IsPresent: true } service)
-            return false;
+        if (!service.LatestProjection.IsPresent) return false;
         var projection = service.LatestProjection.Snapshot;
         var reason = ReadInteger(in projection, AutoConceptServiceProjection.IdleReasonKey);
         var move = ReadInteger(in projection, AutoConceptServiceProjection.IdleMoveKey);

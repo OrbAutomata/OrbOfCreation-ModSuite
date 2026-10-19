@@ -30,7 +30,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
 
             Assert.False(classifier.TryInitialize(out var reason));
             Assert.Equal(AlchemyDomainClassifierStatus.Blocked, classifier.Status);
-            Assert.Contains(missing, reason, StringComparison.Ordinal);
+            Assert.Contains(missing, reason.Text, StringComparison.Ordinal);
             Assert.Equal(AlchemyGameplayDomain.Unknown, classifier.ClassifyRecipe(concept).Domain);
         }
     }
@@ -43,7 +43,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         RegisterConceptRecipes(concept);
         using var classifier = new AlchemyGameplayDomainClassifier();
 
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
         var result = classifier.ClassifyRecipe(concept);
 
         Assert.Equal(AlchemyGameplayDomain.ScholarConcept, result.Domain);
@@ -71,7 +71,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         RegisterConceptRecipes(concept);
         using var classifier = new AlchemyGameplayDomainClassifier();
 
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
         var result = classifier.ClassifyRecipe(ordinary);
 
         Assert.Equal(AlchemyGameplayDomain.OrdinaryAlchemy, result.Domain);
@@ -87,7 +87,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         var inconsistent = Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid));
         using var classifier = new AlchemyGameplayDomainClassifier();
 
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
         var result = classifier.ClassifyRecipe(inconsistent);
 
         Assert.Equal(AlchemyGameplayDomain.Unknown, result.Domain);
@@ -104,7 +104,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
 
         Assert.False(classifier.TryInitialize(out var reason));
         Assert.Equal(AlchemyDomainClassifierStatus.Blocked, classifier.Status);
-        Assert.Contains("without verified Scholar type evidence", reason, StringComparison.Ordinal);
+        Assert.Contains("without verified Scholar type evidence", reason.Text, StringComparison.Ordinal);
         Assert.Equal(AlchemyGameplayDomain.Unknown, classifier.ClassifyRecipe(null).Domain);
     }
 
@@ -119,7 +119,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
 
         Assert.False(classifier.TryInitialize(out var reason));
         Assert.Equal(AlchemyDomainClassifierStatus.Blocked, classifier.Status);
-        Assert.Contains("without verified Scholar type evidence", reason, StringComparison.Ordinal);
+        Assert.Contains("without verified Scholar type evidence", reason.Text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
     {
         RegisterConceptRecipes(Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid)));
         using var classifier = new AlchemyGameplayDomainClassifier();
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
 
         Assert.Equal(
             AlchemyGameplayDomain.ScholarConcept,
@@ -162,7 +162,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         var concept = Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid));
         RegisterConceptRecipes(concept);
         using var classifier = new AlchemyGameplayDomainClassifier();
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
         var generation = classifier.ClassifierGeneration;
         Assert.Equal(AlchemyGameplayDomain.ScholarConcept, classifier.ClassifyRecipe(concept).Domain);
 
@@ -184,7 +184,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
             () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup),
             value => ((IdScriptableObject)value).GetGuid());
         using var classifier = new AlchemyGameplayDomainClassifier(resolver);
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
         Assert.Equal(4, classifier.LifecycleGeneration);
         Assert.Equal(AlchemyGameplayDomain.ScholarConcept, classifier.ClassifyRecipe(concept).Domain);
 
@@ -194,7 +194,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
 
         Assert.Equal(AlchemyGameplayDomain.Unknown, classifier.ClassifyRecipe(concept).Domain);
         Assert.Equal(AlchemyDomainClassifierStatus.Uninitialized, classifier.Status);
-        Assert.True(classifier.TryInitialize(out reason), reason);
+        Assert.True(classifier.TryInitialize(out reason), reason.Text);
         Assert.Equal(5, classifier.LifecycleGeneration);
         Assert.Equal(AlchemyGameplayDomain.ScholarConcept, classifier.ClassifyRecipe(replacement).Domain);
     }
@@ -221,7 +221,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         var replacement = Recipe(uuid, conceptType);
         RegisterConceptRecipes(registered);
         using var classifier = new AlchemyGameplayDomainClassifier();
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
 
         var result = classifier.ClassifyRecipe(replacement);
 
@@ -237,7 +237,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         var recipe = Recipe(Guid.NewGuid(), Type(Guid.NewGuid()));
         recipe.name = "Alchemy";
         using var classifier = new AlchemyGameplayDomainClassifier();
-        Assert.True(classifier.TryInitialize(out var reason), reason);
+        Assert.True(classifier.TryInitialize(out var reason), reason.Text);
 
         var result = classifier.ClassifyRecipe(recipe);
 

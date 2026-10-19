@@ -36,7 +36,7 @@ internal readonly struct CraftingInstanceLifecycleSubmission
 
     internal static CraftingInstanceLifecycleSubmission Refused(
         ServiceActionResultCode code,
-        string reason) =>
+        GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 
     internal NativeActionOutcome Outcome { get; }

@@ -62,7 +62,7 @@ public sealed class AutoConceptManualPressProfileTests
     }
 
     private static AutoConceptCycleActionAdapter Adapter(IAutoConceptNativePort native) =>
-        new(native, () => PlannedEpoch, () => true);
+        new(native, () => PlannedEpoch, () => true, static _ => { });
 
     private static AutoConceptCycleAction Add()
     {
@@ -100,8 +100,7 @@ public sealed class AutoConceptManualPressProfileTests
             return AutoConceptSubmission.Attempted(
                 new NativeMutationCallOutcome(1, 1, 1),
                 NativeMutationOutcome.Verified,
-                string.Empty,
-                1);
+                string.Empty);
         }
     }
 }

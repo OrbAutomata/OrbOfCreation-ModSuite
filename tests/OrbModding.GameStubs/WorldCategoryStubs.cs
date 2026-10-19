@@ -857,6 +857,8 @@ public sealed partial class ConsumableSO : IdScriptableObject
     private ConsumableUsage? nextUsage;
     public bool FireAllowed = true;
     public bool SelectionNoOp;
+    public bool QueueUnreadableAfterFire;
+    private bool queueUnreadable;
     public readonly List<long> SelectAndFireTimestamps = new List<long>();
     public int MaximumCarryLoad;
 
@@ -903,6 +905,7 @@ public sealed partial class ConsumableSO : IdScriptableObject
             }
         }
         Inventory.BeginPreparing();
+        queueUnreadable = QueueUnreadableAfterFire;
     }
 
     public void SetRandomization(bool randomizationN) => randomized = randomizationN;
@@ -928,7 +931,8 @@ public sealed partial class ConsumableSO : IdScriptableObject
 
     public int GetQuantity() => quantity;
 
-    public int GetQueued() => queuedQuantity;
+    public int GetQueued() =>
+        queueUnreadable ? throw new InvalidOperationException("injected queue outage") : queuedQuantity;
 
     public int GetMaximumCarryLoad() => MaximumCarryLoad;
 

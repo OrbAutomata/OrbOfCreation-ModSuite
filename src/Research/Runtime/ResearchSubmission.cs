@@ -35,6 +35,6 @@ internal readonly struct ResearchSubmission
     internal int MaximumAmount { get; }
 
     internal static ResearchSubmission Reject(
-        ServiceActionResultCode code, string reason, int maximumAmount = -1) =>
+        ServiceActionResultCode code, GameActionReason reason, int maximumAmount = -1) =>
         new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 }

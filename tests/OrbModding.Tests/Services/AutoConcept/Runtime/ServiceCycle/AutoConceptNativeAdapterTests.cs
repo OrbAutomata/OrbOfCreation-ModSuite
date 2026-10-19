@@ -40,7 +40,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var initialized = runtime.TryInitialize(out var reason);
 
         Assert.False(initialized);
-        Assert.Contains("without verified Scholar type evidence", reason);
+        Assert.Contains("without verified Scholar type evidence", reason.Text);
         Assert.False(runtime.IsReady);
     }
 
@@ -74,7 +74,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
-    public void NoOpAssignmentBlocksUntilLifecycleRecovery()
+    public void ANoOpAssignmentFaultsAndTheNextSubmissionPressesAgain()
     {
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
@@ -92,21 +92,16 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var failed = runtime.Submit(in action, DefaultLimits);
 
-        Assert.False(failed.Outcome.Verified);
-        Assert.Contains("PostconditionFailed", failed.Outcome.Reason);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, failed.Outcome.Code);
+        Assert.Contains("its queued stacks went from 0 to 0.", failed.Outcome.Reason);
         Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
-        Assert.NotNull(runtime.BlockedReason);
-        var blocked = runtime.Submit(in action, DefaultLimits);
-        Assert.Equal(CommonActionResultCodes.AdapterFault, blocked.Outcome.Code);
-        Assert.Contains("blocked until the next lifecycle", blocked.Outcome.Reason);
-        Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
 
         active.SuppressAddMutation = false;
-        runtime.InvalidateLifecycle();
-        var recovered = runtime.Submit(in action, DefaultLimits);
+        var retried = runtime.Submit(in action, DefaultLimits);
 
-        Assert.True(recovered.Outcome.Verified, recovered.Outcome.Reason);
+        Assert.True(retried.Outcome.Verified, retried.Outcome.Reason);
+        Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -291,7 +286,6 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
-        Assert.Equal(1, submission.AppliedDelta);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 
@@ -346,7 +340,6 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var submission = runtime.Submit(in action, DefaultLimits);
 
         Assert.True(submission.Outcome.Verified, submission.Outcome.Reason);
-        Assert.Equal(-1, submission.AppliedDelta);
         Assert.Empty(active.value);
     }
 
@@ -500,7 +493,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
                 AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
 
             Assert.False(runtime.TryInitialize(out var reason));
-            Assert.Contains(missing, reason, StringComparison.Ordinal);
+            Assert.Contains(missing, reason.Text, StringComparison.Ordinal);
             var submission = runtime.Submit(in action, DefaultLimits);
 
             Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);

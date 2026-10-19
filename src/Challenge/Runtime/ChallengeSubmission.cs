@@ -52,7 +52,7 @@ internal readonly struct ChallengeSubmission
     /// </summary>
     internal int RerollsLeftAfter { get; }
 
-    internal static ChallengeSubmission Reject(ServiceActionResultCode code, string reason) =>
+    internal static ChallengeSubmission Reject(ServiceActionResultCode code, GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 
     internal static ChallengeSubmission RerollsExhausted(string reason, int rerollsLeft) =>

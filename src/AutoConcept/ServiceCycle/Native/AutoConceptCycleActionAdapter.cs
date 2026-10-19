@@ -1,5 +1,4 @@
 using System;
-using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -15,21 +14,23 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
     private readonly IAutoConceptNativePort _native;
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
-    private readonly AutomationCycleGuard<AutoConceptCycleAction> _guard = new(
-        "Auto Concept",
-        static action => $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}" +
-            (action.ReplacementId == Guid.Empty
-                ? string.Empty
-                : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}"),
-        static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly AutomationCycleGuard<AutoConceptCycleAction> _guard;
 
     internal AutoConceptSubmission LastSubmission { get; private set; }
 
     internal AutoConceptCycleActionAdapter(
         IAutoConceptNativePort native,
         Func<long> readLifecycleEpoch,
-        Func<bool> ownsActionFamily)
+        Func<bool> ownsActionFamily,
+        Action<string> warn)
     {
+        _guard = new AutomationCycleGuard<AutoConceptCycleAction>(
+            AutoConceptNativeAdapter.Feature,
+            static action => $"Auto Concept did not complete {action.Kind} for {EntityIdentityFormatter.Format(action.RecipeId)}" +
+                (action.ReplacementId == Guid.Empty
+                    ? string.Empty
+                    : $" with replacement {EntityIdentityFormatter.Format(action.ReplacementId)}"),
+            warn ?? throw new ArgumentNullException(nameof(warn)));
         _native = native ?? throw new ArgumentNullException(nameof(native));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _ownsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
@@ -76,6 +77,8 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
             return _guard.Fault(ex, in action).ToResult();
         }
 
-        return _guard.Finish(submission.Outcome, in action);
+        return submission.Outcome.Code == AutoConceptActionResultCodes.ContractUnavailable
+            ? _guard.Hold(submission.Outcome, in action)
+            : _guard.Finish(submission.Outcome, in action);
     }
 }

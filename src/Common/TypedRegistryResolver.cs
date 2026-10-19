@@ -53,7 +53,8 @@ public sealed class TypedRegistryResolution
         EvidenceAssessment evidence,
         long lifecycleGeneration,
         string reason,
-        bool readThrew = false)
+        bool readThrew = false,
+        string reference = "")
     {
         Uuid = uuid;
         ExpectedType = expectedType;
@@ -61,7 +62,7 @@ public sealed class TypedRegistryResolution
         Value = value;
         Evidence = evidence;
         LifecycleGeneration = lifecycleGeneration;
-        Reason = reason;
+        Cause = new GameActionReason(reason, reference);
         _readThrew = readThrew;
     }
 
@@ -74,7 +75,8 @@ public sealed class TypedRegistryResolution
     public object? Value { get; }
     public EvidenceAssessment Evidence { get; }
     public long LifecycleGeneration { get; }
-    public string Reason { get; }
+    /// <summary>Why it did not resolve, with the suite-log reference of a read that threw kept apart.</summary>
+    public GameActionReason Cause { get; }
     public bool IsResolved => Status == TypedRegistryResolutionStatus.Resolved && Value is not null;
 
     /// <summary>
@@ -93,9 +95,10 @@ public sealed class TypedRegistryResolution
     public bool IsCurrent(long lifecycleGeneration) =>
         lifecycleGeneration == LifecycleGeneration;
 
-    public string Format() =>
+    /// <summary>The full diagnosis, its reference kept apart so a repeat compares the sentence alone.</summary>
+    public GameActionReason FormatCause() => Cause.Around(
         $"Identity={EntityIdentityFormatter.Format(Uuid)}, ExpectedType={ExpectedTypeName}, Status={Status}, " +
-        $"Level={Evidence.Level}, Sources={Evidence.Sources}, Reason={Reason}";
+        $"Level={Evidence.Level}, Sources={Evidence.Sources}, Reason=");
 }
 
 public sealed class TypedRegistryResolver
@@ -133,7 +136,7 @@ public sealed class TypedRegistryResolver
         Guid uuid,
         Type expectedType,
         [NotNullWhen(true)] out object? value,
-        out string reason)
+        out GameActionReason reason)
     {
         var resolution = Resolve(uuid, expectedType);
         if (resolution.IsResolved && IsCurrent(resolution))
@@ -145,7 +148,7 @@ public sealed class TypedRegistryResolver
         value = null;
         reason = resolution.IsResolved
             ? EntityIdentityFormatter.PlayerName(uuid) + " became stale."
-            : resolution.Reason;
+            : resolution.Cause;
         return false;
     }
 
@@ -332,8 +335,9 @@ public sealed class TypedRegistryResolver
             null,
             evidence,
             generation,
-            what + GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(exception, "the runtime registry")),
-            readThrew: true));
+            what,
+            readThrew: true,
+            reference: GameActionFaultLog.RecordReference(exception, "the runtime registry")));
 
     private TypedRegistryResolution Result(
         Guid uuid,

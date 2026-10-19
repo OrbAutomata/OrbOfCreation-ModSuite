@@ -86,7 +86,8 @@ retries.
   audited fire evidence, and a faulted cast backing off only that spell while
   the rest of the loadout keeps casting.
 - **Auto Concept:** breadth, depth, rotation, training, manual preservation,
-  drain rollback, mastery limits, and assignment settlement.
+  drain rollback, mastery limits, assignment settlement, and a Concept whose add
+  did not land backing off while the other Concepts keep slotting.
 - **Auto Items:** Scroll, Relic, and explicitly approved temporary items;
   targeting/native-busy refusals, exact stock/queue/usage evidence, picker
   whitelist behavior, the back-off and retry of an unverified submission or a

@@ -336,9 +336,9 @@ read or call, for every GameAction, adapter and reader. Any other exception is a
 escapes to the boundary that reports it as a fault, unless a native call ran and its change landed.
 After a native call, `NativeMutationVerifier` classifies every throw first by reading the
 after-state. A landed change followed by an unexpected throw commits, and the throw is logged with a
-reference that `suite_health` names as the feature's latest. A change that did not land runs
-the caller's quarantine, and only then does an unexpected exception escape, so the defect stays
-loud and the quarantine already holds when the fault tracker retries the batch. Auto Scribe and
+reference that `suite_health` names as the feature's latest. A change that did not land faults
+the action, and only then does an unexpected exception escape, so the defect stays loud and the
+retry gate backs the target off before the fault tracker retries the batch. Auto Scribe and
 Spell Leveling reread the after-state the same way, and a visible craft or a risen level commits with
 the throw logged. Their one exception is a paid press whose outcome is not visible: the unexpected
 exception is written whole to the suite log under the reference the post-payment fault names, so the

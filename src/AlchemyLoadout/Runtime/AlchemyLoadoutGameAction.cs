@@ -67,7 +67,11 @@ internal sealed class AlchemyLoadoutGameAction : NativeGameAction<AlchemyLoadout
                 " is not the current Alchemy recipe instance.";
             return false;
         }
-        if (!_classifier.TryInitialize(out reason)) return false;
+        if (!_classifier.TryInitialize(out var classifierReason))
+        {
+            reason = classifierReason.Text;
+            return false;
+        }
         var classification = _classifier.ClassifyRecipe(candidate);
         if (!classification.IsMutationGrade ||
             classification.Domain != AlchemyGameplayDomain.OrdinaryAlchemy)
@@ -117,7 +121,7 @@ internal sealed class AlchemyLoadoutGameAction : NativeGameAction<AlchemyLoadout
         var resolution = _registry.Resolve(action.RecipeId, native.RecipeType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return AlchemyLoadoutSubmission.Reject(AlchemyLoadoutActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("alchemy recipe") : resolution.Cause);
         var recipe = resolution.Value!;
         var classification = _classifier.ClassifyRecipe(recipe);
         if (!classification.IsMutationGrade ||

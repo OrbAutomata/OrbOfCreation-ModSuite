@@ -305,7 +305,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         out object scroll,
         out object recipeType,
         out object activeQueue,
-        out string reason,
+        out GameActionReason reason,
         out ServiceActionResultCode rejection,
         out bool retryable)
     {
@@ -395,7 +395,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
     private bool ValidateRecipeRegistry(
         AutoScribeNativeBindings native,
         object registry,
-        out string reason)
+        out GameActionReason reason)
     {
         if (native.RecipeListValue(registry) is not { } values)
         {
@@ -444,7 +444,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         object recipeType,
         object scroll,
         Guid expectedEnchantment,
-        out string reason)
+        out GameActionReason reason)
     {
         if (native.CraftingTypes(recipe) is not { } types)
         {
@@ -554,7 +554,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         AutoScribeNativeBindings native,
         Guid recipeId,
         int level,
-        out string reason)
+        out GameActionReason reason)
     {
         foreach (var queueIdentity in new[]
         {
@@ -565,7 +565,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             var resolution = _registry.Resolve(queueIdentity.Uuid, native.InstanceListType);
             if (!resolution.IsResolved)
             {
-                reason = resolution.Format();
+                reason = resolution.FormatCause();
                 return true;
             }
             if (native.InstanceListValue(resolution.Value!) is not { } work)
@@ -601,7 +601,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         object scroll,
         Guid scrollId,
         int level,
-        out string reason)
+        out GameActionReason reason)
     {
         object? options = null;
         var requests = 0;
@@ -788,7 +788,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         }
     }
 
-    private static string FirstFailure(
+    private static GameActionReason FirstFailure(
         out bool retryable,
         params TypedRegistryResolution[] resolutions)
     {
@@ -800,14 +800,14 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             if (!resolution.IsRetryable)
             {
                 retryable = false;
-                return resolution.Format();
+                return resolution.FormatCause();
             }
             firstRetryable ??= resolution;
         }
         if (firstRetryable is not null)
         {
             retryable = true;
-            return firstRetryable.Format();
+            return firstRetryable.FormatCause();
         }
         retryable = false;
         return "An Auto Scribe live identity was unavailable.";

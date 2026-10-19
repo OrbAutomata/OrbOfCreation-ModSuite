@@ -49,7 +49,7 @@ internal sealed class ChallengeGameAction : NativeGameAction<ChallengeNativeBind
             var resolution = _registry.Resolve(action.TargetId, native.ChallengeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
-                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Cause);
             target = resolution.Value!;
         }
 
@@ -59,7 +59,7 @@ internal sealed class ChallengeGameAction : NativeGameAction<ChallengeNativeBind
             var resolution = _registry.Resolve(action.ReplacedId, native.ChallengeType);
             if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
                 return ChallengeSubmission.Reject(ChallengeActionResultCodes.IdentityUnavailable,
-                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Reason);
+                    resolution.IsResolved ? GameActionAnswer.Replaced("challenge") : resolution.Cause);
             replaced = resolution.Value!;
         }
 

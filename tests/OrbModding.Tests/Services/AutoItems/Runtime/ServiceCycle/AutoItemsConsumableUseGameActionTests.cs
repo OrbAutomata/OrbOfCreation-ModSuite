@@ -297,6 +297,22 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
+    public void AUseWhoseQueueCannotBeReadAfterwardsSaysSoRatherThanThatItDidNotEnterPreparation()
+    {
+        var relic = Item(AutoItemsConsumableFamily.Relic);
+        relic.QueueUnreadableAfterFire = true;
+        using var gameAction = GameAction();
+        var action = Action(relic, AutoItemsConsumableFamily.Relic);
+
+        var result = gameAction.Submit(in action);
+
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, result.Code);
+        Assert.Contains("its queue could not be read afterwards", result.Reason);
+        Assert.DoesNotContain("did not enter native preparation", result.Reason);
+        Assert.DoesNotContain("injected queue outage", result.Reason);
+    }
+
+    [Fact]
     public void ManualStockRaceAfterPreflightIsAttemptedAndFailsExactPostcondition()
     {
         var scroll = Item(AutoItemsConsumableFamily.Scroll);

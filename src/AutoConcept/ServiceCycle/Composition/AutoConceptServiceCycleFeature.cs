@@ -74,11 +74,12 @@ internal sealed class AutoConceptFeatureRuntime : IAutomataServiceCycleFeatureRu
             _lifecycleValue,
             _initialConfigurationGeneration,
             _dependencies.OwnsActionFamily(),
-            _dependencies.FeatureStatus);
+            _dependencies.FeatureStatus,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report) =>
-        _diagnostics?.Observe(pump, in report, _dependencies.OwnsActionFamily());
+        _diagnostics?.Observe(pump, in report, _dependencies.OwnsActionFamily(), _natives.ContractMismatch);
 
     public void ObserveConfiguration(ConfigGeneration configurationGeneration) =>
         _diagnostics?.ObserveConfiguration(configurationGeneration);

@@ -110,6 +110,17 @@ public sealed class AutomationCycleGuard<TAction>
         return reason;
     }
 
+    /// <summary>
+    /// A refusal that holds every action until the next run, such as a game contract the feature
+    /// proved it cannot use. It backs no target off, and it is warned about once across targets.
+    /// </summary>
+    public ServiceActionResult Hold(in NativeActionOutcome outcome, in TAction action)
+    {
+        if (!_warned.IsRepeat(in outcome))
+            _warn($"{_describe(action)}: {outcome.Reason}");
+        return outcome.ToResult();
+    }
+
     public ServiceActionResult Finish(in NativeActionOutcome outcome, in TAction action)
     {
         if (outcome.Verified)

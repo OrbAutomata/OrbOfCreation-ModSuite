@@ -139,9 +139,12 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
             _capabilityFailure.Clear();
             return;
         }
-        if (_capabilityFailure.IsRepeat(failure)) return;
-        var reference = GameActionFaultLog.Record(cause, CapabilityScreen);
-        Plugin.Log?.LogAutomataWarning("Spell Leveling could not read what the game lets it do: " + failure + reference);
+        if (_capabilityFailure.IsRepeat(failure.Sentence)) return;
+        var reference = cause is null
+            ? GameActionFaultLog.Sentence(failure.Reference)
+            : GameActionFaultLog.Record(cause, CapabilityScreen);
+        Plugin.Log?.LogAutomataWarning(
+            "Spell Leveling could not read what the game lets it do: " + failure.Sentence + reference);
     }
 
     private void PublishFeatureStatus()

@@ -19,8 +19,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var submission = AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 1),
             NativeMutationOutcome.Verified,
-            string.Empty,
-            1);
+            string.Empty);
 
         var result = Execute(submission);
 
@@ -58,8 +57,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var submission = AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 0),
             NativeMutationOutcome.PostconditionFailed,
-            "postcondition failed",
-            1);
+            "postcondition failed");
 
         var result = Execute(submission);
 
@@ -74,8 +72,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var native = new FakeNativePort(AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 1),
             NativeMutationOutcome.Verified,
-            string.Empty,
-            1));
+            string.Empty));
 
         var result = Execute(native, readEpoch: static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
 
@@ -89,8 +86,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var native = new FakeNativePort(AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 1),
             NativeMutationOutcome.Verified,
-            string.Empty,
-            1));
+            string.Empty));
 
         var result = Execute(native, nativeEpoch: PlannedEpoch + 1);
 
@@ -105,8 +101,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var native = new FakeNativePort(AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 1),
             NativeMutationOutcome.Verified,
-            string.Empty,
-            1));
+            string.Empty));
 
         var result = Execute(native, ownsActionFamily: false);
 
@@ -121,8 +116,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         var native = new FakeNativePort(AutoConceptSubmission.Attempted(
             new NativeMutationCallOutcome(1, 1, 1),
             NativeMutationOutcome.Verified,
-            string.Empty,
-            1));
+            string.Empty));
 
         var result = Execute(native, mode: AutoConceptOperationMode.Disabled);
 
@@ -175,7 +169,7 @@ public sealed class AutoConceptCycleActionAdapterTests
         Func<long>? readEpoch = null)
     {
         var adapter = new AutoConceptCycleActionAdapter(
-            native, readEpoch ?? (() => nativeEpoch), () => ownsActionFamily);
+            native, readEpoch ?? (() => nativeEpoch), () => ownsActionFamily, static _ => { });
         var config = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },

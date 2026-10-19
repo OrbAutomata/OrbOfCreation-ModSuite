@@ -47,7 +47,7 @@ internal sealed class RitualLifecycleGameAction : NativeGameAction<RitualLifecyc
         var resolution = _registry.Resolve(action.RitualId, native.RitualType);
         if (!resolution.IsResolved || !_registry.IsCurrent(resolution))
             return Reject(RitualLifecycleActionResultCodes.IdentityUnavailable,
-                resolution.IsResolved ? GameActionAnswer.Replaced("ritual") : resolution.Reason);
+                resolution.IsResolved ? GameActionAnswer.Replaced("ritual") : resolution.Cause);
         var ritual = resolution.Value!;
         if (!native.IsDiscovered(ritual))
             return Reject(RitualLifecycleActionResultCodes.NotDiscovered,
@@ -230,5 +230,5 @@ internal sealed class RitualLifecycleGameAction : NativeGameAction<RitualLifecyc
 
     private static RitualLifecycleSubmission Reject(
         ServiceActionResultCode code,
-        string reason) => new(NativeActionOutcome.Reject(code, reason));
+        GameActionReason reason) => new(NativeActionOutcome.Reject(code, reason));
 }

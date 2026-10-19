@@ -81,7 +81,6 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
         var deepened = native.Submit(in depth, DefaultLimits);
 
         Assert.True(deepened.Outcome.Verified, deepened.Outcome.Reason);
-        Assert.Equal(2, deepened.AppliedDelta);
         Assert.Equal(3, replacement.queuedQuantity);
     }
 
@@ -374,7 +373,8 @@ public sealed class AutoConceptHeadlessJourneyTests
             _actions = new AutoConceptCycleActionAdapter(
                 new SimulatedNativePort(_candidates, _activeSlots),
                 () => 1,
-                () => true);
+                () => true,
+                static _ => { });
         }
 
         internal Guid InitiallyActiveId => _candidates[0].Id;
@@ -602,13 +602,11 @@ public sealed class AutoConceptHeadlessJourneyTests
                     return AutoConceptSubmission.Rejected(
                         AutoConceptActionResultCodes.SlotUnavailable,
                         "simulated drained resource is at zero");
-                var removed = candidate.QueuedQuantity;
                 candidate.QueuedQuantity = 0;
                 return AutoConceptSubmission.Attempted(
                     new NativeMutationCallOutcome(1, 1, 1),
                     NativeMutationOutcome.Verified,
-                    string.Empty,
-                    -removed);
+                    string.Empty);
             }
 
             var target = action.Kind == AutoConceptActionKind.RemoveOwned
@@ -621,13 +619,11 @@ public sealed class AutoConceptHeadlessJourneyTests
                 return AutoConceptSubmission.Rejected(
                     AutoConceptActionResultCodes.SlotUnavailable,
                     "simulated active concept slots are full");
-            var delta = target - candidate.QueuedQuantity;
             candidate.QueuedQuantity = target;
             return AutoConceptSubmission.Attempted(
                 new NativeMutationCallOutcome(1, 1, 1),
                 NativeMutationOutcome.Verified,
-                string.Empty,
-                delta);
+                string.Empty);
         }
 
         private Candidate Find(Guid id)

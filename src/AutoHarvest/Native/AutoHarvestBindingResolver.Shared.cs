@@ -82,7 +82,7 @@ internal sealed partial class AutoHarvestBindingResolver
                 ? AutoHarvestRuntimeFailureKind.Retryable
                 : AutoHarvestRuntimeFailureKind.Contract,
             scope,
-            EntityIdentityFormatter.Format(uuid) + " registry identity is unavailable: " + resolution.Format());
+            resolution.FormatCause().Around(EntityIdentityFormatter.Format(uuid) + " registry identity is unavailable: "));
         return false;
     }
 

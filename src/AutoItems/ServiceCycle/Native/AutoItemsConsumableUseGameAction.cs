@@ -47,7 +47,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
         if (!resolution.IsResolved)
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.ItemUnavailable,
-                resolution.Format());
+                resolution.FormatCause());
         var item = resolution.Value!;
         if (!HasExpectedFamily(item, action.Family, native, out var reason))
             return NativeActionOutcome.Reject(AutoItemsActionResultCodes.FamilyChanged, reason);
@@ -143,12 +143,22 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 AutoItemsActionResultCodes.UseNotVerified,
                 evidence.Outcome,
                 callOutcome,
-                $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} did not enter " +
-                $"native preparation: {evidence.Format()}");
+                GameActionFaultLog.Reason(
+                    $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} " +
+                    (!evidence.HasAfter
+                        ? "was sent to native preparation, and its queue could not be read afterwards."
+                        : evidence.Exception is null
+                            ? "did not enter native preparation."
+                            : "did not enter native preparation after the game threw."),
+                    evidence.Exception,
+                    "Auto Items"));
         return NativeActionOutcome.FaultBeforeCall(
             AutoItemsActionResultCodes.ContractUnavailable,
-            "Auto Items could not read the consumable preparation queue for " +
-            $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}");
+            GameActionFaultLog.Reason(
+                "Auto Items could not read the consumable preparation queue for " +
+                $"{EntityIdentityFormatter.PlayerName(action.ItemId)}.",
+                evidence.Exception,
+                "Auto Items"));
     }
 
     internal void InvalidateLifecycle()

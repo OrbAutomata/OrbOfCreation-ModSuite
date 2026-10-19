@@ -206,7 +206,8 @@ public sealed class MentorNativeAdapterTests : IDisposable
         var result = adapter.Grant(in action);
 
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
-        Assert.Equal("injected discovery read failure", result.Reason);
+        Assert.StartsWith("Mentor could not grant mastery XP.", result.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("injected discovery read failure", result.Reason, StringComparison.Ordinal);
         Assert.Equal(0, spell.MasteryGrantCalls);
     }
 

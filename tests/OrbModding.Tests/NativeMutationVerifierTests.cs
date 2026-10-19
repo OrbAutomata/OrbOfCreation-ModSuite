@@ -85,35 +85,46 @@ public sealed class NativeMutationVerifierTests : IDisposable
     }
 
     /// <summary>
-    /// A throw outside the expected native failures is classified and quarantined first, then
-    /// escapes, and its evidence names the game's own exception rather than the reflection wrapper
-    /// around it.
+    /// A throw outside the expected native failures escapes only after the after-state was read, so a
+    /// change that landed before it can still commit.
     /// </summary>
     [Fact]
-    public void AnUnexpectedThrowIsClassifiedAndQuarantinedBeforeItEscapes()
+    public void AnUnexpectedThrowEscapesAfterTheAfterStateIsRead()
     {
         var thrower = typeof(NativeMutationVerifierTests).GetMethod(
             nameof(ThrowFromNativeCode),
             BindingFlags.Static | BindingFlags.NonPublic)!;
-        NativeMutationEvidence<int>? quarantined = null;
+        var reads = 0;
 
         Assert.Throws<TargetInvocationException>(() => NativeMutationVerifier.Execute(
             "test queue",
             "candidate-reflected",
             "exact delta +1",
-            () => 0,
+            () => reads++,
             () => thrower.Invoke(null, null),
-            (before, after) => after == before + 1,
-            evidence => quarantined = evidence));
+            (before, after) => after == before + 2));
 
-        var evidence = Assert.NotNull(quarantined);
-        Assert.Equal(NativeMutationOutcome.ExecutionThrew, evidence.Outcome);
-        Assert.IsType<TargetInvocationException>(evidence.Exception);
-        Assert.Contains(typeof(NullReferenceException).FullName!, evidence.Detail);
-        Assert.Contains(nameof(ThrowFromNativeCode), evidence.Detail);
-        Assert.DoesNotContain(nameof(TargetInvocationException), evidence.Detail);
-        Assert.DoesNotContain("\n", evidence.Detail);
-        Assert.True(evidence.Detail.Length <= ExceptionDetail.MaxLength);
+        Assert.Equal(2, reads);
+    }
+
+    /// <summary>
+    /// Evidence names the game's own exception rather than the reflection wrapper around it.
+    /// </summary>
+    [Fact]
+    public void ExceptionDetailNamesTheGamesOwnExceptionInsideAReflectionWrapper()
+    {
+        var thrower = typeof(NativeMutationVerifierTests).GetMethod(
+            nameof(ThrowFromNativeCode),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var wrapped = Assert.Throws<TargetInvocationException>(() => thrower.Invoke(null, null));
+
+        var detail = ExceptionDetail.Describe(wrapped);
+
+        Assert.Contains(typeof(NullReferenceException).FullName!, detail);
+        Assert.Contains(nameof(ThrowFromNativeCode), detail);
+        Assert.DoesNotContain(nameof(TargetInvocationException), detail);
+        Assert.DoesNotContain("\n", detail);
+        Assert.True(detail.Length <= ExceptionDetail.MaxLength);
     }
 
     [Fact]

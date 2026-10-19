@@ -135,7 +135,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
     private ServiceActionResult Unresolved(in AutoHarvestNativeFailure failure, in AutoHarvestCycleAction action)
     {
         if (failure.Kind != AutoHarvestRuntimeFailureKind.Contract)
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, failure.Reason);
+            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, failure.Reason.Text);
         var code = failure.Scope == AutoHarvestRuntimeFailureScope.Feature
             ? AutoHarvestActionResultCodes.FeatureContractUnavailable
             : AutoHarvestActionResultCodes.PairContractUnavailable;
