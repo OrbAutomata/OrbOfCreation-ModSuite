@@ -22,22 +22,32 @@ internal sealed class ServiceTargetRetryGate
 
     internal ServiceRetryGateSnapshot Snapshot { get; private set; } = ServiceRetryGateSnapshot.Empty;
 
+    internal bool AllowsCap(MonotonicDuration? maximumBackoff) => _policy.AllowsCap(maximumBackoff);
+
+    /// <summary>
+    /// A quiet first failure stays quiet while the target keeps failing on the world it first failed
+    /// on; the first failure from a fresher world is announced.
+    /// </summary>
     internal ServiceRetryEntry Record(
         ServiceRetryTarget target,
         ServiceActionResultCode code,
         string reason,
         MonotonicTimestamp failedAt,
         bool awaitsObservation = false,
-        MonotonicDuration? maximumBackoff = null)
+        MonotonicDuration? maximumBackoff = null,
+        bool quietFirstFailure = false,
+        WorldGeneration plannedFrom = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("A backing-off target names why it failed.", nameof(reason));
         var current = Snapshot;
         var index = current.IndexOf(target);
         var failures = 1;
+        var quiet = quietFirstFailure;
         if (index >= 0)
         {
             var previous = current[index];
+            quiet &= previous.IsQuiet && previous.PlannedFrom == plannedFrom;
             failures = previous.ConsecutiveFailures == int.MaxValue
                 ? int.MaxValue
                 : previous.ConsecutiveFailures + 1;
@@ -51,7 +61,9 @@ internal sealed class ServiceTargetRetryGate
             failures,
             failedAt,
             failedAt.AddSaturated(backoff),
-            awaitsObservation);
+            awaitsObservation,
+            quiet,
+            plannedFrom);
         var entries = new List<ServiceRetryEntry>(current.Count + 1);
         for (var existing = 0; existing < current.Count; existing++)
             if (existing != index)
@@ -163,7 +175,7 @@ internal sealed class ServiceRetryReportBuffer
 
     internal void Add(in ServiceRetryReport report)
     {
-        if (report.MaximumBackoff is { } cap && cap < _policy.InitialBackoff)
+        if (!_policy.AllowsCap(report.MaximumBackoff))
             throw new ArgumentOutOfRangeException(
                 nameof(report),
                 "A retry cap cannot be shorter than the service's initial fault backoff.");

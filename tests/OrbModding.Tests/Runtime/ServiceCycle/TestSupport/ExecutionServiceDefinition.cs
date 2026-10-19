@@ -42,6 +42,8 @@ internal class ExecutionServiceDefinition :
     internal int FaultAtIndex { get; set; } = -1;
     internal int SkipAtIndex { get; set; } = -1;
     internal int SkipWithoutNativeAtIndex { get; set; } = -1;
+    internal bool RefusalsBackOff { get; set; }
+    internal MonotonicDuration? RefusalBackoffCap { get; set; }
     internal NativeMutationCallOutcome CommittedNativeOutcome { get; set; } = new(1, 1, 1);
 
     /// <summary>When set, actions commit as publications instead of native mutations.</summary>
@@ -144,7 +146,7 @@ internal class ExecutionServiceDefinition :
         if (context.ActionIndex == FaultAtIndex)
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         if (context.ActionIndex == RejectAtIndex)
-            return ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected);
+            return Refusal(ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected));
         if (context.ActionIndex == SkipAtIndex)
             return ServiceActionResult.Skipped(
                 CommonActionResultCodes.Skipped,
@@ -152,7 +154,7 @@ internal class ExecutionServiceDefinition :
                     NativeMutationOutcome.PostconditionFailed,
                     new NativeMutationCallOutcome(1, 1, 0)));
         if (context.ActionIndex == SkipWithoutNativeAtIndex)
-            return ServiceActionResult.Skipped(CommonActionResultCodes.Skipped);
+            return Refusal(ServiceActionResult.Skipped(CommonActionResultCodes.Skipped));
         if (PublishesGeneration is { } published)
         {
             return ServiceActionResult.CommittedPublication(
@@ -164,4 +166,7 @@ internal class ExecutionServiceDefinition :
             CommonActionResultCodes.Committed,
             ServiceNativeMutationEvidence.Observed(NativeMutationOutcome.Verified, CommittedNativeOutcome));
     }
+
+    private ServiceActionResult Refusal(ServiceActionResult result) =>
+        RefusalsBackOff ? result.BackingOffTarget(RefusalBackoffCap) : result;
 }

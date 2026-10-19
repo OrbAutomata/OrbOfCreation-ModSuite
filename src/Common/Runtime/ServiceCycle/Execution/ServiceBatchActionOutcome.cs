@@ -20,14 +20,17 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         in ServiceActionFact actionFact,
         in ServiceActionJournalAttribution attribution,
         string? attributionFailureReason,
+        in ServiceActionResult result,
         in ServiceFaultRecoveryFact pendingRecovery,
-        MonotonicTimestamp observedAt,
-        bool committed)
+        MonotonicTimestamp observedAt)
     {
         _runtime.Actions.AdvanceCurrentAndClear();
+        var committed = result.Disposition == ServiceActionDisposition.Committed;
         if (committed) _runtime.State.CommittedCount++;
         if (committed && ServiceRetryTarget.TryFrom(in attribution, out var target))
             _runtime.State.RetryGate.ClearOnCommit(target);
+        else
+            RecordBackoff(in attribution, in result, observedAt, executionFailureReason: null);
         _runtime.State.ActionCursor++;
         if (_runtime.Actions.IsComplete)
         {
@@ -90,15 +93,7 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         MonotonicTimestamp observedAt,
         string? executionFailureReason)
     {
-        if (result.Disposition == ServiceActionDisposition.Faulted &&
-            ServiceRetryTarget.TryFrom(in attribution, out var target))
-        {
-            _runtime.State.RetryGate.Record(
-                target,
-                result.Code,
-                FailureReason(in result, executionFailureReason),
-                observedAt);
-        }
+        RecordBackoff(in attribution, in result, observedAt, executionFailureReason);
         var terminal = BatchReceipt.Terminated(
             _runtime.State.ActiveCycle,
             _runtime.State.ActiveBatch,
@@ -140,6 +135,24 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
             CommitRecovery(in pendingRecovery),
             attributionFailureReason,
             executionFailureReason);
+    }
+
+    private void RecordBackoff(
+        in ServiceActionJournalAttribution attribution,
+        in ServiceActionResult result,
+        MonotonicTimestamp observedAt,
+        string? executionFailureReason)
+    {
+        if (result.Disposition != ServiceActionDisposition.Faulted && !result.BacksOffTarget) return;
+        if (!ServiceRetryTarget.TryFrom(in attribution, out var target)) return;
+        _runtime.State.RetryGate.Record(
+            target,
+            result.Code,
+            FailureReason(in result, executionFailureReason),
+            observedAt,
+            maximumBackoff: result.TargetBackoffCap,
+            quietFirstFailure: result.QuietFirstFailure,
+            plannedFrom: _runtime.State.ActiveCycle.World);
     }
 
     private static string FailureReason(in ServiceActionResult result, string? executionFailureReason)

@@ -49,7 +49,9 @@ public readonly struct ServiceRetryEntry
         int consecutiveFailures,
         MonotonicTimestamp failedAt,
         MonotonicTimestamp retryDue,
-        bool awaitsObservation)
+        bool awaitsObservation,
+        bool isQuiet = false,
+        WorldGeneration plannedFrom = default)
     {
         Target = target;
         Code = code;
@@ -58,6 +60,8 @@ public readonly struct ServiceRetryEntry
         FailedAt = failedAt;
         RetryDue = retryDue;
         AwaitsObservation = awaitsObservation;
+        IsQuiet = isQuiet;
+        PlannedFrom = plannedFrom;
     }
 
     public ServiceRetryTarget Target { get; }
@@ -73,6 +77,15 @@ public readonly struct ServiceRetryEntry
     /// when it sees the target work again or stops considering it; a commit alone does not.
     /// </summary>
     public bool AwaitsObservation { get; }
+
+    /// <summary>
+    /// The target backs off without being announced: its refusal is one the game gives now and then,
+    /// and no fresher world has refused it again yet.
+    /// </summary>
+    public bool IsQuiet { get; }
+
+    /// <summary>The world the failing action was planned from, when the failure is quiet-first.</summary>
+    internal WorldGeneration PlannedFrom { get; }
 }
 
 /// <summary>
@@ -95,6 +108,19 @@ public sealed class ServiceRetryGateSnapshot
         _entries.Length == 0
             ? throw new InvalidOperationException("No target is backing off.")
             : _entries[_entries.Length - 1];
+
+    /// <summary>The announced entry whose failure was recorded last; quiet entries are not reported.</summary>
+    public bool TryGetLatestAnnounced(out ServiceRetryEntry entry)
+    {
+        for (var index = _entries.Length - 1; index >= 0; index--)
+        {
+            if (_entries[index].IsQuiet) continue;
+            entry = _entries[index];
+            return true;
+        }
+        entry = default;
+        return false;
+    }
 
     public bool TryFind(ServiceRetryTarget target, out ServiceRetryEntry entry)
     {

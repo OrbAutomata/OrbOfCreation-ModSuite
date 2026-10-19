@@ -53,8 +53,8 @@ internal static class AutoItemsFeatureStatusProjector
                     : bindingFailure);
         if (health.HasFailure)
             return FromActionFailure(health.Code, health.Reason);
-        if (retries.Count != 0 && decisionKind != AutoItemsDecisionKind.Disabled)
-            return BackingOff(retries.Latest);
+        if (decisionKind != AutoItemsDecisionKind.Disabled && retries.TryGetLatestAnnounced(out var retry))
+            return BackingOff(in retry);
         if (!cycleObserved)
             return new AutoItemsFeatureStatus(
                 FeatureStatusState.NotReady,

@@ -111,9 +111,9 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in actionFact,
                 in attribution,
                 attributionFailureReason,
+                in result,
                 in pendingRecovery,
-                observedAt,
-                result.Disposition == ServiceActionDisposition.Committed)
+                observedAt)
             : _outcomes.Terminate(
                 in actionFact,
                 in attribution,
@@ -138,8 +138,12 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in action,
                 in snapshot,
                 in context);
-            if (result.IsValid) return result;
-            failureReason = "the service returned an invalid action result";
+            if (!result.IsValid)
+                failureReason = "the service returned an invalid action result";
+            else if (!_runtime.State.RetryGate.AllowsCap(result.TargetBackoffCap))
+                failureReason = "the service capped a target's backoff below its initial fault backoff";
+            else
+                return result;
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))

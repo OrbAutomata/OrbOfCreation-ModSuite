@@ -5,8 +5,8 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 namespace OrbModding.Common;
 
 /// <summary>
-/// Says out loud what a service's retry gate is doing: one line each time a target fails and backs
-/// off, and one when the episode ends.
+/// Says out loud what a service's retry gate is doing: one line when a target's episode is announced,
+/// and one when that episode ends. A quiet entry is announced only once it stops being quiet.
 /// </summary>
 internal sealed class ServiceRetryEpisodeNarrator
 {
@@ -30,7 +30,7 @@ internal sealed class ServiceRetryEpisodeNarrator
         for (var index = 0; index < Current.Count; index++)
         {
             var previous = Current[index];
-            if (!gate.TryFind(previous.Target, out _))
+            if (!previous.IsQuiet && !gate.TryFind(previous.Target, out _))
                 _warn(
                     $"{_feature} stops backing off {EntityIdentityFormatter.Format(previous.Target.Id)} after " +
                     $"{Attempts(previous.ConsecutiveFailures)}.");
@@ -38,9 +38,8 @@ internal sealed class ServiceRetryEpisodeNarrator
         for (var index = 0; index < gate.Count; index++)
         {
             var entry = gate[index];
-            if (Current.TryFind(entry.Target, out var previous) &&
-                previous.ConsecutiveFailures == entry.ConsecutiveFailures &&
-                previous.FailedAt == entry.FailedAt)
+            if (entry.IsQuiet ||
+                Current.TryFind(entry.Target, out var previous) && !previous.IsQuiet)
                 continue;
             _warn(
                 $"{_feature} backs off {EntityIdentityFormatter.Format(entry.Target.Id)} after " +

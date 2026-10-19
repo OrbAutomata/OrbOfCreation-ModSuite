@@ -189,7 +189,10 @@ public readonly struct ServiceActionResult
         bool hasNativeEvidence,
         ServiceNativeMutationEvidence nativeEvidence,
         ServicePublicationEvidence publicationEvidence,
-        string reason)
+        string reason,
+        bool backsOffTarget = false,
+        MonotonicDuration? targetBackoffCap = null,
+        bool quietFirstFailure = false)
     {
         Disposition = disposition;
         Code = code;
@@ -198,6 +201,9 @@ public readonly struct ServiceActionResult
         NativeEvidence = nativeEvidence;
         PublicationEvidence = publicationEvidence;
         _reason = reason;
+        BacksOffTarget = backsOffTarget;
+        TargetBackoffCap = targetBackoffCap;
+        QuietFirstFailure = quietFirstFailure;
     }
 
     private readonly string? _reason;
@@ -221,6 +227,21 @@ public readonly struct ServiceActionResult
     public bool HasPublicationEvidence => Effect == ServiceActionEffect.Publication;
 
     /// <summary>
+    /// The refusal backs its own target off, and the runner retries that target when due exactly as
+    /// it retries one whose action faulted.
+    /// </summary>
+    public bool BacksOffTarget { get; }
+
+    /// <summary>The longest wait the doubling may reach for this target; the service's policy maximum when absent.</summary>
+    public MonotonicDuration? TargetBackoffCap { get; }
+
+    /// <summary>
+    /// The target's first refusal is one the game gives now and then, so it backs off without being
+    /// announced until a later world refuses it again.
+    /// </summary>
+    public bool QuietFirstFailure { get; }
+
+    /// <summary>
     /// Native-call totals for this action. A publishing action contributes zeroes, which is the
     /// truth: it made no native call. Reporting an attempt so that it looked like every other
     /// committed action would corrupt the budget for the services that really do call the game.
@@ -228,7 +249,10 @@ public readonly struct ServiceActionResult
     public NativeMutationCallOutcome NativeCallOutcome =>
         HasNativeEvidence ? NativeEvidence.CallOutcome : default;
 
-    public bool IsValid => Code.IsValid && IsAllowedCode(Code, Disposition) && Disposition switch
+    public bool IsValid => Code.IsValid && IsAllowedCode(Code, Disposition) &&
+        (!BacksOffTarget || Disposition is ServiceActionDisposition.Skipped or ServiceActionDisposition.Rejected) &&
+        (BacksOffTarget || TargetBackoffCap is null && !QuietFirstFailure) &&
+        Disposition switch
     {
         ServiceActionDisposition.Committed => Effect switch
         {
@@ -307,7 +331,23 @@ public readonly struct ServiceActionResult
     /// </summary>
     public ServiceActionResult WithReason(string? reason) =>
         new(Disposition, Code, Effect, HasNativeEvidence, NativeEvidence, PublicationEvidence,
-            Disposition == ServiceActionDisposition.Committed ? string.Empty : reason ?? string.Empty);
+            Disposition == ServiceActionDisposition.Committed ? string.Empty : reason ?? string.Empty,
+            BacksOffTarget, TargetBackoffCap, QuietFirstFailure);
+
+    /// <summary>
+    /// The same refusal, backing its target off on the service's retry gate. A fault always backs its
+    /// target off; a refusal does so only when the service says the target, not the moment, is wrong.
+    /// </summary>
+    public ServiceActionResult BackingOffTarget(
+        MonotonicDuration? maximumBackoff = null,
+        bool quietFirstFailure = false)
+    {
+        if (Disposition is not (ServiceActionDisposition.Skipped or ServiceActionDisposition.Rejected))
+            throw new InvalidOperationException("Only a skipped or rejected action asks to back its target off.");
+        return new ServiceActionResult(
+            Disposition, Code, Effect, HasNativeEvidence, NativeEvidence, PublicationEvidence, Reason,
+            true, maximumBackoff, quietFirstFailure);
+    }
 
     private static ServiceActionResult Create(
         ServiceActionDisposition disposition,
