@@ -144,8 +144,12 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 evidence.Outcome,
                 callOutcome,
                 GameActionFaultLog.Reason(
-                    $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} did not enter " +
-                    (evidence.Exception is null ? "native preparation." : "native preparation after the game threw."),
+                    $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} " +
+                    (!evidence.HasAfter
+                        ? "was sent to native preparation, and its queue could not be read afterwards."
+                        : evidence.Exception is null
+                            ? "did not enter native preparation."
+                            : "did not enter native preparation after the game threw."),
                     evidence.Exception,
                     "Auto Items"));
         return NativeActionOutcome.FaultBeforeCall(
