@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
@@ -27,7 +28,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void ASingleLevelCommitsAsAnExactPlusOneDelta()
+    public void ASingleLevelCommitsWhenTheLevelRises()
     {
         var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
 
@@ -39,6 +40,18 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         Assert.Equal(NativeMutationOutcome.Verified, result.NativeEvidence.Outcome);
         Assert.Equal(4, spell.masteryLevel);
         Assert.Equal(1, spell.GetLevelCost().PerformCalls);
+    }
+
+    [Fact]
+    public void ALevelThatRisesByMoreThanOneStillCommits()
+    {
+        var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
+        spell.ExtraLevelsPerPurchase = 1;
+
+        var result = Execute(SpellLevelActionKind.Single, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Committed, result.Disposition);
+        Assert.Equal(5, spell.masteryLevel);
     }
 
     [Fact]
@@ -109,7 +122,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AnAllWithNoAffordableLiveSpellRejectsWithoutCallingOrQuarantiningTheBatch()
+    public void AnAllWithNoAffordableLiveSpellRejectsWithoutCallingTheBatch()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.levelCost.affordable = false;
@@ -248,28 +261,22 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AMutationThatDoesNotMoveTheLevelFaultsAndBlocksFurtherSpending()
+    public void APaidLevelThatDoesNotRiseFaultsAndBacksItsSpellOffWithoutBlockingTheNextPress()
     {
-        // The audited postcondition. A native call that spends and does not deliver means the suite no
-        // longer understands the contract, so it faults and the port refuses to call again until the
-        // next lifecycle rather than spending on every cycle forever.
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.SuppressLevelMutation = true;
         var levels = new SpellLevelNativeAdapter();
 
         var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
-        Assert.Equal(CommonActionResultCodes.AdapterFault, first.Code);
-
         spell.SuppressLevelMutation = false;
         var second = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
-        Assert.Equal(1, spell.masteryLevel);
 
-        // A lifecycle boundary is the one thing that clears it, which is the whole retained-state rule.
-        levels.InvalidateLifecycle();
-        var third = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Committed, third.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, first.Code);
+        Assert.True(first.BacksOffTarget);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)), first.TargetInitialBackoff);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(30)), first.TargetBackoffCap);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
         Assert.Equal(2, spell.masteryLevel);
     }
 
@@ -321,29 +328,81 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// A throw outside the expected native failures stays loud, but only after the level it may have
-    /// paid for is blocked: the fault tracker retries the batch, and an unblocked retry would pay again.
+    /// A throw outside the expected native failures after the cost was paid is a post-payment fault:
+    /// the exception goes whole to the suite log, the reason names its reference, and the next press
+    /// is not blocked.
     /// </summary>
     [Fact]
-    public void AnUnexpectedThrowBeforeTheLevelLandsEscapesAndStillBlocks()
+    public void AnUnexpectedThrowAfterPaymentWithNoLevelFaultsUnderItsLogReference()
     {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.SuppressLevelMutation = true;
         spell.ThrowAfterLevelMutation = new NullReferenceException("injected failure before the level landed");
         var levels = new SpellLevelNativeAdapter();
 
-        Assert.Throws<NullReferenceException>(() => Execute(SpellLevelActionKind.Single, Id(spell), levels: levels));
-
+        var faulted = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         spell.SuppressLevelMutation = false;
         spell.ThrowAfterLevelMutation = null;
-        var blocked = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Faulted, blocked.Disposition);
-        Assert.Equal(1, spell.masteryLevel);
-        Assert.Equal(1, spell.levelCost.PerformCalls);
+        var committed = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.True(faulted.BacksOffTarget);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)), faulted.TargetInitialBackoff);
+        Assert.DoesNotContain("injected failure", faulted.Reason);
+        var entry = Assert.Single(logged);
+        Assert.Contains("System.NullReferenceException: injected failure before the level landed", entry);
+        Assert.Contains(" Reference " + entry.Split(' ')[3] + " is in the suite log.", faulted.Reason);
+        Assert.Equal(ServiceActionDisposition.Committed, committed.Disposition);
+        Assert.Equal(2, spell.masteryLevel);
     }
 
     [Fact]
-    public void AnAttemptedAllNoOpFaultsAndBlocksTheBatchUntilLifecycleReplacement()
+    public void AnExpectedThrowAfterPaymentWithNoLevelFaultsAfterTheGameThrewUnderItsLogReference()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.SuppressLevelMutation = true;
+        spell.ThrowAfterLevelMutation = new InvalidOperationException("injected expected failure after payment");
+
+        var faulted = Execute(SpellLevelActionKind.Single, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.Equal(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)), faulted.TargetInitialBackoff);
+        var entry = Assert.Single(logged);
+        Assert.Contains("System.InvalidOperationException: injected expected failure after payment", entry);
+        Assert.Equal(
+            $"Spell Leveling paid for a level of {EntityIdentityFormatter.PlayerName(Id(spell))} and the level did not rise " +
+            "after the game threw. Reference " + entry.Split(' ')[3] + " is in the suite log.",
+            faulted.Reason);
+    }
+
+    [Fact]
+    public void AReadThatFailsBeforeTheBatchPressFaultsUnderItsLogReferenceWithNothingPaid()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        UnlockLevelAll(level: 1);
+        spell.levelCost.WhileAffordabilityIsRead =
+            () => global::SpellManager.instance!.availableSpellRecipes.value = null!;
+
+        var faulted = Execute(SpellLevelActionKind.All, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.Null(faulted.TargetInitialBackoff);
+        Assert.Equal(0, global::SpellManager.instance!.TryLevelAllCalls);
+        var entry = Assert.Single(logged);
+        Assert.Contains("available spell recipe contents are unavailable", entry);
+        Assert.Equal(
+            "spell-level read failed before the press. Reference " + entry.Split(' ')[3] + " is in the suite log.",
+            faulted.Reason);
+    }
+
+    [Fact]
+    public void AnAllThatLevelsNothingFaultsAndBacksOffWithoutBlockingTheNextPress()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.SuppressLevelMutation = true;
@@ -352,22 +411,54 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var levels = new SpellLevelNativeAdapter();
 
         var first = Execute(SpellLevelActionKind.All, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
-        Assert.Equal(CommonActionResultCodes.AdapterFault, first.Code);
-        Assert.Equal(1, global::SpellManager.instance!.TryLevelAllCalls);
-
         spell.SuppressLevelMutation = false;
         spell.levelCost.AffordableLevels = 1;
-        var blocked = Execute(SpellLevelActionKind.All, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Faulted, blocked.Disposition);
-        Assert.Equal(1, global::SpellManager.instance!.TryLevelAllCalls);
-        Assert.Equal(1, spell.masteryLevel);
+        var second = Execute(SpellLevelActionKind.All, Id(spell), levels: levels);
 
-        levels.InvalidateLifecycle();
-        var recovered = Execute(SpellLevelActionKind.All, Id(spell), levels: levels);
-        Assert.Equal(ServiceActionDisposition.Committed, recovered.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.True(first.BacksOffTarget);
+        Assert.Equal(ServiceActionDisposition.Committed, second.Disposition);
         Assert.Equal(2, global::SpellManager.instance!.TryLevelAllCalls);
         Assert.Equal(2, spell.masteryLevel);
+    }
+
+    [Fact]
+    public void AnInitialisationThrowFaultsAndTheNextPressBindsAgain()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        var recipes = global::SpellManager.instance!.availableSpellRecipes.value;
+        global::SpellManager.instance.availableSpellRecipes.value = null!;
+        var levels = new SpellLevelNativeAdapter();
+
+        var faulted = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        global::SpellManager.instance.availableSpellRecipes.value = recipes;
+        var committed = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, faulted.Disposition);
+        Assert.Equal(ServiceActionDisposition.Committed, committed.Disposition);
+        Assert.Equal(2, spell.masteryLevel);
+    }
+
+    [Fact]
+    public void AProvenContractMismatchStaysBlockedUntilTheLifecycleIsReplaced()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        var levelAll = global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid];
+        global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid] =
+            new global::StructureSO { uuid = KnownEntities.UnlockLevelAllSpells.Uuid.ToString("D") };
+        var levels = new SpellLevelNativeAdapter();
+
+        var mismatched = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid] = levelAll;
+        var blocked = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+        levels.InvalidateLifecycle();
+        var rebound = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, mismatched.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, blocked.Disposition);
+        Assert.Equal(mismatched.Reason, blocked.Reason);
+        Assert.Equal(ServiceActionDisposition.Committed, rebound.Disposition);
+        Assert.Equal(1, spell.levelCost.PerformCalls);
     }
 
     [Fact]
@@ -391,16 +482,16 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var levels = new SpellLevelNativeAdapter();
         var spell = Spell(masteryLevel: 1, ready: false, unlocked: false);
 
-        Assert.True(levels.TryReadCapability(out var locked));
+        Assert.True(levels.TryReadCapability(out var locked, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.Locked, locked);
 
         // Readiness is not what unlocks the feature — the prerequisite is.
         spell.levelingPrerequisites.available = true;
-        Assert.True(levels.TryReadCapability(out var single));
+        Assert.True(levels.TryReadCapability(out var single, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.Single, single);
 
         UnlockLevelAll(level: 1);
-        Assert.True(levels.TryReadCapability(out var all));
+        Assert.True(levels.TryReadCapability(out var all, out _, out _));
         Assert.Equal(AutoSpellLevelCapability.All, all);
     }
 
@@ -422,7 +513,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
                 missing + " did not disable the set: " + result.Reason);
             Assert.Equal(1, spell.masteryLevel);
             Assert.Equal(0, spell.GetLevelCost().PerformCalls);
-            Assert.False(levels.TryReadCapability(out _));
+            Assert.False(levels.TryReadCapability(out _, out _, out _));
         }
     }
 

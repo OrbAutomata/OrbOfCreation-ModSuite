@@ -53,6 +53,9 @@ internal enum SpellLevelExclusion
 
     /// <summary>Ready, but another ready spell outranked it. Exactly one action is planned per cycle.</summary>
     Outranked = 4,
+
+    /// <summary>Ready and affordable, but backing off on the retry gate after its last level faulted.</summary>
+    BackingOff = 5,
 }
 
 /// <summary>How many spells each exclusion term accounted for in one cycle.</summary>
@@ -62,20 +65,27 @@ internal enum SpellLevelExclusion
 /// </remarks>
 internal readonly struct SpellLevelExclusionHistogram
 {
-    internal SpellLevelExclusionHistogram(int undiscovered, int notReady, int unaffordable, int outranked)
+    internal SpellLevelExclusionHistogram(
+        int undiscovered,
+        int notReady,
+        int unaffordable,
+        int outranked,
+        int backingOff)
     {
         Undiscovered = undiscovered;
         NotReady = notReady;
         Unaffordable = unaffordable;
         Outranked = outranked;
+        BackingOff = backingOff;
     }
 
     public int Undiscovered { get; }
     public int NotReady { get; }
     public int Unaffordable { get; }
     public int Outranked { get; }
+    public int BackingOff { get; }
 
-    public int Total => Undiscovered + NotReady + Unaffordable + Outranked;
+    public int Total => Undiscovered + NotReady + Unaffordable + Outranked + BackingOff;
 
     public int For(SpellLevelExclusion exclusion) => exclusion switch
     {
@@ -83,6 +93,7 @@ internal readonly struct SpellLevelExclusionHistogram
         SpellLevelExclusion.NotReady => NotReady,
         SpellLevelExclusion.Unaffordable => Unaffordable,
         SpellLevelExclusion.Outranked => Outranked,
+        SpellLevelExclusion.BackingOff => BackingOff,
         _ => 0,
     };
 }

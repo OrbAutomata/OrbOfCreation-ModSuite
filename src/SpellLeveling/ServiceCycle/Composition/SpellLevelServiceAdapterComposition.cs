@@ -29,8 +29,8 @@ internal sealed class SpellLevelServiceAdapterComposition
 
     /// <summary>
     /// The one native adapter, shared by the action boundary and the capability probe. Sharing it is
-    /// the point: both need the same bound contracts, and a contract the boundary blocked must stay
-    /// blocked for the probe too.
+    /// the point: both need the same bound contracts, and a proven contract mismatch holds for both
+    /// until the lifecycle is replaced.
     /// </summary>
     internal SpellLevelNativeAdapter Natives { get; }
     internal SpellLevelCycleActionAdapter Actions { get; }

@@ -245,6 +245,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     public bool SuppressMasteryGain { get; set; }
     public bool SuppressLevelMutation { get; set; }
     public Exception? ThrowAfterLevelMutation { get; set; }
+    public int ExtraLevelsPerPurchase { get; set; }
     public int MasteryGrantCalls { get; private set; }
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
     public Prerequisites.Container levelingPrerequisites = new Prerequisites.Container();
@@ -336,7 +337,7 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
         if (!readyToLevel) return;
         if (!SuppressLevelMutation)
         {
-            masteryLevel++;
+            masteryLevel += 1 + ExtraLevelsPerPurchase;
             readyToLevel = false;
         }
         if (ThrowAfterLevelMutation is { } failure) throw failure;
@@ -1784,9 +1785,12 @@ public class Prerequisites
 
         public BigDouble AdjustValue => adjustValue;
 
+        public Exception? CheckFailure { get; set; }
+
         public bool Check()
         {
             CheckCalls++;
+            if (CheckFailure is { } failure) throw failure;
             if (available) return true;
             if (NativeCheckResult) available = true;
             return available;
@@ -1933,8 +1937,10 @@ public class ResourceCostList
     public int AffordableLevels = int.MaxValue;
     public int PerformCalls { get; private set; }
     public int? ThrowAfterCostRows { get; set; }
+    public Action? WhileAffordabilityIsRead { get; set; }
     public bool HasEnough()
     {
+        WhileAffordabilityIsRead?.Invoke();
         if (!affordable || AffordableLevels <= 0) return false;
         var totals = new Dictionary<ResourceSO, BigDouble>();
         for (var index = 0; index < costs.Count; index++)
@@ -2758,6 +2764,7 @@ public class SpellManager
     /// <summary>How often the native gate refused a removal the caller asked for anyway.</summary>
     public int RefusedRemovals { get; private set; }
     public int TryLevelAllCalls { get; private set; }
+    public bool SuppressLevelAll { get; set; }
     public ResourceCostList? CreateCostOverride { get; set; }
     public Func<IReadOnlyList<GlyphSO>, ResourceCostList>? CreateCostResolver { get; set; }
 
@@ -2862,6 +2869,7 @@ public class SpellManager
     public void TryLevelAllSpells()
     {
         TryLevelAllCalls++;
+        if (SuppressLevelAll) return;
         foreach (var recipe in availableSpellRecipes.value)
         {
             while (recipe.IsDiscovered() && recipe.levelingPrerequisites.Check() &&

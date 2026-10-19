@@ -55,16 +55,6 @@ internal static class AutoScribeServicePolicies
 {
     internal static ServiceId ServiceId => new("orbautomata.auto-scribe");
 
-    /// <summary>
-    /// A craft the game charged for without admitting work waits a minute before its recipe is tried
-    /// again, doubling to half an hour, so a broken recipe cannot drain the player's resources.
-    /// </summary>
-    internal static MonotonicDuration PaidWithoutWorkFirstWait =>
-        MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1));
-
-    internal static MonotonicDuration PaidWithoutWorkBackoffCap =>
-        MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(30));
-
     internal static ServiceRetryTarget RetryTarget(Guid recipeId) =>
         new(recipeId, ServiceActionNativeTypeId.CraftingRecipeSO);
 

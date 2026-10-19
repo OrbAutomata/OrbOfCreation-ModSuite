@@ -52,9 +52,7 @@ internal sealed class AutoScribeCycleActionAdapter : IAutoScribeCycleActionPort
         _health.Observe(in submission);
         var result = _guard.Finish(submission.Outcome, in action);
         return AutoScribeServicePolicies.PaidWithoutWork(result.Code)
-            ? result.BackingOffTarget(
-                AutoScribeServicePolicies.PaidWithoutWorkBackoffCap,
-                initialBackoff: AutoScribeServicePolicies.PaidWithoutWorkFirstWait)
+            ? result.BackingOffAfterPayment()
             : result;
     }
 }
