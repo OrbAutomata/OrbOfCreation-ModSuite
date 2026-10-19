@@ -1,9 +1,12 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
+using System.Collections;
+using OrbModConfig;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.World;
+using UnityEngine;
 
 namespace OrbAutomata.GameMcp;
 
@@ -11,9 +14,14 @@ internal delegate GameMcpCommandResult GameMcpCommandExecutor(
     GameMcpCommand command,
     GameMcpCommandScope scope);
 
+internal delegate GameMcpCommandResult? GameMcpFrameCommandExecutor(
+    GameMcpCommand command,
+    GameMcpFrameContext context,
+    GameMcpFrameCommandScope scope);
+
 /// <summary>
-/// One gameplay command kind: how it executes on the main thread and how its committed answer
-/// settles against a later world.
+/// One command kind: how it executes on the main thread and, for a gameplay kind, how its
+/// committed answer settles against a later world.
 /// </summary>
 internal sealed class GameMcpCommandDescriptor
 {
@@ -27,9 +35,58 @@ internal sealed class GameMcpCommandDescriptor
         PostState = postState;
     }
 
+    internal GameMcpCommandDescriptor(
+        GameMcpCommandKind kind,
+        GameMcpFrameCommandExecutor? executeInFrame,
+        GameMcpPostStateRule? postState = null)
+    {
+        Kind = kind;
+        ExecuteInFrame = executeInFrame;
+        PostState = postState;
+    }
+
     internal GameMcpCommandKind Kind { get; }
     internal GameMcpCommandExecutor? Execute { get; }
+    internal GameMcpFrameCommandExecutor? ExecuteInFrame { get; }
     internal GameMcpPostStateRule? PostState { get; }
+}
+
+internal sealed class GameMcpFrameCommandScope
+{
+    internal GameMcpFrameCommandScope(
+        MonoBehaviour host,
+        Func<ModConfigUiShell?> uiShell,
+        Action<GameMcpCommand, GameMcpCommandResult> complete,
+        Func<GameMcpCommand, GameMcpCommandResult, IEnumerator> completeContinueRun,
+        GameMcpGadgets gadgets,
+        AutomataConfigurationStore configurationStore,
+        Func<long> lifecycleGeneration,
+        Func<bool> runtimeActivationAllowed,
+        AutomaticSaveBackupStatus automaticSaveBackup,
+        Action<bool> emergencyStopChanged)
+    {
+        Host = host;
+        UiShell = uiShell;
+        Complete = complete;
+        CompleteContinueRun = completeContinueRun;
+        Gadgets = gadgets;
+        ConfigurationStore = configurationStore;
+        LifecycleGeneration = lifecycleGeneration;
+        RuntimeActivationAllowed = runtimeActivationAllowed;
+        AutomaticSaveBackup = automaticSaveBackup;
+        EmergencyStopChanged = emergencyStopChanged;
+    }
+
+    internal MonoBehaviour Host { get; }
+    internal Func<ModConfigUiShell?> UiShell { get; }
+    internal Action<GameMcpCommand, GameMcpCommandResult> Complete { get; }
+    internal Func<GameMcpCommand, GameMcpCommandResult, IEnumerator> CompleteContinueRun { get; }
+    internal GameMcpGadgets Gadgets { get; }
+    internal AutomataConfigurationStore ConfigurationStore { get; }
+    internal Func<long> LifecycleGeneration { get; }
+    internal Func<bool> RuntimeActivationAllowed { get; }
+    internal AutomaticSaveBackupStatus AutomaticSaveBackup { get; }
+    internal Action<bool> EmergencyStopChanged { get; }
 }
 
 /// <summary>What one command's execution reads, pinned when the dispatcher admits it.</summary>

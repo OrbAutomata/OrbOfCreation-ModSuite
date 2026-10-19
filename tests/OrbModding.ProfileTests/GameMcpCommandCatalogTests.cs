@@ -36,6 +36,36 @@ public sealed class GameMcpCommandCatalogTests
     }
 
     [Fact]
+    public void NonGameplayKindWithPostStateRuleRefusesStart()
+    {
+        var shipping = GameMcpCommandCatalog.Shipping;
+        var screenshot = shipping.Commands.Single(
+            command => command.Kind == GameMcpCommandKind.Screenshot);
+        var commands = shipping.Commands
+            .Select(command => command != screenshot
+                ? command
+                : new GameMcpCommandDescriptor(
+                    screenshot.Kind, screenshot.ExecuteInFrame, GameMcpPostStateRule.FromPress))
+            .ToArray();
+        var errors = new List<string>();
+
+        var server = GameMcpHttpServer.TryStart(
+            new GameMcpFrameInbox(),
+            GameMcpToolCatalog.Shipping,
+            new GameMcpCommandCatalog(commands),
+            _ => { },
+            errors.Add,
+            GameMcpTestHarness.FreeLoopbackPort());
+        server?.Dispose();
+
+        Assert.Null(server);
+        var error = Assert.Single(errors);
+        Assert.Contains("refuses to start", error);
+        Assert.Contains(
+            "command Screenshot is no gameplay action, but declares a post-state rule", error);
+    }
+
+    [Fact]
     public void TheShippingCommandCatalogPassesTheStartCheck() =>
         Assert.Empty(GameMcpCommandCatalog.Shipping.Problems());
 }
