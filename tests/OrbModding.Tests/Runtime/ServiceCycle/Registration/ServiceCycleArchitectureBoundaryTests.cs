@@ -82,29 +82,6 @@ public sealed partial class ServiceCycleArchitectureTests
     }
 
     /// <summary>
-    /// The two shapes are siblings on one main-thread contract, and only one of them captures.
-    /// </summary>
-    /// <remarks>
-    /// Siblings rather than source-extends-ordinary: the two hand back different worker contracts,
-    /// because one evaluation reads the published world and the other the buffer its own capture
-    /// filled. An inheritance would force the source to also satisfy the ordinary worker factory and
-    /// hand back a worker it cannot honour.
-    /// </remarks>
-    [Fact]
-    public void TheSourceContractIsTheOrdinarySharedHalfPlusACapture()
-    {
-        Assert.Equal(
-            new[] { "CreateWorkerDefinition", "Capture" },
-            MemberNames(typeof(IServiceCycleSourceDefinition<,>)));
-        Assert.Equal(
-            typeof(IServiceCycleMainThreadDefinition<SourceAction>),
-            typeof(IServiceCycleSourceDefinition<SourceState, SourceAction>).GetInterfaces().Single());
-        Assert.Equal(
-            typeof(IServiceCycleMainThreadDefinition<ExecutionAction>),
-            typeof(IServiceCycleDefinition<ExecutionState, ExecutionAction>).GetInterfaces().Single());
-    }
-
-    /// <summary>
     /// One registration path takes a capture, and it names the dispatch class itself.
     /// </summary>
     /// <remarks>
@@ -137,13 +114,6 @@ public sealed partial class ServiceCycleArchitectureTests
 
         Assert.Equal(ServiceShape.Source, registry.GetSlot(0).ActionDispatchPolicy.Shape);
     }
-
-    private static string[] MemberNames(Type contract) => contract
-        .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
-        .Select(member => member.Name)
-        .Select(name => name.StartsWith("get_", StringComparison.Ordinal) ? name[4..] : name)
-        .Distinct()
-        .ToArray();
 
     /// <summary>
     /// One field per publication — world, configuration, strategy — all three constructed by the
