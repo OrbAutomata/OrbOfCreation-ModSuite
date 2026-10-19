@@ -349,31 +349,8 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         internal AutomataFeatureStatusReporter Status { get; }
         internal ServiceRetryGateSnapshot RetryGate => Service.RetryGate;
 
-        private ServiceCycleServiceDiagnosticsSnapshot Service
-        {
-            get
-            {
-                var deadline = Stopwatch.StartNew();
-                while (true)
-                {
-                    var service = Find();
-                    if (service.Availability == ServiceCycleDiagnosticsAvailability.Available) return service;
-                    if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
-                        throw new TimeoutException("Spell Leveling's diagnostics stayed " + service.Availability + ".");
-                    Thread.Yield();
-                }
-            }
-        }
-
-        private ServiceCycleServiceDiagnosticsSnapshot Find()
-        {
-            var services = new ServiceCycleServiceDiagnosticsSnapshot[8];
-            var copy = ServiceCycleDiagnostics.CopyServices(_host.Pump, services);
-            for (var index = 0; index < copy.WrittenCount; index++)
-                if (services[index].ServiceId.Equals(SpellLevelServicePolicies.ServiceId))
-                    return services[index];
-            throw new InvalidOperationException("Spell Leveling is not registered.");
-        }
+        private ServiceCycleServiceDiagnosticsSnapshot Service =>
+            AvailableServiceDiagnostics.Await(_host.Pump, SpellLevelServicePolicies.ServiceId);
 
         internal void Advance(MonotonicDuration duration) => _clock.Advance(duration);
 

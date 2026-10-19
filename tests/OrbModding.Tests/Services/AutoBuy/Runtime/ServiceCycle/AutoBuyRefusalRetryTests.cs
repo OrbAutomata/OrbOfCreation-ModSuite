@@ -91,6 +91,43 @@ public sealed class AutoBuyRefusalRetryTests
     }
 
     /// <summary>
+    /// A diagnostics read that finds the worker holding the handoff says nothing about the retry gate,
+    /// so it neither ends the announced episode nor lifts the Degraded status, and the episode is not
+    /// announced a second time once the read is fresh again.
+    /// </summary>
+    [Fact]
+    public void ADiagnosticsReadWhileTheWorkerHoldsTheHandoffKeepsTheAnnouncedEpisode()
+    {
+        var purchases = new Purchases(First, LevelCapRefusal());
+        using var harness = new Harness(purchases);
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var announced = harness.Warnings.ToArray();
+        var commits = purchases.Commits(Second);
+        using var contention = new HandoffGateContention(harness.Runner);
+        var held = false;
+        purchases.WhileSubmitting = uuid =>
+        {
+            if (held || uuid != Second) return;
+            held = true;
+            contention.Acquire();
+        };
+
+        HeldGate.AssertReturnsWhileHeld(
+            () => harness.PumpWorldsUntil(() => held, advanceClock: false),
+            contention.Release);
+        var statusWhileHeld = harness.Status.Current.State;
+        var warningsWhileHeld = harness.Warnings.ToArray();
+        contention.Release();
+        harness.PumpWorldsUntil(() => purchases.Commits(Second) >= commits + 3, advanceClock: false);
+
+        Assert.StartsWith("Auto Buy backs off ", Assert.Single(announced));
+        Assert.Equal(FeatureStatusState.Degraded, statusWhileHeld);
+        Assert.Equal(announced, warningsWhileHeld);
+        Assert.Equal(announced, harness.Warnings);
+        Assert.Equal(FeatureStatusState.Degraded, harness.Status.Current.State);
+    }
+
+    /// <summary>
     /// The world reading the candidate as unavailable agrees with the game, so the disagreement is
     /// over: the episode ends and nothing keeps Auto Buy Degraded.
     /// </summary>
@@ -257,6 +294,7 @@ public sealed class AutoBuyRefusalRetryTests
         internal List<string> Errors { get; } = new();
         internal List<string> Warnings { get; } = new();
         internal ServiceRetryGateSnapshot RetryGate => _registration.Runner.Snapshot.RetryGate;
+        internal object Runner => _registration.Runner;
         internal MonotonicTimestamp Now => _clock.Now;
 
         /// <summary>A save load, reset or prestige: the game reports a new lifecycle and the runtime moves to it.</summary>
@@ -309,6 +347,7 @@ public sealed class AutoBuyRefusalRetryTests
         }
 
         internal Func<MonotonicTimestamp>? Clock { get; set; }
+        internal Action<Guid>? WhileSubmitting { get; set; }
         internal bool Refusing { get; set; } = true;
         internal int TotalSubmissions { get; private set; }
 
@@ -323,6 +362,7 @@ public sealed class AutoBuyRefusalRetryTests
             long lifecycleEpoch)
         {
             TotalSubmissions++;
+            WhileSubmitting?.Invoke(uuid);
             if (!_submitted.TryGetValue(uuid, out var times)) _submitted[uuid] = times = new List<MonotonicTimestamp>();
             times.Add(Clock?.Invoke() ?? default);
             if (Refusing && uuid == _refused) return AutoBuyPurchaseSubmission.NotAdmissible(in _diagnosis);
