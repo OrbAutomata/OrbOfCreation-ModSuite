@@ -20,14 +20,18 @@ targeting, and temporary
 duration/toxicity-only cost vectors. It captures ownership permits, submits through
 `SelectAndFire()` under native multi-buy quantity one, and verifies one outcome: the exact item
 entered the native preparation queue. It does not snapshot stock, randomization, or usage counts as
-parallel postconditions. An absent Scroll/Relic transition quarantines the whole action; an absent
-temporary-item transition quarantines only that exact UUID.
+parallel postconditions. An absent transition is a `use_not_verified` fault for that exact item: it
+backs off through the shared
+[per-target retry gate](../../docs/runtime-architecture/service-cycle-runtime.md#per-target-retry-gate)
+and is tried again once due, while every other item keeps firing.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
-Exactly one usage must engage before disappearing. A usage Auto Items did not create belongs to the
-player: a second usage of the item, or its queued usage vanishing before it engaged, pauses that
-exact item until no usage of it remains, then the item resumes. Each pause and resume logs one
-warning naming the item and the cause, and the feature stays Operational. A temporary item still
+Exactly one usage must engage before disappearing. A queued usage that vanishes before it engaged is
+cancelled: the worker reports it to the retry gate, so the item backs off with doubling until one of
+its usages engages. A second usage of the item belongs to the player and pauses that exact item until
+no usage of it remains, then the item resumes; that pause logs one warning each way and the feature
+stays Operational. While any item backs off, the feature reports Degraded with the latest item and
+reason, and each back-off and resume logs one warning. A temporary item still
 preparing holds every use back; once its effect is active, only another temporary use waits, and
 Relics and Scrolls keep firing. Native Scroll/Relic preparation excludes a temporary use.
 

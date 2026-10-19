@@ -919,6 +919,7 @@ internal static class GameMcpDecisionReason
         ["family_changed"] = new(ClassRefused),
         ["native_busy"] = new(ClassRefused),
         ["quarantined"] = new(ClassRefused),
+        ["use_not_verified"] = new(ClassRefused),
         ["temporary_duration_changed"] = new(ClassRefused),
         ["temporary_cost_changed"] = new(ClassRefused),
         ["temporary_effect_present"] = new(ClassRefused),

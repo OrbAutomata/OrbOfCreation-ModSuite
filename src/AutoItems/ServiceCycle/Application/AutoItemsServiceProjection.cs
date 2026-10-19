@@ -73,7 +73,7 @@ internal static class AutoItemsServiceProjection
                     break;
                 case TemporaryPauseCauseKey when entry.Value.Integer is
                     >= (int)AutoItemsTemporaryPauseCause.None and
-                    <= (int)AutoItemsTemporaryPauseCause.MissingEngagementEvidence:
+                    <= (int)AutoItemsTemporaryPauseCause.MultipleUsages:
                     pauseCause = (AutoItemsTemporaryPauseCause)entry.Value.Integer;
                     break;
                 case TemporaryPauseGuidLowKey:

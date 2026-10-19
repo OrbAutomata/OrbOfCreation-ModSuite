@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
@@ -75,7 +76,9 @@ internal static class AutoItemsCandidateScanner
         GameWorldState world,
         in SuiteRuntimeConfiguration configuration,
         PublicationTable<Guid>? temporaryAllowlist,
-        PublicationTable<Guid> targetlessScrolls)
+        PublicationTable<Guid> targetlessScrolls,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
 
@@ -107,6 +110,8 @@ internal static class AutoItemsCandidateScanner
                 rejected++;
                 continue;
             }
+            if (retryGate.IsWaiting(AutoItemsServicePolicies.RetryTarget(itemId), decisionAt))
+                continue;
 
             if (AutoItemsConsumableFamilies.IsTemporary(profile.Family))
             {
