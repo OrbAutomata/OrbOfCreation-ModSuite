@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -48,11 +47,11 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
 
-        Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(registration.Runner.TryAcquireResponse());
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
         for (var index = 0; index < 5; index++)
-            Assert.True(registration.Runner.TryExecuteOne(clock.Now).Attempted);
+            Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
 
         var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
         ServiceCycleDiagnostics.CopyServices(pump, buffer);
@@ -96,13 +95,14 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
 
-        Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         clock.Advance(new MonotonicDuration(7));
         release.Set();
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(registration.Runner.TryAcquireResponse());
-        Assert.True(registration.Runner.TryExecuteOne(clock.Now).Attempted);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        Assert.Equal(1, pump.PumpFrame(frame++).ActionsAttempted);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
 
         var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
         ServiceCycleDiagnostics.CopyServices(pump, buffer);
@@ -142,9 +142,9 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         TestWorldCollector.CollectedAtActivation(registry);
         var buffer = new ServiceCycleServiceDiagnosticsSnapshot[1];
 
-        Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(registration.Runner.TryAcquireResponse());
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
+        ServiceRunnerTestWait.PumpToHandback(pump, registration.Runner, ref frame);
         ServiceCycleDiagnostics.CopyServices(pump, buffer);
         Assert.Equal(ServiceCycleOperationalPhase.RetryBackoff, buffer[0].Phase);
 
@@ -178,7 +178,7 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         };
 
         var frame = 1L;
-        PumpUntil(
+        ServiceCyclePumpTestWait.PumpUntil(
             pump,
             ref frame,
             () => registration.Runner.HandoffPhaseHint == ServiceHandoffPhase.MainOwnedBatch);
@@ -218,15 +218,15 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
 
-        Assert.True(registration.Runner.TryStartCycle(clock.Now).Queued);
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, registration.Runner, ref frame);
         Assert.True(entered.Wait(ServiceCycleTestDeadline.Value));
         pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
         pump.SetEmergencyStop(false);
         pump.SetEmergencyStop(true, EmergencyStopReason.SuiteShutdown);
         pump.SetEmergencyStop(false);
         release.Set();
-        ServiceRunnerTestWait.ForPhase(registration.Runner, ServiceHandoffPhase.ResponseReady);
-        pump.PumpFrame(1);
+        ServiceRunnerTestWait.PumpToResponse(pump, registration.Runner, ref frame);
 
         var receipt = registration.Runner.Snapshot.PreviousReceipt;
         Assert.Equal(CommonActionResultCodes.EmergencyStop, receipt.ResultCode);
@@ -256,17 +256,5 @@ public sealed class ServiceCycleDiagnosticsEvidenceTests
 
         Assert.Equal(ServiceHandoffPhase.Stopping, oldRunner.DiagnosticsHandoffPhaseHint);
         Assert.True(oldRunner.TryAcknowledgeWorkerExit());
-    }
-
-    private static void PumpUntil(SuiteFramePump pump, ref long frame, Func<bool> condition)
-    {
-        var deadline = Stopwatch.StartNew();
-        while (!condition())
-        {
-            pump.PumpFrame(frame++);
-            if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
-                throw new TimeoutException("The diagnostics evidence fixture did not reach the expected state.");
-            Thread.Yield();
-        }
     }
 }

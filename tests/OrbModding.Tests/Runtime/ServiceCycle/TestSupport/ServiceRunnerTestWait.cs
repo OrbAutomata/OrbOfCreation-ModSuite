@@ -147,6 +147,78 @@ internal static class ServiceRunnerTestWait
         }
     }
 
+    /// <summary>
+    /// Pumps until the runtime has opened a cycle for the service and taken its response.
+    /// </summary>
+    internal static void PumpToResponse<TState, TAction>(
+        SuiteFramePump pump,
+        ServiceRunner<TState, TAction> runner,
+        ref long frame)
+    {
+        PublishDeferredRequest(pump, runner, ref frame);
+        ForPhase(runner, ServiceHandoffPhase.ResponseReady);
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => runner.HandoffPhaseHint != ServiceHandoffPhase.ResponseReady);
+    }
+
+    /// <summary>
+    /// Pumps until a finished batch has been handed back, which the pump does on a frame after the
+    /// one that finished it.
+    /// </summary>
+    internal static void PumpToHandback<TState, TAction>(
+        SuiteFramePump pump,
+        ServiceRunner<TState, TAction> runner,
+        ref long frame) =>
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => runner.HandoffPhaseHint == ServiceHandoffPhase.Empty);
+
+    /// <summary>
+    /// Builds every service's worker state with one zero-action cycle through the pump, and leaves
+    /// each parked, with its own action count back, until the next world reading.
+    /// </summary>
+    /// <remarks>
+    /// Worker state is built on the first evaluation behind the registry-wide single factory claim,
+    /// so services taking their first turn together can answer with a transient-contention deferral
+    /// instead of an action batch. Priming waits that out, advancing the clock so the deferral's
+    /// retry comes due, and parks each primed service on the next publication so it stays idle, not
+    /// cycling, until every service is ready and the caller publishes.
+    /// </remarks>
+    internal static void PrimeWorkerStates(
+        SuiteFramePump pump,
+        ThreadSafeTestClock clock,
+        ref long frame,
+        params (ExecutionServiceDefinition Definition,
+            ServiceRunner<ExecutionState, ExecutionAction> Runner)[] services)
+    {
+        var actionCounts = new int[services.Length];
+        var wakes = new WakePolicy[services.Length];
+        for (var index = 0; index < services.Length; index++)
+        {
+            actionCounts[index] = services[index].Definition.ActionCount;
+            wakes[index] = services[index].Definition.EvaluationWake;
+            services[index].Definition.ActionCount = 0;
+            services[index].Definition.EvaluationWake = WakePolicy.OnPublication;
+        }
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump,
+            ref frame,
+            () => Array.TrueForAll(services, service =>
+                service.Definition.StateCreateCount == 1 &&
+                service.Runner.Snapshot.PreviousReceipt.IsPresent &&
+                service.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty),
+            clock);
+        for (var index = 0; index < services.Length; index++)
+        {
+            Assert.False(services[index].Runner.Snapshot.Fault.IsValid);
+            services[index].Definition.ActionCount = actionCounts[index];
+            services[index].Definition.EvaluationWake = wakes[index];
+        }
+    }
+
     internal static void RunZeroActionCycle(
         ServiceRunner<ExecutionState, ExecutionAction> runner,
         ThreadSafeTestClock clock)

@@ -51,19 +51,18 @@ public sealed class SuiteFramePumpSchedulingTests
         using var secondRegistration = registry.Register(second, new LifecycleGeneration(1));
         using var thirdRegistration = registry.Register(third, new LifecycleGeneration(1));
         registry.Seal();
-        first.ActionCount = 0;
-        second.ActionCount = 0;
-        third.ActionCount = 0;
-        PrimeWorkerState(firstRegistration.Runner, clock);
-        PrimeWorkerState(secondRegistration.Runner, clock);
-        PrimeWorkerState(thirdRegistration.Runner, clock);
-        first.ActionCount = 3;
-        second.ActionCount = 3;
-        third.ActionCount = 3;
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-
         var frame = 10L;
+        ServiceRunnerTestWait.PrimeWorkerStates(
+            pump,
+            clock,
+            ref frame,
+            (first, firstRegistration.Runner),
+            (second, secondRegistration.Runner),
+            (third, thirdRegistration.Runner));
+        TestWorldCollector.CollectedAt(registry, frame);
+
         Assert.Equal(3, pump.PumpFrame(frame++).CyclesStarted);
         while (firstRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
                secondRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
@@ -108,27 +107,21 @@ public sealed class SuiteFramePumpSchedulingTests
             single,
             new LifecycleGeneration(1));
         registry.Seal();
-        // Worker state is built on the first evaluation behind the registry-wide single factory
-        // claim. Letting both services take their first turn on one pumped frame lets the losing
-        // worker answer with a transient-contention deferral instead of an action batch, so each
-        // worker's state is primed one service at a time before any slice is measured.
-        sliced.ActionCount = 0;
-        single.ActionCount = 0;
-        PrimeWorkerState(slicedRegistration.Runner, clock);
-        PrimeWorkerState(singleRegistration.Runner, clock);
-        sliced.ActionCount = 20;
-        single.ActionCount = 3;
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PrimeWorkerStates(
+            pump,
+            clock,
+            ref frame,
+            (sliced, slicedRegistration.Runner),
+            (single, singleRegistration.Runner));
+        TestWorldCollector.CollectedAt(registry, frame);
 
-        var frame = 1L;
-        ServiceCyclePumpTestWait.UntilStart(pump, ref frame);
-        ServiceRunnerTestWait.PublishDeferredRequest(pump, slicedRegistration.Runner, ref frame);
-        ServiceRunnerTestWait.PublishDeferredRequest(pump, singleRegistration.Runner, ref frame);
-        ServiceRunnerTestWait.ForPhase(slicedRegistration.Runner, ServiceHandoffPhase.ResponseReady);
-        ServiceRunnerTestWait.ForPhase(singleRegistration.Runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(slicedRegistration.Runner.TryAcquireResponse());
-        Assert.True(singleRegistration.Runner.TryAcquireResponse());
+        Assert.Equal(2, pump.PumpFrame(frame++).CyclesStarted);
+        ServiceRunnerTestWait.ForResponse(slicedRegistration);
+        ServiceRunnerTestWait.ForResponse(singleRegistration);
+        Assert.Equal(2, pump.PumpFrame(frame++).ResponsesAcquired);
 
         var firstSlice = pump.PumpFrame(frame++);
         Assert.Equal(17, firstSlice.ActionsAttempted);
@@ -153,16 +146,6 @@ public sealed class SuiteFramePumpSchedulingTests
             default));
 
         Assert.Equal(0, definition.StateCreateCount);
-    }
-
-    private static void PrimeWorkerState(
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ThreadSafeTestClock clock)
-    {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        Assert.False(runner.Snapshot.Fault.IsValid);
     }
 
     [Fact]
@@ -257,18 +240,19 @@ public sealed class SuiteFramePumpSchedulingTests
             new LifecycleGeneration(1));
         tombstone.Dispose();
         registry.Seal();
-        active.ActionCount = 0;
-        rejected.ActionCount = 0;
-        PrimeWorkerState(activeRegistration.Runner, clock);
-        PrimeWorkerState(emptyRegistration.Runner, clock);
-        PrimeWorkerState(rejectedRegistration.Runner, clock);
-        active.ActionCount = 2;
-        rejected.ActionCount = 2;
         using var pump = new SuiteFramePump(registry);
-        TestWorldCollector.CollectedAtActivation(registry);
-
         var frame = 1L;
         Assert.Equal(0, pump.PumpFrame(frame++).StartingOrdinal);
+        TestWorldCollector.CollectedAtActivation(registry);
+        ServiceRunnerTestWait.PrimeWorkerStates(
+            pump,
+            clock,
+            ref frame,
+            (active, activeRegistration.Runner),
+            (empty, emptyRegistration.Runner),
+            (rejected, rejectedRegistration.Runner));
+        TestWorldCollector.CollectedAt(registry, frame);
+
         while (activeRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
                emptyRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
                rejectedRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty)

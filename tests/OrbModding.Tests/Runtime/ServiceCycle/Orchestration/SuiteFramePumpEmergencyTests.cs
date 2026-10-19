@@ -84,42 +84,34 @@ public sealed class SuiteFramePumpEmergencyTests
             ServiceActionDispatchPolicy.Bounded(16));
         using var secondRegistration = registry.Register(second, new LifecycleGeneration(1));
         registry.Seal();
-        first.ActionCount = 0;
-        second.ActionCount = 0;
-        PrimeWorkerState(firstRegistration.Runner, clock);
-        PrimeWorkerState(secondRegistration.Runner, clock);
-        first.ActionCount = 2;
-        second.ActionCount = 2;
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PrimeWorkerStates(
+            pump,
+            clock,
+            ref frame,
+            (first, firstRegistration.Runner),
+            (second, secondRegistration.Runner));
         first.ActionCallback = () => pump.SetEmergencyStop(true);
 
-        var frame = 1L;
-        pump.PumpFrame(frame++);
-        while (firstRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty ||
-               secondRegistration.Runner.HandoffPhaseHint == ServiceHandoffPhase.Empty)
-            pump.PumpFrame(frame++);
-        ServiceRunnerTestWait.ForPhase(firstRegistration.Runner, ServiceHandoffPhase.ResponseReady);
-        ServiceRunnerTestWait.ForPhase(secondRegistration.Runner, ServiceHandoffPhase.ResponseReady);
-        pump.PumpFrame(frame++);
+        // The turn order rotates one place a frame; this lines the action frame up to start with the
+        // first service.
+        while (pump.PumpFrame(frame++).StartingOrdinal != 1) { }
+        TestWorldCollector.CollectedAt(registry, frame);
+        Assert.Equal(2, pump.PumpFrame(frame++).CyclesStarted);
+        ServiceRunnerTestWait.ForResponse(firstRegistration);
+        ServiceRunnerTestWait.ForResponse(secondRegistration);
+        Assert.Equal(2, pump.PumpFrame(frame++).ResponsesAcquired);
         var action = pump.PumpFrame(frame);
 
+        Assert.Equal(0, action.StartingOrdinal);
         Assert.Equal(1, action.ActionsAttempted);
         Assert.Equal(2, action.EmergencyBatchesRejected);
         Assert.Equal(1, first.ActionExecutionCount);
         Assert.Equal(0, second.ActionExecutionCount);
         Assert.Equal(1, firstRegistration.Runner.Snapshot.PreviousReceipt.CommittedCount);
         Assert.Equal(0, secondRegistration.Runner.Snapshot.PreviousReceipt.CommittedCount);
-    }
-
-    private static void PrimeWorkerState(
-        ServiceRunner<ExecutionState, ExecutionAction> runner,
-        ThreadSafeTestClock clock)
-    {
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
-        Assert.False(runner.Snapshot.Fault.IsValid);
     }
 
     [Fact]

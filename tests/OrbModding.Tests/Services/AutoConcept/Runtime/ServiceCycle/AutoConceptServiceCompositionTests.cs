@@ -5,6 +5,7 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.World;
@@ -53,21 +54,24 @@ public sealed class AutoConceptServiceCompositionTests
         using var registry = new ServiceCycleRegistry(1, clock);
         registry.ConfigurationPublication.Publish(Configuration(AutoConceptOperationMode.Disabled));
         using var registration = registry.Register(definition, new LifecycleGeneration(7));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
         var runner = registration.Runner;
+        var frame = TestWorldCollector.ActivationFrame + 1;
 
-        var disabled = runner.TryStartCycle(clock.Now);
+        ServiceCyclePumpTestWait.PumpUntil(pump, ref frame, () => runner.Snapshot.HasWakeDue);
 
-        Assert.False(disabled.Queued);
-        Assert.True(runner.Snapshot.HasWakeDue);
+        Assert.Equal(ServiceHandoffPhase.Empty, runner.HandoffPhaseHint);
         Assert.Equal(long.MaxValue, runner.Snapshot.NextWakeDue.Ticks);
 
         registry.ConfigurationPublication.Publish(Configuration(AutoConceptOperationMode.Active));
+        pump.PumpFrame(frame++);
 
-        var enabled = runner.TryStartCycle(clock.Now);
-
-        Assert.True(
-            enabled.Queued,
+        Assert.False(
+            runner.Snapshot.HasWakeDue,
             "Publishing Active intent must wake Auto Concept instead of retaining its disabled-state publication wait.");
+        ServiceRunnerTestWait.PublishDeferredRequest(pump, runner, ref frame);
     }
 
     [Fact]

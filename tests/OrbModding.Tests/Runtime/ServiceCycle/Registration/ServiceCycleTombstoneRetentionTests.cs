@@ -6,6 +6,7 @@ using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.Strategy;
 using OrbModding.Common.Runtime.World;
@@ -44,7 +45,8 @@ public sealed class ServiceCycleTombstoneRetentionTests
 
         GC.KeepAlive(proof.Registry);
         GC.KeepAlive(proof.Registration);
-        proof.Registry.Dispose();
+        GC.KeepAlive(proof.Pump);
+        proof.Pump.Dispose();
     }
 
     [Fact]
@@ -96,12 +98,14 @@ public sealed class ServiceCycleTombstoneRetentionTests
             definition,
             new LifecycleGeneration(1));
         registry.Seal();
+        var pump = new SuiteFramePump(registry);
+        TestWorldCollector.CollectedAtActivation(registry);
         // One cycle first: worker state is minted lazily, and a state that was never created is a
         // state whose release cannot be observed to throw — which is half of what this proves.
         var runner = registration.Runner;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        var frame = TestWorldCollector.ActivationFrame + 1;
+        ServiceRunnerTestWait.PumpToResponse(pump, runner, ref frame);
+        ServiceRunnerTestWait.PumpToHandback(pump, runner, ref frame);
         var releaseFailed = false;
         try { registration.Dispose(); }
         catch (InvalidOperationException) { releaseFailed = true; }
@@ -110,6 +114,7 @@ public sealed class ServiceCycleTombstoneRetentionTests
 
         return new TombstoneRetentionProof(
             registry,
+            pump,
             registration,
             payloadReferences,
             registration.Ordinal,
@@ -131,6 +136,7 @@ public sealed class ServiceCycleTombstoneRetentionTests
     {
         internal TombstoneRetentionProof(
             ServiceCycleRegistry registry,
+            SuiteFramePump pump,
             ServiceRegistration<RetainedState, RetainedAction> registration,
             WeakReference[] payloadReferences,
             int ordinal,
@@ -138,6 +144,7 @@ public sealed class ServiceCycleTombstoneRetentionTests
             bool releaseFailed)
         {
             Registry = registry;
+            Pump = pump;
             Registration = registration;
             PayloadReferences = payloadReferences;
             Ordinal = ordinal;
@@ -146,6 +153,7 @@ public sealed class ServiceCycleTombstoneRetentionTests
         }
 
         internal ServiceCycleRegistry Registry { get; }
+        internal SuiteFramePump Pump { get; }
         internal ServiceRegistration<RetainedState, RetainedAction> Registration { get; }
         internal WeakReference[] PayloadReferences { get; }
         internal int Ordinal { get; }
