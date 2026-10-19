@@ -14,10 +14,8 @@ internal static class GameMcpCommandPreparation
         out GameMcpCommandResult failure)
     {
         var request = operation.Request;
-        var kind = GameMcpCommandKinds.FromRequest(
-            request.ToolName,
-            request.Mode,
-            request.Key);
+        if (request.Route.Kind is not { } kind)
+            throw new InvalidOperationException(request.ToolName + " is not answered by a command");
 
         var mode = request.Mode;
         var targetId = request.Uuid;

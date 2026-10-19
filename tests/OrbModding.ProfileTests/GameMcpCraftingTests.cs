@@ -43,7 +43,7 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(1, (int)amount[0]!["minimum"]!);
         Assert.Null(amount[0]!["maximum"]);
         Assert.Equal(new[] { "max" }, amount[1]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject
             {
@@ -58,7 +58,7 @@ public sealed class GameMcpCraftingTests
     public void ValidationNamesMissingUuidAndRejectsRemovedGenerationMetadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -294,12 +294,12 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void Amount_defaults_to_one_craft_and_only_craft_reads_it()
     {
-        var plain = GameMcpProtocolRouter.BuildOperation(
+        var plain = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D") });
-        var batch = GameMcpProtocolRouter.BuildOperation(
+        var batch = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = 1_000_000 });
-        var automate = GameMcpProtocolRouter.BuildOperation(
+        var automate = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject
             {
@@ -316,13 +316,13 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void Max_is_the_only_word_amount_takes()
     {
-        var max = GameMcpProtocolRouter.BuildOperation(
+        var max = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "max" });
 
         Assert.Equal("max", max.SerializedValue);
         Assert.Equal(1, max.Amount);
         var refused = Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "game_craft",
                 new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "all" }));
         Assert.Equal("amount must be a whole number of crafts or \"max\"", refused.Message);

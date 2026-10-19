@@ -29,7 +29,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(tool["inputSchema"]!["properties"]!["amount"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["level"]);
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_alchemy",
             new JObject
             {
@@ -51,7 +51,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             candidate => (string?)candidate["name"] == "game_alchemy");
         Assert.Null(tool["inputSchema"]!["properties"]!["destination"]);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var move = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

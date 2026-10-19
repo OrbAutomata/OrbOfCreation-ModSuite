@@ -36,7 +36,7 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void ConfirmAsksForTheThingItWouldDiscoverAndNothingElse()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",

@@ -50,7 +50,7 @@ public sealed class GameMcpModeRuleTests
 
     private static string Call(string tool, JObject arguments)
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         return GameMcpTestHarness.Page(router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject { ["name"] = tool, ["arguments"] = arguments })));
     }

@@ -580,7 +580,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.NotNull(properties["category"]);
         Assert.Null(properties["id"]);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var invalid = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -774,7 +774,7 @@ public sealed class GameMcpProtocolSurfaceTests
             candidate => (string?)candidate["name"] == "suite_health");
         Assert.Empty((JObject)tool["inputSchema"]!["properties"]!);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var rejected = router.Handle(GameMcpAcceptanceFixture.Request(
             99,
             "tools/call",
@@ -1608,8 +1608,7 @@ public sealed class GameMcpEmergencyStopTests
         var stop = operations.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "suite_emergency_stop",
-            Classification = GameMcpOperationClass.SuiteAdministration,
-            RequiredData = GameMcpFrameData.Configuration,
+            Route = GameMcpTestHarness.Route("suite_emergency_stop"),
             Mode = "engage",
         }.Freeze());
         var after = GameMcpAcceptanceFixture.SubmitHarvest(operations);
@@ -1648,7 +1647,7 @@ internal static class GameMcpAcceptanceFixture
 
     internal static IReadOnlyList<JObject> Tools()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(1, "tools/list", new JObject()));
         return response.Body!["result"]!["tools"]!.Values<JObject>().OfType<JObject>().ToArray();
     }
@@ -1666,7 +1665,7 @@ internal static class GameMcpAcceptanceFixture
         GameMcpFrameContext? context = null)
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var pinned = context ?? GameMcpTestHarness.Context();
         var response = GameMcpTestHarness.Handle(router, inbox, Request(
             1,
@@ -1763,8 +1762,7 @@ internal static class GameMcpAcceptanceFixture
         operations.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "game_agromancy",
-            Classification = GameMcpOperationClass.Gameplay,
-            RequiredData = GameMcpFrameData.World | GameMcpFrameData.Configuration,
+            Route = GameMcpTestHarness.Route("game_agromancy"),
             Uuid = KnownEntities.FruitTreePlot.Uuid,
             SecondaryUuid = KnownEntities.FruitTreeCollect.Uuid,
             Mode = "add",

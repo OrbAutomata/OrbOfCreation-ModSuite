@@ -33,7 +33,7 @@ public sealed class GameMcpHarvestLifecycleTests
             "add_element_action", "remove_element_action", "set_druidry_level",
         },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_agromancy", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_agromancy", new JObject
         {
             ["mode"] = "add_element_action",
             ["uuid"] = ElementId.ToString("D"),
@@ -46,7 +46,7 @@ public sealed class GameMcpHarvestLifecycleTests
     [Fact]
     public void Action_modes_require_action_uuid_and_element_modes_reject_it()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

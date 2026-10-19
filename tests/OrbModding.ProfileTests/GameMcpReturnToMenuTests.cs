@@ -35,15 +35,14 @@ public sealed class GameMcpReturnToMenuTests
         Assert.Empty((JObject)tool["inputSchema"]!["properties"]!);
         Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
 
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_return_to_menu", new JObject());
         Assert.Equal(GameMcpOperationClass.Gameplay, operation.Classification);
         Assert.Equal(GameMcpFrameData.World | GameMcpFrameData.Configuration,
             operation.RequiredData);
-        Assert.Equal(GameMcpCommandKind.ReturnToMenu,
-            GameMcpCommandKinds.FromToolName("game_return_to_menu"));
+        Assert.Equal(GameMcpCommandKind.ReturnToMenu, operation.Route.Kind);
         Assert.Equal("game_return_to_menu",
-            GameMcpCommandKinds.ToolName(GameMcpCommandKind.ReturnToMenu));
+            GameMcpToolCatalog.Shipping.ToolFor(GameMcpCommandKind.ReturnToMenu));
 
         Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),

@@ -53,7 +53,7 @@ public sealed class GameMcpPrestigeTests
     public void False_confirmation_is_named_before_any_frame_operation_is_enqueued()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {

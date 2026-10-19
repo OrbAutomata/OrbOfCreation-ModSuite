@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -265,6 +267,21 @@ internal static class GameMcpTestHarness
             inbox.Complete(claimed[index], execute(claimed[index]));
         Assert.True(pending.Wait(TimeSpan.FromSeconds(10)));
         return pending.Result;
+    }
+
+    internal static int FreeLoopbackPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    internal static GameMcpToolRoute Route(string tool)
+    {
+        Assert.True(GameMcpToolCatalog.Shipping.TryFind(tool, out var descriptor), tool);
+        return descriptor.Routes[descriptor.Routes.Count - 1];
     }
 
     internal static GameMcpToolExecution ExecuteRead(

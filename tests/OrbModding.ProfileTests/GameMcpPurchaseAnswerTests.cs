@@ -515,7 +515,7 @@ public sealed class GameMcpPurchaseAnswerTests
             new GameMcpOperationRequestBuilder
             {
                 ToolName = "game_purchase",
-                Classification = GameMcpOperationClass.Gameplay,
+                Route = GameMcpTestHarness.Route("game_purchase"),
             }.Freeze());
         var command = new GameMcpCommand(
             1,

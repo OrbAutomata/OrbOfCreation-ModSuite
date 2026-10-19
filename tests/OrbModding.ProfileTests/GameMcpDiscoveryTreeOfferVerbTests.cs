@@ -35,7 +35,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
     [Fact]
     public void Conditional_offer_identity_errors_are_structured()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -304,7 +304,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
     {
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var offerId = Guid.Parse("a98e5e7d-3bf5-46cf-a6df-73747ed57797");
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_discover",
             new JObject
             {
@@ -430,7 +430,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
     {
         var treeId = Guid.Parse("d88aa06b-7a71-4db4-a293-d27ab21befd8");
         var completedAt = DateTime.UtcNow.Ticks;
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_discover",
             new JObject
             {

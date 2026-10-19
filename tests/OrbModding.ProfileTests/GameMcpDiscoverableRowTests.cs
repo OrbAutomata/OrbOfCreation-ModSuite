@@ -53,7 +53,7 @@ public sealed class GameMcpDiscoverableRowTests
         Assert.NotNull(schema["properties"]!["offerUuid"]);
 
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var confirm = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -70,7 +70,13 @@ public sealed class GameMcpDiscoverableRowTests
         Assert.StartsWith("refused (ERR_INPUT)", GameMcpTestHarness.Page(confirm));
         Assert.Equal(
             GameMcpCommandKind.DiscoveryTreeOffer,
-            GameMcpCommandKinds.FromRequest("game_discover", "offer_confirm", string.Empty));
+            GameMcpToolCatalog.Shipping.BuildOperation(
+                "game_discover",
+                new JObject
+                {
+                    ["mode"] = "offer_confirm",
+                    ["uuid"] = GlyphId.ToString("D"),
+                }).Route.Kind);
     }
 
     /// <summary>

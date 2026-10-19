@@ -37,7 +37,7 @@ public sealed class GameMcpResearchTests
     public void Validation_names_missing_uuid_and_rejects_removed_generation_metadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -73,7 +73,7 @@ public sealed class GameMcpResearchTests
     [Fact]
     public void Develop_without_an_amount_asks_for_one_level_instead_of_failing_validation()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_research",
             new JObject
             {

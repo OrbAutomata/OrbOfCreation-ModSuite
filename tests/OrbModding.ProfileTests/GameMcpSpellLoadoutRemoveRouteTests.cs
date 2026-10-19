@@ -97,7 +97,7 @@ public sealed class GameMcpSpellLoadoutRemoveRouteTests : IDisposable
 
     private static JObject Press(bool autoCastOn)
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_spell_loadout", new JObject { ["mode"] = "remove", ["slot"] = 1 });
         Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),

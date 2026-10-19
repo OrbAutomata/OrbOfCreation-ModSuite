@@ -21,8 +21,8 @@ internal sealed class GameMcpFrameExecutor : IDisposable
     private readonly Func<long> _lifecycleGeneration;
     private readonly Func<AutomataServiceCycleActivation?> _serviceCycleActivation;
     private readonly Func<AutomataActionFamilyOwnership?> _automataActionFamilyOwnership;
-    private readonly AutomataConfigurationStore? _configurationStore;
-    private readonly AutomataDifferentialVerificationControl? _mathVerification;
+    private readonly AutomataConfigurationStore _configurationStore;
+    private readonly AutomataDifferentialVerificationControl _mathVerification;
     private readonly AutomataWorldDemand _worldDemand;
     private readonly Func<bool> _nativeContractsAvailable;
     private readonly Func<bool> _runtimeActivationAllowed;
@@ -46,8 +46,8 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         Func<long> lifecycleGeneration,
         Func<AutomataServiceCycleActivation?> serviceCycleActivation,
         Func<AutomataActionFamilyOwnership?> automataActionFamilyOwnership,
-        AutomataConfigurationStore? configurationStore,
-        AutomataDifferentialVerificationControl? mathVerification,
+        AutomataConfigurationStore configurationStore,
+        AutomataDifferentialVerificationControl mathVerification,
         AutomataWorldDemand worldDemand,
         Func<bool> nativeContractsAvailable,
         Func<bool> runtimeActivationAllowed,
@@ -63,8 +63,10 @@ internal sealed class GameMcpFrameExecutor : IDisposable
             throw new ArgumentNullException(nameof(serviceCycleActivation));
         _automataActionFamilyOwnership = automataActionFamilyOwnership ??
             throw new ArgumentNullException(nameof(automataActionFamilyOwnership));
-        _configurationStore = configurationStore;
-        _mathVerification = mathVerification;
+        _configurationStore = configurationStore ??
+            throw new ArgumentNullException(nameof(configurationStore));
+        _mathVerification = mathVerification ??
+            throw new ArgumentNullException(nameof(mathVerification));
         _worldDemand = worldDemand ?? throw new ArgumentNullException(nameof(worldDemand));
         _nativeContractsAvailable = nativeContractsAvailable ??
             throw new ArgumentNullException(nameof(nativeContractsAvailable));
@@ -80,7 +82,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
             CompleteGameMcpCommand,
             CompleteContinueRunGameMcp,
             lifecycleGeneration,
-            () => _configurationStore?.CurrentGeneration.Value ?? 0,
+            () => _configurationStore.CurrentGeneration.Value,
             () => _gameMcpTooltipNativeAccess,
             () => _gameMcpTooltipContractFailure,
             message => _log.LogWarning(message));
@@ -101,6 +103,7 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         _gameMcpOperations = new GameMcpFrameInbox();
         _gameMcpServer = GameMcpHttpServer.TryStart(
             _gameMcpOperations,
+            GameMcpToolCatalog.Shipping,
             message => _log.LogInfo(message),
             message => _log.LogError(message));
     }
@@ -220,8 +223,8 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         }
 
         var configuration = runtime?.Configuration ?? new ConfigurationPublication(
-            _configurationStore?.CurrentGeneration ?? default,
-            _configurationStore?.Current ?? new SuiteRuntimeConfiguration());
+            _configurationStore.CurrentGeneration,
+            _configurationStore.Current);
         var features = (required & GameMcpFrameData.FeatureHealth) != 0
             ? FeatureStatusRegistry.Shared.GetSnapshot().ToArray()
             : Array.Empty<FeatureStatusSnapshot>();
@@ -262,54 +265,10 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         var activation = _serviceCycleActivation();
         var request = operation.Request;
         if (GameMcpFrameReads.TryExecuteFrameRead(request, context, out execution)) return true;
-        switch (request.ToolName)
+        if (request.Route.HostRead is { } hostRead)
         {
-            case "suite_check_game_math":
-                execution = RunGameMcpGameMathCheck();
-                return true;
-            case "game_screen_catalog":
-                execution = GameMcpToolExecution.Read(
-                    _gadgets.ScreenReader.CaptureScreenCatalogGameMcp());
-                return true;
-            case "game_spell_loadout" when request.Mode == "preview":
-                var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
-                for (var index = 0; index < glyphs.Length; index++)
-                    glyphs[index] = new SpellWorkbenchGlyphStack(
-                        request.UuidCounts[index].Uuid,
-                        request.UuidCounts[index].Count);
-                var previewRequest = new SpellWorkbenchLoadPreviewRequest(
-                    request.Uuid,
-                    _lifecycleGeneration(),
-                    glyphs);
-                SpellWorkbenchLoadPreview preview;
-                if (activation is null ||
-                    !activation.TryPreviewSpellWorkbench(
-                        in previewRequest,
-                        out preview))
-                {
-                    preview = SpellWorkbenchLoadPreview.Refused(
-                        SpellWorkbenchActionResultCodes.ContractUnavailable,
-                        "The suite is not running on this screen, so nothing can be previewed.");
-                }
-                execution = GameMcpToolExecution.Read(
-                    GameMcpSpellWorkbenchProjection.ProjectLoadPreview(
-                        in preview));
-                return true;
-            case "game_spell_loadout" when request.Mode == "staged":
-                SpellWorkbenchStagedLayout staged;
-                if (activation is null ||
-                    !activation.TryReadStagedSpellWorkbench(out staged))
-                {
-                    staged = SpellWorkbenchStagedLayout.Unavailable(
-                        SpellWorkbenchActionResultCodes.ContractUnavailable,
-                        "The suite is not running on this screen, so nothing can be read here.");
-                }
-                execution = GameMcpToolExecution.Read(
-                    GameMcpSpellWorkbenchProjection.ProjectStagedLayout(in staged));
-                return true;
-            case "resource_read":
-                execution = GameMcpFrameReads.ExecuteGameMcpResource(request.ResourceUri, context);
-                return true;
+            execution = hostRead(this, request);
+            return true;
         }
 
         if (!GameMcpCommandPreparation.TryPrepareGameMcpCommand(
@@ -437,6 +396,49 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         CompleteGameMcpCommand(command, committed.WithSettledPostState(state));
     }
 
+    internal GameMcpToolExecution CaptureScreenCatalog() =>
+        GameMcpToolExecution.Read(_gadgets.ScreenReader.CaptureScreenCatalogGameMcp());
+
+    internal GameMcpToolExecution PreviewSpellWorkbench(GameMcpOperationRequest request)
+    {
+        var glyphs = new SpellWorkbenchGlyphStack[request.UuidCounts.Length];
+        for (var index = 0; index < glyphs.Length; index++)
+            glyphs[index] = new SpellWorkbenchGlyphStack(
+                request.UuidCounts[index].Uuid,
+                request.UuidCounts[index].Count);
+        var previewRequest = new SpellWorkbenchLoadPreviewRequest(
+            request.Uuid,
+            _lifecycleGeneration(),
+            glyphs);
+        SpellWorkbenchLoadPreview preview;
+        if (_serviceCycleActivation() is not { } activation ||
+            !activation.TryPreviewSpellWorkbench(
+                in previewRequest,
+                out preview))
+        {
+            preview = SpellWorkbenchLoadPreview.Refused(
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
+                "The suite is not running on this screen, so nothing can be previewed.");
+        }
+        return GameMcpToolExecution.Read(
+            GameMcpSpellWorkbenchProjection.ProjectLoadPreview(
+                in preview));
+    }
+
+    internal GameMcpToolExecution ReadStagedSpellWorkbench()
+    {
+        SpellWorkbenchStagedLayout staged;
+        if (_serviceCycleActivation() is not { } activation ||
+            !activation.TryReadStagedSpellWorkbench(out staged))
+        {
+            staged = SpellWorkbenchStagedLayout.Unavailable(
+                SpellWorkbenchActionResultCodes.ContractUnavailable,
+                "The suite is not running on this screen, so nothing can be read here.");
+        }
+        return GameMcpToolExecution.Read(
+            GameMcpSpellWorkbenchProjection.ProjectStagedLayout(in staged));
+    }
+
     /// <summary>
     /// Runs the differential check the Runtime page's action runs, and answers with its verdict
     /// lines instead of leaving them in the log for a human to find.
@@ -446,20 +448,11 @@ internal sealed class GameMcpFrameExecutor : IDisposable
     /// button costs. It is deliberately not spread over frames: every pass would otherwise read a
     /// different frame's game state and the verdicts would not be comparable to each other.
     /// </remarks>
-    private GameMcpToolExecution RunGameMcpGameMathCheck()
+    internal GameMcpToolExecution RunGameMcpGameMathCheck()
     {
         // A no is a result. `isError` is reserved for a tool that failed before it produced a
-        // domain answer, so both of these arrive the way every other refusal in the suite does —
-        // a caller branches on the class, not on which of two transports carried it.
-        if (_mathVerification is null)
-        {
-            return GameMcpToolExecution.Read(new GameMcpObjectBuilder
-            {
-                ["status"] = "unavailable",
-                ["reasonCode"] = "contract_unavailable",
-                ["reason"] = "The suite's game math check is not composed in this scene.",
-            });
-        }
+        // domain answer, so it arrives the way every other refusal in the suite does — a caller
+        // branches on the class, not on which of two transports carried it.
         if (!_mathVerification.TryRunNow(out var lines, out var code, out var reason))
         {
             return GameMcpToolExecution.Read(new GameMcpObjectBuilder
@@ -476,10 +469,6 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         GameMcpCommand command,
         GameMcpFrameContext context)
     {
-        if (_configurationStore is null)
-            return GameMcpCommandResult.Rejected(
-                "configuration_not_available",
-                GameMcpDecisionReason.For("configuration_not_available"));
         var expected = command.ExpectedConfigurationGeneration;
         var before = _configurationStore.CurrentGeneration;
         if (expected != before.Value)

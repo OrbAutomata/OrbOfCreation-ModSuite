@@ -599,8 +599,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         new GameMcpOperationRequestBuilder
         {
             ToolName = "game_discover",
-            Classification = GameMcpOperationClass.Gameplay,
-            RequiredData = GameMcpFrameData.World | GameMcpFrameData.Configuration,
+            Route = GameMcpTestHarness.Route("game_discover"),
             Uuid = treeId,
             Mode = "initiate",
         }.Freeze();
