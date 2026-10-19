@@ -38,7 +38,7 @@ internal sealed class ServiceCycleTombstone : IServiceCycleSlot
     public ServiceWorldGateDeferralFact LatestWorldGateDeferral => default;
     public ConfigGeneration LatestConfiguration => default;
     public StrategyGeneration LatestStrategy => default;
-    public bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot)
+    public bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot, bool waitForHandoffGate)
     {
         snapshot = default;
         return false;

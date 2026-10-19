@@ -17,7 +17,7 @@ internal static class ServiceCycleServiceDiagnosticsProjector
         snapshot = default;
         if (slot.IsDisposed) return false;
         var lifecycleSource = slot.LifecycleSnapshot;
-        if (!ServesDesiredLifecycle(in lifecycleSource) || !slot.TryGetRunnerSnapshot(out var runner))
+        if (!ServesDesiredLifecycle(in lifecycleSource) || !slot.TryGetRunnerSnapshot(out var runner, waitForHandoffGate: false))
             return false;
         var lifecycle = ServiceCycleLifecycleDiagnosticsProjector.Project(
             lifecycleSource,

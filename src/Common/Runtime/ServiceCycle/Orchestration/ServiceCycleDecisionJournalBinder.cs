@@ -30,7 +30,7 @@ internal static class ServiceCycleDecisionJournalBinder
             if (lifecycle.ActiveLifecycle.Value == 0 ||
                 lifecycle.ActiveLifecycle != lifecycle.DesiredLifecycle ||
                 lifecycle.LivePositionCount != 1 ||
-                !slot.TryGetRunnerSnapshot(out var runner))
+                !slot.TryGetRunnerSnapshot(out var runner, waitForHandoffGate: true))
             {
                 return false;
             }

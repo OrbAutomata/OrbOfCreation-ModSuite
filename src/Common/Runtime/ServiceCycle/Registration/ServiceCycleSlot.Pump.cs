@@ -16,7 +16,7 @@ internal sealed partial class ServiceCycleSlot<TState, TAction>
     public bool IsBetweenCycles =>
         _position0.IsBetweenCycles && _position1.IsBetweenCycles;
 
-    public bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot)
+    public bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot, bool waitForHandoffGate)
     {
         var runner = CurrentRunner;
         if (runner is null)
@@ -24,7 +24,9 @@ internal sealed partial class ServiceCycleSlot<TState, TAction>
             snapshot = default;
             return false;
         }
-        return runner.TrySnapshot(out snapshot);
+        if (!waitForHandoffGate) return runner.TrySnapshot(out snapshot);
+        snapshot = runner.Snapshot;
+        return true;
     }
 
     public ServiceResponseAcquisition TryAcquireResponse(
