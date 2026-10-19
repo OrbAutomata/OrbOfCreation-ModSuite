@@ -158,8 +158,8 @@ internal readonly struct WorldAttributeGroupMember
 /// <remarks>
 /// A separate reader rather than part of the group binder, for the reason every relation in this
 /// collector is: the group category is one row per asset and this is a list per asset, and the two
-/// buffers have different shapes. The walk is the same registry, so a group whose references throw
-/// costs its own rows and not the category.
+/// buffers have different shapes. The walk is the same registry, so a group whose references fail
+/// in a way the game is known to fail costs its own rows and not the category.
 /// </remarks>
 internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
 {
@@ -232,7 +232,7 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
             {
                 sampled += Read(group, frame.AttributeGroupMembers);
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 skipped++;
                 if (firstFailure.Length == 0)

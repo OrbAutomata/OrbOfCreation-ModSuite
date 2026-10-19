@@ -509,84 +509,70 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         object source,
         out AutoBuyPurchaseSubmission refusal)
     {
-        var reads = default(NativePurchaseViewAdmissionReadCounts);
         refusal = default;
-        try
-        {
-            if (_viewAdmission is null)
-                return Refuse(
-                    AutoBuyActionResultCodes.OwningViewTopologyUnbound,
-                    "The suite could not bind the purchase-screen topology this build needs, so no " +
-                    "purchase can be admitted.",
-                    out refusal);
+        if (_viewAdmission is null)
+            return Refuse(
+                AutoBuyActionResultCodes.OwningViewTopologyUnbound,
+                "The suite could not bind the purchase-screen topology this build needs, so no " +
+                "purchase can be admitted.",
+                out refusal);
 
-            if (!_viewAdmission.TryGetCaptured(
-                kind == AutoBuyCandidateKind.Structure
-                    ? WorldPurchaseCandidateKind.Structure
-                    : WorldPurchaseCandidateKind.Upgrade,
-                uuid,
-                lifecycleEpoch,
-                out var resolution))
+        if (!_viewAdmission.TryGetCaptured(
+            kind == AutoBuyCandidateKind.Structure
+                ? WorldPurchaseCandidateKind.Structure
+                : WorldPurchaseCandidateKind.Upgrade,
+            uuid,
+            lifecycleEpoch,
+            out var resolution))
+        {
+            refusal = AutoBuyPurchaseSubmission.Rejected(
+                AutoBuyActionResultCodes.OwningViewTopologyUncaptured,
+                AutoBuyPurchaseNarration.TopologyUncaptured(
+                    _viewAdmission.CapturedEpoch,
+                    lifecycleEpoch,
+                    _viewAdmission.CapturedCount));
+            return false;
+        }
+        switch (resolution.Relation.Status)
+        {
+            case WorldPurchaseViewRelationStatus.Missing:
+                return Refuse(
+                    AutoBuyActionResultCodes.OwningViewRelationMissing,
+                    "No purchase screen for this target is in this run's captured topology.",
+                    out refusal);
+            case WorldPurchaseViewRelationStatus.Unreadable:
+                return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, out refusal);
+            case WorldPurchaseViewRelationStatus.Contradictory:
+                return Refuse(AutoBuyActionResultCodes.OwningViewRelationContradictory, out refusal);
+            case WorldPurchaseViewRelationStatus.Resolved:
+                break;
+            default:
+                return Refuse(AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled, out refusal);
+        }
+
+        if (!_viewAdmission.TryReadAvailability(in resolution, out var viewAvailable))
+            return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, out refusal);
+        if (!viewAvailable)
+            return Refuse(
+                AutoBuyActionResultCodes.OwningViewUnavailable,
+                "The screen this is bought from is not available yet.",
+                out refusal);
+
+        if (kind == AutoBuyCandidateKind.Structure)
+        {
+            if (!TryRead(native.StructureAvailable, source, out var structureAvailable))
             {
-                refusal = AutoBuyPurchaseSubmission.Rejected(
-                    AutoBuyActionResultCodes.OwningViewTopologyUncaptured,
-                    AutoBuyPurchaseNarration.TopologyUncaptured(
-                        _viewAdmission.CapturedEpoch,
-                        lifecycleEpoch,
-                        _viewAdmission.CapturedCount));
+                refusal = AutoBuyPurchaseSubmission.CandidateUnavailable();
                 return false;
             }
-            switch (resolution.Relation.Status)
-            {
-                case WorldPurchaseViewRelationStatus.Missing:
-                    return Refuse(
-                        AutoBuyActionResultCodes.OwningViewRelationMissing,
-                        "No purchase screen for this target is in this run's captured topology.",
-                        out refusal);
-                case WorldPurchaseViewRelationStatus.Unreadable:
-                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, out refusal);
-                case WorldPurchaseViewRelationStatus.Contradictory:
-                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationContradictory, out refusal);
-                case WorldPurchaseViewRelationStatus.Resolved:
-                    break;
-                default:
-                    return Refuse(AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled, out refusal);
-            }
-
-            if (!_viewAdmission.TryReadAvailabilityProfiled(
-                    in resolution,
-                    ref reads,
-                    out var viewAvailable))
-                return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, out refusal);
-            if (!viewAvailable)
+            if (!structureAvailable)
                 return Refuse(
-                    AutoBuyActionResultCodes.OwningViewUnavailable,
-                    "The screen this is bought from is not available yet.",
+                    AutoBuyActionResultCodes.StructureUnavailable,
+                    "The game has not unlocked this structure yet.",
                     out refusal);
-
-            if (kind == AutoBuyCandidateKind.Structure)
-            {
-                if (!TryRead(native.StructureAvailable, source, out var structureAvailable))
-                {
-                    refusal = AutoBuyPurchaseSubmission.CandidateUnavailable();
-                    return false;
-                }
-                if (!structureAvailable)
-                    return Refuse(
-                        AutoBuyActionResultCodes.StructureUnavailable,
-                        "The game has not unlocked this structure yet.",
-                        out refusal);
-            }
-
-            return true;
         }
-        finally
-        {
-#if SERVICE_CYCLE_PROFILE
-            for (var index = 0u; index < reads.ListEntries; index++)
-                _profileOperations.AddListEntry();
-#endif
-        }
+
+        return true;
     }
 
     private static bool Refuse(ServiceActionResultCode code, out AutoBuyPurchaseSubmission refusal) =>

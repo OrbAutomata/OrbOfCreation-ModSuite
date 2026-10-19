@@ -273,6 +273,7 @@ public sealed class AutoBuyProfileTests : IDisposable
             new WorldRelationBuffer<WorldUpgradeListMembership>(),
             out var unresolved,
             out var skipped,
+            out _,
             out _);
         Assert.Equal(0, unresolved);
         Assert.Equal(0, skipped);

@@ -1866,6 +1866,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
                 OrbModding.Common.Runtime.World.WorldUpgradeListMembership>(),
             out _,
             out _,
+            out _,
             out _);
         return new AutoBuyNativePurchaseAdapter(topology, includeContract);
     }

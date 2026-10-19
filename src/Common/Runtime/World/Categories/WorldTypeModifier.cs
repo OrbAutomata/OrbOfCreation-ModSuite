@@ -585,7 +585,7 @@ internal sealed class WorldTypeModifierReader : IWorldCategoryReader
 
                     sampled++;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
                     WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
                         "reading a " + taxonomy.TypeName + " modifier row threw: " +
@@ -669,7 +669,7 @@ internal sealed class WorldTypeModifierContributionReader : IWorldCategoryReader
 
                     sampled++;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
                     WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
                         "reading a " + taxonomy.TypeName + " contribution row threw: " +

@@ -173,7 +173,7 @@ internal sealed class WorldUpgradeCostReader : IWorldCategoryReader
             {
                 sampled += Read(upgrade, costs, modifiers);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)

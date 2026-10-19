@@ -53,7 +53,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         var memberships = new WorldRelationBuffer<WorldUpgradeListMembership>();
 
         var sampled = Resolver().ReadAll(
-            0, relations, routes, memberships, out var unresolved, out var skipped, out _);
+            0, relations, routes, memberships, out var unresolved, out var skipped, out _, out _);
 
         Assert.Equal(1, sampled);
         Assert.Equal(1, relations.Count);
@@ -77,6 +77,25 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
             WorldPurchaseCandidateKind.Structure, structure, 0, out _));
     }
 
+    /// <summary>
+    /// A candidate skipped because its identity could not be read is named in the report, not only
+    /// counted.
+    /// </summary>
+    [Fact]
+    public void ACandidateWhoseIdentityCannotBeReadNamesWhyInTheReport()
+    {
+        global::StructureSO.All.Add(new global::StructureSO
+        {
+            GetGuidFailure = new InvalidOperationException("identity was unreadable"),
+        });
+
+        var report = new WorldPurchaseViewRelationReader(WorldNativeTypes.Resolve).Collect(
+            new HashSet<Guid>(), new GameWorldCycleFrame { CollectedAtEpoch = Lifecycle });
+
+        Assert.Equal(1, report.Skipped);
+        Assert.Contains("identity was unreadable", report.FirstFailure, StringComparison.Ordinal);
+    }
+
     private static NativePurchaseViewAdmissionResolver Resolver()
     {
         Assert.True(
@@ -96,6 +115,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
             new WorldRelationBuffer<WorldUpgradeListMembership>(),
             out _,
             out _,
+            out _,
             out _);
 
     /// <summary>
@@ -113,7 +133,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         var memberships = new WorldRelationBuffer<WorldUpgradeListMembership>();
 
         Resolver().ReadAll(
-            Lifecycle, relations, routes, memberships, out _, out _, out var failure);
+            Lifecycle, relations, routes, memberships, out _, out _, out _, out var failure);
 
         Assert.Equal(string.Empty, failure);
         Assert.Equal(
@@ -145,6 +165,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
             new WorldRelationBuffer<WorldPurchaseViewRelation>(),
             new WorldRelationBuffer<WorldPurchaseViewRoute>(),
             memberships,
+            out _,
             out _,
             out _,
             out var failure);
