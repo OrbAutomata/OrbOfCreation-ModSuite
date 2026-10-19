@@ -289,24 +289,69 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
     }
 
     [Fact]
-    public void AQueuedUsageThatVanishesUnengagedPausesForOneWorldThenResumes()
+    public void AQueuedUsageThatVanishesUnengagedIsCancelledAndStopsBeingTracked()
     {
         var itemId = Guid.NewGuid();
         var state = SubmittedState(itemId, submittedFrame: 10);
 
-        var paused = AutoItemsTemporaryActivationPolicy.Observe(
+        var cancelled = AutoItemsTemporaryActivationPolicy.Observe(
             FollowUpWorld(itemId, frame: 11),
             ref state);
-        var resumed = AutoItemsTemporaryActivationPolicy.Observe(
+        var after = AutoItemsTemporaryActivationPolicy.Observe(
             FollowUpWorld(itemId, frame: 12),
             ref state);
 
-        Assert.Equal(AutoItemsTemporaryActivationState.Paused, paused.State);
-        Assert.Equal(
-            AutoItemsTemporaryPauseCause.MissingEngagementEvidence,
-            paused.PauseCause);
-        Assert.Equal(AutoItemsTemporaryActivationState.None, resumed.State);
+        Assert.Equal(AutoItemsTemporaryActivationState.Cancelled, cancelled.State);
+        Assert.Equal(itemId, cancelled.ItemId);
+        Assert.Equal(AutoItemsTemporaryActivationState.None, after.State);
+        Assert.Equal(Guid.Empty, state.PendingTemporaryItem);
         Assert.Equal(Guid.Empty, state.PausedTemporaryItem);
+    }
+
+    [Fact]
+    public void ACancelledFruitBacksOffWithDoublingUntilItsUsageEngages()
+    {
+        var registry = new Dictionary<Guid, object>();
+        var fruit = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Fruit);
+        var itemId = fruit.GetGuid();
+        var warnings = new List<string>();
+        var status = FeatureStatus();
+        using var runtime = ComposeAutoItems(registry, itemId, status, warnings, out var capture);
+        var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+        var generation = world.CollectedAtFrame;
+
+        Publish(capture, world);
+        TickUntil(runtime, () => fruit.GetQueued() == 1);
+        CancelQueuedUse(fruit);
+        CollectUntil(runtime, capture, world, ref generation, () => fruit.SelectAndFireTimestamps.Count == 2);
+        CancelQueuedUse(fruit);
+        CollectUntil(runtime, capture, world, ref generation, () => fruit.SelectAndFireTimestamps.Count == 3);
+        var engaged = world with
+        {
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(
+                new[] { Usage(itemId, engaged: true, remaining: 30) }),
+        };
+        CollectUntil(
+            runtime,
+            capture,
+            engaged,
+            ref generation,
+            () => warnings.Exists(line => line.Contains("stops backing off")));
+
+        var calls = fruit.SelectAndFireTimestamps;
+        Assert.True(
+            Elapsed(calls[0], calls[1]) >= TimeSpan.FromMilliseconds(250),
+            $"The first retry came {Elapsed(calls[0], calls[1])} after the first use.");
+        Assert.True(
+            Elapsed(calls[1], calls[2]) >= TimeSpan.FromMilliseconds(500),
+            $"The second retry came {Elapsed(calls[1], calls[2])} after the second use.");
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("after 1 failed attempt", warnings[0]);
+        Assert.Contains("disappeared before it engaged", warnings[0]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.EndsWith("after 2 failed attempts in a row.", warnings[1]);
+        Assert.All(warnings, line => Assert.Contains(itemId.ToString("D"), line));
+        Assert.Equal(FeatureStatusState.Operational, status.Current.State);
     }
 
     [Fact]
@@ -317,31 +362,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         var itemId = fruit.GetGuid();
         var warnings = new List<string>();
         var status = FeatureStatus();
-        IDictionary source = registry;
-        var frame = 0L;
-        RegistryCapture capture;
-        using var runtime = AutomataServiceCycleComposition.Create(
-            Configuration(itemId.ToString("D")),
-            new ConfigGeneration(1),
-            new AutomataServiceCycleHostDependencies(
-                () => ++frame,
-                static () => 1,
-                new ServiceActionTimelineRegistry()),
-            new IAutomataServiceCycleFeature[]
-            {
-                capture = new RegistryCapture(new AutoItemsServiceCycleFeature(new AutoItemsFeatureDependencies(
-                    new TypedRegistryResolver(
-                        static () => 1,
-                        () => TypedRegistrySourceSnapshot.Ready(source),
-                        value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty),
-                    static () => 1,
-                    ownsActionFamily: static () => true,
-                    tryCaptureMutationPermit: static () => true,
-                    readOwnershipFailure: static () => string.Empty,
-                    featureStatus: status,
-                    warn: warnings.Add))),
-            },
-            new ManualLogSource());
+        using var runtime = ComposeAutoItems(registry, itemId, status, warnings, out var capture);
         var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
 
         var generation = world.CollectedAtFrame;
@@ -372,6 +393,88 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         Assert.Equal(FeatureStatusState.Operational, pausedStatus.State);
         Assert.Equal(FeatureStatusState.Operational, status.Current.State);
         Assert.Equal(1, fruit.GetQueued());
+    }
+
+    [Fact]
+    public void AUseThatDoesNotVerifyBacksOffLoudlyAndRetriesTheSameFruit()
+    {
+        var registry = new Dictionary<Guid, object>();
+        var fruit = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Fruit);
+        fruit.SelectionNoOp = true;
+        var itemId = fruit.GetGuid();
+        var warnings = new List<string>();
+        var status = FeatureStatus();
+        using var runtime = ComposeAutoItems(registry, itemId, status, warnings, out var capture);
+        var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+        var generation = world.CollectedAtFrame;
+
+        Publish(capture, world);
+        CollectUntil(runtime, capture, world, ref generation, () => fruit.SelectAndFireTimestamps.Count == 2);
+        var backingOffStatus = status.Current;
+        fruit.SelectionNoOp = false;
+        CollectUntil(runtime, capture, world, ref generation, () => fruit.GetQueued() == 1);
+        var engaged = world with
+        {
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(
+                new[] { Usage(itemId, engaged: true, remaining: 30) }),
+        };
+        CollectUntil(
+            runtime,
+            capture,
+            engaged,
+            ref generation,
+            () => status.Current.State == FeatureStatusState.Operational &&
+                warnings.Exists(line => line.Contains("stops backing off")));
+
+        Assert.Equal(3, fruit.SelectAndFireTimestamps.Count);
+        Assert.Contains(itemId.ToString("D"), warnings[0]);
+        Assert.Contains("backs off", warnings[0]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.EndsWith("after 2 failed attempts in a row.", warnings[1]);
+        Assert.Equal(2, warnings.Count);
+        Assert.Equal(FeatureStatusState.Degraded, backingOffStatus.State);
+        Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, backingOffStatus.Reason.Code);
+        Assert.Contains(itemId.ToString("D"), backingOffStatus.Reason.Summary);
+        Assert.Equal(1, fruit.GetQueued());
+    }
+
+    [Fact]
+    public void ABackedOffFruitTheAllowlistNoLongerNamesStopsBackingOff()
+    {
+        var registry = new Dictionary<Guid, object>();
+        var fruit = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Fruit);
+        fruit.SelectionNoOp = true;
+        var itemId = fruit.GetGuid();
+        var warnings = new List<string>();
+        var status = FeatureStatus();
+        using var runtime = ComposeAutoItems(registry, itemId, status, warnings, out var capture);
+        var world = TemporaryWorld(itemId, familyIds: new[] { KnownEntities.ConsumableFruitType.Uuid });
+        var generation = world.CollectedAtFrame;
+
+        Publish(capture, world);
+        CollectUntil(
+            runtime,
+            capture,
+            world,
+            ref generation,
+            () => status.Current.State == FeatureStatusState.Degraded);
+        runtime.PublishSavedConfiguration(
+            Configuration(string.Empty, useRelics: true),
+            new ConfigGeneration(2));
+        CollectUntil(
+            runtime,
+            capture,
+            world,
+            ref generation,
+            () => status.Current.State == FeatureStatusState.Operational &&
+                warnings.Exists(line => line.Contains("stops backing off")));
+
+        Assert.Single(fruit.SelectAndFireTimestamps);
+        Assert.Equal(2, warnings.Count);
+        Assert.Contains("backs off", warnings[0]);
+        Assert.Contains("stops backing off", warnings[1]);
+        Assert.Contains(itemId.ToString("D"), warnings[1]);
+        Assert.EndsWith("after 1 failed attempt.", warnings[1]);
     }
 
     [Fact]
@@ -599,6 +702,48 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
             isAtCapacity: false,
             trueQuantity,
             trueRate: BigDouble.Zero);
+    }
+
+    private static void CancelQueuedUse(ConsumableSO fruit)
+    {
+        fruit.CancelUsage();
+        fruit.SetStock(1, 0, 0);
+    }
+
+    private static TimeSpan Elapsed(long from, long to) =>
+        TimeSpan.FromSeconds((to - from) / (double)System.Diagnostics.Stopwatch.Frequency);
+
+    private static AutomataServiceCycleRuntime ComposeAutoItems(
+        Dictionary<Guid, object> registry,
+        Guid itemId,
+        AutomataFeatureStatusReporter status,
+        List<string> warnings,
+        out RegistryCapture capture)
+    {
+        IDictionary source = registry;
+        var frame = 0L;
+        return AutomataServiceCycleComposition.Create(
+            Configuration(itemId.ToString("D")),
+            new ConfigGeneration(1),
+            new AutomataServiceCycleHostDependencies(
+                () => ++frame,
+                static () => 1,
+                new ServiceActionTimelineRegistry()),
+            new IAutomataServiceCycleFeature[]
+            {
+                capture = new RegistryCapture(new AutoItemsServiceCycleFeature(new AutoItemsFeatureDependencies(
+                    new TypedRegistryResolver(
+                        static () => 1,
+                        () => TypedRegistrySourceSnapshot.Ready(source),
+                        value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty),
+                    static () => 1,
+                    ownsActionFamily: static () => true,
+                    tryCaptureMutationPermit: static () => true,
+                    readOwnershipFailure: static () => string.Empty,
+                    featureStatus: status,
+                    warn: warnings.Add))),
+            },
+            new ManualLogSource());
     }
 
     private static void ResetNativeStubs()

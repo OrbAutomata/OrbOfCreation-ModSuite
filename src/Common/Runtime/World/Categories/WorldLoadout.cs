@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
@@ -233,15 +232,12 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         if (activeSpells is not null && spellValues is not null && casting is not null && readying is not null)
             _canSwap = LoadoutNativeShapes.SpellsAllowSwap(activeSpells, spellValues, casting, readying);
 
-        var failures = new[]
-        {
+        _unavailable = WorldFailures.Join(
             _manager is null ? "LoadoutManager did not expose instance on this build" : string.Empty,
             manager.Failure, playerList.Failure, spellList.Failure, player.Failure, label.Failure,
             spell.Failure, alchemySnapshotList.Failure, equipmentSnapshotList.Failure,
             alchemySnapshot.Failure, equipmentSnapshot.Failure, alchemyRecord.Failure,
-            equipmentRecord.Failure, identity.Failure,
-        };
-        _unavailable = string.Join("; ", failures.Where(failure => failure.Length > 0));
+            equipmentRecord.Failure, identity.Failure);
     }
 
     public string Category => "loadouts";
@@ -269,27 +265,27 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                 var player = players![index];
                 if (player is null || player.GetType() != _playerType)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a player loadout had an unexpected native type");
                     continue;
                 }
                 var id = _playerId!(player);
                 if (id == Guid.Empty)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a player loadout had an empty identity");
                     continue;
                 }
                 var label = _playerLabel!(player);
                 if (label is null)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a player loadout had no label");
                     continue;
                 }
                 if (!claimed.Add(id))
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a player loadout had a duplicate identity");
                     continue;
                 }
@@ -337,7 +333,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             if (spell is null) continue;
             if (spell.GetType() != _spellType)
             {
-                Skip(ref skipped, ref firstFailure,
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
                     "a loadout's spell entry had an unexpected native type");
                 continue;
             }
@@ -347,7 +343,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             var recipeId = reference is null ? Guid.Empty : _identity!(reference);
             if (spellId == Guid.Empty || recipeId == Guid.Empty)
             {
-                Skip(ref skipped, ref firstFailure,
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
                     "a loadout's spell entry had an empty identity");
                 continue;
             }
@@ -386,13 +382,13 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                 out var item, out quantity))
         {
             quantity = 0;
-            Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry could not be read");
+            WorldSkipTally.Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry could not be read");
             return false;
         }
         if (quantity <= 0) return false;
         id = _identity!(item!);
         if (id != Guid.Empty) return true;
-        Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry had an empty identity");
+        WorldSkipTally.Skip(ref skipped, ref firstFailure, $"a loadout's {kind} entry had an empty identity");
         return false;
     }
 
@@ -402,14 +398,14 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         var expected = alchemy ? _alchemySnapshotListType : _equipmentSnapshotListType;
         if (owner is null || owner.GetType() != expected)
         {
-            Skip(ref skipped, ref firstFailure,
+            WorldSkipTally.Skip(ref skipped, ref firstFailure,
                 "a snapshot list had an unexpected native type");
             return 0;
         }
         var id = _identity!(owner);
         if (id == Guid.Empty || !claimed.Add(id))
         {
-            Skip(ref skipped, ref firstFailure,
+            WorldSkipTally.Skip(ref skipped, ref firstFailure,
                 "a snapshot list had an empty or duplicate identity");
             return 0;
         }
@@ -424,7 +420,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             var snapshot = values![slot];
             if (snapshot is null)
             {
-                Skip(ref skipped, ref firstFailure,
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
                     "a snapshot slot was unavailable");
                 continue;
             }
@@ -447,12 +443,6 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
             }
         }
         return 1;
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }
 

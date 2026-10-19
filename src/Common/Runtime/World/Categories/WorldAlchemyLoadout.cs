@@ -182,7 +182,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
                 var recipe = recipes![index];
                 if (recipe is null || recipe.GetType() != _recipeType)
                 {
-                    Skip(ref skipped, ref firstFailure, $"recipe {index} had an unexpected native type");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"recipe {index} had an unexpected native type");
                     continue;
                 }
                 var recipeId = _recipeId!(recipe);
@@ -218,7 +218,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected,
                 sampled, skipped, firstFailure);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
@@ -260,10 +260,4 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         id == KnownEntities.Brewing.Uuid || id == KnownEntities.Dismantle.Uuid ||
         id == KnownEntities.Enchantment.Uuid || id == KnownEntities.Refinement.Uuid ||
         id == KnownEntities.Transmutation.Uuid;
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
-    }
 }

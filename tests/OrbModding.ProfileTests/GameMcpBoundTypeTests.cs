@@ -254,17 +254,15 @@ public sealed class GameMcpBoundTypeTests
         var equipment = new WorldEquipment(Equipment, true, 0, BigDouble.Zero, 3, false,
             BigDouble.One, BigDouble.One, BigDouble.One, 1, 0, -1, BigDouble.Zero,
             loadout: decision);
-        var identities = EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(Equipment, "EquipmentSO", "Prismatic Lens", "prismaticLens"),
             new EntityIdentityName(EquipmentType, "EquipmentTypeSO", "Focus", "focus"),
-            new EntityIdentityName(Bandwidth, "ResourceSO", "Attunement", "attunement"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(Bandwidth, "ResourceSO", "Attunement", "attunement"));
         return new GameWorldState
         {
             CollectedAtEpoch = 26,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(26, identities),
+            EntityIdentities = identities,
             Resources = PublicationTable<WorldResource>.Create(new[]
             {
                 BandwidthResource(Bandwidth, new BigDouble(60), new BigDouble(100)),

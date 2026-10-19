@@ -8,7 +8,7 @@ namespace OrbAutomata;
 /// eligibility, requested-level, and exclusion dimensions under the same cycle identity.
 /// </summary>
 /// <remarks>
-/// The ten exclusion counters answer the question a bare "0 eligible of 180" cannot: which term
+/// The exclusion counters answer the question a bare "0 eligible of 180" cannot: which term
 /// refused them. Captured minus eligible equals their sum on every cycle, so an operator reading the
 /// journal can attribute every candidate that did not reach the plan without attaching a debugger.
 /// The unaffordable bucket's binding resource does not ride here — the projection surface carries
@@ -33,6 +33,7 @@ internal static class AutoBuyServiceProjection
     // Keys 11, 12, 24-27 and 31 are retired; never reuse them.
     internal const int ExcludedOwningViewRelationContradictoryKey = 32;
     internal const int ExcludedDestinationFullKey = 33;
+    internal const int ExcludedBackingOffKey = 34;
 
     public static void Write(
         in AutoBuyCycleState state,
@@ -56,6 +57,7 @@ internal static class AutoBuyServiceProjection
         output.Add(Key(ExcludedOwningViewRelationUnreadableKey), Integer(exclusions.OwningViewRelationUnreadable));
         output.Add(Key(ExcludedOwningViewRelationContradictoryKey), Integer(exclusions.OwningViewRelationContradictory));
         output.Add(Key(ExcludedDestinationFullKey), Integer(exclusions.DestinationFull));
+        output.Add(Key(ExcludedBackingOffKey), Integer(exclusions.BackingOff));
     }
 
     private static ServiceProjectionKey Key(int value) => new(value);

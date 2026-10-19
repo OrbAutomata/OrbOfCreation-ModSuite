@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -31,7 +32,9 @@ internal static class AutoItemsFeatureStatusProjector
         string bindingFailure,
         bool cycleObserved,
         AutoItemsDecisionKind decisionKind,
-        AutoItemsActionHealth health)
+        AutoItemsActionHealth health,
+        ServiceRetryGateSnapshot retries,
+        MonotonicTimestamp now)
     {
         if (emergencyDisabled)
             return Blocked(
@@ -52,6 +55,8 @@ internal static class AutoItemsFeatureStatusProjector
                     : bindingFailure);
         if (health.HasFailure)
             return FromActionFailure(health.Code, health.Reason);
+        if (decisionKind != AutoItemsDecisionKind.Disabled && retries.TryGetLatestAnnounced(now, out var retry))
+            return BackingOff(in retry);
         if (!cycleObserved)
             return new AutoItemsFeatureStatus(
                 FeatureStatusState.NotReady,
@@ -82,16 +87,6 @@ internal static class AutoItemsFeatureStatusProjector
         var summary = string.IsNullOrWhiteSpace(reason)
             ? "Auto Items failed without a reason."
             : reason;
-        if (code == AutoItemsActionResultCodes.ContractUnavailable)
-            return new AutoItemsFeatureStatus(
-                FeatureStatusState.ContractUnavailable,
-                FeatureStatusReasonCode.ContractUnavailable,
-                summary);
-        if (code == AutoItemsActionResultCodes.Quarantined)
-            return new AutoItemsFeatureStatus(
-                FeatureStatusState.Faulted,
-                FeatureStatusReasonCode.MutationQuarantined,
-                summary);
         if (code == AutoItemsActionResultCodes.ItemUnavailable)
             return new AutoItemsFeatureStatus(
                 FeatureStatusState.NotReady,
@@ -102,11 +97,6 @@ internal static class AutoItemsFeatureStatusProjector
                 FeatureStatusState.ContractUnavailable,
                 FeatureStatusReasonCode.IdentityMismatch,
                 summary);
-        if (code == AutoItemsActionResultCodes.MultiBuyUnavailable)
-            return new AutoItemsFeatureStatus(
-                FeatureStatusState.Faulted,
-                FeatureStatusReasonCode.ContractUnavailable,
-                summary);
         if (code == AutoItemsActionResultCodes.NativeBusy ||
             code == AutoItemsActionResultCodes.CanFireRefused)
             return Blocked(FeatureStatusReasonCode.NativeBusy, summary);
@@ -116,6 +106,16 @@ internal static class AutoItemsFeatureStatusProjector
             return Blocked(FeatureStatusReasonCode.ActionFamilyConflict, summary);
         return Blocked(FeatureStatusReasonCode.TemporarySafetyBlock, summary);
     }
+
+    private static AutoItemsFeatureStatus BackingOff(in ServiceRetryEntry entry) =>
+        new(
+            FeatureStatusState.Degraded,
+            entry.Code == AutoItemsActionResultCodes.ContractUnavailable ||
+            entry.Code == AutoItemsActionResultCodes.MultiBuyUnavailable
+                ? FeatureStatusReasonCode.ContractUnavailable
+                : FeatureStatusReasonCode.NativeMutationFailed,
+            $"Auto Items is backing off {EntityIdentityFormatter.Format(entry.Target.Id)} after " +
+            $"{entry.ConsecutiveFailures} failed attempt(s) and retries it on a later world: {entry.Reason}");
 
     private static AutoItemsFeatureStatus Blocked(
         FeatureStatusReasonCode reason,

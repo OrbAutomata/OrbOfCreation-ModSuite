@@ -2891,9 +2891,9 @@ one line whose reason names whichever failed to bind first — a feature whose c
 the game threw costs one line naming the verifier's feature word and its latest suite-log reference
 (`Research: committed, but the game threw; reference MCP-1A2B3C4D is in the suite log`), while the
 press itself answered a plain commit — `agent settings:` costs a line exactly while the last load could not normalize the settings every
-documented verb assumes, `<feature> reason:` costs a line for each feature the suite switched off itself
-(`invariant_violation`) and carries the sentence that stand-down logged — for Auto Buy, the
-candidate, the game's refusal, and the diagnostic bundle — and for each feature held
+documented verb assumes, `<feature> reason:` costs a line for each feature held `faulted` by an invariant violation
+(`invariant_violation`) and carries the sentence it logged — for Auto Buy, the candidate, the game's
+refusal, the diagnostic bundle, and that it holds off until the next lifecycle — and for each feature held
 `temporarily_blocked`, `locked` or `faulted` by anything but the emergency stop, carrying what it
 would do and why it did not (`auto_concept reason: Auto Concept would rotate Analyze Space out for Analyze
 Essence, but Psi is at zero.`), and feature and service names are grouped by state and reason code. Seven identical NotReady features
@@ -3379,7 +3379,7 @@ game's own gates are the only ones it answers to. No AutoBuy setting applies to 
 the queue slots Auto Buy reserves for manual play (`AutoBuy/LeaveQueueSlots`) included: reserving
 slots *for* manual actions and then refusing one is the contradiction that reserve exists to avoid.
 The reverse holds too: a game refusal of a `game_purchase` press answers the caller and never reaches
-Auto Buy's planner breaker, because a press has no plan to be wrong about.
+Auto Buy's refusal responder, because a press has no plan to be wrong about.
 The same rule reaches every other verb. `game_concept` takes the game's gates — a free Concept
 slot, a discovered recipe, and the drain the assignment costs — and does not read
 `AutoConcept/RateReservePercent`, the backpressure Auto Concept's own cycle keeps; a live round had
@@ -4945,7 +4945,7 @@ the spans are independent: an absent writer still answers what the last pass cos
   `native_probe_unavailable` saying so, instead of faulting or answering the last game's room; and
 - `navigation`: live tab and active-subtab counts, useful for diagnosing catalog availability.
 
-To add a probe, add one fixed name to the router schema and closed-world policy, implement its
+To add a probe, add one fixed name to the `game_probe` descriptor's schema and binder in `GameMcpScreenTools` and to closed-world policy, implement its
 Unity-main-thread branch without accepting reflection/member input, declare every native type and
 member in the schema-3 manifest, add installed-contract and portable behavior tests, and document
 why the fact does not belong in published `WORLD`. Facts that workers or strategists generally need
@@ -4971,3 +4971,11 @@ Game MCP streamable HTTP server listening on http://127.0.0.1:19106/mcp
 
 If `doctor` cannot connect, confirm the `perf-debug` install, Steam launch, active run, and absence
 of a port collision. Never install a new suite while the game is running.
+
+Every tool is one descriptor naming its tools/list schema and prose, binder, classification, frame
+data, validation and route. Descriptors live in four family files (`GameMcpWorldTools`,
+`GameMcpSuiteTools`, `GameMcpGameplayTools`, `GameMcpScreenTools`), which `GameMcpToolCatalog`
+registers in one list; tools/list advertises the catalog in that order. The listener checks the
+catalog before it binds: no tool is registered twice, every tool has a route, a tool is `Gameplay`
+exactly when a GameAction family names its command, and no resource is registered twice. A malformed catalog logs `Game MCP server refuses to start because its
+tool catalog is malformed`, naming each problem, and the listener stays down while gameplay goes on.

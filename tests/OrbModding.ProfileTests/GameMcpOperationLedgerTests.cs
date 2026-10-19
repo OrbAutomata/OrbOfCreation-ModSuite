@@ -220,8 +220,7 @@ public sealed class GameMcpOperationLedgerTests
             var request = new GameMcpOperationRequestBuilder
             {
                 ToolName = tool,
-                Classification = GameMcpOperationClass.ReadOnly,
-                RequiredData = GameMcpFrameData.World,
+                Route = GameMcpTestHarness.Route(tool),
             };
             arguments?.Invoke(request);
             operation = inbox.Submit(request.Freeze());
@@ -237,8 +236,7 @@ public sealed class GameMcpOperationLedgerTests
             operation = new GameMcpFrameInbox().Submit(new GameMcpOperationRequestBuilder
             {
                 ToolName = tool,
-                Classification = GameMcpOperationClass.ReadOnly,
-                RequiredData = GameMcpFrameData.None,
+                Route = GameMcpTestHarness.Route(tool),
             }.Freeze());
         }
 

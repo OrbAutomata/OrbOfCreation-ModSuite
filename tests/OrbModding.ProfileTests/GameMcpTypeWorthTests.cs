@@ -157,9 +157,10 @@ public sealed class GameMcpTypeWorthTests
     [Fact]
     public void A_spell_type_word_walks_to_the_spells_its_page_counts()
     {
-        var page = Render(Json(GameMcpWorldQuery.Search(
-            Context(World()), string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
-            "Ember", limitFromCaller: false)));
+        var page = Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            GameMcpTestHarness.Context(World()),
+            string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
+            "Ember", limitFromCaller: false), Catalog));
 
         Assert.StartsWith("rows 2/2\n", page, StringComparison.Ordinal);
         Assert.Contains("a1d000 | Kindle", page, StringComparison.Ordinal);
@@ -249,10 +250,10 @@ public sealed class GameMcpTypeWorthTests
     [MemberData(nameof(LiveSpellTypeRecords))]
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
-        var results = Json(GameMcpWorldQuery.GetRows(
-            Context(World(SpellTypeRecords(property))),
+        var results = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Context(World(SpellTypeRecords(property))),
             string.Empty,
-            new[] { Ember.ToString("D") }))["results"]!;
+            new[] { Ember.ToString("D") }), Catalog)["results"]!;
         var block = Assert.Single(results.Values<JObject>())!;
         var row = Assert.Single(block["worth"]!["properties"]!.Values<JObject>())!;
 
@@ -363,8 +364,8 @@ public sealed class GameMcpTypeWorthTests
     public void An_equipment_type_list_row_names_the_level_it_carries_the_way_its_page_does()
     {
         var world = World();
-        var listed = Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50));
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50), Catalog);
         var row = Assert.Single(listed["rows"]!.Values<JObject>())!;
         var page = Detail(Focus);
 
@@ -388,21 +389,19 @@ public sealed class GameMcpTypeWorthTests
                 "a0a000 | Focus | equipment-types | - | name",
                 "a1c000 | Focus Ward | augment-glyphs | - | name",
             }),
-            Render(Json(GameMcpWorldQuery.Search(
-                Context(World()), "focus", 0, 50, string.Empty, string.Empty, string.Empty,
-                limitFromCaller: false))));
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+                GameMcpTestHarness.Context(World()),
+                "focus", 0, 50, string.Empty, string.Empty, string.Empty,
+                limitFromCaller: false), Catalog)));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
-
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]
@@ -420,13 +419,6 @@ public sealed class GameMcpTypeWorthTests
             new EntityIdentityName(Scorch, "SpellRecipeSO", "Scorch", "scorch"),
             new EntityIdentityName(Hush, "SpellRecipeSO", "Hush", "hush"),
         });
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(904));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     /// <summary>
     /// One world holding all five detail-readable type classes, their records, and the modifiers
@@ -474,7 +466,7 @@ public sealed class GameMcpTypeWorthTests
             (Focus, "masteryLevel", GameValueModifierType.Raw, 2d, Insight),
             (Ember, "power", GameValueModifierType.MultiDiminishing, 50d, Insight));
 
-        var keywords = PublicationTable<WorldEntityKeyword>.Create(Sorted(
+        var keywords = PublicationTable<WorldEntityKeyword>.Create(GameMcpTestHarness.SortedByOwnerSourceAndOrdinal(
             new WorldEntityKeyword(
                 Wand, WorldKeywordOwnerKind.Equipment, WorldKeywordSource.PrimaryType, 0, Focus),
             new WorldEntityKeyword(
@@ -532,8 +524,8 @@ public sealed class GameMcpTypeWorthTests
                 PublicationTable<WorldResearch>.Empty,
                 PublicationTable<WorldConsumableType>.Empty,
                 PublicationTable<WorldTypeSubtype>.Empty),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
@@ -587,18 +579,6 @@ public sealed class GameMcpTypeWorthTests
         return PublicationTable<WorldTypeModifierContribution>.Create(rows, rows.Length);
     }
 
-    private static WorldEntityKeyword[] Sorted(params WorldEntityKeyword[] rows)
-    {
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            if (owner != 0) return owner;
-            var source = ((int)left.Source).CompareTo((int)right.Source);
-            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return rows;
-    }
-
     /// <summary>
     /// The two flash records carry numbers on purpose: the point is that a captured magnitude the
     /// game cannot read is still not printed, which a pair of zeroes would not have shown.
@@ -616,20 +596,4 @@ public sealed class GameMcpTypeWorthTests
             id, true, 1, BigDouble.Zero, 0, false, false, false, 0, 1d, 1, false,
             BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One, BigDouble.One,
             false);
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 }

@@ -137,6 +137,65 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
             status.Current.Reason.Summary);
     }
 
+    /// <summary>
+    /// A response read while the worker holds the handoff carries no projection, so the hold the last
+    /// fresh read named stays on the status line instead of flickering off until the next response.
+    /// </summary>
+    [Fact]
+    public void AHoldStaysNamedWhenTheNextResponseIsReadWhileTheWorkerHoldsTheHandoff()
+    {
+        EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Bound(1, new[]
+        {
+            new EntityIdentityName(Firebolt, "SpellRecipeSO", "Firebolt", "Firebolt"),
+        }));
+        var actions = new ActionPort(Thread.CurrentThread.ManagedThreadId);
+        var manualPause = new AutoCastManualPauseState();
+        var definition = AutoCastService.Define(actions, manualPause);
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(7));
+        registry.ConfigurationPublication.Publish(Configuration(ritualAware: true));
+        using var registration = registry.Register(definition);
+        registry.WorldPublication.Publish(FireboltOutsideARitualWorld(), new WorldGeneration(2));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        using var status = new AutomataFeatureStatusReporter(
+            new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+                "Auto Cast",
+                true,
+                FeatureStatusState.NotReady,
+                new FeatureStatusReason(
+                    FeatureStatusReasonCode.GameplayNotReady,
+                    "Gameplay lifecycle is not ready."),
+                lifecycleGeneration: 7));
+        var bridge = new AutoCastServiceCycleDiagnosticsBridge(
+            lifecycle: 7,
+            configurationGeneration: new ConfigGeneration(1),
+            owned: true,
+            manualPause,
+            status);
+
+        ServiceRunnerTestWait.ForWorkerReady(registration);
+        Assert.Equal(1, pump.PumpFrame(1).CyclesStarted);
+        ServiceRunnerTestWait.ForResponse(registration);
+        var first = pump.PumpFrame(2);
+        bridge.Observe(pump, in first, owned: true);
+        var named = status.Current;
+        registry.WorldPublication.Publish(FireboltOutsideARitualWorld(), new WorldGeneration(3));
+        var frame = 3L;
+        var second = ServiceCyclePumpTestWait.UntilResponse(pump, ref frame);
+        using var contention = new HandoffGateContention(registration.Runner);
+        contention.Acquire();
+        HeldGate.AssertReturnsWhileHeld(
+            () => bridge.Observe(pump, in second, owned: true),
+            contention.Release);
+        contention.Release();
+
+        Assert.Equal(FeatureStatusState.TemporarilyBlocked, named.State);
+        Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.Current.State);
+        Assert.Equal(named.Reason.Summary, status.Current.Reason.Summary);
+    }
+
     /// <summary>Firebolt equipped and ready, authored as one combat effect, with no ritual battle running.</summary>
     private static GameWorldState FireboltOutsideARitualWorld()
     {
@@ -232,5 +291,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
                 CommonActionResultCodes.Committed,
                 ServiceNativeMutationEvidence.Observed(NativeMutationOutcome.Verified, call));
         }
+
+        public void ObserveOperational(bool operational) { }
     }
 }

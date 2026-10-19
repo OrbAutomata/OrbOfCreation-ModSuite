@@ -9,11 +9,11 @@ namespace OrbAutomata.GameMcp;
 internal readonly struct ModalDismissSubmission
 {
     internal ModalDismissSubmission(
-        bool committed, string code, string reason, string title = "", bool faulted = false)
+        bool committed, string code, GameActionReason reason, string title = "", bool faulted = false)
     {
         Committed = committed;
         Code = code ?? string.Empty;
-        Reason = reason ?? string.Empty;
+        Reason = reason.Text;
         Title = title ?? string.Empty;
         Faulted = faulted;
     }
@@ -245,9 +245,9 @@ internal sealed class ModalDismissGameAction : IDisposable
                 instance => title(instance) is { } label ? label.text ?? string.Empty : string.Empty);
         }, out _bindings, out _bindingFailure);
 
-    private static ModalDismissSubmission Refused(string code, string reason) => new(false, code, reason);
+    private static ModalDismissSubmission Refused(string code, GameActionReason reason) => new(false, code, reason);
 
-    private static ModalDismissSubmission Faulted(string code, string reason) =>
+    private static ModalDismissSubmission Faulted(string code, GameActionReason reason) =>
         new(false, code, reason, faulted: true);
 
     private const string OpenPanel = "the open panel";

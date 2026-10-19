@@ -18,7 +18,7 @@ internal static class AutoCastManualSignal
 
     /// <summary>
     /// Every cast the game has made, ours included. The mutation verifier's postcondition reads this:
-    /// a submitted cast must advance it by exactly one.
+    /// a submitted cast must advance it.
     /// </summary>
     public static long FireEpoch => Volatile.Read(ref _fireEpoch);
 

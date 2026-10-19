@@ -19,6 +19,36 @@ public sealed class TypedRegistryResolverTests
         Assert.Equal(TypedRegistryResolutionStatus.ContractUnavailable, contract.Resolve(Guid.NewGuid(), typeof(Entity)).Status);
     }
 
+    /// <summary>
+    /// A read that threw proves nothing about the build, so it is retried; an unbound registry and a
+    /// wrong type are mismatches the game proved. The exception stays out of the reason.
+    /// </summary>
+    [Fact]
+    public void AReadThatThrowsIsRetriedWhileAnUnboundRegistryAndAWrongTypeAreNot()
+    {
+        var uuid = Guid.NewGuid();
+        var sourceThrew = Resolver(() => throw new InvalidOperationException("registry not loaded"));
+        var lookupThrew = Resolver(Ready(new ThrowingRegistry()));
+        var accessorThrew = new TypedRegistryResolver(
+            () => 1,
+            Ready(new Hashtable { [uuid] = new Entity(uuid) }),
+            _ => throw new InvalidOperationException("guid unreadable"));
+        var unbound = Resolver(() => TypedRegistrySourceSnapshot.ContractUnavailable("field missing"));
+        var wrongType = Resolver(Ready(new Hashtable { [uuid] = new OtherEntity(uuid) }));
+
+        foreach (var resolver in new[] { sourceThrew, lookupThrew, accessorThrew })
+        {
+            var threw = resolver.Resolve(uuid, typeof(Entity));
+            Assert.False(threw.IsResolved);
+            Assert.True(threw.IsRetryable);
+            Assert.DoesNotContain("registry not loaded", threw.Format());
+            Assert.DoesNotContain("injected lookup outage", threw.Format());
+            Assert.DoesNotContain("guid unreadable", threw.Format());
+        }
+        Assert.False(unbound.Resolve(uuid, typeof(Entity)).IsRetryable);
+        Assert.False(wrongType.Resolve(uuid, typeof(Entity)).IsRetryable);
+    }
+
     [Fact]
     public void MissingUuidReturnsStructuredRuntimeEvidence()
     {
@@ -244,6 +274,11 @@ public sealed class TypedRegistryResolverTests
         public OtherEntity(Guid id) => Id = id;
         public Guid Id { get; }
         public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class ThrowingRegistry : Hashtable
+    {
+        public override bool Contains(object key) => throw new InvalidOperationException("injected lookup outage");
     }
 
     private sealed class NearMatchRegistryContract

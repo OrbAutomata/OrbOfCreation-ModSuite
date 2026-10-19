@@ -56,7 +56,7 @@ public sealed class GameMcpSpellCompositionTests
     [Fact]
     public void MissingDialValueIsNamedAtSchemaValidation()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -130,13 +130,13 @@ public sealed class GameMcpSpellCompositionTests
     [InlineData("reserve")]
     public void ThePreparedCommandCarriesTheDialTheCallerNamed(string dial)
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_casting_dial",
             new JObject { ["dial"] = dial, ["value"] = 5 });
 
         // Two dials share one screen, so the response can only name the one it moved if the
         // prepared command carries it. It reached the projection empty and printed an empty dial.
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World()),
             out var command,
@@ -417,7 +417,7 @@ public sealed class GameMcpSpellCompositionTests
                     BigDouble.One,
                     false,
                     recipeGlyphs,
-                    PublicationTable<WorldDiscoverableCost>.Empty,
+                    PublicationTable<WorldResourceCost>.Empty,
                     true),
             }),
             // The two core ids are retired unlockers: the world publishes no glyph row for them, and

@@ -12,8 +12,7 @@ internal enum AutoHarvestPairCaptureKind
 /// <summary>
 /// Why a selected pair carries no facts. One value, because there is one such reason left: the game's
 /// registries have not been collected yet, which is a fact about the world rather than about a pair
-/// and therefore reaches both. The quarantine and contract failures that used to appear here belong
-/// to the worker's own memory now; see W45.
+/// and therefore reaches both. Contract mismatches belong to the worker's own memory; see W45.
 /// </summary>
 internal enum AutoHarvestCaptureUnavailableReason
 {

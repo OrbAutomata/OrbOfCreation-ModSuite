@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
@@ -14,9 +15,12 @@ using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle.Observation.Journal;
 
-public sealed class ServiceCycleDecisionJournalRuntimeTests
+[Collection(GameActionFaultLogCollection.Name)]
+public sealed class ServiceCycleDecisionJournalRuntimeTests : IDisposable
 {
     private static readonly TimeSpan Deadline = ServiceCycleTestDeadline.Value;
+
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
 
     [Fact]
     public void ConstructorPreflightRejectsInvalidPumpsBeforeStartingStorage()
@@ -148,6 +152,8 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             new LifecycleGeneration(1),
             ServiceActionDispatchPolicy.Bounded(2));
         var messages = new List<string>();
+        var faults = new List<string>();
+        GameActionFaultLog.ConfigureLog(faults.Add);
         var frameIdentity = 3L;
         using var host = new AutomataServiceCycleHost(
             registry,
@@ -179,11 +185,16 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             Assert.Equal(ServiceActionRouteStatus.AttributionFailed, action.Attribution.RouteStatus);
         });
         Assert.Equal(2, messages.Count);
-        Assert.Equal(messages[0], messages[1]);
-        Assert.Equal(
-            $"ServiceCycle action attribution failed for service {definition.ServiceId.Value}; " +
-            "the action executed and the journal marked attribution failed: attribution exploded",
-            messages[0]);
+        Assert.Equal(2, faults.Count);
+        for (var index = 0; index < 2; index++)
+        {
+            Assert.Contains("System.InvalidOperationException: attribution exploded", faults[index]);
+            Assert.Equal(
+                $"ServiceCycle action attribution failed for service {definition.ServiceId.Value}; " +
+                "the action executed and the journal marked attribution failed: describing the action threw. " +
+                "Reference " + faults[index].Split(' ')[3] + " is in the suite log.",
+                messages[index]);
+        }
     }
 
     /// <summary>
@@ -205,6 +216,8 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
             new LifecycleGeneration(1),
             ServiceActionDispatchPolicy.Bounded(2));
         var messages = new List<string>();
+        var faults = new List<string>();
+        GameActionFaultLog.ConfigureLog(faults.Add);
         var frameIdentity = 3L;
         using var host = new AutomataServiceCycleHost(
             registry,
@@ -218,9 +231,12 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests
         Assert.Equal(frameIdentity, ServiceRunnerTestWait.PrepareBatch(host.Pump, registration));
         Assert.Equal(1, host.Tick().ActionsAttempted);
 
+        var fault = Assert.Single(faults);
+        Assert.Contains("System.InvalidOperationException: adapter exploded", fault);
         Assert.Equal(
             $"ServiceCycle action for service {definition.ServiceId.Value} threw, so its batch " +
-            "stopped with an adapter fault: adapter exploded",
+            "stopped with an adapter fault: the action threw before it reported an outcome. " +
+            "Reference " + fault.Split(' ')[3] + " is in the suite log.",
             Assert.Single(messages));
     }
 

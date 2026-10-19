@@ -46,7 +46,7 @@ public sealed class GameMcpLoadoutTests
     [Fact]
     public void Mode_specific_fields_are_required_and_unrelated_fields_are_rejected()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -81,9 +81,9 @@ public sealed class GameMcpLoadoutTests
     public void Detail_names_every_saved_entry_and_snapshot_slot()
     {
         var world = World(selected: true, populatedSnapshot: true);
-        var playerResponse = Json(GameMcpWorldQuery.GetRow(Context(world, 901),
+        var playerResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
-        var snapshotResponse = Json(GameMcpWorldQuery.GetRow(Context(world, 901),
+        var snapshotResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
             "snapshot-loadouts", SnapshotId.ToString("D")).Freeze(), world);
         var player = Assert.IsType<JObject>(playerResponse["row"]);
         var snapshot = Assert.IsType<JObject>(snapshotResponse["row"]);
@@ -107,7 +107,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_that_saved_nothing_still_carries_every_section_as_an_empty_list()
     {
         var world = World(selected: true, populatedSnapshot: false, anySavedEntries: false);
-        var response = Json(GameMcpWorldQuery.GetRow(Context(world, 902),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 902),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var sections = Assert.IsType<JObject>(response["row"]!["sections"]);
 
@@ -126,7 +126,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_the_manager_will_not_swap_to_is_a_state_rather_than_an_unexplained_no()
     {
         var world = World(selected: false, populatedSnapshot: false, canSwitchNow: false);
-        var response = Json(GameMcpWorldQuery.GetRow(Context(world, 903),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 903),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var row = Assert.IsType<JObject>(response["row"]);
 
@@ -142,17 +142,19 @@ public sealed class GameMcpLoadoutTests
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
             1, string.Empty, string.Empty, false,
-            frameContext: Context(before, 91));
+            frameContext: GameMcpTestHarness.Context(before, 91));
         var clear = new GameMcpCommand(2, GameMcpCommandKind.Loadout,
             9, 3, "snapshot_clear", SnapshotId, Guid.Empty,
             "EquipmentSnapshotListVariable",
             1, string.Empty, string.Empty, false,
-            frameContext: Context(before, 91));
+            frameContext: GameMcpTestHarness.Context(before, 91));
 
-        var selected = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(after, 92), select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
-        var cleared = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(after, 92), clear, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var selected = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, 92),
+            select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var cleared = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, 92),
+            clear, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
         Assert.False((bool)selected["selected"]!["before"]!);
         Assert.True((bool)selected["selected"]!["after"]!);
@@ -202,16 +204,16 @@ public sealed class GameMcpLoadoutTests
     public void Snapshot_rows_count_slots_the_way_the_snapshot_verbs_take_them()
     {
         var world = World(selected: true, populatedSnapshot: true);
-        var context = Context(world, 93);
+        var context = GameMcpTestHarness.Context(world, 93);
 
         var slot = Assert.Single(
-            Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)slot["slot"]!);
         Assert.True((bool)slot["populated"]!);
 
         var entry = Assert.Single(
-            Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)entry["slot"]!);
         Assert.Equal("Aegis", (string?)entry["entry"]!["name"]);
@@ -231,10 +233,11 @@ public sealed class GameMcpLoadoutTests
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
             1, string.Empty, string.Empty, false,
-            frameContext: Context(before, 94));
+            frameContext: GameMcpTestHarness.Context(before, 94));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(after, 95), select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, 95),
+            select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
         Assert.Equal(2, (int)delta["spellBar"]!["equipped"]!["before"]!);
         Assert.Equal(0, (int)delta["spellBar"]!["equipped"]!["after"]!);
@@ -256,10 +259,11 @@ public sealed class GameMcpLoadoutTests
         var select = new GameMcpCommand(1, GameMcpCommandKind.Loadout,
             9, 3, "select", PlayerId, Guid.Empty, "PlayerLoadout",
             1, string.Empty, string.Empty, false,
-            frameContext: Context(before, 96));
+            frameContext: GameMcpTestHarness.Context(before, 96));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(after, 97), select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            GameMcpTestHarness.Context(after, 97),
+            select, GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
         Assert.Null(delta["spellBar"]);
     }
@@ -276,7 +280,7 @@ public sealed class GameMcpLoadoutTests
         var world = World(selected: true, populatedSnapshot: false, equippedSpells: 2);
 
         var running = (JObject)GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Overview(Context(world, 98)))["running"]!;
+            GameMcpWorldQuery.Overview(GameMcpTestHarness.Context(world, 98)))["running"]!;
 
         Assert.Null(running["equippedSpellSlots"]);
         Assert.Equal(2, (int)running["equippedSpells"]!);
@@ -378,15 +382,5 @@ public sealed class GameMcpLoadoutTests
                     2, 0, string.Empty),
             }),
         };
-    }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
-
-    private static GameMcpFrameContext Context(GameWorldState world, ulong generation)
-    {
-        using var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(generation));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
     }
 }

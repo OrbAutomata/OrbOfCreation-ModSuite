@@ -23,8 +23,8 @@ internal static class ServiceWakeSchedule
         return resolved.Kind switch
         {
             WakePolicyKind.Immediate => responsePublishedAt,
-            WakePolicyKind.AfterDecision => AddSaturated(responsePublishedAt, resolved.Delay),
-            WakePolicyKind.AfterBatch when zeroActions => AddSaturated(responsePublishedAt, resolved.Delay),
+            WakePolicyKind.AfterDecision => responsePublishedAt.AddSaturated(resolved.Delay),
+            WakePolicyKind.AfterBatch when zeroActions => responsePublishedAt.AddSaturated(resolved.Delay),
             WakePolicyKind.AfterBatch => default,
             WakePolicyKind.At => resolved.DueTime,
             WakePolicyKind.OnPublication => new MonotonicTimestamp(long.MaxValue),
@@ -40,8 +40,8 @@ internal static class ServiceWakeSchedule
         return resolved.Kind switch
         {
             WakePolicyKind.Immediate => responsePublishedAt,
-            WakePolicyKind.AfterDecision => AddSaturated(responsePublishedAt, resolved.Delay),
-            WakePolicyKind.AfterBatch => AddSaturated(terminalAt, resolved.Delay),
+            WakePolicyKind.AfterDecision => responsePublishedAt.AddSaturated(resolved.Delay),
+            WakePolicyKind.AfterBatch => terminalAt.AddSaturated(resolved.Delay),
             WakePolicyKind.At => resolved.DueTime,
             WakePolicyKind.OnPublication => new MonotonicTimestamp(long.MaxValue),
             _ => throw new InvalidOperationException("The wake policy is not concrete."),
@@ -52,17 +52,10 @@ internal static class ServiceWakeSchedule
     {
         return policy.Kind switch
         {
-            WakePolicyKind.AfterDecision => AddSaturated(anchor, policy.Delay),
+            WakePolicyKind.AfterDecision => anchor.AddSaturated(policy.Delay),
             WakePolicyKind.At => policy.DueTime,
             WakePolicyKind.OnPublication => new MonotonicTimestamp(long.MaxValue),
             _ => throw new InvalidOperationException("A retry policy must be AfterDecision, At, or OnPublication."),
         };
-    }
-
-    private static MonotonicTimestamp AddSaturated(MonotonicTimestamp timestamp, MonotonicDuration duration)
-    {
-        if (duration.Ticks > long.MaxValue - timestamp.Ticks)
-            return new MonotonicTimestamp(long.MaxValue);
-        return new MonotonicTimestamp(timestamp.Ticks + duration.Ticks);
     }
 }

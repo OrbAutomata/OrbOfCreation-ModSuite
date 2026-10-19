@@ -241,7 +241,11 @@ missing binding set, then the run. An epoch the game cannot answer is a fault, n
 run. An expected throw during admission is a refusal, because nothing was sent. The native call
 goes through `NativeMutationVerifier`: a visible outcome commits, a missing one is a verification
 fault, and an expected throw or an unreadable after-state is a post-commit fault that names the
-game's error by its log reference. An action of several presses — pay then act, open then press, a
+game's error by its log reference. An outcome keeps its authored sentence and that reference apart:
+every surface someone reads gets the sentence followed by the reference, and anything that asks
+whether a failure repeated — a warning written once, a health revision — compares the code and the
+sentence, and the target too where one warning serves many targets, because each attempt's cause is
+logged under a fresh reference. An action of several presses — pay then act, open then press, a
 swap's give-up then take — makes them all inside that one call, under one sentinel for the whole
 effect. A press counts as an attempt even when the suite presses it back: a call that stops after
 pressing the game refuses only when it pressed its change back and the game rereads undone, and
@@ -257,7 +261,7 @@ because putting a panel up or taking it down is no run-scoped transaction, the s
 family for it, and it has no lifecycle epoch to admit. The pair still touches the game only on the
 main thread, verifies its one outcome through `NativeMutationVerifier`, reads the after-state when
 the game throws after the press, and answers every unverified press as a fault. Its MCP command
-and its lifecycle live in `Plugin.cs`.
+and its lifecycle live in `GameMcpGadgets`.
 
 Composition registers each GameAction on the shell once, into the one `LifecycleGameActions` the
 runtime owns, whether the composition root or a feature builds it. That registration is its whole
@@ -334,7 +338,11 @@ After a native call, `NativeMutationVerifier` classifies every throw first by re
 after-state. A landed change followed by an unexpected throw commits, and the throw is logged with a
 reference that `suite_health` names as the feature's latest. A change that did not land runs
 the caller's quarantine, and only then does an unexpected exception escape, so the defect stays
-loud and the quarantine already holds when the fault tracker retries the batch.
+loud and the quarantine already holds when the fault tracker retries the batch. Auto Scribe and
+Spell Leveling reread the after-state the same way, and a visible craft or a risen level commits with
+the throw logged. Their one exception is a paid press whose outcome is not visible: the unexpected
+exception is written whole to the suite log under the reference the post-payment fault names, so the
+recipe or spell backs off for a minute instead of the service retrying a paid press within seconds.
 
 ## MCP responses: worked, or why not
 

@@ -97,9 +97,9 @@ public sealed class GameMcpSpellLoadoutRemoveRouteTests : IDisposable
 
     private static JObject Press(bool autoCastOn)
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_spell_loadout", new JObject { ["mode"] = "remove", ["slot"] = 1 });
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World(), generation: 41),
             out var command,
@@ -113,7 +113,7 @@ public sealed class GameMcpSpellLoadoutRemoveRouteTests : IDisposable
             readAutoCastOn: () => autoCastOn);
         Assert.True(action.BindingsAvailable, action.BindingFailure);
 
-        return GameMcpTestHarness.Json(AutomataServiceCycleRuntime
+        return GameMcpTestHarness.Json(GameMcpCommandDispatcher
             .SubmitSpellLoadout(action, command, 9, 3)
             .Project(command));
     }

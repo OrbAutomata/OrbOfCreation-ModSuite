@@ -113,7 +113,7 @@ internal sealed class WorldLevelableDecisionBinding
         _amount = tuple.Call<BigDouble>("GetValue");
         var resource = new WorldMemberBinding(resourceType, "ResourceSO");
         _resourceId = resource.StableUuid();
-        Failure = Join(item.Failure, cost.Failure, tuple.Failure, resource.Failure);
+        Failure = WorldFailures.Join(item.Failure, cost.Failure, tuple.Failure, resource.Failure);
     }
 
     internal string Failure { get; }
@@ -167,16 +167,5 @@ internal sealed class WorldLevelableDecisionBinding
             rows[index] = new WorldLevelableCost(_resourceId!(resource), _amount!(entry));
         }
         return PublicationTable<WorldLevelableCost>.Create(rows);
-    }
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
-        }
-        return result;
     }
 }

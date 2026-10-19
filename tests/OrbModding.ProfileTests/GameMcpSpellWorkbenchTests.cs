@@ -36,7 +36,7 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void ConfirmAsksForTheThingItWouldDiscoverAndNothingElse()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -854,9 +854,10 @@ public sealed class GameMcpSpellWorkbenchTests
         var level = 1;
         var submission = SpellLevelSubmission.Attempted(
             NativeMutationVerifier.Execute(
-                "Spell level single", RecipeId.ToString("D"), "mastery level exact delta +1",
-                () => level, () => level++, (previous, current) => current == previous + 1),
-            new[] { new ResourceCharge(SparkId, new BigDouble(4.5)) });
+                "Spell level single", RecipeId.ToString("D"), "mastery level increased",
+                () => level, () => level++, (previous, current) => current > previous),
+            "Spell Leveling paid for a level", "and the level did not rise")
+            .WithCharges(new[] { new ResourceCharge(SparkId, new BigDouble(4.5)) });
         var committed = GameMcpCommandResult.Committed(
             "committed", 9, 3, GameMcpSpellLevelProjection.Project(in submission, before));
 
@@ -920,9 +921,9 @@ public sealed class GameMcpSpellWorkbenchTests
             new WorldSpellRecipeGlyph(0, FirstGlyphId),
             new WorldSpellRecipeGlyph(1, SecondGlyphId),
         });
-        var discoveryCosts = PublicationTable<WorldDiscoverableCost>.Create(new[]
+        var discoveryCosts = PublicationTable<WorldResourceCost>.Create(new[]
         {
-            new WorldDiscoverableCost(
+            new WorldResourceCost(
                 ResourceId,
                 new BigDouble(4.4d, 3),
                 new BigDouble(9d, 6)),

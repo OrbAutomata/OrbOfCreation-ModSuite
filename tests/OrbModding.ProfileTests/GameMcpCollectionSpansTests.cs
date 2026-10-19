@@ -145,7 +145,7 @@ public sealed class GameMcpCollectionSpansTests
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
             "  unavailable: harvest-lifecycle",
-            Plugin.ProjectGameMcpTraceHealthText(context));
+            GameMcpHealthProjection.ProjectGameMcpTraceHealthText(context));
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class GameMcpCollectionSpansTests
             "  type-modifiers: 0.512 ms, 63 rows\n" +
             "  charged nothing this pass: entity-keywords\n" +
             "  unavailable: harvest-lifecycle",
-            Plugin.ProjectGameMcpTraceHealthText(GameMcpTestHarness.Context(Pass())));
+            GameMcpHealthProjection.ProjectGameMcpTraceHealthText(GameMcpTestHarness.Context(Pass())));
     }
 
     private static GameWorldState Pass() => new()

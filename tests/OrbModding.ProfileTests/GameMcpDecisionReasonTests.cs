@@ -10,6 +10,7 @@ using OrbAutomata.GameMcp;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.ProfileTests;
@@ -488,7 +489,7 @@ public sealed class GameMcpDecisionReasonTests
     public void Every_code_the_reference_files_under_a_class_is_sent_with_that_class()
     {
         var lines = File.ReadAllLines(
-            Path.Combine(RepositoryRoot(), "docs", "development", "mcp-tools.md"));
+            Path.Combine(RepositorySources.Root, "docs", "development", "mcp-tools.md"));
         var header = Array.IndexOf(lines, "| Class | Internal codes that reach it |");
         Assert.True(header >= 0, "could not find the class table");
         var filed = new List<(string Class, string Code)>();
@@ -538,7 +539,7 @@ public sealed class GameMcpDecisionReasonTests
         }
 
         var source = File.ReadAllText(Path.Combine(
-            RepositoryRoot(),
+            RepositorySources.Root,
             "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"));
         var start = source.IndexOf(
             "var check = GameMcpNativeVocabulary.RequirementCheck(", StringComparison.Ordinal);
@@ -705,20 +706,13 @@ public sealed class GameMcpDecisionReasonTests
     [Fact]
     public void Every_code_the_suite_ships_bare_has_a_sentence_of_its_own()
     {
-        var sourceRoot = Path.Combine(RepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var written = new Regex(
             "(?:\\[\"reasonCode\"\\]\\s*=|reasonCode:)\\s*\"([a-z][a-z0-9_]*)\"");
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs"))
         {
             var relative = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relative.StartsWith("bin", StringComparison.Ordinal) ||
-                relative.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lines = File.ReadAllLines(path);
             for (var index = 0; index < lines.Length; index++)
             {
@@ -748,18 +742,5 @@ public sealed class GameMcpDecisionReasonTests
         }
 
         return false;
-    }
-
-    private static string RepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
-             directory is not null;
-             directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
-                return directory.FullName;
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 }

@@ -46,7 +46,8 @@ internal sealed class AutoCastWorkerDefinition :
         if (state.Lifecycle != context.Identity.Lifecycle)
             throw new InvalidOperationException("Auto Cast state belongs to a different lifecycle.");
 
-        var wake = AutoCastCycleEvaluator.Evaluate(world, in config, ref state, actions, out var decision);
+        var wake = AutoCastCycleEvaluator.Evaluate(
+            world, in config, ref state, context.RetryGate, context.DecisionAt, actions, out var decision);
         state.RecordDecision(decision);
         return wake;
     }

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -13,10 +12,8 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
     private readonly TypedRegistryResolver _registryResolver;
     private readonly Func<bool> _tryCaptureMutationPermit;
     private readonly Func<string> _readMutationPermitFailure;
-    private readonly Dictionary<Guid, string> _temporaryQuarantine = new();
     private AutoItemsNativeBindings? _bindings;
     private string _bindingFailure = string.Empty;
-    private string _quarantineReason = string.Empty;
 
     internal AutoItemsConsumableUseGameAction(
         TypedRegistryResolver registryResolver,
@@ -34,18 +31,9 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
 
     internal bool BindingsAvailable => _bindings is not null;
     internal string BindingFailure => _bindingFailure;
-    internal string QuarantineReason => _quarantineReason;
 
     internal NativeActionOutcome Submit(in AutoItemsCycleAction action)
     {
-        if (_temporaryQuarantine.TryGetValue(action.ItemId, out var exactQuarantineReason))
-            return NativeActionOutcome.FaultBeforeCall(
-                AutoItemsActionResultCodes.Quarantined,
-                exactQuarantineReason);
-        if (_quarantineReason.Length != 0)
-            return NativeActionOutcome.FaultBeforeCall(
-                AutoItemsActionResultCodes.Quarantined,
-                _quarantineReason);
         if (_bindings is not { } native)
             return NativeActionOutcome.FaultBeforeCall(
                 AutoItemsActionResultCodes.ContractUnavailable,
@@ -118,29 +106,26 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.CanFireRefused,
                 $"The game refuses to use {EntityIdentityFormatter.PlayerName(action.ItemId)} right now.");
-        if (!TryCaptureMutationPermit(out reason))
+        if (!TryCaptureMutationPermit(out var permitRefusal))
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.MutationPermitUnavailable,
-                reason);
+                permitRefusal);
         if (!NativeMultiBuyScope.TryEnterOne(out var multiBuy, out reason))
             return NativeActionOutcome.FaultBeforeCall(
                 AutoItemsActionResultCodes.MultiBuyUnavailable,
                 reason);
 
-        var itemId = action.ItemId;
         var family = action.Family;
         NativeMutationEvidence<int> evidence;
-        var failureReason = string.Empty;
         using (multiBuy)
         {
             evidence = NativeMutationVerifier.Execute(
                 "Auto Items consumable use",
-                EntityIdentityFormatter.PlayerName(itemId),
+                EntityIdentityFormatter.PlayerName(action.ItemId),
                 "the exact item enters the native preparation queue",
                 () => native.GetQueued(item),
                 () => Mutate(item, family, native),
-                (before, after) => after == before + 1,
-                attempted => failureReason = Quarantine(itemId, temporary, attempted.Detail));
+                (before, after) => after == before + 1);
         }
 
         var callOutcome = new NativeMutationCallOutcome(
@@ -155,38 +140,21 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} entered native preparation.");
         if (evidence.MutationWasAttempted)
             return NativeActionOutcome.Fault(
-                AutoItemsActionResultCodes.Quarantined,
+                AutoItemsActionResultCodes.UseNotVerified,
                 evidence.Outcome,
                 callOutcome,
-                failureReason);
+                $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} did not enter " +
+                $"native preparation: {evidence.Format()}");
         return NativeActionOutcome.FaultBeforeCall(
             AutoItemsActionResultCodes.ContractUnavailable,
             "Auto Items could not read the consumable preparation queue for " +
             $"{EntityIdentityFormatter.PlayerName(action.ItemId)}: {evidence.Detail}");
     }
 
-    private string Quarantine(Guid itemId, bool temporary, string detail)
-    {
-        if (temporary)
-        {
-            var reason =
-                $"Temporary item {EntityIdentityFormatter.PlayerName(itemId)} is quarantined for this lifecycle after " +
-                $"an ambiguous consumable mutation: {detail}";
-            _temporaryQuarantine[itemId] = reason;
-            return reason;
-        }
-        _quarantineReason =
-            "Auto Items is quarantined for this lifecycle after an ambiguous consumable " +
-            $"mutation on {EntityIdentityFormatter.PlayerName(itemId)}: {detail}";
-        return _quarantineReason;
-    }
-
     internal void InvalidateLifecycle()
     {
         _bindings = null;
         _bindingFailure = string.Empty;
-        _quarantineReason = string.Empty;
-        _temporaryQuarantine.Clear();
         BindLifecycle();
     }
 
@@ -194,8 +162,6 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
     {
         _bindings = null;
         _bindingFailure = string.Empty;
-        _quarantineReason = string.Empty;
-        _temporaryQuarantine.Clear();
     }
 
     private void BindLifecycle()
@@ -210,7 +176,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
         _bindingFailure = reason;
     }
 
-    private bool TryCaptureMutationPermit(out string reason)
+    private bool TryCaptureMutationPermit(out GameActionReason reason)
     {
         try
         {
@@ -219,9 +185,10 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 reason = string.Empty;
                 return true;
             }
-            reason = _readMutationPermitFailure();
-            if (string.IsNullOrWhiteSpace(reason))
-                reason = "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride.";
+            var failure = _readMutationPermitFailure();
+            reason = string.IsNullOrWhiteSpace(failure)
+                ? "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride."
+                : failure;
             return false;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))

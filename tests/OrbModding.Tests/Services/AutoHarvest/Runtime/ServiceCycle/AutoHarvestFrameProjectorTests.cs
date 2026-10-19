@@ -47,7 +47,7 @@ public sealed class AutoHarvestFrameProjectorTests
     /// identity.
     /// </summary>
     /// <remarks>
-    /// The projection succeeds. A world without the pair is not a failure and quarantines nothing — it
+    /// The projection succeeds. A world without the pair is not a failure and backs nothing off — it
     /// is an ordinary fact, and the policy is what declines to act on it.
     /// </remarks>
     [Fact]

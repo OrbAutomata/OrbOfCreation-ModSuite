@@ -424,6 +424,48 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal("engagement_drain_limited", drain.ReasonCode);
     }
 
+    /// <summary>
+    /// A recipe whose authored read throws anything but an expected native failure faults the pass
+    /// instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ACraftingRecipeWhoseAuthoringThrowsUnexpectedlyFaultsThePass()
+    {
+        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var failure = new NullReferenceException("generated resource was destroyed");
+        var output = new FakeResource { GetGuidFailure = failure };
+        var recipe = new FakeScribeRecipe
+        {
+            generatedResources = new FakeCraftingResourceCostList().With(output, BigDouble.One),
+        };
+        recipe.craftingTypes.Add(type);
+        FakeCraftingRecipeType.All.Add(type);
+        FakeScribeRecipe.All.Add(recipe);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A recipe whose live read throws anything but an expected native failure faults the pass
+    /// instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ACraftingRecipeWhoseLiveStateThrowsUnexpectedlyFaultsThePass()
+    {
+        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var failure = new NullReferenceException("starting quantity was destroyed");
+        var recipe = new FakeScribeRecipe { StartingQuantityFailure = failure };
+        recipe.craftingTypes.Add(type);
+        FakeCraftingRecipeType.All.Add(type);
+        FakeScribeRecipe.All.Add(recipe);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
     [Fact]
     public void PersistentChallengeRequirementAdjustmentUsesTheNativeVerdictAndKeepsItsSource()
     {
@@ -503,8 +545,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(1, row.Decision.LevelsAvailable);
         var cost = Assert.Single(row.Decision.DevelopmentCosts.AsSpan().ToArray());
         Assert.Equal(resource.Identity, cost.ResourceId);
-        Assert.Equal(20d, cost.Cost.ToDouble());
-        Assert.Equal(80d, cost.Amount.ToDouble());
+        Assert.Equal(20d, cost.Price.ToDouble());
+        Assert.Equal(80d, cost.Held.ToDouble());
         var investment = Assert.Single(row.Decision.Investment.AsSpan().ToArray());
         Assert.Equal(40d, investment.Invested.ToDouble());
         var typeDecision = Assert.Single(row.Decision.ResearchTypes.AsSpan().ToArray());
@@ -539,8 +581,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(row.Decision.QueueMode);
         Assert.Equal(1, row.Decision.LevelsAvailable);
         var cost = Assert.Single(row.Decision.DevelopmentCosts.AsSpan().ToArray());
-        Assert.Equal(10d, cost.Cost.ToDouble());
-        Assert.Equal(15d, cost.Amount.ToDouble());
+        Assert.Equal(10d, cost.Price.ToDouble());
+        Assert.Equal(15d, cost.Held.ToDouble());
     }
 
     [Fact]
@@ -975,8 +1017,8 @@ public sealed class GameWorldCollectorTests : IDisposable
             recipeRow.CoreGlyphs.AsSpan().ToArray().Select(glyph => glyph.GlyphId));
         var discoveryCost = Assert.Single(recipeRow.DiscoveryCosts.AsSpan().ToArray());
         Assert.Equal(discoveryResource.Identity, discoveryCost.ResourceId);
-        Assert.Equal(4400d, discoveryCost.Cost.ToDouble());
-        Assert.Equal(9e6, discoveryCost.AvailableAmount.ToDouble());
+        Assert.Equal(4400d, discoveryCost.Price.ToDouble());
+        Assert.Equal(9e6, discoveryCost.Held.ToDouble());
         Assert.True(recipeRow.DiscoveryAffordable);
 
         Assert.Equal(1, world.SpellWorkbench.EquippedCount);
@@ -3753,8 +3795,8 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.True(idleRow.NextItemAffordable);
         Assert.Equal(1, idleRow.NextItemCosts.Count);
         Assert.Equal(currency.Identity, idleRow.NextItemCosts[0].ResourceId);
-        Assert.Equal(new BigDouble(11, 23), idleRow.NextItemCosts[0].Amount);
-        Assert.Equal(new BigDouble(563, 22), idleRow.NextItemCosts[0].AvailableAmount);
+        Assert.Equal(new BigDouble(11, 23), idleRow.NextItemCosts[0].Price);
+        Assert.Equal(new BigDouble(563, 22), idleRow.NextItemCosts[0].Held);
 
         // The cached count is a count of the tree's own list, so the list's size travels with it:
         // three of four is progress a caller can read, three on its own is not.
@@ -4015,6 +4057,37 @@ public sealed class GameWorldCollectorTests : IDisposable
         Assert.Equal(4, row.MaxCreatedLevel);
         Assert.Equal(12, row.MaximumCarryLoad);
         Assert.Equal(150d, row.Modifiers.PrepSpeed.ToDouble());
+    }
+
+    /// <summary>
+    /// A consumable whose read throws anything but an expected native failure faults the pass instead
+    /// of costing one consumable.
+    /// </summary>
+    [Fact]
+    public void AConsumableWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("consumable was destroyed");
+        FakeConsumable.All.Add(new FakeConsumable { GetGuidFailure = failure });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// An inventory slot whose read throws anything but an expected native failure faults the pass
+    /// instead of costing the inventory.
+    /// </summary>
+    [Fact]
+    public void AnInventorySlotWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var failure = new NullReferenceException("slot consumable was destroyed");
+        FakeConsumableInventory._instance.allConsumables.value.Add(
+            new FakeConsumable { GetGuidFailure = failure });
+
+        var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
+
+        Assert.Same(failure, thrown);
     }
 
     [Fact]

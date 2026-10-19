@@ -30,7 +30,7 @@ public sealed class GameMcpPlotLifecycleTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Contains("add_plot_action",
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_agromancy", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_agromancy", new JObject
         {
             ["mode"] = "add_plot_action",
             ["uuid"] = PlotId.ToString("D"),
@@ -45,7 +45,7 @@ public sealed class GameMcpPlotLifecycleTests
     public void Plot_action_rows_name_arbitrary_pairs_and_publish_only_runnable_costs()
     {
         var world = World(prerequisitesReady: true, active: 2);
-        var response = Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 911),
             "agromancy-plot-actions", 0, 10).Freeze(), world);
 
@@ -61,7 +61,7 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal("yes", (string?)row["remove"]);
         Assert.Equal(3, (int)Detail(world)["add"]!["plotQuantityCost"]!);
 
-        var processing = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+        var processing = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 911),
             "agromancy-processing", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         Assert.Equal("Moon Garden", (string?)processing["plot"]!["name"]);
@@ -78,7 +78,7 @@ public sealed class GameMcpPlotLifecycleTests
             processing.Children<JProperty>().Select(property => property.Name));
 
         var blockedWorld = World(prerequisitesReady: false, active: 0);
-        var blocked = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+        var blocked = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(blockedWorld, generation: 912),
             "agromancy-plot-actions", 0, 10).Freeze(), blockedWorld)["rows"]!.Values<JObject>());
         // The prerequisite is not readable, which is a missing read rather than a refusal, so the
@@ -117,17 +117,17 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal("20", (string?)drain["spendableAmount"]);
         Assert.True((bool)drain["affordable"]!);
 
-        var row = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             context, "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>())!;
         Assert.Null(row["drainCostsPerSecond"]);
 
-        var page = Assert.Single(Json(GameMcpWorldQuery.GetRows(
+        var page = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
             context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(),
             world)["results"]!.Values<JObject>())!;
         Assert.True(JToken.DeepEquals(
             drain, Assert.Single(page["row"]!["drainCostsPerSecond"]!.Values<JObject>())));
 
-        var added = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var added = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             context, PlotCommand("add_plot_action", DrainingWorld(active: 0)),
             GameMcpCommandResult.Committed("committed", 9, 3)), world);
         Assert.Equal(1, (int)added["active"]!["after"]!);
@@ -135,7 +135,7 @@ public sealed class GameMcpPlotLifecycleTests
             drain, Assert.Single(added["drainCostsPerSecond"]!.Values<JObject>())));
 
         var stopped = DrainingWorld(active: 0);
-        var removed = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var removed = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(stopped, generation: 917),
             PlotCommand("remove_plot_action", world),
             GameMcpCommandResult.Committed("committed", 9, 3)), stopped);
@@ -206,7 +206,7 @@ public sealed class GameMcpPlotLifecycleTests
     public void A_page_of_blocked_pairs_says_the_block_in_one_word_per_cell()
     {
         var world = ManyPairs(20);
-        var page = GameMcpTextPage.Render(Json(GameMcpWorldQuery.ListRows(
+        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 913),
             "agromancy-plot-actions", 0, 20).Freeze(), world));
         var lines = page.Split('\n');
@@ -227,7 +227,7 @@ public sealed class GameMcpPlotLifecycleTests
     {
         var pairs = new List<WorldPlotAction>();
         var instances = new List<WorldPlotActionInstance>();
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().ToList();
+        var identities = new List<EntityIdentityName>();
         for (var index = 0; index < count; index++)
         {
             var plot = Guid.Parse("fd" + index.ToString("D2") + "0000-0000-0000-0000-000000000001");
@@ -250,8 +250,7 @@ public sealed class GameMcpPlotLifecycleTests
         var world = World(prerequisitesReady: false, active: 0);
         return world with
         {
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(
-                9, identities.OrderBy(row => row.EntityId).ToArray()),
+            EntityIdentities = GameMcpTestHarness.CatalogWith(identities.ToArray()),
             PlotActions = PublicationTable<WorldPlotAction>.Create(pairs.ToArray()),
             PlotActionInstances = PublicationTable<WorldPlotActionInstance>.Create(
                 instances.ToArray()),
@@ -274,9 +273,9 @@ public sealed class GameMcpPlotLifecycleTests
         var world = PlotNodeWorld(visible: false);
         var context = GameMcpTestHarness.Context(world, generation: 914);
         var listed = Assert.Single(
-            Json(GameMcpWorldQuery.ListRows(context, "plot-nodes", 0, 10).Freeze(), world)["rows"]!
+            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "plot-nodes", 0, 10).Freeze(), world)["rows"]!
                 .Values<JObject>())!;
-        var block = Assert.Single(Json(
+        var block = Assert.Single(GameMcpTestHarness.Json(
             GameMcpWorldQuery.GetRows(context, "plot-nodes", new[] { PlotId.ToString("D") })
                 .Freeze(),
             world)["results"]!.Values<JObject>())!;
@@ -292,7 +291,7 @@ public sealed class GameMcpPlotLifecycleTests
         // The one skeleton: identity at the top, the row under `row:`. `nativeType` is absent
         // because `plot-nodes` is one native class and `world_categories` publishes which.
         Assert.Equal(
-            new[] { "uuid", "name", "category", "row" },
+            new[] { "uuid", "name", "internalName", "category", "row" },
             block.Children<JProperty>().Select(property => property.Name));
         Assert.Equal("Moon Garden", (string?)block["name"]);
         Assert.Equal("plot-nodes", (string?)block["category"]);
@@ -305,7 +304,7 @@ public sealed class GameMcpPlotLifecycleTests
         var open = PlotNodeWorld(visible: true);
         Assert.Equal(
             "available",
-            (string?)Assert.Single(Json(
+            (string?)Assert.Single(GameMcpTestHarness.Json(
                 GameMcpWorldQuery.GetRows(
                     GameMcpTestHarness.Context(open, generation: 915),
                     "plot-nodes",
@@ -345,7 +344,7 @@ public sealed class GameMcpPlotLifecycleTests
 
     /// <summary>The same pair as a detail projection: the shape a mutation and an explanation read.</summary>
     private static JObject Detail(GameWorldState world) =>
-        Json(GameMcpWorldQuery.ProjectEntityState(
+        GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
             world, "agromancy-plot-actions", world.PlotActions[0]), world);
 
     /// <summary>
@@ -357,7 +356,7 @@ public sealed class GameMcpPlotLifecycleTests
     {
         var world = World(prerequisitesReady: true, active: 0, queuePublished: false);
 
-        var row = Assert.Single(Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 913),
             "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         Assert.Equal("unreadable", (string?)row!["add"]);
@@ -381,16 +380,14 @@ public sealed class GameMcpPlotLifecycleTests
         {
             new WorldPlotActionInstance(PlotId, ActionId, 0, 0, false, false, true),
         });
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(PlotId, "PlotNodeSO", "Moon Garden", "moonGarden"),
-            new EntityIdentityName(ActionId, "PlotNodeActionSO", "Plant Moondust", "plantMoondust"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ActionId, "PlotNodeActionSO", "Plant Moondust", "plantMoondust"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             PlotActions = PublicationTable<WorldPlotAction>.Create(new[] { pair }),
             PlotActionInstances = instances,
             ActionQueueSlots = active > 0
@@ -421,7 +418,4 @@ public sealed class GameMcpPlotLifecycleTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

@@ -96,6 +96,8 @@ internal sealed class DecisionJournalLineageWriter
         _writer.Write(record.Attribution.CandidateId.ToString("D", CultureInfo.InvariantCulture));
         _writer.Write("`; native type `");
         _writer.Write(record.Attribution.NativeType);
+        _writer.Write("`; action kind `");
+        _writer.Write(record.Attribution.ActionKind.ToString(CultureInfo.InvariantCulture));
         _writer.Write("`; route `");
         _writer.Write(record.Attribution.RouteStatus);
         _writer.Write("`; list/view `");

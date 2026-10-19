@@ -29,7 +29,9 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             Lifecycle,
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
-            status);
+            status,
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.True(status.Current.ConfiguredEnabled);
         Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
@@ -41,33 +43,35 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
     }
 
     /// <summary>
-    /// The refusal responder writes the mode off and publishes why. The configuration publication one
-    /// frame later must carry that account forward rather than flatten it to "disabled by
-    /// configuration".
+    /// The invariant holds Auto Buy back without touching the saved mode: the feature stays configured
+    /// on, reports the fault through a configuration publication, and the next lifecycle clears it.
     /// </summary>
     [Fact]
-    public void ARefusalStandDownSurvivesTheConfigurationPublicationItCaused()
+    public void ATrippedInvariantFaultsTheFeatureUntilTheNextLifecycle()
     {
-        const string summary =
-            "Auto Buy planned a purchase the game would not take. Auto Buy disabled itself.";
+        const string summary = "Auto Buy planned a purchase the game would not take.";
         var registry = new FeatureStatusRegistry();
         using var status = Reporter(registry);
+        var latch = new AutoBuyInvariantLatch();
+        latch.TryTrip(summary);
         var bridge = new AutoBuyServiceCycleDiagnosticsBridge(
             Lifecycle,
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
-            status);
+            status,
+            latch,
+            static _ => { });
 
-        status.Observe(
-            false,
-            FeatureStatusState.ConfigurationDisabled,
-            FeatureStatusReasonCode.InvariantViolation,
-            summary);
         bridge.ObserveConfiguration(new ConfigGeneration(2));
+        var tripped = status.Current;
+        latch.Clear();
+        bridge.ObserveLifecycle(Lifecycle + 1, new ConfigGeneration(2), AutoBuyCandidateKinds.All);
 
-        Assert.Equal(FeatureStatusState.ConfigurationDisabled, status.Current.State);
-        Assert.Equal(FeatureStatusReasonCode.InvariantViolation, status.Current.Reason.Code);
-        Assert.Equal(summary, status.Current.Reason.Summary);
+        Assert.True(tripped.ConfiguredEnabled);
+        Assert.Equal(FeatureStatusState.Faulted, tripped.State);
+        Assert.Equal(FeatureStatusReasonCode.InvariantViolation, tripped.Reason.Code);
+        Assert.Equal(summary, tripped.Reason.Summary);
+        Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
     }
 
     [Fact]
@@ -79,7 +83,9 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             Lifecycle,
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.None,
-            status);
+            status,
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.True(status.Current.ConfiguredEnabled);
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.Current.State);
@@ -91,7 +97,7 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
     public void AnEvaluatedCycleReportsOperational()
     {
         var configuration = Configuration(active: true);
-        var definition = AutoBuyService.Define(new CommittingActions());
+        var definition = AutoBuyService.Define(new CommittingActions(), new AutoBuyInvariantLatch());
         using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration(1));
         registry.ConfigurationPublication.Publish(configuration);
         using var registration = registry.Register(definition);
@@ -104,7 +110,9 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             1,
             new ConfigGeneration(1),
             AutoBuyCandidateKinds.All,
-            status);
+            status,
+            new AutoBuyInvariantLatch(),
+            static _ => { });
 
         Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
         Assert.Equal(FeatureStatusReasonCode.Initializing, status.Current.Reason.Code);
@@ -151,7 +159,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             owningViewRelationMissing: missing,
             owningViewRelationUnreadable: unreadable,
             owningViewRelationContradictory: contradictory,
-            destinationFull: 0);
+            destinationFull: 0,
+            backingOff: 0);
         var state = AutoBuyCycleState.Create(new LifecycleGeneration(1));
         state.RecordDecision(new AutoBuyDecisionMetrics(2, 0, 0, 0, 0, in exclusions));
 
@@ -174,7 +183,8 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
             owningViewRelationMissing: 1,
             owningViewRelationUnreadable: 0,
             owningViewRelationContradictory: 0,
-            destinationFull: 0);
+            destinationFull: 0,
+            backingOff: 0);
         var state = AutoBuyCycleState.Create(new LifecycleGeneration(1));
         state.RecordDecision(new AutoBuyDecisionMetrics(2, 0, 0, 0, 0, in exclusions));
 

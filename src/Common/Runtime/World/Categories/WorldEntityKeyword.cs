@@ -150,10 +150,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 
         var failures = string.Empty;
         foreach (var owner in _owners)
-        {
-            if (owner.Failure.Length == 0) continue;
-            failures = failures.Length == 0 ? owner.Failure : failures + "; " + owner.Failure;
-        }
+            failures = WorldFailures.Join(failures, owner.Failure);
 
         _unavailable = failures;
     }
@@ -177,7 +174,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
             var entities = owner.Registry!();
             if (entities is null)
             {
-                Skip(ref skipped, ref firstFailure,
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
                     "the " + owner.TypeName + " registry was unreadable");
                 continue;
             }
@@ -187,7 +184,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
                 var entity = entities[index];
                 if (entity is null)
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "a " + owner.TypeName + " registry entry was null");
                     continue;
                 }
@@ -197,7 +194,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
                     var ownerId = owner.OwnerId!(entity);
                     if (ownerId == Guid.Empty)
                     {
-                        Skip(ref skipped, ref firstFailure,
+                        WorldSkipTally.Skip(ref skipped, ref firstFailure,
                             "a " + owner.TypeName + " entry had no stable identity");
                         continue;
                     }
@@ -227,7 +224,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
                 }
                 catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
-                    Skip(ref skipped, ref firstFailure,
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
                         "reading a " + owner.TypeName + " keyword row threw: " +
                         exception.GetBaseException().Message);
                 }
@@ -236,12 +233,6 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 
         return new WorldCategoryReport(
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 
     private static OwnerBinding Bind(
@@ -269,10 +260,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 
         var failure = bind.Failure;
         if (registry is null)
-        {
-            var missingRegistry = typeName + " did not expose All on this build";
-            failure = failure.Length == 0 ? missingRegistry : failure + "; " + missingRegistry;
-        }
+            failure = WorldFailures.Join(failure, typeName + " did not expose All on this build");
 
         return failure.Length == 0
             ? new OwnerBinding(kind, typeName, registry!, ownerId!, primaryTypeId, typeList!, keywordId!)

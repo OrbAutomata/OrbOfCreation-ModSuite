@@ -66,8 +66,7 @@ public readonly struct ServiceCycleLifecycleDiagnosticsSnapshot
         long constructionAttemptCount,
         long constructionContentionCount,
         long positionTransitionCount,
-        int livePositionCount,
-        ServiceCycleLifecycleEvidenceKind evidenceKind)
+        int livePositionCount)
     {
         DesiredLifecycle = desiredLifecycle;
         Position0 = position0;
@@ -79,7 +78,6 @@ public readonly struct ServiceCycleLifecycleDiagnosticsSnapshot
         ConstructionContentionCount = constructionContentionCount;
         PositionTransitionCount = positionTransitionCount;
         LivePositionCount = livePositionCount;
-        EvidenceKind = evidenceKind;
     }
 
     public LifecycleGeneration DesiredLifecycle { get; }
@@ -94,7 +92,4 @@ public readonly struct ServiceCycleLifecycleDiagnosticsSnapshot
     public long ConstructionContentionCount { get; }
     public long PositionTransitionCount { get; }
     public int LivePositionCount { get; }
-    /// <summary>Whether these position facts are live or the final image retained at disposal.</summary>
-    public ServiceCycleLifecycleEvidenceKind EvidenceKind { get; }
-    public bool IsHistorical => EvidenceKind == ServiceCycleLifecycleEvidenceKind.RetainedAtDisposal;
 }

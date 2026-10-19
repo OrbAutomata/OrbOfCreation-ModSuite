@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -57,7 +58,8 @@ public sealed class DiscoveryTreeOfferContractTests
 
         var synchronousReferences = References(assembly, "DiscoveryTreeSO", "InitiateCraftingMode")
             .Concat(References(assembly, "DiscoveryTreeSO", "EnterCraftingMode"))
-            .Concat(References(assembly, "DiscoveryTreeSO", "EnterMode"));
+            .Concat(References(assembly, "DiscoveryTreeSO", "EnterMode"))
+            .Select(Describe);
         Assert.DoesNotContain(synchronousReferences, reference =>
             reference.Contains("UIDiscoveryTreePage", System.StringComparison.Ordinal));
     }
@@ -261,29 +263,4 @@ public sealed class DiscoveryTreeOfferContractTests
         Assert.True(empty >= 0 && empty < add,
             "The copy is minted before it is loaded, so a loaded spell is always the new one.");
     }
-
-    private static void AssertMethod(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName,
-        bool isStatic,
-        string returnType,
-        params string[] parameterTypes)
-    {
-        var matches = assembly.GetMethods(typeName, methodName);
-        Assert.Contains(matches, method =>
-            method.IsStatic == isStatic &&
-            method.ReturnType == returnType &&
-            method.ParameterTypes.SequenceEqual(parameterTypes));
-    }
-
-    private static string[] References(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName) =>
-        assembly.GetMethodBodyDefinitionReferences(typeName, methodName)
-            .Select(reference =>
-                $"IL_{reference.Offset:X4} 0x{reference.Token:X8} {reference.Kind} " +
-                $"{reference.DeclaringType}.{reference.MemberName}")
-            .ToArray();
 }

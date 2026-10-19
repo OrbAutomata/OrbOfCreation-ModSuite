@@ -74,6 +74,7 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
             return;
         }
 
+        _runtime.State.RetryGate.Apply(response.RetryReports, terminalNow);
         _runtime.State.ActiveCycle = response.Cycle;
         _runtime.State.ActiveBatch = response.Batch;
         _runtime.State.ActiveWake = response.WakePolicy;
@@ -113,7 +114,7 @@ internal sealed class ServiceBatchResponseHandler<TState, TAction>
         _runtime.Actions.CompleteSuccessfulBatch();
         _runtime.ClearVisibleActionBatch();
         _runtime.State.ScheduleWake(
-            response.WakeDue,
+            _runtime.State.RetryGate.WakeNoLaterThanNextRetry(response.WakeDue, terminalNow),
             response.Cycle.Config,
             response.Cycle.World,
             invalidatedByWorld: _runtime.Starts.WorldEndsWait(response.WakePolicy));

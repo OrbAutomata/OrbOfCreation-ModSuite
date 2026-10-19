@@ -523,7 +523,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 var recipe = recipes![index];
                 if (recipe is null || recipe.GetType() != _recipeType)
                 {
-                    Skip(ref skipped, ref firstFailure, $"recipe {index} had an unexpected native type");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"recipe {index} had an unexpected native type");
                     continue;
                 }
 
@@ -532,7 +532,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 var core = coreObject is null ? Guid.Empty : _coreTypeId!(coreObject);
                 if (id == Guid.Empty || core == Guid.Empty || !conceptIds.Add(id))
                 {
-                    Skip(ref skipped, ref firstFailure, $"recipe {index} had an invalid identity or core type");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"recipe {index} had an invalid identity or core type");
                     continue;
                 }
 
@@ -550,7 +550,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 var instance = active![index];
                 if (instance is null || instance.GetType() != _instanceType)
                 {
-                    Skip(ref skipped, ref firstFailure, $"active instance {index} had an unexpected native type");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"active instance {index} had an unexpected native type");
                     continue;
                 }
 
@@ -559,7 +559,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                 var id = _instanceRecipeId!(instance);
                 if (!conceptIds.Contains(id))
                 {
-                    Skip(ref skipped, ref firstFailure, $"active instance {index} did not name a scoped Concept recipe");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"active instance {index} did not name a scoped Concept recipe");
                     continue;
                 }
 
@@ -581,7 +581,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             return new WorldCategoryReport(
                 Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(
@@ -759,10 +759,4 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         _resourceDrain is not null && _isDrainApplied is not null &&
         _currentRatio is not null && _usageRatio is not null && _currentDrain is not null &&
         _costEntries is not null && _entryResourceId is not null && _entryAmount is not null;
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
-    }
 }

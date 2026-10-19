@@ -13,7 +13,6 @@ internal static class AutoScribeActionResultCodes
     internal static ServiceActionResultCode Unaffordable => new(4206, "unaffordable");
     internal static ServiceActionResultCode MutationPermitUnavailable => new(4207, "action_family_unavailable");
     internal static ServiceActionResultCode ContractUnavailable => new(4208, "contract_unavailable");
-    internal static ServiceActionResultCode Quarantined => new(4209, "quarantined");
     internal static ServiceActionResultCode PostPaymentFault => new(4210, "post_payment_fault");
     internal static ServiceActionResultCode VerificationFailed => new(4211, "verification_failed");
     internal static ServiceActionResultCode WrongThread => new(4212, "wrong_thread");

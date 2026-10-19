@@ -367,10 +367,7 @@ internal sealed class WorldTypeModifierBindings
 
         var failures = string.Empty;
         foreach (var taxonomy in Taxonomies)
-        {
-            if (taxonomy.Failure.Length == 0) continue;
-            failures = failures.Length == 0 ? taxonomy.Failure : failures + "; " + taxonomy.Failure;
-        }
+            failures = WorldFailures.Join(failures, taxonomy.Failure);
 
         Unavailable = failures;
     }
@@ -415,7 +412,7 @@ internal sealed class WorldTypeModifierBindings
         var failure = bind.Failure;
         if (registry is null)
         {
-            failure = Join(failure, typeName + " did not expose All on this build");
+            failure = WorldFailures.Join(failure, typeName + " did not expose All on this build");
         }
 
         var records = new RecordBinding[recordFields.Length];
@@ -425,7 +422,7 @@ internal sealed class WorldTypeModifierBindings
             var access = NativeModifierAdjustmentAccess.Bind(type, field, out var recordFailure);
             if (access is null)
             {
-                failure = Join(failure, typeName + "." + recordFailure);
+                failure = WorldFailures.Join(failure, typeName + "." + recordFailure);
                 continue;
             }
 
@@ -436,9 +433,6 @@ internal sealed class WorldTypeModifierBindings
             ? new TaxonomyBinding(kind, typeName, registry!, typeId!, records, subTypes, subTypeId)
             : new TaxonomyBinding(kind, typeName, failure);
     }
-
-    private static string Join(string left, string right) =>
-        left.Length == 0 ? right : left + "; " + right;
 
     internal sealed class TaxonomyBinding
     {
@@ -494,6 +488,74 @@ internal sealed class WorldTypeModifierBindings
     }
 }
 
+internal static class WorldTypeModifierWalk
+{
+    internal delegate void AssetRows(
+        WorldTypeModifierBindings.TaxonomyBinding taxonomy,
+        object asset,
+        Guid typeId,
+        GameWorldCycleFrame frame,
+        ref int skipped,
+        ref string firstFailure);
+
+    internal static WorldCategoryReport Walk(
+        string category,
+        string rowNoun,
+        WorldTypeModifierBindings bindings,
+        GameWorldCycleFrame frame,
+        AssetRows perAsset)
+    {
+        var sampled = 0;
+        var skipped = 0;
+        var firstFailure = string.Empty;
+        foreach (var taxonomy in bindings.Taxonomies)
+        {
+            var types = taxonomy.Registry!();
+            if (types is null)
+            {
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                    "the " + taxonomy.TypeName + " registry was unreadable");
+                continue;
+            }
+
+            for (var index = 0; index < types.Count; index++)
+            {
+                var asset = types[index];
+                if (asset is null)
+                {
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                        "a " + taxonomy.TypeName + " registry entry was null");
+                    continue;
+                }
+
+                try
+                {
+                    var typeId = taxonomy.TypeId!(asset);
+                    if (typeId == Guid.Empty)
+                    {
+                        WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                            "a " + taxonomy.TypeName + " entry had no stable identity");
+                        continue;
+                    }
+
+                    perAsset(taxonomy, asset, typeId, frame, ref skipped, ref firstFailure);
+
+                    sampled++;
+                }
+                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
+                {
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                        "reading a " + taxonomy.TypeName + " " + rowNoun + " threw: " +
+                        exception.GetBaseException().Message);
+                }
+            }
+        }
+
+        return new WorldCategoryReport(
+            category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
+    }
+}
+
 /// <summary>
 /// Publishes one row per type asset record: which record, and how loaded it currently is.
 /// </summary>
@@ -522,80 +584,44 @@ internal sealed class WorldTypeModifierReader : IWorldCategoryReader
         frame.TypeSubtypes.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _bindings.Unavailable);
 
-        var sampled = 0;
-        var skipped = 0;
-        var firstFailure = string.Empty;
-        foreach (var taxonomy in _bindings.Taxonomies)
+        return WorldTypeModifierWalk.Walk(Category, "modifier row", _bindings, frame, AppendRows);
+    }
+
+    private static void AppendRows(
+        WorldTypeModifierBindings.TaxonomyBinding taxonomy,
+        object asset,
+        Guid typeId,
+        GameWorldCycleFrame frame,
+        ref int skipped,
+        ref string firstFailure)
+    {
+        foreach (var record in taxonomy.Records)
         {
-            var types = taxonomy.Registry!();
-            if (types is null)
+            if (!record.Access.TryCount(asset, out var passive, out var active))
             {
-                WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                    "the " + taxonomy.TypeName + " registry was unreadable");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                    taxonomy.TypeName + "." + record.Property + " held no record");
                 continue;
             }
 
-            for (var index = 0; index < types.Count; index++)
-            {
-                var asset = types[index];
-                if (asset is null)
-                {
-                    WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                        "a " + taxonomy.TypeName + " registry entry was null");
-                    continue;
-                }
-
-                try
-                {
-                    var typeId = taxonomy.TypeId!(asset);
-                    if (typeId == Guid.Empty)
-                    {
-                        WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                            "a " + taxonomy.TypeName + " entry had no stable identity");
-                        continue;
-                    }
-
-                    foreach (var record in taxonomy.Records)
-                    {
-                        if (!record.Access.TryCount(asset, out var passive, out var active))
-                        {
-                            WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                                taxonomy.TypeName + "." + record.Property + " held no record");
-                            continue;
-                        }
-
-                        frame.TypeModifiers.Append(new WorldTypeModifier(
-                            typeId, taxonomy.Kind, record.Property, record.RecordNativeType,
-                            active, passive));
-                    }
-
-                    if (taxonomy.SubTypes is not null)
-                    {
-                        var subTypes = taxonomy.SubTypes(asset);
-                        for (var ordinal = 0; ordinal < (subTypes?.Count ?? 0); ordinal++)
-                        {
-                            var subType = subTypes![ordinal];
-                            if (subType is null) continue;
-                            var subTypeId = taxonomy.SubTypeId!(subType);
-                            if (subTypeId == Guid.Empty) continue;
-                            frame.TypeSubtypes.Append(
-                                new WorldTypeSubtype(typeId, ordinal, subTypeId));
-                        }
-                    }
-
-                    sampled++;
-                }
-                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-                {
-                    WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                        "reading a " + taxonomy.TypeName + " modifier row threw: " +
-                        exception.GetBaseException().Message);
-                }
-            }
+            frame.TypeModifiers.Append(new WorldTypeModifier(
+                typeId, taxonomy.Kind, record.Property, record.RecordNativeType,
+                active, passive));
         }
 
-        return new WorldCategoryReport(
-            Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
+        if (taxonomy.SubTypes is not null)
+        {
+            var subTypes = taxonomy.SubTypes(asset);
+            for (var ordinal = 0; ordinal < (subTypes?.Count ?? 0); ordinal++)
+            {
+                var subType = subTypes![ordinal];
+                if (subType is null) continue;
+                var subTypeId = taxonomy.SubTypeId!(subType);
+                if (subTypeId == Guid.Empty) continue;
+                frame.TypeSubtypes.Append(
+                    new WorldTypeSubtype(typeId, ordinal, subTypeId));
+            }
+        }
     }
 }
 
@@ -624,70 +650,25 @@ internal sealed class WorldTypeModifierContributionReader : IWorldCategoryReader
         frame.TypeModifierContributions.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _bindings.Unavailable);
 
-        var sampled = 0;
-        var skipped = 0;
-        var firstFailure = string.Empty;
-        foreach (var taxonomy in _bindings.Taxonomies)
+        return WorldTypeModifierWalk.Walk(Category, "contribution row", _bindings, frame, AppendRows);
+    }
+
+    private static void AppendRows(
+        WorldTypeModifierBindings.TaxonomyBinding taxonomy,
+        object asset,
+        Guid typeId,
+        GameWorldCycleFrame frame,
+        ref int skipped,
+        ref string firstFailure)
+    {
+        foreach (var record in taxonomy.Records)
         {
-            var types = taxonomy.Registry!();
-            if (types is null)
+            var contributions = record.Access.ReadInto(asset);
+            for (var entry = 0; entry < contributions.Length; entry++)
             {
-                WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                    "the " + taxonomy.TypeName + " registry was unreadable");
-                continue;
-            }
-
-            for (var index = 0; index < types.Count; index++)
-            {
-                var asset = types[index];
-                if (asset is null)
-                {
-                    WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                        "a " + taxonomy.TypeName + " registry entry was null");
-                    continue;
-                }
-
-                try
-                {
-                    var typeId = taxonomy.TypeId!(asset);
-                    if (typeId == Guid.Empty)
-                    {
-                        WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                            "a " + taxonomy.TypeName + " entry had no stable identity");
-                        continue;
-                    }
-
-                    foreach (var record in taxonomy.Records)
-                    {
-                        var contributions = record.Access.ReadInto(asset);
-                        for (var entry = 0; entry < contributions.Length; entry++)
-                        {
-                            frame.TypeModifierContributions.Append(new WorldTypeModifierContribution(
-                                typeId, record.Property, contributions[entry]));
-                        }
-                    }
-
-                    sampled++;
-                }
-                catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
-                {
-                    WorldTypeModifierWalk.Skip(ref skipped, ref firstFailure,
-                        "reading a " + taxonomy.TypeName + " contribution row threw: " +
-                        exception.GetBaseException().Message);
-                }
+                frame.TypeModifierContributions.Append(new WorldTypeModifierContribution(
+                    typeId, record.Property, contributions[entry]));
             }
         }
-
-        return new WorldCategoryReport(
-            Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
-    }
-}
-
-internal static class WorldTypeModifierWalk
-{
-    internal static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }

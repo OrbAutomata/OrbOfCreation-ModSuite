@@ -28,7 +28,7 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Equal(
             new[] { "select", "deselect", "set_level", "activate", "cancel_duration", "end" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_ritual", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_ritual", new JObject
         {
             ["mode"] = "activate",
             ["uuid"] = RitualId.ToString("D"),
@@ -39,7 +39,7 @@ public sealed class GameMcpRitualLifecycleTests
     [Fact]
     public void Set_level_requires_level_and_other_modes_reject_it()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -77,7 +77,7 @@ public sealed class GameMcpRitualLifecycleTests
             candidate => (string?)candidate["name"] == "game_ritual");
         Assert.Equal(1, (int)tool["inputSchema"]!["properties"]!["level"]!["minimum"]!);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -103,7 +103,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void Selected_ritual_publishes_both_bounds_of_the_native_starting_level_control()
     {
         var world = World(selected: true, level: 4, activeInstances: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 803),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -116,7 +116,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void Selected_ritual_detail_carries_only_the_live_next_decisions_and_named_costs()
     {
         var world = World(selected: true, level: 4, activeInstances: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 801),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -154,7 +154,7 @@ public sealed class GameMcpRitualLifecycleTests
     {
         var world = World(selected: true, level: 55, activeInstances: 0, forcedLevel: 70);
 
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 807),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
         Assert.Equal(70, (int)row["selectedLevel"]!);
@@ -166,7 +166,7 @@ public sealed class GameMcpRitualLifecycleTests
             (string?)setLevel["reason"]);
         Assert.Null(setLevel["maximum"]);
 
-        var listed = Assert.IsType<JArray>(Json(GameMcpWorldQuery.ListRows(
+        var listed = Assert.IsType<JArray>(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 808), "rituals", 0, 50).Freeze(),
             world)["rows"]).Values<JObject>().Single()!;
         Assert.Equal(70, (int)listed["selectedLevel"]!);
@@ -176,7 +176,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void The_starting_level_decision_does_not_wait_for_a_selection()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 804),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -197,7 +197,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void An_unselected_ritual_carries_its_price_and_is_activatable()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 802),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -221,7 +221,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void A_ritual_list_row_carries_what_the_ritual_screen_is_scanned_by()
     {
         var world = World(selected: true, level: 3, activeInstances: 0);
-        var response = Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 806), "rituals", 0, 50).Freeze(), world);
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -247,7 +247,7 @@ public sealed class GameMcpRitualLifecycleTests
         var world = World(
             selected: true, level: 4, activeInstances: 1, inBattle: false, wavesCompleted: 7,
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 804),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -266,7 +266,7 @@ public sealed class GameMcpRitualLifecycleTests
         // IsFailedRun() is wavesCompleted < 5, so an unconditional verdict calls every untouched
         // ritual a failure. A cleared count with no spoils is exactly the never-run state.
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 805),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -281,7 +281,7 @@ public sealed class GameMcpRitualLifecycleTests
         var world = World(
             selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 3,
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(4)) });
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 806),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -301,7 +301,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 92), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -334,10 +334,10 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(after, generation: 98));
 
-        var started = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var started = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 98), activate,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
-        var finished = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var finished = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(before, generation: 99), end,
             GameMcpCommandResult.Committed("committed", 9, 3)), before);
 
@@ -359,7 +359,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 93));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 94), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -383,7 +383,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 95));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 96), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -415,7 +415,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 97));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 98), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -437,7 +437,7 @@ public sealed class GameMcpRitualLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 99));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 100), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -518,16 +518,14 @@ public sealed class GameMcpRitualLifecycleTests
             false, 0, Guid.Empty, in rateInputs, in traits, in resourceModifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8, false,
             new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(RitualId, "RitualSO", "Moon Rite", "moon_rite"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Rituals = PublicationTable<WorldRitual>.Create(new[] { ritual }),
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
@@ -539,7 +537,4 @@ public sealed class GameMcpRitualLifecycleTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

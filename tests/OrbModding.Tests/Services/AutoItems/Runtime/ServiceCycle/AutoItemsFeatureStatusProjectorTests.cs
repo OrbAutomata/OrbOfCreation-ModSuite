@@ -1,6 +1,9 @@
 using System;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems.Runtime.ServiceCycle;
@@ -24,7 +27,9 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             bindingFailure: string.Empty,
             cycleObserved: true,
             AutoItemsDecisionKind.Scroll,
-            health);
+            health,
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.State);
         Assert.Equal(FeatureStatusReasonCode.TemporarySafetyBlock, status.Reason);
@@ -32,13 +37,22 @@ public sealed class AutoItemsFeatureStatusProjectorTests
     }
 
     [Fact]
-    public void QuarantineIsAFeatureFaultWithTheExactMutationEvidence()
+    public void AnItemBackingOffDegradesTheFeatureWithItsRetryReason()
     {
+        var itemId = Guid.NewGuid();
+        var gate = new ServiceTargetRetryGate(AutoItemsServicePolicies.FaultRecoveryPolicy);
+        gate.Record(
+            AutoItemsServicePolicies.RetryTarget(itemId),
+            AutoItemsActionResultCodes.UseNotVerified,
+            "Relic did not enter native preparation.",
+            new MonotonicTimestamp(10));
         var health = new AutoItemsActionHealth();
-        var submission = NativeActionOutcome.FaultBeforeCall(
-            AutoItemsActionResultCodes.Quarantined,
-            "Auto Items is quarantined for this lifecycle after item abc had no queue delta.");
-        health.Observe(in submission);
+        var fault = NativeActionOutcome.Fault(
+            AutoItemsActionResultCodes.UseNotVerified,
+            NativeMutationOutcome.PostconditionFailed,
+            new NativeMutationCallOutcome(1, 1, 0),
+            "Relic did not enter native preparation.");
+        health.Observe(in fault);
 
         var status = AutoItemsFeatureStatusProjector.Project(
             emergencyDisabled: false,
@@ -48,11 +62,42 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             bindingFailure: string.Empty,
             cycleObserved: true,
             AutoItemsDecisionKind.Relic,
-            health);
+            health,
+            gate.Snapshot,
+            new MonotonicTimestamp(10));
 
-        Assert.Equal(FeatureStatusState.Faulted, status.State);
-        Assert.Equal(FeatureStatusReasonCode.MutationQuarantined, status.Reason);
-        Assert.Equal(submission.Reason, status.Summary);
+        Assert.False(health.HasFailure);
+        Assert.Equal(FeatureStatusState.Degraded, status.State);
+        Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, status.Reason);
+        Assert.Contains(itemId.ToString("D"), status.Summary);
+        Assert.Contains("Relic did not enter native preparation.", status.Summary);
+    }
+
+    [Fact]
+    public void AnItemBackingOffFromAContractFaultKeepsTheContractReason()
+    {
+        var itemId = Guid.NewGuid();
+        var gate = new ServiceTargetRetryGate(AutoItemsServicePolicies.FaultRecoveryPolicy);
+        gate.Record(
+            AutoItemsServicePolicies.RetryTarget(itemId),
+            AutoItemsActionResultCodes.MultiBuyUnavailable,
+            "Native multi-buy could not be held at one.",
+            new MonotonicTimestamp(10));
+
+        var status = AutoItemsFeatureStatusProjector.Project(
+            emergencyDisabled: false,
+            owned: true,
+            ownershipReason: string.Empty,
+            bindingsAvailable: true,
+            bindingFailure: string.Empty,
+            cycleObserved: true,
+            AutoItemsDecisionKind.Idle,
+            new AutoItemsActionHealth(),
+            gate.Snapshot,
+            new MonotonicTimestamp(10));
+
+        Assert.Equal(FeatureStatusState.Degraded, status.State);
+        Assert.Equal(FeatureStatusReasonCode.ContractUnavailable, status.Reason);
     }
 
     [Fact]
@@ -72,7 +117,9 @@ public sealed class AutoItemsFeatureStatusProjectorTests
             bindingFailure: string.Empty,
             cycleObserved: true,
             AutoItemsDecisionKind.Scroll,
-            health);
+            health,
+            ServiceRetryGateSnapshot.Empty,
+            default);
 
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.State);
         Assert.Equal(FeatureStatusReasonCode.TargetingInProgress, status.Reason);

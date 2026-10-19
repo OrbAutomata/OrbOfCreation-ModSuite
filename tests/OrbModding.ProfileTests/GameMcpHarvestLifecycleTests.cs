@@ -33,7 +33,7 @@ public sealed class GameMcpHarvestLifecycleTests
             "add_element_action", "remove_element_action", "set_druidry_level",
         },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_agromancy", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_agromancy", new JObject
         {
             ["mode"] = "add_element_action",
             ["uuid"] = ElementId.ToString("D"),
@@ -46,7 +46,7 @@ public sealed class GameMcpHarvestLifecycleTests
     [Fact]
     public void Action_modes_require_action_uuid_and_element_modes_reject_it()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -85,7 +85,7 @@ public sealed class GameMcpHarvestLifecycleTests
     public void Harvest_element_detail_joins_current_counts_costs_holdings_and_offered_actions()
     {
         var world = World(elementActive: 2, actionActive: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             "agromancy-elements", ElementId.ToString("D")).Freeze(), world);
 
@@ -106,7 +106,7 @@ public sealed class GameMcpHarvestLifecycleTests
 
         var blockedWorld = World(elementActive: 2, actionActive: 4,
             elementAddAvailable: false);
-        var blocked = Json(GameMcpWorldQuery.GetRow(
+        var blocked = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(blockedWorld, generation: 902),
             "agromancy-elements", ElementId.ToString("D")).Freeze(),
             blockedWorld)["row"]!;
@@ -136,7 +136,7 @@ public sealed class GameMcpHarvestLifecycleTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 92), command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -159,7 +159,7 @@ public sealed class GameMcpHarvestLifecycleTests
     [Fact]
     public void The_element_verb_and_the_action_verb_do_not_answer_the_same_line()
     {
-        var element = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var element = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(elementActive: 2, actionActive: 1), generation: 92),
             new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
                 9, 3, "add_element", ElementId, Guid.Empty, "HarvestElementSO",
@@ -168,7 +168,7 @@ public sealed class GameMcpHarvestLifecycleTests
                     World(elementActive: 1, actionActive: 1), generation: 91)),
             GameMcpCommandResult.Committed("committed", 9, 3)),
             World(elementActive: 2, actionActive: 1));
-        var action = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var action = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(elementActive: 1, actionActive: 2), generation: 92),
             new GameMcpCommand(1, GameMcpCommandKind.HarvestLifecycle,
                 9, 3, "add_element_action", ElementId, ActionId, "HarvestElementSO",
@@ -216,17 +216,15 @@ public sealed class GameMcpHarvestLifecycleTests
             false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(80), 0.2, false,
             new BigDouble(20), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ElementId, "HarvestElementSO", "Fire", "fire"),
             new EntityIdentityName(ActionId, "HarvestActionSO", "Grow", "grow"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Mana", "mana"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Mana", "mana"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             HarvestElements = PublicationTable<WorldHarvestElement>.Create(new[] { element }),
             HarvestElementControls = PublicationTable<WorldHarvestElementControl>.Create(
                 new[] { elementControl }),
@@ -245,7 +243,4 @@ public sealed class GameMcpHarvestLifecycleTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

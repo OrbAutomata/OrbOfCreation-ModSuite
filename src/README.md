@@ -13,7 +13,7 @@ $OOC_GAME_DIR/
   Orb Of Creation_Data/Managed/UnityEngine.CoreModule.dll
 ```
 
-The suite ships as one BepInEx 5 DLL built by the single project `OrbModSuite.csproj` at this directory's root, which compiles every folder below it. `Plugin.cs` and `SuiteConfiguration.cs` at this root are the one `BaseUnityPlugin` and the one configuration transaction that bind them together.
+The suite ships as one BepInEx 5 DLL built by the single project `OrbModSuite.csproj` at this directory's root, which compiles every folder below it. `Plugin.cs` and `SuiteConfiguration.cs` at this root are the one `BaseUnityPlugin` and the one configuration transaction that bind them together. In perf-debug builds `Plugin.cs` builds the one `GameMcpFrameExecutor`, which owns the MCP frame loop, and drains it once per `Update`.
 
 `Common` holds what every feature stands on. `Common/Runtime/World` is the shared game model: the one collected picture of the game that features and the MCP surface read. The rest of `Common` is gameplay-neutral safety and runtime orchestration. It must not own a feature's policy or retain native game objects, and it does not become a gameplay feature because several services use its scheduler.
 

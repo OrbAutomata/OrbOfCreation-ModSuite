@@ -44,10 +44,10 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(new BigDouble(2, 0), decision.PurchaseAmount);
         Assert.True(decision.CanStart);
         Assert.Equal("ready", decision.ReasonCode);
-        ref readonly var cost = ref frame.CraftingDecisionCosts[0];
+        var cost = frame.CraftingDecisionCosts[0].Cost;
         Assert.Equal(resource.GetGuid(), cost.ResourceId);
-        Assert.Equal(new BigDouble(8, 0), cost.Cost);
-        Assert.Equal(new BigDouble(19, 0), cost.Amount);
+        Assert.Equal(new BigDouble(8, 0), cost.Price);
+        Assert.Equal(new BigDouble(19, 0), cost.Held);
         Assert.True(cost.Affordable);
     }
 
@@ -69,10 +69,10 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(BigDouble.One, decision.PurchaseAmount);
         Assert.False(decision.CanStart);
         Assert.Equal("native_purchase_refused", decision.ReasonCode);
-        ref readonly var cost = ref frame.CraftingDecisionCosts[0];
+        var cost = frame.CraftingDecisionCosts[0].Cost;
         Assert.Equal(wood.GetGuid(), cost.ResourceId);
-        Assert.Equal(new BigDouble(4, 0), cost.Cost);
-        Assert.Equal(BigDouble.Zero, cost.Amount);
+        Assert.Equal(new BigDouble(4, 0), cost.Price);
+        Assert.Equal(BigDouble.Zero, cost.Held);
         Assert.False(cost.Affordable);
     }
 
@@ -240,6 +240,43 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         Assert.Equal(1, report.Skipped);
         Assert.Contains("more than one crafting page", report.FirstFailure);
         Assert.Equal(unaffected.GetGuid(), frame.CraftingDecisions[0].RecipeId);
+    }
+
+    /// <summary>
+    /// A queue read that throws anything but an expected native failure faults the world pass instead
+    /// of costing the category.
+    /// </summary>
+    [Fact]
+    public void AQueueWhoseReadThrowsUnexpectedlyFaultsThePass()
+    {
+        var recipe = Recipe();
+        CraftingRecipeSO.All.Add(recipe);
+        var failure = new NullReferenceException("crafting queue was destroyed");
+        Page(recipe, mode: 0, maximum: 2).craftingQueueInstances.GetGuidFailure = failure;
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
+    }
+
+    /// <summary>
+    /// A recipe whose decision read throws anything but an expected native failure faults the world
+    /// pass instead of costing one recipe.
+    /// </summary>
+    [Fact]
+    public void ARecipeWhoseDecisionThrowsUnexpectedlyFaultsThePass()
+    {
+        var wood = Resource(amount: 10);
+        var failure = new NullReferenceException("cost resource was destroyed");
+        wood.GetGuidFailure = failure;
+        var recipe = Recipe();
+        recipe.TotalCost.costs.Add(new ResourceTuple(wood, new BigDouble(4, 0)));
+        CraftingRecipeSO.All.Add(recipe);
+        Page(recipe, mode: 0, maximum: 2);
+
+        var thrown = Assert.Throws<NullReferenceException>(() => new GameWorldCollector().Collect());
+
+        Assert.Same(failure, thrown);
     }
 
     private static WorldCraftingDecisionReader Reader() =>

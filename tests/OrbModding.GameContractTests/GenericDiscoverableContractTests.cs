@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -68,7 +69,7 @@ public sealed class GenericDiscoverableContractTests
         Assert.True(
             callback > payment,
             "UICostButton.OnClick must invoke the page callback only after payment. Native refs: " +
-            string.Join("; ", References(assembly, "UICostButton", "OnClick")));
+            string.Join("; ", References(assembly, "UICostButton", "OnClick").Select(Describe)));
     }
 
     /// <summary>
@@ -103,7 +104,7 @@ public sealed class GenericDiscoverableContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UIDiscoverablePage", "HandleClick", "UIDiscoverablePage", "IsGlyphSelectionValid"),
             "The press is admitted by the same predicate the button is drawn from. Native refs: " +
-            string.Join("; ", References(assembly, "UIDiscoverablePage", "HandleClick")));
+            string.Join("; ", References(assembly, "UIDiscoverablePage", "HandleClick").Select(Describe)));
 
         Assert.True(assembly.MethodReferencesMethod(
             "UIDiscoverablePage", "OnDiscoverableClick", "IDiscoverable", "GetGlyphRecipe"));
@@ -134,16 +135,4 @@ public sealed class GenericDiscoverableContractTests
         Assert.Equal(isDiscovered, assembly.GetMethodToken(type, "IsDiscovered"));
         Assert.Equal(discover, assembly.GetMethodToken(type, "Discover"));
     }
-
-    private static string[] References(
-        GameAssemblyMetadata assembly,
-        string type,
-        string method) =>
-        assembly.GetMethodBodyDefinitionReferences(type, method)
-            .Concat(assembly.GetMethodBodyMemberReferences(type, method))
-            .OrderBy(reference => reference.Offset)
-            .Select(reference =>
-                $"IL_{reference.Offset:X4} 0x{reference.Token:X8} " +
-                $"{reference.DeclaringType}.{reference.MemberName}")
-            .ToArray();
 }

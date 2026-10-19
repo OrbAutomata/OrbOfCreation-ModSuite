@@ -74,9 +74,9 @@ internal struct AutoCastCycleState
     }
 
     /// <summary>
-    /// Forgets the hold. Called when the release is planned rather than when it commits, matching the
-    /// legacy engine, which cleared its held candidate before calling the game and only warned when
-    /// the call failed — a hold the suite cannot release is not one it should keep waiting on.
+    /// Forgets the hold. Called when the release is planned rather than when it commits, so a hold the
+    /// suite cannot release never freezes the rotation; a release that faults stays owed on the retry
+    /// gate, which plans it again when it is due.
     /// </summary>
     public void ReleaseHeldCharge()
     {
@@ -116,14 +116,14 @@ internal enum AutoCastExclusion
     /// <summary>A resource it touches sits below the configured start threshold.</summary>
     BelowStartThreshold = 5,
 
-    /// <summary>Eligible, but another eligible slot had this cycle's turn.</summary>
-    Outranked = 6,
-
     /// <summary>An attack spell while no ritual battle runs, so its combat effects would fizzle.</summary>
     OutsideRitual = 7,
 
     /// <summary>A channel during a ritual battle, which would keep an equipped attack spell from going.</summary>
     RitualChannel = 8,
+
+    /// <summary>Its last cast faulted, and the retry gate has not let it go again yet.</summary>
+    BackingOff = 9,
 }
 
 /// <summary>How many slots each exclusion term accounted for in one cycle.</summary>
@@ -139,18 +139,18 @@ internal readonly struct AutoCastExclusionHistogram
         int notReady,
         int reserveFloor,
         int belowStartThreshold,
-        int outranked,
         int outsideRitual = 0,
-        int ritualChannel = 0)
+        int ritualChannel = 0,
+        int backingOff = 0)
     {
         Empty = empty;
         Busy = busy;
         NotReady = notReady;
         ReserveFloor = reserveFloor;
         BelowStartThreshold = belowStartThreshold;
-        Outranked = outranked;
         OutsideRitual = outsideRitual;
         RitualChannel = ritualChannel;
+        BackingOff = backingOff;
     }
 
     public int Empty { get; }
@@ -158,13 +158,13 @@ internal readonly struct AutoCastExclusionHistogram
     public int NotReady { get; }
     public int ReserveFloor { get; }
     public int BelowStartThreshold { get; }
-    public int Outranked { get; }
     public int OutsideRitual { get; }
     public int RitualChannel { get; }
+    public int BackingOff { get; }
 
     public int Total =>
-        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + Outranked +
-        OutsideRitual + RitualChannel;
+        Empty + Busy + NotReady + ReserveFloor + BelowStartThreshold + OutsideRitual +
+        RitualChannel + BackingOff;
 
     public int For(AutoCastExclusion exclusion) => exclusion switch
     {
@@ -173,9 +173,9 @@ internal readonly struct AutoCastExclusionHistogram
         AutoCastExclusion.NotReady => NotReady,
         AutoCastExclusion.ReserveFloor => ReserveFloor,
         AutoCastExclusion.BelowStartThreshold => BelowStartThreshold,
-        AutoCastExclusion.Outranked => Outranked,
         AutoCastExclusion.OutsideRitual => OutsideRitual,
         AutoCastExclusion.RitualChannel => RitualChannel,
+        AutoCastExclusion.BackingOff => BackingOff,
         _ => 0,
     };
 }

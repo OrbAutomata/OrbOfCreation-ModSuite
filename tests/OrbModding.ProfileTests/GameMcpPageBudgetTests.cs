@@ -95,9 +95,6 @@ public sealed class GameMcpPageBudgetTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
             EntityIdentities = catalog,
         };
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(911));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 }

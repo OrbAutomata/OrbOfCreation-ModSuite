@@ -46,7 +46,7 @@ internal sealed class AutoBuyWorkerDefinition :
 
         AutoBuyFrameProjector.Project(ref state.Scratch, in config, world);
         var wake = AutoBuyCycleEvaluator.Evaluate(
-            in state.Scratch, in config, actions, out var decision);
+            in state.Scratch, in config, context.RetryGate, context.DecisionAt, actions, out var decision);
         state.RecordDecision(decision);
         return wake;
     }

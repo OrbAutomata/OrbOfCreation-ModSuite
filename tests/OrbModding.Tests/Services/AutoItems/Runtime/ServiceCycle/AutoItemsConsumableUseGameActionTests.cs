@@ -207,7 +207,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
-    public void AmbiguousTemporaryMutationQuarantinesOnlyTheExactItem()
+    public void AnUnverifiedTemporaryUseFaultsEachTimeItIsTriedAndBlocksNoOtherItem()
     {
         var broken = Item(AutoItemsConsumableFamily.Thread);
         var healthy = Item(AutoItemsConsumableFamily.Thread);
@@ -216,14 +216,15 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var brokenAction = Action(broken, AutoItemsConsumableFamily.Thread);
         var healthyAction = Action(healthy, AutoItemsConsumableFamily.Thread);
 
-        var ambiguous = gameAction.Submit(in brokenAction);
-        var exactBlocked = gameAction.Submit(in brokenAction);
+        var first = gameAction.Submit(in brokenAction);
+        var again = gameAction.Submit(in brokenAction);
         var unrelated = gameAction.Submit(in healthyAction);
 
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, ambiguous.Code);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Mutation);
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, exactBlocked.Code);
-        Assert.Contains(broken.GetGuid().ToString("D"), exactBlocked.Reason);
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, first.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, first.Mutation);
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, again.Code);
+        Assert.Equal(1, again.CallOutcome.MutationAttempts);
+        Assert.Equal(2, broken.SelectAndFireTimestamps.Count);
         Assert.True(unrelated.Verified, unrelated.Reason);
     }
 
@@ -309,10 +310,10 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         var result = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, result.Code);
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, result.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Mutation);
-        Assert.Contains("ambiguous consumable mutation", result.Reason);
-        Assert.Contains("quarantined", result.Reason);
+        Assert.Contains("did not enter native preparation", result.Reason);
+        Assert.Contains(scroll.GetGuid().ToString("D"), result.Reason);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), result.CallOutcome);
     }
 
@@ -351,21 +352,21 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
-    public void AmbiguousPostconditionQuarantinesTheWholeGameActionForTheLifecycle()
+    public void AnUnverifiedRelicUseLeavesTheGameActionOpenForTheNextAttempt()
     {
         var relic = Item(AutoItemsConsumableFamily.Relic);
         relic.SelectionNoOp = true;
         using var gameAction = GameAction();
         var action = Action(relic, AutoItemsConsumableFamily.Relic);
 
-        var ambiguous = gameAction.Submit(in action);
-        var blocked = gameAction.Submit(in action);
+        var unverified = gameAction.Submit(in action);
+        relic.SelectionNoOp = false;
+        var retried = gameAction.Submit(in action);
 
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, ambiguous.Code);
-        Assert.Equal(NativeMutationOutcome.PostconditionFailed, ambiguous.Mutation);
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, blocked.Code);
-        Assert.Contains(relic.GetGuid().ToString("D"), blocked.Reason);
-        Assert.Equal(0, blocked.CallOutcome.NativeCallsAttempted);
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, unverified.Code);
+        Assert.Equal(NativeMutationOutcome.PostconditionFailed, unverified.Mutation);
+        Assert.True(retried.Verified, retried.Reason);
+        Assert.Equal(1, relic.GetQueued());
     }
 
     [Fact]
@@ -396,7 +397,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
-    public void AmbiguousMutationReceiptNamesQuarantineAndRetainsAttemptEvidence()
+    public void AnUnverifiedUseIsAFaultReceiptThatRetainsAttemptEvidence()
     {
         var relic = Item(AutoItemsConsumableFamily.Relic);
         relic.SelectionNoOp = true;
@@ -406,7 +407,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var result = gameAction.Submit(in action).ToResult();
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Equal(AutoItemsActionResultCodes.Quarantined, result.Code);
+        Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, result.Code);
         Assert.True(result.HasNativeEvidence);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.NativeEvidence.Outcome);
         Assert.Equal(1, result.NativeCallOutcome.MutationAttempts);
@@ -414,15 +415,12 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     }
 
     [Fact]
-    public void LifecycleResetRebindsTheCompleteContractAndClearsQuarantine()
+    public void LifecycleResetRebindsTheCompleteContract()
     {
         var relic = Item(AutoItemsConsumableFamily.Relic);
-        relic.SelectionNoOp = true;
         using var gameAction = GameAction();
         var action = Action(relic, AutoItemsConsumableFamily.Relic);
-        Assert.False(gameAction.Submit(in action).Verified);
 
-        relic.SelectionNoOp = false;
         gameAction.InvalidateLifecycle();
         var retried = gameAction.Submit(in action);
 

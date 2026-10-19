@@ -29,7 +29,7 @@ public sealed class GameMcpGenericLevelTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "purchase", "bonus" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",
             ["uuid"] = GlyphId.ToString("D"),
@@ -114,10 +114,10 @@ public sealed class GameMcpGenericLevelTests
         var purchase = Command("purchase", before);
         var bonus = Command("bonus", before);
 
-        var paidDelta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var paidDelta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(afterPaid, generation: 902), purchase,
             GameMcpCommandResult.Committed("committed", 9, 3)), afterPaid);
-        var bonusDelta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var bonusDelta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(afterBonus, generation: 903), bonus,
             GameMcpCommandResult.Committed("committed", 9, 3)), afterBonus);
 
@@ -149,7 +149,7 @@ public sealed class GameMcpGenericLevelTests
     public void Listed_glyph_levels_match_the_row_for_a_bonus_levelled_glyph()
     {
         var world = World(total: 5, bonus: 2, purchaseAffordable: false);
-        var listed = Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 901), "augment-glyphs", 0, 10).Freeze(), world);
         var row = Row(world, "augment-glyphs", GlyphId);
 
@@ -276,13 +276,13 @@ public sealed class GameMcpGenericLevelTests
     {
         var before = World(total: 0, bonus: 0, purchaseAffordable: true);
         var after = World(total: 2, bonus: 0, purchaseAffordable: true);
-        var operation = GameMcpProtocolRouter.BuildOperation("game_level_up", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_level_up", new JObject
         {
             ["mode"] = "purchase",
             ["uuid"] = TimeRuneId.ToString("D"),
             ["amount"] = 2,
         });
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(before, generation: 906),
             out var command,
@@ -296,7 +296,7 @@ public sealed class GameMcpGenericLevelTests
             submission.Outcome.ToResult(), 9, 3,
             GameMcpGenericLevelProjection.Project(in submission, before));
 
-        var wire = Json(
+        var wire = GameMcpTestHarness.Json(
             committed.WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
                     GameMcpTestHarness.Context(after, generation: 907), command, committed))
                 .Project(command),
@@ -363,7 +363,7 @@ public sealed class GameMcpGenericLevelTests
     public void A_resource_type_list_row_carries_the_hidden_gate_its_detail_does()
     {
         var world = World(5, 2, purchaseAffordable: true, resourceTypeHidden: true);
-        var listed = Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 901),
             "resource-types", 0, 10).Freeze(), world);
         var detail = Row(world, "resource-types", ResourceTypeId);
@@ -381,7 +381,7 @@ public sealed class GameMcpGenericLevelTests
         GameWorldState world,
         string category,
         Guid id) =>
-        Json(GameMcpWorldQuery.GetRow(
+        GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             category, id.ToString("D")).Freeze(), world)["row"] as JObject ??
         throw new InvalidOperationException("row was unavailable");
@@ -417,7 +417,7 @@ public sealed class GameMcpGenericLevelTests
         var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
         var asked = Command("purchase", before, amount: 2);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 904), asked,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -438,7 +438,7 @@ public sealed class GameMcpGenericLevelTests
         var after = World(total: 6, bonus: 2, purchaseAffordable: true, maximumUsages: 4);
         var asked = Command("purchase", before);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 905), asked,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -513,19 +513,17 @@ public sealed class GameMcpGenericLevelTests
             in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8,
             false, new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(EquipmentTypeId, "EquipmentTypeSO", "Artifacts", "artifacts"),
             new EntityIdentityName(GlyphId, "GlyphSO", "Echo Glyph", "echo_glyph"),
             new EntityIdentityName(ResourceTypeId, "ResourceTypeSO", "Alchemy Materials", "alchemy_materials"),
             new EntityIdentityName(TimeRuneId, "TimeRuneSO", "Quickening", "quickening"),
-            new EntityIdentityName(CostResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(CostResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new[] { equipmentType }),
             AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new[] { glyph }),
             ResourceTypes = PublicationTable<WorldResourceType>.Create(new[] { resourceType }),
@@ -549,7 +547,4 @@ public sealed class GameMcpGenericLevelTests
 
     private static WorldCollectionCategoryStatus Collected(string category) =>
         new(category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

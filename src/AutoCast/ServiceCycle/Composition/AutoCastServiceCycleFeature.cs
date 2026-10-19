@@ -33,7 +33,6 @@ internal sealed class AutoCastServiceCycleFeature : IAutomataServiceCycleFeature
         var registration = context.Registry.Register(adapters.Definition, ActionDispatchPolicy);
         return new AutoCastFeatureRuntime(
             _dependencies,
-            adapters.Natives,
             registration,
             context.LifecycleValue,
             context.ConfigurationGeneration,
@@ -46,15 +45,13 @@ internal sealed class AutoCastServiceCycleFeature : IAutomataServiceCycleFeature
 /// The non-generic per-frame runtime for Auto Cast inside the shared host.
 /// </summary>
 /// <remarks>
-/// The lifecycle boundary drops two things, and both have to go together. The native adapter caches
-/// instance-keyed contracts — the <c>SpellManager</c> singleton and its equipped loadout, both
-/// replaced when the game reloads — and the manual pause is a fact about a run of the game that just
-/// ended. Keeping either would let the new run inherit the old one's answers.
+/// The lifecycle boundary drops two things, and both have to go together. The service's charge hold
+/// named a spell the game just replaced, and the manual pause is a fact about a run of the game that
+/// just ended. Keeping either would let the new run inherit the old one's answers.
 /// </remarks>
 internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRuntime
 {
     private readonly AutoCastFeatureDependencies _dependencies;
-    private readonly AutoCastNativeAdapter _natives;
     private readonly ServiceRegistration<
         AutoCastCycleState,
         AutoCastCycleAction> _registration;
@@ -65,7 +62,6 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
 
     internal AutoCastFeatureRuntime(
         AutoCastFeatureDependencies dependencies,
-        AutoCastNativeAdapter natives,
         ServiceRegistration<
             AutoCastCycleState,
             AutoCastCycleAction> registration,
@@ -74,7 +70,6 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
         AutoCastCycleActionAdapter actions)
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-        _natives = natives ?? throw new ArgumentNullException(nameof(natives));
         _registration = registration ?? throw new ArgumentNullException(nameof(registration));
         _lifecycleValue = lifecycleValue;
         _initialConfigurationGeneration = initialConfigurationGeneration;
@@ -95,7 +90,7 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
     {
         var owned = _dependencies.OwnsActionFamily();
         if (_actions.HoldsServiceCharge &&
-            (!owned || pump.IsEmergencyStopEngaged ||
+            (!owned || !_actions.Operational || pump.IsEmergencyStopEngaged ||
                 _dependencies.ManualPause.IsPaused(pump.DiagnosticsNow)))
             _actions.ReleaseServiceHold();
         _diagnostics?.Observe(pump, in report, owned);
@@ -108,7 +103,6 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
         long nativeLifecycle,
         ConfigGeneration configurationGeneration)
     {
-        _natives.InvalidateLifecycle();
         _actions.ForgetServiceHold();
         _dependencies.ManualPause.Reset();
         _diagnostics?.ObserveLifecycle(
@@ -123,7 +117,6 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
     {
         _registration.Dispose();
         _actions.ReleaseServiceHold();
-        _natives.Dispose();
     }
 
 #if SERVICE_CYCLE_PROFILE

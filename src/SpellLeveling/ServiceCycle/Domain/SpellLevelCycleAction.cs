@@ -5,7 +5,7 @@ namespace OrbAutomata;
 /// <summary>Which of the game's two level purchases an action asks for.</summary>
 internal enum SpellLevelActionKind
 {
-    /// <summary>One level on one named spell, verified as an exact <c>masteryLevel + 1</c>.</summary>
+    /// <summary>One level on one named spell, verified by its mastery level rising.</summary>
     Single = 0,
 
     /// <summary>
@@ -17,9 +17,8 @@ internal enum SpellLevelActionKind
 
 /// <summary>
 /// One planned mastery-level purchase. A <see cref="SpellLevelActionKind.Single"/> names the spell it
-/// buys; an <see cref="SpellLevelActionKind.All"/> names the spell that made the cycle worth acting on
-/// at all, because the native batch takes no argument and the identity is what the mutation evidence
-/// is filed under.
+/// buys; the service's <see cref="SpellLevelActionKind.All"/> names the <c>UnlockLevelAllSpells</c>
+/// upgrade, the batch's own target, because the native batch takes no argument.
 /// </summary>
 internal readonly struct SpellLevelCycleAction
 {

@@ -6,6 +6,7 @@ using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
+using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 
 namespace OrbModding.ProfileTests;
 
@@ -106,7 +107,8 @@ public sealed class GameMcpTooltipPanelRowTests
         Assert.True(GameMcpTooltipPanelRow.TrySoleSpellSlot(world, BeamBurst, out var beam));
         Assert.Equal(6, beam);
 
-        var row = Encoded(GameMcpTooltipPanelRow.Project("Button[0]", "Ralochs's Cube", Cube, world));
+        var row = GameMcpTestHarness.Json(
+            GameMcpTooltipPanelRow.Project("Button[0]", "Ralochs's Cube", Cube, world), Catalog);
         Assert.Null(row["slot"]);
         Assert.Equal(GameMcpEntityHandle.Format(Cube), (string?)row["uuid"]);
     }
@@ -123,8 +125,8 @@ public sealed class GameMcpTooltipPanelRowTests
 
         foreach (var state in new GameWorldState?[] { world, null })
         {
-            var row = Encoded(
-                GameMcpTooltipPanelRow.Project("Button[0]", "Beam Burst", BeamBurst, state));
+            var row = GameMcpTestHarness.Json(
+                GameMcpTooltipPanelRow.Project("Button[0]", "Beam Burst", BeamBurst, state), Catalog);
             Assert.Null(row["slot"]);
             Assert.Equal(GameMcpEntityHandle.Format(BeamBurst), (string?)row["uuid"]);
         }
@@ -285,9 +287,6 @@ public sealed class GameMcpTooltipPanelRowTests
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
-    private static JObject Encoded(GameMcpObjectBuilder row) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(row.Freeze(), Catalog));
-
     private static GameMcpObjectBuilder Row(string path, string name, Guid entityId) =>
         GameMcpTooltipPanelRow.Project(path, name, entityId, World(
             (0, Cube), (3, Propagation), (6, BeamBurst)));
@@ -438,4 +437,31 @@ public sealed class GameMcpTooltipPanelRowTests
             new EntityIdentityName(
                 Ferocity, "PassiveAbilitySO", "Ferocity", "ferocityPassive"),
         });
+
+    /// <summary>
+    /// A tooltip read by uuid refuses an entity the world marks hidden, by the detail read's own
+    /// <c>visible</c> predicate, and still answers for one the player can see.
+    /// </summary>
+    /// <remarks>
+    /// An undiscovered Craft Alchemic Scroll read its tooltip with nothing on the screen drawing it,
+    /// which printed words the player had never been shown as though a screen drew them.
+    /// </remarks>
+    [Fact]
+    public void A_tooltip_read_refuses_an_entity_the_world_hides_and_answers_one_the_player_sees()
+    {
+        var world = new GameWorldState
+        {
+            CraftingRecipes = PublicationTable<WorldCraftingRecipe>.Create(new[]
+            {
+                Crafting(ReadyCraftingId, visible: true, canBuy: true),
+                Crafting(BlockedCraftingId, visible: false, canBuy: false),
+            }),
+        };
+
+        Assert.True(GameMcpEntityExplainer.IsHidden(world, BlockedCraftingId));
+        Assert.False(GameMcpEntityExplainer.IsHidden(world, ReadyCraftingId));
+        Assert.Equal(
+            "No element on this screen shows it; world_get reads its facts.",
+            GameMcpTooltipPanelRow.HiddenEntity);
+    }
 }

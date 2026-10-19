@@ -127,7 +127,7 @@ internal static class GameMcpEntityCapabilityMap
                     world.EntityIdentities,
                     world.AlchemyRecipes,
                     target,
-                    GameMcpWorldQuery.ConceptsCategory,
+                    GameMcpWorldCategories.ConceptsCategory,
                     capability,
                     out reason),
             GameMcpCommandKind.Harvest => HarvestTarget(world, target, out reason),
@@ -408,13 +408,13 @@ internal static class GameMcpEntityCapabilityMap
         // them a recipe is in — and the two offer different verbs. The recipe's own core alchemy
         // type says it, which is the same fact the row's category cell is written from.
         if (WorldLookup.TryFind(world.AlchemyRecipes, target, out var recipe))
-            category = GameMcpWorldQuery.AlchemyRecipeCategory(recipe.CoreTypeId);
+            category = GameMcpWorldCategories.AlchemyRecipeCategory(recipe.CoreTypeId);
         if (!ByCategory.TryGetValue(category, out var descriptor)) return false;
         var names = new List<string>();
         for (var index = 0; index < descriptor.Capabilities.Count; index++)
         {
             var capability = descriptor.Capabilities[index];
-            var candidate = GameMcpCommandKinds.ToolName(capability);
+            var candidate = GameMcpToolCatalog.Shipping.ToolFor(capability);
             if (candidate.Length == 0 || names.Contains(candidate)) continue;
             names.Add(candidate);
         }

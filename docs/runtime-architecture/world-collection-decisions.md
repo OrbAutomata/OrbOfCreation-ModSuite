@@ -111,12 +111,12 @@ reads, and tests for the structure-effect priority tier were deleted together.
 
 ## W45 — A failure's scope decides how far it stops the feature
 
-The quarantine and contract circuit stay at the action boundary; what they mean reaches the worker as a
-result code. `PairContractUnavailable`, `FeatureContractUnavailable` and `PairFaulted` replace one
-undifferentiated `AdapterFault`, because how far a failure reaches decides whether one pair or the whole
-feature stops being tried. A scope is claimed only when the circuit was actually tripped — a resolution
-that failed without tripping it stays an unattributed adapter fault rather than being reported as a
-contract the build does not have.
+The contract circuit stays at the action boundary; what it means reaches the worker as a result code.
+`PairContractUnavailable` and `FeatureContractUnavailable` name a mismatch the game proved, and how far it
+reaches decides whether one pair or the whole feature is held for the rest of the lifecycle. A scope is
+claimed only for a proven mismatch: a read that only threw stays an unattributed adapter fault and is
+retried. Every other fault, `PairFaulted` included, backs its pair off on the shared retry gate and is not
+remembered by the worker.
 
 ## W46 — Action-family ownership is checked where the action happens
 

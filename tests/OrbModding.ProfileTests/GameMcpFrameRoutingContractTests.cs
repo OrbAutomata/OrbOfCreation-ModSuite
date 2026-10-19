@@ -15,7 +15,7 @@ public sealed class GameMcpFrameRoutingContractTests
         Assert.Equal(42, tools.Count);
         var inbox = new GameMcpFrameInbox();
         var operations = tools
-            .Select(tool => GameMcpProtocolRouter.BuildOperation(
+            .Select(tool => GameMcpToolCatalog.Shipping.BuildOperation(
                 (string)tool["name"]!,
                 Arguments((string)tool["name"]!)))
             .Select(inbox.Submit)
@@ -43,7 +43,7 @@ public sealed class GameMcpFrameRoutingContractTests
             GameMcpProtocolRouter.ProtocolOnlyMethods());
 
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         foreach (var method in GameMcpProtocolRouter.ProtocolOnlyMethods())
         {
             var parameters = method == "initialize"
@@ -72,19 +72,19 @@ public sealed class GameMcpFrameRoutingContractTests
     [Fact]
     public void ReadUiAdministrationAndGameplayHaveExactDataAndMutationClasses()
     {
-        var read = GameMcpProtocolRouter.BuildOperation(
+        var read = GameMcpToolCatalog.Shipping.BuildOperation(
             "world_get",
             Arguments("world_get"));
         Assert.Equal(GameMcpOperationClass.ReadOnly, read.Classification);
         Assert.Equal(GameMcpFrameData.World, read.RequiredData);
 
-        var screen = GameMcpProtocolRouter.BuildOperation(
+        var screen = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_screen_catalog",
             Arguments("game_screen_catalog"));
         Assert.Equal(GameMcpOperationClass.ReadOnly, screen.Classification);
         Assert.Equal(GameMcpFrameData.None, screen.RequiredData);
 
-        var health = GameMcpProtocolRouter.BuildOperation(
+        var health = GameMcpToolCatalog.Shipping.BuildOperation(
             "suite_health",
             Arguments("suite_health"));
         Assert.Equal(
@@ -93,19 +93,19 @@ public sealed class GameMcpFrameRoutingContractTests
             GameMcpFrameData.Scene | GameMcpFrameData.NativeContractHealth,
             health.RequiredData);
 
-        var ui = GameMcpProtocolRouter.BuildOperation(
+        var ui = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_navigate",
             Arguments("game_navigate"));
         Assert.Equal(GameMcpOperationClass.UiState, ui.Classification);
         Assert.Equal(GameMcpFrameData.World | GameMcpFrameData.Scene, ui.RequiredData);
 
-        var administration = GameMcpProtocolRouter.BuildOperation(
+        var administration = GameMcpToolCatalog.Shipping.BuildOperation(
             "suite_emergency_stop",
             Arguments("suite_emergency_stop"));
         Assert.Equal(GameMcpOperationClass.SuiteAdministration, administration.Classification);
         Assert.Equal(GameMcpFrameData.Configuration, administration.RequiredData);
 
-        var gameplay = GameMcpProtocolRouter.BuildOperation(
+        var gameplay = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_discover",
             new JObject
             {
@@ -121,13 +121,13 @@ public sealed class GameMcpFrameRoutingContractTests
     [Fact]
     public void OptionalDiagnosticWritesEscalateOnlyTheirOwnOperation()
     {
-        var tooltipRead = GameMcpProtocolRouter.BuildOperation(
+        var tooltipRead = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_tooltip",
             new JObject { ["path"] = "Canvas[0]/Button[0]" });
-        var screenshot = GameMcpProtocolRouter.BuildOperation(
+        var screenshot = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_screenshot",
             new JObject());
-        var savedScreenshot = GameMcpProtocolRouter.BuildOperation(
+        var savedScreenshot = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_screenshot",
             new JObject { ["save"] = true });
 
@@ -151,7 +151,7 @@ public sealed class GameMcpFrameRoutingContractTests
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "suite_check_game_math");
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "suite_check_game_math",
             new JObject());
 
@@ -171,10 +171,10 @@ public sealed class GameMcpFrameRoutingContractTests
     {
         Assert.Equal(
             GameMcpFrameData.World,
-            GameMcpProtocolRouter.BuildOperation("game_screen_elements", new JObject()).RequiredData);
+            GameMcpToolCatalog.Shipping.BuildOperation("game_screen_elements", new JObject()).RequiredData);
         Assert.Equal(
             GameMcpFrameData.None,
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "game_tooltip",
                 new JObject { ["path"] = "CastingBar[3]/Button[0]" }).RequiredData);
     }

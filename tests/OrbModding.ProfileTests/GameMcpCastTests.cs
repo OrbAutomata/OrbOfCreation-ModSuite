@@ -59,14 +59,14 @@ public sealed class GameMcpCastTests
             .ToArray();
         Assert.Equal(new[] { "release", "toggle_off" }, forbidden);
 
-        var charged = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        var charged = GameMcpToolCatalog.Shipping.BuildOperation("game_cast", new JObject
         {
             ["mode"] = "fire",
             ["slot"] = 1,
             ["uuid"] = RecipeId.ToString("D"),
             ["charge"] = true,
         });
-        var plain = GameMcpProtocolRouter.BuildOperation("game_cast", new JObject
+        var plain = GameMcpToolCatalog.Shipping.BuildOperation("game_cast", new JObject
         {
             ["mode"] = "fire",
             ["slot"] = 1,
@@ -494,7 +494,7 @@ public sealed class GameMcpCastTests
         Assert.Equal(
             RecipeId.ToString("D") + " is still recharging: it holds 0 of 3 charges, " +
             "next in 41.0s.",
-            AutomataServiceCycleRuntime.CastRefusalReason(
+            GameMcpCastProjection.CastRefusalReason(
                 command,
                 World(
                     casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 3,
@@ -507,7 +507,7 @@ public sealed class GameMcpCastTests
         // account stands rather than the refusal going out wordless.
         Assert.Equal(
             boundary,
-            AutomataServiceCycleRuntime.CastRefusalReason(
+            GameMcpCastProjection.CastRefusalReason(
                 command,
                 World(casting: false, cancellationEnabled: true),
                 in unready,
@@ -533,7 +533,7 @@ public sealed class GameMcpCastTests
         Assert.Equal(
             "Whirling Sorcery is still casting; Firebolt waits for it. " +
             "The game casts one spell at a time.",
-            AutomataServiceCycleRuntime.CastRefusalReason(
+            GameMcpCastProjection.CastRefusalReason(
                 Fire(world, slot: 2, recipeId: SecondRecipeId),
                 world,
                 in busy,
@@ -544,7 +544,7 @@ public sealed class GameMcpCastTests
         // all there is, and it says the same thing without the name.
         Assert.Equal(
             "another spell is still casting, and the game casts one spell at a time",
-            AutomataServiceCycleRuntime.CastRefusalReason(
+            GameMcpCastProjection.CastRefusalReason(
                 Fire(TwoSlots(holderIsReadying: false), slot: 2, recipeId: SecondRecipeId),
                 TwoSlots(holderIsReadying: false),
                 in busy,

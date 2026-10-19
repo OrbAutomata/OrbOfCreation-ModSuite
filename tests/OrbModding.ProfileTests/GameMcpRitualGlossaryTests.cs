@@ -50,7 +50,8 @@ public sealed class GameMcpRitualGlossaryTests
                 "5efcba | Barrier | yes | -1 | no | +500 Damage Reduction",
                 "ff1240 | Burning | no | 5 | no | Deals fire damage over time.",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(Context(World()), "status-effects", 0, 20))));
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(World()), "status-effects", 0, 20), Catalog)));
     }
 
     /// <summary>
@@ -68,7 +69,8 @@ public sealed class GameMcpRitualGlossaryTests
                 "0796ee | Advancment | Amplifying an attributes levels.",
                 "d854b1 | Echoing | Amplifies an attribute's echo rating.",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(Context(World()), "enchantments", 0, 20))));
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(World()), "enchantments", 0, 20), Catalog)));
     }
 
     /// <summary>
@@ -148,13 +150,13 @@ public sealed class GameMcpRitualGlossaryTests
                 "[id | name | category | keywords | matchedOn]",
                 "f8a932 | Summon Reinforcements | character-actions | - | internalName",
             }),
-            Render(Json(GameMcpWorldQuery.Search(
-                Context(World()),
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+                GameMcpTestHarness.Context(World()),
                 "SummonReinforcements",
                 0,
                 20,
                 string.Empty,
-                string.Empty))));
+                string.Empty), Catalog)));
     }
 
     /// <summary>
@@ -165,8 +167,8 @@ public sealed class GameMcpRitualGlossaryTests
     [Fact]
     public void A_combat_actions_two_clocks_read_as_the_pair_they_are()
     {
-        var page = Json(GameMcpWorldQuery.ListRows(
-            Context(World()), "character-actions", 0, 20));
+        var page = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(World()), "character-actions", 0, 20), Catalog);
 
         Assert.Equal(
             string.Join('\n', new[]
@@ -208,7 +210,7 @@ public sealed class GameMcpRitualGlossaryTests
             Assert.True(
                 GameMcpEntityCapabilityMap.TryCategoryForNativeType(nativeType, out var derived));
             Assert.Equal(category, derived);
-            Assert.Contains(category, GameMcpWorldQuery.RegisteredCategoryNames());
+            Assert.Contains(category, GameMcpWorldCategories.RegisteredCategoryNames());
         }
     }
 
@@ -216,15 +218,12 @@ public sealed class GameMcpRitualGlossaryTests
 
     private static JObject Detail(Guid uuid, string category = "") =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                Context(World()), category, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
     private static readonly EntityIdentityCatalogSnapshot Catalog =
-        EntityIdentityCatalogSnapshot.Bound(1, Sorted(new[]
+        EntityIdentityCatalogSnapshot.Bound(1, GameMcpTestHarness.SortedByEntityId(new[]
         {
             new EntityIdentityName(Barrier, "CombatStatusSO", "Barrier", "Barrier"),
             new EntityIdentityName(Burning, "CombatStatusSO", "Burning", "Burning"),
@@ -246,19 +245,6 @@ public sealed class GameMcpRitualGlossaryTests
             new EntityIdentityName(
                 Gathering, "HarvestActionTypeSO", "Gathering", "GatheringActionType"),
         }));
-
-    private static EntityIdentityName[] Sorted(EntityIdentityName[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(991));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
 
     private static GameWorldState World() =>
         new()
@@ -306,26 +292,7 @@ public sealed class GameMcpRitualGlossaryTests
                 new WorldAttributeGroupMember(
                     Refund, 1, Gathering, "RefundRating", 0, 1d, 1d, 0),
             }),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
         };
-
-    /// <summary>
-    /// Every category read clean, so a page carries its rows rather than a list of the categories
-    /// this fixture happens not to populate.
-    /// </summary>
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 }

@@ -34,7 +34,7 @@ public sealed class GameMcpModalTests : IDisposable
         Assert.Equal(new[] { "mode" }, tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "dismiss", "open" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_modal", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_modal", new JObject
         {
             ["mode"] = "dismiss",
         });
@@ -49,7 +49,7 @@ public sealed class GameMcpModalTests : IDisposable
     [Fact]
     public void An_open_is_addressed_by_the_panel_it_puts_up()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation("game_modal", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_modal", new JObject
         {
             ["mode"] = "open",
             ["title"] = "Statistics",
@@ -59,7 +59,7 @@ public sealed class GameMcpModalTests : IDisposable
         Assert.Equal("Statistics", operation.Title);
         Assert.Equal(GameMcpOperationClass.UiState, operation.Classification);
         Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation("game_modal", new JObject { ["mode"] = "open" }));
+            GameMcpToolCatalog.Shipping.BuildOperation("game_modal", new JObject { ["mode"] = "open" }));
     }
 
     [Fact]
@@ -230,7 +230,7 @@ public sealed class GameMcpModalTests : IDisposable
 
         Assert.False(submission.Committed);
         Assert.Equal("post_commit_fault", submission.Code);
-        Assert.StartsWith(GameActionAnswer.GameErrored("the Player panel"), submission.Reason,
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Player panel").Sentence, submission.Reason,
             StringComparison.Ordinal);
         Assert.Contains("Reference MCP-", submission.Reason, StringComparison.Ordinal);
         Assert.Contains(_faults, fault =>
@@ -367,7 +367,7 @@ public sealed class GameMcpModalTests : IDisposable
 
         Assert.False(result.Committed);
         Assert.Equal("post_commit_fault", result.Code);
-        Assert.StartsWith(GameActionAnswer.GameErrored("the Ritual Results panel"), result.Reason,
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Ritual Results panel").Sentence, result.Reason,
             StringComparison.Ordinal);
         Assert.Contains("Reference MCP-", result.Reason, StringComparison.Ordinal);
         Assert.Contains(_faults, fault =>

@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -43,12 +43,4 @@ public sealed class StructureLifecycleContractTests
         Assert.True(Offset(enableReferences, "StructureSO", "disabled") <
             Offset(enableReferences, "StructureSO", "ApplyEffects"));
     }
-
-    private static int Offset(
-        System.Collections.Generic.IReadOnlyList<MethodBodyDefinitionReference> references,
-        string declaringType,
-        string memberName) =>
-        references.Single(reference =>
-            reference.DeclaringType == declaringType &&
-            reference.MemberName == memberName).Offset;
 }

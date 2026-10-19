@@ -4,23 +4,6 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>One exact native discovery price beside the holding that would pay it now.</summary>
-internal readonly struct WorldDiscoverableCost
-{
-    internal WorldDiscoverableCost(Guid resourceId, BigDouble cost, BigDouble amount)
-    {
-        ResourceId = resourceId;
-        Cost = cost;
-        Amount = amount;
-    }
-
-    internal Guid ResourceId { get; }
-    internal BigDouble Cost { get; }
-    internal BigDouble Amount { get; }
-    internal BigDouble AvailableAmount => Amount;
-    internal bool Affordable => Amount.CompareTo(Cost) >= 0;
-}
-
 /// <summary>
 /// The player-facing decision facts shared by every native <c>IDiscoverable</c> implementer.
 /// The game evaluates visibility, prerequisites, and aggregate affordability; the suite publishes
@@ -28,7 +11,7 @@ internal readonly struct WorldDiscoverableCost
 /// </summary>
 internal readonly struct WorldDiscoverableDecision
 {
-    private readonly PublicationTable<WorldDiscoverableCost>? _costs;
+    private readonly PublicationTable<WorldResourceCost>? _costs;
     private readonly PublicationTable<Guid>? _glyphRecipe;
     private readonly PublicationTable<Guid>? _resourceRecipe;
 
@@ -38,7 +21,7 @@ internal readonly struct WorldDiscoverableDecision
         bool discovered,
         bool required,
         bool affordable,
-        PublicationTable<WorldDiscoverableCost> costs,
+        PublicationTable<WorldResourceCost> costs,
         PublicationTable<Guid>? glyphRecipe = null,
         PublicationTable<Guid>? resourceRecipe = null)
     {
@@ -57,8 +40,8 @@ internal readonly struct WorldDiscoverableDecision
     internal bool Discovered { get; }
     internal bool Required { get; }
     internal bool Affordable { get; }
-    internal PublicationTable<WorldDiscoverableCost> Costs =>
-        _costs ?? PublicationTable<WorldDiscoverableCost>.Empty;
+    internal PublicationTable<WorldResourceCost> Costs =>
+        _costs ?? PublicationTable<WorldResourceCost>.Empty;
     /// <summary>The exact authored glyph identities used by the native compose resolver.</summary>
     internal PublicationTable<Guid> GlyphRecipe =>
         _glyphRecipe ?? PublicationTable<Guid>.Empty;
@@ -138,7 +121,7 @@ internal sealed class WorldDiscoverableBinding
         var glyph = new WorldMemberBinding(glyphRecipeType!, "GlyphSO");
         _glyphIdentity = glyph.StableUuid();
 
-        Failure = Join(
+        Failure = WorldFailures.Join(
             item.Failure,
             cost.Failure,
             tuple.Failure,
@@ -160,14 +143,14 @@ internal sealed class WorldDiscoverableBinding
             throw new InvalidOperationException("IDiscoverable.GetResourceRecipe() returned null");
         var glyphRecipe = ReadRecipe(glyphValues, "glyph", _glyphIdentity!);
         var resourceRecipe = ReadRecipe(resourceValues, "resource", _resourceIdentity!);
-        var costs = new WorldDiscoverableCost[entries.Count];
+        var costs = new WorldResourceCost[entries.Count];
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index] ??
                 throw new InvalidOperationException("discovery cost entry " + index + " was null");
             var resource = _resource!(entry) ??
                 throw new InvalidOperationException("discovery cost entry " + index + " had no resource");
-            costs[index] = new WorldDiscoverableCost(
+            costs[index] = new WorldResourceCost(
                 _resourceIdentity!(resource),
                 _value!(entry),
                 _resourceAmount!(resource));
@@ -178,7 +161,7 @@ internal sealed class WorldDiscoverableBinding
             _discovered!(entity),
             _required!(entity),
             _affordable!(cost),
-            PublicationTable<WorldDiscoverableCost>.Create(costs),
+            PublicationTable<WorldResourceCost>.Create(costs),
             glyphRecipe,
             resourceRecipe);
     }
@@ -212,16 +195,5 @@ internal sealed class WorldDiscoverableBinding
             match = candidate;
         }
         return match;
-    }
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
-        }
-        return result;
     }
 }

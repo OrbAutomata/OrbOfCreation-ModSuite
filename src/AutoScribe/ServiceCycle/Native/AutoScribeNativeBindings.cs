@@ -21,6 +21,12 @@ internal sealed class AutoScribeNativeBindings
         "consumable.type",
         "enchantment-so.tooltipable-base",
         "generic-level.cost.type-action",
+        "generic-level.tuple.type-action",
+        "generic-level.resource.type-action",
+        "generic-level.cost-entries-action",
+        "generic-level.tuple-resource-action",
+        "generic-level.tuple-value-action",
+        "generic-level.resource-guid-action",
         "spell-loadout.big-double.type-action",
         "auto-items.instant-effect-block.type",
         "auto-items.instant-effect-script.type",
@@ -106,6 +112,10 @@ internal sealed class AutoScribeNativeBindings
         Func<object, object?> recipeMainType,
         Action<object, BigDouble, BigDouble> recipePurchase,
         Func<object, bool> costHasEnough,
+        Func<object, IList?> costEntries,
+        Func<object, object?> costResource,
+        Func<object, BigDouble> costValue,
+        Func<object, Guid> resourceGuid,
         Func<object, bool> queueHasRoom,
         Action<object, object> queueAdd,
         Func<object, Guid> instanceRecipe,
@@ -159,6 +169,10 @@ internal sealed class AutoScribeNativeBindings
         RecipeMainType = recipeMainType;
         RecipePurchase = recipePurchase;
         CostHasEnough = costHasEnough;
+        CostEntries = costEntries;
+        CostResource = costResource;
+        CostValue = costValue;
+        ResourceGuid = resourceGuid;
         QueueHasRoom = queueHasRoom;
         QueueAdd = queueAdd;
         InstanceRecipe = instanceRecipe;
@@ -213,6 +227,10 @@ internal sealed class AutoScribeNativeBindings
     internal Func<object, object?> RecipeMainType { get; }
     internal Action<object, BigDouble, BigDouble> RecipePurchase { get; }
     internal Func<object, bool> CostHasEnough { get; }
+    internal Func<object, IList?> CostEntries { get; }
+    internal Func<object, object?> CostResource { get; }
+    internal Func<object, BigDouble> CostValue { get; }
+    internal Func<object, Guid> ResourceGuid { get; }
     internal Func<object, bool> QueueHasRoom { get; }
     internal Action<object, object> QueueAdd { get; }
     internal Func<object, Guid> InstanceRecipe { get; }
@@ -236,6 +254,8 @@ internal sealed class AutoScribeNativeBindings
             var consumable = set.Type("consumable.type", "ConsumableSO");
             var enchantment = set.Type("enchantment-so.tooltipable-base", "EnchantmentSO");
             var cost = set.Type("generic-level.cost.type-action", "ResourceCostList");
+            var tuple = set.Type("generic-level.tuple.type-action", "ResourceTuple");
+            var resource = set.Type("generic-level.resource.type-action", "ResourceSO");
             var big = set.Type("spell-loadout.big-double.type-action", "BigDouble");
             var block = set.Type("auto-items.instant-effect-block.type", "InstantEffectBlock");
             var script = set.Type("auto-items.instant-effect-script.type", "IInstantEffectScript");
@@ -303,6 +323,11 @@ internal sealed class AutoScribeNativeBindings
                 set.Call<Action<object, BigDouble, BigDouble>>(
                     "auto-scribe.recipe.purchase-quantity", recipe, "PurchaseQuantity", typeof(void), big, big),
                 set.Call<Func<object, bool>>("resource-cost-list.has-enough", cost, "HasEnough", typeof(bool)),
+                set.Call<Func<object, IList?>>(
+                    "generic-level.cost-entries-action", cost, "GetEntries", typeof(List<>).MakeGenericType(tuple)),
+                set.Field<Func<object, object?>>("generic-level.tuple-resource-action", tuple, "resource", resource),
+                set.Call<Func<object, BigDouble>>("generic-level.tuple-value-action", tuple, "GetValue", typeof(BigDouble)),
+                set.StableUuid("generic-level.resource-guid-action", resource),
                 set.Call<Func<object, bool>>(
                     "auto-scribe.list.has-empty-spot", instanceList, "HasEmptySpot", typeof(bool)),
                 set.Call<Action<object, object>>("auto-scribe.list.add", instanceList, "Add", typeof(void), instance),

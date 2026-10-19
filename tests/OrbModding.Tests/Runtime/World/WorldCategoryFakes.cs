@@ -444,10 +444,12 @@ internal sealed class FakeScribeRecipe
     public bool canBuy = true;
     public BigDouble startingQuantity = BigDouble.One;
     public FakeCraftingRecipeType MainType = new();
+    public Exception? StartingQuantityFailure;
 
     public Guid GetGuid() => Identity;
     public bool IsVisible() => visible;
-    public BigDouble GetStartingQuantity() => startingQuantity;
+    public BigDouble GetStartingQuantity() =>
+        StartingQuantityFailure is { } failure ? throw failure : startingQuantity;
     public bool CanBuy() => visible && canBuy;
     public bool CanBuyAt(BigDouble quantity) =>
         canBuy && quantity.CompareTo(BigDouble.Zero) > 0;
@@ -1918,6 +1920,7 @@ internal sealed class FakeResource
     public bool Visible = true;
     public bool ThrowOnRate;
     public Exception? QuantityFailure;
+    public Exception? GetGuidFailure;
     public FakeModifierRecord maxQuantity = new(-1d);
     public BigDouble lifetimeQuantity;
     public BigDouble discoveryTime;
@@ -2249,8 +2252,9 @@ internal sealed class FakeConsumable
     public FakeConsumableCostList consumeCost = new();
     public FakeConsumableCostList usageCost = new();
     public int maximumCarryLoad = 100;
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
     public int GetMaximumCarryLoad() => maximumCarryLoad;
     public double preparationTime;
     public bool canBeRandomized;

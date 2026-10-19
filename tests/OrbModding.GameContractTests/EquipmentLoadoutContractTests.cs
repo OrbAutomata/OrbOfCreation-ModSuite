@@ -1,6 +1,5 @@
-using System;
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -29,10 +28,10 @@ public sealed class EquipmentLoadoutContractTests
         Assert.True(Offset(refs, "ResourceCostList", "HasEnough") <
                     Offset(refs, "GlobalVariables", "GetMultiBuy"));
         Assert.True(Offset(refs, "GlobalVariables", "GetMultiBuy") <
-                    Offset(refs, "StackableListVariable`1", "Stack"));
+                    Offset(refs, "StackableListVariable`1<EquipmentSO>", "Stack"));
         Assert.True(Offset(refs, "ResourceCostList", "MaximumCostTimes") <
-                    Offset(refs, "StackableListVariable`1", "Stack"));
-        Assert.True(Offset(refs, "StackableListVariable`1", "Stack") <
+                    Offset(refs, "StackableListVariable`1<EquipmentSO>", "Stack"));
+        Assert.True(Offset(refs, "StackableListVariable`1<EquipmentSO>", "Stack") <
                     Offset(refs, "EquipmentSO", "Equip"));
     }
 
@@ -50,40 +49,4 @@ public sealed class EquipmentLoadoutContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "UIEquipmentItem", "HasTypeRoom", "EquipmentTypeSO", "GetMaxTypeSlots"));
     }
-
-    [Fact]
-    public void Manifest_names_every_equipment_action_and_shared_decision_touch()
-    {
-        var manifest = NativeContractManifest.Load();
-        var expected = new[]
-        {
-            "equipment-loadout.equipment.type-action", "equipment-loadout.manager.type-action",
-            "equipment-loadout.list.type-action", "equipment-loadout.equipment-type.type-action",
-            "equipment-loadout.cost.type-action", "equipment-loadout.manager-instance-action",
-            "equipment-loadout.manager-equipped-list-action", "equipment-loadout.equipment-created-action",
-            "equipment-loadout.equipment-type-field-action", "equipment-loadout.equipment-maximum-action",
-            "equipment-loadout.equipment-cost-action", "equipment-loadout.list-stacks-action",
-            "equipment-loadout.list-maximum-action", "equipment-loadout.list-at-maximum",
-            "equipment-loadout.list-values-action", "equipment-loadout.list-type-count-action",
-            "equipment-loadout.type-maximum-action", "equipment-loadout.cost-enough-action",
-            "equipment-loadout.cost-maximum-times-action", "equipment-loadout.manager-equip-action",
-            "equipment-loadout.manager-unequip-action",
-        };
-        Assert.All(expected, id => Assert.Single(manifest.Contracts, contract => contract.Id == id));
-    }
-
-    private static MethodBodyDefinitionReference[] References(
-        GameAssemblyMetadata assembly, string type, string method, params string[] parameterTypes) =>
-        assembly.GetMethodBodyDefinitionReferences(type, method, parameterTypes)
-            .Concat(assembly.GetMethodBodyMemberReferences(type, method, parameterTypes))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
-
-    private static int Offset(MethodBodyDefinitionReference[] references, string type, string member) =>
-        references.Where(reference =>
-                reference.DeclaringType.StartsWith(type, StringComparison.Ordinal) &&
-                reference.MemberName == member)
-            .Select(reference => reference.Offset)
-            .DefaultIfEmpty(-1)
-            .Min();
 }

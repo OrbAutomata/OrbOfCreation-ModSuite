@@ -88,23 +88,14 @@ internal readonly struct WorldCraftingDecision
 
 internal readonly struct WorldCraftingDecisionCost
 {
-    internal WorldCraftingDecisionCost(
-        Guid recipeId,
-        Guid resourceId,
-        BigDouble cost,
-        BigDouble amount)
+    internal WorldCraftingDecisionCost(Guid recipeId, WorldResourceCost cost)
     {
         RecipeId = recipeId;
-        ResourceId = resourceId;
         Cost = cost;
-        Amount = amount;
     }
 
     internal Guid RecipeId { get; }
-    internal Guid ResourceId { get; }
-    internal BigDouble Cost { get; }
-    internal BigDouble Amount { get; }
-    internal bool Affordable => Amount.CompareTo(Cost) >= 0;
+    internal WorldResourceCost Cost { get; }
 }
 
 internal readonly struct WorldCraftingQueueEntry
@@ -312,7 +303,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         _resourceIdentity = resource.StableUuid();
         _resourceAmount = resource.Call<BigDouble>("GetQuantity");
 
-        _unavailable = JoinFailures(
+        _unavailable = WorldFailures.Join(
             _allRecipes is null ? "CraftingRecipeSO.All was unavailable" : string.Empty,
             recipe.Failure,
             page.Failure,
@@ -341,7 +332,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         {
             AppendQueueEntries(frame);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             frame.CraftingQueueEntries.Reset();
             return WorldCategoryReport.Missing(
@@ -364,12 +355,13 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
                 AppendDecision(recipe, frame);
                 sampled++;
             }
-            catch (Exception exception)
+            catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = "crafting decision row " + index + " failed: " +
-                        exception.GetBaseException().Message;
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    "crafting decision row " + index + " failed: " +
+                        exception.GetBaseException().Message);
             }
         }
         return new WorldCategoryReport(
@@ -587,9 +579,10 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
                 throw new InvalidOperationException("cost resource UUID was empty");
             frame.CraftingDecisionCosts.Append(new WorldCraftingDecisionCost(
                 recipeId,
-                resourceId,
-                _costValue!(tuple) * factor,
-                _resourceAmount!(resource)));
+                new WorldResourceCost(
+                    resourceId,
+                    _costValue!(tuple) * factor,
+                    _resourceAmount!(resource))));
         }
     }
 
@@ -678,16 +671,5 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
         for (var index = 0; index < values.Count; index++)
             if (values[index] is not null) count++;
         return count;
-    }
-
-    private static string JoinFailures(params string[] values)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < values.Length; index++)
-        {
-            if (values[index].Length == 0) continue;
-            result = result.Length == 0 ? values[index] : result + "; " + values[index];
-        }
-        return result;
     }
 }

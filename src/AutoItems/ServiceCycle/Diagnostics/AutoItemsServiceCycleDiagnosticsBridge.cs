@@ -11,6 +11,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     private readonly AutoItemsFeatureDependencies _dependencies;
     private readonly AutoItemsConsumableUseGameAction _gameAction;
     private readonly AutoItemsActionHealth _health;
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -19,8 +20,6 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     private Guid _pausedTemporaryItem;
     private AutoItemsTemporaryPauseCause _temporaryPauseCause;
     private long _publishedHealthRevision = -1;
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services =
-        new ServiceCycleServiceDiagnosticsSnapshot[8];
 
     internal AutoItemsServiceCycleDiagnosticsBridge(
         AutoItemsFeatureDependencies dependencies,
@@ -32,6 +31,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _dependencies = dependencies;
         _gameAction = gameAction;
         _health = health;
+        _retries = new ServiceRetryEpisodeNarrator("Auto Items", dependencies.Warn);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         Publish();
@@ -41,9 +41,18 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     {
         var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
+        if (report.ResponsesAcquired == 0 && report.ActionsAttempted == 0)
+        {
+            changed |= _retries.Observe(_retries.Current, pump.DiagnosticsNow);
+            PublishIfChanged(changed);
+            return;
+        }
+        var service = ServiceCycleDiagnostics.ReadAvailableService(pump, AutoItemsServicePolicies.ServiceId);
+        changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0 &&
+            service.HasValue &&
             TryReadLatestDecision(
-                pump,
+                service.Value,
                 out var decisionKind,
                 out var pausedTemporaryItem,
                 out var temporaryPauseCause))
@@ -59,6 +68,11 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _pausedTemporaryItem = pausedTemporaryItem;
             _temporaryPauseCause = temporaryPauseCause;
         }
+        PublishIfChanged(changed);
+    }
+
+    private void PublishIfChanged(bool changed)
+    {
         if (_publishedHealthRevision != _health.Revision)
         {
             _publishedHealthRevision = _health.Revision;
@@ -88,6 +102,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _temporaryPauseCause = AutoItemsTemporaryPauseCause.None;
         _health.InvalidateLifecycle();
         _publishedHealthRevision = _health.Revision;
+        _retries.InvalidateLifecycle();
         Publish();
     }
 
@@ -101,7 +116,9 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _gameAction.BindingFailure,
             _cycleObserved,
             _decisionKind,
-            _health);
+            _health,
+            _retries.Current,
+            _retries.ObservedAt);
         _dependencies.FeatureStatus.ObserveRuntimeLifecycle(
             status.State,
             status.Reason,
@@ -117,37 +134,22 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
                 $"Auto Items resumed temporary item {EntityIdentityFormatter.Format(_pausedTemporaryItem)}: " +
                 "no usage of it remains.");
         if (cause == AutoItemsTemporaryPauseCause.None) return;
-        var evidence = cause switch
-        {
-            AutoItemsTemporaryPauseCause.MultipleUsages =>
-                "more than one native usage appeared and Auto Items creates only one",
-            AutoItemsTemporaryPauseCause.MissingEngagementEvidence =>
-                "the usage it queued disappeared before it engaged",
-            _ => throw new ArgumentOutOfRangeException(nameof(cause), cause, null),
-        };
+        if (cause != AutoItemsTemporaryPauseCause.MultipleUsages)
+            throw new ArgumentOutOfRangeException(nameof(cause), cause, null);
         _dependencies.Warn(
             $"Auto Items paused temporary item {EntityIdentityFormatter.Format(pausedItem)} " +
-            $"because {evidence}; it resumes once no usage of it remains.");
+            "because more than one native usage appeared and Auto Items creates only one; " +
+            "it resumes once no usage of it remains.");
     }
 
-    private bool TryReadLatestDecision(
-        SuiteFramePump pump,
+    private static bool TryReadLatestDecision(
+        in ServiceCycleServiceDiagnosticsSnapshot service,
         out AutoItemsDecisionKind decisionKind,
         out Guid pausedTemporaryItem,
         out AutoItemsTemporaryPauseCause temporaryPauseCause)
     {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
+        if (service.LatestProjection.IsPresent)
         {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            var service = _services[index];
-            if (!service.ServiceId.Equals(AutoItemsServicePolicies.ServiceId) ||
-                !service.LatestProjection.IsPresent)
-                continue;
             var projection = service.LatestProjection.Snapshot;
             return AutoItemsServiceProjection.TryReadDecision(
                 in projection,

@@ -47,7 +47,7 @@ public sealed class GameMcpConsumableTests
     [InlineData("move", "list")]
     public void ConditionalInputsNameTheExactMissingArgument(string mode, string field)
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -72,10 +72,10 @@ public sealed class GameMcpConsumableTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var response = Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             context,
             "consumables",
-            ConsumableId.ToString("D")));
+            ConsumableId.ToString("D")), Identities());
         Assert.True(response["row"] is not null, response.ToString());
         var row = response["row"]!;
 
@@ -115,7 +115,7 @@ public sealed class GameMcpConsumableTests
             .WithSettledPostState(GameMcpWorldQuery.ProjectGameplayPostState(
                 GameMcpTestHarness.Context(World(quantity: 2)), command,
                 committed));
-        var postState = Json(terminal.Project(command));
+        var postState = GameMcpTestHarness.Json(terminal.Project(command), Identities());
 
         Assert.Equal("committed", (string?)postState["status"]);
         Assert.Equal("Swift Thread", (string?)postState["name"]);
@@ -133,7 +133,7 @@ public sealed class GameMcpConsumableTests
                 GameMcpTestHarness.Context(World(randomized: true)),
                 randomizationCommand,
                 committed));
-        var randomizationPostState = Json(randomization.Project(randomizationCommand));
+        var randomizationPostState = GameMcpTestHarness.Json(randomization.Project(randomizationCommand), Identities());
         Assert.False((bool)randomizationPostState["randomized"]!["before"]!);
         Assert.True((bool)randomizationPostState["randomized"]!["after"]!);
         Assert.Equal(103, System.Text.Encoding.UTF8.GetByteCount(
@@ -153,10 +153,10 @@ public sealed class GameMcpConsumableTests
             Guid.Empty, "ConsumableSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(World(inventoryPosition: 0)));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(World(inventoryPosition: 2)),
             command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
+            GameMcpCommandResult.Committed("committed", 9, 3)), Identities());
 
         Assert.Equal(1, (int)delta["slot"]!["before"]!);
         Assert.Equal(3, (int)delta["slot"]!["after"]!);
@@ -174,8 +174,8 @@ public sealed class GameMcpConsumableTests
             new NativeMutationCallOutcome(2, 1, 1),
             "order changed");
 
-        var failure = Json(GameMcpConsumableProjection.Project(in fault));
-        var success = Json(GameMcpConsumableProjection.Project(in committed));
+        var failure = GameMcpTestHarness.Json(GameMcpConsumableProjection.Project(in fault), Identities());
+        var success = GameMcpTestHarness.Json(GameMcpConsumableProjection.Project(in committed), Identities());
 
         Assert.Equal("requested consumable transition", (string?)failure["missingOutcome"]);
         Assert.Single(failure.Properties());
@@ -299,20 +299,10 @@ public sealed class GameMcpConsumableTests
             BigDouble.Zero);
     }
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ConsumableId, "ConsumableSO", "Swift Thread", "swiftThread"),
             new EntityIdentityName(
                 OtherConsumableId, "ConsumableSO", "Other Relic", "otherRelic"),
-            new EntityIdentityName(UsageId, "ConsumableUsage", "Thread Usage", "threadUsage"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(9, rows);
-    }
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
+            new EntityIdentityName(UsageId, "ConsumableUsage", "Thread Usage", "threadUsage"));
 }

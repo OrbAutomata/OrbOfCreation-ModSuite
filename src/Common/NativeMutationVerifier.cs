@@ -165,7 +165,7 @@ public static class NativeMutationVerifier
         if (unexpected is not null && !evidence.IsVerified)
         {
             if (evidence.PutBackException is { } putBackException)
-                GameActionFaultLog.Record(evidence.Exception, feature + " for " + identity, putBackException);
+                GameActionFaultLog.RecordReference(evidence.Exception, feature + " for " + identity, putBackException);
             ExceptionDispatchInfo.Capture(unexpected).Throw();
         }
         return evidence;

@@ -672,7 +672,7 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
         var store = new ReusableActionStore<AutoBuyCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoBuyCycleAction>(store);
-        AutoBuyCycleEvaluator.Evaluate(in frame, in config, writer, out _);
+        AutoBuyCycleEvaluator.Evaluate(in frame, in config, ServiceRetryGateSnapshot.Empty, default, writer, out _);
         return store.Count;
     }
 

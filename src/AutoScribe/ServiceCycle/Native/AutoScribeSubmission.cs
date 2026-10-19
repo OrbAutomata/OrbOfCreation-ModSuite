@@ -23,10 +23,10 @@ internal readonly struct AutoScribeSubmission
 
     internal static AutoScribeSubmission Reject(
         ServiceActionResultCode code,
-        string reason,
+        GameActionReason reason,
         bool retryable = false) =>
         new(NativeActionOutcome.Reject(code, reason), retryable);
 
-    internal static AutoScribeSubmission Fault(ServiceActionResultCode code, string reason) =>
+    internal static AutoScribeSubmission Fault(ServiceActionResultCode code, GameActionReason reason) =>
         new(NativeActionOutcome.FaultBeforeCall(code, reason));
 }

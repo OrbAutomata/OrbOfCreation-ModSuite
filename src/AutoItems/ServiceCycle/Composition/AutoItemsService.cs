@@ -22,7 +22,7 @@ internal static class AutoItemsService
             static (in AutoItemsCycleAction action) =>
                 ServiceActionJournalAttribution.Native(
                     action.ItemId,
-                    ServiceActionNativeTypeId.ConsumableSO),
+                    AutoItemsServicePolicies.NativeType),
             actions.TryExecute);
     }
 
@@ -43,4 +43,7 @@ internal static class AutoItemsServicePolicies
     internal static ServiceFaultRecoveryPolicy FaultRecoveryPolicy => new(
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250)),
         MonotonicDuration.FromTimeSpan(TimeSpan.FromSeconds(10)));
+    internal const ServiceActionNativeTypeId NativeType = ServiceActionNativeTypeId.ConsumableSO;
+
+    internal static ServiceRetryTarget RetryTarget(Guid itemId) => new(itemId, NativeType);
 }

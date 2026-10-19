@@ -109,13 +109,13 @@ public sealed class GameMcpLifecycleBoundaryTests
     [Fact]
     public void HealthReadsTheSameOnTheStartMenuBeforeAndAfterARun()
     {
-        var beforeAnyRun = OrbModding.Plugin.ProjectGameMcpHealthText(
+        var beforeAnyRun = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
                 world: null,
                 lifecycleGeneration: 11,
                 lifecycleState: GameLifecycleState.NoGame,
                 sceneName: "Start"));
-        var afterTheRun = OrbModding.Plugin.ProjectGameMcpHealthText(
+        var afterTheRun = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
                 FlushedWorld(),
                 lifecycleGeneration: 11,
@@ -131,7 +131,7 @@ public sealed class GameMcpLifecycleBoundaryTests
     [Fact]
     public void HealthPublishesTheLiveWorldPublicationCounterWhileTheRunIsPlaying()
     {
-        var text = OrbModding.Plugin.ProjectGameMcpHealthText(
+        var text = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(LiveWorld(), lifecycleGeneration: 9));
 
         Assert.Contains(
@@ -151,7 +151,7 @@ public sealed class GameMcpLifecycleBoundaryTests
     [Fact]
     public void TheSuitesTransitionCountAndTheSavesResetCountNeverShareAWord()
     {
-        var text = OrbModding.Plugin.ProjectGameMcpHealthText(
+        var text = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(LiveWorld(), lifecycleGeneration: 9));
 
         Assert.Contains("lifecycleTransitions 9", text, StringComparison.Ordinal);
@@ -166,7 +166,7 @@ public sealed class GameMcpLifecycleBoundaryTests
     [Fact]
     public void AWorldWithoutTheGamesResetCounterSaysSoRatherThanPrintingZero()
     {
-        var text = OrbModding.Plugin.ProjectGameMcpHealthText(
+        var text = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
                 LiveWorld(publishWorldResets: false), lifecycleGeneration: 9));
 

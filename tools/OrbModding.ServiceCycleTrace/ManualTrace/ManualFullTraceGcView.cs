@@ -23,6 +23,7 @@ internal static class ManualFullTraceGcView
         var origin = session.Document.FirstTimestampTicks;
         var intervals = new PumpHeapIntervals();
         var tally = new PumpHeapTally();
+        var workers = new SuiteWorkerSpans();
         var gcInPump = 0L;
         var gcInGame = 0L;
         var captureGrowth = 0L;
@@ -37,6 +38,7 @@ internal static class ManualFullTraceGcView
         foreach (var segment in session.Segments())
         foreach (var item in segment.Events)
         {
+            workers.Observe(in item);
             if (!intervals.TryObserve(in item, out var frame)) continue;
             tally.Add(in frame);
             gcInPump += frame.CollectionsInPump;
@@ -57,6 +59,7 @@ internal static class ManualFullTraceGcView
             worst.Add(hitch);
         }
 
+        workers.Freeze();
         writer.WriteLine("## Garbage collection");
         writer.WriteLine();
         if (tally.Frames == 0)
@@ -72,11 +75,18 @@ internal static class ManualFullTraceGcView
         writer.WriteLine(
             $"- Collections: {Count(tally.Collections)} ({Optional(tally.CollectionsPerMinute, "F1")} per minute) — " +
             $"{Count(gcInPump)} completed inside a suite pump, {Count(gcInGame)} in the game's part of a frame");
+        var shares = tally.Shares(workers);
         writer.WriteLine(
             $"- Heap growth over {Count(tally.CleanFrames)} frames with no collection: " +
-            $"{Optional(tally.TotalMegabytesPerSecond, "F2")} MB/s in all, " +
-            $"{Optional(tally.SuiteMegabytesPerSecond, "F2")} MB/s inside suite pumps " +
-            $"({Share(tally.SuiteGrowth, tally.SuiteGrowth + tally.GameGrowth)} of it)");
+            $"{Optional(shares.TotalMegabytesPerSecond, "F2")} MB/s in all, of which the suite " +
+            $"{Optional(shares.SuiteMegabytesPerSecond, "F2")} MB/s ({Share(shares.SuiteGrowth, shares.TotalGrowth)})");
+        writer.WriteLine(
+            $"  - inside suite pumps {Optional(shares.PumpMegabytesPerSecond, "F2")} MB/s, collection's worker " +
+            $"between pumps {Optional(shares.CapturingWorkerMegabytesPerSecond, "F2")} MB/s, other services' " +
+            $"workers between pumps {Optional(shares.OtherWorkerMegabytesPerSecond, "F2")} MB/s");
+        writer.WriteLine(
+            $"  - the game alone {Optional(shares.GameMegabytesPerSecond, "F2")} MB/s, read from the game's part of " +
+            "frames no suite worker overlapped");
         writer.WriteLine(
             $"- Captures: {Megabytes(captureGrowth)} MB over {Count(capturesMeasured)} measured " +
             $"({Average(captureGrowth, capturesMeasured)} KB each); " +
@@ -87,9 +97,10 @@ internal static class ManualFullTraceGcView
         writer.WriteLine();
         writer.WriteLine(
             "Growth is the used Mono heap, read around each pump. Collections and pauses are the runtime's " +
-            "own count. Growth inside a pump includes any suite worker allocating at the same time, and " +
-            "Mono's used-heap reading moves in heap blocks rather than bytes, so it is a share over many " +
-            "frames rather than an exact count for one.");
+            "own count. A worker's growth between pumps is what the game's part of a frame grew beyond the " +
+            "game's own rate while that worker was evaluating; growth inside a pump includes any worker " +
+            "allocating at the same time. Mono's used-heap reading moves in heap blocks rather than bytes, " +
+            "so it is a share over many frames rather than an exact count for one.");
         writer.WriteLine();
 
         writer.WriteLine($"### Hitches (frames of {Fixed(TraceMetric.ToMilliseconds(HitchTicks), "F0")} ms or more)");
@@ -136,8 +147,8 @@ internal static class ManualFullTraceGcView
             : $"{Fixed(metric.AverageMilliseconds, "F1")} ms average over {Count(metric.Samples)} frames, " +
               $"worst {Fixed(metric.MaximumMilliseconds, "F1")} ms";
 
-    private static string Share(long part, long whole) =>
-        whole > 0 ? Fixed(100d * part / whole, "F1") + "%" : "—";
+    private static string Share(long? part, long whole) =>
+        whole > 0 && part is { } known ? Fixed(100d * known / whole, "F1") + "%" : "—";
 
     private static string Average(long bytes, long count) =>
         count > 0 ? Fixed(bytes / 1024d / count, "F1") : "—";

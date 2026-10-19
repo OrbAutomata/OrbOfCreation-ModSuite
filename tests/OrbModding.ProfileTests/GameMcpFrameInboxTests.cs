@@ -102,11 +102,8 @@ public sealed class GameMcpFrameInboxTests
     public void GameplayAndEmergencyOperationsRetainSubmissionOrderWithoutPriorityQueues()
     {
         var inbox = new GameMcpFrameInbox();
-        var gameplay = Submit(inbox, "game_agromancy", GameMcpOperationClass.Gameplay);
-        var stop = Submit(
-            inbox,
-            "suite_emergency_stop",
-            GameMcpOperationClass.SuiteAdministration);
+        var gameplay = Submit(inbox, "game_agromancy");
+        var stop = Submit(inbox, "suite_emergency_stop");
 
         Assert.Equal(new[] { gameplay, stop }, inbox.ClaimPending());
     }
@@ -115,9 +112,9 @@ public sealed class GameMcpFrameInboxTests
     public void EmergencyStopTakesEffectAtItsSubmittedPositionInsideOneClaimedBatch()
     {
         var inbox = new GameMcpFrameInbox();
-        Submit(inbox, "game_agromancy", GameMcpOperationClass.Gameplay);
-        Submit(inbox, "suite_emergency_stop", GameMcpOperationClass.SuiteAdministration);
-        Submit(inbox, "game_agromancy", GameMcpOperationClass.Gameplay);
+        Submit(inbox, "game_agromancy");
+        Submit(inbox, "suite_emergency_stop");
+        Submit(inbox, "game_agromancy");
         var stopped = false;
         var outcomes = new List<string>();
 
@@ -149,7 +146,7 @@ public sealed class GameMcpFrameInboxTests
         var encode = Submit(inbox, "world_overview");
         var reflect = Submit(inbox, "suite_configuration");
         var route = Submit(inbox, "world_categories");
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
 
         Assert.Equal(3, GameMcpFrameBatchExecutor.Drain(
             inbox,
@@ -391,8 +388,8 @@ public sealed class GameMcpFrameInboxTests
     public void TwoGameplayOperationsRevalidateLiveStateSequentiallyInOneFrame()
     {
         var inbox = new GameMcpFrameInbox();
-        Submit(inbox, "game_discover", GameMcpOperationClass.Gameplay);
-        Submit(inbox, "game_discover", GameMcpOperationClass.Gameplay);
+        Submit(inbox, "game_discover");
+        Submit(inbox, "game_discover");
         var liveOfferRevision = 0;
         var observedBeforeExecution = new List<int>();
 
@@ -412,15 +409,11 @@ public sealed class GameMcpFrameInboxTests
         Assert.Equal(2, liveOfferRevision);
     }
 
-    private static GameMcpFrameOperation Submit(
-        GameMcpFrameInbox inbox,
-        string tool,
-        GameMcpOperationClass classification = GameMcpOperationClass.ReadOnly) =>
+    private static GameMcpFrameOperation Submit(GameMcpFrameInbox inbox, string tool) =>
         inbox.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = tool,
-            Classification = classification,
-            RequiredData = GameMcpFrameData.None,
+            Route = GameMcpTestHarness.Route(tool),
         }.Freeze());
 
     private static GameMcpToolExecution Failure(string code) =>

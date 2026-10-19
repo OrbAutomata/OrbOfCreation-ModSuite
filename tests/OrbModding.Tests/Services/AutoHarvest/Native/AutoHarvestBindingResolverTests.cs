@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using OrbModding.Common;
 using OrbAutomata;
-using OrbModding.Common.Runtime;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoHarvest.Native;
@@ -59,10 +58,8 @@ public sealed class AutoHarvestBindingResolverTests
         Assert.True(pairs.Treasure.Succeeded);
         Assert.Same(fruit, pairs.Treasure.Pair.Fruit);
         Assert.Same(treasure, pairs.Fruit.Pair.Treasure);
-        Assert.True(AutoHarvestNativeLifecycle.Matches(
-            pairs.Fruit.Pair.LifecycleGeneration, new LifecycleGeneration(7)));
-        Assert.False(AutoHarvestNativeLifecycle.Matches(
-            pairs.Treasure.Pair.LifecycleGeneration, new LifecycleGeneration(8)));
+        Assert.Equal(7, pairs.Fruit.Pair.LifecycleGeneration);
+        Assert.Equal(7, pairs.Treasure.Pair.LifecycleGeneration);
     }
 
     [Fact]
@@ -189,6 +186,8 @@ public sealed class AutoHarvestBindingResolverTests
 
     private sealed class BlockingCircuit : IAutoHarvestContractCircuit
     {
+        public void InvalidateLifecycle() { }
+
         public int FruitReads { get; private set; }
         public int TreasureReads { get; private set; }
 

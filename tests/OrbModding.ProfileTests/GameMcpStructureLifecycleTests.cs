@@ -25,7 +25,7 @@ public sealed class GameMcpStructureLifecycleTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "enable", "disable" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation("game_structure", new JObject
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation("game_structure", new JObject
         {
             ["mode"] = "disable",
             ["uuid"] = StructureId.ToString("D"),
@@ -56,7 +56,7 @@ public sealed class GameMcpStructureLifecycleTests
     {
         var world = World(disabled: true, available: true);
         var detail = Row(world);
-        var list = Json(GameMcpWorldQuery.ListRows(
+        var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, generation: 902),
             "attributes", 0, 10).Freeze(), world);
         var listed = Assert.Single((JArray)list["rows"]!);
@@ -75,7 +75,7 @@ public sealed class GameMcpStructureLifecycleTests
             frameContext: GameMcpTestHarness.Context(before, generation: 91));
         var afterContext = GameMcpTestHarness.Context(after, generation: 92);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             afterContext, command,
             GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
@@ -89,7 +89,7 @@ public sealed class GameMcpStructureLifecycleTests
     }
 
     private static JObject Block(GameWorldState world) =>
-        Json(GameMcpWorldQuery.GetRow(
+        GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             "attributes", StructureId.ToString("D")).Freeze(), world);
 
@@ -110,15 +110,13 @@ public sealed class GameMcpStructureLifecycleTests
             false, disabled, 0, false, 0, Guid.Empty, in modifiers);
         var structure = new WorldStructure(
             in reading, new BigDouble(2), false, new BigDouble(2), 0d);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
-            new EntityIdentityName(StructureId, "StructureSO", "Focus", "focus"),
-        }).OrderBy(row => row.EntityId).ToArray();
+        var identities = GameMcpTestHarness.CatalogWith(
+            new EntityIdentityName(StructureId, "StructureSO", "Focus", "focus"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Structures = PublicationTable<WorldStructure>.Create(new[] { structure }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
@@ -127,7 +125,4 @@ public sealed class GameMcpStructureLifecycleTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

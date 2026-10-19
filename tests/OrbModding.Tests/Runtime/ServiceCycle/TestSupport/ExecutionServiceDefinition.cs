@@ -22,6 +22,11 @@ internal class ExecutionServiceDefinition :
         _worker = new ExecutionWorkerControl(_signals.Id);
     }
 
+    /// <summary>The one native target every action of this service is attributed to.</summary>
+    internal static ServiceRetryTarget Target { get; } = new(
+        new Guid("11111111-1111-1111-1111-111111111111"),
+        ServiceActionNativeTypeId.StructureSO);
+
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; set; } = WakePolicy.Immediate;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; set; } = new(
@@ -37,6 +42,10 @@ internal class ExecutionServiceDefinition :
     internal int FaultAtIndex { get; set; } = -1;
     internal int SkipAtIndex { get; set; } = -1;
     internal int SkipWithoutNativeAtIndex { get; set; } = -1;
+    internal bool RefusalsBackOff { get; set; }
+    internal MonotonicDuration? RefusalBackoffCap { get; set; }
+    internal MonotonicDuration? RefusalInitialBackoff { get; set; }
+    internal bool FaultsBackOff { get; set; }
     internal NativeMutationCallOutcome CommittedNativeOutcome { get; set; } = new(1, 1, 1);
 
     /// <summary>When set, actions commit as publications instead of native mutations.</summary>
@@ -100,6 +109,9 @@ internal class ExecutionServiceDefinition :
     internal int LastEvaluatedStructures => _worker.LastEvaluatedStructures;
     internal bool LastEvaluatedWorldWasTheEmptyDefault => _worker.LastEvaluatedWorldWasTheEmptyDefault;
 
+    internal int LastContextRetryFailures => _worker.LastContextRetryFailures;
+    internal void ReportFailureOnNextEvaluations(int count) => _worker.ReportFailureOnNextEvaluations(count);
+    internal void EndRetryOnNextEvaluation() => _worker.EndRetryOnNextEvaluation();
     internal void FailNextEvaluations(int count) => _worker.FailNextEvaluations(count);
     internal void FailNextProjections(int count) => _worker.FailNextProjections(count);
     internal void FailNextStateFactories(int count) => _worker.FailNextStateFactories(count);
@@ -120,9 +132,7 @@ internal class ExecutionServiceDefinition :
             throw new InvalidOperationException("attribution exploded");
         return PublishesGeneration.HasValue
             ? ServiceActionJournalAttribution.Publication
-            : ServiceActionJournalAttribution.Native(
-                new Guid("11111111-1111-1111-1111-111111111111"),
-                ServiceActionNativeTypeId.StructureSO);
+            : ServiceActionJournalAttribution.Native(Target.Id, Target.NativeType);
     }
 
     public ServiceActionResult TryExecute(
@@ -136,9 +146,12 @@ internal class ExecutionServiceDefinition :
         if (ThrowOnExecute is { } thrown) throw thrown;
         LastExecutedSetting = TestSuiteConfiguration.SettingOf(config);
         if (context.ActionIndex == FaultAtIndex)
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+        {
+            var fault = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            return FaultsBackOff ? fault.BackingOffTarget(RefusalBackoffCap, initialBackoff: RefusalInitialBackoff) : fault;
+        }
         if (context.ActionIndex == RejectAtIndex)
-            return ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected);
+            return Refusal(ServiceActionResult.Rejected(CommonActionResultCodes.PolicyRejected));
         if (context.ActionIndex == SkipAtIndex)
             return ServiceActionResult.Skipped(
                 CommonActionResultCodes.Skipped,
@@ -146,7 +159,7 @@ internal class ExecutionServiceDefinition :
                     NativeMutationOutcome.PostconditionFailed,
                     new NativeMutationCallOutcome(1, 1, 0)));
         if (context.ActionIndex == SkipWithoutNativeAtIndex)
-            return ServiceActionResult.Skipped(CommonActionResultCodes.Skipped);
+            return Refusal(ServiceActionResult.Skipped(CommonActionResultCodes.Skipped));
         if (PublishesGeneration is { } published)
         {
             return ServiceActionResult.CommittedPublication(
@@ -158,4 +171,7 @@ internal class ExecutionServiceDefinition :
             CommonActionResultCodes.Committed,
             ServiceNativeMutationEvidence.Observed(NativeMutationOutcome.Verified, CommittedNativeOutcome));
     }
+
+    private ServiceActionResult Refusal(ServiceActionResult result) =>
+        RefusalsBackOff ? result.BackingOffTarget(RefusalBackoffCap, initialBackoff: RefusalInitialBackoff) : result;
 }

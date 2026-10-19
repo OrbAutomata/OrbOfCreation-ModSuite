@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using OrbModding.TestSupport;
 using Xunit;
 
 namespace OrbModding.Tests;
@@ -32,10 +33,14 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void TheRequirementPathNeverBindsTheCheckOverloadThatLatches()
     {
-        var root = FindRepositoryRoot();
+        var root = RepositorySources.Root;
         var scoped = new[]
         {
             Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirement.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldEntityRequirementReader.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldRequirementConditionAccessors.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldRequirementList.cs"),
+            Path.Combine(root, "src", "Common", "Runtime", "World", "Categories", "WorldPrerequisiteLinkTier.cs"),
             Path.Combine(root, "src", "Common", "Runtime", "World", "WorldRequirementEvaluator.cs"),
             Path.Combine(root, "src", "Automata", "Runtime", "Verification", "AutomataRequirementVerifier.cs"),
             Path.Combine(root, "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"),
@@ -97,11 +102,8 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void TheMcpSurfaceNamesEntitiesTheWayAPlayerDoes()
     {
-        var surfaceRoot = Path.Combine(
-            FindRepositoryRoot(), "src", "Automata", "Runtime", "GameMcp");
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     surfaceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"))
         {
             var lineNumber = 0;
             foreach (var line in File.ReadLines(path))
@@ -131,7 +133,7 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void NoWireSentenceInAGameActionNamesTheGamesOwnCode()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var nativeVocabulary = new[]
         {
             "binding set", "decision graph", "persistent reset manager", "live registry",
@@ -142,16 +144,9 @@ public sealed class ProductionSourceAuditTests
         };
         var literal = new Regex("\"([^\"]*)\"");
         var offenders = new List<string>();
-        foreach (var path in Directory.EnumerateFiles(
-                     sourceRoot, "*GameAction.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*GameAction.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lineNumber = 0;
             foreach (var line in File.ReadLines(path))
             {
@@ -178,7 +173,8 @@ public sealed class ProductionSourceAuditTests
 
     /// <summary>
     /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
-    /// transport, every feature's GameAction, and the plugin that answers with them.
+    /// transport, every feature's GameAction, the shared service-cycle runtime, and the plugin that
+    /// answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -190,7 +186,9 @@ public sealed class ProductionSourceAuditTests
     /// thirty-four that used to, and only a sweep tells the two apart. Enumerating
     /// <c>*GameAction.cs</c> alone was too narrow to say that: it left
     /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
-    /// tooltip words a caller reads, so the roots are the whole transport.
+    /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
+    /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
+    /// reason, which every narrating feature prints in its status.
     /// </para>
     /// <para>
     /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
@@ -200,9 +198,9 @@ public sealed class ProductionSourceAuditTests
     /// native member rather than a runtime fault, and <c>docs/development/mcp-tools.md</c> keeps
     /// that deliberately: a <c>contract_unavailable</c> result is a defect report and the member is
     /// its subject. <c>nativeDetail</c> is the tooltip reader's log-only sink, which
-    /// <c>Plugin.TooltipsUnreadableBecause</c> writes to the log before answering the caller with
-    /// an authored sentence. A statement that writes to a log is the third shape, and it is the
-    /// destination this whole rule exists to push the text towards —
+    /// <c>GameMcpScreenReader.TooltipsUnreadableBecause</c> writes to the log before answering the
+    /// caller with an authored sentence. A statement that writes to a log is the third shape, and
+    /// it is the destination this whole rule exists to push the text towards —
     /// <c>AutomaticSaveBackupStatus.Failed</c> named among them because the backup health surface
     /// is Mod Config's own diagnostic, not a wire answer.
     /// </para>
@@ -215,7 +213,7 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void NoRawExceptionTextReachesTheWire()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var diagnosticSinks = new[]
         {
             "_bindingFailure", "nativeDetail", "AutomaticSaveBackupStatus.Failed",
@@ -264,30 +262,23 @@ public sealed class ProductionSourceAuditTests
         Assert.True(
             offenders.Count == 0,
             "The game's own exception text reached a caller; hand the exception to " +
-            "GameActionFaultLog.Record instead so it goes to the suite log under the reference " +
-            "the sentence names: " + string.Join(", ", offenders));
+            "GameActionAnswer.CouldNotRead or GameErrored, or to GameActionFaultLog.Reason, " +
+            "instead so it goes to the suite log under a reference kept apart from the sentence: " +
+            string.Join(", ", offenders));
     }
 
     private static IEnumerable<string> FilesWhoseTextCanReachACaller(string sourceRoot)
     {
         var candidates = new List<string>();
-        candidates.AddRange(Directory.EnumerateFiles(
-            Path.Combine(sourceRoot, "Automata", "Runtime", "GameMcp"),
-            "*.cs",
-            SearchOption.AllDirectories));
-        candidates.AddRange(Directory.EnumerateFiles(
-            sourceRoot, "*GameAction.cs", SearchOption.AllDirectories));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
+        candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var path in candidates)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
             if (seen.Add(relativePath)) yield return path;
         }
     }
@@ -314,20 +305,14 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void AnActionBoundaryReadsAutomationOptionsOnlyWhereItNamesTheAutomationFlag()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         var flags = new[] { "requireAutomationPolicy", "applyAutomationLimits" };
         var reads = new[] { "config.", "configuration.", "ConfigurationPolicy." };
         var offenders = new List<string>();
         var swept = 0;
-        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lines = File.ReadAllLines(path);
             if (!Array.Exists(lines, line => Names(line, flags))) continue;
             swept++;
@@ -365,19 +350,13 @@ public sealed class ProductionSourceAuditTests
     [Fact]
     public void ChromePanelControlsAreEnumeratedInExactlyOnePlace()
     {
-        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src");
+        var sourceRoot = Path.Combine(RepositorySources.Root, "src");
         const string owner = "Automata/Runtime/GameMcp/ModalOpenGameAction.cs";
         var offenders = new List<string>();
         var owned = 0;
-        foreach (var path in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories))
+        foreach (var path in RepositorySources.SourceFiles("*.cs"))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
-            if (relativePath.StartsWith("bin", StringComparison.Ordinal) ||
-                relativePath.StartsWith("obj", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
             var lines = File.ReadAllLines(path);
             for (var index = 0; index < lines.Length; index++)
             {
@@ -422,21 +401,5 @@ public sealed class ProductionSourceAuditTests
         }
 
         return false;
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-        {
-            for (var directory = new DirectoryInfo(start); directory is not null; directory = directory.Parent)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "src", "OrbModSuite.csproj")))
-                {
-                    return directory.FullName;
-                }
-            }
-        }
-
-        throw new DirectoryNotFoundException("Could not locate the repository source directory.");
     }
 }

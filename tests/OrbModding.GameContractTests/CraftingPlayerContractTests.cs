@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -79,7 +80,7 @@ public sealed class CraftingPlayerContractTests
                 "IL_0038 0x04000600 field CraftingRecipeSO.effectChannel",
                 "IL_0042 0x06003A9F method PassiveObservable+Channel.Update",
             },
-            Definitions(assembly, "CraftingRecipeSO", "Execute"));
+            assembly.GetMethodBodyDefinitionReferences("CraftingRecipeSO", "Execute").Select(Describe));
     }
 
     [GameAssemblyFact]
@@ -229,20 +230,6 @@ public sealed class CraftingPlayerContractTests
         Assert.True(operand >= 2);
         Assert.Equal(0x6F, body[operand - 1]);
         Assert.Equal(0x65, body[operand - 2]);
-    }
-
-    private static void AssertMethod(
-        GameAssemblyMetadata assembly,
-        string typeName,
-        string methodName,
-        bool isStatic,
-        string returnType,
-        params string[] parameters)
-    {
-        Assert.Contains(assembly.GetMethods(typeName, methodName), method =>
-            method.IsStatic == isStatic &&
-            method.ReturnType == returnType &&
-            method.ParameterTypes.SequenceEqual(parameters));
     }
 
     private static string[] Definitions(

@@ -9,6 +9,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
+using static OrbModding.ProfileTests.GameMcpTestHarness;
 
 namespace OrbModding.ProfileTests;
 
@@ -36,7 +37,7 @@ public sealed class GameMcpResearchTests
     public void Validation_names_missing_uuid_and_rejects_removed_generation_metadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -72,7 +73,7 @@ public sealed class GameMcpResearchTests
     [Fact]
     public void Develop_without_an_amount_asks_for_one_level_instead_of_failing_validation()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_research",
             new JObject
             {
@@ -87,7 +88,7 @@ public sealed class GameMcpResearchTests
     public void Research_row_is_a_named_complete_queue_decision_with_cost_holdings_and_progress()
     {
         var world = World();
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2801),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2801),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var row = response["row"]!;
 
@@ -115,7 +116,7 @@ public sealed class GameMcpResearchTests
             developmentCostAffordable: false,
             spendableAmount: 1,
             investmentRemaining: 100);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2803),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2803),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
         var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
@@ -135,7 +136,7 @@ public sealed class GameMcpResearchTests
     public void The_drain_says_what_the_development_still_takes_and_is_not_a_price()
     {
         var world = World(investmentRemaining: 60, heldAmount: 90);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2804),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2804),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
@@ -151,7 +152,7 @@ public sealed class GameMcpResearchTests
     public void An_unpublished_drain_resource_omits_holdings_instead_of_reporting_none()
     {
         var world = World(investmentRemaining: 60);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2805),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2805),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
@@ -169,7 +170,7 @@ public sealed class GameMcpResearchTests
     {
         var world = World(price: 119.2, spendableAmount: 118.7, investmentRemaining: 119.2,
             heldAmount: 118.7);
-        var row = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2809),
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2809),
             "research", ResearchId.ToString("D")).Freeze(), world)["row"]!;
         var cost = Assert.Single(row["develop"]!["costs"]!).Value<JObject>()!;
         var drain = Assert.Single(row["drain"]!).Value<JObject>()!;
@@ -184,7 +185,7 @@ public sealed class GameMcpResearchTests
     public void A_node_with_no_leeway_still_publishes_its_price()
     {
         var world = World(isDeveloping: false, queueMode: false, stillHasLeeway: false);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2808),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2808),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var cost = Assert.Single(response["row"]!["develop"]!["costs"]!).Value<JObject>()!;
 
@@ -208,7 +209,7 @@ public sealed class GameMcpResearchTests
             canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(Pinned(world, 2807),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2807),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
@@ -238,8 +239,9 @@ public sealed class GameMcpResearchTests
             canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
-        var entity = Assert.Single(Json(GameMcpWorldQuery.GetRows(
-                    Pinned(world, 2812), "research", new[] { ResearchId.ToString("D") }).Freeze(),
+        var entity = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                    GameMcpTestHarness.Context(world, 2812),
+                    "research", new[] { ResearchId.ToString("D") }).Freeze(),
                 world)["results"]!.Values<JObject>())!;
         var develop = entity["row"]!["develop"]!;
 
@@ -273,7 +275,7 @@ public sealed class GameMcpResearchTests
     {
         var world = World(complete: true, developmentCostAffordable: false,
             investmentRemaining: 100, heldAmount: 1);
-        var response = Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2806),
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2806),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
@@ -290,8 +292,8 @@ public sealed class GameMcpResearchTests
         var success = new ResearchSubmission(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1), "changed"));
 
-        var failure = Json(GameMcpResearchProjection.Project(in failed), World());
-        var committed = Json(GameMcpResearchProjection.Project(in success), World());
+        var failure = GameMcpTestHarness.Json(GameMcpResearchProjection.Project(in failed), World());
+        var committed = GameMcpTestHarness.Json(GameMcpResearchProjection.Project(in success), World());
 
         Assert.Equal("requested research transition", (string?)failure["missingOutcome"]);
         Assert.Single(failure.Properties());
@@ -302,7 +304,7 @@ public sealed class GameMcpResearchTests
     public void Committed_poststate_is_the_same_named_research_row_with_next_decisions()
     {
         var world = World();
-        var response = Json(GameMcpWorldQuery.ProjectPostState(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
             GameMcpTestHarness.Context(world, 2802), "research", ResearchId), world);
 
         Assert.Equal("Improved Casting", (string?)response["name"]);
@@ -330,7 +332,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(queuedLevels: 4);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
@@ -356,7 +358,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(queuedLevels: 7);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
@@ -380,7 +382,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(isDeveloping: true, isActive: false, queueMode: false);
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 52),
             command,
             GameMcpCommandResult.Committed("committed", 41, 8)), after);
@@ -409,7 +411,7 @@ public sealed class GameMcpResearchTests
         Assert.False(GameMcpPostStateSettlement.IsReady(
             GameMcpTestHarness.Context(idle, generation: 52), 51, completedAt, command));
 
-        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+        var timeout = GameMcpTestHarness.Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(idle, generation: 52)), idle);
         Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
         Assert.Contains("it was idle before and it is idle now",
@@ -426,7 +428,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var unchanged = World(isDeveloping: true, queueMode: true);
 
-        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+        var timeout = GameMcpTestHarness.Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(unchanged, generation: 52)), unchanged);
 
         Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
@@ -448,7 +450,7 @@ public sealed class GameMcpResearchTests
             frameContext: GameMcpTestHarness.Context(before, generation: 51));
         var after = World(isDeveloping: true, queueMode: queueMode);
 
-        var timeout = Json(GameMcpPostStateSettlement.TimedOut(
+        var timeout = GameMcpTestHarness.Json(GameMcpPostStateSettlement.TimedOut(
             command, GameMcpTestHarness.Context(after, generation: 52)), after);
 
         Assert.Equal("ERR_STATE", (string?)timeout["postStateUnavailable"]!["reasonCode"]);
@@ -481,9 +483,9 @@ public sealed class GameMcpResearchTests
             1,
             new BigDouble(30), new BigDouble(30), new BigDouble(0.5), true, 2,
             developmentCostAffordable,
-            PublicationTable<WorldResearchCost>.Create(new[]
+            PublicationTable<WorldResourceCost>.Create(new[]
             {
-                new WorldResearchCost(
+                new WorldResourceCost(
                     ResourceId,
                     new BigDouble(price),
                     new BigDouble(spendableAmount)),
@@ -504,17 +506,15 @@ public sealed class GameMcpResearchTests
             true, stillHasLeeway, true, true,
             1, 1, 0, totalLevel, 10, false, 2, 1, new BigDouble(60), 1, 1,
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers, in decision);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(ResearchId, "ResearchSO", "Improved Casting", "improvedCasting"),
             new EntityIdentityName(ResourceId, "ResourceSO", "Arcana", "arcana"),
-            new EntityIdentityName(TypeId, "ResearchTypeSO", "Insight", "insight"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(TypeId, "ResearchTypeSO", "Insight", "insight"));
         return new GameWorldState
         {
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = collectedAtUtcTicks ?? DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(41, identities),
+            EntityIdentities = identities,
             Resources = heldAmount is null
                 ? PublicationTable<WorldResource>.Empty
                 : PublicationTable<WorldResource>.Create(new[] { Held(heldAmount.Value) }),
@@ -542,7 +542,7 @@ public sealed class GameMcpResearchTests
     public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
     {
         var world = World(developmentCostAffordable: false);
-        var response = Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -573,7 +573,7 @@ public sealed class GameMcpResearchTests
         foreach (var developing in new[] { true, false })
         {
             var world = World(developmentCostAffordable: false, isActive: false, isDeveloping: developing);
-            var response = Json(GameMcpWorldQuery.ListRows(
+            var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
                 GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
             var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -605,6 +605,105 @@ public sealed class GameMcpResearchTests
         Assert.Null(noCeiling["maximumAmount"]);
     }
 
+    [Fact]
+    public void ResearchProjectionReportsPersistentChallengeRequirementAdjustmentAndSource()
+    {
+        var researchId = Guid.Parse("d8afa4f2-4326-49ce-a08c-743170abea75");
+        var challengeId = Guid.Parse("8331509a-56e8-4e42-9553-6170cf32349d");
+        var modifierId = Guid.Parse("85f0cbee-0710-40ad-8357-acdecb8f13cc");
+        var adjustment = new WorldResearchRequirementAdjustment(
+            modifierId,
+            challengeId,
+            modifierType: 0,
+            amount: new BigDouble(-5d),
+            order: 0,
+            passive: true);
+        var research = new WorldResearch(
+            researchId,
+            level: 10,
+            queuedLevels: 0,
+            researchStage: 0,
+            selfBonusLevels: 0,
+            maxLevel: 20,
+            researchTime: 60d,
+            isDeveloping: false,
+            isActive: false,
+            flagged: false,
+            available: true,
+            visible: true,
+            complete: false,
+            canDevelop: true,
+            withinDevelopRange: true,
+            meetsLevelRequirements: true,
+            stillHasLeeway: true,
+            belowArtificialMaxLevel: true,
+            belowMaxInvestmentLevel: true,
+            purchasedLevels: 10,
+            baseLevel: 10,
+            bonusLevel: 0,
+            totalLevel: 10,
+            artificialMaxLevel: 0,
+            hiddenLevel: false,
+            levelVisibilityRange: 2,
+            requiredStagesCached: 0,
+            requiredTimeCached: BigDouble.Zero,
+            baseRequirementLevel: 10,
+            effectiveRequirementLevel: 5,
+            requirementAdjustments: PublicationTable<WorldResearchRequirementAdjustment>.Create(
+                new[] { adjustment }),
+            modifiers: new RawResearchModifiers(
+                BigDouble.Zero,
+                BigDouble.Zero,
+                new BigDouble(100d),
+                BigDouble.Zero,
+                new BigDouble(5d)));
+        var world = new GameWorldState
+        {
+            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(24, new[]
+            {
+                new EntityIdentityName(modifierId, "IntVariableSO", "Requirement Offset", "requirementOffset"),
+                new EntityIdentityName(challengeId, "ChallengeSO", "Improved Scribing", "improvedScribing"),
+            }.OrderBy(row => row.EntityId).ToArray()),
+            Research = PublicationTable<WorldResearch>.Create(new[] { research }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[] { Clean("research") }),
+            CollectedAtEpoch = 24,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var result = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
+            GameMcpWorldQuery.GetRow(
+                GameMcpTestHarness.Context(world),
+                "research",
+                researchId.ToString("D")).Freeze(),
+            world.EntityIdentities));
+
+        var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
+            result.ToString(Newtonsoft.Json.Formatting.None));
+        // The budget is on the answer a caller really receives. It used to be measured against a
+        // singular read that carried the row and nothing else, while every caller of world_get was
+        // also sent the block's identity, its predicates, its requirement tree, its research
+        // thresholds and its blockers. Those are 1,327 bytes here, and the number a guard watches
+        // has to be the one that was always being paid.
+        Assert.True(
+            responseBytes < 1_328, "research world_get was " + responseBytes + " bytes");
+
+        Assert.Equal("available", (string?)result["status"]);
+        var row = (JObject)result["row"]!;
+        Assert.Equal(10, (int)row["baseRequirementLevel"]!);
+        Assert.Equal(5, (int)row["effectiveRequirementLevel"]!);
+        Assert.Equal(-5, (int)row["requirementLevelAdjustment"]!);
+        var projected = Assert.Single(row["requirementAdjustments"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(modifierId), (string?)projected["modifier"]!["uuid"]);
+        Assert.Equal("Requirement Offset", (string?)projected["modifier"]!["name"]);
+        Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)projected["source"]!["uuid"]);
+        Assert.Equal("Improved Scribing", (string?)projected["source"]!["name"]);
+        // The source's own C# class name sat beside a handle that already names the thing in the
+        // player's words, and nothing a caller does with `ChallengeSO` beats reading that name.
+        Assert.Null(projected["sourceNativeType"]);
+        Assert.Equal("-5", (string?)projected["amount"]);
+        Assert.True((bool)projected["passive"]!);
+    }
+
     private static WorldResource Held(double quantity)
     {
         var rateInputs = default(RawResourceRateInputs);
@@ -620,19 +719,4 @@ public sealed class GameMcpResearchTests
         return new WorldResource(
             in reading, true, BigDouble.Zero, 0d, false, held, BigDouble.Zero);
     }
-
-    /// <summary>
-    /// A frame pinned to the world's own identity catalog, the way a live frame is. The shared
-    /// harness swaps in its own, which leaves a sentence composed at read time naming a UUID the
-    /// normalizer then resolves for every other field.
-    /// </summary>
-    private static GameMcpFrameContext Pinned(GameWorldState world, ulong generation)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(generation));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
-
-    private static JObject Json(GameMcpValue value, GameWorldState world) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, world.EntityIdentities));
 }

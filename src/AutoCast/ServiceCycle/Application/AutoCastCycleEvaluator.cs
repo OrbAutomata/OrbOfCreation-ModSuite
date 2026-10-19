@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -33,6 +34,13 @@ namespace OrbAutomata;
 /// rotation, attacks included.
 /// </para>
 /// <para>
+/// A spell whose last cast faulted waits out its back-off on the retry gate while the rest of the
+/// loadout keeps its turns. A charge release that faulted is still owed: the input stays pressed, which
+/// can keep the game from starting any cast, the player's included, so the release is planned again
+/// whenever it comes due. Either episode ends when its action commits or when no occupied slot
+/// holds the spell any more.
+/// </para>
+/// <para>
 /// The reserve floor is read from configuration, not from the strategy bulletin. That is the standing
 /// interim rule for every migration before the strategist exists, and it is the same arithmetic Auto
 /// Buy already applies to the same two settings.
@@ -44,9 +52,12 @@ internal static class AutoCastCycleEvaluator
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
         ref AutoCastCycleState state,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<AutoCastCycleAction> actions,
         out AutoCastDecisionMetrics metrics)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
         var slots = world.SpellSlots;
         metrics = new AutoCastDecisionMetrics(
@@ -56,18 +67,26 @@ internal static class AutoCastCycleEvaluator
             holdingCharge: state.HeldChargeSlot != AutoCastCycleState.NoHeldSlot,
             channelBlocked: false);
 
-        // A disabled service plans nothing but still reschedules, so it resumes the moment the
-        // operator turns it back on. It does not release a hold on the way out: no cycle runs while
-        // disabled, so the feature runtime lets go of it on the main thread.
-        if (!AutoCastConfigurationPolicy.IsOperational(config)) return wake;
-
         var rows = slots.AsSpan();
+        var owedRelease = SettleRetries(retryGate, rows, decisionAt, actions);
 
         // A live hold is the whole cycle. The legacy engine froze everything while charging — no
         // evaluation, no other slot, not even its interval clock — because a second cast during a
         // charge is exactly what the setting exists to prevent.
         if (state.HeldChargeSlot != AutoCastCycleState.NoHeldSlot)
             return EvaluateHeldCharge(world, in config, ref state, actions, rows, ref metrics);
+
+        if (owedRelease >= 0)
+        {
+            actions.Add(new AutoCastCycleAction(
+                AutoCastActionKind.ReleaseCharge,
+                rows[owedRelease].SlotIndex,
+                rows[owedRelease].SpellRecipeId,
+                world.CollectedAtEpoch));
+            metrics = new AutoCastDecisionMetrics(
+                rows.Length, 0, 1, holdingCharge: false, channelBlocked: false);
+            return wake;
+        }
 
         // The game removes an equipped spell only at full charges and idle, and a refused removal
         // also switches that spell to a time-based cooldown. A rotation that kept casting would make
@@ -103,6 +122,7 @@ internal static class AutoCastCycleEvaluator
         var belowThreshold = 0;
         var outsideRitual = 0;
         var ritualChannel = 0;
+        var backingOff = 0;
         var eligible = 0;
         var chosen = -1;
         var heldSpellId = Guid.Empty;
@@ -132,18 +152,26 @@ internal static class AutoCastCycleEvaluator
                 case AutoCastExclusion.RitualChannel: ritualChannel++; Hold(in row); continue;
             }
 
+            if (row.SpellRecipeId != Guid.Empty &&
+                retryGate.IsWaiting(
+                    AutoCastServicePolicies.RetryTarget(AutoCastActionKind.Fire, row.SpellRecipeId), decisionAt))
+            {
+                backingOff++;
+                continue;
+            }
+
             eligible++;
 
-            // First fit wins the turn; the rest are counted as outranked so every slot is
-            // accounted for, and the scan continues rather than breaking so the histogram is whole.
+            // First fit wins the turn, and the scan continues rather than breaking so the histogram
+            // is whole.
             if (chosen < 0) chosen = index;
         }
 
         var histogram = new AutoCastExclusionHistogram(
             empty, busy, notReady, reserveFloor, belowThreshold,
-            outranked: eligible == 0 ? 0 : eligible - 1,
             outsideRitual,
-            ritualChannel);
+            ritualChannel,
+            backingOff);
 
         if (chosen < 0)
         {
@@ -177,6 +205,38 @@ internal static class AutoCastCycleEvaluator
         {
             if (heldSpellId == Guid.Empty) heldSpellId = row.SpellRecipeId;
         }
+    }
+
+    /// <summary>
+    /// Ends every retry episode for a spell no occupied slot holds, and answers the row of a faulted
+    /// charge release that is due again, or -1 for none.
+    /// </summary>
+    private static int SettleRetries(
+        ServiceRetryGateSnapshot retryGate,
+        ReadOnlySpan<WorldSpellSlot> rows,
+        MonotonicTimestamp decisionAt,
+        ServiceActionWriter<AutoCastCycleAction> actions)
+    {
+        var owed = -1;
+        for (var index = 0; index < retryGate.Count; index++)
+        {
+            var entry = retryGate[index];
+            var row = Equipped(rows, entry.Target.Id);
+            if (row < 0)
+                actions.EndRetry(entry.Target);
+            else if (owed < 0 &&
+                entry.Target.ActionKind == (byte)AutoCastActionKind.ReleaseCharge &&
+                !retryGate.IsWaiting(entry.Target, decisionAt))
+                owed = row;
+        }
+        return owed;
+    }
+
+    private static int Equipped(ReadOnlySpan<WorldSpellSlot> rows, Guid spellId)
+    {
+        for (var index = 0; index < rows.Length; index++)
+            if (rows[index].Occupied && rows[index].SpellRecipeId == spellId) return index;
+        return -1;
     }
 
     /// <summary>

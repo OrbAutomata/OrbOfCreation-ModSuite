@@ -196,8 +196,10 @@ gate: a lease the game cannot answer is not held, a plan from another or an unst
 submission is `Faulted(AdapterFault)`. Such a throw goes to the suite log whole through
 `GameActionFaultLog`, and the result's reason reads "{feature} faulted at the native boundary." plus the
 reference it was logged under, so the exception text stays off the result while its cause stays
-findable. The guard logs faults only, one line per fault until an action lands; refusal reasons travel
-on the result to the wire and the feature's health surface.
+findable. The guard logs faults only, one warning per target, code and sentence until an action
+lands or a new run is admitted, and an unreadable epoch once whichever target met it: every
+attempt's cause goes to the suite log under a fresh reference, so the reference is never part of the
+comparison. Refusal reasons travel on the result to the wire and the feature's health surface.
 
 ### Terminal outcomes
 
@@ -209,7 +211,9 @@ on the result to the wire and the feature's health surface.
 - `Faulted` — an unexpected adapter, contract, or mutation failure occurred; terminate the batch and
   publish fault evidence.
 
-There is no `Deferred` outcome and no automatic retry. A skip emits one `ActionSkipped` fact and
+There is no `Deferred` outcome, and a batch is never retried; a faulted action's target, or a skipped
+or rejected one whose result asks for it, backs off through
+[the per-target retry gate](#per-target-retry-gate). A skip emits one `ActionSkipped` fact and
 continues. The first rejection or fault preserves the processed prefix and discards the untouched
 suffix without executing it; one `BatchAborted` fact records the terminal index and suffix count rather
 than one event per untouched action. A later cycle may replan only after a world collected strictly
@@ -310,6 +314,58 @@ Ten fault categories are stable wire values: `Capture`, `Evaluation`, `StateProj
 principles but never retry an already rejected action. The first start or capture fault of a streak
 writes its cause (exception type, message and top frames) to the suite log; the retries behind it back
 off without logging until the service recovers. A process-fatal exception is never contained.
+
+### Per-target retry gate
+
+Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
+journal: stable UUID plus native type, plus the action kind for a service whose candidate takes
+several actions that fail apart, as an Auto Cast spell's cast and charge release do. A
+target in the gate waits and is tried again on a later world; the gate itself never latches. Auto
+Items, Auto Buy, Auto Scribe, Spell Leveling and Auto Cast plan from the gate and narrate it; every
+other service keeps the fault handling its own page describes.
+
+The gate is fed from three places:
+
+- a `Faulted` action records its target with the result's code and reason, under any waits its mark
+  names; an action that threw past the service records the sentence that it threw, and the exception
+  goes to the suite log under the reference that sentence ends with;
+- a `Skipped` or `Rejected` result marked with `ServiceActionResult.BackingOffTarget` records its
+  target the same way, so a refusal the service can tell apart from an ordinary one retries instead of
+  waiting for a new world only;
+- an evaluator that sees, in a later world, that an already committed action did not do what it should
+  reports it through `ServiceActionWriter.ReportFailure`.
+
+Each failure in a row doubles the wait from the service's fault-recovery initial backoff up to its
+maximum backoff. A reporter may name a cap of its own instead, on the mark or on `ReportFailure`, and a
+mark may name a first wait of its own; a first wait shorter than the initial backoff, or a cap shorter
+than the first wait, is refused there and faults the action here. `BackingOffAfterPayment` is the one
+mark for an action the game charged for without delivering: a minute first, doubling to thirty. A
+mark may also ask for a
+quiet first failure: the entry stays quiet while every failure in a row comes from the world the first
+was planned from, and turns loud on the first failure planned from a fresher one.
+
+A committed action of that target ends an episode its own fault or marked refusal started; an episode
+the evaluator reported ends only on `ServiceActionWriter.EndRetry`. The evaluator sends `EndRetry`
+when it sees the target work again or stops considering it at all, and it ends any episode, whatever
+started it. The gate lives in the runner, so a
+new lifecycle starts with none.
+
+A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is
+due. The wake a finished batch or a successful evaluation schedules never outlasts the next target
+that comes due, so the service wakes when a backed-off target may try again; a service-wide fault
+backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
+diagnostics snapshot carries the gate. A feature reads its service with
+`ServiceCycleDiagnostics.ReadAvailableService`, which answers nothing whenever the snapshot carries no
+runner evidence: the worker holds the handoff, the service has no current runner, or it was released.
+A runner from an older lifecycle is no evidence either, even while it still waits to retire, because a
+lifecycle boundary keeps nothing from the lifecycle it ends. The feature then keeps the gate and
+projection it last read: a missing read is not an empty gate, which would end every episode. A
+narrating feature logs one warning when an episode is
+announced, with the attempt count, the wait and the reason, and one when it ends; failures in between
+stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason only
+while an announced target is still backing off. Once that target's retry is due, the status no longer
+names it, even though its entry stays until a commit or `EndRetry` ends it: a target that is due may
+be held by something else, such as its price, and that wait is not a retry.
 
 ## Common frame pump
 

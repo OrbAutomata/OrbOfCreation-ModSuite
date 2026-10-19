@@ -132,18 +132,6 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     [Fact]
-    public void NonOperationalConfigurationPlansNothingButStillReschedules()
-    {
-        var world = World(Slot(0, Ember, castReady: true));
-
-        var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
-        Assert.Empty(Plan(world, Config(mode: AutoCastOperationMode.Disabled), ref state, out var wake));
-        Assert.Equal(WakePolicyKind.OnPublication, wake.Kind);
-        Assert.Empty(Plan(world, Config(enabled: false), ref state, out _));
-        Assert.Empty(Plan(world, Config(emergencyDisabled: true), ref state, out _));
-    }
-
-    [Fact]
     public void AnEmptySlotIsNeverPlanned()
     {
         var world = World(Slot(0, Guid.Empty, occupied: false, castReady: true));
@@ -271,7 +259,6 @@ public sealed class AutoCastCycleEvaluatorTests
         var state = AutoCastCycleState.Create(new LifecycleGeneration(1));
         Assert.Equal(0, Assert.Single(Plan(world, Config(), ref state, out _, out var first)).SlotIndex);
         Assert.Equal(3, first.EligibleSlots);
-        Assert.Equal(2, first.Exclusions.Outranked);
 
         Assert.Equal(1, Assert.Single(Plan(world, Config(), ref state, out _)).SlotIndex);
         Assert.Equal(2, Assert.Single(Plan(world, Config(), ref state, out _)).SlotIndex);
@@ -477,7 +464,7 @@ public sealed class AutoCastCycleEvaluatorTests
         Assert.Equal(5, metrics.CapturedSlots);
         Assert.Equal(
             metrics.CapturedSlots,
-            metrics.PlannedActions + metrics.Exclusions.Total);
+            metrics.EligibleSlots + metrics.Exclusions.Total);
     }
 
     private static AutoCastCycleState HoldingEmberInSlotZero()
@@ -611,21 +598,17 @@ public sealed class AutoCastCycleEvaluatorTests
     }
 
     private static SuiteRuntimeConfiguration Config(
-        bool enabled = true,
-        bool emergencyDisabled = false,
-        AutoCastOperationMode mode = AutoCastOperationMode.Active,
         bool fullCharge = false,
         bool ritualAware = false,
         float startResourcePercent = 0f,
         string absoluteReserve = "0") =>
         new()
         {
-            General = new SuiteGeneralConfiguration { Enabled = enabled },
-            Safety = new SuiteSafetyConfiguration { EmergencyDisable = emergencyDisabled },
+            General = new SuiteGeneralConfiguration { Enabled = true },
             Reserves = new AutomataReserveConfiguration { AbsoluteReserve = absoluteReserve },
             AutoCast = new AutoCastConfiguration
             {
-                Mode = mode,
+                Mode = AutoCastOperationMode.Active,
                 FullCharge = fullCharge,
                 RitualAware = ritualAware,
                 StartResourcePercent = startResourcePercent,
@@ -649,7 +632,8 @@ public sealed class AutoCastCycleEvaluatorTests
         var store = new ReusableActionStore<AutoCastCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<AutoCastCycleAction>(store);
-        wake = AutoCastCycleEvaluator.Evaluate(world, in config, ref state, writer, out metrics);
+        wake = AutoCastCycleEvaluator.Evaluate(
+            world, in config, ref state, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<AutoCastCycleAction>(store.Count);
         while (!store.IsComplete)

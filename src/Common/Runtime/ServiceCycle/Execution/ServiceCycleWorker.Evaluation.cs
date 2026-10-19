@@ -48,9 +48,10 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
         {
             _actions.BeginWrite();
             _projectionScratch.Reset();
+            _retryReports.Reset();
             var configuration = request.Configuration.Snapshot;
             var context = request.Context;
-            var writer = new ServiceActionWriter<TAction>(_actions);
+            var writer = new ServiceActionWriter<TAction>(_actions, _retryReports);
             ref var workerState =
                 ref ServiceCycleWorkerState<TState>.BorrowValue(ref _workerState);
 
@@ -116,7 +117,8 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
                 _actions.Metrics,
                 _actions.Count,
                 zeroReceipt,
-                recoveredFault);
+                recoveredFault,
+                _retryReports.ToArrayOrNull());
             ValidateResponse(in response);
             if (PublishResponse(request.Sequence, in response))
             {

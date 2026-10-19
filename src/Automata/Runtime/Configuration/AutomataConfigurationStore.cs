@@ -63,14 +63,6 @@ internal sealed class AutomataConfigurationStore
         PublishPending();
     }
 
-    internal bool DisableAutoBuy()
-    {
-        if (Current.AutoBuy.Mode == AutoBuyOperationMode.Disabled) return false;
-        _configuration.SetAutoBuyMode(AutoBuyOperationMode.Disabled);
-        PublishPending();
-        return true;
-    }
-
     internal void ToggleAutoCast()
     {
         _configuration.SetAutoCastMode(

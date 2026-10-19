@@ -9,29 +9,18 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.AutoScribe;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 {
-    private readonly Dictionary<Guid, object> _registry = new();
+    private readonly AutoScribeNativeFixture _native = new();
     private readonly AutoScribeIdentityProfile _profile = AutoScribeIdentityCatalog.Audited;
     private long _lifecycle = 1;
     private Exception? _lifecycleFailure;
     private bool _permit = true;
 
-    public AutoScribeOneShotCraftGameActionTests()
-    {
-        IdScriptableObject.RuntimeLookup.Clear();
-        StructureSO.All.Clear();
-        ConsumableSO.All.Clear();
-        CraftingRecipeSO.All.Clear();
-    }
+    public AutoScribeOneShotCraftGameActionTests() => AutoScribeNativeFixture.ResetStubs();
 
-    public void Dispose()
-    {
-        IdScriptableObject.RuntimeLookup.Clear();
-        StructureSO.All.Clear();
-        ConsumableSO.All.Clear();
-        CraftingRecipeSO.All.Clear();
-    }
+    public void Dispose() => AutoScribeNativeFixture.ResetStubs();
 
     [Fact]
     public void VerifiedQueueAdmissionCommitsTheExactWorkOutcome()
@@ -115,43 +104,120 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
-        Assert.True(actionBoundary.IsQuarantined);
     }
 
     [Fact]
-    public void FailureAfterPurchaseWithoutWorkOutcomeQuarantines()
+    public void FailureAfterPurchaseWithoutWorkOutcomeNamesWhatWasPaid()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowAfterPurchase = true;
         using var actionBoundary = GameAction();
 
         var failed = Submit(actionBoundary, fixture.Action);
-        var blocked = Submit(actionBoundary, fixture.Action);
-        var health = Observe(failed);
 
-        Assert.Contains("after Payment on", failed.Outcome.Reason);
+        Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, failed.Outcome.Code);
+        Assert.StartsWith(
+            $"Auto Scribe paid 5 {EntityIdentityFormatter.PlayerName(fixture.Resource.GetGuid())} for " +
+            $"{EntityIdentityFormatter.PlayerName(fixture.Action.RecipeId)} and saw no work after Payment:",
+            failed.Outcome.Reason);
+        Assert.DoesNotContain("injected failure", failed.Outcome.Reason);
         Assert.Equal(new NativeMutationCallOutcome(1, 1, 0), failed.Outcome.CallOutcome);
-        Assert.Equal(AutoScribeActionResultCodes.Quarantined, blocked.Outcome.Code);
-        Assert.Contains("after Payment", health.Reason);
-        Assert.DoesNotContain("injected failure", health.Reason);
+        Assert.False(Observe(failed).HasFailure);
     }
 
     [Fact]
-    public void AnUnexpectedFailureAfterPaymentStaysLoudAndStillQuarantines()
+    public void AnUnexpectedThrowAfterPaymentIsAFaultThatLogsTheExceptionWholeUnderItsReference()
     {
         var fixture = Fixture();
         fixture.Recipe.AfterPurchaseFault = new NullReferenceException("injected failure after purchase");
-        using var actionBoundary = GameAction();
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
 
-        Assert.Throws<NullReferenceException>(() => Submit(actionBoundary, fixture.Action));
-        var blocked = Submit(actionBoundary, fixture.Action);
+            var failed = Submit(actionBoundary, fixture.Action);
 
-        Assert.Equal(AutoScribeActionResultCodes.Quarantined, blocked.Outcome.Code);
-        Assert.Equal(1, fixture.Recipe.PurchaseCalls);
+            Assert.Equal(AutoScribeActionResultCodes.PostPaymentFault, failed.Outcome.Code);
+            Assert.Equal(NativeMutationOutcome.ExecutionThrew, failed.Outcome.Mutation);
+            Assert.Contains("saw no work after Payment:", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected failure", failed.Outcome.Reason);
+            var entry = Assert.Single(log);
+            Assert.Contains("System.NullReferenceException: injected failure after purchase", entry);
+            Assert.Contains(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
+            Assert.Contains(" at ", log[0]);
+            Assert.Equal(1, fixture.Recipe.PurchaseCalls);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]
-    public void FailureDuringConstructionWithoutWorkOutcomeNamesAndQuarantines()
+    public void APriceThatWillNotReadBackAfterAPaidThrowIsLoggedInTheSameEntry()
+    {
+        var fixture = Fixture();
+        fixture.Recipe.AfterPurchaseFault = new InvalidOperationException("injected failure after purchase");
+        fixture.Recipe.TotalCost.EntriesFault = new InvalidOperationException("injected price read failure");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+
+            var failed = Submit(actionBoundary, fixture.Action);
+
+            var entry = Assert.Single(log);
+            Assert.Contains("injected failure after purchase", entry);
+            Assert.Contains("Reading the price back then threw: System.InvalidOperationException: " +
+                "injected price read failure", entry);
+            Assert.StartsWith(
+                "Auto Scribe paid a price the game could not read back for " +
+                $"{EntityIdentityFormatter.PlayerName(fixture.Action.RecipeId)} and saw no work after Payment:",
+                failed.Outcome.Reason);
+            Assert.EndsWith(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected", failed.Outcome.Reason);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
+    public void APriceThatWillNotReadBackAfterWorkThatNeverShowedIsLoggedUnderTheAnswersReference()
+    {
+        var fixture = Fixture();
+        fixture.Active.SuppressAdd = true;
+        fixture.Recipe.TotalCost.EntriesFault = new InvalidOperationException("injected price read failure");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+
+            var failed = Submit(actionBoundary, fixture.Action);
+
+            Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, failed.Outcome.Code);
+            var entry = Assert.Single(log);
+            Assert.Contains("Reading the price back then threw: System.InvalidOperationException: " +
+                "injected price read failure", entry);
+            Assert.StartsWith(
+                "Auto Scribe paid a price the game could not read back for " +
+                $"{EntityIdentityFormatter.PlayerName(fixture.Action.RecipeId)} and saw no work after Verification:",
+                failed.Outcome.Reason);
+            Assert.EndsWith(" Reference " + entry.Split(' ')[3] + " is in the suite log.", failed.Outcome.Reason);
+            Assert.DoesNotContain("injected", failed.Outcome.Reason);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
+    public void FailureDuringConstructionWithoutWorkOutcomeNamesItsStage()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowDuringConstruction = true;
@@ -160,15 +226,14 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var failed = Submit(actionBoundary, fixture.Action);
         var health = Observe(failed);
 
-        Assert.Contains("after Construction on", failed.Outcome.Reason);
+        Assert.Contains("saw no work after Construction:", failed.Outcome.Reason);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), failed.Outcome.CallOutcome);
-        Assert.True(actionBoundary.IsQuarantined);
-        Assert.Contains("after Construction", health.Reason);
-        Assert.DoesNotContain("injected failure", health.Reason);
+        Assert.DoesNotContain("injected failure", failed.Outcome.Reason);
+        Assert.False(health.HasFailure);
     }
 
     [Fact]
-    public void FailureAfterInitiationWithoutWorkOutcomeNamesAndQuarantines()
+    public void FailureAfterInitiationWithoutWorkOutcomeNamesItsStage()
     {
         var fixture = Fixture();
         fixture.Recipe.ThrowAfterInitiation = true;
@@ -177,11 +242,10 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var failed = Submit(actionBoundary, fixture.Action);
         var health = Observe(failed);
 
-        Assert.Contains("after Initiation on", failed.Outcome.Reason);
+        Assert.Contains("saw no work after Initiation:", failed.Outcome.Reason);
         Assert.Equal(new NativeMutationCallOutcome(3, 1, 0), failed.Outcome.CallOutcome);
-        Assert.True(actionBoundary.IsQuarantined);
-        Assert.Contains("after Initiation", health.Reason);
-        Assert.DoesNotContain("injected failure", health.Reason);
+        Assert.DoesNotContain("injected failure", failed.Outcome.Reason);
+        Assert.False(health.HasFailure);
     }
 
     [Fact]
@@ -195,25 +259,29 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.True(result.Outcome.Verified, result.Outcome.Reason);
         Assert.Single(fixture.Active.value);
-        Assert.False(actionBoundary.IsQuarantined);
     }
 
     [Fact]
-    public void LifecycleInvalidationClearsQuarantineAndRebindsTheCompleteSet()
+    public void AnUnexpectedThrowAfterAdmissionCommitsWhenTheWorkIsVisibleAndLogsTheThrow()
     {
         var fixture = Fixture();
-        fixture.Recipe.ThrowDuringConstruction = true;
-        using var actionBoundary = GameAction();
-        var failed = Submit(actionBoundary, fixture.Action);
-        Assert.Contains("after Construction on", failed.Outcome.Reason);
-        Assert.True(actionBoundary.IsQuarantined);
+        fixture.Active.AfterAddFault = new NullReferenceException("injected failure after admission");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
 
-        fixture.Recipe.ThrowDuringConstruction = false;
-        actionBoundary.InvalidateLifecycle();
-        var retried = Submit(actionBoundary, fixture.Action);
+            var result = Submit(actionBoundary, fixture.Action);
 
-        Assert.False(actionBoundary.IsQuarantined);
-        Assert.True(retried.Outcome.Verified, retried.Outcome.Reason);
+            Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+            Assert.Single(fixture.Active.value);
+            Assert.Contains("System.NullReferenceException: injected failure after admission", Assert.Single(log));
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]
@@ -275,7 +343,6 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Equal(AutoScribeActionResultCodes.VerificationFailed, result.Outcome.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Outcome.Mutation);
-        Assert.True(actionBoundary.IsQuarantined);
     }
 
     [Fact]
@@ -399,7 +466,7 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         var fixture = Fixture();
         var wrongType = new ConsumableSO();
         wrongType.SetGuid(fixture.Action.RecipeId);
-        _registry[fixture.Action.RecipeId] = wrongType;
+        _native.Registry[fixture.Action.RecipeId] = wrongType;
         using var actionBoundary = GameAction();
 
         var first = Submit(actionBoundary, fixture.Action);
@@ -423,6 +490,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
             bindingsAvailable: true,
             bindingFailure: string.Empty,
             health,
+            ServiceRetryGateSnapshot.Empty,
+            default,
             cycleObserved: true,
             AutoScribeDecisionKind.Planned,
             blockedRole: -1,
@@ -434,17 +503,45 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
     }
 
+    [Fact]
+    public void AFaultRepeatingUnderAFreshReferenceRevisesHealthOnceAndAChangedSentenceRevisesItAgain()
+    {
+        var fixture = Fixture();
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+            var health = new AutoScribeActionHealth();
+            _lifecycleFailure = new InvalidOperationException("injected lifecycle read failure");
+
+            var first = Submit(actionBoundary, fixture.Action);
+            var repeated = Submit(actionBoundary, fixture.Action);
+            _lifecycleFailure = null;
+            var wrongType = new ConsumableSO();
+            wrongType.SetGuid(fixture.Action.RecipeId);
+            _native.Registry[fixture.Action.RecipeId] = wrongType;
+            var changed = Submit(actionBoundary, fixture.Action);
+
+            Assert.Equal(2, log.Count);
+            Assert.NotEqual(first.Outcome.Reason, repeated.Outcome.Reason);
+            Assert.True(health.EntersFailure(in first));
+            Assert.False(health.EntersFailure(in repeated));
+            Assert.Equal(first.Outcome.Reason, health.Reason);
+            Assert.True(health.EntersFailure(in changed));
+            Assert.Equal(2, health.Revision);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
     private AutoScribeOneShotCraftGameAction GameAction(
         Func<TypedRegistrySourceSnapshot>? readRegistry = null)
     {
-        IDictionary dictionary = _registry;
-        readRegistry ??= () => TypedRegistrySourceSnapshot.Ready(dictionary);
-        var resolver = new TypedRegistryResolver(
-            () => _lifecycle,
-            readRegistry,
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
         return new AutoScribeOneShotCraftGameAction(
-            resolver,
+            _native.Resolver(() => _lifecycle, readRegistry),
             _profile,
             () => _lifecycleFailure is { } failure ? throw failure : _lifecycle,
             () => _permit,
@@ -465,101 +562,8 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
             level,
             action.CollectedAtEpoch);
 
-    private FixtureState Fixture(bool withTarget = true)
-    {
-        var recipeType = Register(
-            new CraftingRecipeTypeSO
-            {
-                maxStartingLevel = 1,
-                isLevelType = true,
-            },
-            _profile.RecipeType.Uuid);
-        var recipeRegistry = Register(
-            new CraftingRecipeListVariable { Maximum = 6 },
-            _profile.RecipeRegistry.Uuid);
-        var active = Register(
-            new CraftingInstanceListVariable { Maximum = 4 },
-            _profile.ActiveInstances.Uuid);
-        var automatic = Register(
-            new CraftingInstanceListVariable { Maximum = 4, isAutoList = true },
-            _profile.AutomaticInstances.Uuid);
-
-        CraftingRecipeSO? selectedRecipe = null;
-        ConsumableSO? selectedScroll = null;
-        ResourceSO? selectedResource = null;
-        AutoScribeCycleAction selectedAction = default;
-        for (var roleIndex = 0; roleIndex < _profile.Roles.Count; roleIndex++)
-        {
-            var role = _profile.Roles[roleIndex];
-            var enchantment = Register(new EnchantmentSO(), role.Enchantment.Uuid);
-            var scroll = Register(new ConsumableSO { visible = true }, role.Scroll.Uuid);
-            var targeting = new Targeting.TargetStructure();
-            if (withTarget || roleIndex != 0)
-                targeting.Candidates.Add(new StructureSO());
-            var onUse = new InstantEffectBlock();
-            onUse.effectScripts.Add(new RequestTargetEffectScript
-            {
-                targetOptions = new Targeting.TargetSelectOptions { Targeting = targeting },
-            });
-            onUse.effectScripts.Add(new EnchantmentSO.EnchantItemScript
-            {
-                enchantment = enchantment,
-            });
-            scroll.onUseEffects.Add(onUse);
-            if (!role.IsProducible) continue;
-
-            var recipe = Register(new CraftingRecipeSO
-            {
-                visible = true,
-                useQuantityAsLevel = true,
-                MaximumAffordableLevel = 3,
-                MainType = recipeType,
-                InstantOutput = scroll,
-            }, role.Recipe!.Value.Uuid);
-            recipe.craftingTypes.Add(recipeType);
-            var output = new InstantEffectBlock();
-            output.effectScripts.Add(new ConsumableSO.ConsumableGainEffect
-            {
-                consumable = scroll,
-            });
-            recipe.completeEffects.Add(output);
-            recipeRegistry.value.Add(recipe);
-            CraftingRecipeSO.All.Add(recipe);
-            if (roleIndex != 0) continue;
-
-            var resource = new ResourceSO
-            {
-                quantity = new BigDouble(100, 0),
-                quality = new ValueModifierRecord(new BigDouble(100, 0)),
-            };
-            recipe.TotalCost.costs.Add(new ResourceTuple(resource, new BigDouble(5, 0)));
-            selectedRecipe = recipe;
-            selectedScroll = scroll;
-            selectedResource = resource;
-            selectedAction = new AutoScribeCycleAction(
-                recipe.GetGuid(),
-                scroll.GetGuid(),
-                level: 3,
-                collectedAtEpoch: 1);
-        }
-
-        return new FixtureState(
-            selectedRecipe!,
-            selectedScroll!,
-            selectedResource!,
-            recipeType,
-            active,
-            automatic,
-            selectedAction);
-    }
-
-    private T Register<T>(T value, Guid id) where T : IdScriptableObject
-    {
-        value.SetGuid(id);
-        _registry.Add(id, value);
-        IdScriptableObject.RuntimeLookup[id] = value;
-        return value;
-    }
+    private AutoScribeNativeFixtureState Fixture(bool withTarget = true) =>
+        _native.Build(_profile, withTarget);
 
     private static AutoScribeActionHealth Observe(in AutoScribeSubmission submission)
     {
@@ -567,13 +571,4 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
         health.EntersFailure(in submission);
         return health;
     }
-
-    private readonly record struct FixtureState(
-        CraftingRecipeSO Recipe,
-        ConsumableSO Scroll,
-        ResourceSO Resource,
-        CraftingRecipeTypeSO RecipeType,
-        CraftingInstanceListVariable Active,
-        CraftingInstanceListVariable Automatic,
-        AutoScribeCycleAction Action);
 }

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -119,24 +121,123 @@ internal static class GameMcpTestHarness
             lifecycleState: lifecycleState);
     }
 
+    /// <summary>
+    /// The frame a read of this world sees. A world that carries its own bound catalog keeps it, so
+    /// the frame and the encoder name rows from one catalog, as they do live; a world with none is
+    /// given the pinned build's.
+    /// </summary>
     internal static GameMcpFrameContext Context(
         GameWorldState world,
-        ulong generation = 1001)
+        ulong generation = 1001,
+        ulong configurationGeneration = 3,
+        long lifecycleGeneration = 9)
     {
         var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
         publisher.Publish(
-            world with { EntityIdentities = EntityCatalog },
+            world.EntityIdentities.IsBound
+                ? world
+                : world with { EntityIdentities = EntityCatalog },
             new WorldGeneration(generation));
-        return Context(publisher.ReadLatest());
+        return Context(
+            publisher.ReadLatest(),
+            configurationGeneration: configurationGeneration,
+            lifecycleGeneration: lifecycleGeneration);
     }
 
+    /// <summary>
+    /// The pinned build's catalog with a fixture's own names added. A name given for an id the
+    /// build already knows replaces the build's, so every id resolves to exactly one name.
+    /// </summary>
+    internal static EntityIdentityCatalogSnapshot CatalogWith(params EntityIdentityName[] rows)
+    {
+        var named = new HashSet<Guid>(rows.Select(row => row.EntityId));
+        return EntityIdentityCatalogSnapshot.Bound(
+            EntityCatalog.Generation,
+            EntityCatalog.Rows.AsSpan().ToArray()
+                .Where(row => !named.Contains(row.EntityId))
+                .Concat(rows)
+                .OrderBy(row => row.EntityId)
+                .ToArray());
+    }
+
+    /// <summary>
+    /// A clean report for every category the read surface registers and every collection report a
+    /// listable category is built from.
+    /// </summary>
+    internal static WorldCollectionCategoryStatus[] AllCategoriesCollected() =>
+        GameMcpWorldCategories.RegisteredCategoryNames()
+            .Concat(GameMcpWorldCategories.ListedCollectionReportNames())
+            .Distinct(StringComparer.Ordinal)
+            .Select(name => new WorldCollectionCategoryStatus(
+                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
+            .ToArray();
+
+    internal static WorldCollectionCategoryStatus Clean(string category) =>
+        new(
+            category,
+            WorldCategoryOutcome.Collected,
+            sampled: 0,
+            skipped: 0,
+            firstFailure: string.Empty);
+
     internal static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value.Freeze(), EntityCatalog));
+        Json(value.Freeze(), EntityCatalog);
 
     internal static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value, EntityCatalog));
+        Json(value, EntityCatalog);
+
+    /// <summary>
+    /// A page encoded with the world's own identity catalog, the way a live frame is. The pinned
+    /// build's catalog would leave a sentence composed at read time naming a UUID the normalizer
+    /// then resolves for every other field.
+    /// </summary>
+    internal static JObject Json(GameMcpValue value, GameWorldState world) =>
+        Json(value, world.EntityIdentities);
+
+    internal static JObject Json(
+        GameMcpObjectBuilder value,
+        EntityIdentityCatalogSnapshot identities) =>
+        Json(value.Freeze(), identities);
+
+    internal static JObject Json(GameMcpValue value, EntityIdentityCatalogSnapshot identities) =>
+        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, identities));
+
+    internal static T[] SortedByEntityId<T>(params T[] rows)
+        where T : IWorldEntity
+    {
+        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
+        return rows;
+    }
+
+    internal static EntityIdentityName[] SortedByEntityId(params EntityIdentityName[] rows)
+    {
+        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
+        return rows;
+    }
+
+    internal static WorldLevelEffect[] SortedByOwnerAndOrdinal(params WorldLevelEffect[] rows)
+    {
+        Array.Sort(rows, static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            return owner != 0 ? owner : left.Ordinal.CompareTo(right.Ordinal);
+        });
+        return rows;
+    }
+
+    /// <summary>The publication order the deriver guarantees: owner, then source, then ordinal.</summary>
+    internal static WorldEntityKeyword[] SortedByOwnerSourceAndOrdinal(
+        params WorldEntityKeyword[] rows)
+    {
+        Array.Sort(rows, static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            if (owner != 0) return owner;
+            var source = ((int)left.Source).CompareTo((int)right.Source);
+            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
+        });
+        return rows;
+    }
 
     /// <summary>
     /// One id's block of the detail read, resolved the way a caller with only an id resolves it.
@@ -168,12 +269,27 @@ internal static class GameMcpTestHarness
         return pending.Result;
     }
 
+    internal static int FreeLoopbackPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    internal static GameMcpToolRoute Route(string tool)
+    {
+        Assert.True(GameMcpToolCatalog.Shipping.TryFind(tool, out var descriptor), tool);
+        return descriptor.Routes[descriptor.Routes.Count - 1];
+    }
+
     internal static GameMcpToolExecution ExecuteRead(
         GameMcpFrameOperation operation,
         GameMcpFrameContext context)
     {
         var request = operation.Request;
-        if (!Plugin.TryExecuteFrameRead(request, context, out var execution))
+        if (!GameMcpFrameReads.TryExecuteFrameRead(request, context, out var execution))
         {
             execution = GameMcpToolExecution.Error(new GameMcpObjectBuilder
             {

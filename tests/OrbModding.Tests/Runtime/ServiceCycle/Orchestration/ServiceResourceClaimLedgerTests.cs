@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using System.Threading;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -104,7 +103,7 @@ public sealed class ServiceResourceClaimLedgerTests
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
-        var ledger = RegistryClaims(registry);
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         for (var index = 0; index < ledger.Capacity - 1; index++)
         {
             Assert.Equal(
@@ -309,7 +308,7 @@ public sealed class ServiceResourceClaimLedgerTests
     public void BusyTokenRejectsRegistrationWithTypedContentionBeforeWorkerDefinitionFactoryCall()
     {
         using var registry = new ServiceCycleRegistry(1, new ThreadSafeTestClock(100));
-        var ledger = RegistryClaims(registry);
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.State, out var blocker));
@@ -336,7 +335,7 @@ public sealed class ServiceResourceClaimLedgerTests
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var ledger = RegistryClaims(registry);
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.State, out var blocker));
@@ -373,7 +372,7 @@ public sealed class ServiceResourceClaimLedgerTests
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
-        var ledger = RegistryClaims(registry);
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         var definition = new CrossRoleServiceDefinition("lifecycle.token-state-retry");
         using var registration = registry.Register(
             definition,
@@ -412,7 +411,7 @@ public sealed class ServiceResourceClaimLedgerTests
     {
         var clock = new ThreadSafeTestClock(100);
         using var registry = new ServiceCycleRegistry(1, clock);
-        var ledger = RegistryClaims(registry);
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         var definition = new CrossRoleServiceDefinition("lifecycle.token-state-stop");
         using var registration = registry.Register(
             definition,
@@ -526,10 +525,6 @@ public sealed class ServiceResourceClaimLedgerTests
         Assert.Equal(0, ledger.LiveClaimCount);
     }
 
-    private static ServiceResourceClaimLedger RegistryClaims(ServiceCycleRegistry registry) =>
-        (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
 
     private static ServiceResourceClaimResult TryClaim(
         ServiceResourceClaimLedger ledger,

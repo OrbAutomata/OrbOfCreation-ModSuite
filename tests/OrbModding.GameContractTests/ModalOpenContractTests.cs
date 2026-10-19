@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -15,10 +16,7 @@ public sealed class ModalOpenContractTests
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
         Assert.Equal("System.String", assembly.GetFieldType("UIModalActivator", "modalTitle"));
-        var start = assembly.GetMethodBodyDefinitionReferences("UIModalActivator", "Start")
-            .Concat(assembly.GetMethodBodyMemberReferences("UIModalActivator", "Start"))
-            .OrderBy(reference => reference.Offset)
-            .ToArray();
+        var start = References(assembly, "UIModalActivator", "Start");
         Assert.Contains(start, reference =>
             reference.DeclaringType == "UIModalActivator" && reference.MemberName == "modalTitle");
         Assert.Contains(start, reference =>
@@ -40,9 +38,7 @@ public sealed class ModalOpenContractTests
         var toggle = assembly.GetMethodBodyDefinitionReferences("UIModalActivator", "ToggleModal");
         Assert.Contains(toggle, reference =>
             reference.DeclaringType == "UIModalActivator" && reference.MemberName == "OpenModal");
-        var open = assembly.GetMethodBodyDefinitionReferences("UIModalActivator", "OpenModal")
-            .Concat(assembly.GetMethodBodyMemberReferences("UIModalActivator", "OpenModal"))
-            .ToArray();
+        var open = References(assembly, "UIModalActivator", "OpenModal");
         Assert.Contains(open, reference =>
             reference.DeclaringType == "UIModal" && reference.MemberName == "Open");
     }
@@ -58,10 +54,7 @@ public sealed class ModalOpenContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var visibility = assembly
-            .GetMethodBodyMemberReferences("UIModal", "SetElementVisibility")
-            .Concat(assembly.GetMethodBodyDefinitionReferences("UIModal", "SetElementVisibility"))
-            .ToArray();
+        var visibility = References(assembly, "UIModal", "SetElementVisibility");
         Assert.Contains(visibility, reference =>
             reference.DeclaringType == "UnityEngine.CanvasGroup" &&
             reference.MemberName == "set_alpha");
@@ -85,9 +78,7 @@ public sealed class ModalOpenContractTests
     {
         using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
 
-        var opened = assembly.GetMethodBodyMemberReferences("UIModal", "PerformOpen")
-            .Concat(assembly.GetMethodBodyDefinitionReferences("UIModal", "PerformOpen"))
-            .ToArray();
+        var opened = References(assembly, "UIModal", "PerformOpen");
         Assert.Contains(opened, reference =>
             reference.DeclaringType == "UIModal" && reference.MemberName == "onOpen");
         Assert.Contains(opened, reference =>

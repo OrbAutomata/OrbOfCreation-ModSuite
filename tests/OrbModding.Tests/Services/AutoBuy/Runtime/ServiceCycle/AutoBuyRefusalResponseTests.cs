@@ -2,18 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using BepInEx.Configuration;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
-using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoBuy.Runtime.ServiceCycle;
 
 /// <summary>
-/// What the suite does when the game refuses a purchase the worker planned: write down both halves
-/// and separate expected affordability staleness from structural contradictions.
+/// What the suite does when the game refuses a purchase the worker planned: pass price refusals
+/// through, back a disputed candidate off, and hold the lifecycle only for the impossible refusal.
 /// </summary>
 public sealed class AutoBuyRefusalResponseTests : IDisposable
 {
@@ -36,143 +35,92 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
     }
 
     /// <summary>
-    /// A refusal turns Auto Buy's own setting off, through the write path the toggle uses.
+    /// A refusal every readable term says cannot happen holds Auto Buy back for the lifecycle: one
+    /// bundle, one error line, and the latch. The player's saved mode is not the responder's to write.
     /// </summary>
-    /// <remarks>
-    /// The ordinary setting rather than a private quarantine flag, so the Mod Config screen shows it
-    /// off and turning it back on is the one click an operator already knows. Nothing here re-enables
-    /// it.
-    /// </remarks>
     [Fact]
-    public void ARefusalDisablesAutoBuyThroughItsOwnSetting()
+    public void AnImpossibleRefusalTripsTheLifecycleLatch()
     {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out _, out var logged);
+        var latch = new AutoBuyInvariantLatch();
+        var responder = Responder(latch, out var bundles, out var logged);
 
-        responder.ObserveRefusal(Report(RefusedOnTheQueuedLevelCap()));
+        var answered = responder.Answer(Report(RefusedByAnUnreadableTerm()), Refused);
 
-        Assert.Equal(AutoBuyOperationMode.Disabled, config.Current.AutoBuy.Mode);
         var message = Assert.Single(logged);
+        Assert.True(latch.IsTripped);
+        Assert.Equal(message, latch.Summary);
         Assert.Contains("Upgrade 99a0da45-0000-0000-0000-000000000000", message);
-        Assert.Contains("refused by IsMaxQueuedLevel()", message);
-        Assert.Contains("Auto Buy disabled itself; re-enable in Mod Config after reviewing", message);
+        Assert.Contains(AutoBuyAdmissionDiagnosis.RefusedByAnUnreadableTerm, message);
+        Assert.Contains("holds off until the next load, reset or prestige", message);
+        Assert.Single(Directory.EnumerateFiles(bundles));
+        Assert.False(answered.BacksOffTarget);
     }
 
+    /// <summary>
+    /// The game saying the candidate is at its level cap while the world said below it is a
+    /// disagreement about one candidate, most often a level the player queued by hand since
+    /// collection, so that candidate backs off quietly and the rest of Auto Buy runs.
+    /// </summary>
     [Fact]
-    public void ProductionStandDownPublishesConfigurationOnceThroughTheCentralJoin()
+    public void ALevelRefusalBacksTheCandidateOffQuietlyWithoutABundle()
     {
-        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
-        config.AutoBuyMode.Value = AutoBuyOperationMode.Active;
-        config.TryTakeUnpublishedChange(out _);
-        using var statuses = new AutomataFeatureStatuses(
-            config.Current,
-            lifecycleGeneration: 1,
-            new FeatureStatusRegistry());
-        var publications = 0;
-        var store = new AutomataConfigurationStore(
-            config,
-            (snapshot, generation) =>
-            {
-                publications++;
-                statuses.ObserveConfiguration(snapshot, generation);
-            });
-        var responder = new AutoBuyRefusalResponder(
-            () => store.Current.AutoBuy.Mode == AutoBuyOperationMode.Active,
-            summary =>
-            {
-                if (!store.DisableAutoBuy()) return;
-                statuses.ObserveAutoBuyInvariantStandDown(
-                    summary,
-                    store.CurrentGeneration);
-            },
-            new AutoBuyRefusalBundleWriter(() => _directory),
-            _ => { },
-            () => WrittenAt);
+        var latch = new AutoBuyInvariantLatch();
+        var responder = Responder(latch, out var bundles, out var logged);
 
-        responder.ObserveRefusal(Report(RefusedOnTheQueuedLevelCap()));
+        var answered = responder.Answer(Report(RefusedOnTheQueuedLevelCap()), Refused);
 
-        Assert.Equal(1, publications);
-        Assert.Equal(AutoBuyOperationMode.Disabled, store.Current.AutoBuy.Mode);
-        Assert.False(statuses.AutoBuy.Current.ConfiguredEnabled);
-        Assert.Equal(
-            FeatureStatusReasonCode.InvariantViolation,
-            statuses.AutoBuy.Current.Reason.Code);
-        Assert.Equal(store.CurrentGeneration, statuses.AutoBuy.ConfigurationGeneration);
-    }
-
-    [Fact]
-    public void AffordabilityRefusalIsAnOrdinaryRefusalThatKeepsAutoBuyOn()
-    {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out var bundles, out var logged);
-
-        responder.ObserveRefusal(Report(RefusedOnAffordability()));
-
-        Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
-        Assert.False(Directory.Exists(bundles));
+        Assert.True(answered.BacksOffTarget);
+        Assert.True(answered.QuietFirstFailure);
+        Assert.Equal(AutoBuyServicePolicies.RefusalBackoffCap, answered.TargetBackoffCap);
+        Assert.Equal(Refused.Reason, answered.Reason);
+        Assert.False(latch.IsTripped);
         Assert.Empty(logged);
-    }
-
-    /// <summary>
-    /// A gate the game shut since planning is the fact the action boundary exists to revalidate,
-    /// not a contradiction. A prestige shuts a great many at once, and the suite switched the whole
-    /// feature off over one candidate the game was right about, for the rest of the session.
-    /// </summary>
-    [Fact]
-    public void AGateTheGameShutSincePlanningSkipsTheCandidateAndKeepsAutoBuyOn()
-    {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out var bundles, out var logged);
-
-        responder.ObserveRefusal(Report(RefusedOnAvailability()));
-
-        Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
         Assert.False(Directory.Exists(bundles));
+    }
+
+    /// <summary>
+    /// A gate the game shut since planning is the fact the action boundary exists to revalidate. A
+    /// prestige shuts a great many at once, so the first refusal backs off quietly and only a
+    /// refusal again from a fresher world is announced.
+    /// </summary>
+    [Fact]
+    public void AGateTheGameShutSincePlanningBacksTheCandidateOffQuietly()
+    {
+        var latch = new AutoBuyInvariantLatch();
+        var responder = Responder(latch, out var bundles, out var logged);
+
+        var answered = responder.Answer(Report(RefusedOnAvailability()), Refused);
+
+        Assert.True(answered.BacksOffTarget);
+        Assert.True(answered.QuietFirstFailure);
+        Assert.Equal(AutoBuyServicePolicies.RefusalBackoffCap, answered.TargetBackoffCap);
+        Assert.False(latch.IsTripped);
         Assert.Empty(logged);
+        Assert.False(Directory.Exists(bundles));
     }
 
-    /// <summary>
-    /// Skipping is not retrying. A world collected after the first refusal had its chance to read
-    /// the shut gate; reading it open and being refused again is the suite disagreeing with the
-    /// game about an entity, which is what the stand-down is for.
-    /// </summary>
     [Fact]
-    public void TheSameCandidateRefusedAgainFromAFresherWorldStandsAutoBuyDown()
+    public void AffordabilityRefusalIsAnOrdinaryRefusal()
     {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out _, out var logged);
+        var latch = new AutoBuyInvariantLatch();
+        var responder = Responder(latch, out var bundles, out var logged);
+        var skipped = ServiceActionResult.Skipped(CommonActionResultCodes.Skipped, "refused by price");
 
-        responder.ObserveRefusal(Report(RefusedOnAvailability()));
-        responder.ObserveRefusal(Report(RefusedOnAvailability(), worldGeneration: 5));
+        var answered = responder.Answer(Report(RefusedOnAffordability()), skipped);
 
-        Assert.Equal(AutoBuyOperationMode.Disabled, config.Current.AutoBuy.Mode);
-        Assert.Contains("Auto Buy disabled itself", Assert.Single(logged));
-    }
-
-    /// <summary>
-    /// The same world says nothing new: a batch's later actions were all planned before the gate
-    /// shut, so the capture never had a chance to see it.
-    /// </summary>
-    [Fact]
-    public void TheSameCandidateRefusedTwiceFromOneWorldIsStillOneStaleReading()
-    {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out _, out var logged);
-
-        responder.ObserveRefusal(Report(RefusedOnAvailability()));
-        responder.ObserveRefusal(Report(RefusedOnAvailability()));
-
-        Assert.Equal(AutoBuyOperationMode.Active, config.Current.AutoBuy.Mode);
+        Assert.False(answered.BacksOffTarget);
+        Assert.Equal(ServiceActionDisposition.Skipped, answered.Disposition);
+        Assert.False(latch.IsTripped);
+        Assert.False(Directory.Exists(bundles));
         Assert.Empty(logged);
     }
 
     [Fact]
     public void TheLoudLineNamesTheBundleItWrote()
     {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
-        var responder = Responder(config, out var bundles, out var logged);
+        var responder = Responder(new AutoBuyInvariantLatch(), out var bundles, out var logged);
 
-        responder.ObserveRefusal(Report(RefusedOnTheQueuedLevelCap()));
+        responder.Answer(Report(RefusedByAnUnreadableTerm()), Refused);
 
         var written = Assert.Single(Directory.EnumerateFiles(bundles));
         Assert.Contains(written, Assert.Single(logged));
@@ -180,41 +128,37 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
     }
 
     /// <summary>
-    /// A bundle that cannot be written does not stop the stand-down, and does not throw into the
-    /// action that is already going wrong.
+    /// A bundle that cannot be written does not stop the latch, and does not throw into the action
+    /// that is already going wrong.
     /// </summary>
     [Fact]
-    public void AnUnwritableBundleStillDisablesAndSaysSo()
+    public void AnUnwritableBundleStillTripsTheLatchAndSaysSo()
     {
-        var config = new EditableConfig(AutoBuyOperationMode.Active);
+        var latch = new AutoBuyInvariantLatch();
         var logged = new List<string>();
-        var responder = new AutoBuyRefusalResponder(
-            config.IsActive,
-            _ => config.DisableAutoBuy(),
-            new FailingBundles(),
-            logged.Add,
-            () => WrittenAt);
+        var responder = new AutoBuyRefusalResponder(latch, new FailingBundles(), logged.Add, () => WrittenAt);
 
-        responder.ObserveRefusal(Report(RefusedOnTheQueuedLevelCap()));
+        responder.Answer(Report(RefusedByAnUnreadableTerm()), Refused);
 
-        Assert.Equal(AutoBuyOperationMode.Disabled, config.Current.AutoBuy.Mode);
+        Assert.True(latch.IsTripped);
         Assert.Contains("unavailable", Assert.Single(logged));
     }
 
     /// <summary>
-    /// Auto Buy that is already off stands down no further. The batch cascade-terminates on the first
-    /// refusal anyway, so a second bundle would only say the same thing twice.
+    /// The batch ends on the first refusal anyway, so a second impossible refusal before the latch
+    /// clears would only say the same thing twice.
     /// </summary>
     [Fact]
-    public void ARefusalWhileAlreadyDisabledDoesNothing()
+    public void ARefusalWhileTheLatchIsTrippedWritesNoSecondBundle()
     {
-        var config = new EditableConfig(AutoBuyOperationMode.Disabled);
-        var responder = Responder(config, out var bundles, out var logged);
+        var latch = new AutoBuyInvariantLatch();
+        var responder = Responder(latch, out var bundles, out var logged);
 
-        responder.ObserveRefusal(Report(RefusedOnTheQueuedLevelCap()));
+        responder.Answer(Report(RefusedByAnUnreadableTerm()), Refused);
+        responder.Answer(Report(RefusedByAnUnreadableTerm(), worldGeneration: 5), Refused);
 
-        Assert.Empty(logged);
-        Assert.False(Directory.Exists(bundles) && Directory.EnumerateFiles(bundles).Any());
+        Assert.Single(logged);
+        Assert.Single(Directory.EnumerateFiles(bundles));
     }
 
     /// <summary>The bundle carries both halves, named, so a reader can see where they disagree.</summary>
@@ -411,8 +355,11 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         Assert.Equal("existing", File.ReadAllText(existing));
     }
 
+    private static readonly ServiceActionResult Refused =
+        ServiceActionResult.Rejected(CommonActionResultCodes.NativeRejected, "refused by the game");
+
     private AutoBuyRefusalResponder Responder(
-        EditableConfig config,
+        AutoBuyInvariantLatch latch,
         out string bundleDirectory,
         out List<string> logged)
     {
@@ -421,12 +368,18 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         logged = messages;
         var directory = _directory;
         return new AutoBuyRefusalResponder(
-            config.IsActive,
-            _ => config.DisableAutoBuy(),
+            latch,
             new AutoBuyRefusalBundleWriter(() => directory),
             messages.Add,
             () => WrittenAt);
     }
+
+    private static AutoBuyAdmissionDiagnosis RefusedByAnUnreadableTerm() =>
+        new(
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed,
+            AutoBuyAdmissionTerm.Passed);
 
     private static AutoBuyAdmissionDiagnosis RefusedOnTheQueuedLevelCap() =>
         new(
@@ -497,24 +450,5 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
             path = string.Empty;
             return false;
         }
-    }
-
-    private sealed class EditableConfig
-    {
-        public EditableConfig(AutoBuyOperationMode mode) => Current = Build(mode);
-
-        public SuiteRuntimeConfiguration Current { get; private set; }
-
-        public bool IsActive() =>
-            Current.AutoBuy.Mode == AutoBuyOperationMode.Active;
-
-        public void DisableAutoBuy() => Current = Build(AutoBuyOperationMode.Disabled);
-
-        private static SuiteRuntimeConfiguration Build(AutoBuyOperationMode mode) =>
-            new SuiteRuntimeConfiguration
-            {
-                General = new SuiteGeneralConfiguration { Enabled = true },
-                AutoBuy = new AutoBuyConfiguration { Mode = mode },
-            };
     }
 }

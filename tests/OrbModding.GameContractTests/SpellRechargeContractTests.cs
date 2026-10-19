@@ -1,5 +1,5 @@
-using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -48,10 +48,7 @@ public sealed class SpellRechargeContractTests
         Assert.True(assembly.MethodReferencesMethod(
             "Spell", "GetRechargeRemaining", "Spell", "GetCooldownTimeRemaining"));
 
-        var headline = assembly
-            .GetMethodBodyDefinitionReferences("SpellRecipeSO", "GetRealTooltipNodes")
-            .Concat(assembly.GetMethodBodyMemberReferences("SpellRecipeSO", "GetRealTooltipNodes"))
-            .ToArray();
+        var headline = References(assembly, "SpellRecipeSO", "GetRealTooltipNodes");
         Assert.Contains(headline, reference =>
             reference.DeclaringType == "Spell" && reference.MemberName == "GetRecharge");
         Assert.Contains(headline, reference =>
@@ -81,26 +78,10 @@ public sealed class SpellRechargeContractTests
         Assert.True(assembly.MethodReferencesField(
             "Duration+Processor", "GetCoreType", "Duration+MicroProcessor", "t"));
 
-        var stylize = assembly
-            .GetMethodBodyDefinitionReferences("Duration", "StylizeAccurateText")
-            .Concat(assembly.GetMethodBodyMemberReferences("Duration", "StylizeAccurateText"))
-            .ToArray();
+        var stylize = References(assembly, "Duration", "StylizeAccurateText");
         Assert.Contains(stylize, reference =>
             reference.DeclaringType == "Utils" && reference.MemberName == "BeautifyTimeAccurate");
         Assert.Contains(stylize, reference =>
             reference.DeclaringType == "Utils" && reference.MemberName == "BeautifyNumber");
-    }
-
-    /// <summary>
-    /// The authored constant the wire used to publish is still captured — the world carries every
-    /// game fact — and it is no longer any player row's recharge.
-    /// </summary>
-    [Fact]
-    public void ManifestNamesBothTheAuthoredConstantAndTheInstanceRecharge()
-    {
-        var manifest = NativeContractManifest.Load();
-
-        Assert.Single(manifest.Contracts, contract => contract.Id == "spell-recipe.base-recharge");
-        Assert.Single(manifest.Contracts, contract => contract.Id == "spell.get-recharge");
     }
 }

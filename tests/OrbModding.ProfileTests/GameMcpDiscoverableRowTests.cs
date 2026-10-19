@@ -53,7 +53,7 @@ public sealed class GameMcpDiscoverableRowTests
         Assert.NotNull(schema["properties"]!["offerUuid"]);
 
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var confirm = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -70,7 +70,13 @@ public sealed class GameMcpDiscoverableRowTests
         Assert.StartsWith("refused (ERR_INPUT)", GameMcpTestHarness.Page(confirm));
         Assert.Equal(
             GameMcpCommandKind.DiscoveryTreeOffer,
-            GameMcpCommandKinds.FromRequest("game_discover", "offer_confirm", string.Empty));
+            GameMcpToolCatalog.Shipping.BuildOperation(
+                "game_discover",
+                new JObject
+                {
+                    ["mode"] = "offer_confirm",
+                    ["uuid"] = GlyphId.ToString("D"),
+                }).Route.Kind);
     }
 
     /// <summary>
@@ -81,8 +87,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void An_undiscovered_row_names_the_roll_that_gives_it_and_no_price()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
-            Context(), "augment-glyphs", GlyphId.ToString("D")));
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            Context(), "augment-glyphs", GlyphId.ToString("D")), Identities());
         var discover = row["row"]!["discover"]!;
 
         Assert.False((bool)discover["available"]!);
@@ -102,8 +108,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void A_hidden_spell_row_names_the_recipe_book_its_pool_is_waiting_on()
     {
-        var row = Json(GameMcpWorldQuery.ProjectPostState(
-            Context(spellHidden: true), "spell-recipes", SpellRecipeId));
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+            Context(spellHidden: true), "spell-recipes", SpellRecipeId), Identities());
         var discover = row["discover"]!;
 
         Assert.False((bool)discover["available"]!);
@@ -173,8 +179,8 @@ public sealed class GameMcpDiscoverableRowTests
     public void A_discovery_row_names_the_screen_its_tree_is_drawn_under(
         string category, string uuid, string path)
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
-            ScreenContext(), category, uuid))["row"]!["discover"]!;
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(), category, uuid), Identities())["row"]!["discover"]!;
 
         Assert.False((bool)discover["available"]!);
         Assert.Equal(
@@ -189,8 +195,8 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void An_alchemy_row_belonging_to_neither_screen_names_no_screen()
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
-            ScreenContext(), "alchemy-recipes", OrphanRecipeId.ToString("D")))["row"]!["discover"]!;
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            ScreenContext(), "alchemy-recipes", OrphanRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.Equal(
             "Only a discovery tree's roll gives this, and it is in that roll's pool.",
@@ -203,10 +209,10 @@ public sealed class GameMcpDiscoverableRowTests
     [Fact]
     public void A_row_on_offer_says_to_pick_it_on_its_tree()
     {
-        var discover = Json(GameMcpWorldQuery.GetRow(
+        var discover = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             ScreenContext(onOffer: ConceptRecipeId),
             "concepts",
-            ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+            ConceptRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.Equal(
             "Only the roll on Scholar > Concepts > Discover gives this, and it is on offer there " +
@@ -227,8 +233,8 @@ public sealed class GameMcpDiscoverableRowTests
     {
         var context = ScreenContext(treeHoldsOffer: ConceptRecipeId);
 
-        var held = Json(GameMcpWorldQuery.GetRow(
-            context, "concepts", ConceptRecipeId.ToString("D")))["row"]!["discover"]!;
+        var held = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "concepts", ConceptRecipeId.ToString("D")), Identities())["row"]!["discover"]!;
 
         Assert.False((bool)held["available"]!);
         Assert.Equal(
@@ -240,8 +246,8 @@ public sealed class GameMcpDiscoverableRowTests
             GameMcpTestHarness.Handle(ConceptTreeId), (string?)held["offeredBy"]!["uuid"]);
 
         // The spell row writes its own `discover` block, so the rule has to hold on both producers.
-        var spell = Json(GameMcpWorldQuery.ProjectPostState(
-            Context(treeHoldsOffer: SpellRecipeId), "spell-recipes", SpellRecipeId))["discover"]!;
+        var spell = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+            Context(treeHoldsOffer: SpellRecipeId), "spell-recipes", SpellRecipeId), Identities())["discover"]!;
 
         Assert.Equal("ERR_STATE", (string?)spell["reasonCode"]);
         Assert.Equal(
@@ -315,9 +321,9 @@ public sealed class GameMcpDiscoverableRowTests
             discovered: false,
             required: false,
             affordable: true,
-            PublicationTable<WorldDiscoverableCost>.Create(new[]
+            PublicationTable<WorldResourceCost>.Create(new[]
             {
-                new WorldDiscoverableCost(PsiId, new BigDouble(100), new BigDouble(63)),
+                new WorldResourceCost(PsiId, new BigDouble(100), new BigDouble(63)),
             }));
         var modifiers = default(RawRitualModifiers);
         var world = new GameWorldState
@@ -402,7 +408,7 @@ public sealed class GameMcpDiscoverableRowTests
                         : onOffer != Guid.Empty
                             ? new[] { onOffer }
                             : Array.Empty<Guid>(),
-                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    false, true, Array.Empty<WorldResourceCost>(),
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
             }),
         };
@@ -411,16 +417,12 @@ public sealed class GameMcpDiscoverableRowTests
 
     private static GameMcpFrameContext Context(
         bool spellHidden = false,
-        Guid treeHoldsOffer = default)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
+        Guid treeHoldsOffer = default) =>
+        GameMcpTestHarness.Context(
             World(spellHidden: spellHidden, treeHoldsOffer: treeHoldsOffer),
-            new WorldGeneration(2301));
-        return GameMcpTestHarness.Context(
-            publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
-    }
+            2301,
+            configurationGeneration: 8,
+            lifecycleGeneration: 15);
 
     private static GameWorldState World(
         bool spellDiscovered = false,
@@ -429,9 +431,9 @@ public sealed class GameMcpDiscoverableRowTests
         bool olderCopyOnBar = false,
         Guid treeHoldsOffer = default)
     {
-        var costs = PublicationTable<WorldDiscoverableCost>.Create(new[]
+        var costs = PublicationTable<WorldResourceCost>.Create(new[]
         {
-            new WorldDiscoverableCost(ResourceId, new BigDouble(5), new BigDouble(8)),
+            new WorldResourceCost(ResourceId, new BigDouble(5), new BigDouble(8)),
         });
         var decision = new WorldDiscoverableDecision(
             visible: true,
@@ -477,7 +479,7 @@ public sealed class GameMcpDiscoverableRowTests
                     treeHoldsOffer == Guid.Empty
                         ? Array.Empty<Guid>()
                         : new[] { treeHoldsOffer },
-                    false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    false, true, Array.Empty<WorldResourceCost>(),
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
             }),
             SpellWorkbench = new WorldSpellWorkbench(
@@ -602,21 +604,11 @@ public sealed class GameMcpDiscoverableRowTests
             maximumUsages: maximumUsages,
             discovery: decision);
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(GlyphId, "GlyphSO", "Amplify", "amplify"),
             new EntityIdentityName(ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"),
             new EntityIdentityName(ComponentId, "GlyphSO", "Focus", "focus"),
             new EntityIdentityName(SpellRecipeId, "SpellRecipeSO", "Firebolt", "firebolt"),
-            new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(15, rows);
-    }
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
+            new EntityIdentityName(RecipeBookId, "RecipeBookSO", "Expansion", "expansion"));
 }

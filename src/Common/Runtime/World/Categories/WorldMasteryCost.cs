@@ -124,9 +124,10 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 frame.MasteryCosts.Truncate(start);
-                skipped++;
-                if (firstFailure.Length == 0)
-                    firstFailure = $"reading a spell level cost threw: {ex.GetBaseException().Message}";
+                WorldSkipTally.Skip(
+                    ref skipped,
+                    ref firstFailure,
+                    $"reading a spell level cost threw: {ex.GetBaseException().Message}");
             }
         }
 

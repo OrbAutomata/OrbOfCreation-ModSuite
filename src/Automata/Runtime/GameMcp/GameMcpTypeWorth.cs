@@ -381,7 +381,7 @@ internal static class GameMcpTypeWorth
     {
         WorldKeywordOwnerKind.Structure => "attributes",
         WorldKeywordOwnerKind.AlchemyRecipe =>
-            GameMcpWorldQuery.AlchemyRecipeCategory(keywordId),
+            GameMcpWorldCategories.AlchemyRecipeCategory(keywordId),
         WorldKeywordOwnerKind.Resource => "resources",
         WorldKeywordOwnerKind.Equipment => "equipment",
         WorldKeywordOwnerKind.PassiveAbility => "passive-abilities",

@@ -10,9 +10,9 @@ namespace OrbAutomata;
 /// <remarks>
 /// <para>
 /// Nothing here touches the game, and nothing here is this service's own memory either. The two
-/// pairs are named by constants and their facts come from the snapshot; the quarantine and the
-/// contract circuit that used to be consulted here are the action boundary's, and what they mean for
-/// a decision now reaches the worker as a result code it records in its own state. See W45.
+/// pairs are named by constants and their facts come from the snapshot; the contract circuit is the
+/// action boundary's, and what it means for a decision reaches the worker as a result code it records
+/// in its own state. See W45.
 /// </para>
 /// <para>
 /// The structural safety audit is taken here too, from the same snapshot. It used to run against the

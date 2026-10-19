@@ -32,18 +32,13 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
     private readonly Func<bool> _ownsActionFamily;
     private readonly Action<AutoSpellLevelCapability>? _observeCapability;
     private readonly Action<SpellLevelSubmission>? _observeBoundaryStatus;
-    private readonly AutomationCycleGuard<SpellLevelCycleAction> _guard = new(
-        "Spell Leveling",
-        static action => "Spell Leveling failed to buy a mastery level for " +
-            (action.Kind == SpellLevelActionKind.All
-                ? "every ready spell"
-                : EntityIdentityFormatter.Format(action.Uuid)),
-        static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly AutomationCycleGuard<SpellLevelCycleAction> _guard;
 
     public SpellLevelCycleActionAdapter(
         ISpellLevelNativePort levels,
         Func<long> readLifecycleEpoch,
         Func<bool> ownsActionFamily,
+        Action<string> warn,
         Action<AutoSpellLevelCapability>? observeCapability = null,
         Action<SpellLevelSubmission>? observeBoundaryStatus = null)
     {
@@ -52,6 +47,13 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         _ownsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
         _observeCapability = observeCapability;
         _observeBoundaryStatus = observeBoundaryStatus;
+        _guard = new AutomationCycleGuard<SpellLevelCycleAction>(
+            "Spell Leveling",
+            static action => "Spell Leveling failed to buy a mastery level for " +
+                (action.Kind == SpellLevelActionKind.All
+                    ? "every ready spell"
+                    : EntityIdentityFormatter.Format(action.Uuid)),
+            warn ?? throw new ArgumentNullException(nameof(warn)));
     }
 
     public ServiceActionResult TryExecute(
@@ -103,7 +105,8 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
 #endif
         ObserveCapability(in action, in submission);
         _observeBoundaryStatus?.Invoke(submission);
-        return _guard.Finish(submission.Outcome, in action);
+        var result = _guard.Finish(submission.Outcome, in action);
+        return submission.PaidWithoutLevel ? result.BackingOffAfterPayment() : result;
     }
 
     /// <summary>

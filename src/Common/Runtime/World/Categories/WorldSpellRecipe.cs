@@ -34,7 +34,7 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
             castSpeed, baseCharges, repeatInstantEffects, spellPowerMod, spellCostMod,
             spellCdSpeedMod, spellDurationMod, spellSpecialMod, spellXpMod,
             hasAlertedThisMastery, PublicationTable<WorldSpellRecipeGlyph>.Empty,
-            PublicationTable<WorldDiscoverableCost>.Empty, false, default,
+            PublicationTable<WorldResourceCost>.Empty, false, default,
             requiredMasteryXp, requiredMasteryXpCaptured)
     {
     }
@@ -60,7 +60,7 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
         BigDouble spellXpMod,
         bool hasAlertedThisMastery,
         PublicationTable<WorldSpellRecipeGlyph> coreGlyphs,
-        PublicationTable<WorldDiscoverableCost> discoveryCosts,
+        PublicationTable<WorldResourceCost> discoveryCosts,
         bool discoveryAffordable,
         WorldDiscoverableDecision discovery,
         BigDouble requiredMasteryXp = default,
@@ -119,7 +119,7 @@ internal readonly struct RawSpellRecipeSample : IWorldEntity
     internal BigDouble SpellXpMod { get; }
     internal bool HasAlertedThisMastery { get; }
     internal PublicationTable<WorldSpellRecipeGlyph> CoreGlyphs { get; }
-    internal PublicationTable<WorldDiscoverableCost> DiscoveryCosts { get; }
+    internal PublicationTable<WorldResourceCost> DiscoveryCosts { get; }
     internal bool DiscoveryAffordable { get; }
     internal WorldDiscoverableDecision Discovery { get; }
     internal bool UsageRequirementsMet { get; }
@@ -149,7 +149,7 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         BigDouble spellXpMod,
         bool hasAlertedThisMastery,
         PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
-        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
+        PublicationTable<WorldResourceCost>? discoveryCosts = null,
         bool discoveryAffordable = false,
         WorldDiscoverableDecision discovery = default,
         bool usageRequirementsMet = true)
@@ -187,7 +187,7 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         bool hasAlertedThisMastery,
         BigDouble requiredMasteryXp = default,
         PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
-        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
+        PublicationTable<WorldResourceCost>? discoveryCosts = null,
         bool discoveryAffordable = false,
         WorldDiscoverableDecision discovery = default,
         bool usageRequirementsMet = true)
@@ -214,7 +214,7 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         HasAlertedThisMastery = hasAlertedThisMastery;
         RequiredMasteryXp = requiredMasteryXp;
         CoreGlyphs = coreGlyphs ?? PublicationTable<WorldSpellRecipeGlyph>.Empty;
-        DiscoveryCosts = discoveryCosts ?? PublicationTable<WorldDiscoverableCost>.Empty;
+        DiscoveryCosts = discoveryCosts ?? PublicationTable<WorldResourceCost>.Empty;
         DiscoveryAffordable = discoveryAffordable;
         Discovery = discovery;
         UsageRequirementsMet = usageRequirementsMet;
@@ -280,7 +280,7 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
 
     internal bool HasAlertedThisMastery { get; }
     internal PublicationTable<WorldSpellRecipeGlyph> CoreGlyphs { get; }
-    internal PublicationTable<WorldDiscoverableCost> DiscoveryCosts { get; }
+    internal PublicationTable<WorldResourceCost> DiscoveryCosts { get; }
     internal bool DiscoveryAffordable { get; }
     internal WorldDiscoverableDecision Discovery { get; }
 

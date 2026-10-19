@@ -76,7 +76,11 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
                 recoveredFault: recoveredFault,
                 startInvocation: startInvocation);
 
-        var context = new ServiceCycleContext(identity, State.PreviousReceipt, decidedAt);
+        var context = new ServiceCycleContext(
+            identity,
+            State.PreviousReceipt,
+            decidedAt,
+            State.RetryGate.Snapshot);
         State.CycleConfiguration = configuration;
         var queuedAt = Clock.Now;
         if (!_handoff.TryPublishRequestNonBlocking(

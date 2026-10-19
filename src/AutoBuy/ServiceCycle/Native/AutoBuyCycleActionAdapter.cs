@@ -155,7 +155,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     /// The request is not an automation decision, so no automation policy applies to it: neither the
     /// worker's enable/selection dials nor the queue reserve it keeps for manual actions — this is
     /// the manual action that reserve exists for. Nor is a game refusal of it a planner error, so it
-    /// answers the caller and never stands Auto Buy down. What remains mandatory is what the game itself
+    /// answers the caller and never backs a candidate off or holds Auto Buy off. What remains mandatory is what the game itself
     /// imposes: ownership, lifecycle, queue capacity, identity, affordability, and mutation proof.
     /// Its count is honoured as far as the queue holds it; only a queue with no free slot refuses.
     /// </summary>
@@ -296,9 +296,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         LastSubmission = withheldBySuite > 0
             ? submission.WithSuiteWithheld(withheldBySuite)
             : submission;
-        if (requireAutomationPolicy && AutoBuyPurchaseNarration.IsAdmissionRefusal(in submission))
-            ReportRefusal(in action, levels, in submission, in context);
         var result = _guard.Finish(submission.Outcome, in action);
+        if (requireAutomationPolicy && AutoBuyPurchaseNarration.IsAdmissionRefusal(in submission))
+            result = AnswerRefusal(in action, levels, in submission, in context, in result);
         if (result.Disposition == ServiceActionDisposition.Committed)
             ReconcileSpend(in action, in submission);
         return result;
@@ -306,20 +306,21 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 
     /// <summary>
     /// Hands a refused plan to whatever the suite does about one, with both halves of the story: the
-    /// beliefs the action carried from the worker, and the live terms the boundary just read.
+    /// beliefs the action carried from the worker, and the live terms the boundary just read. Its
+    /// answer is the result the runner gets.
     /// </summary>
     /// <remarks>
     /// A refusal is only interpretable against the readings the cycle was pinned to, so the report
     /// names them — the world generation and the epoch it was collected under, the configuration the
     /// plan obeyed, and the cycle that produced it.
     /// </remarks>
-    private void ReportRefusal(
+    private ServiceActionResult AnswerRefusal(
         in AutoBuyCycleAction action,
         int requestedLevels,
         in AutoBuyPurchaseSubmission submission,
-        in ServiceActionContext context)
-    {
-        _refusals.ObserveRefusal(new AutoBuyRefusalReport(
+        in ServiceActionContext context,
+        in ServiceActionResult refused) =>
+        _refusals.Answer(new AutoBuyRefusalReport(
             action.Kind,
             action.Uuid,
             requestedLevels,
@@ -329,8 +330,8 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             action.CollectedAtEpoch,
             context.Cycle.Config.Value,
             context.Cycle.Lifecycle.Value,
-            context.Cycle.Cycle.Value));
-    }
+            context.Cycle.Cycle.Value),
+            in refused);
 
     private void BeginBatch(ulong batch)
     {

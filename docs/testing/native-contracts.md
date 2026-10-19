@@ -47,7 +47,11 @@ which stopped grouping upgrades that way fails the manifest instead of leaving
 the published list membership describing a panel that is gone.
 
 The manifest proves native shape, not runtime behavior. Adapters still resolve
-and validate their complete binding sets and fail closed. The source audit asks
+and validate their complete binding sets and fail closed. Every id a binding set
+lists in its `ContractIds` is exactly one manifest contract: a test reads those
+arrays out of the built suite assembly, and a profile test reads them out of the
+profiler build too, so an id with no row fails without the game installed, the
+profiler-only bindings included. The source audit asks
 whether every literal selector is declared somewhere; it intentionally does not
 couple contracts to source-file paths. Exact-path exemptions are reserved for
 generic framework or UI-navigation reflection with a reason, never mixed

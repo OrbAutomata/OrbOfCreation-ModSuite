@@ -29,7 +29,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(tool["inputSchema"]!["properties"]!["amount"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["level"]);
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_alchemy",
             new JObject
             {
@@ -51,7 +51,7 @@ public sealed class GameMcpAlchemyLoadoutTests
             candidate => (string?)candidate["name"] == "game_alchemy");
         Assert.Null(tool["inputSchema"]!["properties"]!["destination"]);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var move = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject
             {
@@ -88,9 +88,10 @@ public sealed class GameMcpAlchemyLoadoutTests
     [Fact]
     public void Recipe_detail_carries_current_holdings_usage_and_each_next_ui_decision()
     {
-        var response = Json(GameMcpWorldQuery.GetRow(
-            GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 701),
-            "alchemy-recipes", RecipeId.ToString("D")).Freeze());
+        var world = World(targetAmount: 2, position: 1);
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(world, generation: 701),
+            "alchemy-recipes", RecipeId.ToString("D")).Freeze(), world);
 
         var row = response["row"]!;
         Assert.Equal("Catalyze", (string?)response["name"]);
@@ -110,9 +111,9 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Null(loadout["move"]);
         Assert.Null(row["level"]);
 
-        var instance = Assert.Single(Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 701),
-            "alchemy-instances", 0, 10).Freeze())["rows"]!.Values<JObject>());
+        var instance = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 701),
+            "alchemy-instances", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         // An instance is not its recipe. It publishes no uuid of its own — the absence of a
         // handle is how a row says there is nothing to hand back — so world_get can no longer be
         // handed the recipe's id as though it were the instance's.
@@ -139,9 +140,10 @@ public sealed class GameMcpAlchemyLoadoutTests
     [Fact]
     public void The_loadout_list_row_names_the_same_slot_the_detail_does()
     {
-        var listed = Assert.Single(Json(GameMcpWorldQuery.ListRows(
-            GameMcpTestHarness.Context(World(targetAmount: 2, position: 1), generation: 702),
-            "alchemy-loadout", 0, 10).Freeze())["rows"]!.Values<JObject>());
+        var world = World(targetAmount: 2, position: 1);
+        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            GameMcpTestHarness.Context(world, generation: 702),
+            "alchemy-loadout", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
 
         Assert.Equal(2, (int)listed["slot"]!);
         Assert.Null(listed["position"]);
@@ -158,9 +160,9 @@ public sealed class GameMcpAlchemyLoadoutTests
             1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before, generation: 81));
 
-        var delta = Json(GameMcpWorldQuery.ProjectGameplayPostState(
+        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
             GameMcpTestHarness.Context(after, generation: 82), command,
-            GameMcpCommandResult.Committed("committed", 9, 3)));
+            GameMcpCommandResult.Committed("committed", 9, 3)), after);
 
         Assert.Equal(1, (int)delta["activeCount"]!["before"]!);
         Assert.Equal(3, (int)delta["activeCount"]!["after"]!);
@@ -192,17 +194,15 @@ public sealed class GameMcpAlchemyLoadoutTests
             false, 0, Guid.Empty, in rateInputs, in traits, in modifiers);
         var resource = new WorldResource(in reading, true, new BigDouble(20), 0.8, false,
             new BigDouble(80), BigDouble.Zero);
-        var identities = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identities = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(RecipeId, "AlchemyRecipeSO", "Catalyze", "catalyze"),
             new EntityIdentityName(TypeId, "AlchemyTypeSO", "Alchemy", "alchemy"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Knowledge", "knowledge"));
         return new GameWorldState
         {
             CollectedAtEpoch = 9,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(9, identities),
+            EntityIdentities = identities,
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             AlchemyRecipes = PublicationTable<WorldAlchemyRecipe>.Create(new[] { recipe }),
             AlchemyInstances = PublicationTable<WorldAlchemyInstance>.Create(new[]
@@ -224,9 +224,4 @@ public sealed class GameMcpAlchemyLoadoutTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value,
-            World(targetAmount: 0, position: -1).EntityIdentities));
 }

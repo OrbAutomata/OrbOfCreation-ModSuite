@@ -32,8 +32,7 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
     public NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
-        AutoHarvestActionSafetyState safety,
-        Action quarantine
+        AutoHarvestActionSafetyState safety
 #if SERVICE_CYCLE_PROFILE
         , in ServiceActionContext context
 #endif
@@ -128,15 +127,13 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
 #else
                 current.Bindings.ActiveAddInstance(current.Shared.ActiveActions, prototype!, 1);
 #endif
-            },
-            quarantine);
+            });
     }
 
     private static NativeActionOutcome SubmitAdmitted(
         string actionUuid,
         Func<bool> observeAfter,
-        Action execute,
-        Action quarantine)
+        Action execute)
     {
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
             "Auto Harvest",
@@ -145,14 +142,13 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
             false,
             observeAfter,
             execute,
-            static (_, after) => after,
-            _ => quarantine());
+            static (_, after) => after);
         return FromVerifier(evidence.Outcome, NativeMutationCallOutcome.FromEvidence(evidence));
     }
 
     /// <summary>
-    /// An attempted-but-unverified mutation is the one outcome that must never be retried this
-    /// lifecycle, so it alone is named a pair fault; the verifier has already quarantined the pair.
+    /// An add that was attempted and left the pair not engaged is named a pair fault, which backs
+    /// the pair off until its retry is due.
     /// </summary>
     internal static NativeActionOutcome FromVerifier(
         NativeMutationOutcome outcome,
@@ -160,14 +156,14 @@ internal sealed class AutoHarvestMutationAdapter : IAutoHarvestMutationPort
     {
         if (outcome == NativeMutationOutcome.Verified)
             return NativeActionOutcome.Commit(calls, string.Empty);
-        return NativeActionOutcome.Fault(
-            calls.MutationAttempts != 0
-                ? AutoHarvestActionResultCodes.PairFaulted
-                : CommonActionResultCodes.AdapterFault,
-            outcome,
-            calls,
-            string.Empty);
+        return calls.MutationAttempts != 0
+            ? NativeActionOutcome.Fault(
+                AutoHarvestActionResultCodes.PairFaulted, outcome, calls, NotEngagedAfterTheAdd)
+            : NativeActionOutcome.Fault(CommonActionResultCodes.AdapterFault, outcome, calls, string.Empty);
     }
+
+    private const string NotEngagedAfterTheAdd =
+        "Auto Harvest asked the game to start the harvest, and it is not running.";
 
     /// <summary>
     /// Calls the parameterless domain validator exactly once on the UUID/type-resolved current

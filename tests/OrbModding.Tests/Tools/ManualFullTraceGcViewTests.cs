@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 using OrbModding.ServiceCycleTrace.ManualTrace;
 using Xunit;
@@ -42,7 +43,11 @@ public sealed class ManualFullTraceGcViewTests
         var report = Report(TwoHitches());
 
         Assert.Contains(
-            "- Heap growth over 2 frames with no collection: 5.00 MB/s in all, 1.25 MB/s inside suite pumps (25.0% of it)",
+            "- Heap growth over 2 frames with no collection: 5.00 MB/s in all, of which the suite 1.25 MB/s (25.0%)",
+            report);
+        Assert.Contains(
+            "  - inside suite pumps 1.25 MB/s, collection's worker between pumps 0.00 MB/s, " +
+            "other services' workers between pumps 0.00 MB/s",
             report);
         Assert.Contains("- Captures: 0.1 MB over 1 measured (64.0 KB each); 1 crossed a collection and are unknown", report);
         Assert.Contains("- Unity's per-frame allocation counter: unavailable in this player", report);
@@ -51,6 +56,44 @@ public sealed class ManualFullTraceGcViewTests
             "without: 100.0 ms average over 2 frames, worst 100.0 ms",
             report);
         Assert.Contains("| 42.9 | 5.00 | 1.25 |", report);
+    }
+
+    /// <summary>
+    /// The suite's workers allocate between pumps, in the game's part of the frame. Whatever that part
+    /// grew beyond the game's own rate while a worker was evaluating is the worker's, and an evaluation
+    /// is recorded only after the frames it overlapped.
+    /// </summary>
+    [Fact]
+    public void GrowthBetweenPumpsBeyondTheGamesOwnRateIsChargedToTheWorkerThatWasEvaluating()
+    {
+        var events = new List<ServiceCycleSemanticEvent>();
+        var collection = new ServiceCycleTraceServiceId(1);
+        var other = new ServiceCycleTraceServiceId(2);
+        var start = 100 * Megabyte;
+        Frame(events, frame: 1, atMs: 1_000, pumpMs: 5, collections: (10, 10), heap: (start, start));
+        Frame(events, frame: 2, atMs: 1_100, pumpMs: 5, collections: (10, 10),
+            heap: (start + 95 * Kilobyte, start + 95 * Kilobyte));
+        Capture(events, collection, atMs: 1_110);
+        Frame(events, frame: 3, atMs: 1_200, pumpMs: 5, collections: (10, 10),
+            heap: (start + 490 * Kilobyte, start + 490 * Kilobyte));
+        Frame(events, frame: 4, atMs: 1_300, pumpMs: 5, collections: (10, 10),
+            heap: (start + 685 * Kilobyte, start + 685 * Kilobyte));
+        Frame(events, frame: 5, atMs: 1_400, pumpMs: 5, collections: (10, 10),
+            heap: (start + 780 * Kilobyte, start + 780 * Kilobyte));
+        Evaluation(events, collection, fromMs: 1_120, toMs: 1_180);
+        Evaluation(events, other, fromMs: 1_210, toMs: 1_250);
+
+        var report = Report(events);
+
+        Assert.Contains(
+            "- Heap growth over 4 frames with no collection: 1.90 MB/s in all, of which the suite 0.98 MB/s (51.3%)",
+            report);
+        Assert.Contains(
+            "  - inside suite pumps 0.00 MB/s, collection's worker between pumps 0.73 MB/s, " +
+            "other services' workers between pumps 0.24 MB/s",
+            report);
+        Assert.Contains("  - the game alone 0.98 MB/s, read from the game's part of frames no suite worker overlapped", report);
+        Assert.Contains("| 1.90 | 0.98 |", report);
     }
 
     /// <summary>
@@ -102,6 +145,26 @@ public sealed class ManualFullTraceGcViewTests
             frame, at, collections.Start, collections.End, heap.Start, heap.End, captureGrowth, measured, across,
             previousFrameAllocated: null);
         Add(events, ServiceCycleSemanticEventKind.PumpHeapSampled, in payload);
+    }
+
+    private static void Capture(List<ServiceCycleSemanticEvent> events, ServiceCycleTraceServiceId service, long atMs)
+    {
+        var identity = new ServiceCycleTraceCaptureIdentity(service, 1, 1, 1, 1);
+        var payload = ServiceCycleSemanticPayload.CaptureFact(
+            in identity, strategyGeneration: 1, CommonServiceDecisionCodes.Captured.Value, atMs * Millisecond, durationTicks: Millisecond, frameIdentity: 2);
+        Add(events, ServiceCycleSemanticEventKind.CaptureCompleted, in payload);
+    }
+
+    private static void Evaluation(
+        List<ServiceCycleSemanticEvent> events,
+        ServiceCycleTraceServiceId service,
+        long fromMs,
+        long toMs)
+    {
+        var identity = new ServiceCycleTraceCycleIdentity(service, 1, 1, 1, 1, 1);
+        var payload = ServiceCycleSemanticPayload.EvaluationCompleted(
+            in identity, 0, WakePolicy.Immediate, toMs * Millisecond, (toMs - fromMs) * Millisecond);
+        Add(events, ServiceCycleSemanticEventKind.EvaluationCompleted, in payload);
     }
 
     private static void Pump(List<ServiceCycleSemanticEvent> events, long frame, long at, double pumpMs)

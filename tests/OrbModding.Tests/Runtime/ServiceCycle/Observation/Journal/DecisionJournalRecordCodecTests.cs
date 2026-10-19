@@ -62,6 +62,23 @@ public sealed class DecisionJournalRecordCodecTests
     }
 
     [Fact]
+    public void ActionRoundTripsTheCandidatesActionKind()
+    {
+        var candidate = new Guid("11111111-1111-1111-1111-111111111111");
+        var attribution = ServiceActionJournalAttribution.Native(
+            candidate,
+            ServiceActionNativeTypeId.SpellRecipeSO,
+            actionKind: 2);
+        var expected = ActionRecord(in attribution);
+
+        var actual = RoundTrip(in expected);
+
+        Assert.Equal(candidate, actual.Attribution.CandidateId);
+        Assert.Equal(ServiceActionNativeTypeId.SpellRecipeSO, actual.Attribution.NativeType);
+        Assert.Equal((byte)2, actual.Attribution.ActionKind);
+    }
+
+    [Fact]
     public void WireRecordIsEightyBytes() =>
         Assert.Equal(80, DecisionJournalRecordCodec.RecordBytes);
 
@@ -118,7 +135,7 @@ public sealed class DecisionJournalRecordCodecTests
             ServiceActionNativeTypeId.StructureSO);
         var record = ActionRecord(in attribution);
         var bytes = Write(in record);
-        bytes[12] = 1;
+        bytes[13] = 1;
 
         Assert.Throws<FormatException>(() => DecisionJournalRecordCodec.Read(bytes));
     }

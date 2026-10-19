@@ -17,6 +17,9 @@ internal sealed class ExecutionWorkerControl
     private int _stateCreateCount;
     private int _stateReleaseCount;
     private int _evaluationCount;
+    private int _failureReports;
+    private int _endRetryReports;
+    private int _lastContextRetryFailures;
 
     internal ExecutionWorkerControl(int signalId) => SignalId = signalId;
     internal int SignalId { get; }
@@ -47,6 +50,12 @@ internal sealed class ExecutionWorkerControl
     /// <summary>Whether the runtime handed over the publisher's empty seed rather than a collected world.</summary>
     internal bool LastEvaluatedWorldWasTheEmptyDefault => Volatile.Read(ref _lastProjectedWasEmptyDefault) != 0;
 
+    /// <summary>How many failures the target had on the retry gate the last evaluation was handed.</summary>
+    internal int LastContextRetryFailures => Volatile.Read(ref _lastContextRetryFailures);
+
+    internal void ReportFailureOnNextEvaluations(int count) => Volatile.Write(ref _failureReports, count);
+    internal void EndRetryOnNextEvaluation() => Volatile.Write(ref _endRetryReports, 1);
+
     internal void FailNextEvaluations(int count) => Volatile.Write(ref _evaluationFaults, count);
     internal void FailNextProjections(int count) => Volatile.Write(ref _projectionFaults, count);
     internal void FailNextStateFactories(int count) => Volatile.Write(ref _stateFactoryFailures, count);
@@ -68,10 +77,23 @@ internal sealed class ExecutionWorkerControl
         in SuiteRuntimeConfiguration config,
         GameWorldState world,
         SuiteStrategy strategy,
+        in ServiceCycleContext context,
         ref ExecutionState state,
         ServiceActionWriter<ExecutionAction> actions)
     {
         var signals = ExecutionWorkerSignals.Get(SignalId);
+        Volatile.Write(
+            ref _lastContextRetryFailures,
+            context.RetryGate.TryFind(ExecutionServiceDefinition.Target, out var retry)
+                ? retry.ConsecutiveFailures
+                : 0);
+        if (ConsumeOne(ref _failureReports))
+            actions.ReportFailure(
+                ExecutionServiceDefinition.Target,
+                CommonActionResultCodes.AdapterFault,
+                "synthetic surprise");
+        if (ConsumeOne(ref _endRetryReports))
+            actions.EndRetry(ExecutionServiceDefinition.Target);
         LastEvaluatedSetting = TestSuiteConfiguration.SettingOf(config);
         LastEvaluatedStrategySetting = TestSuiteStrategy.SettingOf(strategy);
         Volatile.Write(ref _lastProjectedStructures, world.Structures.AsSpan().Length);
@@ -135,7 +157,7 @@ internal sealed class ExecutionWorkerDefinition :
         in ServiceCycleContext context,
         ref ExecutionState state,
         ServiceActionWriter<ExecutionAction> actions) =>
-        _control.Evaluate(in config, world, strategy, ref state, actions);
+        _control.Evaluate(in config, world, strategy, in context, ref state, actions);
 
     public void ProjectState(
         in ExecutionState state,

@@ -40,6 +40,96 @@ public sealed class AutomationCycleGuardTests : IDisposable
     }
 
     [Fact]
+    public void AFaultRepeatingUnderAFreshReferenceWarnsOnceAndAChangedSentenceWarnsAgain()
+    {
+        var guard = Guard();
+        var first = Unreadable();
+        var repeated = Unreadable();
+        var errored = NativeActionOutcome.FaultBeforeCall(
+            CommonActionResultCodes.AdapterFault,
+            GameActionAnswer.GameErrored("Tower", new InvalidOperationException("press threw")));
+
+        var firstResult = guard.Finish(in first, "slot 1");
+        var repeatedResult = guard.Finish(in repeated, "slot 1");
+        guard.Finish(in errored, "slot 1");
+
+        Assert.NotEqual(firstResult.Reason, repeatedResult.Reason);
+        Assert.Equal(
+            new[]
+            {
+                "Test failed on slot 1: " + firstResult.Reason,
+                "Test failed on slot 1: " + errored.Reason,
+            },
+            _warnings);
+
+        static NativeActionOutcome Unreadable() => NativeActionOutcome.FaultBeforeCall(
+            CommonActionResultCodes.AdapterFault,
+            GameActionAnswer.CouldNotRead("Tower", new InvalidOperationException("tower list was null")));
+    }
+
+    [Fact]
+    public void AnExpectedThrowRepeatingUnderAFreshReferenceWarnsOnceUntilItsSentenceChanges()
+    {
+        var guard = Guard();
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var fault = guard.Fault(new InvalidOperationException("native list was null"), "slot 3");
+            guard.Finish(in fault, "slot 3");
+        }
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            guard.TryAdmitEpoch(
+                static () => throw new InvalidOperationException("epoch read failed"), 7, "slot 3", out _);
+        }
+
+        Assert.Equal(4, _faults.Count);
+        Assert.Equal(2, _warnings.Count);
+        Assert.Contains("adapter fault (native list was null)", _warnings[0]);
+        Assert.Contains("the game's lifecycle epoch could not be read (epoch read failed)", _warnings[1]);
+    }
+
+    [Fact]
+    public void AFaultOnAnotherTargetIsWarnedAboutAndAnUnreadableEpochOnlyOnce()
+    {
+        var guard = Guard();
+
+        foreach (var target in new[] { "slot 1", "slot 2", "slot 1" })
+        {
+            var fault = guard.Fault(new InvalidOperationException("native list was null"), target);
+            guard.Finish(in fault, target);
+        }
+        foreach (var target in new[] { "slot 1", "slot 2" })
+        {
+            guard.TryAdmitEpoch(
+                static () => throw new InvalidOperationException("epoch read failed"), 7, target, out _);
+        }
+
+        Assert.Equal(4, _warnings.Count);
+        Assert.StartsWith("Test failed on slot 1: adapter fault", _warnings[0]);
+        Assert.StartsWith("Test failed on slot 2: adapter fault", _warnings[1]);
+        Assert.StartsWith("Test failed on slot 1: adapter fault", _warnings[2]);
+        Assert.StartsWith("Test failed on slot 1: the game's lifecycle epoch", _warnings[3]);
+    }
+
+    [Fact]
+    public void TheSameFaultInANewRunIsWarnedAboutAgain()
+    {
+        var guard = Guard();
+
+        foreach (var epoch in new long[] { 7, 7, 8 })
+        {
+            Assert.True(guard.TryAdmitEpoch(() => epoch, epoch, "slot 1", out _));
+            var fault = guard.Fault(new InvalidOperationException("native list was null"), "slot 1");
+            guard.Finish(in fault, "slot 1");
+        }
+
+        Assert.Equal(3, _faults.Count);
+        Assert.Equal(2, _warnings.Count);
+        Assert.All(_warnings, warning => Assert.StartsWith("Test failed on slot 1: adapter fault", warning));
+    }
+
+    [Fact]
     public void RefusalsAndSkipsReachTheResultAndNeverTheLog()
     {
         var guard = Guard();

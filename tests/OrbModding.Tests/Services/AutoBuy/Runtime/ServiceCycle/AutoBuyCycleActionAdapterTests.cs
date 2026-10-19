@@ -862,7 +862,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     {
         internal System.Collections.Generic.List<AutoBuyRefusalReport> Reports { get; } = new();
 
-        public void ObserveRefusal(in AutoBuyRefusalReport report) => Reports.Add(report);
+        public ServiceActionResult Answer(in AutoBuyRefusalReport report, in ServiceActionResult refused)
+        {
+            Reports.Add(report);
+            return refused;
+        }
     }
 
     /// <summary>
@@ -1741,9 +1745,8 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     private sealed class IgnoreRefusals : IAutoBuyRefusalResponsePort
     {
         internal static IgnoreRefusals Instance { get; } = new();
-        public void ObserveRefusal(in AutoBuyRefusalReport report)
-        {
-        }
+        public ServiceActionResult Answer(in AutoBuyRefusalReport report, in ServiceActionResult refused) =>
+            refused;
     }
 
     private sealed class ThrowingPurchasePort : IAutoBuyNativePurchasePort

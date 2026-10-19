@@ -12,25 +12,19 @@ public readonly struct ServiceCycleContextDiagnosticsSnapshot
         BatchId currentBatch,
         bool hasCurrentCycle,
         ConfigGeneration latestConfiguration,
-        ServiceCycleDiagnosticsValueAvailability latestConfigurationAvailability,
-        StrategyGeneration latestStrategy,
-        ServiceCycleDiagnosticsValueAvailability latestStrategyAvailability)
+        StrategyGeneration latestStrategy)
     {
         CurrentCycle = currentCycle;
         CurrentBatch = currentBatch;
         HasCurrentCycle = hasCurrentCycle;
         LatestConfiguration = latestConfiguration;
-        LatestConfigurationAvailability = latestConfigurationAvailability;
         LatestStrategy = latestStrategy;
-        LatestStrategyAvailability = latestStrategyAvailability;
     }
 
     public ServiceCycleIdentity CurrentCycle { get; }
     public BatchId CurrentBatch { get; }
     public bool HasCurrentCycle { get; }
     public ConfigGeneration LatestConfiguration { get; }
-    public ServiceCycleDiagnosticsValueAvailability LatestConfigurationAvailability { get; }
-    public ServiceCycleDiagnosticsValueAvailability LatestStrategyAvailability { get; }
     public StrategyGeneration LatestStrategy { get; }
 }
 
@@ -40,7 +34,6 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
         long registrationInstance,
         int ordinal,
         ServiceId serviceId,
-        ServiceCycleDiagnosticsAvailability availability,
         ServiceCycleOperationalPhase phase,
         ServiceCycleLifecycleDiagnosticsSnapshot lifecycle,
         ServiceCycleContextDiagnosticsSnapshot context,
@@ -56,12 +49,12 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
         ServiceCycleStartDecisionDiagnosticsFact lastStartDecision,
         ServiceCycleCaptureDiagnosticsFact lastCapture,
         ServiceCycleActionDiagnosticsFact lastAction,
-        ServiceCycleTimingDiagnosticsSnapshot timing)
+        ServiceCycleTimingDiagnosticsSnapshot timing,
+        ServiceRetryGateSnapshot retryGate)
     {
         RegistrationInstance = registrationInstance;
         Ordinal = ordinal;
         ServiceId = serviceId;
-        Availability = availability;
         Phase = phase;
         Lifecycle = lifecycle;
         Context = context;
@@ -78,14 +71,13 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
         LastCapture = lastCapture;
         LastAction = lastAction;
         Timing = timing;
+        RetryGate = retryGate;
     }
 
     /// <summary>Stable identity for this registration instance, independent of reused ordinals.</summary>
     public long RegistrationInstance { get; }
     public int Ordinal { get; }
     public ServiceId ServiceId { get; }
-    public ServiceCycleDiagnosticsAvailability Availability { get; }
-    public bool HasRunnerEvidence => Availability == ServiceCycleDiagnosticsAvailability.Available;
     public ServiceCycleOperationalPhase Phase { get; }
     public ServiceCycleLifecycleDiagnosticsSnapshot Lifecycle { get; }
     public ServiceCycleContextDiagnosticsSnapshot Context { get; }
@@ -103,19 +95,7 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
     public ServiceCycleCaptureDiagnosticsFact LastCapture { get; }
     public ServiceCycleActionDiagnosticsFact LastAction { get; }
     public ServiceCycleTimingDiagnosticsSnapshot Timing { get; }
-}
 
-public readonly struct ServiceCycleDiagnosticsCopyResult
-{
-    internal ServiceCycleDiagnosticsCopyResult(int requiredCount, int writtenCount, int unavailableCount)
-    {
-        RequiredCount = requiredCount;
-        WrittenCount = writtenCount;
-        UnavailableCount = unavailableCount;
-    }
-
-    public int RequiredCount { get; }
-    public int WrittenCount { get; }
-    public int UnavailableCount { get; }
-    public bool IsComplete => WrittenCount == RequiredCount;
+    /// <summary>The targets this service is backing off, each with its reason and retry time.</summary>
+    public ServiceRetryGateSnapshot RetryGate { get; }
 }

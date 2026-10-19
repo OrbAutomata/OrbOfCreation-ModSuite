@@ -1,4 +1,5 @@
 using System;
+using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 
@@ -18,7 +19,8 @@ internal sealed class AutoHarvestFeatureDependencies
         Func<bool> ownsActionFamily,
         Func<bool> tryCaptureMutationPermit,
         RuntimeDiagnosticsRegistry? runtimeDiagnostics,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string>? warn = null)
     {
         RegistryResolver = registryResolver ?? throw new ArgumentNullException(nameof(registryResolver));
         OwnsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
@@ -26,6 +28,7 @@ internal sealed class AutoHarvestFeatureDependencies
             throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
         RuntimeDiagnostics = runtimeDiagnostics;
         FeatureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        Warn = warn ?? LogWarning;
     }
 
     public TypedRegistryResolver RegistryResolver { get; }
@@ -33,4 +36,9 @@ internal sealed class AutoHarvestFeatureDependencies
     public Func<bool> TryCaptureMutationPermit { get; }
     public RuntimeDiagnosticsRegistry? RuntimeDiagnostics { get; }
     public AutomataFeatureStatusReporter FeatureStatus { get; }
+
+    /// <summary>Where the feature's warnings go: the suite log unless a host names another.</summary>
+    public Action<string> Warn { get; }
+
+    internal static void LogWarning(string message) => Plugin.Log?.LogAutomataWarning(message);
 }

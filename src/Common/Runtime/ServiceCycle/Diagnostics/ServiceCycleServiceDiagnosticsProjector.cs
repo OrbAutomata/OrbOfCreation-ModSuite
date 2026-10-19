@@ -1,41 +1,27 @@
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
+using OrbModding.Common.Runtime.ServiceCycle.Lifecycle;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 
 internal static class ServiceCycleServiceDiagnosticsProjector
 {
-    internal static ServiceCycleServiceDiagnosticsSnapshot Project(
+    internal static bool TryProject(
         IServiceCycleSlot slot,
         MonotonicTimestamp observedAt,
-        bool emergencyStopEngaged)
+        bool emergencyStopEngaged,
+        out ServiceCycleServiceDiagnosticsSnapshot snapshot)
     {
+        snapshot = default;
+        if (slot.IsDisposed) return false;
+        var lifecycleSource = slot.LifecycleSnapshot;
+        if (!ServesDesiredLifecycle(in lifecycleSource) || !slot.TryGetRunnerSnapshot(out var runner))
+            return false;
         var lifecycle = ServiceCycleLifecycleDiagnosticsProjector.Project(
-            slot.LifecycleSnapshot,
-            slot.LifecyclePositionTransitionCount,
-            slot.IsDisposed
-                ? ServiceCycleLifecycleEvidenceKind.RetainedAtDisposal
-                : ServiceCycleLifecycleEvidenceKind.Current);
-        if (slot.IsDisposed)
-            return Unavailable(
-                slot,
-                ServiceCycleDiagnosticsAvailability.Disposed,
-                ServiceCycleOperationalPhase.Disposed,
-                in lifecycle,
-                observedAt);
-        if (!slot.TryGetRunnerSnapshot(out var runner))
-        {
-            var availability = ServiceCycleLifecycleDiagnosticsProjector.HasCurrentPosition(in lifecycle)
-                ? ServiceCycleDiagnosticsAvailability.HandoffContended
-                : ServiceCycleDiagnosticsAvailability.NoCurrentRunner;
-            var phase = availability == ServiceCycleDiagnosticsAvailability.HandoffContended
-                ? ServiceCycleOperationalPhase.Unavailable
-                : ServiceCycleLifecycleDiagnosticsProjector.ProjectRunnerlessPhase(in lifecycle, observedAt);
-            return Unavailable(slot, availability, phase, in lifecycle, observedAt);
-        }
-
+            lifecycleSource,
+            slot.LifecyclePositionTransitionCount);
         var currentCycle = runner.HasActiveBatch ? runner.ActiveCycle : runner.InFlightCycle;
         var currentBatch = runner.HasActiveBatch ? runner.ActiveBatch : runner.InFlightBatch;
         var context = new ServiceCycleContextDiagnosticsSnapshot(
@@ -43,9 +29,7 @@ internal static class ServiceCycleServiceDiagnosticsProjector
             currentBatch,
             runner.HasActiveBatch || runner.HasInFlightCycle,
             runner.LatestConfiguration,
-            ServiceCycleDiagnosticsValueAvailability.Available,
-            slot.LatestStrategy,
-            ServiceCycleDiagnosticsValueAvailability.Available);
+            slot.LatestStrategy);
         var activeBatch = runner.HasActiveBatch
             ? new ServiceCycleBatchDiagnosticsSnapshot(
                 runner.ActiveCycle,
@@ -111,11 +95,10 @@ internal static class ServiceCycleServiceDiagnosticsProjector
             runner.WorkerCycleAllocatedBytes,
             runner.MeasuredWorkerCycleCount,
             runner.WorkerStateConstructionContentionCount);
-        return new ServiceCycleServiceDiagnosticsSnapshot(
+        snapshot = new ServiceCycleServiceDiagnosticsSnapshot(
             slot.RegistrationToken,
             slot.Ordinal,
             slot.ServiceId,
-            ServiceCycleDiagnosticsAvailability.Available,
             ProjectOperationalPhase(in runner, observedAt, emergencyStopEngaged),
             lifecycle,
             context,
@@ -131,55 +114,18 @@ internal static class ServiceCycleServiceDiagnosticsProjector
             lastStart,
             lastCapture,
             lastAction,
-            ProjectTiming(in runner, observedAt));
+            ProjectTiming(in runner, observedAt),
+            runner.RetryGate);
+        return true;
     }
 
-    private static ServiceCycleServiceDiagnosticsSnapshot Unavailable(
-        IServiceCycleSlot slot,
-        ServiceCycleDiagnosticsAvailability availability,
-        ServiceCycleOperationalPhase phase,
-        in ServiceCycleLifecycleDiagnosticsSnapshot lifecycle,
-        MonotonicTimestamp observedAt)
+    private static bool ServesDesiredLifecycle(in ServiceLifecycleSlotSnapshot source)
     {
-        var latestConfiguration = slot.LatestConfiguration;
-        var latestStrategy = slot.LatestStrategy;
-        var context = new ServiceCycleContextDiagnosticsSnapshot(
-            default,
-            default,
-            false,
-            latestConfiguration,
-            latestConfiguration.IsValid
-                ? ServiceCycleDiagnosticsValueAvailability.Available
-                : ServiceCycleDiagnosticsValueAvailability.NotAvailable,
-            latestStrategy,
-            latestStrategy.Value != 0
-                ? ServiceCycleDiagnosticsValueAvailability.Available
-                : ServiceCycleDiagnosticsValueAvailability.NotAvailable);
-        return new ServiceCycleServiceDiagnosticsSnapshot(
-            slot.RegistrationToken,
-            slot.Ordinal,
-            slot.ServiceId,
-            availability,
-            phase,
-            lifecycle,
-            context,
-            default,
-            default,
-            default,
-            default,
-            default,
-            default,
-            default,
-            false,
-            default,
-            default,
-            default,
-            default,
-            new ServiceCycleTimingDiagnosticsSnapshot(
-                observedAt,
-                default, default, default, default,
-                ServiceCycleEvaluationTimingAvailability.NotAvailable,
-                false, default, false, default, false));
+        var current = source.Position0.State == ServiceRunnerPositionState.Current
+            ? source.Position0
+            : source.Position1;
+        return current.State == ServiceRunnerPositionState.Current &&
+            current.Lifecycle == source.DesiredLifecycle;
     }
 
     private static ServiceCycleOperationalPhase ProjectOperationalPhase(

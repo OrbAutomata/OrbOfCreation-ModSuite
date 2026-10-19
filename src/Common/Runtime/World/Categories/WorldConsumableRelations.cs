@@ -511,11 +511,11 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         var relationFailure = bind.Failure;
         if (consumeCostType != usageCostType)
         {
-            relationFailure = AppendFailure(
+            relationFailure = WorldFailures.Join(
                 relationFailure,
                 "ConsumableSO consumeCost and usageCost did not share one native type");
         }
-        _unavailable = AppendFailure(scalarFailure, relationFailure);
+        _unavailable = WorldFailures.Join(scalarFailure, relationFailure);
     }
 
     public string Category => "consumables";
@@ -557,7 +557,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
             var entity = entities[index];
             if (entity is null || entity.GetType() != _nativeType)
             {
-                Skip(ref skipped, ref firstFailure, "a registry entry had an unexpected native type");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, "a registry entry had an unexpected native type");
                 continue;
             }
 
@@ -567,12 +567,12 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 var id = sample.EntityId;
                 if (id == Guid.Empty)
                 {
-                    Skip(ref skipped, ref firstFailure, "a consumable carried an empty identity");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, "a consumable carried an empty identity");
                     continue;
                 }
                 if (!claimed.Add(id))
                 {
-                    Skip(ref skipped, ref firstFailure, $"entity {id} appeared more than once");
+                    WorldSkipTally.Skip(ref skipped, ref firstFailure, $"entity {id} appeared more than once");
                     continue;
                 }
 
@@ -589,7 +589,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 if (!typesValid || !consumeCostsValid || !usageCostsValid || !usagesValid ||
                     !countsValid)
                 {
-                    Skip(
+                    WorldSkipTally.Skip(
                         ref skipped,
                         ref firstFailure,
                         FirstFailure(
@@ -617,9 +617,9 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 AppendCounts(id, counts!, frame.ConsumableCounts);
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                Skip(
+                WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
                     $"reading a ConsumableSO threw: {ex.GetBaseException().Message}");
@@ -782,13 +782,6 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         }
     }
 
-    private static string AppendFailure(string first, string second)
-    {
-        if (first.Length == 0) return second;
-        if (second.Length == 0) return first;
-        return $"{first}; {second}";
-    }
-
     private static string FirstFailure(params string[] failures)
     {
         for (var index = 0; index < failures.Length; index++)
@@ -796,11 +789,5 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
             if (failures[index].Length != 0) return failures[index];
         }
         return "a consumable relation was unreadable";
-    }
-
-    private static void Skip(ref int skipped, ref string firstFailure, string reason)
-    {
-        skipped++;
-        if (firstFailure.Length == 0) firstFailure = reason;
     }
 }

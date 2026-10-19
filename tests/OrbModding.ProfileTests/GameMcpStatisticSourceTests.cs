@@ -113,25 +113,16 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
 
     private static JObject Block(string category, Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                Context(), category, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query = "", string modifies = "") =>
-        Json(GameMcpWorldQuery.Search(
-            Context(), query, 0, 50, limitFromCaller: false, modifiesFilter: modifies));
-
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
-    private static GameMcpFrameContext Context()
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(World(), new WorldGeneration(611));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
+        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            GameMcpTestHarness.Context(World()),
+            query, 0, 50, limitFromCaller: false, modifiesFilter: modifies), Catalog);
 
     private static GameWorldState World() =>
         new()
@@ -152,33 +143,18 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
             {
                 new WorldChallenge(WeakenedChoices, 0, 0, true, false, 5, 10, 12, 30),
             }),
-            LevelEffects = PublicationTable<WorldLevelEffect>.Create(Sorted(new[]
+            LevelEffects = PublicationTable<WorldLevelEffect>.Create(GameMcpTestHarness.SortedByOwnerAndOrdinal(new[]
             {
                 Effect(GreaterDiscovery, 0, DiscoveryOptions, 1d),
                 Effect(OrbMinimalism, 0, DiscoveryOptions, 1d),
                 Effect(WeakenedChoices, 0, DiscoveryOptions, -1d, "while"),
                 Effect(WeakenedChoices, 1, DiscoveryRerolls, -99d, "while"),
             })),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static WorldResearch Research(Guid id) =>
         new(
@@ -224,16 +200,6 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
         string when = "") =>
         new(ownerId, ordinal, string.Empty, targetId, (int)GameValueModifierType.Raw,
             new BigDouble(amount), 0, when);
-
-    private static WorldLevelEffect[] Sorted(WorldLevelEffect[] rows)
-    {
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            return owner != 0 ? owner : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return rows;
-    }
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]

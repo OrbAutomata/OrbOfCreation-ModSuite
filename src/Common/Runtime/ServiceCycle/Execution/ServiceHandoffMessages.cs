@@ -84,7 +84,8 @@ internal readonly struct ServiceWorkerResponse
         BatchReceipt zeroActionReceipt,
         bool hasEvaluationOutcome,
         WakePolicy evaluationWakePolicy,
-        int evaluatedActionCount)
+        int evaluatedActionCount,
+        ServiceRetryReport[]? retryReports)
     {
         Sequence = sequence;
         Succeeded = succeeded;
@@ -107,6 +108,7 @@ internal readonly struct ServiceWorkerResponse
         HasEvaluationOutcome = hasEvaluationOutcome;
         EvaluationWakePolicy = evaluationWakePolicy;
         EvaluatedActionCount = evaluatedActionCount;
+        RetryReports = retryReports;
     }
 
     internal long Sequence { get; }
@@ -130,6 +132,7 @@ internal readonly struct ServiceWorkerResponse
     internal bool HasEvaluationOutcome { get; }
     internal WakePolicy EvaluationWakePolicy { get; }
     internal int EvaluatedActionCount { get; }
+    internal ServiceRetryReport[]? RetryReports { get; }
 
     internal static ServiceWorkerResponse Success(
         long sequence,
@@ -145,11 +148,12 @@ internal readonly struct ServiceWorkerResponse
         ServiceActionStoreMetrics actionMetrics,
         int actionCount,
         BatchReceipt zeroActionReceipt,
-        ServiceFaultRecoveryFact recoveredFault) => new(
+        ServiceFaultRecoveryFact recoveredFault,
+        ServiceRetryReport[]? retryReports = null) => new(
             sequence, true, false, cycle, batch, evaluationStartedAt, evaluationCompletedAt,
             wakePolicy, publishedAt, wakeDue, projectionContext, projection, default, default,
             recoveredFault, actionMetrics, actionCount, zeroActionReceipt,
-            false, default, 0);
+            false, default, 0, retryReports);
 
     internal static ServiceWorkerResponse Failure(
         long sequence,
@@ -166,7 +170,7 @@ internal readonly struct ServiceWorkerResponse
             sequence, false, false, cycle, batch, evaluationStartedAt, evaluationCompletedAt,
             WakePolicy.At(retryDue), fault.ObservedAt, retryDue, default, default, fault, retryDue,
             default, actionMetrics, 0, default,
-            hasEvaluationOutcome, evaluationWakePolicy, evaluatedActionCount);
+            hasEvaluationOutcome, evaluationWakePolicy, evaluatedActionCount, null);
 
     internal static ServiceWorkerResponse Contention(
         long sequence,
@@ -180,7 +184,7 @@ internal readonly struct ServiceWorkerResponse
             sequence, false, true, cycle, batch, evaluationStartedAt, evaluationCompletedAt,
             WakePolicy.At(retryDue), observedAt, retryDue, default, default, default, retryDue,
             default, actionMetrics, 0, default,
-            false, default, 0);
+            false, default, 0, null);
 }
 
 internal readonly struct ServiceHandoffSnapshot

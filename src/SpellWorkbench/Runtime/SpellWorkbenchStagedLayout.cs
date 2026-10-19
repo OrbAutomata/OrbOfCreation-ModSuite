@@ -1,4 +1,5 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
@@ -30,9 +31,9 @@ internal readonly struct SpellWorkbenchStagedLayout
 
     internal static SpellWorkbenchStagedLayout Unavailable(
         ServiceActionResultCode code,
-        string reason) =>
+        GameActionReason reason) =>
         new(code, Array.Empty<SpellWorkbenchGlyphStack>(),
-            Array.Empty<SpellWorkbenchGlyphStack>(), reason);
+            Array.Empty<SpellWorkbenchGlyphStack>(), reason.Text);
 
     private static SpellWorkbenchGlyphStack[] Copy(SpellWorkbenchGlyphStack[] source)
     {

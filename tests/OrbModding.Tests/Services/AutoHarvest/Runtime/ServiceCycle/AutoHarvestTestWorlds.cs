@@ -46,41 +46,98 @@ internal static class AutoHarvestTestWorlds
         bool queued = false,
         Action<PlotNodeSO, PlotNodeActionSO>? author = null)
     {
-        var plots = new List<PlotNodeSO>();
-        var actions = new List<PlotNodeActionSO>();
-        Add(
-            plots,
-            actions,
-            supported ? AutoHarvestKnownIds.FruitTreePlot : Guid.NewGuid().ToString(),
-            supported ? AutoHarvestKnownIds.FruitTreeCollect : Guid.NewGuid().ToString(),
-            visible: true,
-            instances,
-            AutoHarvestPairAuthoring.For(AutoHarvestPair.FruitTree),
-            author);
-        Add(
-            plots,
-            actions,
-            supported ? AutoHarvestKnownIds.TreasureTreePlot : Guid.NewGuid().ToString(),
-            supported ? AutoHarvestKnownIds.TreasureTreeCollect : Guid.NewGuid().ToString(),
-            treasureVisible,
-            instances,
-            AutoHarvestPairAuthoring.For(AutoHarvestPair.TreasureTree),
-            author: null);
+        using var game = AutoHarvestTestGame.Load(supported, treasureVisible, instances, queued, author);
+        return TestWorlds.FromLoadedRegistries();
+    }
 
-        PlotNodeSO.All.AddRange(plots);
-        PlotNodeActionSO.All.AddRange(actions);
-        IdScriptableObject.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] =
-            Queue(plots, actions, queued);
-        try
+    /// <summary>
+    /// Both pairs loaded into the game's registries until disposed, so the world collector and the
+    /// native action boundary read and mutate the same objects.
+    /// </summary>
+    internal sealed class AutoHarvestTestGame : IDisposable
+    {
+        private readonly List<PlotNodeSO> _plots;
+        private readonly List<PlotNodeActionSO> _actions;
+        private readonly List<IdScriptableObject> _identities;
+
+        private AutoHarvestTestGame(
+            List<PlotNodeSO> plots,
+            List<PlotNodeActionSO> actions,
+            List<IdScriptableObject> identities,
+            PlotNodeActionInstanceListVariable queue)
         {
-            return TestWorlds.FromLoadedRegistries();
+            _plots = plots;
+            _actions = actions;
+            _identities = identities;
+            Queue = queue;
         }
-        finally
+
+        internal PlotNodeActionInstanceListVariable Queue { get; }
+
+        internal PlotNodeSO Plot(AutoHarvestPair pair) => _plots[Index(pair)];
+
+        internal PlotNodeActionSO Action(AutoHarvestPair pair) => _actions[Index(pair)];
+
+        /// <summary>Whether the game's action queue runs this pair now.</summary>
+        internal bool IsRunning(AutoHarvestPair pair)
         {
-            IdScriptableObject.RuntimeLookup.Remove(KnownEntities.ActivePlotNodeActions.Uuid);
-            foreach (var plot in plots) PlotNodeSO.All.Remove(plot);
-            foreach (var action in actions) PlotNodeActionSO.All.Remove(action);
+            foreach (var instance in Queue.value)
+            {
+                if (instance is not null && !instance.IsEmpty() && instance.IsEngaged() &&
+                    ReferenceEquals(instance.GetAction(), Action(pair)))
+                    return true;
+            }
+            return false;
         }
+
+        internal static AutoHarvestTestGame Load(
+            bool supported = true,
+            bool treasureVisible = true,
+            int instances = 1,
+            bool queued = false,
+            Action<PlotNodeSO, PlotNodeActionSO>? author = null)
+        {
+            var plots = new List<PlotNodeSO>();
+            var actions = new List<PlotNodeActionSO>();
+            var identities = new List<IdScriptableObject>();
+            Add(
+                plots,
+                actions,
+                identities,
+                supported ? AutoHarvestKnownIds.FruitTreePlot : Guid.NewGuid().ToString(),
+                supported ? AutoHarvestKnownIds.FruitTreeCollect : Guid.NewGuid().ToString(),
+                visible: true,
+                instances,
+                AutoHarvestPairAuthoring.For(AutoHarvestPair.FruitTree),
+                author);
+            Add(
+                plots,
+                actions,
+                identities,
+                supported ? AutoHarvestKnownIds.TreasureTreePlot : Guid.NewGuid().ToString(),
+                supported ? AutoHarvestKnownIds.TreasureTreeCollect : Guid.NewGuid().ToString(),
+                treasureVisible,
+                instances,
+                AutoHarvestPairAuthoring.For(AutoHarvestPair.TreasureTree),
+                author: null);
+
+            var queue = Queue(plots, actions, queued);
+            identities.Add(queue);
+            PlotNodeSO.All.AddRange(plots);
+            PlotNodeActionSO.All.AddRange(actions);
+            foreach (var identity in identities)
+                IdScriptableObject.RuntimeLookup[identity.GetGuid()] = identity;
+            return new AutoHarvestTestGame(plots, actions, identities, queue);
+        }
+
+        public void Dispose()
+        {
+            foreach (var identity in _identities) IdScriptableObject.RuntimeLookup.Remove(identity.GetGuid());
+            foreach (var plot in _plots) PlotNodeSO.All.Remove(plot);
+            foreach (var action in _actions) PlotNodeActionSO.All.Remove(action);
+        }
+
+        private static int Index(AutoHarvestPair pair) => pair == AutoHarvestPair.FruitTree ? 0 : 1;
     }
 
     /// <summary>
@@ -91,6 +148,7 @@ internal static class AutoHarvestTestWorlds
     private static void Add(
         List<PlotNodeSO> plots,
         List<PlotNodeActionSO> actions,
+        List<IdScriptableObject> identities,
         string plotUuid,
         string actionUuid,
         bool visible,
@@ -107,7 +165,7 @@ internal static class AutoHarvestTestWorlds
         };
         action.SetGuid(new Guid(actionUuid));
         action.prerequisites.available = true;
-        action.completeEffects.Add(Completion(expected.RewardPoolId));
+        action.completeEffects.Add(Completion(expected.RewardPoolId, identities));
         var plot = new PlotNodeSO { visible = visible };
         plot.SetGuid(new Guid(plotUuid));
         plot.phaseInfos = PhaseCycle(expected);
@@ -115,12 +173,14 @@ internal static class AutoHarvestTestWorlds
         plot.availableActions.Add(action);
         for (var index = 0; index < instances; index++)
         {
-            plot.GetActionInstances().Add(new PlotNodeActionInstance(action) { quantity = 1 });
+            plot.GetActionInstances().Add(new PlotNodeActionInstance(plot, action) { quantity = 1 });
         }
 
         author?.Invoke(plot, action);
         plots.Add(plot);
         actions.Add(action);
+        identities.Add(plot);
+        identities.Add(action);
     }
 
     /// <summary>
@@ -156,12 +216,14 @@ internal static class AutoHarvestTestWorlds
     /// What one completed run applies: one block, one modifier scaling by the completion weight, and
     /// one script paying one treasure out of the pair's pool.
     /// </summary>
-    private static InstantEffectBlock Completion(Guid rewardPoolId)
+    private static InstantEffectBlock Completion(Guid rewardPoolId, List<IdScriptableObject> identities)
     {
         var pool = new TreasurePoolSO();
         pool.SetGuid(rewardPoolId);
         var weight = new ScalingWeightSO();
         weight.SetGuid(KnownEntities.CompletionScalingWeight.Uuid);
+        identities.Add(pool);
+        identities.Add(weight);
         var block = new InstantEffectBlock();
         block.effectMods.Add(new ScalingWeightEffectMod
         {

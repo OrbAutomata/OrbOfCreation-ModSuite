@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
@@ -1036,9 +1035,7 @@ public sealed class SuiteFramePumpSemanticTracingTests
         using var registration = registry.Register(
             definition,
             new LifecycleGeneration(1));
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
@@ -1090,9 +1087,7 @@ public sealed class SuiteFramePumpSemanticTracingTests
         TestWorldCollector.CollectedAtActivation(registry);
         var cursor = default(ServiceCycleTraceCursor);
         Drain(pump, ref cursor);
-        var ledger = (ServiceResourceClaimLedger)typeof(ServiceCycleRegistry).GetField(
-            "_resourceClaims",
-            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(registry)!;
+        var ledger = ServiceCycleRegistryTestAccess.ResourceClaims(registry);
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.State, out var blocker));
@@ -1101,8 +1096,10 @@ public sealed class SuiteFramePumpSemanticTracingTests
         {
             Assert.True(pump.RequestLifecycleReplacement(new LifecycleGeneration(2)));
             var frame = 1L;
-            while (registration.LifecycleSnapshot.ConstructionContentionCount == 0)
-                pump.PumpFrame(frame++);
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump,
+                ref frame,
+                () => registration.LifecycleSnapshot.ConstructionContentionCount != 0);
 
             var deferredEvents = Drain(pump, ref cursor);
             var requested = Assert.Single(
@@ -1134,9 +1131,11 @@ public sealed class SuiteFramePumpSemanticTracingTests
             ledger.EndFactory(blocker);
             blocker = null!;
             clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
-            while (registration.LifecycleSnapshot.Position0.Lifecycle != new LifecycleGeneration(2) &&
-                   registration.LifecycleSnapshot.Position1.Lifecycle != new LifecycleGeneration(2))
-                pump.PumpFrame(frame++);
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump,
+                ref frame,
+                () => registration.LifecycleSnapshot.Position0.Lifecycle == new LifecycleGeneration(2) ||
+                    registration.LifecycleSnapshot.Position1.Lifecycle == new LifecycleGeneration(2));
 
             var activatedEvents = Drain(pump, ref cursor);
             var activated = Assert.Single(

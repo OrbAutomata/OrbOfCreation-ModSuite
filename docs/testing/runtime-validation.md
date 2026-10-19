@@ -83,15 +83,18 @@ retries.
   room, Bulk Development count, rising costs, Single/All capability, and
   queued-versus-completed unlock state.
 - **Auto Cast:** resource deduction, charge hold/release, targets, manual pause,
-  and audited fire evidence.
+  audited fire evidence, and a faulted cast backing off only that spell while
+  the rest of the loadout keeps casting.
 - **Auto Concept:** breadth, depth, rotation, training, manual preservation,
   drain rollback, mastery limits, and assignment settlement.
 - **Auto Items:** Scroll, Relic, and explicitly approved temporary items;
   targeting/native-busy refusals, exact stock/queue/usage evidence, picker
-  whitelist behavior, item-scoped quarantine of an unverified submission, and
-  the pause and resume when the player eats an allowlisted item themselves.
+  whitelist behavior, the back-off and retry of an unverified submission or a
+  cancelled temporary usage, and the pause and resume when the player eats an
+  allowlisted item themselves.
 - **Auto Scribe:** role selection, cost rank, carry limit, payment-last ordering,
-  queue/instant completion, and lifecycle quarantine.
+  queue/instant completion, and the recipe back-off after a craft paid with no
+  work admitted.
 - **Mentor:** spells under both source-selection policies, artifacts, and
   ordinary alchemy independently; exact XP, recursion suppression, source
   ceiling, domain isolation, and persistence.
@@ -142,7 +145,10 @@ To see how much of the collector's work and the long hitches the suite causes, i
 perf-debug build and play normally. Before quitting, press **Stop profile** on Mods > Runtime so the
 profile writes its manifest, then quit the game normally so the full trace writes its own. Run
 `./script/trace --full "<game>/BepInEx/config/OrbOfCreation-ModSuite/trace" report.md` and read its
-Garbage collection section. If it says the section is unavailable, the BepInEx log names why.
+Garbage collection section. It charges the suite with what grew inside its pumps and with what the
+game's part of a frame grew beyond the game's own rate while a suite worker was evaluating; the game's
+own rate is read from frames no worker overlapped. If it says the section is unavailable, the BepInEx
+log names why.
 
 ### Heap-growth capture
 

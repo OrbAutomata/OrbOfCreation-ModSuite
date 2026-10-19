@@ -255,4 +255,40 @@ public readonly struct ServiceFaultRecoveryPolicy
     public bool IsValid =>
         InitialBackoff.Ticks > 0 &&
         MaximumBackoff >= InitialBackoff;
+
+    /// <summary>The wait after this many consecutive failures: the initial backoff, doubled per failure.</summary>
+    public MonotonicDuration BackoffAfter(int consecutiveFailures) =>
+        BackoffAfter(consecutiveFailures, MaximumBackoff);
+
+    /// <summary>
+    /// A caller's own first wait and cap may sit above the policy's, never below its first wait, and
+    /// the cap, the policy maximum when absent, never below the first wait.
+    /// </summary>
+    internal bool Allows(MonotonicDuration? initial, MonotonicDuration? maximum)
+    {
+        var first = initial ?? InitialBackoff;
+        return first >= InitialBackoff && (maximum ?? MaximumBackoff) >= first;
+    }
+
+    /// <summary>The same doubling, held at a cap of the caller's own instead of the policy's.</summary>
+    public MonotonicDuration BackoffAfter(int consecutiveFailures, MonotonicDuration maximum) =>
+        BackoffAfter(consecutiveFailures, InitialBackoff, maximum);
+
+    /// <summary>The same doubling from a first wait of the caller's own.</summary>
+    internal MonotonicDuration BackoffAfter(
+        int consecutiveFailures,
+        MonotonicDuration initial,
+        MonotonicDuration maximum)
+    {
+        if (consecutiveFailures < 1) throw new ArgumentOutOfRangeException(nameof(consecutiveFailures));
+        if (!Allows(initial, maximum)) throw new ArgumentOutOfRangeException(nameof(maximum));
+        var ticks = initial.Ticks;
+        for (var index = 1; index < consecutiveFailures && ticks < maximum.Ticks; index++)
+        {
+            if (ticks > maximum.Ticks / 2)
+                return maximum;
+            ticks *= 2;
+        }
+        return new MonotonicDuration(Math.Min(ticks, maximum.Ticks));
+    }
 }

@@ -34,7 +34,7 @@ public sealed class GameMcpEquipmentLoadoutTests
     public void Validation_names_missing_mode_and_rejects_removed_generation_metadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var id = Guid.NewGuid().ToString("D");
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(1, "tools/call",
             new JObject { ["name"] = "game_equipment", ["arguments"] = new JObject { ["uuid"] = id } }));
@@ -65,8 +65,10 @@ public sealed class GameMcpEquipmentLoadoutTests
         var success = new EquipmentLoadoutSubmission(NativeActionOutcome.Commit(
             new NativeMutationCallOutcome(1, 1, 1), "stack changed"));
 
-        var failed = Json(GameMcpEquipmentLoadoutProjection.Project(in failure));
-        var committed = Json(GameMcpEquipmentLoadoutProjection.Project(in success));
+        var failed = GameMcpTestHarness.Json(
+            GameMcpEquipmentLoadoutProjection.Project(in failure), World().EntityIdentities);
+        var committed = GameMcpTestHarness.Json(
+            GameMcpEquipmentLoadoutProjection.Project(in success), World().EntityIdentities);
 
         Assert.Equal("requested equipped stack count", (string?)failed["missingOutcome"]);
         Assert.Single(failed.Properties());
@@ -77,8 +79,8 @@ public sealed class GameMcpEquipmentLoadoutTests
     public void Equipment_row_is_a_named_complete_next_decision_with_live_usage_holdings()
     {
         var context = GameMcpTestHarness.Context(World(), generation: 2401);
-        var response = Json(GameMcpWorldQuery.GetRow(
-            context, "equipment", EquipmentId.ToString("D")));
+        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            context, "equipment", EquipmentId.ToString("D")), World().EntityIdentities);
 
         var row = response["row"]!;
         Assert.Equal("Prismatic Lens", (string?)response["name"]);
@@ -99,21 +101,21 @@ public sealed class GameMcpEquipmentLoadoutTests
     [Fact]
     public void EquipmentAmountRefusalCarriesTheCeilingItsOwnSentenceNames()
     {
-        var refused = Json(Assert.IsType<GameMcpObject>(
+        var refused = GameMcpTestHarness.Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
                     EquipmentLoadoutActionResultCodes.AmountUnavailable,
                     "This artifact can equip at most 2 more stacks with the current " +
                     "capacity and resources.",
-                    2))));
+                    2))), World().EntityIdentities);
 
         Assert.Equal(2, (int)refused["maximumAmount"]!);
 
-        var noCeiling = Json(Assert.IsType<GameMcpObject>(
+        var noCeiling = GameMcpTestHarness.Json(Assert.IsType<GameMcpObject>(
             GameMcpEquipmentLoadoutProjection.Project(
                 EquipmentLoadoutSubmission.Reject(
                     EquipmentLoadoutActionResultCodes.NotCreated,
-                    "The artifact has not been created."))));
+                    "The artifact has not been created."))), World().EntityIdentities);
 
         Assert.Null(noCeiling["maximumAmount"]);
     }
@@ -181,17 +183,15 @@ public sealed class GameMcpEquipmentLoadoutTests
         var equipment = new WorldEquipment(EquipmentId, true, 0, BigDouble.Zero, 3, false,
             BigDouble.One, BigDouble.One, BigDouble.One, 1, 0, -1, BigDouble.Zero,
             loadout: decision);
-        var identityRows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+        var identityRows = GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(EquipmentId, "EquipmentSO", "Prismatic Lens", "prismaticLens"),
             new EntityIdentityName(TypeId, "EquipmentTypeSO", "Focus", "focus"),
-            new EntityIdentityName(ResourceId, "ResourceSO", "Focus", "focusResource"),
-        }).OrderBy(row => row.EntityId).ToArray();
+            new EntityIdentityName(ResourceId, "ResourceSO", "Focus", "focusResource"));
         return new GameWorldState
         {
             CollectedAtEpoch = 19,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
-            EntityIdentities = EntityIdentityCatalogSnapshot.Bound(19, identityRows),
+            EntityIdentities = identityRows,
             Resources = PublicationTable<WorldResource>.Create(new[] { resource }),
             Equipment = PublicationTable<WorldEquipment>.Create(new[] { equipment }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
@@ -201,11 +201,4 @@ public sealed class GameMcpEquipmentLoadoutTests
             }),
         };
     }
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            value,
-            World().EntityIdentities));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
 }

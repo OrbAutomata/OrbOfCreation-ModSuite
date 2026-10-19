@@ -64,10 +64,10 @@ flowchart LR
     ENCODE --> CLIENT
 ```
 
-`GameMcpFrameBatchExecutor.Drain` is the only claim site. It runs after
-`UpdateAutomata`, so the context observes the configuration and ServiceCycle publications accepted
-for that frame. The same `Plugin.Update` then continues to Mentor and UI maintenance after the MCP
-batch.
+`GameMcpFrameExecutor` owns the frame loop: `Plugin.Update` calls its `Drain` after
+`UpdateAutomata`, and the `GameMcpFrameBatchExecutor.Drain` inside it is the only claim site, so the
+context observes the configuration and ServiceCycle publications accepted for that frame. The same
+`Plugin.Update` then continues to Mentor and UI maintenance after the MCP batch.
 
 ## Exact frame and concurrency semantics
 
@@ -154,7 +154,7 @@ claimed operation on Unity's main thread; it is never retained as an MCP snapsho
 | Surface and exact fields | Lifetime | Owner and collection rule |
 | --- | --- | --- |
 | Entity catalog: `uuid`, `name`, optional differing `internalName`, `nativeType`, and addressable `category` | Lifecycle-structural | Common enumerates `IdScriptableObject.RuntimeLookup` once on Unity at the first shared Playing capture after `RuntimeReady`, validates stable generation/count and `value.GetGuid() == key`, and attaches the one UUID-sorted immutable snapshot to every world in the lifecycle. MCP only filters the exact snapshot reference pinned by the answering world; hidden loaded entities remain searchable, while pre-bind/failed bind is explicitly unavailable. |
-| Tool/resource schemas, protocol versions, operation classification, entity category/native-type/capability descriptors | Build-time | Compiled finite tables in the router and `GameMcpEntityCapabilityMap`. |
+| Tool/resource schemas, protocol versions, operation classification, entity category/native-type/capability descriptors | Build-time | One `GameMcpToolCatalog` descriptor per tool and resource (tools/list schema and prose, binder, classification, frame data, validation, route), checked when the listener starts; `GameMcpEntityCapabilityMap`. |
 | Writable configuration metadata: section, key, setting type, description, accepted constraint/domain | Lifecycle-structural | Created once from bound BepInEx entries at perf-debug startup. No request enumerates settings or properties. |
 | Configuration values | Request-time | One existing immutable `ConfigurationPublication` pinned in the frame context. Each writable value is selected by the static typed mapping; no mutable `ConfigEntry` value is read and no caller generation is required. |
 | Requirement authoring: owner UUID/type/level, container/group/condition order, `AND`/`OR`, condition kind, requirement UUID/type, comparison/value selector, base requirement, per-level scaling, modifier-per-level scaling, prerequisite-link target and expanded tier/link order | Lifecycle-structural | `WorldEntityRequirementReader` and prerequisite-link structural readers traverse once per lifecycle. |
@@ -188,8 +188,8 @@ live state between captures; authored rows survive and live verdicts change.
 
 The listener and an empty inbox acquire no action-family lease. A claimed gameplay operation asks
 `AutomataActionFamilyOwnership.TryBeginGameMcpOperation` for only its mapped family, holds that scope
-around one `AutomataServiceCycleRuntime.ExecuteGameMcp` call, and releases it immediately. Runtime
-execution delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout,
+around one `GameMcpCommandDispatcher.ExecuteGameMcp` call, and releases it immediately. The
+dispatcher delegates to the same purchase, cast, concept, harvest, spell-level, discovery, loadout,
 crafting, equipment, research, challenge, prestige, targeting, or consumable GameAction used by
 features/tests. MCP capability registration is independent of whether an automation consumer is
 configured on. UUID category and expected native type come from the one

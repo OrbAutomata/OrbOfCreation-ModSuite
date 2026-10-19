@@ -374,25 +374,11 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal(99, System.Text.Encoding.UTF8.GetByteCount(
             list.ToString(Newtonsoft.Json.Formatting.None)));
 
-        var reportNames = GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
         var searchState = GameMcpAcceptanceFixture.Snapshot(
             GameMcpAcceptanceFixture.SpellWorld(4, 30) with
             {
-                CollectionCategories =
-                    PublicationTable<WorldCollectionCategoryStatus>.Create(reportNames),
+                CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                    GameMcpTestHarness.AllCategoriesCollected()),
             });
         var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
             searchState,
@@ -594,7 +580,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.NotNull(properties["category"]);
         Assert.Null(properties["id"]);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var invalid = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -643,7 +629,7 @@ public sealed class GameMcpProtocolSurfaceTests
                 "Automata Emergency Disable is active."),
             lifecycleGeneration: 9);
 
-        var compact = Plugin.ProjectGameMcpHealthText(
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { concept, stopped }));
 
         Assert.Contains(
@@ -666,7 +652,7 @@ public sealed class GameMcpProtocolSurfaceTests
                 "The experience grant left Mentor experience unchanged."),
             lifecycleGeneration: 9);
 
-        var compact = Plugin.ProjectGameMcpHealthText(
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { mentor }));
 
         Assert.Contains(
@@ -695,7 +681,7 @@ public sealed class GameMcpProtocolSurfaceTests
             new FeatureStatusReason(FeatureStatusReasonCode.None, string.Empty),
             lifecycleGeneration: 9);
         var context = GameMcpTestHarness.Context(features: new[] { feature, mentor });
-        var compact = Plugin.ProjectGameMcpHealthText(context);
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(context);
         Assert.StartsWith("available\n", compact, StringComparison.Ordinal);
         // The fingerprint answers "same DLL or not", which twelve hex characters settle as well as
         // sixty-four did — and this is a line every health call pays for.
@@ -728,7 +714,7 @@ public sealed class GameMcpProtocolSurfaceTests
             traceWriterRevision: 0,
             writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
             modalDismissAvailable: true);
-        var withoutRuntime = Plugin.ProjectGameMcpHealthText(modalAvailable);
+        var withoutRuntime = GameMcpHealthProjection.ProjectGameMcpHealthText(modalAvailable);
         // Health names exceptions, the way it already does for features and services. A capability
         // that works is covered by the leading verdict, so it costs no line at all.
         Assert.DoesNotContain("game_modal", withoutRuntime, StringComparison.Ordinal);
@@ -738,7 +724,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.DoesNotContain("agent settings", withoutRuntime, StringComparison.Ordinal);
         Assert.Contains(
             "agent settings: Research Queue Mode did not stay on after the setting was written",
-            Plugin.ProjectGameMcpHealthText(new GameMcpFrameContext(
+            GameMcpHealthProjection.ProjectGameMcpHealthText(new GameMcpFrameContext(
                 world: null,
                 runtime: null,
                 configuration: context.Configuration,
@@ -765,7 +751,7 @@ public sealed class GameMcpProtocolSurfaceTests
             StringComparison.Ordinal);
         // A collected world always carries the moment it was read; health answers published exactly
         // when the world readers do, so the fixture has to be a world they would serve.
-        var withWorld = Plugin.ProjectGameMcpHealthText(
+        var withWorld = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
                 new GameWorldState
                 {
@@ -788,7 +774,7 @@ public sealed class GameMcpProtocolSurfaceTests
             candidate => (string?)candidate["name"] == "suite_health");
         Assert.Empty((JObject)tool["inputSchema"]!["properties"]!);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var rejected = router.Handle(GameMcpAcceptanceFixture.Request(
             99,
             "tools/call",
@@ -803,23 +789,23 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     /// <summary>
-    /// Auto Buy switching itself off read only "configuration_disabled (invariant_violation):
-    /// auto_buy", and the overnight purchases it stopped were noticed by accident. The sentence the
-    /// stand-down logged names the candidate, the refusal and the bundle, so health carries it.
+    /// An Auto Buy invariant trip read only "faulted (invariant_violation): auto_buy" would leave the
+    /// player guessing which purchase the game would not take. The sentence the latch logged names
+    /// the candidate, the refusal and the bundle, so health carries it.
     /// </summary>
     [Fact]
-    public void HealthSaysWhyAFeatureSwitchedItselfOff()
+    public void HealthSaysWhyAFeatureHoldsOffForTheLifecycle()
     {
         const string summary =
             "Auto Buy planned a purchase the game would not take (Upgrade Improved Brewing " +
-            "[ImprovedBrewing] (3357c64a-f19b-4a03-8819-c1622081dd7b)): refused by IsAvailable(). " +
-            "Diagnostic bundle: trace/diagnostics/autobuy-refusal-20261017-063254172.txt. " +
-            "Auto Buy disabled itself; re-enable in Mod Config after reviewing.";
+            "[ImprovedBrewing] (3357c64a-f19b-4a03-8819-c1622081dd7b)): refused by an unreadable " +
+            "admission term. Diagnostic bundle: trace/diagnostics/autobuy-refusal-20261017-063254172.txt. " +
+            "Auto Buy holds off until the next load, reset or prestige checks the game again.";
         var autoBuy = new FeatureStatusSnapshot(
             new FeatureStatusKey(PluginIds.SuiteGuid, "AutoBuy"),
             "Auto Buy",
-            configuredEnabled: false,
-            FeatureStatusState.ConfigurationDisabled,
+            configuredEnabled: true,
+            FeatureStatusState.Faulted,
             new FeatureStatusReason(FeatureStatusReasonCode.InvariantViolation, summary),
             lifecycleGeneration: 9);
         var autoHarvest = new FeatureStatusSnapshot(
@@ -830,12 +816,12 @@ public sealed class GameMcpProtocolSurfaceTests
             new FeatureStatusReason(FeatureStatusReasonCode.ConfigurationDisabled, "disabled"),
             lifecycleGeneration: 9);
 
-        var health = Plugin.ProjectGameMcpHealthText(
+        var health = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { autoBuy, autoHarvest }));
 
         Assert.Matches(
             @"(?m)^features configuration_disabled: auto_harvest; " +
-            @"configuration_disabled \(invariant_violation\): auto_buy$",
+            @"faulted \(invariant_violation\): auto_buy$",
             health);
         Assert.Contains("\nauto_buy reason: " + summary, health, StringComparison.Ordinal);
         Assert.DoesNotContain("auto_harvest reason", health, StringComparison.Ordinal);
@@ -940,7 +926,7 @@ public sealed class GameMcpConfigurationTests
 
         var pinned = configuration.Current;
         configuration.AutoCastMode.Value = AutoCastOperationMode.Active;
-        var result = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var result = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 configurationGeneration: 12,
                 writable: schema,
@@ -978,7 +964,7 @@ public sealed class GameMcpConfigurationTests
                 descriptor => descriptor.Section == feature.Section &&
                     descriptor.Key == feature.Key));
 
-        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var listed = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 writable: schema,
                 configuration: configuration.Current),
@@ -1043,7 +1029,7 @@ public sealed class GameMcpConfigurationTests
                 GameMcpConfigurationSchema.SerializePublishedValue(
                     configuration.Current, "Mentor", "Mode")));
 
-        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var listed = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 writable: schema,
                 configuration: configuration.Current),
@@ -1175,7 +1161,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void The_section_narrows_the_described_answer_as_well()
     {
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(),
             describe: true,
             section: "Reserves"));
@@ -1195,7 +1181,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void An_unknown_section_is_refused_by_naming_the_real_ones()
     {
-        var refusal = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var refusal = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(),
             describe: false,
             section: "autobuy_settings"));
@@ -1269,7 +1255,7 @@ public sealed class GameMcpConfigurationTests
             GameMcpAcceptanceFixture.CallText(
                 "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context));
 
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             context, describe: true, section: "AutoBuy"));
         Assert.Equal(
             "yes",
@@ -1463,7 +1449,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void Every_setting_names_its_type_in_one_player_facing_vocabulary()
     {
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(), describe: true));
 
         Assert.Equal(
@@ -1622,8 +1608,7 @@ public sealed class GameMcpEmergencyStopTests
         var stop = operations.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "suite_emergency_stop",
-            Classification = GameMcpOperationClass.SuiteAdministration,
-            RequiredData = GameMcpFrameData.Configuration,
+            Route = GameMcpTestHarness.Route("suite_emergency_stop"),
             Mode = "engage",
         }.Freeze());
         var after = GameMcpAcceptanceFixture.SubmitHarvest(operations);
@@ -1662,7 +1647,7 @@ internal static class GameMcpAcceptanceFixture
 
     internal static IReadOnlyList<JObject> Tools()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(Request(1, "tools/list", new JObject()));
         return response.Body!["result"]!["tools"]!.Values<JObject>().OfType<JObject>().ToArray();
     }
@@ -1680,7 +1665,7 @@ internal static class GameMcpAcceptanceFixture
         GameMcpFrameContext? context = null)
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var pinned = context ?? GameMcpTestHarness.Context();
         var response = GameMcpTestHarness.Handle(router, inbox, Request(
             1,
@@ -1777,8 +1762,7 @@ internal static class GameMcpAcceptanceFixture
         operations.Submit(new GameMcpOperationRequestBuilder
         {
             ToolName = "game_agromancy",
-            Classification = GameMcpOperationClass.Gameplay,
-            RequiredData = GameMcpFrameData.World | GameMcpFrameData.Configuration,
+            Route = GameMcpTestHarness.Route("game_agromancy"),
             Uuid = KnownEntities.FruitTreePlot.Uuid,
             SecondaryUuid = KnownEntities.FruitTreeCollect.Uuid,
             Mode = "add",

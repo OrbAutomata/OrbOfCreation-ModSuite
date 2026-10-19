@@ -115,8 +115,8 @@ public sealed class GameMcpSearchTests
                 .OrderBy(handle => handle, StringComparer.Ordinal)
                 .ToArray());
 
-        var refused = Json(GameMcpWorldQuery.Search(
-            Context(), "alchemy", 0, 50, string.Empty, "purchasable"));
+        var refused = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), "alchemy", 0, 50, string.Empty, "purchasable"), Catalog);
         Assert.Equal("unavailable", (string?)refused["status"]);
         Assert.Equal("ERR_INPUT", (string?)refused["reasonCode"]);
         Assert.Equal(
@@ -187,14 +187,14 @@ public sealed class GameMcpSearchTests
                 .Select(row => (string?)row["uuid"])
                 .ToArray());
 
-        var composite = Json(GameMcpWorldQuery.Search(
-            Context(), "alchemy", 0, 50, "targeting"));
+        var composite = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), "alchemy", 0, 50, "targeting"), Catalog);
         Assert.Equal("unavailable", (string?)composite["status"]);
         Assert.Equal("ERR_INPUT", (string?)composite["reasonCode"]);
         Assert.Contains("read it with world_list", (string?)composite["reason"]);
 
-        var unknown = Json(GameMcpWorldQuery.Search(
-            Context(), "alchemy", 0, 50, "no-such-category"));
+        var unknown = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), "alchemy", 0, 50, "no-such-category"), Catalog);
         Assert.Equal("ERR_INPUT", (string?)unknown["reasonCode"]);
         Assert.Contains("unknown category", (string?)unknown["reason"]);
     }
@@ -208,8 +208,8 @@ public sealed class GameMcpSearchTests
     [Fact]
     public void A_call_that_names_only_a_filter_asks_a_whole_question()
     {
-        var locked = Json(GameMcpWorldQuery.Search(
-            Context(), string.Empty, 0, 50, string.Empty, "locked"));
+        var locked = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, string.Empty, "locked"), Catalog);
 
         Assert.Equal(
             new[] { "80a000", "81b000", "82c000" },
@@ -224,7 +224,7 @@ public sealed class GameMcpSearchTests
 
         // Naming neither a query nor a filter is still not a question, and the refusal says what
         // would have made it one.
-        var nothing = Json(GameMcpWorldQuery.Search(Context(), string.Empty, 0, 50));
+        var nothing = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(Context(), string.Empty, 0, 50), Catalog);
         Assert.Equal("ERR_INPUT", (string?)nothing["reasonCode"]);
         Assert.Equal(
             "name something to search for: a query, or a category, state, run, discovered, " +
@@ -241,21 +241,21 @@ public sealed class GameMcpSearchTests
     {
         Assert.Equal(
             new[] { "83b000" },
-            Rows(Json(GameMcpWorldQuery.Search(
-                    Context(), string.Empty, 0, 50, string.Empty, string.Empty, "passed")))
+            Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+                    Context(), string.Empty, 0, 50, string.Empty, string.Empty, "passed"), Catalog))
                 .Select(row => (string?)row["uuid"])
                 .ToArray());
         Assert.Equal(
             new[] { "83a000" },
-            Rows(Json(GameMcpWorldQuery.Search(
-                    Context(), string.Empty, 0, 50, "challenges", string.Empty, "idle")))
+            Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+                    Context(), string.Empty, 0, 50, "challenges", string.Empty, "idle"), Catalog))
                 .Select(row => (string?)row["uuid"])
                 .ToArray());
 
         // One category publishes the column, so a call that narrows to another is told which one
         // rather than being handed an empty page to read as "there are none".
-        var elsewhere = Json(GameMcpWorldQuery.Search(
-            Context(), string.Empty, 0, 50, "upgrades", string.Empty, "idle"));
+        var elsewhere = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, "upgrades", string.Empty, "idle"), Catalog);
         Assert.Equal("ERR_INPUT", (string?)elsewhere["reasonCode"]);
         Assert.Equal(
             "run is a challenges column and no other category publishes one, so it cannot narrow " +
@@ -351,8 +351,8 @@ public sealed class GameMcpSearchTests
         Assert.Equal(5, whole["rows"]!.Count());
         Assert.Null(whole["nextOffset"]);
 
-        var paged = Json(GameMcpWorldQuery.Search(
-            Context(), "alchemy", 0, 2, string.Empty, string.Empty, limitFromCaller: true));
+        var paged = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), "alchemy", 0, 2, string.Empty, string.Empty, limitFromCaller: true), Catalog);
         Assert.Equal(2, paged["rows"]!.Count());
         Assert.Equal(2, (int?)paged["nextOffset"]);
         Assert.Equal(5, (int?)paged["total"]);
@@ -367,8 +367,8 @@ public sealed class GameMcpSearchTests
     [Fact]
     public void A_word_only_the_builds_machinery_answers_to_is_named_as_machinery()
     {
-        var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "animation", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+        var page = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Loaded(), "animation", 0, 50, string.Empty, string.Empty, limitFromCaller: false), Catalog);
 
         Assert.Empty(Rows(page));
         Assert.Equal(
@@ -384,8 +384,8 @@ public sealed class GameMcpSearchTests
     [Fact]
     public void A_word_nothing_in_the_build_answers_to_is_closed_rather_than_left_open()
     {
-        var page = Json(GameMcpWorldQuery.Search(
-            Loaded(), "thaumaturgy", 0, 50, string.Empty, string.Empty, limitFromCaller: false));
+        var page = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Loaded(), "thaumaturgy", 0, 50, string.Empty, string.Empty, limitFromCaller: false), Catalog);
 
         Assert.Empty(Rows(page));
         Assert.Equal(
@@ -402,8 +402,8 @@ public sealed class GameMcpSearchTests
     public void A_page_that_found_something_spends_nothing_on_the_signpost()
     {
         Assert.Null(Search("alchemy")["unprojected"]);
-        Assert.Null(Json(GameMcpWorldQuery.Search(
-            Context(), string.Empty, 0, 50, string.Empty, "locked"))["unprojected"]);
+        Assert.Null(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), string.Empty, 0, 50, string.Empty, "locked"), Catalog)["unprojected"]);
     }
 
     /// <summary>
@@ -432,7 +432,7 @@ public sealed class GameMcpSearchTests
                 new EntityIdentityName(Primary, "SpellTypeSO", "Primary", "primaryType"),
                 new EntityIdentityName(wordless, "ChallengeTypeSO", string.Empty, "wordlessType"),
             }),
-            EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(Sorted(
+            EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(GameMcpTestHarness.SortedByOwnerSourceAndOrdinal(
                 new WorldEntityKeyword(
                     owner, WorldKeywordOwnerKind.Structure,
                     WorldKeywordSource.PrimaryType, 0, Building),
@@ -477,11 +477,8 @@ public sealed class GameMcpSearchTests
         page["rows"]!.Values<JObject>().Select(row => row!).ToArray();
 
     private static JObject Search(string query, string category = "", string state = "") =>
-        Json(GameMcpWorldQuery.Search(
-            Context(), query, 0, 50, category, state, limitFromCaller: false));
-
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
+        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Context(), query, 0, 50, category, state, limitFromCaller: false), Catalog);
 
     private static readonly EntityIdentityCatalogSnapshot Catalog =
         EntityIdentityCatalogSnapshot.Bound(1, new[]
@@ -547,7 +544,7 @@ public sealed class GameMcpSearchTests
             {
                 Recipe(Concept, discovered: false),
             }),
-            EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(Sorted(
+            EntityKeywords = PublicationTable<WorldEntityKeyword>.Create(GameMcpTestHarness.SortedByOwnerSourceAndOrdinal(
                 Keyword(Lab, WorldKeywordSource.PrimaryType, 0, Building),
                 Keyword(Lab, WorldKeywordSource.TypeList, 0, Alchemical),
                 Keyword(Warded, WorldKeywordSource.PrimaryType, 0, Charm),
@@ -560,14 +557,12 @@ public sealed class GameMcpSearchTests
                 new WorldEntityKeyword(
                     Concept, WorldKeywordOwnerKind.AlchemyRecipe,
                     WorldKeywordSource.TypeList, 1, StructureFocus))),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 61,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(861));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     /// <summary>
@@ -585,14 +580,12 @@ public sealed class GameMcpSearchTests
                 new EntityIdentityName(Lab, "StructureSO", "Alchemy Lab", "alchemyLab"),
                 new EntityIdentityName(Failed, "AnimationSO", "Orb Pulse", "animationOrbPulse"),
             }),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 62,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(862));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
+        return GameMcpTestHarness.Context(world);
     }
 
     /// <summary>
@@ -619,35 +612,6 @@ public sealed class GameMcpSearchTests
         int ordinal,
         Guid keyword) =>
         new(owner, WorldKeywordOwnerKind.Structure, source, ordinal, keyword);
-
-    /// <summary>The publication order the deriver guarantees: owner, then source, then ordinal.</summary>
-    private static WorldEntityKeyword[] Sorted(params WorldEntityKeyword[] rows)
-    {
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            if (owner != 0) return owner;
-            var source = ((int)left.Source).CompareTo((int)right.Source);
-            return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return rows;
-    }
-
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "plot-node-actions", "concept-instances", "plot-authoring",
-                "crafting-recipe-state", "crafting-decisions", "consumable-inventory",
-                "loadouts", "harvest-elements", "harvest-actions", "plot-actions",
-                "action-queue-slots",
-                            // The three type rosters whose wire name is not their collector's name.
-                "harvest-types", "harvest-action-types", "consumable-families",
-                "attribute-group-members",
-})
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     /// <summary>
     /// One alchemy recipe on the gate every authored recipe of the pinned build carries, where
@@ -735,7 +699,7 @@ public sealed class GameMcpSearchTests
             canApplyBonusLevel: false,
             freeBonusLevels: 0,
             developmentCostAffordable: false,
-            developmentCosts: PublicationTable<WorldResearchCost>.Empty,
+            developmentCosts: PublicationTable<WorldResourceCost>.Empty,
             investment: PublicationTable<WorldResearchInvestment>.Empty,
             researchTypes: PublicationTable<WorldResearchTypeDecision>.Create(
                 types.Select(type => new WorldResearchTypeDecision(type, 0, 0, 0)).ToArray())));

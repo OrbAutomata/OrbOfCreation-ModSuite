@@ -18,16 +18,19 @@ internal sealed class AutoBuyServiceAdapterComposition
         IAutomataServiceDefinition<
             AutoBuyCycleState,
             AutoBuyCycleAction> definition,
-        AutoBuyCycleActionAdapter actions)
+        AutoBuyCycleActionAdapter actions,
+        AutoBuyInvariantLatch latch)
     {
         Definition = definition;
         Actions = actions;
+        Latch = latch;
     }
 
     internal IAutomataServiceDefinition<
         AutoBuyCycleState,
         AutoBuyCycleAction> Definition { get; }
     internal AutoBuyCycleActionAdapter Actions { get; }
+    internal AutoBuyInvariantLatch Latch { get; }
 
     internal static AutoBuyServiceAdapterComposition Create(
         AutoBuyFeatureDependencies dependencies
@@ -37,6 +40,11 @@ internal sealed class AutoBuyServiceAdapterComposition
         )
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
+        var latch = new AutoBuyInvariantLatch();
+        var refusals = new AutoBuyRefusalResponder(
+            latch,
+            dependencies.RefusalBundles,
+            dependencies.ReportInvariant);
 
 #if SERVICE_CYCLE_PROFILE
         var profileOperations = new AutomataProfileOperations(
@@ -47,7 +55,7 @@ internal sealed class AutoBuyServiceAdapterComposition
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnershipMask,
             profileOperations,
-            dependencies.RefusalResponse,
+            refusals,
             dependencies.GameMcpOwnership);
 #else
         var actions = new AutoBuyCycleActionAdapter(
@@ -55,8 +63,8 @@ internal sealed class AutoBuyServiceAdapterComposition
             new AutoBuyNativeQueueRoomAdapter(),
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnershipMask,
-            dependencies.RefusalResponse);
+            refusals);
 #endif
-        return new AutoBuyServiceAdapterComposition(AutoBuyService.Define(actions), actions);
+        return new AutoBuyServiceAdapterComposition(AutoBuyService.Define(actions, latch), actions, latch);
     }
 }

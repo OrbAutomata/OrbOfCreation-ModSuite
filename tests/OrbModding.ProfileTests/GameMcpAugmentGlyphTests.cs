@@ -263,7 +263,7 @@ public sealed class GameMcpAugmentGlyphTests
                 new WorldDiscoveryTree(
                     Guid.Parse("0d15c000-0000-4000-8000-000000000001"),
                     true, 2, BigDouble.Zero, 1, false, Guid.Empty,
-                    new[] { offered }, false, true, Array.Empty<WorldDiscoveryTreeCost>(),
+                    new[] { offered }, false, true, Array.Empty<WorldResourceCost>(),
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, true, true, false),
             }),
         });

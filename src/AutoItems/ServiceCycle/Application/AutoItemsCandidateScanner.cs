@@ -1,7 +1,9 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Execution;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata;
@@ -71,11 +73,18 @@ internal readonly struct AutoItemsCandidateScan
 
 internal static class AutoItemsCandidateScanner
 {
+    /// <summary>
+    /// Scans every captured consumable. A backed-off item waits until it is due; one the scan no
+    /// longer considers at all ends its backoff, so nothing waits on an item Auto Items will not use.
+    /// </summary>
     internal static AutoItemsCandidateScan Scan(
         GameWorldState world,
         in SuiteRuntimeConfiguration configuration,
         PublicationTable<Guid>? temporaryAllowlist,
-        PublicationTable<Guid> targetlessScrolls)
+        PublicationTable<Guid> targetlessScrolls,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
+        ServiceActionWriter<AutoItemsCycleAction> actions)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
 
@@ -102,43 +111,26 @@ internal static class AutoItemsCandidateScanner
                 ReadUsage(world, itemId, ref temporaryUsagePresent, ref temporaryUsagePending);
             }
 
+            var target = AutoItemsServicePolicies.RetryTarget(itemId);
             if (!profile.IsReady)
-            {
                 rejected++;
+            if (!profile.IsReady ||
+                !IsConsidered(world, in configuration, temporaryAllowlist, in profile, out var strongestLevel))
+            {
+                if (retryGate.TryFind(target, out _)) actions.EndRetry(target);
                 continue;
             }
+            if (!IsReadyNow(in profile) || retryGate.IsWaiting(target, decisionAt))
+                continue;
 
             if (AutoItemsConsumableFamilies.IsTemporary(profile.Family))
             {
-                if (!AutoItemsConfigurationPolicy.Allows(
-                        configuration.AutoItems,
-                        profile.Family,
-                        itemId,
-                        temporaryAllowlist) ||
-                    !IsBaseEligible(in profile) ||
-                    !HasSafeTemporaryShape(in profile) ||
-                    !HasCurrentToxicityHeadroom(in profile))
-                {
-                    continue;
-                }
-
                 eligibleTemporary++;
                 CaptureFirst(
                     ref firstTemporary,
                     in profile,
                     world.CollectedAtFrame,
                     world.CollectedAtEpoch);
-                continue;
-            }
-
-            if (!IsBaseEligible(in profile) ||
-                !HasCurrentToxicityHeadroom(in profile) ||
-                !AutoItemsConfigurationPolicy.Allows(
-                    configuration.AutoItems,
-                    profile.Family,
-                    itemId,
-                    temporaryAllowlist))
-            {
                 continue;
             }
 
@@ -150,16 +142,6 @@ internal static class AutoItemsCandidateScanner
                     in profile,
                     world.CollectedAtFrame,
                     world.CollectedAtEpoch);
-                continue;
-            }
-
-            if (profile.Family != AutoItemsConsumableFamily.Scroll ||
-                !profile.Consumable.CanBeRandomized ||
-                !WorldConsumableCountLookup.TryGetStrongestOwnedLevel(
-                    world.ConsumableCounts,
-                    itemId,
-                    out var strongestLevel))
-            {
                 continue;
             }
 
@@ -189,6 +171,35 @@ internal static class AutoItemsCandidateScanner
             in firstTargetlessScroll);
     }
 
+    /// <summary>Whether Auto Items would use this item at all: approved, visible, in stock and of a usable shape.</summary>
+    private static bool IsConsidered(
+        GameWorldState world,
+        in SuiteRuntimeConfiguration configuration,
+        PublicationTable<Guid>? temporaryAllowlist,
+        in AutoItemsConsumableProfile profile,
+        out int strongestLevel)
+    {
+        strongestLevel = 0;
+        if (!profile.Consumable.Visible ||
+            profile.Consumable.Quantity - profile.Consumable.QueuedQuantity <= 0 ||
+            !AutoItemsConfigurationPolicy.Allows(
+                configuration.AutoItems,
+                profile.Family,
+                profile.Consumable.ConsumableId,
+                temporaryAllowlist))
+            return false;
+        if (AutoItemsConsumableFamilies.IsTemporary(profile.Family))
+            return HasSafeTemporaryShape(in profile);
+        if (profile.Family == AutoItemsConsumableFamily.Relic)
+            return true;
+        return profile.Family == AutoItemsConsumableFamily.Scroll &&
+            profile.Consumable.CanBeRandomized &&
+            WorldConsumableCountLookup.TryGetStrongestOwnedLevel(
+                world.ConsumableCounts,
+                profile.Consumable.ConsumableId,
+                out strongestLevel);
+    }
+
     private static void ReadUsage(
         GameWorldState world,
         Guid itemId,
@@ -212,11 +223,10 @@ internal static class AutoItemsCandidateScanner
         }
     }
 
-    private static bool IsBaseEligible(in AutoItemsConsumableProfile profile) =>
-        profile.Consumable.Visible &&
-        profile.Consumable.Quantity - profile.Consumable.QueuedQuantity > 0 &&
+    private static bool IsReadyNow(in AutoItemsConsumableProfile profile) =>
         profile.Consumable.CurrentPrepTime.CompareTo(BigDouble.Zero) <= 0 &&
-        profile.Consumable.CurrentCooldown.CompareTo(BigDouble.Zero) <= 0;
+        profile.Consumable.CurrentCooldown.CompareTo(BigDouble.Zero) <= 0 &&
+        HasCurrentToxicityHeadroom(in profile);
 
     private static bool HasCurrentToxicityHeadroom(in AutoItemsConsumableProfile profile) =>
         profile.Toxicity.TrueQuantity.CompareTo(profile.ImmediateToxicityCost) >= 0;

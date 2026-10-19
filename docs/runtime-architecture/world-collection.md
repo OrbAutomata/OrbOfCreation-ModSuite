@@ -527,7 +527,8 @@ MCP reads use the latest publication, so at a slow pace they can be up to one in
 
 One file per category under `src/Common/Runtime/World/Categories/`, each holding that category's row
 struct and its binder. The machinery lives one directory up: `WorldCategoryMachinery.cs` (buffers,
-readers, derivers), `NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
+readers, derivers), `WorldFailures.cs` (the failure join and skip tally the readers share),
+`NativeAccessorBinder.cs` (member binding), `GameWorldCollector.cs` (the pass, and
 owner of the 63-reader array), `GameWorldStateDeriver.cs` (the four derived row kinds — resource,
 structure, upgrade, plot node). Derivation that reads more than one published table is assembled in
 `GameWorldCycleFrame.cs`, where such tables are built as locals before the snapshot is composed:
@@ -590,7 +591,7 @@ worth knowing:
   `ActionQueues` is walked like any other identity table, while `ActionQueueSlots` is keyed by queue and
   index and is exempt. Neither is reached by a registry walk — both queues resolve by uuid through the
   identity registry, which keeps the action-manager singleton out of the collector.
-- **Entity requirements.** `WorldEntityRequirement.cs` reads three programs. *Next level*: every
+- **Entity requirements.** `WorldEntityRequirementReader.cs` reads three programs. *Next level*: every
   upgrade's and structure's `prerequisitesPerLevel`, every research entry's `levelPrerequisites`, and
   every prerequisite-link tier, plus every Recipe Book's `prerequisites`. *Usage*: every Alchemy
   recipe's `usagePrerequisites`. *Unlock*, the containers the game asks through the no-argument

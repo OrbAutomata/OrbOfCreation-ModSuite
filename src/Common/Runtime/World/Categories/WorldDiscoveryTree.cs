@@ -23,7 +23,7 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
         Guid[] currentOfferIds,
         bool hasImmediateRequiredDiscovery,
         bool nextItemAffordable,
-        WorldDiscoveryTreeCost[] nextItemCosts,
+        WorldResourceCost[] nextItemCosts,
         Guid overrideRerollsId,
         Guid overrideChoicesId,
         int additionalDiscoveryChoices,
@@ -50,8 +50,8 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
         HasImmediateRequiredDiscovery = hasImmediateRequiredDiscovery;
         NextItemAffordable = nextItemAffordable;
         NextItemCosts = nextItemCosts is null || nextItemCosts.Length == 0
-            ? PublicationTable<WorldDiscoveryTreeCost>.Empty
-            : PublicationTable<WorldDiscoveryTreeCost>.Create(nextItemCosts);
+            ? PublicationTable<WorldResourceCost>.Empty
+            : PublicationTable<WorldResourceCost>.Create(nextItemCosts);
         OverrideRerollsId = overrideRerollsId;
         OverrideChoicesId = overrideChoicesId;
         AdditionalDiscoveryChoices = additionalDiscoveryChoices;
@@ -94,7 +94,7 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
 
     internal bool NextItemAffordable { get; }
 
-    internal PublicationTable<WorldDiscoveryTreeCost> NextItemCosts { get; }
+    internal PublicationTable<WorldResourceCost> NextItemCosts { get; }
 
     /// <summary>
     /// The variables that override the reroll and choice counts, when the tree is configured to use
@@ -133,20 +133,6 @@ internal readonly struct WorldDiscoveryTree : IWorldEntity
     internal bool HasRemainingDiscovery { get; }
 
     internal bool HasCompletedAllDiscoveries { get; }
-}
-
-internal readonly struct WorldDiscoveryTreeCost
-{
-    internal WorldDiscoveryTreeCost(Guid resourceId, BigDouble amount, BigDouble availableAmount)
-    {
-        ResourceId = resourceId;
-        Amount = amount;
-        AvailableAmount = availableAmount;
-    }
-
-    internal Guid ResourceId { get; }
-    internal BigDouble Amount { get; }
-    internal BigDouble AvailableAmount { get; }
 }
 
 internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscoveryTree>
@@ -247,7 +233,7 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         _hasRequiredDiscovery = bind.Field<bool>("hasRequiredDiscovery");
         _hasRemainingDiscovery = bind.Field<bool>("hasRemainingDiscovery");
         _hasCompletedAllDiscoveries = bind.Field<bool>("hasCompletedAllDiscoveries");
-        return JoinFailures(bind.Failure, cost.Failure, tuple.Failure, resource.Failure);
+        return WorldFailures.Join(bind.Failure, cost.Failure, tuple.Failure, resource.Failure);
     }
 
     internal override WorldDiscoveryTree Read(object entity)
@@ -255,7 +241,7 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         var mode = _actionMode!(entity);
         var immediateRequired = _hasImmediateRequired!(entity);
         var offers = mode == 2 ? ReadOffers(entity) : Array.Empty<Guid>();
-        var costs = Array.Empty<WorldDiscoveryTreeCost>();
+        var costs = Array.Empty<WorldResourceCost>();
         var affordable = false;
         if (mode == 0 && (_hasRemainingDiscovery!(entity) || immediateRequired))
         {
@@ -316,11 +302,11 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
         return result;
     }
 
-    private WorldDiscoveryTreeCost[] ReadCosts(object cost)
+    private WorldResourceCost[] ReadCosts(object cost)
     {
         var entries = _costEntries!(cost) ??
             throw new InvalidOperationException("ResourceCostList.GetEntries returned no list");
-        var result = new WorldDiscoveryTreeCost[entries.Count];
+        var result = new WorldResourceCost[entries.Count];
         for (var index = 0; index < entries.Count; index++)
         {
             var tuple = entries[index] ??
@@ -330,21 +316,10 @@ internal sealed class WorldDiscoveryTreeBinder : WorldPlainBinder<WorldDiscovery
             var resourceId = _resourceGuid!(resource);
             if (resourceId == Guid.Empty)
                 throw new InvalidOperationException("ResourceTuple.resource had no stable UUID");
-            result[index] = new WorldDiscoveryTreeCost(
+            result[index] = new WorldResourceCost(
                 resourceId,
                 _costValue!(tuple),
                 _resourceQuantity!(resource));
-        }
-        return result;
-    }
-
-    private static string JoinFailures(params string[] failures)
-    {
-        var result = string.Empty;
-        for (var index = 0; index < failures.Length; index++)
-        {
-            if (string.IsNullOrWhiteSpace(failures[index])) continue;
-            result = result.Length == 0 ? failures[index] : result + "; " + failures[index];
         }
         return result;
     }

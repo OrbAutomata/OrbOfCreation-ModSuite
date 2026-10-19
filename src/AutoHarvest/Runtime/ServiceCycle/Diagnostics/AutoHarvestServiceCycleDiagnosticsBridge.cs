@@ -12,10 +12,8 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
     internal const string ImplementationName = "ServiceCycle";
 
     private readonly AutomataFeatureStatusReporter _featureStatus;
-    // Sized for the Automata host's registered services so the ordinary frame copies nothing extra and
-    // allocates nothing; a host that grows past it resizes once and carries on.
-    private ServiceCycleServiceDiagnosticsSnapshot[] _services = new ServiceCycleServiceDiagnosticsSnapshot[4];
     private readonly AutoHarvestRuntimeDiagnosticsPublisher? _runtime;
+    private readonly ServiceRetryEpisodeNarrator _retries;
     private AutoHarvestPairHealth _fruit;
     private AutoHarvestPairHealth _treasure;
     private long _lifecycle;
@@ -29,9 +27,14 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         ConfigGeneration configurationGeneration,
         bool ownsActionFamily,
         RuntimeDiagnosticsRegistry? runtimeDiagnostics,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string>? warn = null)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _retries = new ServiceRetryEpisodeNarrator(
+            "Auto Harvest",
+            warn ?? AutoHarvestFeatureDependencies.LogWarning,
+            AutoHarvestServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _ownsActionFamily = ownsActionFamily;
@@ -58,18 +61,24 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
             _ownsActionFamily != ownsActionFamily;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _ownsActionFamily = ownsActionFamily;
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ReadService(pump)
+            : null;
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0) _projectionRefreshPending = true;
         if (!_projectionRefreshPending)
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
         }
-        if (!TryReadLatestProjection(pump, out var projection))
+        service ??= ReadService(pump);
+        if (service is not { LatestProjection.IsPresent: true })
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
         }
         _projectionRefreshPending = false;
+        var projection = service.Value.LatestProjection.Snapshot;
         if (!AutoHarvestServiceProjection.TryReadFruitHealth(in projection, out var fruit) ||
             !AutoHarvestServiceProjection.TryReadTreasureHealth(in projection, out var treasure))
         {
@@ -97,6 +106,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         _configurationGeneration = configurationGeneration;
         _ownsActionFamily = ownsActionFamily;
         _projectionRefreshPending = false;
+        _retries.InvalidateLifecycle();
         InitialHealth(_featureStatus.Current.ConfiguredEnabled, out _fruit, out _treasure);
         _runtime?.PublishState(lifecycle, _fruit, _treasure);
         PublishFeatureStatus();
@@ -113,41 +123,15 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
 
     public void Dispose() => _runtime?.Dispose();
 
-    /// <summary>
-    /// The latest projection Auto Harvest's own service published, if it has published one.
-    /// </summary>
-    /// <remarks>
-    /// By service identity, and against a destination big enough to hold every registered service.
-    /// This used to copy into one slot and read ordinal zero, which is two mistakes that hid each
-    /// other: the copy was never complete once the host held more than one service, so the read never
-    /// happened — and had it happened it would have read the world collection service, which registers
-    /// first and knows nothing about harvest pairs. The health line sat on its seeded value for the
-    /// whole session, telling players a running feature was still waiting for native evidence.
-    /// </remarks>
-    private bool TryReadLatestProjection(
-        SuiteFramePump pump,
-        out ServiceStateProjectionSnapshot projection)
-    {
-        var copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        if (copy.RequiredCount > _services.Length)
-        {
-            _services = new ServiceCycleServiceDiagnosticsSnapshot[copy.RequiredCount];
-            copy = ServiceCycleDiagnostics.CopyServices(pump, _services);
-        }
-        for (var index = 0; index < copy.WrittenCount; index++)
-        {
-            if (!_services[index].ServiceId.Equals(AutoHarvestServicePolicies.ServiceId)) continue;
-            if (!_services[index].LatestProjection.IsPresent) break;
-            projection = _services[index].LatestProjection.Snapshot;
-            return true;
-        }
-        projection = default;
-        return false;
-    }
+    private static ServiceCycleServiceDiagnosticsSnapshot? ReadService(SuiteFramePump pump) =>
+        ServiceCycleDiagnostics.ReadAvailableService(pump, AutoHarvestServicePolicies.ServiceId);
 
     private void PublishFeatureStatus()
     {
-        var health = AutoHarvestFeatureStatusProjector.Project(_fruit, _treasure);
+        var health = AutoHarvestFeatureStatusProjector.Project(
+            _fruit,
+            _treasure,
+            _retries.TryGetBackingOff(out var retry) ? retry : null);
         if (health.State != FeatureStatusState.ConfigurationDisabled && _emergencyDisabled)
         {
             _featureStatus.ObserveRuntimeLifecycle(

@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
@@ -8,10 +9,11 @@ using OrbModding.Common.Runtime.World;
 namespace OrbAutomata;
 
 /// <summary>
-/// The pure Spell Leveling worker policy: given the pinned world and the pinned configuration it
-/// plans at most one mastery-level purchase and waits for the next publication. It owns no state
-/// between cycles — no capability latch, no retry counter, no backoff — because a fresh world every
-/// generation is the only input it has ever needed.
+/// The pure Spell Leveling worker policy: given the pinned world, the pinned configuration and the
+/// runner's retry gate it plans at most one mastery-level purchase and waits for the next
+/// publication. It owns no state between cycles. While the level-all batch backs off on the gate,
+/// spells are levelled one at a time, and a spell still backing off is passed over until its retry
+/// is due.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,9 +35,12 @@ internal static class SpellLevelCycleEvaluator
     public static WakePolicy Evaluate(
         GameWorldState world,
         in SuiteRuntimeConfiguration config,
+        ServiceRetryGateSnapshot retryGate,
+        MonotonicTimestamp decisionAt,
         ServiceActionWriter<SpellLevelCycleAction> actions,
         out SpellLevelDecisionMetrics metrics)
     {
+        if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
         var spells = world.SpellRecipes;
         metrics = new SpellLevelDecisionMetrics(
@@ -49,10 +54,13 @@ internal static class SpellLevelCycleEvaluator
         if (!SpellLevelConfigurationPolicy.IsOperational(config)) return wake;
 
         var capability = ReadCapability(world);
+        var levelAll = capability == AutoSpellLevelCapability.All &&
+            !retryGate.IsWaiting(SpellLevelServicePolicies.LevelAllRetryTarget, decisionAt);
 
         var undiscovered = 0;
         var notReady = 0;
         var unaffordable = 0;
+        var backingOff = 0;
         var ready = 0;
         var affordableReady = 0;
         var chosen = default(WorldSpellRecipe);
@@ -81,6 +89,13 @@ internal static class SpellLevelCycleEvaluator
                 continue;
             }
 
+            if (!levelAll &&
+                retryGate.IsWaiting(SpellLevelServicePolicies.RetryTarget(spell.SpellRecipeId), decisionAt))
+            {
+                backingOff++;
+                continue;
+            }
+
             affordableReady++;
             if (!hasChoice || Outranks(in spell, in chosen))
             {
@@ -93,7 +108,8 @@ internal static class SpellLevelCycleEvaluator
             undiscovered,
             notReady,
             unaffordable,
-            outranked: affordableReady == 0 ? 0 : affordableReady - 1);
+            outranked: affordableReady == 0 ? 0 : affordableReady - 1,
+            backingOff);
 
         if (!hasChoice)
         {
@@ -103,15 +119,13 @@ internal static class SpellLevelCycleEvaluator
         }
 
         // One action per cycle, either way. `All` is not "one action per ready spell": the native
-        // batch levels every ready spell in a single call, and the identity it carries is only what
-        // the mutation evidence is filed under.
-        var kind = capability == AutoSpellLevelCapability.All
-            ? SpellLevelActionKind.All
-            : SpellLevelActionKind.Single;
-        actions.Add(new SpellLevelCycleAction(
-            kind,
-            chosen.SpellRecipeId,
-            world.CollectedAtEpoch));
+        // batch levels every ready spell in a single call, so it names its own upgrade and covers
+        // spells whose single level is backing off.
+        actions.Add(levelAll
+            ? new SpellLevelCycleAction(
+                SpellLevelActionKind.All, KnownEntities.UnlockLevelAllSpells.Uuid, world.CollectedAtEpoch)
+            : new SpellLevelCycleAction(
+                SpellLevelActionKind.Single, chosen.SpellRecipeId, world.CollectedAtEpoch));
 
         metrics = new SpellLevelDecisionMetrics(
             spells.Count, ready, plannedActions: 1, capability, in histogram);

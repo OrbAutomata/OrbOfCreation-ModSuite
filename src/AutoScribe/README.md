@@ -13,9 +13,10 @@ Published `ActiveScribeInstances` occupancy is normal backpressure: a full queue
 waits for another world publication. The GameAction still revalidates live room immediately before
 payment so a queue race is an ordinary refusal, not a feature fault. Action-family contention is
 also publication-level backpressure: the service does not start a worker or schedule an action
-until it owns `CraftingQueueSubmission`. A post-payment or verification quarantine is dead for the
-current lifecycle: later publications do not start another worker or grow fault backoff, and
-lifecycle replacement clears the quarantine before planning can resume.
+until it owns `CraftingQueueSubmission`. A craft the game charged for without admitting work backs
+that recipe off on the service's retry gate: the planner passes over it for one minute, then two,
+doubling to a cap of thirty minutes, while every other role keeps being planned. The episode ends
+when that recipe's craft lands or the lifecycle is replaced; nothing else ends it early.
 
 Selection uses stable semantic roles and an audited cost rank as a fair rotating order:
 Advancement, Power, Learning, Excellence, Development, then Echoing. The cursor survives across
@@ -59,12 +60,17 @@ The action verifies one outcome: either the newly constructed exact instance ent
 queue or that exact instance reached native completion on the instant path. It does not read
 resource balances, Scroll ledgers, reconstruct payment deltas, or assemble a receipt. After a native
 exception it rereads that same sentinel; an observable outcome commits, while an absent transition
-faults and quarantines this GameAction until lifecycle replacement. Ordinary pre-payment refusals
-and readiness/ownership contention remain quiet. Contract and relationship contradictions,
-wrong-thread execution, post-payment ambiguity, and failed verification enter action health and
-warning logs. A warning is emitted when that failure state is entered or changes; a persistent
-quarantine does not warn again on each publication. Nothing attempts rollback of game-owned
-irreversible effects.
+is a post-payment fault. An unexpected exception after payment gets the same reread and is written
+whole to the suite log; without an observable outcome it is the same fault, under the log reference
+its reason ends with. One before payment still escapes. A post-payment fault or failed verification
+names the recipe, the stage and what was paid; a price that will not read back is written into the
+same log entry. It warns from the first failure, and keeps the feature Degraded, naming the recipe
+and its attempts, while that recipe is backing off. Ordinary pre-payment refusals and
+readiness/ownership contention remain quiet. Contract and relationship contradictions and
+wrong-thread execution enter action health and warning logs; a warning is emitted when that failure
+state is entered or changes. A change is a new code or sentence: every attempt logs its cause under
+a fresh reference, and a fresh reference alone changes nothing. Nothing attempts rollback of
+game-owned irreversible effects.
 
 Live identity resolution preserves the registry's retryability verdict. `RegistryNotReady`,
 `NotFound`, and `StaleGeneration` wait quietly for another publication; `WrongType`,

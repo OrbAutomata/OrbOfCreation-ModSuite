@@ -111,9 +111,9 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in actionFact,
                 in attribution,
                 attributionFailureReason,
+                in result,
                 in pendingRecovery,
-                observedAt,
-                result.Disposition == ServiceActionDisposition.Committed)
+                observedAt)
             : _outcomes.Terminate(
                 in actionFact,
                 in attribution,
@@ -138,13 +138,17 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in action,
                 in snapshot,
                 in context);
-            if (result.IsValid) return result;
-            failureReason = "the service returned an invalid action result";
+            if (!result.IsValid)
+                failureReason = "the service returned an invalid action result";
+            else if (!_runtime.State.RetryGate.Allows(result.TargetInitialBackoff, result.TargetBackoffCap))
+                failureReason = "the service set a target's backoff below its initial fault backoff";
+            else
+                return result;
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            failureReason = RootMessage(exception);
+            failureReason = Logged("the action threw before it reported an outcome.", exception);
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
         }
     }
@@ -166,17 +170,12 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            failureReason = RootMessage(exception);
+            failureReason = Logged("describing the action threw.", exception);
             return ServiceActionJournalAttribution.Failed;
         }
     }
 
-    private static string RootMessage(Exception exception)
-    {
-        var root = exception.GetBaseException();
-        return string.IsNullOrWhiteSpace(root.Message)
-            ? root.GetType().FullName ?? root.GetType().Name
-            : root.Message;
-    }
+    private string Logged(string sentence, Exception exception) =>
+        GameActionFaultLog.Reason(sentence, exception, _runtime.Definition.ServiceId.Value).Text;
 
 }

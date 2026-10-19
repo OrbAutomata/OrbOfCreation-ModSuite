@@ -4,7 +4,7 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 /// <summary>The compact, stable wire identity of an exact native action target.</summary>
 /// <remarks>
-/// This is an append-only schema-3 roster. Existing numeric values are never reused or renumbered.
+/// This is an append-only journal roster. Existing numeric values are never reused or renumbered.
 /// </remarks>
 public enum ServiceActionNativeTypeId : ushort
 {
@@ -38,7 +38,8 @@ public readonly struct ServiceActionJournalAttribution
         ServiceActionNativeTypeId nativeType,
         Guid listId,
         Guid viewId,
-        ServiceActionRouteStatus routeStatus)
+        ServiceActionRouteStatus routeStatus,
+        byte actionKind = 0)
     {
         if (nativeType is < ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.EquipmentSO)
             throw new ArgumentOutOfRangeException(nameof(nativeType));
@@ -63,11 +64,14 @@ public readonly struct ServiceActionJournalAttribution
         if (candidateId != Guid.Empty && routeStatus == ServiceActionRouteStatus.AttributionFailed)
             throw new ArgumentException(
                 "An attribution failure cannot claim a native candidate.", nameof(routeStatus));
+        if (candidateId == Guid.Empty && actionKind != 0)
+            throw new ArgumentException("Only a native candidate carries an action kind.", nameof(actionKind));
         CandidateId = candidateId;
         NativeType = nativeType;
         ListId = listId;
         ViewId = viewId;
         RouteStatus = routeStatus;
+        ActionKind = actionKind;
     }
 
     public Guid CandidateId { get; }
@@ -75,6 +79,13 @@ public readonly struct ServiceActionJournalAttribution
     public Guid ListId { get; }
     public Guid ViewId { get; }
     public ServiceActionRouteStatus RouteStatus { get; }
+
+    /// <summary>
+    /// Which of the service's actions on the candidate this is, when one candidate takes several
+    /// that fail apart; zero for a service whose candidate takes one.
+    /// </summary>
+    public byte ActionKind { get; }
+
     public bool IsValid =>
         NativeType is >= ServiceActionNativeTypeId.NotApplicable and <= ServiceActionNativeTypeId.EquipmentSO &&
         RouteStatus is >= ServiceActionRouteStatus.NotApplicable and <= ServiceActionRouteStatus.AttributionFailed &&
@@ -84,12 +95,14 @@ public readonly struct ServiceActionJournalAttribution
             : ListId == Guid.Empty && ViewId == Guid.Empty) &&
         (CandidateId != Guid.Empty || RouteStatus is
             ServiceActionRouteStatus.NotApplicable or ServiceActionRouteStatus.AttributionFailed) &&
-        (CandidateId == Guid.Empty || RouteStatus != ServiceActionRouteStatus.AttributionFailed);
+        (CandidateId == Guid.Empty || RouteStatus != ServiceActionRouteStatus.AttributionFailed) &&
+        (CandidateId != Guid.Empty || ActionKind == 0);
 
     public static ServiceActionJournalAttribution Native(
         Guid candidateId,
-        ServiceActionNativeTypeId nativeType) =>
-        new(candidateId, nativeType, Guid.Empty, Guid.Empty, ServiceActionRouteStatus.NotApplicable);
+        ServiceActionNativeTypeId nativeType,
+        byte actionKind = 0) =>
+        new(candidateId, nativeType, Guid.Empty, Guid.Empty, ServiceActionRouteStatus.NotApplicable, actionKind);
 
     public static ServiceActionJournalAttribution Routed(
         Guid candidateId,

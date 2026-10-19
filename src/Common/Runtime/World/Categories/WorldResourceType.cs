@@ -84,7 +84,7 @@ internal sealed class WorldResourceTypeBinder : WorldPlainBinder<WorldResourceTy
         _ignoreEffects = bind.Field<bool>("ignoreEffects");
         _auditHasMaxQuantity = bind.Field<bool>("auditHasMaxQuantity");
         _levelDecision = new WorldLevelableDecisionBinding(type, true, _resolveType);
-        return Join(bind.Failure, _levelDecision.Failure);
+        return WorldFailures.Join(bind.Failure, _levelDecision.Failure);
     }
 
     internal override WorldResourceType Read(object entity) =>
@@ -97,7 +97,4 @@ internal sealed class WorldResourceTypeBinder : WorldPlainBinder<WorldResourceTy
             _ignoreEffects!(entity),
             _auditHasMaxQuantity!(entity),
             _levelDecision!.Read(entity));
-
-    private static string Join(string left, string right) =>
-        left.Length == 0 ? right : right.Length == 0 ? left : left + "; " + right;
 }

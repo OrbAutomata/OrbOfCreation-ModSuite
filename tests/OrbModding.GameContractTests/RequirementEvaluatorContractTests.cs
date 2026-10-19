@@ -1,5 +1,6 @@
 using System.Linq;
 using Xunit;
+using static OrbModding.GameContractTests.MethodBodyReferences;
 
 namespace OrbModding.GameContractTests;
 
@@ -29,8 +30,7 @@ public sealed class RequirementEvaluatorContractTests
             new[] { "IsAvailable", "IsVisible" },
             gate => Assert.Equal(
                 new[] { "ConsumableSO.visible" },
-                assembly.GetMethodBodyDefinitionReferences("ConsumableSO", gate)
-                    .Concat(assembly.GetMethodBodyMemberReferences("ConsumableSO", gate))
+                References(assembly, "ConsumableSO", gate)
                     .Select(reference => reference.DeclaringType + "." + reference.MemberName)
                     .ToArray()));
     }
@@ -100,8 +100,7 @@ public sealed class RequirementEvaluatorContractTests
 
         Assert.Equal(
             new[] { "ResourceSO.visible" },
-            assembly.GetMethodBodyDefinitionReferences("ResourceSO", "IsVisible")
-                .Concat(assembly.GetMethodBodyMemberReferences("ResourceSO", "IsVisible"))
+            References(assembly, "ResourceSO", "IsVisible")
                 .Select(reference => reference.DeclaringType + "." + reference.MemberName)
                 .ToArray());
         Assert.True(assembly.MethodReferencesField(

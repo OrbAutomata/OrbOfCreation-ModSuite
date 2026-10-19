@@ -9,6 +9,7 @@ using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
+using static OrbModding.ProfileTests.GameMcpTestHarness;
 
 namespace OrbModding.ProfileTests;
 
@@ -42,7 +43,7 @@ public sealed class GameMcpCraftingTests
         Assert.Equal(1, (int)amount[0]!["minimum"]!);
         Assert.Null(amount[0]!["maximum"]);
         Assert.Equal(new[] { "max" }, amount[1]!["enum"]!.Values<string>());
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject
             {
@@ -57,7 +58,7 @@ public sealed class GameMcpCraftingTests
     public void ValidationNamesMissingUuidAndRejectsRemovedGenerationMetadata()
     {
         var inbox = new GameMcpFrameInbox();
-        var router = new GameMcpProtocolRouter(inbox);
+        var router = new GameMcpProtocolRouter(inbox, GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -91,10 +92,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void AQueueBeyondTheIntegerRangeReadsAsTheScreenShowsIt()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(queuedAmount: 3.96e9),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!;
+            RecipeId.ToString("D")), Identities())["row"]!;
 
         Assert.Equal("3.96e9", (string?)row["queuedAmount"]);
     }
@@ -108,8 +109,8 @@ public sealed class GameMcpCraftingTests
             frameContext: Context(queuedAmount: 3.96e9));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(queuedAmount: 0), command, committed));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(queuedAmount: 0), command, committed), Identities());
 
         Assert.Equal("3.96e9", (string?)postState["queued"]!["before"]);
         Assert.Equal("0", (string?)postState["queued"]!["after"]);
@@ -118,10 +119,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void PreDecisionRowCarriesNamedExactCostsHoldingsAffordabilityAndQueueState()
     {
-        var result = Json(GameMcpWorldQuery.GetRow(
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(),
             "crafting-recipes",
-            RecipeId.ToString("D")));
+            RecipeId.ToString("D")), Identities());
 
         Assert.Equal("available", (string?)result["status"]);
         Assert.Null(result["worldGeneration"]);
@@ -155,10 +156,10 @@ public sealed class GameMcpCraftingTests
     {
         // The scan row used to fall through to the reflected projector and publish the raw native
         // path reading.startingQuantity, so the same fact had two names and two shapes.
-        var listed = Assert.Single(Json(GameMcpWorldQuery.ListRows(
-            Context(), "crafting-recipes", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
-        var detail = Json(GameMcpWorldQuery.GetRow(
-            Context(), "crafting-recipes", RecipeId.ToString("D")))["row"]!;
+        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Context(), "crafting-recipes", 0, 10).Freeze(), Identities())["rows"]!.Values<JObject>())!;
+        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            Context(), "crafting-recipes", RecipeId.ToString("D")), Identities())["row"]!;
 
         Assert.Equal((string?)detail["startingAmount"], (string?)listed["startingAmount"]);
         Assert.Null(listed["reading"]);
@@ -167,10 +168,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void BlockedAutomationPutsTheCodeInReasonCodeAndProseInReason()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(canAutomate: false),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!["automation"]!;
+            RecipeId.ToString("D")), Identities())["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
         Assert.Null(row["reasonCode"]);
@@ -182,10 +183,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void An_undiscovered_recipe_is_never_told_its_automation_queue_is_full()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(canAutomate: false, automationReasonCode: "hidden_or_undiscovered"),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!["automation"]!;
+            RecipeId.ToString("D")), Identities())["row"]!["automation"]!;
 
         Assert.False((bool)row["available"]!);
         Assert.Null(row["reasonCode"]);
@@ -197,10 +198,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void Both_queues_name_themselves_and_list_what_occupies_their_slots()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!;
+            RecipeId.ToString("D")), Identities())["row"]!;
 
         var manual = row["queue"]!;
         Assert.Equal("Sigil Queue", (string?)manual["queue"]!["name"]);
@@ -222,10 +223,10 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void A_queue_that_was_read_and_holds_nothing_lists_no_slots_rather_than_going_absent()
     {
-        var row = Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(withQueueEntries: false),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!;
+            RecipeId.ToString("D")), Identities())["row"]!;
 
         Assert.Empty(row["queue"]!["slots"]!);
         Assert.Empty(row["automation"]!["slots"]!);
@@ -237,10 +238,10 @@ public sealed class GameMcpCraftingTests
         // amount is joined from the entry that draws the badge. A skipped or partially collected
         // queue-entry category would otherwise ship amount 0 beside repetitions 3 — a pair the
         // strip never shows, and one no caller can tell from a genuinely idle recipe.
-        var automation = Json(GameMcpWorldQuery.GetRow(
+        var automation = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
             Context(withQueueEntries: false),
             "crafting-recipes",
-            RecipeId.ToString("D")))["row"]!["automation"]!;
+            RecipeId.ToString("D")), Identities())["row"]!["automation"]!;
 
         Assert.Null(automation["amount"]);
         Assert.Equal(3, (int)automation["repetitions"]!);
@@ -255,8 +256,8 @@ public sealed class GameMcpCraftingTests
             "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: 3));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(automationRepetitions: 5, withQueueEntries: false), command, committed));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(automationRepetitions: 5, withQueueEntries: false), command, committed), Identities());
 
         Assert.Null(postState["amount"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)postState["amountUnavailable"]!["reasonCode"]);
@@ -265,11 +266,11 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void QueueContentsAreOrderedNamedAndSayWhichEntriesRepeat()
     {
-        var result = Json(GameMcpWorldQuery.ListRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             Context(),
             "crafting-queue-entries",
             0,
-            10));
+            10), Identities());
 
         Assert.Null(result["status"]);
         var rows = result["rows"]!.Values<JObject>().ToArray();
@@ -293,12 +294,12 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void Amount_defaults_to_one_craft_and_only_craft_reads_it()
     {
-        var plain = GameMcpProtocolRouter.BuildOperation(
+        var plain = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D") });
-        var batch = GameMcpProtocolRouter.BuildOperation(
+        var batch = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = 1_000_000 });
-        var automate = GameMcpProtocolRouter.BuildOperation(
+        var automate = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft",
             new JObject
             {
@@ -315,13 +316,13 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void Max_is_the_only_word_amount_takes()
     {
-        var max = GameMcpProtocolRouter.BuildOperation(
+        var max = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_craft", new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "max" });
 
         Assert.Equal("max", max.SerializedValue);
         Assert.Equal(1, max.Amount);
         var refused = Assert.Throws<GameMcpInvalidParamsException>(() =>
-            GameMcpProtocolRouter.BuildOperation(
+            GameMcpToolCatalog.Shipping.BuildOperation(
                 "game_craft",
                 new JObject { ["uuid"] = RecipeId.ToString("D"), ["amount"] = "all" }));
         Assert.Equal("amount must be a whole number of crafts or \"max\"", refused.Message);
@@ -342,8 +343,8 @@ public sealed class GameMcpCraftingTests
                 asks.Add(remaining);
                 return Landed(CraftingPlayerPostcondition.QueueAdmitted, remaining);
             });
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(queuedAmount: 0), CraftCommand(3), result));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(queuedAmount: 0), CraftCommand(3), result), Identities());
 
         Assert.Equal(new[] { 3 }, asks);
         Assert.Equal("committed", result.Status);
@@ -366,7 +367,7 @@ public sealed class GameMcpCraftingTests
             });
 
         Assert.Equal(new[] { 3, 2, 1 }, asks);
-        Assert.Equal("3", (string?)Json(result.Details!)["queued"]);
+        Assert.Equal("3", (string?)GameMcpTestHarness.Json(result.Details!, Identities())["queued"]);
     }
 
     [Fact]
@@ -383,7 +384,7 @@ public sealed class GameMcpCraftingTests
             });
 
         Assert.Equal(1, submissions);
-        Assert.Equal("3.96e9", (string?)Json(result.Details!)["queued"]);
+        Assert.Equal("3.96e9", (string?)GameMcpTestHarness.Json(result.Details!, Identities())["queued"]);
     }
 
     [Fact]
@@ -397,8 +398,8 @@ public sealed class GameMcpCraftingTests
                 : Refused(
                     CraftingPlayerActionResultCodes.Unaffordable,
                     "The cost of another of this craft is not met."));
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(), CraftCommand(45), result));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(), CraftCommand(45), result), Identities());
 
         Assert.Equal(2, submissions);
         Assert.Equal("committed", result.Status);
@@ -471,7 +472,8 @@ public sealed class GameMcpCraftingTests
         Assert.Equal("faulted", result.Status);
         Assert.StartsWith("2 of 5 asked went through before this craft. ", result.Reason);
         Assert.Equal(
-            "requested craft completion", (string?)Json(result.Details!)["missingOutcome"]);
+            "requested craft completion",
+            (string?)GameMcpTestHarness.Json(result.Details!, Identities())["missingOutcome"]);
     }
 
     [Fact]
@@ -480,8 +482,8 @@ public sealed class GameMcpCraftingTests
         var result = GameMcpCraftingProjection.Press(
             CraftCommand(2), 15, 8, false, NoShortfall,
             remaining => Landed(CraftingPlayerPostcondition.InstantCompleted, remaining));
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(queuedAmount: 0), CraftCommand(2), result));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(queuedAmount: 0), CraftCommand(2), result), Identities());
 
         Assert.Equal("2", (string?)postState["completed"]);
         Assert.Null(postState["queued"]);
@@ -503,8 +505,8 @@ public sealed class GameMcpCraftingTests
             "CraftingRecipeSO", 1, string.Empty, string.Empty, false, frameContext: Context(automationRepetitions: before));
         var committed = GameMcpCommandResult.Committed("committed", 15, 8);
 
-        var postState = Json(GameMcpWorldQuery.ProjectGameplayPostState(
-            Context(automationRepetitions: after), command, committed));
+        var postState = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectGameplayPostState(
+            Context(automationRepetitions: after), command, committed), Identities());
 
         Assert.Equal("Craft Sigils", (string?)postState["name"]);
         Assert.Equal(badgeBefore, (string?)postState["amount"]!["before"]);
@@ -528,8 +530,8 @@ public sealed class GameMcpCraftingTests
             RecipeId,
             CraftingPlayerPostcondition.QueueAdmitted);
 
-        var failure = Json(GameMcpCraftingProjection.Project(in fault));
-        var success = Json(GameMcpCraftingProjection.Project(in committed));
+        var failure = GameMcpTestHarness.Json(GameMcpCraftingProjection.Project(in fault), Identities());
+        var success = GameMcpTestHarness.Json(GameMcpCraftingProjection.Project(in committed), Identities());
 
         Assert.Equal("requested craft completion", (string?)failure["missingOutcome"]);
         Assert.Single(failure.Properties());
@@ -552,14 +554,135 @@ public sealed class GameMcpCraftingTests
                 "the automation entry grew"),
             CraftingInstanceLifecycleSideEffect.Automation(1, 2));
 
-        var quiet = Json(GameMcpCraftingProjection.Project(in silent));
-        var reported = Json(GameMcpCraftingProjection.Project(in damaging));
+        var quiet = GameMcpTestHarness.Json(GameMcpCraftingProjection.Project(in silent), Identities());
+        var reported = GameMcpTestHarness.Json(GameMcpCraftingProjection.Project(in damaging), Identities());
 
         Assert.Null(quiet["observed"]);
         Assert.Equal(
             "requested crafting-instance transition", (string?)reported["missingOutcome"]);
         Assert.Equal(1, (int)reported["observed"]!["repetitions"]!["before"]!);
         Assert.Equal(2, (int)reported["observed"]!["repetitions"]!["after"]!);
+    }
+
+    [Fact]
+    public void CraftingRecipeProjectionKeepsAuthoredEdgesAndNativeBlockerVerdicts()
+    {
+        var recipeId = Guid.Parse("b1b7d331-587a-4b4c-87cf-4a8f57c8256b");
+        var typeId = Guid.Parse("5d343cb8-d676-4561-9c46-4bc74de5fcfd");
+        var resourceId = Guid.Parse("4d4a9dd0-6b71-4ac2-89a1-7a4dde91ed54");
+        var consumableId = Guid.Parse("a969e17f-1e72-4e69-9149-603b5bac33e0");
+        var reading = new RawCraftingRecipeSample(
+            recipeId,
+            visible: false,
+            canBuyAtStartingQuantity: false,
+            startingQuantity: new BigDouble(2d),
+            useQuantityAsLevel: true,
+            timeToComplete: 9.5d,
+            outputWithinCapacity: false,
+            completionEffectCount: 1);
+        var recipe = new WorldCraftingRecipe(
+            in reading,
+            PublicationTable<WorldCraftingRecipeTypeLink>.Create(new[]
+            {
+                new WorldCraftingRecipeTypeLink(recipeId, typeId),
+            }),
+            PublicationTable<WorldCraftingRecipeResource>.Create(new[]
+            {
+                new WorldCraftingRecipeResource(
+                    recipeId,
+                    WorldCraftingRecipeResourceKind.AuthoredInput,
+                    resourceId,
+                    new BigDouble(3d),
+                    resourceStateAvailable: true,
+                    visible: true,
+                    bandwidthResource: true,
+                    trueQuantity: new BigDouble(80d),
+                    isCapped: true,
+                    capacity: new BigDouble(100d),
+                    usage: new BigDouble(4d),
+                    drain: new BigDouble(1.5d)),
+            }),
+            PublicationTable<WorldCraftingRecipeConsumableOutput>.Create(new[]
+            {
+                new WorldCraftingRecipeConsumableOutput(recipeId, 0, 1, consumableId),
+            }),
+            PublicationTable<WorldCraftingRecipeDrainBlock>.Create(new[]
+            {
+                new WorldCraftingRecipeDrainBlock(recipeId, 0, new BigDouble(0.75d)),
+            }));
+        var world = new GameWorldState
+        {
+            CraftingRecipes = PublicationTable<WorldCraftingRecipe>.Create(new[] { recipe }),
+            Resources = PublicationTable<WorldResource>.Create(new[]
+            {
+                GameMcpTestHarness.BandwidthResource(
+                    resourceId, new BigDouble(80), new BigDouble(100)),
+            }),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[]
+                {
+                    Clean("crafting-recipes"),
+                    Clean("crafting-recipe-state"),
+                    Clean("crafting-decisions"),
+                    Clean("resources"),
+                }),
+            CollectedAtEpoch = 25,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var state = GameMcpTestHarness.Context(world);
+
+        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            state,
+            "crafting-recipes",
+            recipeId.ToString("D")));
+
+        Assert.Equal("available", (string?)result["status"]);
+        Assert.Null(result["worldGeneration"]);
+        var row = (JObject)result["row"]!;
+        Assert.Equal(GameMcpTestHarness.Handle(recipeId), (string?)result["uuid"]);
+        Assert.False((bool)row["visible"]!);
+        Assert.False((bool)row["canStart"]!);
+        Assert.Equal(
+            new[]
+            {
+                "hidden_or_undiscovered",
+                "native_purchase_refused",
+                "output_capacity_blocked",
+            },
+            row["blockers"]!.Values<string>());
+        Assert.Equal(GameMcpTestHarness.Handle(typeId),
+            (string?)Assert.Single(row["types"]!)!["uuid"]);
+        var input = Assert.Single(row["inputs"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(resourceId), (string?)input["resource"]!["uuid"]);
+        Assert.True((bool)input["bandwidth"]!);
+        Assert.Equal("3", (string?)input["cost"]);
+        Assert.Equal("20", (string?)input["spendableAmount"]);
+        Assert.Equal("100", (string?)input["capacity"]);
+        Assert.True((bool)input["affordable"]!);
+        var output = Assert.Single(row["consumableOutputs"]!.Values<JObject>())!;
+        Assert.Equal(GameMcpTestHarness.Handle(consumableId), (string?)output["uuid"]);
+        var drain = Assert.Single(row["drainBlockers"]!.Values<JObject>())!;
+        Assert.Null(drain["reasonCode"]);
+        Assert.Equal("0.750", (string?)drain["availableRatio"]);
+
+        var incompleteWorld = new GameWorldState
+        {
+            CraftingRecipes = world.CraftingRecipes,
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                new[] { Clean("crafting-recipes") }),
+            CollectedAtEpoch = 26,
+            CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
+        };
+        var unavailable = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            GameMcpTestHarness.Context(incompleteWorld),
+            "crafting-recipes",
+            recipeId.ToString("D")));
+        Assert.Equal("unavailable", (string?)unavailable["status"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
+        Assert.Contains(
+            "crafting-recipe-state",
+            (string?)unavailable["reason"],
+            StringComparison.Ordinal);
     }
 
     private static GameMcpCommand CraftCommand(int amount) => new(
@@ -589,18 +712,14 @@ public sealed class GameMcpCraftingTests
         int automationRepetitions = 3,
         bool canAutomate = true,
         string automationReasonCode = "automation_full",
-        bool withQueueEntries = true)
-    {
-        using var publisher =
-            new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(
+        bool withQueueEntries = true) =>
+        GameMcpTestHarness.Context(
             World(
                 queuedAmount, automationRepetitions, canAutomate, automationReasonCode,
                 withQueueEntries),
-            new WorldGeneration(2201));
-        return GameMcpTestHarness.Context(
-            publisher.ReadLatest(), configurationGeneration: 8, lifecycleGeneration: 15);
-    }
+            2201,
+            configurationGeneration: 8,
+            lifecycleGeneration: 15);
 
     private static GameWorldState World(
         double queuedAmount = 4,
@@ -618,11 +737,6 @@ public sealed class GameMcpCraftingTests
             useQuantityAsLevel: false,
             timeToComplete: 5,
             outputWithinCapacity: true,
-            typeCount: 0,
-            authoredInputCount: 1,
-            generatedOutputCount: 0,
-            consumableOutputCount: 0,
-            engagementEffectCount: 0,
             completionEffectCount: 0);
         var recipe = new WorldCraftingRecipe(
             in reading,
@@ -671,7 +785,8 @@ public sealed class GameMcpCraftingTests
             CraftingDecisionCosts = PublicationTable<WorldCraftingDecisionCost>.Create(new[]
             {
                 new WorldCraftingDecisionCost(
-                    RecipeId, ResourceId, new BigDouble(75), new BigDouble(heldDust)),
+                    RecipeId,
+                    new WorldResourceCost(ResourceId, new BigDouble(75), new BigDouble(heldDust))),
             }),
             CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
             {
@@ -688,10 +803,8 @@ public sealed class GameMcpCraftingTests
     private static int AutomationBadgeAmount(int repetitions) =>
         repetitions <= 0 ? 0 : 1 << (repetitions - 1);
 
-    private static EntityIdentityCatalogSnapshot Identities()
-    {
-        var rows = GameMcpTestHarness.EntityCatalog.Rows.AsSpan().ToArray().Concat(new[]
-        {
+    private static EntityIdentityCatalogSnapshot Identities() =>
+        GameMcpTestHarness.CatalogWith(
             new EntityIdentityName(
                 RecipeId, "CraftingRecipeSO", "Craft Sigils", "craftSigils"),
             new EntityIdentityName(
@@ -700,16 +813,5 @@ public sealed class GameMcpCraftingTests
                 AutomationQueueId, "CraftingInstanceListVariable",
                 "Auto Sigil Queue", "autoSigilQueue"),
             new EntityIdentityName(
-                ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"),
-        }).OrderBy(row => row.EntityId).ToArray();
-        return EntityIdentityCatalogSnapshot.Bound(15, rows);
-    }
-
-    private static WorldCollectionCategoryStatus Clean(string category) =>
-        new(category, WorldCategoryOutcome.Collected, 1, 0, string.Empty);
-
-    private static JObject Json(GameMcpValue value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value, Identities()));
-
-    private static JObject Json(GameMcpObjectBuilder value) => Json(value.Freeze());
+                ResourceId, "ResourceSO", "Arcane Dust", "arcaneDust"));
 }

@@ -36,28 +36,6 @@ internal readonly struct WorldEnchantment : IWorldEntity
     internal string Description { get; }
 }
 
-/// <summary>What scribing applies: <c>EnchantmentSO.All</c>.</summary>
-internal sealed class WorldEnchantmentBinder : WorldPlainBinder<WorldEnchantment>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "enchantments";
-
-    internal override string TypeName => "EnchantmentSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldEnchantment Read(object entity) =>
-        new(_id!(entity), _description!(entity));
-}
-
 /// <summary>
 /// One glyph family — Elemental, Alchemical, Manifestation — the word that decides which page of
 /// the spell screen a glyph appears on.
@@ -81,28 +59,6 @@ internal readonly struct WorldGlyphType : IWorldEntity
     public Guid EntityId => GlyphTypeId;
 
     internal string Description { get; }
-}
-
-/// <summary>The glyph families: <c>GlyphTypeSO.All</c>.</summary>
-internal sealed class WorldGlyphTypeBinder : WorldPlainBinder<WorldGlyphType>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "glyph types";
-
-    internal override string TypeName => "GlyphTypeSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldGlyphType Read(object entity) =>
-        new(_id!(entity), _description!(entity));
 }
 
 /// <summary>
@@ -134,28 +90,6 @@ internal readonly struct WorldRuneStone : IWorldEntity
     internal string Description { get; }
 }
 
-/// <summary>The rune stones: <c>RuneStoneSO.All</c>.</summary>
-internal sealed class WorldRuneStoneBinder : WorldPlainBinder<WorldRuneStone>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "rune stones";
-
-    internal override string TypeName => "RuneStoneSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldRuneStone Read(object entity) =>
-        new(_id!(entity), _description!(entity));
-}
-
 /// <summary>
 /// One of the three words a tooltip splits its sections under: Statistic, Information or Action.
 /// </summary>
@@ -179,26 +113,4 @@ internal readonly struct WorldDisplayType : IWorldEntity
     public Guid EntityId => DisplayTypeId;
 
     internal string Description { get; }
-}
-
-/// <summary>The tooltip sections: <c>DisplayTypeSO.All</c>.</summary>
-internal sealed class WorldDisplayTypeBinder : WorldPlainBinder<WorldDisplayType>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "display types";
-
-    internal override string TypeName => "DisplayTypeSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldDisplayType Read(object entity) =>
-        new(_id!(entity), _description!(entity));
 }

@@ -59,7 +59,7 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void ConditionalDestinationValidationNamesTheExactField()
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -99,7 +99,7 @@ public sealed class GameMcpSpellLoadoutTests
     [InlineData("preview")]
     public void AddAndPreviewRequireARecipeAndExplicitPossiblyEmptyGlyphLayout(string mode)
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var missing = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -136,7 +136,7 @@ public sealed class GameMcpSpellLoadoutTests
     [InlineData("[{\"uuid\": \"f3000000-0000-0000-0000-000000000002\"}]", "count must be an integer")]
     public void WrongGlyphsShapeIsRefusedWithTheExpectedShape(string glyphs, string cause)
     {
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var response = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -160,7 +160,7 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void PreviewRequiresTheExplicitLayoutAndIsClassifiedAsReadOnly()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_spell_loadout",
             new JObject
             {
@@ -177,13 +177,13 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void StagedReadIsParameterlessReadOnlyAndRejectsMutationArguments()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_spell_loadout",
             new JObject { ["mode"] = "staged" });
         Assert.Equal(GameMcpOperationClass.ReadOnly, operation.Classification);
         Assert.Equal(GameMcpFrameData.None, operation.RequiredData);
 
-        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox());
+        var router = new GameMcpProtocolRouter(new GameMcpFrameInbox(), GameMcpToolCatalog.Shipping);
         var rejected = router.Handle(GameMcpAcceptanceFixture.Request(
             1,
             "tools/call",
@@ -701,9 +701,9 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void A_refused_removal_names_the_slot_pressed_rather_than_the_spell_instance()
     {
-        var operation = GameMcpProtocolRouter.BuildOperation(
+        var operation = GameMcpToolCatalog.Shipping.BuildOperation(
             "game_spell_loadout", new JObject { ["mode"] = "remove", ["slot"] = 2 });
-        Assert.True(Plugin.TryPrepareGameMcpCommand(
+        Assert.True(GameMcpCommandPreparation.TryPrepareGameMcpCommand(
             new GameMcpFrameOperation(1, operation),
             GameMcpTestHarness.Context(World(), generation: 41),
             out var command,

@@ -1168,11 +1168,8 @@ internal sealed class WorldPurchaseViewRelationReader : IWorldCategoryReader
                   skipped + " candidate(s) lacked a publishable exact identity" +
                   (skipFailure.Length == 0 ? string.Empty : " (" + skipFailure + ")");
             if (membershipFailure.Length > 0)
-            {
-                notes = notes.Length == 0
-                    ? "authored upgrade list membership was withheld: " + membershipFailure
-                    : notes + "; authored upgrade list membership was withheld: " + membershipFailure;
-            }
+                notes = WorldFailures.Join(
+                    notes, "authored upgrade list membership was withheld: " + membershipFailure);
             return new WorldCategoryReport(
                 Category,
                 WorldCategoryOutcome.Collected,

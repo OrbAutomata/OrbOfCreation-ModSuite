@@ -64,8 +64,9 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 "bb3cd4 | Cost | Statistic | The amount of resources a component costs to cast, " +
                     "use or purchase.",
             }),
-            Render(Json(GameMcpWorldQuery.ListRows(
-                Context(World()), "statistics", 0, 50, limitFromCaller: false))));
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+                GameMcpTestHarness.Context(World()),
+                "statistics", 0, 50, limitFromCaller: false), Catalog)));
     }
 
     /// <summary>
@@ -109,8 +110,8 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     [Fact]
     public void A_statistic_the_game_authors_no_sentence_for_is_a_row_with_no_sentence()
     {
-        var context = Context(World());
-        var listed = Json(GameMcpWorldQuery.ListRows(context, "statistics", 0, 50))["rows"]!
+        var context = GameMcpTestHarness.Context(World());
+        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "statistics", 0, 50), Catalog)["rows"]!
             .Values<JObject>()
             .Single(row => (string?)row!["name"] == "Artifact Experience")!;
 
@@ -118,8 +119,8 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
         Assert.Equal("Statistic", (string?)listed["displayType"]);
 
         var block = Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                context, string.Empty, new[] { ArtifactExperience.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                context, string.Empty, new[] { ArtifactExperience.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
         Assert.Null(block["description"]);
@@ -141,22 +142,20 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 "[id | name | category | keywords | matchedOn]",
                 "399623 | Elemental Resonance | statistics | - | name",
             }),
-            Render(Json(GameMcpWorldQuery.Search(Context(World()), "Resonance", 0, 10))));
+            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+                GameMcpTestHarness.Context(World()), "Resonance", 0, 10), Catalog)));
     }
 
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(
-                Context(World()), string.Empty, new[] { uuid.ToString("D") }))
+            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+                GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
-    private static JObject Json(GameMcpObjectBuilder value) =>
-        Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(value.Freeze(), Catalog));
-
     private static readonly EntityIdentityCatalogSnapshot Catalog =
-        EntityIdentityCatalogSnapshot.Bound(1, Sorted(new[]
+        EntityIdentityCatalogSnapshot.Bound(1, GameMcpTestHarness.SortedByEntityId(new[]
         {
             new EntityIdentityName(Cost, "AttributeSO", "Cost", "Cost"),
             new EntityIdentityName(
@@ -171,24 +170,11 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 ElementalResonance, "AttributeSO", "Elemental Resonance", "ElementalResonance"),
         }));
 
-    private static EntityIdentityName[] Sorted(EntityIdentityName[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
-
-    private static GameMcpFrameContext Context(GameWorldState world)
-    {
-        var publisher = new ServiceWorldPublisher<GameWorldState>(GameWorldStateDefaults.Empty);
-        publisher.Publish(world, new WorldGeneration(981));
-        return GameMcpTestHarness.Context(publisher.ReadLatest());
-    }
-
     private static GameWorldState World() =>
         new()
         {
             EntityIdentities = Catalog,
-            Statistics = PublicationTable<WorldStatistic>.Create(SortedRows(
+            Statistics = PublicationTable<WorldStatistic>.Create(GameMcpTestHarness.SortedByEntityId(
                 Row(
                     Cost,
                     "Statistic",
@@ -228,30 +214,11 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                     isPercent: true,
                     "How much elemental modifications affect this spell.",
                     "ElementalResonance"))),
-            CollectionCategories =
-                PublicationTable<WorldCollectionCategoryStatus>.Create(CleanReports()),
+            CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 81,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-
-    /// <summary>
-    /// Every category read clean, so a search page carries its hits rather than a list of the
-    /// categories this fixture happens not to populate.
-    /// </summary>
-    private static WorldCollectionCategoryStatus[] CleanReports() =>
-        GameMcpWorldQuery.RegisteredCategoryNames().Concat(new[]
-            {
-                "harvest-actions", "harvest-elements", "harvest-types", "harvest-action-types",
-                "plot-node-actions", "concept-instances", "loadouts", "consumable-families",
-                "consumable-inventory", "crafting-recipe-state", "crafting-decisions",
-                "ordinary-alchemy-loadout", "plot-authoring", "plot-actions", "action-queues",
-                "harvest-lifecycle", "spell-slots", "targeting",
-                "attribute-group-members",
-            })
-            .Distinct(StringComparer.Ordinal)
-            .Select(name => new WorldCollectionCategoryStatus(
-                name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))
-            .ToArray();
 
     private static WorldStatistic Row(
         Guid id,
@@ -260,10 +227,4 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
         string description,
         string globalDefinition) =>
         new(id, displayType, isPercent, description, globalDefinition);
-
-    private static WorldStatistic[] SortedRows(params WorldStatistic[] rows)
-    {
-        Array.Sort(rows, static (left, right) => left.EntityId.CompareTo(right.EntityId));
-        return rows;
-    }
 }

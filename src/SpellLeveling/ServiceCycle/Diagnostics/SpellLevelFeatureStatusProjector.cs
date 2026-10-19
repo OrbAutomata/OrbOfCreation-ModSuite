@@ -1,4 +1,5 @@
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -23,8 +24,8 @@ internal readonly struct SpellLevelFeatureStatus
 /// What the running Spell Leveling service reports about ownership and progression.
 /// </summary>
 /// <remarks>
-/// Runtime terms are ordered from shared stop state through ownership to progression. Saved intent
-/// is deliberately absent because the central status join owns it.
+/// Runtime terms are ordered from shared stop state through ownership and a spell backing off to
+/// progression. Saved intent is deliberately absent because the central status join owns it.
 /// </remarks>
 internal static class SpellLevelFeatureStatusProjector
 {
@@ -35,7 +36,8 @@ internal static class SpellLevelFeatureStatusProjector
         bool owned,
         bool cycleObserved,
         AutoSpellLevelCapability capability,
-        string? waitingReason = null)
+        string? waitingReason = null,
+        ServiceRetryEntry? backingOff = null)
     {
         if (emergencyDisabled)
         {
@@ -51,6 +53,15 @@ internal static class SpellLevelFeatureStatusProjector
                 FeatureStatusState.TemporarilyBlocked,
                 FeatureStatusReasonCode.ActionFamilyConflict,
                 "Another plugin owns spell-level purchases.");
+        }
+
+        if (backingOff is { } retry)
+        {
+            return new SpellLevelFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.NativeMutationFailed,
+                $"Spell leveling is backing off {EntityIdentityFormatter.Format(retry.Target.Id)} after " +
+                $"{retry.ConsecutiveFailures} failed attempt(s) and retries it when due: {retry.Reason}");
         }
 
         // Only meaningful once something has actually looked. Before the first cycle the capability

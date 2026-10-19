@@ -117,7 +117,7 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
         _masteryXpMod = bind.ModifierRecord("masteryXpMod");
         _discovery = new WorldDiscoverableBinding(type, TypeName);
         _levelDecision = new WorldLevelableDecisionBinding(type, false, _resolveType);
-        return Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
+        return WorldFailures.Join(bind.Failure, _discovery.Failure, _levelDecision.Failure);
     }
 
     internal override WorldTimeRune Read(object entity) =>
@@ -137,12 +137,4 @@ internal sealed class WorldTimeRuneBinder : WorldPlainBinder<WorldTimeRune>
             _discovery!.Read(entity),
             _levelDecision!.Read(entity),
             _requiredMasteryXp!(entity));
-
-    private static string Join(params string[] values)
-    {
-        var result = string.Empty;
-        foreach (var value in values)
-            if (value.Length > 0) result = result.Length == 0 ? value : result + "; " + value;
-        return result;
-    }
 }

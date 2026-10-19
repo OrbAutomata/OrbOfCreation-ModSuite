@@ -34,7 +34,8 @@ internal static class AutoCastService
                 describeAction: static (in AutoCastCycleAction action) =>
                     ServiceActionJournalAttribution.Native(
                         action.SpellRecipeId,
-                        ServiceActionNativeTypeId.SpellRecipeSO),
+                        ServiceActionNativeTypeId.SpellRecipeSO,
+                        (byte)action.Kind),
                 execute: actions.TryExecute);
 
         // Auto Cast's own configuration, plus the one piece of runtime state that is the suite's
@@ -46,7 +47,9 @@ internal static class AutoCastService
             in SuiteRuntimeConfiguration config,
             in ServiceCycleStartContext context)
         {
-            if (!AutoCastConfigurationPolicy.IsOperational(config))
+            var operational = AutoCastConfigurationPolicy.IsOperational(config);
+            actions.ObserveOperational(operational);
+            if (!operational)
             {
                 return ServiceStartDecision.Wait(
                     CommonServiceDecisionCodes.NotReady,

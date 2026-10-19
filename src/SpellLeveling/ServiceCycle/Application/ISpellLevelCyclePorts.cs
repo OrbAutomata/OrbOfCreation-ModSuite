@@ -1,3 +1,4 @@
+using System;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -24,9 +25,11 @@ internal interface ISpellLevelCycleActionPort
 /// spell leveling is unlocked at all is the leveling prerequisite, and that is only reachable through
 /// the latching no-argument <c>Check()</c> that capture refuses to call (W59). The toggle button's
 /// tooltip names the capability, so something main-thread has to be able to answer it — this is that
-/// something, consulted once per lifecycle and once per first cycle rather than per frame.
+/// something, consulted from the first cycle of a lifecycle until it answers, rather than per frame.
+/// A port that cannot answer names why in <paramref name="failure"/>, a sentence that stays the same
+/// while the failure does, and hands back what the game threw as <paramref name="cause"/>.
 /// </remarks>
 internal interface ISpellLevelCapabilityPort
 {
-    bool TryReadCapability(out AutoSpellLevelCapability capability);
+    bool TryReadCapability(out AutoSpellLevelCapability capability, out string failure, out Exception? cause);
 }

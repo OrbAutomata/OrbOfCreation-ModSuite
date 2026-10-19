@@ -857,6 +857,7 @@ public sealed partial class ConsumableSO : IdScriptableObject
     private ConsumableUsage? nextUsage;
     public bool FireAllowed = true;
     public bool SelectionNoOp;
+    public readonly List<long> SelectAndFireTimestamps = new List<long>();
     public int MaximumCarryLoad;
 
     public void SetStock(int quantityN, int queuedN, int gainedSinceN)
@@ -880,6 +881,7 @@ public sealed partial class ConsumableSO : IdScriptableObject
 
     public void SelectAndFire()
     {
+        SelectAndFireTimestamps.Add(System.Diagnostics.Stopwatch.GetTimestamp());
         if (!CanFire() || !Inventory.CanUseConsumable()) return;
         if (SelectionNoOp) return;
 

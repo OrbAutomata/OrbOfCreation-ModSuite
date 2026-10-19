@@ -94,7 +94,7 @@ public sealed class SpellLevelCycleEvaluatorTests
 
         var action = Assert.Single(Plan(world, Config(), out _, out var metrics));
         Assert.Equal(SpellLevelActionKind.All, action.Kind);
-        Assert.Equal(Frost, action.Uuid);
+        Assert.Equal(KnownEntities.UnlockLevelAllSpells.Uuid, action.Uuid);
         Assert.Equal(1, metrics.Exclusions.Unaffordable);
     }
 
@@ -283,7 +283,8 @@ public sealed class SpellLevelCycleEvaluatorTests
         var store = new ReusableActionStore<SpellLevelCycleAction>();
         store.BeginWrite();
         var writer = new ServiceActionWriter<SpellLevelCycleAction>(store);
-        wake = SpellLevelCycleEvaluator.Evaluate(world, in config, writer, out metrics);
+        wake = SpellLevelCycleEvaluator.Evaluate(
+            world, in config, ServiceRetryGateSnapshot.Empty, default, writer, out metrics);
 
         var actions = new List<SpellLevelCycleAction>(store.Count);
         while (!store.IsComplete)
