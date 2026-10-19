@@ -29,7 +29,11 @@ internal interface IServiceCycleSlot : IDisposable
     ServiceWorldGateDeferralFact LatestWorldGateDeferral { get; }
     ConfigGeneration LatestConfiguration { get; }
     StrategyGeneration LatestStrategy { get; }
-    bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot);
+    /// <summary>
+    /// A frame reader never waits for the worker-owned handoff gate and gets false while a worker holds
+    /// it; binding the roster passes <paramref name="waitForHandoffGate"/> to wait out that brief hold.
+    /// </summary>
+    bool TryGetRunnerSnapshot(out ServiceRunnerSnapshot snapshot, bool waitForHandoffGate);
     ServiceResponseAcquisition TryAcquireResponse(MonotonicTimestamp now);
     bool TryAdvancePendingMainOwnership(MonotonicTimestamp now);
     ServiceActionDispatch TryExecuteOne(

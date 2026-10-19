@@ -401,9 +401,13 @@ so a later budget decision can rest on evidence without changing the service API
 
 The pump never waits for the worker-owned handoff gate: response acquisition, captured-request
 publication, and ownership return use zero-time probes, and contention retains the existing owner and
-defers the transition to a later frame without repeating capture or native execution. An emergency
-episode marks any outstanding request, evaluation, or response until that exact response is consumed,
-even when the player clears the stop first, so clearing cannot resurrect work from the stopped episode.
+defers the transition to a later frame without repeating capture or native execution. Binding the
+action timeline and the decision journal to the service roster does wait for it: binding happens
+outside a frame, and a contended timeline bind would fail composition instead of retrying. A worker
+holds the gate only to move handoff fields and wake waiters, never across a native call or a wait, so
+the bind waits out that hold and no more. An emergency episode marks any outstanding request,
+evaluation, or response until that exact response is consumed, even when the player clears the stop
+first, so clearing cannot resurrect work from the stopped episode.
 
 ### World-freshness gate
 

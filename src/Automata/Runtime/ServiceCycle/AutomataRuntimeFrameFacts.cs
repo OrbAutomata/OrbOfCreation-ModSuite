@@ -72,7 +72,7 @@ internal sealed class AutomataRuntimeFrameFacts
         {
             var id = registry.GetServiceId(ordinal);
             var slot = registry.GetSlot(ordinal);
-            services[ordinal] = slot.TryGetRunnerSnapshot(out var runner)
+            services[ordinal] = slot.TryGetRunnerSnapshot(out var runner, waitForHandoffGate: false)
                 ? new AutomataServiceFrameFacts(
                     id.Value,
                     AutomataServiceCycleTraceRoster.DisplayName(id),
