@@ -1,4 +1,5 @@
 using System;
+using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -6,9 +7,18 @@ using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
 namespace OrbAutomata;
 
+/// <summary>
+/// Projects Auto Concept's service evidence onto its feature status. A Concept action backing off on
+/// the service's retry gate is narrated here and keeps the feature Degraded, naming the Concept, what
+/// the service was doing with it and why, until its episode ends.
+/// </summary>
 internal sealed class AutoConceptServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
+    private readonly ServiceRetryEpisodeNarrator _retries = new(
+        AutoConceptNativeAdapter.Feature,
+        static message => Plugin.Log?.LogAutomataWarning(message),
+        AutoConceptServicePolicies.Describe);
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -34,8 +44,12 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         var changed = _emergencyDisabled != pump.IsEmergencyStopEngaged || _owned != owned;
         _emergencyDisabled = pump.IsEmergencyStopEngaged;
         _owned = owned;
-        if (report.ResponsesAcquired != 0 &&
-            TryReadLatestDecision(pump, out var idle))
+        var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
+            ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId)
+            : null;
+        changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        if (report.ResponsesAcquired != 0 && service is { } available &&
+            TryReadLatestDecision(in available, out var idle))
         {
             changed = changed || !_cycleObserved || !_idle.Equals(idle);
             _cycleObserved = true;
@@ -61,6 +75,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
+        _retries.InvalidateLifecycle();
         _cycleObserved = false;
         _idle = default;
         Publish();
@@ -72,7 +87,8 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             _emergencyDisabled,
             _owned,
             _cycleObserved,
-            _idle);
+            _idle,
+            _retries.TryGetBackingOff(out var retry) ? retry : null);
         _featureStatus.ObserveRuntimeLifecycle(
             status.State,
             status.Reason,
@@ -82,13 +98,11 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
     }
 
     private static bool TryReadLatestDecision(
-        SuiteFramePump pump,
+        in ServiceCycleServiceDiagnosticsSnapshot service,
         out AutoConceptIdle idle)
     {
         idle = default;
-        if (ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId) is not
-            { LatestProjection.IsPresent: true } service)
-            return false;
+        if (!service.LatestProjection.IsPresent) return false;
         var projection = service.LatestProjection.Snapshot;
         var reason = ReadInteger(in projection, AutoConceptServiceProjection.IdleReasonKey);
         var move = ReadInteger(in projection, AutoConceptServiceProjection.IdleMoveKey);

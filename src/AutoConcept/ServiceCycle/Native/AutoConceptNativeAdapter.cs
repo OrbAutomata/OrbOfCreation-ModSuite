@@ -54,11 +54,11 @@ internal sealed class AutoConceptNativeAdapter :
     private object? _activeConcepts;
     private TypedRegistryResolution? _activeConceptsResolution;
     private TypedRegistryResolution? _conceptRecipesResolution;
-    private string? _blockedReason;
-    private NativeMutationEvidence<int>? _lastMutationEvidence;
+    private string? _contractMismatch;
     private NativeMutationCallOutcome _lastNativeMutationOutcome;
 
-    public string? BlockedReason => _blockedReason;
+    internal const string Feature = "Auto Concept";
+
     public bool IsReady =>
         _bindings is not null &&
         _activeConcepts is not null &&
@@ -66,7 +66,7 @@ internal sealed class AutoConceptNativeAdapter :
         _conceptRecipesResolution is not null &&
         _registryResolver.IsCurrent(_activeConceptsResolution) &&
         _registryResolver.IsCurrent(_conceptRecipesResolution) &&
-        _blockedReason is null;
+        _contractMismatch is null;
     public int ScopedRecipeCount => _recipes.Count;
     public NativeMutationCallOutcome LastNativeMutationOutcome => _lastNativeMutationOutcome;
 
@@ -95,9 +95,9 @@ internal sealed class AutoConceptNativeAdapter :
             reason = string.Empty;
             return true;
         }
-        if (_blockedReason is not null)
+        if (_contractMismatch is not null)
         {
-            reason = _blockedReason;
+            reason = _contractMismatch;
             return false;
         }
         if (_bindings is not { } native)
@@ -105,12 +105,13 @@ internal sealed class AutoConceptNativeAdapter :
             reason = _bindingFailure;
             return false;
         }
+        _activeConcepts = null;
         try
         {
             if (!_domainClassifier.TryInitialize(out var classifierReason))
             {
                 return _domainClassifier.Status == AlchemyDomainClassifierStatus.Blocked
-                    ? Fail($"Auto Concept domain classifier blocked: {classifierReason}", out reason)
+                    ? Mismatch($"Auto Concept domain classifier blocked: {classifierReason}", out reason)
                     : Retry($"Auto Concept domain classifier is not ready: {classifierReason}", out reason);
             }
 
@@ -128,7 +129,7 @@ internal sealed class AutoConceptNativeAdapter :
             _conceptRecipesResolution = recipesResolution;
 
             if (native.RecipeValues(recipes) is not { } scopedRecipes)
-                return Fail("ConceptRecipes runtime contents are unavailable", out reason);
+                return Retry("ConceptRecipes runtime contents are unavailable", out reason);
             _recipes.Clear();
             _recipeUuids.Clear();
             foreach (var recipe in scopedRecipes)
@@ -138,7 +139,7 @@ internal sealed class AutoConceptNativeAdapter :
                     !classification.IsMutationGrade ||
                     classification.RecipeUuid is null)
                 {
-                    return Fail(
+                    return Mismatch(
                         $"ConceptRecipes entry failed shared domain classification. " +
                         $"RecipeUuid={classification.RecipeUuid?.ToString() ?? "unavailable"}, " +
                         $"Evidence={classification.Evidence}, Level={classification.Assessment.Level}, " +
@@ -149,14 +150,17 @@ internal sealed class AutoConceptNativeAdapter :
                 _recipes.Add(recipe);
                 _recipeUuids.Add(recipe, uuid);
             }
-            if (_recipes.Count == 0) return Fail("ConceptRecipes runtime list is empty", out reason);
+            if (_recipes.Count == 0) return Retry("ConceptRecipes runtime list is empty", out reason);
             _activeConcepts = active;
             reason = string.Empty;
             return true;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Fail($"concept contract initialization failed: {ex.GetBaseException().Message}", out reason);
+            return Retry(
+                "Auto Concept contract initialization failed." +
+                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, Feature)),
+                out reason);
         }
     }
 
@@ -231,7 +235,8 @@ internal sealed class AutoConceptNativeAdapter :
                 safeTarget = target;
                 return true;
             }
-            if (refusal == AutoConceptProjectionRefusal.Contract) return false;
+            if (refusal is AutoConceptProjectionRefusal.Contract or AutoConceptProjectionRefusal.ReadFailed)
+                return false;
             delta /= 2;
         }
         return false;
@@ -241,7 +246,6 @@ internal sealed class AutoConceptNativeAdapter :
         in AutoConceptCycleAction action,
         AutoConceptResourceLimits? limits)
     {
-        _lastMutationEvidence = null;
         _lastNativeMutationOutcome = default;
         if (!TryResolveCandidate(action.RecipeId, out var candidate, out var refusal, out var reason) ||
             candidate is null)
@@ -251,7 +255,7 @@ internal sealed class AutoConceptNativeAdapter :
                 : reason;
             return IsReady
                 ? AutoConceptSubmission.Rejected(refusal, missing)
-                : AutoConceptSubmission.ContractUnavailable(missing);
+                : AutoConceptSubmission.FaultBeforeCall(missing);
         }
         if (!candidate.IsSettled)
             return AutoConceptSubmission.Rejected(
@@ -264,7 +268,7 @@ internal sealed class AutoConceptNativeAdapter :
                 "the live quantity no longer matches the worker's ownership belief");
 
         if (action.Kind == AutoConceptActionKind.Add)
-            return SubmitAdd(candidate, action.TargetOrDelta, limits);
+            return SubmitAdd(action.RecipeId, candidate, action.TargetOrDelta, limits);
 
         if (action.Kind == AutoConceptActionKind.RotateOut)
         {
@@ -272,19 +276,22 @@ internal sealed class AutoConceptNativeAdapter :
                 return AutoConceptSubmission.Rejected(
                     AutoConceptActionResultCodes.OwnershipChanged,
                     "the rotation no longer owns the exact live assignment");
-            if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason))
-                return AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason);
-            return SubmitRemove(candidate, action.TargetOrDelta, exact: true);
+            if (!TryValidateReplacement(action.ReplacementId, candidate, limits, out reason, out var unreadable))
+                return unreadable
+                    ? AutoConceptSubmission.FaultBeforeCall(reason)
+                    : AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason);
+            return SubmitRemove(action.RecipeId, candidate, action.TargetOrDelta, exact: true);
         }
 
         if (action.TargetOrDelta > candidate.Quantity)
             return AutoConceptSubmission.Rejected(
                 AutoConceptActionResultCodes.OwnershipChanged,
                 "the owned quantity is no longer available");
-        return SubmitRemove(candidate, action.TargetOrDelta, exact: false);
+        return SubmitRemove(action.RecipeId, candidate, action.TargetOrDelta, exact: false);
     }
 
     private AutoConceptSubmission SubmitAdd(
+        Guid recipeId,
         NativeConceptCandidate candidate,
         int desiredTarget,
         AutoConceptResourceLimits? limits)
@@ -304,9 +311,12 @@ internal sealed class AutoConceptNativeAdapter :
                 out var safeTarget,
                 out var reason,
                 out var refusal))
-            return refusal == AutoConceptProjectionRefusal.Backpressure
-                ? AutoConceptSubmission.Backpressure(reason)
-                : AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.ProjectionRefused, reason);
+            return refusal switch
+            {
+                AutoConceptProjectionRefusal.Backpressure => AutoConceptSubmission.Backpressure(reason),
+                AutoConceptProjectionRefusal.ReadFailed => AutoConceptSubmission.FaultBeforeCall(reason),
+                _ => AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.ProjectionRefused, reason),
+            };
         if (safeTarget != desiredTarget)
         {
             var maximumAdditional = Math.Max(0, safeTarget - candidate.Quantity);
@@ -316,40 +326,62 @@ internal sealed class AutoConceptNativeAdapter :
                 maximumAdditional);
         }
         var delta = safeTarget - candidate.Quantity;
-        var succeeded = TryAdd(candidate, delta, out reason);
-        return _lastNativeMutationOutcome.MutationAttempts == 0
-            ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.SlotUnavailable, reason)
-            : AutoConceptSubmission.Attempted(
-                _lastNativeMutationOutcome,
-                _lastMutationEvidence?.Outcome ?? NativeMutationOutcome.PostconditionFailed,
-                reason,
-                delta);
+        if (delta <= 0 || !IsCurrentRecipe(candidate) || !CanAdd(candidate))
+            return AutoConceptSubmission.Rejected(
+                AutoConceptActionResultCodes.SlotUnavailable,
+                "candidate identity, compatible slot, or quantity changed");
+        var native = _bindings!;
+        var current = FindActiveInstance(candidate.Recipe);
+        var quantity = current is null ? 0 : native.QueuedQuantity(current);
+        if (quantity < 0 || quantity + delta > native.MaxUsageSlots(candidate.Recipe))
+            return AutoConceptSubmission.Rejected(
+                AutoConceptActionResultCodes.SlotUnavailable,
+                "native mastery quantity limit changed");
+        return Mutate(
+            recipeId,
+            candidate,
+            "add " + Stacks(delta),
+            () => native.AddInstances(_activeConcepts!, candidate.Recipe, delta),
+            static (before, after) => after > before,
+            delta);
     }
 
     private AutoConceptSubmission SubmitRemove(
+        Guid recipeId,
         NativeConceptCandidate candidate,
         int delta,
         bool exact)
     {
-        var succeeded = exact
-            ? TryRemoveForRotation(candidate, delta, out var reason)
-            : TryRemoveOwned(candidate, delta, out reason);
-        _ = succeeded;
-        return _lastNativeMutationOutcome.MutationAttempts == 0
-            ? AutoConceptSubmission.Rejected(AutoConceptActionResultCodes.OwnershipChanged, reason)
-            : AutoConceptSubmission.Attempted(
-                _lastNativeMutationOutcome,
-                _lastMutationEvidence?.Outcome ?? NativeMutationOutcome.PostconditionFailed,
-                reason,
-                -delta);
+        var quantityDescription = exact ? "rotation quantity" : "owned concept quantity";
+        var current = FindActiveInstance(candidate.Recipe);
+        if (delta <= 0 || current is null || !IsCurrentRecipe(candidate))
+            return AutoConceptSubmission.Rejected(
+                AutoConceptActionResultCodes.OwnershipChanged,
+                $"{quantityDescription} is no longer active");
+        var native = _bindings!;
+        var quantity = native.Quantity(current);
+        var queuedQuantity = native.QueuedQuantity(current);
+        if (queuedQuantity < delta || exact && (quantity != delta || queuedQuantity != delta))
+            return AutoConceptSubmission.Rejected(
+                AutoConceptActionResultCodes.OwnershipChanged,
+                $"native {quantityDescription} changed");
+        return Mutate(
+            recipeId,
+            candidate,
+            "remove " + Stacks(delta),
+            () => native.RemoveInstances(_activeConcepts!, candidate.Recipe, delta),
+            static (before, after) => after < before,
+            -delta);
     }
 
     private bool TryValidateReplacement(
         Guid replacementId,
         NativeConceptCandidate active,
         AutoConceptResourceLimits? limits,
-        out string reason)
+        out string reason,
+        out bool unreadable)
     {
+        unreadable = false;
         if (replacementId == Guid.Empty)
         {
             reason = "the rotation no longer names a replacement";
@@ -363,7 +395,9 @@ internal sealed class AutoConceptNativeAdapter :
             reason = "the replacement identity, prospective slot, unlock, or quantity changed";
             return false;
         }
-        return TryFindSafeTarget(replacement, 1, limits, out _, out reason, out _);
+        var safe = TryFindSafeTarget(replacement, 1, limits, out _, out reason, out var refusal);
+        unreadable = refusal == AutoConceptProjectionRefusal.ReadFailed;
+        return safe;
     }
 
     private bool CanReplaceAfterRemoval(
@@ -400,113 +434,46 @@ internal sealed class AutoConceptNativeAdapter :
         return false;
     }
 
-    private bool TryAdd(NativeConceptCandidate candidate, int delta, out string reason)
-    {
-        _lastNativeMutationOutcome = default;
-        if (_blockedReason is not null)
-        {
-            reason = _blockedReason;
-            return false;
-        }
-
-        if (delta <= 0 || !IsCurrentRecipe(candidate) || !CanAdd(candidate))
-        {
-            reason = "candidate identity, compatible slot, or quantity changed";
-            return false;
-        }
-        var native = _bindings!;
-        var maximum = native.MaxUsageSlots(candidate.Recipe);
-        var current = FindActiveInstance(candidate.Recipe);
-        var quantity = current is null ? 0 : native.QueuedQuantity(current);
-        if (quantity < 0 || quantity + delta > maximum)
-        {
-            reason = "native mastery quantity limit changed";
-            return false;
-        }
-        return ExecuteQuantityMutation(
-            candidate,
-            "Auto Concept add",
-            $"queued quantity exact delta +{delta}",
-            () => native.AddInstances(_activeConcepts!, candidate.Recipe, delta),
-            (before, after) => after == before + delta,
-            out reason);
-    }
-
-    private bool TryRemoveOwned(NativeConceptCandidate candidate, int delta, out string reason)
-    {
-        return TryRemove(candidate, delta, requireExactQuantity: false, "owned concept quantity", out reason);
-    }
-
-    private bool TryRemoveForRotation(NativeConceptCandidate candidate, int expectedQuantity, out string reason)
-    {
-        return TryRemove(candidate, expectedQuantity, requireExactQuantity: true, "rotation quantity", out reason);
-    }
-
-    private bool TryRemove(
+    /// <summary>
+    /// Presses one quantity change and answers what the game did. The sentinel is that the queued
+    /// stacks moved the way the press asks; the next world settles how far.
+    /// </summary>
+    private AutoConceptSubmission Mutate(
+        Guid recipeId,
         NativeConceptCandidate candidate,
-        int delta,
-        bool requireExactQuantity,
-        string quantityDescription,
-        out string reason)
-    {
-        _lastNativeMutationOutcome = default;
-        if (_blockedReason is not null)
-        {
-            reason = _blockedReason;
-            return false;
-        }
-
-        var current = FindActiveInstance(candidate.Recipe);
-        if (delta <= 0 || current is null || !IsCurrentRecipe(candidate))
-        {
-            reason = $"{quantityDescription} is no longer active";
-            return false;
-        }
-        var native = _bindings!;
-        var quantity = native.Quantity(current);
-        var queuedQuantity = native.QueuedQuantity(current);
-        if (queuedQuantity < delta || requireExactQuantity && (quantity != delta || queuedQuantity != delta))
-        {
-            reason = $"native {quantityDescription} changed";
-            return false;
-        }
-        return ExecuteQuantityMutation(
-            candidate,
-            "Auto Concept remove",
-            $"queued quantity exact delta -{delta}",
-            () => native.RemoveInstances(_activeConcepts!, candidate.Recipe, delta),
-            (before, after) => after == before - delta,
-            out reason);
-    }
-
-    private bool ExecuteQuantityMutation(
-        NativeConceptCandidate candidate,
-        string feature,
-        string expectedChange,
+        string change,
         Action execute,
-        Func<int, int, bool> verify,
-        out string reason)
+        Func<int, int, bool> moved,
+        int delta)
     {
         var evidence = NativeMutationVerifier.Execute(
-            feature,
+            Feature,
             candidate.Uuid,
-            expectedChange,
+            change,
             () => CaptureQueuedQuantity(candidate.Recipe),
             execute,
-            verify,
-            attempted => _blockedReason =
-                $"native Concept mutation blocked until the next lifecycle: {attempted.Format()}");
-        _lastMutationEvidence = evidence;
+            moved);
         _lastNativeMutationOutcome = NativeMutationCallOutcome.FromEvidence(evidence);
         if (evidence.IsVerified)
-        {
-            reason = string.Empty;
-            return true;
-        }
+            return AutoConceptSubmission.Attempted(
+                _lastNativeMutationOutcome, evidence.Outcome, string.Empty, delta);
 
-        reason = evidence.MutationWasAttempted ? _blockedReason! : evidence.Format();
-        return false;
+        var concept = EntityIdentityFormatter.PlayerName(recipeId);
+        var pressed = $"Auto Concept asked the game to {change} of {concept}";
+        var sentence = !evidence.MutationWasAttempted
+            ? $"Auto Concept could not read the queued stacks of {concept} before the press."
+            : !evidence.HasAfter
+                ? $"{pressed} and could not read its queued stacks afterwards."
+                : $"{pressed}, and its queued stacks went from {evidence.Before} to {evidence.After}" +
+                  (evidence.Exception is null ? "." : " after the game threw.");
+        return AutoConceptSubmission.Attempted(
+            _lastNativeMutationOutcome,
+            evidence.Outcome,
+            GameActionFaultLog.Reason(sentence, evidence.Exception, Feature),
+            delta);
     }
+
+    private static string Stacks(int count) => count + (count == 1 ? " stack" : " stacks");
 
     private int CaptureQueuedQuantity(object recipe)
     {
@@ -522,8 +489,7 @@ internal sealed class AutoConceptNativeAdapter :
         _conceptRecipesResolution = null;
         _recipes.Clear();
         _recipeUuids.Clear();
-        _blockedReason = null;
-        _lastMutationEvidence = null;
+        _contractMismatch = null;
         _lastNativeMutationOutcome = default;
     }
 
@@ -601,7 +567,11 @@ internal sealed class AutoConceptNativeAdapter :
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return FailProjection(ex.GetBaseException().Message, out reason);
+            refusal = AutoConceptProjectionRefusal.ReadFailed;
+            return FailProjection(
+                "Auto Concept could not project the drain of " + candidate.DisplayName + "." +
+                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, Feature)),
+                out reason);
         }
     }
 
@@ -610,6 +580,7 @@ internal sealed class AutoConceptNativeAdapter :
         None = 0,
         Backpressure = 1,
         Contract = 2,
+        ReadFailed = 3,
     }
 
     private Dictionary<object, object> ReadActiveByRecipe()
@@ -671,13 +642,17 @@ internal sealed class AutoConceptNativeAdapter :
         var message = $"{label} resolution failed. {resolution.Format()}";
         return resolution.IsRetryable
             ? Retry(message, out reason)
-            : Fail(message, out reason);
+            : Mismatch(message, out reason);
     }
 
-    private bool Fail(string reason, out string output)
+    /// <summary>
+    /// A contract the game proved does not match holds until the next lifecycle, which probes it
+    /// again; everything else retries.
+    /// </summary>
+    private bool Mismatch(string reason, out string output)
     {
-        _blockedReason = reason;
-        output = reason;
+        _contractMismatch = reason.TrimEnd('.') + ". Auto Concept holds it until the next scene or load.";
+        output = _contractMismatch;
         return false;
     }
 

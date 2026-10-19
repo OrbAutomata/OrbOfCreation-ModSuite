@@ -29,13 +29,13 @@ internal readonly struct AutoConceptSubmission
             NativeActionOutcome.Skip(AutoConceptActionResultCodes.AmountUnavailable, reason),
             maximumAmount: maximumAmount);
 
-    internal static AutoConceptSubmission ContractUnavailable(string reason) =>
+    internal static AutoConceptSubmission FaultBeforeCall(string reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     internal static AutoConceptSubmission Attempted(
         NativeMutationCallOutcome outcome,
         NativeMutationOutcome mutationOutcome,
-        string reason,
+        GameActionReason reason,
         int appliedDelta) =>
         new(
             outcome.MutationAttempts == 1 && mutationOutcome == NativeMutationOutcome.Verified

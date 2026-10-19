@@ -74,7 +74,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
     [Fact]
     [Trait("Category", "HeadlessIntegration")]
-    public void NoOpAssignmentBlocksUntilLifecycleRecovery()
+    public void ANoOpAssignmentFaultsAndTheNextSubmissionPressesAgain()
     {
         var recipe = new AlchemyRecipeSO(
             RecipeId.ToString("D"),
@@ -92,21 +92,16 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
         var failed = runtime.Submit(in action, DefaultLimits);
 
-        Assert.False(failed.Outcome.Verified);
-        Assert.Contains("PostconditionFailed", failed.Outcome.Reason);
+        Assert.Equal(CommonActionResultCodes.AdapterFault, failed.Outcome.Code);
+        Assert.Contains("its queued stacks went from 0 to 0.", failed.Outcome.Reason);
         Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(0, runtime.LastNativeMutationOutcome.MutationsCommitted);
-        Assert.NotNull(runtime.BlockedReason);
-        var blocked = runtime.Submit(in action, DefaultLimits);
-        Assert.Equal(CommonActionResultCodes.AdapterFault, blocked.Outcome.Code);
-        Assert.Contains("blocked until the next lifecycle", blocked.Outcome.Reason);
-        Assert.Equal(0, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
 
         active.SuppressAddMutation = false;
-        runtime.InvalidateLifecycle();
-        var recovered = runtime.Submit(in action, DefaultLimits);
+        var retried = runtime.Submit(in action, DefaultLimits);
 
-        Assert.True(recovered.Outcome.Verified, recovered.Outcome.Reason);
+        Assert.True(retried.Outcome.Verified, retried.Outcome.Reason);
+        Assert.Equal(1, runtime.LastNativeMutationOutcome.NativeCallsAttempted);
         Assert.Equal(1, Assert.Single(active.value).queuedQuantity);
     }
 

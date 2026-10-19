@@ -1,5 +1,6 @@
 using System;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
@@ -26,7 +27,8 @@ internal static class AutoConceptFeatureStatusProjector
         bool emergencyDisabled,
         bool owned,
         bool cycleObserved,
-        AutoConceptIdle idle = default)
+        AutoConceptIdle idle = default,
+        ServiceRetryEntry? backingOff = null)
     {
         var idleReason = idle.Reason;
         if (emergencyDisabled)
@@ -39,6 +41,12 @@ internal static class AutoConceptFeatureStatusProjector
                 FeatureStatusState.TemporarilyBlocked,
                 FeatureStatusReasonCode.ActionFamilyConflict,
                 "Another automation owner holds the native concept-assignment action family.");
+        if (backingOff is { } retry)
+            return new AutoConceptFeatureStatus(
+                FeatureStatusState.Degraded,
+                FeatureStatusReasonCode.NativeMutationFailed,
+                $"Auto Concept is backing off {AutoConceptServicePolicies.Describe(retry.Target)} after " +
+                $"{retry.ConsecutiveFailures} failed attempt(s) and retries it when due: {retry.Reason}");
         if (!cycleObserved)
             return new AutoConceptFeatureStatus(
                 FeatureStatusState.NotReady,

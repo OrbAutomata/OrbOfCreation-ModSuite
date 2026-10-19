@@ -39,7 +39,8 @@ internal sealed class AutoConceptCycleActionAdapter : IAutoConceptCycleActionPor
         in AutoConceptCycleAction action,
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context)
-        => TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true);
+        => AutoConceptServicePolicies.BackingOffTheConcept(
+            TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true));
 
 #if SERVICE_CYCLE_PROFILE
     internal ServiceActionResult TryExecuteGameMcp(
