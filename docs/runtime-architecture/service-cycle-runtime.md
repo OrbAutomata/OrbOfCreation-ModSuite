@@ -319,10 +319,11 @@ off without logging until the service recovers. A process-fatal exception is nev
 
 Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
 journal: stable UUID plus native type, plus the action kind for a service whose candidate takes
-several actions that fail apart, as an Auto Cast spell's cast and charge release do. A
-target in the gate waits and is tried again on a later world; the gate itself never latches. Auto
-Items, Auto Buy, Auto Scribe, Spell Leveling and Auto Cast plan from the gate and narrate it; every
-other service keeps the fault handling its own page describes.
+several actions that fail apart, as an Auto Cast spell's cast and charge release do, or a
+Concept's add and remove. A target in the gate waits and is tried again on a later world; the gate
+itself never latches. Auto Items, Auto Buy, Auto Scribe, Spell Leveling, Auto Cast and Auto Concept
+plan from the gate and narrate it; every other service keeps the fault handling its own page
+describes.
 
 The gate is fed from three places:
 
