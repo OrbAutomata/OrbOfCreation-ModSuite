@@ -192,6 +192,12 @@ public sealed class ProductionSourceAuditTests
     /// one because its init, registry and press reasons are those retry reasons.
     /// </para>
     /// <para>
+    /// A GameAction and Auto Concept's service cycle author the reasons a mutation answers with, so
+    /// there the sweep also catches the other shapes that carry the same text:
+    /// <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation verifier's
+    /// evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception it caught.
+    /// </para>
+    /// <para>
     /// Two shapes stay and neither is an exemption granted to make this pass; both are recognised
     /// by the sink they write to rather than by a path, so no file is exempt and a wire sentence
     /// cannot borrow them. <c>_bindingFailure</c> holds the suite's own composition text — the
@@ -225,11 +231,17 @@ public sealed class ProductionSourceAuditTests
         };
         const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
         const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
+        var exceptionText = new Regex(
+            @"ExceptionDetail\.Describe|\.Message\b|\.Detail\b|\b(?:evidence|attempted)\.Format\(",
+            RegexOptions.CultureInvariant);
 
         var offenders = new List<string>();
         foreach (var path in FilesWhoseTextCanReachACaller(sourceRoot))
         {
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
+            var authorsMutationReasons =
+                relativePath.EndsWith("GameAction.cs", StringComparison.Ordinal) ||
+                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal);
             var lineNumber = 0;
             var allowedStatement = false;
             foreach (var line in File.ReadLines(path))
@@ -250,8 +262,10 @@ public sealed class ProductionSourceAuditTests
                     allowedStatement = true;
                 }
 
-                if (line.Contains("GetBaseException", StringComparison.Ordinal) &&
-                    !allowedStatement)
+                var carriesExceptionText =
+                    line.Contains("GetBaseException", StringComparison.Ordinal) ||
+                    authorsMutationReasons && exceptionText.IsMatch(line);
+                if (carriesExceptionText && !allowedStatement)
                 {
                     offenders.Add(relativePath + ":" + lineNumber);
                 }
