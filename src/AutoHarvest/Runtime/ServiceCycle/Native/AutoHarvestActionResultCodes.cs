@@ -6,10 +6,9 @@ namespace OrbAutomata;
 /// Why an Auto Harvest action ended the way it did, in the detail the worker needs to remember it.
 /// </summary>
 /// <remarks>
-/// The three failure codes below all used to be <c>AdapterFault</c>. They are told apart because the
-/// worker keeps this service's fault memory now and a receipt is how it learns: how far a failure
-/// reaches decides whether one pair or the whole feature stops being tried, and what kind it is
-/// decides what the health report says. Codes are append-only.
+/// A contract code names a mismatch the game proved, and the worker holds it for the rest of the
+/// lifecycle, for one pair or for both. Every other fault backs its pair off and is retried. Codes
+/// are append-only.
 /// </remarks>
 internal static class AutoHarvestActionResultCodes
 {

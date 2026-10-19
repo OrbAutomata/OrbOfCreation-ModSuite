@@ -10,7 +10,6 @@ internal sealed class AutoHarvestServiceAdapterComposition
 {
     private AutoHarvestServiceAdapterComposition(
         AutoHarvestBindingResolver bindings,
-        AutoHarvestNativeGateSet gates,
         IAutomataServiceDefinition<
             AutoHarvestCycleState,
             AutoHarvestCycleAction> definition,
@@ -21,7 +20,6 @@ internal sealed class AutoHarvestServiceAdapterComposition
         )
     {
         Bindings = bindings;
-        Gates = gates;
         Definition = definition;
         Actions = actions;
 #if SERVICE_CYCLE_PROFILE
@@ -30,7 +28,6 @@ internal sealed class AutoHarvestServiceAdapterComposition
     }
 
     internal AutoHarvestBindingResolver Bindings { get; }
-    internal AutoHarvestNativeGateSet Gates { get; }
     internal IAutomataServiceDefinition<
         AutoHarvestCycleState,
         AutoHarvestCycleAction> Definition { get; }
@@ -65,7 +62,6 @@ internal sealed class AutoHarvestServiceAdapterComposition
             contractCircuit);
         var reader = new AutoHarvestNativeStateReader(dependencies.RegistryResolver);
 #endif
-        var gates = new AutoHarvestNativeGateSet();
         var actions = new AutoHarvestCycleActionAdapter(
             bindings,
             new AutoHarvestMutationAdapter(
@@ -74,10 +70,9 @@ internal sealed class AutoHarvestServiceAdapterComposition
                 , profileOperations
 #endif
                 ),
-            gates,
-            contractCircuit,
             dependencies.OwnsActionFamily,
-            dependencies.TryCaptureMutationPermit
+            dependencies.TryCaptureMutationPermit,
+            dependencies.Warn
 #if SERVICE_CYCLE_PROFILE
             , profileOperations,
             bindings
@@ -85,7 +80,6 @@ internal sealed class AutoHarvestServiceAdapterComposition
             );
         return new AutoHarvestServiceAdapterComposition(
             bindings,
-            gates,
             AutoHarvestService.Define(actions),
             actions
 #if SERVICE_CYCLE_PROFILE

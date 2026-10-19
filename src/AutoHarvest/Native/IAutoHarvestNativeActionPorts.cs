@@ -1,4 +1,3 @@
-using System;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
@@ -43,8 +42,7 @@ internal interface IAutoHarvestMutationPort
     NativeActionOutcome Submit(
         in ResolvedAutoHarvestPair resolved,
         in AutoHarvestPairFacts facts,
-        AutoHarvestActionSafetyState safety,
-        Action quarantine
+        AutoHarvestActionSafetyState safety
 #if SERVICE_CYCLE_PROFILE
         , in ServiceActionContext context
 #endif
@@ -55,11 +53,5 @@ internal interface IAutoHarvestContractCircuit
 {
     AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair);
     void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope);
-}
-
-internal interface IAutoHarvestGatePort
-{
-    void ObserveResolvedPairs(in AutoHarvestResolvedPairSet pairs);
-    bool IsQuarantined(AutoHarvestPair pair);
-    void Quarantine(AutoHarvestPair pair);
+    void InvalidateLifecycle();
 }

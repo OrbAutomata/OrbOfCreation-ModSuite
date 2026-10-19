@@ -14,7 +14,7 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var adapter = new AutoHarvestMutationAdapter(new ThrowingStatePort());
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
         Assert.Equal(NativeMutationOutcome.BeforeCaptureFailed, result.Mutation);
@@ -43,7 +43,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(
             ResolvedPair(),
             ReadyFacts(readiness: AutoHarvestEvidenceState.Rejected),
-            Preserving, NotQuarantined);
+            Preserving);
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -62,7 +62,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(
             ResolvedPair(action),
             ReadyFacts(PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation),
-            Preserving, NotQuarantined);
+            Preserving);
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet,
@@ -86,7 +86,7 @@ public sealed class AutoHarvestMutationAdapterTests
             ReadyFacts(
                 PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation,
                 readiness: AutoHarvestEvidenceState.Rejected),
-            Preserving, NotQuarantined);
+            Preserving);
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, action.prerequisites.CheckCalls);
@@ -100,7 +100,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var action = new PlotNodeActionSO { prerequisites = null! };
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving);
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable,
@@ -123,7 +123,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort();
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(), default, Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), default, Preserving);
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
@@ -138,7 +138,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(resolvesPrototype: false);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused,
@@ -162,7 +162,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(supported: 1);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -181,7 +181,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(admissionFailure: expected);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(expected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -195,7 +195,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(resolvesCurrentPair: false);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused,
@@ -212,7 +212,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(activeActions: active);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
 
         Assert.True(result.Verified);
         var added = Assert.Single(active.value);
@@ -231,15 +231,15 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort(activeActions: active);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
 
         Assert.True(result.Verified);
         Assert.Same(state.Prototype, Assert.Single(active.value));
     }
 
     /// <summary>
-    /// A throw from the add that leaves nothing visible may still have moved the game, so the pair
-    /// is faulted for the lifecycle rather than refused in a way the next cycle would retry.
+    /// A throw from the add that leaves the pair not running is a pair fault, which backs the pair
+    /// off until its retry is due.
     /// </summary>
     [Fact]
     public void AnAddThatThrowsWithoutLandingFaultsThePair()
@@ -247,11 +247,9 @@ public sealed class AutoHarvestMutationAdapterTests
         var active = new PlotNodeActionInstanceListVariable { SuppressMutation = true, BreakAfterMutation = true };
         var state = new RecordingStatePort(activeActions: active);
         var adapter = new AutoHarvestMutationAdapter(state);
-        var quarantines = 0;
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving, () => quarantines++);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
 
-        Assert.Equal(1, quarantines);
         Assert.Equal(AutoHarvestActionResultCodes.PairFaulted, result.Code);
         Assert.Equal(NativeMutationOutcome.ExecutionThrew, result.Mutation);
         Assert.Equal(1, result.CallOutcome.MutationAttempts);
@@ -280,8 +278,7 @@ public sealed class AutoHarvestMutationAdapterTests
         var result = adapter.Submit(
             ResolvedPair(),
             ReadyFacts(),
-            (AutoHarvestActionSafetyState)safetyValue,
-            NotQuarantined);
+            (AutoHarvestActionSafetyState)safetyValue);
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
@@ -318,7 +315,7 @@ public sealed class AutoHarvestMutationAdapterTests
                 pairEngaged: matches != 0));
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving, NotQuarantined);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
 
         Assert.Empty(active.value);
         Assert.Equal(0, state.PrototypeCount);
@@ -383,7 +380,7 @@ public sealed class AutoHarvestMutationAdapterTests
                 expected != AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused);
         var adapter = new AutoHarvestMutationAdapter(state);
 
-        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving, NotQuarantined).ToResult();
+        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving).ToResult();
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(expected, result.Code);
@@ -421,8 +418,6 @@ public sealed class AutoHarvestMutationAdapterTests
 
     private const AutoHarvestActionSafetyState Preserving =
         AutoHarvestActionSafetyState.NativePhaseCyclePreserving;
-
-    private static readonly Action NotQuarantined = () => Assert.Fail("The pair was quarantined.");
 
     private static ResolvedAutoHarvestPair ResolvedPair(
         PlotNodeActionSO? action = null,

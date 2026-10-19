@@ -981,6 +981,9 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
 {
     public bool SuppressMutation { get; set; }
 
+    /// <summary>Adds of this one action do nothing; every other action still lands.</summary>
+    public PlotNodeActionSO? SuppressMutationOf { get; set; }
+
     /// <summary>The add lands, then the game throws and the list stops reading.</summary>
     public bool BreakAfterMutation { get; set; }
     private bool brokenReads;
@@ -1013,7 +1016,8 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
 
     private void Add(PlotNodeActionInstance prototype, int quantity)
     {
-        if (SuppressMutation) return;
+        if (SuppressMutation || SuppressMutationOf is not null &&
+            ReferenceEquals(prototype.GetAction(), SuppressMutationOf)) return;
         var existing = FindInstance(prototype);
         if (existing is not null && !existing.IsEmpty())
         {

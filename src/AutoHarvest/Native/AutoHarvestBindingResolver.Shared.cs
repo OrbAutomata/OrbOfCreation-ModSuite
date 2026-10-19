@@ -78,11 +78,14 @@ internal sealed partial class AutoHarvestBindingResolver
         }
 
         failure = AutoHarvestNativeFailure.Create(
-            resolution.IsRetryable
-                ? AutoHarvestRuntimeFailureKind.Retryable
-                : AutoHarvestRuntimeFailureKind.Contract,
+            resolution.IsProvenMismatch
+                ? AutoHarvestRuntimeFailureKind.Contract
+                : AutoHarvestRuntimeFailureKind.Retryable,
             scope,
-            EntityIdentityFormatter.Format(uuid) + " registry identity is unavailable: " + resolution.Format());
+            resolution.IsProvenMismatch || resolution.IsRetryable
+                ? EntityIdentityFormatter.Format(uuid) + " registry identity is unavailable: " + resolution.Format()
+                : EntityIdentityFormatter.Format(uuid) + " registry identity could not be read." +
+                    GameActionFaultLog.Sentence(GameActionFaultLog.RecordDetail(resolution.Format(), "Auto Harvest")));
         return false;
     }
 

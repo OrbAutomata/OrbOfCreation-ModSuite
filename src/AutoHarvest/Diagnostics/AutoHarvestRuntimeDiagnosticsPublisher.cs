@@ -119,8 +119,7 @@ internal sealed class AutoHarvestRuntimeDiagnosticsPublisher : IDisposable
     private static bool IsFeatureScopedFailure(in AutoHarvestPairHealth health) =>
         health.Selected && health.FeatureScoped && health.Kind is
             AutoHarvestPairHealthKind.RegistryNotReady or
-            AutoHarvestPairHealthKind.ContractUnavailable or
-            AutoHarvestPairHealthKind.Faulted;
+            AutoHarvestPairHealthKind.ContractUnavailable;
 
     private static bool SameHealth(in AutoHarvestPairHealth left, in AutoHarvestPairHealth right) =>
         left.Pair == right.Pair &&
@@ -178,11 +177,6 @@ internal sealed class AutoHarvestRuntimeDiagnosticsPublisher : IDisposable
                     health.FeatureScoped
                         ? "The audited native contract is unavailable for the Auto Harvest service."
                         : "The audited native contract is unavailable for this capability."),
-            AutoHarvestPairHealthKind.Faulted =>
-                (FeatureStatusState.Faulted, FeatureStatusReasonCode.PostconditionFailed,
-                    health.FeatureScoped
-                        ? "The Auto Harvest service is isolated after an unverifiable native mutation."
-                        : "This capability is isolated after an unverifiable native mutation."),
             AutoHarvestPairHealthKind.RegistryNotReady =>
                 (FeatureStatusState.NotReady, FeatureStatusReasonCode.RegistryNotReady,
                     health.FeatureScoped
