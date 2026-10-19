@@ -260,7 +260,7 @@ because putting a panel up or taking it down is no run-scoped transaction, the s
 family for it, and it has no lifecycle epoch to admit. The pair still touches the game only on the
 main thread, verifies its one outcome through `NativeMutationVerifier`, reads the after-state when
 the game throws after the press, and answers every unverified press as a fault. Its MCP command
-and its lifecycle live in `Plugin.cs`.
+and its lifecycle live in `GameMcpGadgets`.
 
 Composition registers each GameAction on the shell once, into the one `LifecycleGameActions` the
 runtime owns, whether the composition root or a feature builds it. That registration is its whole
