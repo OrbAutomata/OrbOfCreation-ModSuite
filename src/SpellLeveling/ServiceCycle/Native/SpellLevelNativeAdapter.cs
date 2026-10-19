@@ -152,9 +152,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
 
         try
         {
-            // A native batch is admitted from the live set, not from the one ranked identity the
-            // worker carries for filing evidence. In particular, one unaffordable head spell must
-            // not veto a later spell that the game's own batch can level.
+            // A native batch is admitted from the live set, so one unaffordable spell never vetoes
+            // a later spell that the game's own batch can level.
             if (kind == SpellLevelActionKind.All)
                 return SubmitAll(uuid);
 

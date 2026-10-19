@@ -94,7 +94,7 @@ public sealed class SpellLevelCycleEvaluatorTests
 
         var action = Assert.Single(Plan(world, Config(), out _, out var metrics));
         Assert.Equal(SpellLevelActionKind.All, action.Kind);
-        Assert.Equal(Frost, action.Uuid);
+        Assert.Equal(KnownEntities.UnlockLevelAllSpells.Uuid, action.Uuid);
         Assert.Equal(1, metrics.Exclusions.Unaffordable);
     }
 

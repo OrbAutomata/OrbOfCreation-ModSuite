@@ -11,8 +11,9 @@ namespace OrbAutomata;
 /// <summary>
 /// The pure Spell Leveling worker policy: given the pinned world, the pinned configuration and the
 /// runner's retry gate it plans at most one mastery-level purchase and waits for the next
-/// publication. It owns no state between cycles; a spell still backing off on the gate is passed
-/// over until its retry is due, and every other spell keeps being planned.
+/// publication. It owns no state between cycles. While the level-all batch backs off on the gate,
+/// spells are levelled one at a time, and a spell still backing off is passed over until its retry
+/// is due.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,6 +54,8 @@ internal static class SpellLevelCycleEvaluator
         if (!SpellLevelConfigurationPolicy.IsOperational(config)) return wake;
 
         var capability = ReadCapability(world);
+        var levelAll = capability == AutoSpellLevelCapability.All &&
+            !retryGate.IsWaiting(SpellLevelServicePolicies.LevelAllRetryTarget, decisionAt);
 
         var undiscovered = 0;
         var notReady = 0;
@@ -86,7 +89,8 @@ internal static class SpellLevelCycleEvaluator
                 continue;
             }
 
-            if (retryGate.IsWaiting(SpellLevelServicePolicies.RetryTarget(spell.SpellRecipeId), decisionAt))
+            if (!levelAll &&
+                retryGate.IsWaiting(SpellLevelServicePolicies.RetryTarget(spell.SpellRecipeId), decisionAt))
             {
                 backingOff++;
                 continue;
@@ -115,15 +119,13 @@ internal static class SpellLevelCycleEvaluator
         }
 
         // One action per cycle, either way. `All` is not "one action per ready spell": the native
-        // batch levels every ready spell in a single call, and the identity it carries is only what
-        // the mutation evidence is filed under.
-        var kind = capability == AutoSpellLevelCapability.All
-            ? SpellLevelActionKind.All
-            : SpellLevelActionKind.Single;
-        actions.Add(new SpellLevelCycleAction(
-            kind,
-            chosen.SpellRecipeId,
-            world.CollectedAtEpoch));
+        // batch levels every ready spell in a single call, so it names its own upgrade and covers
+        // spells whose single level is backing off.
+        actions.Add(levelAll
+            ? new SpellLevelCycleAction(
+                SpellLevelActionKind.All, KnownEntities.UnlockLevelAllSpells.Uuid, world.CollectedAtEpoch)
+            : new SpellLevelCycleAction(
+                SpellLevelActionKind.Single, chosen.SpellRecipeId, world.CollectedAtEpoch));
 
         metrics = new SpellLevelDecisionMetrics(
             spells.Count, ready, plannedActions: 1, capability, in histogram);
