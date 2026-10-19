@@ -195,9 +195,9 @@ public sealed class ProductionSourceAuditTests
     /// native member rather than a runtime fault, and <c>docs/development/mcp-tools.md</c> keeps
     /// that deliberately: a <c>contract_unavailable</c> result is a defect report and the member is
     /// its subject. <c>nativeDetail</c> is the tooltip reader's log-only sink, which
-    /// <c>Plugin.TooltipsUnreadableBecause</c> writes to the log before answering the caller with
-    /// an authored sentence. A statement that writes to a log is the third shape, and it is the
-    /// destination this whole rule exists to push the text towards —
+    /// <c>GameMcpScreenReader.TooltipsUnreadableBecause</c> writes to the log before answering the
+    /// caller with an authored sentence. A statement that writes to a log is the third shape, and
+    /// it is the destination this whole rule exists to push the text towards —
     /// <c>AutomaticSaveBackupStatus.Failed</c> named among them because the backup health surface
     /// is Mod Config's own diagnostic, not a wire answer.
     /// </para>

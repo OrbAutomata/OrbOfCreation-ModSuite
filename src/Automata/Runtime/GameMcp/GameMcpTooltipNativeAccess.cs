@@ -13,9 +13,9 @@ namespace OrbAutomata.GameMcp;
 /// <remarks>
 /// Every failure here hands back a <c>nativeDetail</c>, and the name is the contract: it names the
 /// game's own members and carries the game's own exception text, so
-/// <c>Plugin.TooltipsUnreadableBecause</c> logs it and answers the caller with the authored
-/// <c>TooltipsUnreadable</c> sentence instead. Called a "reason" it would be indistinguishable from
-/// a sentence bound for the wire — which is what
+/// <c>GameMcpScreenReader.TooltipsUnreadableBecause</c> logs it and answers the caller with the
+/// authored <c>TooltipsUnreadable</c> sentence instead. Called a "reason" it would be
+/// indistinguishable from a sentence bound for the wire — which is what
 /// <c>ProductionSourceAuditTests.NoRawExceptionTextReachesTheWire</c> recognises it by.
 /// </remarks>
 internal sealed class GameMcpTooltipNativeAccess
