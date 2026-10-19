@@ -38,7 +38,7 @@ public sealed class AutoBuyRefusalRetryTests
 
         harness.PumpWorldsUntil(() => purchases.Submissions(First) == 1);
         var entry = harness.RetryGate.Latest;
-        harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1);
+        harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1, advanceClock: false);
         var firstAttemptsWhenSecondWasBought = purchases.Submissions(First);
         var quietStatus = harness.Status.Current.State;
         var quietWarnings = harness.Warnings.Count;
@@ -70,7 +70,7 @@ public sealed class AutoBuyRefusalRetryTests
 
         harness.PumpWorldsUntil(() => purchases.Submissions(First) == 1);
         var first = harness.RetryGate.Latest;
-        harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1);
+        harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1, advanceClock: false);
         var quietStatus = harness.Status.Current.State;
         var quietWarnings = harness.Warnings.ToArray();
         harness.PumpWorldsUntil(() => purchases.Submissions(First) == 2);
@@ -266,23 +266,24 @@ public sealed class AutoBuyRefusalRetryTests
             _runtime.InvalidateLifecycle();
         }
 
-        internal void PumpWorldsUntil(Func<bool> condition, bool firstUnlocked = true, bool firstAffordable = true)
+        internal void PumpWorldsUntil(
+            Func<bool> condition, bool firstUnlocked = true, bool firstAffordable = true, bool advanceClock = true)
         {
             var deadline = Stopwatch.StartNew();
             while (!condition())
             {
-                PumpWorld(firstUnlocked, firstAffordable);
+                PumpWorld(firstUnlocked, firstAffordable, advanceClock);
                 if (deadline.Elapsed > ServiceCycleTestDeadline.Value)
                     throw new TimeoutException("Auto Buy did not reach the expected state.");
                 Thread.Yield();
             }
         }
 
-        internal void PumpWorld(bool firstUnlocked = true, bool firstAffordable = true)
+        internal void PumpWorld(bool firstUnlocked = true, bool firstAffordable = true, bool advanceClock = true)
         {
             _registry.WorldPublication.Publish(World(_epoch, firstUnlocked, firstAffordable), new WorldGeneration(++_generation));
             _runtime.Tick(0);
-            _clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
+            if (advanceClock) _clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
         }
 
         public void Dispose()
