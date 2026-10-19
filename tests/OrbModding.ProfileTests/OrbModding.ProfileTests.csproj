@@ -29,10 +29,14 @@
 
   <ItemGroup>
     <Compile Include="../TestSupport/**/*.cs" Link="TestSupport/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../OrbModding.GameContractTests/ProductionContractIds.cs" Link="GameContractTests/ProductionContractIds.cs" />
+    <Compile Include="../OrbModding.GameContractTests/NativeContractManifest.cs" Link="GameContractTests/NativeContractManifest.cs" />
+    <Compile Include="../OrbModding.GameContractTests/GameAssemblyMetadata.cs" Link="GameContractTests/GameAssemblyMetadata.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="../../data/entity-mappings.tsv" Link="data/entity-mappings.tsv" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../data/entity-display-names.tsv" Link="data/entity-display-names.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../data/native-contracts.json" Link="data/native-contracts.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
