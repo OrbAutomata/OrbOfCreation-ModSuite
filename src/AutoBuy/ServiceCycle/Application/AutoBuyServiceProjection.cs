@@ -11,8 +11,6 @@ namespace OrbAutomata;
 /// The ten exclusion counters answer the question a bare "0 eligible of 180" cannot: which term
 /// refused them. Captured minus eligible equals their sum on every cycle, so an operator reading the
 /// journal can attribute every candidate that did not reach the plan without attaching a debugger.
-/// The grouping histogram remains in the worker decision state; the bounded neutral projection is
-/// reserved for the complete candidate-exclusion chain so every withheld proposal has a named row.
 /// The unaffordable bucket's binding resource does not ride here — the projection surface carries
 /// only booleans, integers, and doubles, and a resource identity is a GUID — so that detail stays in
 /// the purchase narration, which already prints the binding cost and holdings.
@@ -20,10 +18,6 @@ namespace OrbAutomata;
 internal static class AutoBuyServiceProjection
 {
     internal const int CapturedCandidatesKey = 10;
-    // Stable decoder keys retained even though the bounded projection now spends its rows on the
-    // complete candidate-exclusion chain. Old traces and the trace tool still name these codes.
-    internal const int CapturedStructuresKey = 11;
-    internal const int CapturedUpgradesKey = 12;
     internal const int EligibleCandidatesKey = 13;
     internal const int PlannedActionsKey = 14;
     internal const int RequestedLevelsKey = 15;
@@ -33,16 +27,10 @@ internal static class AutoBuyServiceProjection
     internal const int ExcludedTerminalKey = 21;
     internal const int ExcludedUnaffordableKey = 22;
     internal const int ExcludedUnpriceableKey = 23;
-    internal const int FullGroupsKey = 24;
-    internal const int ReducedGroupsKey = 25;
-    internal const int ReducedGroupLevelsKey = 26;
-    internal const int LedgerStarvedKey = 27;
     internal const int ExcludedOwningViewUnavailableKey = 28;
     internal const int ExcludedOwningViewRelationMissingKey = 29;
     internal const int ExcludedOwningViewRelationUnreadableKey = 30;
-    // Key 31 is retired. It represented the invalid sole-owner assumption and must never be reused,
-    // so old decision journals remain unambiguous when decoded beside new ones.
-    internal const int RetiredOwningViewRelationAmbiguousKey = 31;
+    // Keys 11, 12, 24-27 and 31 are retired; never reuse them.
     internal const int ExcludedOwningViewRelationContradictoryKey = 32;
     internal const int ExcludedDestinationFullKey = 33;
 
@@ -68,7 +56,6 @@ internal static class AutoBuyServiceProjection
         output.Add(Key(ExcludedOwningViewRelationUnreadableKey), Integer(exclusions.OwningViewRelationUnreadable));
         output.Add(Key(ExcludedOwningViewRelationContradictoryKey), Integer(exclusions.OwningViewRelationContradictory));
         output.Add(Key(ExcludedDestinationFullKey), Integer(exclusions.DestinationFull));
-
     }
 
     private static ServiceProjectionKey Key(int value) => new(value);

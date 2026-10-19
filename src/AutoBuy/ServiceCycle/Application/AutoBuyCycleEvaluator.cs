@@ -150,10 +150,6 @@ internal static class AutoBuyCycleEvaluator
 
         var emitted = 0;
         var requestedLevels = 0;
-        var fullGroups = 0;
-        var reducedGroups = 0;
-        var reducedGroupLevels = 0;
-        var ledgerStarved = 0;
         for (var i = 0; i < eligible.Count; i++)
         {
             var decision = eligible[i];
@@ -185,18 +181,7 @@ internal static class AutoBuyCycleEvaluator
                 // Admission proved one level against untouched quantities. Reaching zero here means
                 // earlier ranked actions consumed enough of a shared resource that even that exact
                 // one-level spend no longer clears the batch ledger.
-                ledgerStarved++;
                 continue;
-            }
-
-            if (count == preferredCount)
-            {
-                fullGroups++;
-            }
-            else
-            {
-                reducedGroups++;
-                reducedGroupLevels = checked(reducedGroupLevels + count);
             }
 
             var action = new AutoBuyCycleAction(
@@ -219,12 +204,7 @@ internal static class AutoBuyCycleEvaluator
             eligible.Count,
             emitted,
             requestedLevels,
-            Histogram(excluded),
-            new AutoBuyGroupOutcomeHistogram(
-                fullGroups,
-                reducedGroups,
-                reducedGroupLevels,
-                ledgerStarved));
+            Histogram(excluded));
         return wake;
     }
 
