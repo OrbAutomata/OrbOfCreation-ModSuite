@@ -101,8 +101,8 @@ internal static class GameMcpCollectionSpans
         for (var index = 0; index < order.Length; index++)
         {
             var report = reports[order[index]];
-            var name = GameMcpWorldQuery.CollectionReportPage(
-                GameMcpWorldQuery.Normalize(report.Category));
+            var name = GameMcpWorldCategories.CollectionReportPage(
+                GameMcpWorldCategories.Normalize(report.Category));
             if (report.Outcome == WorldCategoryOutcome.Unavailable)
             {
                 Name(unavailable, name);

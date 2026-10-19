@@ -165,8 +165,8 @@ internal static class GameMcpTestHarness
     /// listable category is built from.
     /// </summary>
     internal static WorldCollectionCategoryStatus[] AllCategoriesCollected() =>
-        GameMcpWorldQuery.RegisteredCategoryNames()
-            .Concat(GameMcpWorldQuery.ListedCollectionReportNames())
+        GameMcpWorldCategories.RegisteredCategoryNames()
+            .Concat(GameMcpWorldCategories.ListedCollectionReportNames())
             .Distinct(StringComparer.Ordinal)
             .Select(name => new WorldCollectionCategoryStatus(
                 name, WorldCategoryOutcome.Collected, 0, 0, string.Empty))

@@ -126,7 +126,7 @@ public sealed class GameMcpListColumnContractTests
     public void Every_declared_column_set_belongs_to_a_registered_category()
     {
         var registered = new HashSet<string>(
-            GameMcpWorldQuery.RegisteredCategoryNames(), StringComparer.Ordinal);
+            GameMcpWorldCategories.RegisteredCategoryNames(), StringComparer.Ordinal);
 
         Assert.NotEmpty(GameMcpListColumns.Categories);
         Assert.All(GameMcpListColumns.Categories, name => Assert.Contains(name, registered));
@@ -165,7 +165,7 @@ public sealed class GameMcpListColumnContractTests
     {
         var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
 
-        Assert.All(GameMcpWorldQuery.RegisteredCategoryNames(), category =>
+        Assert.All(GameMcpWorldCategories.RegisteredCategoryNames(), category =>
         {
             var page = GameMcpTestHarness.Json(
                 GameMcpWorldQuery.ListRows(context, category, 0, 50));

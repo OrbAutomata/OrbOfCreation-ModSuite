@@ -112,7 +112,7 @@ public sealed class GameMcpTypeReachTests
         string category,
         string nativeType)
     {
-        Assert.Contains(category, GameMcpWorldQuery.RegisteredCategoryNames());
+        Assert.Contains(category, GameMcpWorldCategories.RegisteredCategoryNames());
         Assert.Equal(nativeType, GameMcpEntityCapabilityMap.ExpectedNativeType(category));
         Assert.True(GameMcpEntityCapabilityMap.TryCategoryForNativeType(nativeType, out var found));
         Assert.Equal(category, found);
