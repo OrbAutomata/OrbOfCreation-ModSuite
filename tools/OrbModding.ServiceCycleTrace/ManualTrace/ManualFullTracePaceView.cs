@@ -10,7 +10,8 @@ namespace OrbModding.ServiceCycleTrace.ManualTrace;
 /// <remarks>
 /// The pace is read from the configuration store behind each published generation, so a save that
 /// changed something else continues the stretch it fell in. Collection is the only capturing service,
-/// so the pump's capture phase is collection's main-thread cost.
+/// so the pump's capture phase is collection's main-thread cost. Suite MB/s counts the suite's workers
+/// between pumps as well as its pumps, as the Garbage collection section splits them.
 /// </remarks>
 internal static class ManualFullTracePaceView
 {
@@ -25,9 +26,11 @@ internal static class ManualFullTracePaceView
         var stretches = new List<Stretch>();
         Stretch? current = null;
         var heap = new PumpHeapIntervals();
+        var workers = new SuiteWorkerSpans();
         foreach (var segment in session.Segments())
         foreach (var item in segment.Events)
         {
+            workers.Observe(in item);
             if (heap.TryObserve(in item, out var frame))
             {
                 current?.Heap.Add(in frame);
@@ -52,6 +55,7 @@ internal static class ManualFullTracePaceView
             }
         }
 
+        workers.Freeze();
         writer.WriteLine("## Pace");
         writer.WriteLine();
         if (stretches.Count == 0)
@@ -64,13 +68,14 @@ internal static class ManualFullTracePaceView
         writer.WriteLine("|---:|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         foreach (var stretch in stretches)
         {
+            var shares = stretch.Heap.Shares(workers);
             var seconds = TraceMetric.ToMilliseconds(stretch.LastTicks - stretch.FromTicks) / 1000d;
             writer.WriteLine(
                 $"| {Milliseconds(stretch.FromTicks - origin)} | {stretch.Pace} | {Fixed(seconds, "F1")} | " +
                 $"{stretch.Collections.ToString("N0", CultureInfo.InvariantCulture)} | {Rate(stretch.Collections, seconds)} | " +
                 $"{Average(stretch.CollectionTicks, stretch.Collections)} | {Rate(stretch.Pumps, seconds)} | " +
                 $"{Average(stretch.PumpTicks, stretch.Pumps)} | {Optional(stretch.Heap.CollectionsPerMinute, "F1")} | " +
-                $"{Optional(stretch.Heap.TotalMegabytesPerSecond, "F2")} | {Optional(stretch.Heap.SuiteMegabytesPerSecond, "F2")} |");
+                $"{Optional(shares.TotalMegabytesPerSecond, "F2")} | {Optional(shares.SuiteMegabytesPerSecond, "F2")} |");
         }
         writer.WriteLine();
     }

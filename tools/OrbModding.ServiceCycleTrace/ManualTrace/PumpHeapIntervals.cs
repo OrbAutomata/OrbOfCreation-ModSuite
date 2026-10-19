@@ -50,13 +50,16 @@ internal readonly struct PumpHeapFrame
         CapturesAcrossCollection = heap.CapturesAcrossCollection;
         PreviousFrameAllocated = heap.PreviousFrameAllocated;
         HasPrevious = previous is not null;
+        GameToTicks = heap.TimestampTicks - pump.TotalDurationTicks;
         if (previous is not { } before)
         {
+            GameFromTicks = GameToTicks;
             WallTicks = 0;
             CollectionsInGame = 0;
             GameGrowth = null;
             return;
         }
+        GameFromTicks = before.TimestampTicks;
         WallTicks = Math.Max(0, heap.TimestampTicks - before.TimestampTicks);
         CollectionsInGame = heap.CollectionsAtPumpStart - before.CollectionsAtPumpEnd;
         GameGrowth = CollectionsInGame == 0 ? heap.HeapAtPumpStart - before.HeapAtPumpEnd : null;
@@ -70,6 +73,11 @@ internal readonly struct PumpHeapFrame
 
     /// <summary>The frame's wall time: previous pump's end to this pump's end.</summary>
     internal long WallTicks { get; }
+
+    /// <summary>The game's part of the frame: the previous pump's end to this pump's start.</summary>
+    internal long GameFromTicks { get; }
+
+    internal long GameToTicks { get; }
 
     internal long PumpTicks { get; }
     internal int CollectionsInPump { get; }
@@ -92,16 +100,20 @@ internal readonly struct PumpHeapFrame
 }
 
 /// <summary>Running totals over frames, for the whole capture or one pace stretch.</summary>
+/// <remarks>
+/// The suite's workers allocate between pumps too, so growth in the game's part of a frame is only
+/// the game's where no suite worker was evaluating. That rate is the game's own, and whatever the
+/// frames with a worker grew beyond it is the workers'.
+/// </remarks>
 internal sealed class PumpHeapTally
 {
+    private readonly List<CleanFrame> _clean = new();
+
     internal long Frames { get; private set; }
     internal long Collections { get; private set; }
     internal long FirstTicks { get; private set; } = -1;
     internal long LastTicks { get; private set; }
-    internal long CleanFrames { get; private set; }
-    internal long CleanTicks { get; private set; }
-    internal long SuiteGrowth { get; private set; }
-    internal long GameGrowth { get; private set; }
+    internal long CleanFrames => _clean.Count;
 
     internal void Add(in PumpHeapFrame frame)
     {
@@ -110,25 +122,78 @@ internal sealed class PumpHeapTally
         LastTicks = frame.TimestampTicks;
         Collections += frame.Collections;
         if (!frame.IsClean) return;
-        CleanFrames++;
-        CleanTicks += frame.WallTicks;
-        SuiteGrowth += frame.SuiteGrowth!.Value;
-        GameGrowth += frame.GameGrowth!.Value;
+        _clean.Add(new CleanFrame(
+            frame.GameFromTicks,
+            frame.GameToTicks,
+            frame.WallTicks,
+            frame.SuiteGrowth!.Value,
+            frame.GameGrowth!.Value));
     }
 
     internal double Seconds => FirstTicks < 0 ? 0 : TraceMetric.ToMilliseconds(LastTicks - FirstTicks) / 1000d;
 
     internal double? CollectionsPerMinute => Seconds > 0 ? Collections / Seconds * 60d : null;
 
-    /// <summary>All heap growth per second of clean frames: the game, the suite, and every thread.</summary>
-    internal double? TotalMegabytesPerSecond => Rate(SuiteGrowth + GameGrowth);
+    internal PumpHeapShares Shares(SuiteWorkerSpans workers)
+    {
+        ArgumentNullException.ThrowIfNull(workers);
+        long cleanTicks = 0, pumpGrowth = 0, gameGrowth = 0;
+        var between = new (long Ticks, long Growth)[3];
+        foreach (var frame in _clean)
+        {
+            cleanTicks += frame.WallTicks;
+            pumpGrowth += frame.SuiteGrowth;
+            gameGrowth += frame.GameGrowth;
+            var presence = (int)workers.During(frame.GameFromTicks, frame.GameToTicks);
+            between[presence].Ticks += frame.GameToTicks - frame.GameFromTicks;
+            between[presence].Growth += frame.GameGrowth;
+        }
+        var none = between[(int)SuiteWorkerPresence.None];
+        double? baseline = none.Ticks > 0 ? (double)none.Growth / none.Ticks : null;
+        return new PumpHeapShares(
+            TraceMetric.ToMilliseconds(cleanTicks) / 1000d,
+            pumpGrowth + gameGrowth,
+            pumpGrowth,
+            Excess(between[(int)SuiteWorkerPresence.Capturing], baseline),
+            Excess(between[(int)SuiteWorkerPresence.OtherOnly], baseline),
+            baseline is { } perTick ? perTick * TimeSpan.TicksPerSecond / 1_048_576d : null);
+    }
 
-    /// <summary>Heap growth inside the suite's pumps per second of clean frames.</summary>
+    private static long? Excess((long Ticks, long Growth) frames, double? baseline) =>
+        frames.Ticks == 0 ? 0 : baseline is { } perTick ? frames.Growth - (long)(perTick * frames.Ticks) : null;
+
+    private readonly record struct CleanFrame(
+        long GameFromTicks,
+        long GameToTicks,
+        long WallTicks,
+        long SuiteGrowth,
+        long GameGrowth);
+}
+
+/// <summary>
+/// Heap growth over the frames no collection touched, split by who allocated it. The workers' part is
+/// unknown when no frame ran without a worker, because then the game's own rate is unknown.
+/// </summary>
+internal readonly record struct PumpHeapShares(
+    double Seconds,
+    long TotalGrowth,
+    long PumpGrowth,
+    long? CapturingWorkerGrowth,
+    long? OtherWorkerGrowth,
+    double? GameMegabytesPerSecond)
+{
+    internal long? SuiteGrowth => PumpGrowth + CapturingWorkerGrowth + OtherWorkerGrowth;
+
+    internal double? TotalMegabytesPerSecond => Rate(TotalGrowth);
+
     internal double? SuiteMegabytesPerSecond => Rate(SuiteGrowth);
 
-    private double? Rate(long bytes)
-    {
-        var seconds = TraceMetric.ToMilliseconds(CleanTicks) / 1000d;
-        return seconds > 0 ? bytes / 1_048_576d / seconds : null;
-    }
+    internal double? PumpMegabytesPerSecond => Rate(PumpGrowth);
+
+    internal double? CapturingWorkerMegabytesPerSecond => Rate(CapturingWorkerGrowth);
+
+    internal double? OtherWorkerMegabytesPerSecond => Rate(OtherWorkerGrowth);
+
+    private double? Rate(long? bytes) =>
+        Seconds > 0 && bytes is { } known ? known / 1_048_576d / Seconds : null;
 }
