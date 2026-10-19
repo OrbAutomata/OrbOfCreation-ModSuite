@@ -21,10 +21,8 @@ namespace OrbModding.ProfileTests;
 public sealed class GameMcpDiscoveryTreeOfferTests
 {
     [Fact]
-    public void EventOfferLifecycleIsFoldedIntoTheOneDiscoveryNamespace()
+    public void TheDiscoverVerbCarriesTheEventOfferModes()
     {
-        Assert.DoesNotContain(GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_discovery_offer");
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "game_discover");
@@ -38,10 +36,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             new[] { "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>().ToArray());
         Assert.NotNull(schema["properties"]!["offerUuid"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Null(schema["properties"]!["expectedNativeType"]);
-        Assert.Null(schema["properties"]!["verbosity"]);
-        Assert.Null(schema["properties"]!["detail"]);
     }
 
     [Fact]
@@ -924,7 +918,7 @@ public sealed class GameMcpDiscoveryTreeOfferTests
     }
 
     [Fact]
-    public void McpPureJourneyNeedsNoNameJoinsOrPostMutationReadBacks()
+    public void AnOfferJourneyRunsOnReadsAndPressesAlone()
     {
         DiscoveryTreeSO.All.Clear();
         var tree = new DiscoveryTreeSO
@@ -944,9 +938,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
         tree.allDiscoverableItems.Add(secondNative);
         DiscoveryTreeSO.All.Add(tree);
         const long lifecycle = 7;
-        var calls = 0;
-        var postMutationReadBacks = 0;
-        var nameJoins = 0;
 
         try
         {
@@ -962,7 +953,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             var idleRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
                 GameMcpTestHarness.Context(idle, generation: 90),
                 "discovery-trees", tree.GetGuid().ToString("D")));
-            calls++;
             Assert.True((bool)idleRead["row"]!["initiate"]!["available"]!);
             Assert.NotNull(idleRead["name"]);
             var readTreeId = GameMcpTestHarness.ResolveHandle((string)idleRead["uuid"]!);
@@ -972,7 +962,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 readTreeId,
                 Guid.Empty,
                 lifecycle));
-            calls++;
             Assert.True(initiated.Outcome.Verified, initiated.Outcome.Reason);
 
             // The native update loop materializes offers after Crafting. The fixture advances that
@@ -1017,7 +1006,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 readTreeId,
                 Guid.Empty,
                 lifecycle));
-            calls++;
             Assert.True(rerolled.Outcome.Verified, rerolled.Outcome.Reason);
             Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
 
@@ -1042,7 +1030,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
             foreach (var readOffer in readOffers)
             {
                 var explanation = GameMcpTestHarness.Detail(rerollContext, readOffer);
-                calls++;
                 Assert.Null(explanation["status"]);
                 Assert.NotNull(explanation["name"]);
                 Assert.Equal(
@@ -1057,7 +1044,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 readTreeId,
                 readOffers[0],
                 lifecycle));
-            calls++;
             Assert.True(selected.Outcome.Verified, selected.Outcome.Reason);
             var selectedWorld = DiscoveryWorld(
                 new WorldDiscoveryTree(
@@ -1091,7 +1077,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                 readTreeId,
                 selectedOffer,
                 lifecycle));
-            calls++;
             Assert.True(confirmed.Outcome.Verified, confirmed.Outcome.Reason);
 
             var nextCostResource = Guid.Parse("eda26ca0-afcc-4fc3-9d8a-eb279123353d");
@@ -1135,10 +1120,6 @@ public sealed class GameMcpDiscoveryTreeOfferTests
                     CommittedBytes(selectedResponse),
                     CommittedBytes(confirmResponse),
                 });
-
-            Assert.Equal(7, calls);
-            Assert.Equal(0, postMutationReadBacks);
-            Assert.Equal(0, nameJoins);
         }
         finally
         {

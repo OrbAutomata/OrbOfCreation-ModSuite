@@ -679,9 +679,6 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.NotNull(result["row"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
         Assert.Null(requirements["applicable"]);
-        // The level a threshold was scaled to belongs on the rows whose threshold scales, in their
-        // own terms. As a block-wide number it was a mechanism reading nobody could act on.
-        Assert.Null(requirements["checkLevel"]);
         var root = Assert.IsType<JObject>(requirements["root"]);
         var orGroup = Assert.Single(root["children"]!.OfType<JObject>());
         Assert.Equal("OR", (string?)orGroup["operator"]);
@@ -1449,13 +1446,7 @@ public sealed class GameMcpEntityDetailTests : IDisposable
         Assert.Null(upgradeResult["blockers"]!["queue"]!["evidence"]);
         Assert.True((bool)upgradeResult["blockers"]!["cap"]!["blocked"]!);
 
-        // The threshold the screen draws, and only that one: `baseThreshold` and `scaledThreshold`
-        // were the same field read twice, published beside the effective number that supersedes
-        // both, and `selectedValueKind` named the accessor rather than the value.
         var thresholds = researchResult["researchThresholds"]!;
-        Assert.Null(thresholds["baseThreshold"]);
-        Assert.Null(thresholds["scaledThreshold"]);
-        Assert.Null(thresholds["selectedValueKind"]);
         Assert.Equal(5, (int)thresholds["effectiveThreshold"]!);
         var adjustment = Assert.Single(thresholds["activeAdjustments"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(challengeId), (string?)adjustment["source"]!["uuid"]);

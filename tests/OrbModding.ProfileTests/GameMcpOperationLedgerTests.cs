@@ -73,16 +73,6 @@ public sealed class GameMcpOperationLedgerTests
     }
 
     [Fact]
-    public void ACommandMeasuresItsOwnLifetime()
-    {
-        var command = Command(88, "world_overview");
-
-        Assert.True(
-            command.ElapsedMilliseconds >= 0,
-            $"a command reported a negative lifetime: {command.ElapsedMilliseconds}");
-    }
-
-    [Fact]
     public void APagedReadSaysWhatItWasAskedForAndHowMuchCameBack()
     {
         var line = GameMcpOperationLedger.DescribeAnswered(

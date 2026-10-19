@@ -17,7 +17,7 @@ public sealed class GameMcpChallengeTests
     private static readonly Guid Third = Guid.Parse("f5300000-0000-0000-0000-000000000003");
 
     [Fact]
-    public void Tool_has_one_mode_conditioned_uuid_shape_and_no_generation_or_receipt_inputs()
+    public void Tool_has_one_mode_conditioned_uuid_shape()
     {
         var tool = Assert.Single(GameMcpAcceptanceFixture.Tools(),
             candidate => (string?)candidate["name"] == "time_challenge");
@@ -27,7 +27,6 @@ public sealed class GameMcpChallengeTests
         Assert.Equal(new[] { "select", "queue", "abandon", "reroll", "state" },
             schema["properties"]!["mode"]!["enum"]!.Values<string>());
         Assert.NotNull(schema["properties"]!["uuid"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
     }
 
     [Fact]

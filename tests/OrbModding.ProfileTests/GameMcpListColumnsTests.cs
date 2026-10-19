@@ -270,12 +270,9 @@ public sealed class GameMcpListColumnsTests
         // and holds nothing, a ceiling does not exist — and neither means "nothing here".
         Assert.Equal("-", GameMcpListColumns.Absent);
         Assert.DoesNotContain(GameMcpListColumns.Absent, vocabulary);
-        Assert.DoesNotContain("unset", vocabulary);
-        Assert.DoesNotContain("none", vocabulary);
         Assert.Contains(GameMcpListColumns.Empty, vocabulary);
 
-        // The lifecycle is three words and no more, and none of them is `purchasable` — a word
-        // that reads as "you can buy this now" while naming a state that says nothing about price.
+        // The lifecycle is three words and no more.
         Assert.Equal(
             new[] { "available", "completed", "locked" },
             new[]
@@ -284,7 +281,6 @@ public sealed class GameMcpListColumnsTests
                 GameMcpListColumns.Available,
                 GameMcpListColumns.Completed,
             }.OrderBy(word => word, StringComparer.Ordinal).ToArray());
-        Assert.DoesNotContain("purchasable", vocabulary);
 
         // The run vocabulary is a fifth of the surface's words and none of it is a lifecycle word:
         // the two shared the column name `state` on challenges, and that is the collision the

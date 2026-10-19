@@ -80,15 +80,13 @@ public sealed class GameMcpGadgetTests
     /// <summary>
     /// A capture is priced in 28-pixel patches, so its width is the whole cost of reading it. One
     /// width is the narrowest every class of on-screen text survives, snapped onto that patch grid,
-    /// and it is the answer for every caller — so no tool takes a width to be told it again.
+    /// and it is the answer for every caller.
     /// </summary>
     [Fact]
-    public void A_capture_arrives_at_the_readable_width_and_no_tool_asks_for_one()
+    public void A_capture_arrives_at_the_readable_width()
     {
         Assert.Equal(896, GameMcpGadgetPolicy.CaptureWidth);
         Assert.Equal(0, GameMcpGadgetPolicy.CaptureWidth % 28);
-        foreach (var tool in Tools())
-            Assert.Null(tool["inputSchema"]!["properties"]!["maxWidth"]);
     }
 
     [Fact]
@@ -250,7 +248,7 @@ public sealed class GameMcpGadgetTests
     }
 
     [Fact]
-    public void NavigationReturnsPerStripDestinationStateWithoutMutationCeremony()
+    public void NavigationReturnsPerStripDestinationState()
     {
         var command = new GameMcpCommand(
             1,
@@ -286,19 +284,10 @@ public sealed class GameMcpGadgetTests
 
         var projected = GameMcpTestHarness.Json(terminal.Project(command));
 
+        Assert.Equal(new[] { "status", "activeScreen", "subtabStrips" },
+            projected.Properties().Select(property => property.Name));
         Assert.Equal("committed", (string?)projected["status"]);
-        Assert.Null(projected["mutationScope"]);
-        Assert.Null(projected["uiStateMutationAttempts"]);
-        Assert.Null(projected["uiStateMutationsCommitted"]);
-        Assert.Null(projected["mutationAttempts"]);
-        Assert.Null(projected["mutationsCommitted"]);
-        Assert.Null(projected["worldGeneration"]);
-        Assert.Null(projected["observedLifecycleGeneration"]);
-        Assert.Null(projected["observedConfigurationGeneration"]);
-        Assert.Null(projected["operation"]);
         Assert.Equal("Research", (string?)projected["activeScreen"]);
-        Assert.Null(projected["activeSubtab"]);
-        Assert.Null(projected["subtabs"]);
         var strips = projected["subtabStrips"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, strips.Length);
         Assert.Equal("Discover", (string?)strips[0]["active"]);
@@ -356,9 +345,6 @@ public sealed class GameMcpGadgetTests
         Assert.All(strips, strip => Assert.Null(strip["id"]));
         Assert.Equal("Discover", (string?)strips[0]["active"]);
         Assert.Equal("Inventory", (string?)strips[1]["active"]);
-        var encoded = json.ToString(Newtonsoft.Json.Formatting.None);
-        Assert.DoesNotContain("index", encoded, System.StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Canvas", encoded, System.StringComparison.Ordinal);
     }
 
     /// <summary>

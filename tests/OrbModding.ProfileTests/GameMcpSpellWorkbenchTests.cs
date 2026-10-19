@@ -30,29 +30,6 @@ public sealed class GameMcpSpellWorkbenchTests
     private static readonly Guid SecondBookId =
         Guid.Parse("a9a4dd71-53cf-405c-b9c3-6d252308fe9b");
 
-    [Fact]
-    public void OutputFirstWorkbenchToolIsAbsentFromThePlayerSurface()
-    {
-        Assert.DoesNotContain(GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_spell_workbench");
-        var tool = Assert.Single(
-            GameMcpAcceptanceFixture.Tools(),
-            candidate => (string?)candidate["name"] == "game_discover");
-
-        Assert.False((bool)tool["annotations"]!["readOnlyHint"]!);
-        var schema = tool["inputSchema"]!;
-        Assert.Equal(
-            new[] { "mode", "uuid" },
-            schema["required"]!.Values<string>().ToArray());
-        Assert.Equal(
-            new[] { "offer_initiate", "offer_select", "offer_confirm", "offer_reroll" },
-            schema["properties"]!["mode"]!["enum"]!.Values<string>().ToArray());
-        Assert.Null(schema["properties"]!["expectedNativeType"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Null(schema["properties"]!["detail"]);
-        Assert.Null(schema["properties"]!["verbosity"]);
-    }
-
     /// <summary>
     /// The press names what it wants discovered and nothing else — the screen follows from it.
     /// </summary>

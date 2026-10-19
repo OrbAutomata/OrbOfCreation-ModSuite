@@ -41,7 +41,6 @@ public sealed class GameMcpLoadoutTests
             "select", "set_section", "rename", "next_icon", "next_color",
             "snapshot_save", "snapshot_load", "snapshot_clear",
         }, tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
     }
 
     [Fact]

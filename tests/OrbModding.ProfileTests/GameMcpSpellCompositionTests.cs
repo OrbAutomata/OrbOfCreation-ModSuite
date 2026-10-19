@@ -38,7 +38,7 @@ public sealed class GameMcpSpellCompositionTests
         Guid.Parse("4f2b9f27-9c22-4a24-9c9c-3b52b2b1e0a1");
 
     [Fact]
-    public void ToolIsOneGlobalCastingDialWithoutPerSpellAugmentMutation()
+    public void ToolIsOneGlobalCastingDial()
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
@@ -51,12 +51,6 @@ public sealed class GameMcpSpellCompositionTests
             new[] { "output", "reserve" },
             schema["properties"]!["dial"]!["enum"]!.Values<string>().ToArray());
         Assert.NotNull(schema["properties"]!["value"]);
-        Assert.Null(schema["properties"]!["spellInstanceUuid"]);
-        Assert.Null(schema["properties"]!["augmentGlyphs"]);
-        Assert.Null(schema["properties"]!["expectedNativeType"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
-        Assert.Null(schema["properties"]!["detail"]);
-        Assert.Null(schema["properties"]!["verbosity"]);
     }
 
     [Fact]

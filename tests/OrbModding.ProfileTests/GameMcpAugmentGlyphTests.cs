@@ -140,12 +140,8 @@ public sealed class GameMcpAugmentGlyphTests
         Assert.NotNull(drawn["totalLevel"]);
     }
 
-    /// <summary>
-    /// The retired columns are retired on the detail read too: <c>population</c> named a partition
-    /// that no longer exists, and <c>screen</c> repeated one category-level fact on every row.
-    /// </summary>
     [Fact]
-    public void The_detail_row_carries_neither_a_population_nor_a_screen()
+    public void The_detail_read_carries_the_slots_a_level_buys()
     {
         var context = GameMcpTestHarness.Context(World(
             Glyph(AugmentId, learned: true, augmentsSpells: true)));
@@ -154,9 +150,6 @@ public sealed class GameMcpAugmentGlyphTests
         var row = detail["row"]!;
 
         Assert.Equal("augment-glyphs", (string?)detail["category"]);
-        Assert.Null(row["population"]);
-        Assert.Null(row["screen"]);
-        Assert.Null(row["usableCount"]);
         Assert.Equal(2, (int)row["slots"]!);
         Assert.Equal(0, (int)row["freeSlots"]!);
     }

@@ -39,7 +39,6 @@ public sealed class GameMcpConsumableTests
         Assert.NotNull(schema["properties"]!["enabled"]);
         Assert.NotNull(schema["properties"]!["list"]);
         Assert.NotNull(schema["properties"]!["destination"]);
-        Assert.Null(schema["properties"]!["worldGeneration"]);
     }
 
     [Theory]

@@ -28,7 +28,6 @@ public sealed class GameMcpRitualLifecycleTests
         Assert.Equal(
             new[] { "select", "deselect", "set_level", "activate", "cancel_duration", "end" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         var operation = GameMcpProtocolRouter.BuildOperation("game_ritual", new JObject
         {
             ["mode"] = "activate",

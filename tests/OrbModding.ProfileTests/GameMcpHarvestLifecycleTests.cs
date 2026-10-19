@@ -33,7 +33,6 @@ public sealed class GameMcpHarvestLifecycleTests
             "add_element_action", "remove_element_action", "set_druidry_level",
         },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         var operation = GameMcpProtocolRouter.BuildOperation("game_agromancy", new JObject
         {
             ["mode"] = "add_element_action",

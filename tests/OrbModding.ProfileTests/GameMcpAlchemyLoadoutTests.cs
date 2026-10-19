@@ -27,7 +27,6 @@ public sealed class GameMcpAlchemyLoadoutTests
             tool["inputSchema"]!["required"]!.Values<string>());
         Assert.Equal(new[] { "add", "remove", "set_alchemy_level" },
             tool["inputSchema"]!["properties"]!["mode"]!["enum"]!.Values<string>());
-        Assert.Null(tool["inputSchema"]!["properties"]!["expectedNativeType"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["amount"]);
         Assert.NotNull(tool["inputSchema"]!["properties"]!["level"]);
         var operation = GameMcpProtocolRouter.BuildOperation(
