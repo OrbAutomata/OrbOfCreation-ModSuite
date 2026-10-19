@@ -15,4 +15,10 @@ internal interface IAutoCastCycleActionPort
         in AutoCastCycleAction action,
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context);
+
+    /// <summary>
+    /// What the start gate's configuration said about whether the service may run, read once per
+    /// cycle. A charge hold the service took is let go on the main thread once it says no.
+    /// </summary>
+    void ObserveOperational(bool operational);
 }

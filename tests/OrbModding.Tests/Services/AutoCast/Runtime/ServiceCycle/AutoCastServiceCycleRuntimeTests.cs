@@ -19,8 +19,9 @@ namespace OrbModding.Tests.Services.AutoCast.Runtime.ServiceCycle;
 /// <summary>
 /// A cast the fire hook did not see backs that spell's cast off on the retry gate, doubling from a
 /// quarter second, while the rest of the loadout keeps its turns and the status says which spell and
-/// why; a charge release that faulted backs off as a release and is planned again when due. The test
-/// clock moves only when a test means to bring a retry due.
+/// why; a charge release that faulted backs off as a release and is planned again when due, and is let
+/// go once the service wakes switched off. The test clock moves only when a test means to bring a
+/// retry due.
 /// </summary>
 [Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
@@ -136,6 +137,29 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
+    public void SwitchingAutoCastOffWhileAFaultedReleaseIsOwedLetsGoOfTheCharge()
+    {
+        var ember = Equip(Ember);
+        ember.ChargeReleaseFailure = new InvalidOperationException("injected charge release failure");
+        using var harness = new Harness(fullCharge: true);
+
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
+        var heldAfterTheFault = ember.HoldingCharge;
+        harness.Publish(Configuration(fullCharge: true, mode: AutoCastOperationMode.Disabled));
+        ember.ChargeReleaseFailure = null;
+        harness.Advance(PastTheFirstWait);
+        harness.PumpWorldsUntil(() => !ember.HoldingCharge);
+        var castsWhenReleased = ember.FireCalls;
+        harness.PumpWorld();
+        harness.PumpWorld();
+
+        Assert.True(heldAfterTheFault);
+        Assert.Equal(1, castsWhenReleased);
+        Assert.Equal(1, ember.FireCalls);
+        Assert.False(ember.HoldingCharge);
+    }
+
+    [Fact]
     public void AnUnexpectedThrowAfterTheCastLandedCommitsAndLogsWithoutBackingOff()
     {
         var log = new List<string>();
@@ -181,6 +205,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
         private readonly AutomataServiceCycleHost _host;
         private long _frame = 10;
         private ulong _generation = 2;
+        private ConfigGeneration _configuration = new(1);
 
         internal Harness(bool fullCharge = false)
         {
@@ -227,6 +252,12 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
         internal void Advance(MonotonicDuration duration) => _clock.Advance(duration);
 
+        internal void Publish(SuiteRuntimeConfiguration configuration)
+        {
+            _configuration = _configuration.Next();
+            _runtime.PublishSavedConfiguration(configuration, _configuration);
+        }
+
         internal void PumpWorldsUntil(Func<bool> condition)
         {
             var deadline = Stopwatch.StartNew();
@@ -256,7 +287,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
         private static bool EvaluatedAndDrained(ServiceCycleServiceDiagnosticsSnapshot service, WorldGeneration world) =>
             service.LatestProjection.Context.Cycle.World == world && !service.ActiveBatch.IsPresent;
 
-        private void PumpWorld()
+        internal void PumpWorld()
         {
             _generation = Math.Max(_generation + 1, checked((ulong)_frame));
             _registry.WorldPublication.Publish(World(), new WorldGeneration(_generation));
@@ -306,13 +337,15 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
         }
     }
 
-    private static SuiteRuntimeConfiguration Configuration(bool fullCharge) =>
+    private static SuiteRuntimeConfiguration Configuration(
+        bool fullCharge,
+        AutoCastOperationMode mode = AutoCastOperationMode.Active) =>
         new()
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
             AutoCast = new AutoCastConfiguration
             {
-                Mode = AutoCastOperationMode.Active,
+                Mode = mode,
                 FullCharge = fullCharge,
                 RitualAware = false,
             },

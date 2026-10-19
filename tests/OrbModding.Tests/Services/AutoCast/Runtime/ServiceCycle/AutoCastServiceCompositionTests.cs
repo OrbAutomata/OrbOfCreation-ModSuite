@@ -291,5 +291,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
                 CommonActionResultCodes.Committed,
                 ServiceNativeMutationEvidence.Observed(NativeMutationOutcome.Verified, call));
         }
+
+        public void ObserveOperational(bool operational) { }
     }
 }

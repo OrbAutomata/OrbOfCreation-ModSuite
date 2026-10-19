@@ -32,6 +32,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
     [Theory]
     [InlineData("ownership")]
+    [InlineData("disable")]
     [InlineData("emergency")]
     [InlineData("manual-pause")]
     [InlineData("shutdown")]
@@ -46,6 +47,11 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
             case "ownership":
                 fixture.Owned = false;
                 fixture.Frame();
+                break;
+            case "disable":
+                fixture.Configure(enabled: false, emergencyDisable: false);
+                fixture.PublishWorldPastTheLastFrame();
+                fixture.FrameUntil(() => !spell.HoldingCharge);
                 break;
             case "emergency":
                 fixture.Configure(enabled: true, emergencyDisable: true);
@@ -173,6 +179,8 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
         public void PublishWorld(ulong generation) =>
             _registry.WorldPublication.Publish(ChargingWorld(), new WorldGeneration(generation));
+
+        public void PublishWorldPastTheLastFrame() => PublishWorld(checked((ulong)_frame + 1));
 
         public void Frame()
         {
