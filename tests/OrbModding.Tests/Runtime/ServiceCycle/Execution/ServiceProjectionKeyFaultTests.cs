@@ -25,9 +25,9 @@ public sealed class ServiceProjectionKeyFaultTests
 
         definition.ActionCount = 3;
         definition.DuplicateProjectionKey = true;
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        ServiceRunnerTestWait.ForPhase(runner, ServiceHandoffPhase.ResponseReady);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         var faulted = runner.Snapshot;
 
         Assert.Equal(ServiceFaultCategory.StateProjection, faulted.Fault.Category);

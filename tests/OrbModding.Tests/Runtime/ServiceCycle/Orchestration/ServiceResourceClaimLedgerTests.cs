@@ -118,11 +118,8 @@ public sealed class ServiceResourceClaimLedgerTests
         var runner = registration.Runner;
 
         Assert.Equal(ledger.Capacity, ledger.LiveClaimCount);
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.Equal(ServiceFaultCategory.StateFactory, runner.Snapshot.Fault.Category);
         Assert.Equal(0, definition.StateCreateCount);
         Assert.Equal(0, definition.StateReleaseCount);
@@ -386,27 +383,25 @@ public sealed class ServiceResourceClaimLedgerTests
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
 
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(SpinWait.SpinUntil(
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
             ServiceCycleTestDeadline.Value));
         Assert.Equal(0, definition.StateCreateCount);
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
+        ServiceRunnerTestWait.ForHandback(runner);
         Assert.False(runner.Snapshot.Fault.IsValid);
         Assert.Equal(1, runner.Snapshot.WorkerStateConstructionContentionCount);
         Assert.Equal(
             100 + TimeSpan.FromMilliseconds(16).Ticks,
             runner.Snapshot.NextWakeDue.Ticks);
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(clock.Now).Queued);
 
         ledger.EndFactory(blocker);
-        Assert.False(runner.TryStartCycle(clock.Now).Queued);
+        Assert.False(runner.TryStartCycleNonBlocking(clock.Now).Queued);
         clock.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(16)));
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
-        Assert.True(SpinWait.SpinUntil(
-            () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
-            ServiceCycleTestDeadline.Value));
-        Assert.True(runner.TryAcquireResponse());
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
+        ServiceRunnerTestWait.AcquireResponse(runner, clock);
         Assert.False(runner.Snapshot.Fault.IsValid);
         Assert.Equal(1, definition.StateCreateCount);
         Assert.Equal(1, runner.Snapshot.WorkerStateConstructionContentionCount);
@@ -426,7 +421,7 @@ public sealed class ServiceResourceClaimLedgerTests
         Assert.Equal(
             ServiceResourceClaimResult.Claimed,
             ledger.TryBeginFactory(ServiceResourceRole.WorkerDefinition, out var blocker));
-        Assert.True(runner.TryStartCycle(clock.Now).Queued);
+        ServiceRunnerTestWait.StartCycle(runner, clock.Now);
         Assert.True(SpinWait.SpinUntil(
             () => runner.HandoffPhaseHint == ServiceHandoffPhase.ResponseReady,
             ServiceCycleTestDeadline.Value));
