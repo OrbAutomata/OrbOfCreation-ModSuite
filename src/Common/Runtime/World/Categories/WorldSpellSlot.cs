@@ -699,9 +699,6 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             ? null
             : _managerType?.GetMethod("GetUsageCostOfSpell", Static, null, new[] { _spellType }, null);
 
-        // Every member the audits above accepted is compiled into an accessor. A member that resolves
-        // but will not compile leaves its accessor null, which is the same unavailability an absent
-        // member produces and reaches the player through the same sentence.
         _getAugmentGlyphs = NativeAccessorBinder.CallValue(getAugmentGlyphs);
         _getGlyphQuantity = NativeAccessorBinder.CallWithObjectArgument<int>(getGlyphQuantity);
         _canCancelSpells = canCancelSpells?.ReturnType == typeof(bool)
@@ -776,7 +773,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             cancellationEnabled = _canCancelSpells!() is true;
             casterAvailable = (bool)_canCastASpell!()!;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return WorldCategoryReport.Missing(
                 Category, $"reading the equipped loadout threw: {ex.GetBaseException().Message}");
@@ -804,7 +801,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
                 Read(entry, index, cancellationEnabled, casterAvailable, slots, costs, slotTypes);
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 slots.Truncate(slotCount);
                 costs.Truncate(costCount);

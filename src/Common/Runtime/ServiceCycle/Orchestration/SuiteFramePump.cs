@@ -151,7 +151,7 @@ public sealed class SuiteFramePump : IDisposable
     internal bool TryAttachHeapCounters(ISuiteFramePumpHeapCounters counters, out string unavailable)
     {
         EnsureIdle("Heap counters cannot attach while a frame is being pumped.");
-        return _state.HeapSampler.TryAttach(counters, out unavailable);
+        return _state.HeapSampler.TryAttach(counters, _state.Registry.World.CountLiveSnapshots, out unavailable);
     }
 #endif
 

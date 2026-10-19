@@ -178,7 +178,7 @@ internal sealed class SuiteFramePumpExecutor
                 (startOrdinal + 1) % _state.Transitioned.Length;
         var frameEnded = _state.Clock.Now;
 #if SERVICE_CYCLE_PROFILE
-        var heapSampled = _state.HeapSampler.TryEndPump(frameIdentity, out var heap);
+        var heapSampled = _state.HeapSampler.TryEndPump(frameIdentity, frameEnded, out var heap);
 #endif
         var report = CreateReport(
             frameIdentity,

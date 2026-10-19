@@ -1,5 +1,6 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
+using OrbModding.Common.Runtime.ServiceCycle.Tracing;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
@@ -14,12 +15,20 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 /// The collection count at both ends is what tells the two apart.
 /// </para>
 /// <para>
+/// Once per census interval the sample also carries a census of what the heap holds: the heap
+/// reserved from the OS, the world snapshots still reachable, and the live host objects. A heap that
+/// keeps growing is either the suite holding readings, host objects nobody destroys, or the
+/// reservation outgrowing its use, and the census is what tells them apart.
+/// </para>
+/// <para>
 /// Nothing is read until a host attaches its counters, and nothing at all while no trace is open.
 /// </para>
 /// </remarks>
 internal sealed class SuiteFramePumpHeapSampler
 {
     private ISuiteFramePumpHeapCounters? _counters;
+    private Func<int>? _liveWorldSnapshots;
+    private long _nextCensusTicks = long.MinValue;
     private bool _sampling;
     private int _collectionsAtStart;
     private long _heapAtStart;
@@ -28,18 +37,24 @@ internal sealed class SuiteFramePumpHeapSampler
     private int _capturesAcrossCollection;
 
     internal const int WitnessBytes = 1 << 20;
+    internal const long CensusIntervalTicks = 60 * TimeSpan.TicksPerSecond;
 
     /// <summary>
     /// Attaches the host's counters once a witness allocation shows the used-heap reading moves with
     /// what is allocated, or says why it does not.
     /// </summary>
-    internal bool TryAttach(ISuiteFramePumpHeapCounters counters, out string unavailable)
+    internal bool TryAttach(
+        ISuiteFramePumpHeapCounters counters,
+        Func<int> liveWorldSnapshots,
+        out string unavailable)
     {
         if (counters is null) throw new ArgumentNullException(nameof(counters));
+        if (liveWorldSnapshots is null) throw new ArgumentNullException(nameof(liveWorldSnapshots));
         if (_counters is not null)
             throw new InvalidOperationException("Heap counters are already attached to this pump.");
         if (!Witness(counters, out unavailable)) return false;
         _counters = counters;
+        _liveWorldSnapshots = liveWorldSnapshots;
         return true;
     }
 
@@ -104,7 +119,7 @@ internal sealed class SuiteFramePumpHeapSampler
         _captureGrowth += heap - before.Heap;
     }
 
-    internal bool TryEndPump(long frameIdentity, out SuiteFramePumpHeapSample sample)
+    internal bool TryEndPump(long frameIdentity, MonotonicTimestamp now, out SuiteFramePumpHeapSample sample)
     {
         if (!_sampling)
         {
@@ -113,16 +128,31 @@ internal sealed class SuiteFramePumpHeapSampler
         }
         _sampling = false;
         var counters = _counters!;
+        var collectionsAtEnd = counters.ReadCollectionCount();
+        var heapAtEnd = counters.ReadUsedHeapBytes();
+        PumpHeapCensus? census = null;
+        if (now.Ticks >= _nextCensusTicks)
+        {
+            _nextCensusTicks = now.Ticks + CensusIntervalTicks;
+            var objects = counters.CountNativeObjects();
+            census = new PumpHeapCensus(
+                counters.ReadReservedHeapBytes(),
+                _liveWorldSnapshots!(),
+                objects.ScriptableObjects,
+                objects.GameObjects,
+                objects.MonoBehaviours);
+        }
         sample = new SuiteFramePumpHeapSample(
             frameIdentity,
             _collectionsAtStart,
-            counters.ReadCollectionCount(),
+            collectionsAtEnd,
             _heapAtStart,
-            counters.ReadUsedHeapBytes(),
+            heapAtEnd,
             _captureGrowth,
             _capturesMeasured,
             _capturesAcrossCollection,
-            counters.TryReadPreviousFrameAllocated(out var allocated) ? allocated : null);
+            counters.TryReadPreviousFrameAllocated(out var allocated) ? allocated : null,
+            census);
         return true;
     }
 }
@@ -150,7 +180,8 @@ internal readonly struct SuiteFramePumpHeapSample
         long captureGrowth,
         int capturesMeasured,
         int capturesAcrossCollection,
-        long? previousFrameAllocated)
+        long? previousFrameAllocated,
+        PumpHeapCensus? census)
     {
         FrameIdentity = frameIdentity;
         CollectionsAtStart = collectionsAtStart;
@@ -161,6 +192,7 @@ internal readonly struct SuiteFramePumpHeapSample
         CapturesMeasured = capturesMeasured;
         CapturesAcrossCollection = capturesAcrossCollection;
         PreviousFrameAllocated = previousFrameAllocated;
+        Census = census;
     }
 
     internal long FrameIdentity { get; }
@@ -172,5 +204,6 @@ internal readonly struct SuiteFramePumpHeapSample
     internal int CapturesMeasured { get; }
     internal int CapturesAcrossCollection { get; }
     internal long? PreviousFrameAllocated { get; }
+    internal PumpHeapCensus? Census { get; }
 }
 #endif

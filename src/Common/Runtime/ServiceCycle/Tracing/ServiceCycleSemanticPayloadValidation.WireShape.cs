@@ -139,8 +139,10 @@ internal static partial class ServiceCycleSemanticPayloadValidation
         // and a worse span to refuse than to record without an epoch.
         ServiceCycleSemanticEventKind.WorldCategoryCollected =>
             ServiceCycleSemanticFields.FrameIdentity | ServiceCycleSemanticFields.Lifecycle,
-        // Unity's per-frame allocation counter exists only in players that provide it.
-        ServiceCycleSemanticEventKind.PumpHeapSampled => ServiceCycleSemanticFields.Fingerprint,
+        // Unity's per-frame allocation counter exists only in players that provide it, and a census
+        // rides one sample per census interval.
+        ServiceCycleSemanticEventKind.PumpHeapSampled =>
+            ServiceCycleSemanticFields.Fingerprint | ServiceCycleSemanticPayload.CensusFields,
         _ => ServiceCycleSemanticFields.None,
     };
 

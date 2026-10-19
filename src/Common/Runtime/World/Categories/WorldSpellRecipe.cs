@@ -191,45 +191,6 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         bool discoveryAffordable = false,
         WorldDiscoverableDecision discovery = default,
         bool usageRequirementsMet = true)
-        : this(
-            spellRecipeId, discovered, discRarityLevel, masteryXp, masteryLevel,
-            masteryLevelReady, masteryLevelAffordable, 0, Guid.Empty, hiddenDiscovery,
-            isRequiredDiscovery, penaltyUsageCost, castSpeed, baseCharges, repeatInstantEffects,
-            spellPowerMod, spellCostMod, spellCdSpeedMod, spellDurationMod, spellSpecialMod,
-            spellXpMod, hasAlertedThisMastery, requiredMasteryXp,
-            coreGlyphs, discoveryCosts, discoveryAffordable, discovery, usageRequirementsMet)
-    {
-    }
-
-    internal WorldSpellRecipe(
-        Guid spellRecipeId,
-        bool discovered,
-        int discRarityLevel,
-        BigDouble masteryXp,
-        int masteryLevel,
-        bool masteryLevelReady,
-        bool masteryLevelAffordable,
-        int masteryLevelCostCount,
-        Guid masteryLevelBindingResourceId,
-        bool hiddenDiscovery,
-        bool isRequiredDiscovery,
-        int penaltyUsageCost,
-        double castSpeed,
-        int baseCharges,
-        bool repeatInstantEffects,
-        BigDouble spellPowerMod,
-        BigDouble spellCostMod,
-        BigDouble spellCdSpeedMod,
-        BigDouble spellDurationMod,
-        BigDouble spellSpecialMod,
-        BigDouble spellXpMod,
-        bool hasAlertedThisMastery,
-        BigDouble requiredMasteryXp = default,
-        PublicationTable<WorldSpellRecipeGlyph>? coreGlyphs = null,
-        PublicationTable<WorldDiscoverableCost>? discoveryCosts = null,
-        bool discoveryAffordable = false,
-        WorldDiscoverableDecision discovery = default,
-        bool usageRequirementsMet = true)
     {
         SpellRecipeId = spellRecipeId;
         Discovered = discovered;
@@ -238,8 +199,6 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
         MasteryLevel = masteryLevel;
         MasteryLevelReady = masteryLevelReady;
         MasteryLevelAffordable = masteryLevelAffordable;
-        MasteryLevelCostCount = masteryLevelCostCount;
-        MasteryLevelBindingResourceId = masteryLevelBindingResourceId;
         HiddenDiscovery = hiddenDiscovery;
         IsRequiredDiscovery = isRequiredDiscovery;
         PenaltyUsageCost = penaltyUsageCost;
@@ -294,12 +253,6 @@ internal readonly struct WorldSpellRecipe : IWorldEntity
     /// cost again immediately before spending because resources may move after publication.
     /// </remarks>
     internal bool MasteryLevelAffordable { get; }
-
-    /// <summary>The number of independently evaluated rows in the derived next-level cost vector.</summary>
-    internal int MasteryLevelCostCount { get; }
-
-    /// <summary>The first unaffordable row's resource, or empty when every row is affordable.</summary>
-    internal Guid MasteryLevelBindingResourceId { get; }
 
     internal bool HiddenDiscovery { get; }
 
@@ -475,18 +428,14 @@ internal sealed class WorldSpellRecipeDeriver : WorldRowDeriver<RawSpellRecipeSa
 
     internal override WorldSpellRecipe Derive(in RawSpellRecipeSample sample)
     {
-        var binding = Guid.Empty;
-        var count = 0;
-        var affordable = OwnedMasteryCostMath.TryFindRange(_costs, sample.SpellRecipeId, out var start, out count) &&
+        var affordable = OwnedMasteryCostMath.TryFindRange(_costs, sample.SpellRecipeId, out var start, out var count) &&
             count > 0;
         if (affordable)
         {
             for (var index = 0; index < count; index++)
             {
-                var cost = _costs[start + index];
-                if (cost.Affordable) continue;
+                if (_costs[start + index].Affordable) continue;
                 affordable = false;
-                binding = cost.ResourceId;
                 break;
             }
         }
@@ -501,8 +450,6 @@ internal sealed class WorldSpellRecipeDeriver : WorldRowDeriver<RawSpellRecipeSa
                 ? sample.MasteryXp >= sample.RequiredMasteryXp
                 : sample.MasteryLevelReady,
             affordable,
-            count,
-            binding,
             sample.HiddenDiscovery,
             sample.IsRequiredDiscovery,
             sample.PenaltyUsageCost,

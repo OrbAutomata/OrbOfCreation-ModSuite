@@ -121,7 +121,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
                 }
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 frame.MasteryCosts.Truncate(start);
                 skipped++;

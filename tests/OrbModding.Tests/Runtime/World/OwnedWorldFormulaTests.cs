@@ -78,8 +78,6 @@ public sealed class OwnedWorldFormulaTests
         var published = new WorldSpellRecipeDeriver(rows).Derive(in raw);
 
         Assert.False(published.MasteryLevelAffordable);
-        Assert.Equal(0, published.MasteryLevelCostCount);
-        Assert.Equal(Guid.Empty, published.MasteryLevelBindingResourceId);
     }
 
     [Fact]

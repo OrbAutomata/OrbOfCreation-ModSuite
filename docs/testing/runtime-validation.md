@@ -146,3 +146,16 @@ Garbage collection section. It charges the suite with what grew inside its pumps
 game's part of a frame grew beyond the game's own rate while a suite worker was evaluating; the game's
 own rate is read from frames no worker overlapped. If it says the section is unavailable, the BepInEx
 log names why.
+
+### Heap-growth capture
+
+To find what keeps the surviving heap growing, take the garbage-collection capture above with at
+least an hour of normal play. Then turn off the busiest feature and apply, so that one stretch of at
+least ten minutes has the rest of the suite running without it, and engage the emergency stop for at
+least ten minutes while the game keeps running, so that one stretch has the game alone. The full
+trace's Heap growth section fits the floor (the used heap right after each collection) per stretch,
+splitting at every applied configuration and emergency stop, and per ten-minute window. It also
+reads the census that one heap sample a minute carries: the reserved heap, the world snapshots still
+reachable, and the live ScriptableObjects, GameObjects and MonoBehaviours. Each suspect then gets a
+confirmed, refuted or unanswered verdict. The census walks every live host object once a minute, so
+the frame after it can be several milliseconds longer.

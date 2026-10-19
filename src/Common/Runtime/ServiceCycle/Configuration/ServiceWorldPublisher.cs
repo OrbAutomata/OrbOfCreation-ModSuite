@@ -83,6 +83,11 @@ public sealed class ServiceWorldPublisher<TWorld> :
     private readonly PublicationLock _sync = new();
     private WorldPublication<TWorld> _latest;
     private bool _disposed;
+#if SERVICE_CYCLE_PROFILE
+    private readonly System.Collections.Generic.List<WeakReference> _published = new();
+    private int _pruneAt = PruneFloor;
+    private const int PruneFloor = 64;
+#endif
 
     public ServiceWorldPublisher(TWorld initialSnapshot)
     {
@@ -158,15 +163,42 @@ public sealed class ServiceWorldPublisher<TWorld> :
         lock (_sync)
         {
             ThrowIfDisposed();
-            Swap(new WorldPublication<TWorld>(new RuntimeWorldGeneration(1), emptySnapshot));
+            Volatile.Write(ref _latest, new WorldPublication<TWorld>(new RuntimeWorldGeneration(1), emptySnapshot));
         }
     }
 
     private RuntimeWorldGeneration Swap(WorldPublication<TWorld> publication)
     {
         Volatile.Write(ref _latest, publication);
+#if SERVICE_CYCLE_PROFILE
+        _published.Add(new WeakReference(publication.Snapshot));
+        if (_published.Count >= _pruneAt)
+            _pruneAt = Math.Max(PruneFloor, 2 * PruneCollected());
+#endif
         return publication.Generation;
     }
+
+#if SERVICE_CYCLE_PROFILE
+    /// <summary>
+    /// How many snapshots this publisher has published are still reachable from anywhere. The live
+    /// one, plus whatever a running cycle has pinned, is the healthy answer; a count that climbs over a
+    /// session is a holder keeping old readings alive.
+    /// </summary>
+    /// <remarks>
+    /// A snapshot nothing references stays counted until the next collection finds it, so a reading
+    /// overstates by what was published since the last one.
+    /// </remarks>
+    internal int CountLiveSnapshots()
+    {
+        lock (_sync) return PruneCollected();
+    }
+
+    private int PruneCollected()
+    {
+        _published.RemoveAll(reference => !reference.IsAlive);
+        return _published.Count;
+    }
+#endif
 
     bool IServiceWorldGenerationSource.TryGetLatestGeneration(out RuntimeWorldGeneration generation)
     {

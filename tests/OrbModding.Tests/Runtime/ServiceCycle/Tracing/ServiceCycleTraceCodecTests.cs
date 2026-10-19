@@ -117,6 +117,7 @@ public sealed class ServiceCycleTraceCodecTests
         Assert.Equal(1, heap.CapturesAcrossCollection);
         Assert.Equal(4_096, heap.PreviousFrameAllocated);
         Assert.Equal(12, heap.FrameIdentity);
+        Assert.Equal(new PumpHeapCensus(400_000_000, 2, 9_000, 3_000, 2_500), heap.HeapCensus);
     }
 
     /// <summary>
@@ -138,6 +139,25 @@ public sealed class ServiceCycleTraceCodecTests
 
         Assert.Equal(item, decoded[0]);
         Assert.Null(decoded[0].Payload.PreviousFrameAllocated);
+        Assert.Null(decoded[0].Payload.HeapCensus);
+    }
+
+    /// <summary>
+    /// A reservation smaller than the heap it holds was never read, so a census that says so is an
+    /// emitter that lost track of what it counted.
+    /// </summary>
+    [Fact]
+    public void ACensusWhoseReservationIsSmallerThanItsUseIsRefused()
+    {
+        var payload = ServiceCycleSemanticPayload.PumpHeapFact(
+            frameIdentity: 3, timestampTicks: 100, collectionsAtStart: 0, collectionsAtEnd: 0,
+            heapAtStart: 1_000, heapAtEnd: 2_000, captureHeapGrowth: 0, capturesMeasured: 0,
+            capturesAcrossCollection: 0, previousFrameAllocated: null,
+            census: new PumpHeapCensus(1_999, 1, 0, 0, 0));
+
+        Assert.Throws<ArgumentException>(() => new ServiceCycleSemanticEvent(
+            new ServiceCycleTraceEventId(ServiceCycleTraceFixtures.Session, 1), default,
+            ServiceCycleSemanticEventKind.PumpHeapSampled, in payload));
     }
 
     /// <summary>

@@ -257,7 +257,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
 
                 sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
