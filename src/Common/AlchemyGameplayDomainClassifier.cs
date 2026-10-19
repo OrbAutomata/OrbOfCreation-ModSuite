@@ -183,7 +183,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             _registryResolution = registryResolution;
             var registry = registryResolution.Value!;
             if (native.RecipeValues(registry) is not { } recipes)
-                return Block("ConceptRecipes contents are unavailable", out reason);
+                return Retry("ConceptRecipes contents are unavailable", out reason);
 
             var snapshot = new Dictionary<Guid, CachedRecipe>();
             foreach (var recipe in recipes)
@@ -216,7 +216,10 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Block("native alchemy classifier initialization failed: " + ex.GetBaseException().Message, out reason);
+            return Retry(
+                "native alchemy classifier initialization failed." +
+                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, "the alchemy classifier")),
+                out reason);
         }
     }
 
