@@ -21,6 +21,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
     private readonly ReusableActionStore<TAction> _actions;
     private readonly ServiceCycleHandoff _handoff;
     private readonly ServiceStateProjectionWriteBuffer _projectionScratch;
+    private readonly ServiceRetryReportBuffer _retryReports = new();
     private readonly ServiceFaultTracker _faults;
     private readonly IMonotonicClock _clock;
     private readonly WakePolicy _defaultWakePolicy;

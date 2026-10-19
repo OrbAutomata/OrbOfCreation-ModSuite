@@ -102,7 +102,7 @@ internal abstract partial class ServiceRunnerFactory<TState, TAction>
         try
         {
             var actualLifetime = new ServiceRunnerLifetime();
-            var main = new ServiceCycleMainState
+            var main = new ServiceCycleMainState(_faultRecoveryPolicy)
             {
                 LatestConfigGeneration = _configuration.ReadLatest().Generation,
             };

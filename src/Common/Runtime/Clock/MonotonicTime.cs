@@ -28,6 +28,12 @@ public readonly struct MonotonicTimestamp : IComparable<MonotonicTimestamp>, IEq
         new(checked(timestamp.Ticks + duration.Ticks));
     public static MonotonicTimestamp operator -(MonotonicTimestamp timestamp, MonotonicDuration duration) =>
         new(checked(timestamp.Ticks - duration.Ticks));
+
+    /// <summary>This timestamp plus a duration, holding at the end of time instead of overflowing.</summary>
+    public MonotonicTimestamp AddSaturated(MonotonicDuration duration) =>
+        duration.Ticks > long.MaxValue - Ticks
+            ? new MonotonicTimestamp(long.MaxValue)
+            : new MonotonicTimestamp(Ticks + duration.Ticks);
     public static MonotonicDuration operator -(MonotonicTimestamp end, MonotonicTimestamp start)
     {
         if (end < start) throw new ArgumentOutOfRangeException(nameof(end), "Elapsed monotonic time cannot be negative.");

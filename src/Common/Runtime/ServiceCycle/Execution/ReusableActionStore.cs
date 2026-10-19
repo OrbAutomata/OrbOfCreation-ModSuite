@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Execution;
 
@@ -158,10 +159,38 @@ internal sealed class ReusableActionStore<TAction>
 public readonly ref struct ServiceActionWriter<TAction>
 {
     private readonly ReusableActionStore<TAction> _store;
+    private readonly ServiceRetryReportBuffer? _retryReports;
 
-    internal ServiceActionWriter(ReusableActionStore<TAction> store) =>
+    internal ServiceActionWriter(
+        ReusableActionStore<TAction> store,
+        ServiceRetryReportBuffer? retryReports = null)
+    {
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _retryReports = retryReports;
+    }
 
     public int Count => _store.Count;
     public void Add(in TAction action) => _store.Add(in action);
+
+    /// <summary>
+    /// A target whose committed action this world shows did not take: it backs off with doubling
+    /// until the evaluator reports it working again.
+    /// </summary>
+    public void ReportFailure(
+        ServiceRetryTarget target,
+        string reason,
+        MonotonicDuration? maximumBackoff = null)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("A failure report names why the target failed.", nameof(reason));
+        RetryReports.Add(ServiceRetryReport.Failed(target, reason, maximumBackoff));
+    }
+
+    /// <summary>A target this world shows working again, which ends its backoff.</summary>
+    public void ReportVerified(ServiceRetryTarget target) =>
+        RetryReports.Add(ServiceRetryReport.Verified(target));
+
+    private ServiceRetryReportBuffer RetryReports =>
+        _retryReports ?? throw new InvalidOperationException(
+            "This action writer carries no retry reports; only a service evaluation can report a target.");
 }

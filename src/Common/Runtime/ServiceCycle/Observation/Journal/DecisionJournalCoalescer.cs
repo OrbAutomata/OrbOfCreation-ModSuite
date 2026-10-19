@@ -27,7 +27,7 @@ internal sealed class DecisionJournalCoalescer : IDecisionJournalObservationSink
         _hasOpen = new bool[serviceCapacity];
         _actionCycles = new ulong[serviceCapacity];
         _checkpointInterval = checkpointInterval;
-        _nextCheckpoint = AddSaturated(startedAt, checkpointInterval);
+        _nextCheckpoint = startedAt.AddSaturated(checkpointInterval);
         _lastObservedAt = startedAt;
     }
 
@@ -118,7 +118,7 @@ internal sealed class DecisionJournalCoalescer : IDecisionJournalObservationSink
         EnsureRunning(now);
         if (now < _nextCheckpoint) return;
         if (AppendAllOpen() && !_sink.TryFlush()) IsFaulted = true;
-        _nextCheckpoint = AddSaturated(now, _checkpointInterval);
+        _nextCheckpoint = now.AddSaturated(_checkpointInterval);
     }
 
     public void Flush(MonotonicTimestamp now)
@@ -126,7 +126,7 @@ internal sealed class DecisionJournalCoalescer : IDecisionJournalObservationSink
         if (IsFaulted) return;
         EnsureRunning(now);
         if (AppendAllOpen() && !_sink.TryFlush()) IsFaulted = true;
-        _nextCheckpoint = AddSaturated(now, _checkpointInterval);
+        _nextCheckpoint = now.AddSaturated(_checkpointInterval);
     }
 
     public void Stop(MonotonicTimestamp now)
@@ -173,11 +173,4 @@ internal sealed class DecisionJournalCoalescer : IDecisionJournalObservationSink
             throw new ArgumentOutOfRangeException(nameof(observedAt), "Journal observations must be monotonic.");
         _lastObservedAt = observedAt;
     }
-
-    private static MonotonicTimestamp AddSaturated(
-        MonotonicTimestamp timestamp,
-        MonotonicDuration duration) =>
-        duration.Ticks > long.MaxValue - timestamp.Ticks
-            ? new MonotonicTimestamp(long.MaxValue)
-            : new MonotonicTimestamp(timestamp.Ticks + duration.Ticks);
 }

@@ -126,7 +126,8 @@ internal sealed class ServiceRunnerDiagnosticsAssembler<TState, TAction>
             _main.LastStartDecision,
             _main.LastCapture,
             _main.LastAction,
-            CurrentEvaluationTiming(in handoff));
+            CurrentEvaluationTiming(in handoff),
+            _main.RetryGate.Snapshot);
     }
 
     private ServiceRunnerEvaluationTimingSnapshot CurrentEvaluationTiming(
