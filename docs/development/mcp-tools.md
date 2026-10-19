@@ -4945,7 +4945,7 @@ the spans are independent: an absent writer still answers what the last pass cos
   `native_probe_unavailable` saying so, instead of faulting or answering the last game's room; and
 - `navigation`: live tab and active-subtab counts, useful for diagnosing catalog availability.
 
-To add a probe, add one fixed name to the router schema, the `GameMcpToolCatalog` descriptor and closed-world policy, implement its
+To add a probe, add one fixed name to the `game_probe` descriptor's schema and binder in `GameMcpScreenTools` and to closed-world policy, implement its
 Unity-main-thread branch without accepting reflection/member input, declare every native type and
 member in the schema-3 manifest, add installed-contract and portable behavior tests, and document
 why the fact does not belong in published `WORLD`. Facts that workers or strategists generally need
@@ -4972,8 +4972,10 @@ Game MCP streamable HTTP server listening on http://127.0.0.1:19106/mcp
 If `doctor` cannot connect, confirm the `perf-debug` install, Steam launch, active run, and absence
 of a port collision. Never install a new suite while the game is running.
 
-Every tool is one `GameMcpToolCatalog` descriptor naming its binder, classification, frame data,
-validation and route. The listener checks the catalog before it binds: every advertised tool has a
-complete descriptor, a tool is `Gameplay` exactly when a GameAction family names its command, and
-every resource has a read. A malformed catalog logs `Game MCP server refuses to start because its
+Every tool is one descriptor naming its tools/list schema and prose, binder, classification, frame
+data, validation and route. Descriptors live in four family files (`GameMcpWorldTools`,
+`GameMcpSuiteTools`, `GameMcpGameplayTools`, `GameMcpScreenTools`), which `GameMcpToolCatalog`
+registers in one list; tools/list advertises the catalog in that order. The listener checks the
+catalog before it binds: no tool is registered twice, every tool has a route, a tool is `Gameplay`
+exactly when a GameAction family names its command, and no resource is registered twice. A malformed catalog logs `Game MCP server refuses to start because its
 tool catalog is malformed`, naming each problem, and the listener stays down while gameplay goes on.
