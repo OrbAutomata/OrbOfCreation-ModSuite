@@ -93,8 +93,6 @@ internal abstract partial class ServiceRunnerFactory<TState, TAction>
 
     private ServiceRunnerParts<TState, TAction> Build(
         LifecycleGeneration lifecycle,
-        ServiceCycleHandoff? handoff,
-        ServiceRunnerLifetime? lifetime,
         ServiceRunnerPreparedResources<TState> prepared)
     {
         var workerDefinition = prepared.WorkerDefinition;
@@ -103,15 +101,13 @@ internal abstract partial class ServiceRunnerFactory<TState, TAction>
         ServiceCycleHandoff? actualHandoff = null;
         try
         {
-            var actualLifetime = lifetime ?? new ServiceRunnerLifetime();
+            var actualLifetime = new ServiceRunnerLifetime();
             var main = new ServiceCycleMainState
             {
                 LatestConfigGeneration = _configuration.ReadLatest().Generation,
             };
             var actions = new ReusableActionStore<TAction>(lifecycle: lifecycle);
-            actualHandoff =
-                handoff ?? new ServiceCycleHandoff(lifecycle);
-            actualHandoff.BindLifecycle(lifecycle);
+            actualHandoff = new ServiceCycleHandoff(lifecycle);
             var shape = CreateCycleParts(
                 workerDefinition,
                 actions,
