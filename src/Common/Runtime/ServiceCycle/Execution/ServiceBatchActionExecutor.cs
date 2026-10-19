@@ -140,8 +140,8 @@ internal sealed class ServiceBatchActionExecutor<TState, TAction>
                 in context);
             if (!result.IsValid)
                 failureReason = "the service returned an invalid action result";
-            else if (!_runtime.State.RetryGate.AllowsCap(result.TargetBackoffCap))
-                failureReason = "the service capped a target's backoff below its initial fault backoff";
+            else if (!_runtime.State.RetryGate.Allows(result.TargetInitialBackoff, result.TargetBackoffCap))
+                failureReason = "the service set a target's backoff below its initial fault backoff";
             else
                 return result;
             return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);

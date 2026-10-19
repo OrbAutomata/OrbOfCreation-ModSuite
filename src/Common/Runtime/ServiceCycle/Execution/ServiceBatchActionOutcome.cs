@@ -152,7 +152,8 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
             observedAt,
             maximumBackoff: result.TargetBackoffCap,
             quietFirstFailure: result.QuietFirstFailure,
-            plannedFrom: _runtime.State.ActiveCycle.World);
+            plannedFrom: _runtime.State.ActiveCycle.World,
+            initialBackoff: result.TargetInitialBackoff);
     }
 
     private static string FailureReason(in ServiceActionResult result, string? executionFailureReason)

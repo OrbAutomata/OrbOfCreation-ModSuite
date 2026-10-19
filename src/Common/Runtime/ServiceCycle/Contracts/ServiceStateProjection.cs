@@ -260,15 +260,29 @@ public readonly struct ServiceFaultRecoveryPolicy
     public MonotonicDuration BackoffAfter(int consecutiveFailures) =>
         BackoffAfter(consecutiveFailures, MaximumBackoff);
 
-    /// <summary>A caller's own cap may sit above the policy maximum, never below the first wait.</summary>
-    internal bool AllowsCap(MonotonicDuration? maximum) => maximum is not { } cap || cap >= InitialBackoff;
+    /// <summary>
+    /// A caller's own first wait and cap may sit above the policy's, never below its first wait, and
+    /// the cap, the policy maximum when absent, never below the first wait.
+    /// </summary>
+    internal bool Allows(MonotonicDuration? initial, MonotonicDuration? maximum)
+    {
+        var first = initial ?? InitialBackoff;
+        return first >= InitialBackoff && (maximum ?? MaximumBackoff) >= first;
+    }
 
     /// <summary>The same doubling, held at a cap of the caller's own instead of the policy's.</summary>
-    public MonotonicDuration BackoffAfter(int consecutiveFailures, MonotonicDuration maximum)
+    public MonotonicDuration BackoffAfter(int consecutiveFailures, MonotonicDuration maximum) =>
+        BackoffAfter(consecutiveFailures, InitialBackoff, maximum);
+
+    /// <summary>The same doubling from a first wait of the caller's own.</summary>
+    internal MonotonicDuration BackoffAfter(
+        int consecutiveFailures,
+        MonotonicDuration initial,
+        MonotonicDuration maximum)
     {
         if (consecutiveFailures < 1) throw new ArgumentOutOfRangeException(nameof(consecutiveFailures));
-        if (maximum < InitialBackoff) throw new ArgumentOutOfRangeException(nameof(maximum));
-        var ticks = InitialBackoff.Ticks;
+        if (!Allows(initial, maximum)) throw new ArgumentOutOfRangeException(nameof(maximum));
+        var ticks = initial.Ticks;
         for (var index = 1; index < consecutiveFailures && ticks < maximum.Ticks; index++)
         {
             if (ticks > maximum.Ticks / 2)

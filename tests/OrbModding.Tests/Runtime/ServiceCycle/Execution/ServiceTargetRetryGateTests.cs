@@ -53,6 +53,27 @@ public sealed class ServiceTargetRetryGateTests
     }
 
     [Fact]
+    public void ACallerFirstWaitStartsTheDoublingAndMayNotUndercutThePolicyOrOutgrowItsCap()
+    {
+        var gate = new ServiceTargetRetryGate(Policy);
+
+        var waits = new long[4];
+        for (var index = 0; index < waits.Length; index++)
+        {
+            waits[index] = gate.Record(
+                First, Code, "paid, no work", default,
+                maximumBackoff: new MonotonicDuration(100),
+                initialBackoff: new MonotonicDuration(30)).Backoff.Ticks;
+        }
+
+        Assert.Equal(new long[] { 30, 60, 100, 100 }, waits);
+        Assert.False(gate.Allows(new MonotonicDuration(5), null));
+        Assert.False(gate.Allows(new MonotonicDuration(90), null));
+        Assert.False(gate.Allows(new MonotonicDuration(120), new MonotonicDuration(100)));
+        Assert.True(gate.Allows(new MonotonicDuration(120), new MonotonicDuration(120)));
+    }
+
+    [Fact]
     public void AReporterCapMayExceedThePolicyCapButNotUndercutTheFirstWait()
     {
         var gate = new ServiceTargetRetryGate(Policy);
@@ -309,6 +330,65 @@ public sealed class ServiceTargetRetryGateTests
             RejectAtIndex = 0,
             RefusalsBackOff = true,
             RefusalBackoffCap = new MonotonicDuration(5),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        ServiceCyclePumpTestWait.PumpUntil(
+            pump, ref frame, () => Failures(registration) == 1, clock, registry);
+        var entry = registration.Runner.Snapshot.RetryGate.Latest;
+
+        Assert.Equal(CommonActionResultCodes.AdapterFault, entry.Code);
+        Assert.Contains("below its initial fault backoff", entry.Reason);
+    }
+
+    [Fact]
+    public void AMarkedFaultBacksItsTargetOffFromTheFirstWaitItCarries()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.fault.marked")
+        {
+            ActionCount = 1,
+            FaultAtIndex = 0,
+            FaultsBackOff = true,
+            RefusalInitialBackoff = new MonotonicDuration(30),
+            RefusalBackoffCap = new MonotonicDuration(200),
+            EvaluationWake = WakePolicy.OnPublication,
+        };
+        using var registration = registry.Register(service, new LifecycleGeneration(1));
+        registry.Seal();
+        using var pump = new SuiteFramePump(registry);
+        var frame = 10L;
+        TestWorldCollector.CollectedAtActivation(registry);
+
+        var waits = new long[4];
+        for (var failures = 1; failures <= waits.Length; failures++)
+        {
+            ServiceCyclePumpTestWait.PumpUntil(
+                pump, ref frame, () => Failures(registration) == failures, clock, registry);
+            waits[failures - 1] = registration.Runner.Snapshot.RetryGate.Latest.Backoff.Ticks;
+        }
+
+        Assert.Equal(new long[] { 30, 60, 120, 200 }, waits);
+        Assert.Equal(CommonActionResultCodes.AdapterFault.Name, registration.Runner.Snapshot.RetryGate.Latest.Reason);
+    }
+
+    [Fact]
+    public void AFirstWaitBelowThePolicysFaultsItsAction()
+    {
+        var clock = new ThreadSafeTestClock(1_000);
+        using var registry = new ServiceCycleRegistry(1, clock);
+        var service = new ExecutionServiceDefinition("retry.first")
+        {
+            ActionCount = 1,
+            RejectAtIndex = 0,
+            RefusalsBackOff = true,
+            RefusalInitialBackoff = new MonotonicDuration(5),
             EvaluationWake = WakePolicy.OnPublication,
         };
         using var registration = registry.Register(service, new LifecycleGeneration(1));
