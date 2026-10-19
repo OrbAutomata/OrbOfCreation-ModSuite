@@ -58,6 +58,19 @@ internal readonly struct WorldChallengeTypeMembership
     internal Guid ChallengeTypeId { get; }
 }
 
+internal static class WorldChallengeTypeLookup
+{
+    internal static readonly Comparison<WorldChallengeTypeBucket> BucketOrder =
+        static (left, right) => left.ChallengeTypeId.CompareTo(right.ChallengeTypeId);
+
+    internal static readonly Comparison<WorldChallengeTypeMembership> MembershipOrder =
+        static (left, right) =>
+        {
+            var challenge = left.ChallengeId.CompareTo(right.ChallengeId);
+            return challenge != 0 ? challenge : left.Ordinal.CompareTo(right.Ordinal);
+        };
+}
+
 internal readonly struct WorldChallengeReference
 {
     internal WorldChallengeReference(int position, Guid challengeId, bool selectionRestricted = false)

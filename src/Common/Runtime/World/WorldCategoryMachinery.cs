@@ -103,6 +103,59 @@ internal static class WorldTable
         Create(rows, rows?.Length ?? throw new ArgumentNullException(nameof(rows)));
 }
 
+internal sealed class WorldRelationBuffer<TRow> where TRow : struct
+{
+    private TRow[] _rows;
+
+    internal WorldRelationBuffer(int capacity = 16)
+    {
+        if (capacity < 1) throw new ArgumentOutOfRangeException(nameof(capacity));
+        _rows = new TRow[capacity];
+    }
+
+    internal int Count { get; private set; }
+    internal ref readonly TRow this[int index] => ref _rows[index];
+    internal void Reset() => Count = 0;
+    internal void Truncate(int count) => Count = count;
+
+    internal void Append(in TRow row)
+    {
+        if (Count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
+        _rows[Count++] = row;
+    }
+}
+
+/// <summary>Publishes one relation buffer as its table. Shared by every relation category.</summary>
+internal static class WorldRelationTable
+{
+    internal static PublicationTable<TRow> Build<TRow>(
+        WorldRelationBuffer<TRow> buffer,
+        Comparison<TRow> order)
+        where TRow : struct
+    {
+        if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
+        var rows = Copy(buffer);
+        Array.Sort(rows, order);
+        return PublicationTable<TRow>.Create(rows, rows.Length);
+    }
+
+    internal static PublicationTable<TRow> Publish<TRow>(WorldRelationBuffer<TRow> buffer)
+        where TRow : struct
+    {
+        if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
+        var rows = Copy(buffer);
+        return PublicationTable<TRow>.Create(rows, rows.Length);
+    }
+
+    private static TRow[] Copy<TRow>(WorldRelationBuffer<TRow> buffer)
+        where TRow : struct
+    {
+        var rows = new TRow[buffer.Count];
+        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
+        return rows;
+    }
+}
+
 /// <summary>
 /// Holds one comparison delegate per row type. A generic static field is instantiated once per
 /// closed type, so sorting never allocates a comparer or a closure.

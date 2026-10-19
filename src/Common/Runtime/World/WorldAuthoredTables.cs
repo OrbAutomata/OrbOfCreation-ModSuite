@@ -23,45 +23,26 @@ internal sealed class WorldAuthoredTables
     private WorldAuthoredTables(GameWorldCycleFrame frame)
     {
         StructuralGeneration = frame.StructuralGeneration;
-        SpellRecipeAuthoring = WorldRelationTableDeriver.Build(
-            frame.SpellRecipeAuthoring,
-            static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
-        SpellAuthoredCosts = WorldRelationTableDeriver.Build(
-            frame.SpellAuthoredCosts,
-            static (left, right) =>
-            {
-                var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                if (recipe != 0) return recipe;
-                var kind = ((int)left.Kind).CompareTo((int)right.Kind);
-                return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
-            });
-        SpellRelations = WorldRelationTableDeriver.Build(
-            frame.SpellRelations,
-            static (left, right) =>
-            {
-                var recipe = left.RecipeId.CompareTo(right.RecipeId);
-                if (recipe != 0) return recipe;
-                var kind = ((int)left.Kind).CompareTo((int)right.Kind);
-                return kind != 0 ? kind : left.Ordinal.CompareTo(right.Ordinal);
-            });
-        EntityKeywords = WorldRelationTableDeriver.Build(
-            frame.EntityKeywords,
-            static (left, right) =>
-            {
-                var owner = left.OwnerId.CompareTo(right.OwnerId);
-                if (owner != 0) return owner;
-                var source = ((int)left.Source).CompareTo((int)right.Source);
-                return source != 0 ? source : left.Ordinal.CompareTo(right.Ordinal);
-            });
+        SpellRecipeAuthoring = WorldRelationTable.Build(
+            frame.SpellRecipeAuthoring, WorldSpellGraphLookup.AuthoringOrder);
+        SpellAuthoredCosts = WorldRelationTable.Build(
+            frame.SpellAuthoredCosts, WorldSpellGraphLookup.CostOrder);
+        SpellRelations = WorldRelationTable.Build(
+            frame.SpellRelations, WorldSpellGraphLookup.RelationOrder);
+        EntityKeywords = WorldRelationTable.Build(
+            frame.EntityKeywords, WorldEntityKeywordLookup.Order);
         CraftingRecipeTypes =
             frame.CraftingRecipeTypes.Build(WorldIdentityDeriver<WorldCraftingRecipeType>.Shared);
         PurchaseViews = WorldPurchaseViewRelationDeriver.Build(
             frame.PurchaseViewRelations,
             frame.PurchaseViewRoutes);
-        UpgradeListMemberships = WorldUpgradeListMembershipDeriver.Build(frame.UpgradeListMemberships);
-        RecipeBookGlyphs = WorldRecipeBookGlyphDeriver.Build(frame.RecipeBookGlyphs);
-        DiscoveryTreeBooks = WorldDiscoveryTreeBookDeriver.Build(frame.DiscoveryTreeBooks);
-        ResourceBar = WorldResourceBarDeriver.Build(frame.ResourceBar);
+        UpgradeListMemberships = WorldRelationTable.Build(
+            frame.UpgradeListMemberships, WorldUpgradeListMembershipLookup.Order);
+        RecipeBookGlyphs = WorldRelationTable.Build(
+            frame.RecipeBookGlyphs, WorldRecipeBookGlyphLookup.Order);
+        DiscoveryTreeBooks = WorldRelationTable.Build(
+            frame.DiscoveryTreeBooks, WorldDiscoveryTreeBookLookup.Order);
+        ResourceBar = WorldRelationTable.Publish(frame.ResourceBar);
         LevelEffects = WorldLevelEffectDeriver.Build(frame.LevelEffects);
         PlotAuthoring = WorldPlotAuthoringDeriver.Build(frame.PlotAuthoring);
         PlotPhaseDescriptors = WorldPlotPhaseDescriptorDeriver.Build(frame.PlotPhaseDescriptors);

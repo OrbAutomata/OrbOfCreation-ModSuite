@@ -30,7 +30,7 @@ internal static class GameMcpTestHarness
         var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
         foreach (var upgrade in upgrades)
             buffer.Append(new WorldUpgradeListMembership(upgrade, KnownEntities.UpgradesAll.Uuid));
-        return WorldUpgradeListMembershipDeriver.Build(buffer);
+        return WorldRelationTable.Build(buffer, WorldUpgradeListMembershipLookup.Order);
     }
 
     private static readonly Lazy<EntityIdentityCatalogSnapshot> Identities =

@@ -238,15 +238,14 @@ internal readonly struct WorldPlotActionDrain
 
 internal static class WorldPlotActionDrainDeriver
 {
-    internal static PublicationTable<WorldPlotActionDrain> Build(
-        WorldRelationBuffer<WorldPlotActionDrain> buffer) =>
-        WorldScribeRelationDeriver.Build(buffer, static (left, right) =>
+    internal static readonly Comparison<WorldPlotActionDrain> Order =
+        static (left, right) =>
         {
             var plot = left.PlotNodeId.CompareTo(right.PlotNodeId);
             if (plot != 0) return plot;
             var action = left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
             return action != 0 ? action : left.Ordinal.CompareTo(right.Ordinal);
-        });
+        };
 
     /// <summary>The pair's drain rows: the half-open range sorted by authored order.</summary>
     internal static ReadOnlySpan<WorldPlotActionDrain> For(

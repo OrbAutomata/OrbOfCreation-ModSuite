@@ -20,18 +20,6 @@ internal readonly struct WorldResourceBarEntry
     internal Guid ResourceId { get; }
 }
 
-internal static class WorldResourceBarDeriver
-{
-    internal static PublicationTable<WorldResourceBarEntry> Build(
-        WorldRelationBuffer<WorldResourceBarEntry> buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldResourceBarEntry>.Empty;
-        var rows = new WorldResourceBarEntry[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        return PublicationTable<WorldResourceBarEntry>.Create(rows, rows.Length);
-    }
-}
-
 /// <summary>
 /// Reads the resource panel's membership once per lifecycle: the pinned Mana orb, then each pinned
 /// list's authored members in authored order.

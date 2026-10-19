@@ -253,6 +253,13 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
 /// <summary>Range lookup over the member table, which is keyed by group and then authored order.</summary>
 internal static class WorldAttributeGroupMemberLookup
 {
+    internal static readonly Comparison<WorldAttributeGroupMember> Order =
+        static (left, right) =>
+        {
+            var group = left.AttributeGroupId.CompareTo(right.AttributeGroupId);
+            return group != 0 ? group : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     /// <summary>One group's members, as a contiguous range of the sorted table.</summary>
     internal static bool TryFindRange(
         PublicationTable<WorldAttributeGroupMember> table,

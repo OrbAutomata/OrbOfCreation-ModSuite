@@ -52,6 +52,16 @@ internal readonly struct WorldAlchemyUsageCost
 
 internal static class WorldAlchemyLoadoutLookup
 {
+    internal static readonly Comparison<WorldAlchemyLoadoutDecision> Order =
+        static (left, right) => left.RecipeId.CompareTo(right.RecipeId);
+
+    internal static readonly Comparison<WorldAlchemyUsageCost> CostOrder =
+        static (left, right) =>
+        {
+            var recipe = left.RecipeId.CompareTo(right.RecipeId);
+            return recipe != 0 ? recipe : left.ResourceId.CompareTo(right.ResourceId);
+        };
+
     internal static bool TryFind(PublicationTable<WorldAlchemyLoadoutDecision> table,
         Guid recipeId, out WorldAlchemyLoadoutDecision decision) =>
         WorldAlchemyRowLookup.TryFind(table, recipeId, static row => row.RecipeId, out decision);

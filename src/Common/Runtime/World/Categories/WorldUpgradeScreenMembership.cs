@@ -122,21 +122,15 @@ internal static class WorldUpgradeScreenLists
         WorldLookup.TryFind(world.Views, viewId, out var view) && view.Available;
 }
 
-internal static class WorldUpgradeListMembershipDeriver
-{
-    internal static PublicationTable<WorldUpgradeListMembership> Build(
-        WorldRelationBuffer<WorldUpgradeListMembership> buffer) =>
-        WorldScribeRelationDeriver.Build(
-            buffer,
-            static (left, right) =>
-            {
-                var upgrade = left.UpgradeId.CompareTo(right.UpgradeId);
-                return upgrade != 0 ? upgrade : left.ListId.CompareTo(right.ListId);
-            });
-}
-
 internal static class WorldUpgradeListMembershipLookup
 {
+    internal static readonly Comparison<WorldUpgradeListMembership> Order =
+        static (left, right) =>
+        {
+            var upgrade = left.UpgradeId.CompareTo(right.UpgradeId);
+            return upgrade != 0 ? upgrade : left.ListId.CompareTo(right.ListId);
+        };
+
     /// <summary>
     /// The lists one upgrade is authored onto, as a contiguous range of the sorted table.
     /// </summary>

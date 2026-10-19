@@ -118,38 +118,52 @@ internal readonly struct WorldScrollTargetEvidence
     internal int CandidateCount { get; }
 }
 
-internal sealed class WorldRelationBuffer<TRow> where TRow : struct
-{
-    private TRow[] _rows = new TRow[16];
-    internal int Count { get; private set; }
-    internal ref readonly TRow this[int index] => ref _rows[index];
-    internal void Reset() => Count = 0;
-    internal void Truncate(int count) => Count = count;
-
-    internal void Append(in TRow row)
-    {
-        if (Count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[Count++] = row;
-    }
-}
-
-internal static class WorldScribeRelationDeriver
-{
-    internal static PublicationTable<TRow> Build<TRow>(
-        WorldRelationBuffer<TRow> buffer,
-        Comparison<TRow> comparison)
-        where TRow : struct
-    {
-        if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
-        var rows = new TRow[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, comparison);
-        return PublicationTable<TRow>.Create(rows, rows.Length);
-    }
-}
-
 internal static class WorldScribeLookup
 {
+    internal static readonly Comparison<WorldScribeRecipe> RecipeOrder =
+        static (left, right) => left.RecipeId.CompareTo(right.RecipeId);
+
+    internal static readonly Comparison<WorldScribeQueue> QueueOrder =
+        static (left, right) => left.QueueId.CompareTo(right.QueueId);
+
+    internal static readonly Comparison<WorldScribeWork> WorkOrder =
+        static (left, right) =>
+        {
+            var queue = left.QueueId.CompareTo(right.QueueId);
+            if (queue != 0) return queue;
+            var recipe = left.RecipeId.CompareTo(right.RecipeId);
+            return recipe != 0 ? recipe : left.Level.CompareTo(right.Level);
+        };
+
+    internal static readonly Comparison<WorldStructureEnchantment> StructureEnchantmentOrder =
+        static (left, right) =>
+        {
+            var structure = left.StructureId.CompareTo(right.StructureId);
+            return structure != 0
+                ? structure
+                : left.EnchantmentId.CompareTo(right.EnchantmentId);
+        };
+
+    internal static readonly Comparison<WorldScrollTarget> ScrollTargetOrder =
+        static (left, right) =>
+        {
+            var item = left.ConsumableId.CompareTo(right.ConsumableId);
+            if (item != 0) return item;
+            var enchantment = left.EnchantmentId.CompareTo(right.EnchantmentId);
+            return enchantment != 0
+                ? enchantment
+                : left.StructureId.CompareTo(right.StructureId);
+        };
+
+    internal static readonly Comparison<WorldScrollTargetEvidence> TargetEvidenceOrder =
+        static (left, right) =>
+        {
+            var item = left.ConsumableId.CompareTo(right.ConsumableId);
+            return item != 0
+                ? item
+                : left.EnchantmentId.CompareTo(right.EnchantmentId);
+        };
+
     internal static bool TryGetRecipe(
         PublicationTable<WorldScribeRecipe> recipes,
         Guid recipeId,

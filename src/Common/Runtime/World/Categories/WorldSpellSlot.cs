@@ -528,6 +528,13 @@ internal readonly struct WorldSpellSlotType
 /// </summary>
 internal static class WorldSpellSlotTypeLookup
 {
+    internal static readonly Comparison<WorldSpellSlotType> Order =
+        static (left, right) =>
+        {
+            var slot = left.SlotIndex.CompareTo(right.SlotIndex);
+            return slot != 0 ? slot : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     internal static bool TryFind(
         PublicationTable<WorldSpellSlotType> table,
         int slotIndex,

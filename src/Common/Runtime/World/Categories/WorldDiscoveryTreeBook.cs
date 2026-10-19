@@ -26,21 +26,15 @@ internal readonly struct WorldDiscoveryTreeBook
     internal Guid TreeId { get; }
 }
 
-internal static class WorldDiscoveryTreeBookDeriver
-{
-    internal static PublicationTable<WorldDiscoveryTreeBook> Build(
-        WorldRelationBuffer<WorldDiscoveryTreeBook> buffer) =>
-        WorldScribeRelationDeriver.Build(
-            buffer,
-            static (left, right) =>
-            {
-                var book = left.RecipeBookId.CompareTo(right.RecipeBookId);
-                return book != 0 ? book : left.TreeId.CompareTo(right.TreeId);
-            });
-}
-
 internal static class WorldDiscoveryTreeBookLookup
 {
+    internal static readonly Comparison<WorldDiscoveryTreeBook> Order =
+        static (left, right) =>
+        {
+            var book = left.RecipeBookId.CompareTo(right.RecipeBookId);
+            return book != 0 ? book : left.TreeId.CompareTo(right.TreeId);
+        };
+
     /// <summary>The trees one book widens, as a contiguous range of the sorted table.</summary>
     internal static bool TryFindRange(
         PublicationTable<WorldDiscoveryTreeBook> table,

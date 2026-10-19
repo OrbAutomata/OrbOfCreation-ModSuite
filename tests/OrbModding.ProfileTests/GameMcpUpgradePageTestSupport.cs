@@ -37,7 +37,7 @@ internal static class GameMcpUpgradePageTestSupport
     {
         var buffer = new WorldRelationBuffer<WorldUpgradeListMembership>();
         foreach (var membership in memberships) buffer.Append(membership);
-        return WorldUpgradeListMembershipDeriver.Build(buffer);
+        return WorldRelationTable.Build(buffer, WorldUpgradeListMembershipLookup.Order);
     }
 
     internal static GameWorldState UpgradesWorld(params WorldUpgrade[] upgrades) =>

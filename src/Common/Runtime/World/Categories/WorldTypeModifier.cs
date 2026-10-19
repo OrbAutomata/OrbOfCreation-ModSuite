@@ -115,6 +115,15 @@ internal readonly struct WorldTypeModifierContribution
 /// <summary>Reaches one type's records, which sort together by type then property.</summary>
 internal static class WorldTypeModifierLookup
 {
+    internal static readonly Comparison<WorldTypeModifier> Order =
+        static (left, right) =>
+        {
+            var type = left.TypeId.CompareTo(right.TypeId);
+            return type != 0
+                ? type
+                : string.CompareOrdinal(left.Property, right.Property);
+        };
+
     /// <summary>The run of rows belonging to <paramref name="typeId"/>.</summary>
     internal static bool TryFind(
         PublicationTable<WorldTypeModifier> table,
@@ -150,6 +159,17 @@ internal static class WorldTypeModifierLookup
 /// </summary>
 internal static class WorldTypeModifierContributionLookup
 {
+    internal static readonly Comparison<WorldTypeModifierContribution> Order =
+        static (left, right) =>
+        {
+            var type = left.TypeId.CompareTo(right.TypeId);
+            if (type != 0) return type;
+            var property = string.CompareOrdinal(left.Property, right.Property);
+            return property != 0
+                ? property
+                : left.Contribution.ModifierId.CompareTo(right.Contribution.ModifierId);
+        };
+
     /// <summary>The run of entries behind one type's named record.</summary>
     internal static bool TryFind(
         PublicationTable<WorldTypeModifierContribution> table,
@@ -213,6 +233,16 @@ internal readonly struct WorldTypeSubtype
     internal int Ordinal { get; }
 
     internal Guid SubTypeId { get; }
+}
+
+internal static class WorldTypeSubtypeLookup
+{
+    internal static readonly Comparison<WorldTypeSubtype> Order =
+        static (left, right) =>
+        {
+            var type = left.TypeId.CompareTo(right.TypeId);
+            return type != 0 ? type : left.Ordinal.CompareTo(right.Ordinal);
+        };
 }
 
 /// <summary>

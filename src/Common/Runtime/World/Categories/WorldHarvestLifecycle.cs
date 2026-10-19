@@ -342,24 +342,20 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         _costResource is not null && _costAmount is not null && _costEnough is not null;
 }
 
-internal static class WorldHarvestLifecycleDeriver
+internal static class WorldHarvestLifecycleLookup
 {
-    internal static PublicationTable<WorldHarvestElementControl> BuildElements(
-        WorldRelationBuffer<WorldHarvestElementControl> buffer) =>
-        WorldScribeRelationDeriver.Build(buffer,
-            static (left, right) => left.ElementId.CompareTo(right.ElementId));
+    internal static readonly Comparison<WorldHarvestElementControl> ElementOrder =
+        static (left, right) => left.ElementId.CompareTo(right.ElementId);
 
-    internal static PublicationTable<WorldHarvestActionControl> BuildActions(
-        WorldRelationBuffer<WorldHarvestActionControl> buffer) =>
-        WorldScribeRelationDeriver.Build(buffer, static (left, right) =>
+    internal static readonly Comparison<WorldHarvestActionControl> ActionOrder =
+        static (left, right) =>
         {
             var element = left.ElementId.CompareTo(right.ElementId);
             return element != 0 ? element : left.ActionId.CompareTo(right.ActionId);
-        });
+        };
 
-    internal static PublicationTable<WorldHarvestLifecycleCost> BuildCosts(
-        WorldRelationBuffer<WorldHarvestLifecycleCost> buffer) =>
-        WorldScribeRelationDeriver.Build(buffer, static (left, right) =>
+    internal static readonly Comparison<WorldHarvestLifecycleCost> CostOrder =
+        static (left, right) =>
         {
             var element = left.ElementId.CompareTo(right.ElementId);
             if (element != 0) return element;
@@ -367,5 +363,5 @@ internal static class WorldHarvestLifecycleDeriver
             if (action != 0) return action;
             var kind = ((int)left.Kind).CompareTo((int)right.Kind);
             return kind != 0 ? kind : left.ResourceId.CompareTo(right.ResourceId);
-        });
+        };
 }
