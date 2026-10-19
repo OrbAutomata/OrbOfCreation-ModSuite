@@ -58,10 +58,11 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
 
     /// <summary>
     /// The game saying the candidate is at its level cap while the world said below it is a
-    /// disagreement about one candidate, so that candidate backs off and the rest of Auto Buy runs.
+    /// disagreement about one candidate, most often a level the player queued by hand since
+    /// collection, so that candidate backs off quietly and the rest of Auto Buy runs.
     /// </summary>
     [Fact]
-    public void ALevelRefusalBacksTheCandidateOffWithoutABundle()
+    public void ALevelRefusalBacksTheCandidateOffQuietlyWithoutABundle()
     {
         var latch = new AutoBuyInvariantLatch();
         var responder = Responder(latch, out var bundles, out var logged);
@@ -69,7 +70,7 @@ public sealed class AutoBuyRefusalResponseTests : IDisposable
         var answered = responder.Answer(Report(RefusedOnTheQueuedLevelCap()), Refused);
 
         Assert.True(answered.BacksOffTarget);
-        Assert.False(answered.QuietFirstFailure);
+        Assert.True(answered.QuietFirstFailure);
         Assert.Equal(AutoBuyServicePolicies.RefusalBackoffCap, answered.TargetBackoffCap);
         Assert.Equal(Refused.Reason, answered.Reason);
         Assert.False(latch.IsTripped);

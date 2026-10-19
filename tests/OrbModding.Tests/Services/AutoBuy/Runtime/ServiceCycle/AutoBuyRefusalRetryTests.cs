@@ -31,7 +31,7 @@ public sealed class AutoBuyRefusalRetryTests
         MonotonicDuration.FromTimeSpan(TimeSpan.FromMilliseconds(250));
 
     [Fact]
-    public void ALevelRefusalBacksTheCandidateOffWhileTheNextOneIsBoughtAndRetriesItWhenDue()
+    public void ALevelRefusalBacksTheCandidateOffQuietlyWhileTheNextOneIsBoughtAndRetriesItWhenDue()
     {
         var purchases = new Purchases(First, LevelCapRefusal());
         using var harness = new Harness(purchases);
@@ -40,10 +40,16 @@ public sealed class AutoBuyRefusalRetryTests
         var entry = harness.RetryGate.Latest;
         harness.PumpWorldsUntil(() => purchases.Commits(Second) == 1);
         var firstAttemptsWhenSecondWasBought = purchases.Submissions(First);
+        var quietStatus = harness.Status.Current.State;
+        var quietWarnings = harness.Warnings.Count;
         harness.PumpWorldsUntil(() => purchases.Submissions(First) == 2);
+        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
 
         Assert.Equal(First, entry.Target.Id);
-        Assert.False(entry.IsQuiet);
+        Assert.True(entry.IsQuiet);
+        Assert.Equal(FeatureStatusState.Operational, quietStatus);
+        Assert.Equal(0, quietWarnings);
+        Assert.False(harness.RetryGate.Latest.IsQuiet);
         Assert.Contains("IsMaxQueuedLevel()", entry.Reason);
         Assert.Equal(1, firstAttemptsWhenSecondWasBought);
         Assert.True(

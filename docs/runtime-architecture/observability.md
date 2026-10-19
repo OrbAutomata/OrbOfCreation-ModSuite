@@ -383,8 +383,8 @@ average cannot say which pass was the expensive one.
 
 Auto Buy affordability drift is an ordinary refusal: its reason travels on the result, with no log
 line and no bundle. Availability drift and level contradictions back the candidate off on the retry
-gate, which logs once when the episode is announced and once when it ends; the first availability
-refusal stays quiet until a fresher world refuses again. Only a planned purchase reaches the
+gate, which logs once when the episode is announced and once when it ends; the first refusal of
+either stays quiet until a fresher world refuses again. Only a planned purchase reaches the
 responder; a refused `game_purchase` press answers its caller. A refusal the suite's model says
 cannot happen holds Auto Buy off for the lifecycle and retains a full text bundle under
 `trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,

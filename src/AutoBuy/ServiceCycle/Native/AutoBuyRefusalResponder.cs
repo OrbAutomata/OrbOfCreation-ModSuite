@@ -24,10 +24,10 @@ internal interface IAutoBuyRefusalResponsePort
 /// </para>
 /// <para>
 /// Availability is a gate the game opens and shuts on its own, most of all across a lifecycle reset,
-/// so its refusal backs the candidate off quietly: the next world usually reads the gate shut and
-/// ends the episode. Only a refusal again from a world collected after the first is announced.
-/// A level refusal (at max level or max queued level while the world said below) backs the candidate
-/// off loudly from the first refusal. Both retry with doubling waits held at one minute, because a
+/// and the player can queue a candidate's last level by hand after collection, so a refusal at max
+/// level, at max queued level or on availability backs the candidate off quietly: the next world
+/// usually agrees with the game and ends the episode. Only a refusal again from a world collected
+/// after the first is announced. Both retry with doubling waits held at one minute, because a
 /// refusal ends the batch and a candidate that came due every second would hold back every purchase
 /// ranked after it.
 /// </para>
@@ -63,9 +63,8 @@ internal sealed class AutoBuyRefusalResponder : IAutoBuyRefusalResponsePort
             case AutoBuyRefusalClassification.AffordabilityChanged:
                 return refused;
             case AutoBuyRefusalClassification.AvailabilityChanged:
-                return refused.BackingOffTarget(AutoBuyServicePolicies.RefusalBackoffCap, quietFirstFailure: true);
             case AutoBuyRefusalClassification.StructuralMismatch:
-                return refused.BackingOffTarget(AutoBuyServicePolicies.RefusalBackoffCap);
+                return refused.BackingOffTarget(AutoBuyServicePolicies.RefusalBackoffCap, quietFirstFailure: true);
         }
         if (_latch.IsTripped) return refused;
 
