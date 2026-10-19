@@ -198,16 +198,15 @@ internal static class GameMcpEntityCapabilityMap
         if (Supports("player-loadouts", GameMcpCommandKind.Loadout) &&
             WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts, target, out _))
         {
-            nativeType = "PlayerLoadout";
+            nativeType = GameMcpLoadoutCommand.PlayerLoadoutType;
             reason = string.Empty;
             return true;
         }
         if (Supports("snapshot-loadouts", GameMcpCommandKind.Loadout) &&
             WorldLoadoutLookup.TryFindSnapshot(world.SnapshotLoadouts, target, out var snapshot))
         {
-            nativeType = snapshot.Kind == WorldSnapshotLoadoutKind.Alchemy
-                ? "AlchemySnapshotListVariable"
-                : "EquipmentSnapshotListVariable";
+            nativeType = GameMcpLoadoutCommand.SnapshotListType(
+                snapshot.Kind == WorldSnapshotLoadoutKind.Alchemy);
             reason = string.Empty;
             return true;
         }

@@ -10,7 +10,8 @@ internal static class GameMcpEquipmentLoadoutCommand
         static (command, scope) => ExecuteEquipmentLoadout(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectEquipmentDelta(state, command)));
+            static (state, command, _) => GameMcpWorldQuery.ProjectEquipmentDelta(state, command)),
+        nativeType: "EquipmentSO");
 
     private static GameMcpCommandResult ExecuteEquipmentLoadout(
         LifecycleGameActions gameActions,
@@ -23,7 +24,7 @@ internal static class GameMcpEquipmentLoadoutCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared equipment loadout GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "EquipmentSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode == "equip"
             ? EquipmentLoadoutActionKind.Equip
             : EquipmentLoadoutActionKind.Unequip;

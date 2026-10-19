@@ -13,7 +13,8 @@ internal static class GameMcpPrestigeCommand
             static (state, _, _) => GameMcpWorldQuery.ProjectPrestigePostState(state),
             timedOut: TimedOut,
             waitSeconds: GameMcpPostStateSettlement.LifecycleWaitSeconds,
-            data: GameMcpFrameData.World | GameMcpFrameData.Scene));
+            data: GameMcpFrameData.World | GameMcpFrameData.Scene),
+        nativeType: "PersistentResetManager");
 
     private static GameMcpCommandResult ExecutePrestige(
         LifecycleGameActions gameActions,

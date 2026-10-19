@@ -4979,12 +4979,15 @@ registers in one list; tools/list advertises the catalog in that order. The list
 catalog before it binds: no tool is registered twice, every tool has a route, a tool is `Gameplay`
 exactly when a GameAction family names its command, and no resource is registered twice.
 Every gameplay command kind is one descriptor too, in its own `GameMcp<Capability>Command` file:
-how it executes on the main thread and its post-state rule (the settled projection, the outcome
+the native type its targets have, or the preparation that derives one from the request; how the
+request's fields become the command; how it executes on the main thread, with the executor checking
+the descriptor's native type; and its post-state rule (the settled projection, the outcome
 settlement waits for, the timeout answer, or none for a verb that answers from its press). The
 suite's own writes (`GameMcpSuiteCommands`) and the screen gadgets (`GameMcpGadgetCommands`) are
-descriptors too, carrying an executor the frame runs itself and no post-state rule.
+descriptors too, carrying their preparation, an executor the frame runs itself and no post-state
+rule. `GameMcpCommandPreparation` keeps only the shared path around each descriptor's preparation.
 `GameMcpCommandCatalog` registers them once, keyed by kind, and the same start check requires every
 kind to have a descriptor and an executor, a post-state rule on exactly the kinds a GameAction
-family names, and no kind registered twice. A malformed catalog logs `Game MCP server refuses to start because its tool or
+family names, a native type or a preparation on each of those, and no kind registered twice. A malformed catalog logs `Game MCP server refuses to start because its tool or
 command catalog is malformed`, naming each problem, and the listener stays down while gameplay goes
 on.

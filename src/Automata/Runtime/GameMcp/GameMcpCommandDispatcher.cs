@@ -251,10 +251,8 @@ internal sealed class GameMcpCommandDispatcher
                 var kind = command.Mode == "structure"
                     ? AutoBuyCandidateKind.Structure
                     : AutoBuyCandidateKind.Upgrade;
-                var expected = kind == AutoBuyCandidateKind.Structure
-                    ? "StructureSO"
-                    : "UpgradeSO";
-                GameMcpNativeActionAdmission.AssertNativeType(command, expected);
+                GameMcpNativeActionAdmission.AssertNativeType(
+                    command, GameMcpPurchaseCommand.NativeTypeFor(command.Mode));
                 var action = new AutoBuyCycleAction(
                     kind,
                     command.TargetId,
@@ -265,7 +263,8 @@ internal sealed class GameMcpCommandDispatcher
             }
             case GameMcpCommandKind.Cast:
             {
-                GameMcpNativeActionAdmission.AssertNativeType(command, "SpellRecipeSO");
+                GameMcpNativeActionAdmission.AssertNativeType(
+                    command, GameMcpCastCommand.Descriptor.NativeType);
                 var kind = command.Mode switch
                 {
                     "release" => AutoCastActionKind.ReleaseCharge,
@@ -290,7 +289,8 @@ internal sealed class GameMcpCommandDispatcher
             }
             case GameMcpCommandKind.Concept:
             {
-                GameMcpNativeActionAdmission.AssertNativeType(command, "AlchemyRecipeSO");
+                GameMcpNativeActionAdmission.AssertNativeType(
+                    command, GameMcpConceptCommand.Descriptor.NativeType);
                 var kind = command.Mode switch
                 {
                     "add" => AutoConceptActionKind.Add,
@@ -332,7 +332,8 @@ internal sealed class GameMcpCommandDispatcher
             }
             case GameMcpCommandKind.SpellLevel:
             {
-                GameMcpNativeActionAdmission.AssertNativeType(command, "SpellRecipeSO");
+                GameMcpNativeActionAdmission.AssertNativeType(
+                    command, GameMcpSpellLevelCommand.Descriptor.NativeType);
                 var kind = command.Mode == "all"
                     ? SpellLevelActionKind.All
                     : SpellLevelActionKind.Single;

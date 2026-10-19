@@ -14,6 +14,7 @@ internal static class GameMcpSpellLevelCommand
                 "all",
                 StringComparison.Ordinal)
                 ? GameMcpWorldQuery.ProjectSpellLevelAllPostState(state, command)
-                : GameMcpWorldQuery.ProjectSpellLevelDelta(state, command)));
+                : GameMcpWorldQuery.ProjectSpellLevelDelta(state, command)),
+        nativeType: "SpellRecipeSO");
 }
 #endif

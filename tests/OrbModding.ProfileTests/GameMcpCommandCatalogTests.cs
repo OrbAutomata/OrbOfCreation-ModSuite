@@ -66,6 +66,34 @@ public sealed class GameMcpCommandCatalogTests
     }
 
     [Fact]
+    public void GameplayKindWithNeitherNativeTypeNorPreparationRefusesStart()
+    {
+        var shipping = GameMcpCommandCatalog.Shipping;
+        var research = shipping.Commands.Single(
+            command => command.Kind == GameMcpCommandKind.Research);
+        var commands = shipping.Commands
+            .Select(command => command != research
+                ? command
+                : new GameMcpCommandDescriptor(research.Kind, research.Execute, research.PostState))
+            .ToArray();
+        var errors = new List<string>();
+
+        var server = GameMcpHttpServer.TryStart(
+            new GameMcpFrameInbox(),
+            GameMcpToolCatalog.Shipping,
+            new GameMcpCommandCatalog(commands),
+            _ => { },
+            errors.Add,
+            GameMcpTestHarness.FreeLoopbackPort());
+        server?.Dispose();
+
+        Assert.Null(server);
+        var error = Assert.Single(errors);
+        Assert.Contains("refuses to start", error);
+        Assert.Contains("command Research names no native type and prepares none", error);
+    }
+
+    [Fact]
     public void TheShippingCommandCatalogPassesTheStartCheck() =>
         Assert.Empty(GameMcpCommandCatalog.Shipping.Problems());
 }

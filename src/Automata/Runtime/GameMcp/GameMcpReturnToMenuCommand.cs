@@ -9,7 +9,9 @@ internal static class GameMcpReturnToMenuCommand
         GameMcpCommandKind.ReturnToMenu,
         static (command, scope) => ExecuteReturnToMenu(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
-        GameMcpPostStateRule.FromPress);
+        GameMcpPostStateRule.FromPress,
+        nativeType: "UIBackToMenuButton",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteReturnToMenu(
         LifecycleGameActions gameActions,
@@ -22,7 +24,7 @@ internal static class GameMcpReturnToMenuCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared Back to Menu GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "UIBackToMenuButton");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var action = new ReturnToMenuAction(command.ExpectedLifecycleGeneration);
         var submission = returnToMenu.Submit(in action);
         var result = submission.Outcome.ToResult();
@@ -34,6 +36,14 @@ internal static class GameMcpReturnToMenuCommand
             : new GameMcpObjectBuilder().Freeze();
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration, details);
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.Mode = "return_to_menu";
     }
 }
 #endif

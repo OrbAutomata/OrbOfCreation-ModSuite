@@ -13,7 +13,8 @@ internal static class GameMcpTargetingCommand
         GameMcpPostStateRule.Settled(
             static (state, _, committed) => GameMcpWorldQuery.ProjectTargetingPostState(
                 state,
-                GameMcpTargetingProjection.SubmittedTarget(committed.Details))));
+                GameMcpTargetingProjection.SubmittedTarget(committed.Details))),
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteTargeting(
         LifecycleGameActions gameActions,
@@ -21,9 +22,7 @@ internal static class GameMcpTargetingCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(
-            command,
-            command.Mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink");
+        GameMcpNativeActionAdmission.AssertNativeType(command, NativeTypeFor(command.Mode));
         var targeting = gameActions.Find<TargetingGameAction>();
         if (targeting is null)
             return GameMcpCommandResult.Rejected(
@@ -41,6 +40,17 @@ internal static class GameMcpTargetingCommand
         var result = submission.Outcome.ToResult();
         return GameMcpCommandResult.FromAction(
             in result, lifecycle, configurationGeneration, GameMcpTargetingProjection.Project(in submission));
+    }
+
+    private static string NativeTypeFor(string mode) =>
+        mode == "submit" ? "StructureSO" : "TargetingManager+TargetLink";
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.NativeType = NativeTypeFor(request.Mode);
     }
 }
 #endif

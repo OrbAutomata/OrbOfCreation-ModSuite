@@ -7,11 +7,22 @@ internal static class GameMcpSuiteCommands
 {
     internal static GameMcpCommandDescriptor ConfigurationSet { get; } = new(
         GameMcpCommandKind.ConfigurationSet,
-        AtCurrentGeneration(SetConfiguration));
+        AtCurrentGeneration(SetConfiguration),
+        prepare: static (request, _, draft) =>
+        {
+            draft.Mode = request.Section;
+            draft.PayloadKey = request.Key;
+            draft.PayloadValue = request.SerializedValue;
+        });
 
     internal static GameMcpCommandDescriptor AutomationSet { get; } = new(
         GameMcpCommandKind.AutomationSet,
-        AtCurrentGeneration(SetAutomation));
+        AtCurrentGeneration(SetAutomation),
+        prepare: static (request, _, draft) =>
+        {
+            draft.PayloadKey = request.Key;
+            draft.PayloadValue = request.SerializedValue;
+        });
 
     internal static GameMcpCommandDescriptor EmergencyStop { get; } = new(
         GameMcpCommandKind.EmergencyStop,

@@ -12,7 +12,9 @@ internal static class GameMcpSpellCompositionCommand
         GameMcpPostStateRule.Settled(
             static (state, command, _) => GameMcpWorldQuery.ProjectCastingDialDelta(state, command),
             DialReached,
-            DialTimedOut));
+            DialTimedOut),
+        nativeType: "IntVariable",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteSpellComposition(
         LifecycleGameActions gameActions,
@@ -20,7 +22,7 @@ internal static class GameMcpSpellCompositionCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "IntVariable");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var spellComposition = gameActions.Find<SpellCompositionGameAction>();
         if (spellComposition is null)
             return GameMcpCommandResult.Rejected(
@@ -80,6 +82,15 @@ internal static class GameMcpSpellCompositionCommand
                 ", not the requested " + command.Amount);
         }
         return GameMcpPostStateSettlement.PostStateTimeout();
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        // Four dials share one action, so the committed response names the one it moved.
+        draft.PayloadKey = request.Key;
     }
 }
 #endif

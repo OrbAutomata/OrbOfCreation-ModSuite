@@ -17,7 +17,9 @@ internal static class GameMcpCraftingCommand
             scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, committed) =>
-                GameMcpWorldQuery.ProjectCraftingDelta(state, command, committed)));
+                GameMcpWorldQuery.ProjectCraftingDelta(state, command, committed)),
+        nativeType: "CraftingRecipeSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteCrafting(
         LifecycleGameActions gameActions,
@@ -26,7 +28,7 @@ internal static class GameMcpCraftingCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "CraftingRecipeSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         if (command.Mode != "craft")
         {
             var craftingInstances = gameActions.Find<CraftingInstanceLifecycleGameAction>();
@@ -76,6 +78,14 @@ internal static class GameMcpCraftingCommand
                     max);
                 return crafting.Submit(in action);
             });
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.PayloadValue = request.SerializedValue;
     }
 }
 #endif

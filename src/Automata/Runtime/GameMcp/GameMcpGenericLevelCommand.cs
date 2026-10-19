@@ -17,7 +17,8 @@ internal static class GameMcpGenericLevelCommand
             scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectGenericLevelDelta(state, command)));
+                GameMcpWorldQuery.ProjectGenericLevelDelta(state, command)),
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteGenericLevel(
         LifecycleGameActions gameActions,
@@ -45,6 +46,21 @@ internal static class GameMcpGenericLevelCommand
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpGenericLevelProjection.Project(in submission, world));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        if (context.World is null)
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "world_not_published", context.RuntimeNotAvailableReason);
+        else if (!GameMcpEntityCapabilityMap.TryResolveGenericLevelType(
+                     context.World.Snapshot, request.Uuid,
+                     out draft.NativeType, out var levelReason))
+            draft.Failure = GameMcpCommandResult.Rejected(
+                "level_target_unavailable", levelReason);
     }
 }
 #endif

@@ -12,7 +12,9 @@ internal static class GameMcpConsumableCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectConsumableDelta(state, command)));
+                GameMcpWorldQuery.ProjectConsumableDelta(state, command)),
+        nativeType: "ConsumableSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteConsumable(
         LifecycleGameActions gameActions,
@@ -20,7 +22,7 @@ internal static class GameMcpConsumableCommand
         long lifecycle,
         ulong configurationGeneration)
     {
-        GameMcpNativeActionAdmission.AssertNativeType(command, "ConsumableSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var consumables = gameActions.Find<AutoItemsConsumablePlayerGameAction>();
         if (consumables is null)
             return GameMcpCommandResult.Rejected(
@@ -62,6 +64,16 @@ internal static class GameMcpConsumableCommand
             lifecycle,
             configurationGeneration,
             GameMcpConsumableProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        draft.PayloadKey = request.Key;
+        draft.PayloadValue = request.SerializedValue;
+        if (request.Mode == "move") draft.Amount = request.SlotIndex;
     }
 }
 #endif

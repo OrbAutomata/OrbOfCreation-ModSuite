@@ -15,7 +15,8 @@ internal static class GameMcpStructureLifecycleCommand
             static (state, command, _) =>
                 GameMcpWorldQuery.ProjectStructureLifecycleDelta(state, command),
             RequestedOutcome,
-            TimedOut));
+            TimedOut),
+        nativeType: "StructureSO");
 
     private static GameMcpCommandResult ExecuteStructureLifecycle(
         LifecycleGameActions gameActions,
@@ -28,7 +29,7 @@ internal static class GameMcpStructureLifecycleCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared structure GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "StructureSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "enable" => StructureLifecycleActionKind.Enable,

@@ -13,7 +13,8 @@ internal static class GameMcpGadgetCommands
 {
     internal static GameMcpCommandDescriptor Screenshot { get; } = new(
         GameMcpCommandKind.Screenshot,
-        CaptureScreenshot);
+        CaptureScreenshot,
+        prepare: static (_, _, draft) => draft.Mode = "capture");
 
     internal static GameMcpCommandDescriptor Navigation { get; } = new(
         GameMcpCommandKind.Navigation,
@@ -21,28 +22,44 @@ internal static class GameMcpGadgetCommands
         {
             scope.Gadgets.Navigator.Navigate(command);
             return null;
-        });
+        },
+        prepare: static (_, _, draft) => draft.Mode = "navigate");
 
     internal static GameMcpCommandDescriptor Probe { get; } = new(
         GameMcpCommandKind.Probe,
-        static (command, _, scope) => scope.Gadgets.ScreenReader.ProbeGameMcp(command));
+        static (command, _, scope) => scope.Gadgets.ScreenReader.ProbeGameMcp(command),
+        prepare: static (request, _, draft) => draft.Mode = request.Probe);
 
     internal static GameMcpCommandDescriptor TooltipCatalog { get; } = new(
         GameMcpCommandKind.TooltipCatalog,
         static (command, _, scope) =>
-            scope.Gadgets.ScreenReader.CaptureTooltipCatalogGameMcp(command));
+            scope.Gadgets.ScreenReader.CaptureTooltipCatalogGameMcp(command),
+        prepare: static (request, _, draft) =>
+        {
+            draft.Mode = "catalog";
+            draft.Amount = request.Limit;
+            draft.PayloadValue = request.Offset.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+        });
 
     internal static GameMcpCommandDescriptor TooltipRead { get; } = new(
         GameMcpCommandKind.TooltipRead,
-        static (command, _, scope) => scope.Gadgets.ScreenReader.ReadTooltipGameMcp(command));
+        static (command, _, scope) => scope.Gadgets.ScreenReader.ReadTooltipGameMcp(command),
+        prepare: static (request, _, draft) =>
+        {
+            draft.Mode = "read";
+            draft.PayloadValue = request.Path;
+        });
 
     internal static GameMcpCommandDescriptor ContinueRun { get; } = new(
         GameMcpCommandKind.ContinueRun,
-        Continue);
+        Continue,
+        prepare: static (_, _, draft) => draft.Mode = "continue");
 
     internal static GameMcpCommandDescriptor Modal { get; } = new(
         GameMcpCommandKind.Modal,
-        PressModal);
+        PressModal,
+        prepare: static (request, _, draft) => draft.PayloadValue = request.Title);
 
     private static GameMcpCommandResult? CaptureScreenshot(
         GameMcpCommand command,

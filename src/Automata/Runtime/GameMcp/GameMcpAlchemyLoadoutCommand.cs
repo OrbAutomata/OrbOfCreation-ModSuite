@@ -12,7 +12,9 @@ internal static class GameMcpAlchemyLoadoutCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectAlchemyLoadoutDelta(state, command)));
+                GameMcpWorldQuery.ProjectAlchemyLoadoutDelta(state, command)),
+        nativeType: "AlchemyRecipeSO",
+        prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteAlchemyLoadout(
         LifecycleGameActions gameActions,
@@ -25,7 +27,7 @@ internal static class GameMcpAlchemyLoadoutCommand
             return GameMcpCommandResult.Rejected("contract_unavailable",
                 "the shared ordinary Alchemy GameAction was not composed", lifecycle,
                 configurationGeneration);
-        GameMcpNativeActionAdmission.AssertNativeType(command, "AlchemyRecipeSO");
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
         var kind = command.Mode switch
         {
             "add" => AlchemyLoadoutActionKind.Add,
@@ -39,6 +41,14 @@ internal static class GameMcpAlchemyLoadoutCommand
         return GameMcpCommandResult.FromAction(in result, lifecycle,
             configurationGeneration,
             GameMcpAlchemyLoadoutProjection.Project(in submission));
+    }
+
+    private static void Prepare(
+        GameMcpOperationRequest request,
+        GameMcpFrameContext context,
+        GameMcpCommandDraft draft)
+    {
+        if (request.Mode == "move") draft.Amount = request.SlotIndex;
     }
 }
 #endif

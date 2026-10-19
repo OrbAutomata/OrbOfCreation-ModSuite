@@ -2467,7 +2467,7 @@ internal static class GameMcpWorldQuery
             return PostStateUnavailable("world_not_published", state.RuntimeNotAvailableReason);
         var world = state.World.Snapshot;
         var before = Before(command);
-        if (command.DerivedNativeType == "PlayerLoadout")
+        if (command.DerivedNativeType == GameMcpLoadoutCommand.PlayerLoadoutType)
         {
             if (!WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts,
                     command.TargetId, out var current))
