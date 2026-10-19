@@ -1,12 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.IO;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
@@ -48,7 +45,6 @@ public sealed class Plugin : BaseUnityPlugin
     private const int StartStatusFailureLogFrameThreshold = 120;
 #if SERVICE_CYCLE_PROFILE
     private const bool AutoStartServiceCycleDiagnostics = true;
-    private static readonly string GameMcpDllSha256 = ComputeExecutingDllSha256();
     private GameMcpFrameInbox? _gameMcpOperations;
     private GameMcpHttpServer? _gameMcpServer;
     private GameMcpWritableSettingDescriptor[] _gameMcpWritableConfiguration =
@@ -1607,25 +1603,28 @@ public sealed class Plugin : BaseUnityPlugin
                         request.ModifiesFilter).Freeze());
                 return true;
             case "suite_health":
-                execution = GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
+                execution = GameMcpToolExecution.Text(
+                    GameMcpHealthProjection.ProjectGameMcpHealthText(context));
                 return true;
             case "strategist":
                 execution = GameMcpStrategistQuery.Read(context, request.Section);
                 return true;
             case "suite_configuration":
-                execution = GameMcpToolExecution.Read(ProjectGameMcpConfiguration(
-                    context, request.Mode == "describe", request.Section));
+                execution = GameMcpToolExecution.Read(
+                    GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
+                        context, request.Mode == "describe", request.Section));
                 return true;
             case "suite_breakers" when request.Mode == "list":
                 execution = GameMcpToolExecution.Read(
-                    ProjectGameMcpAutomationFeatures(context));
+                    GameMcpAutomationFeatures.ProjectGameMcpAutomationFeatures(context));
                 return true;
             case "time_challenge" when request.Mode == "state":
                 execution = GameMcpToolExecution.Read(
                     GameMcpWorldQuery.ChallengeStateRead(context).Freeze());
                 return true;
             case "trace_health":
-                execution = GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+                execution = GameMcpToolExecution.Text(
+                    GameMcpHealthProjection.ProjectGameMcpTraceHealthText(context));
                 return true;
         }
         execution = null!;
@@ -1857,11 +1856,14 @@ public sealed class Plugin : BaseUnityPlugin
         if (uri == "orb://world/categories")
             return GameMcpToolExecution.Read(GameMcpWorldQuery.ListCategories(context).Freeze());
         if (uri == "orb://suite/health")
-            return GameMcpToolExecution.Text(ProjectGameMcpHealthText(context));
+            return GameMcpToolExecution.Text(
+                GameMcpHealthProjection.ProjectGameMcpHealthText(context));
         if (uri == "orb://suite/configuration")
-            return GameMcpToolExecution.Read(ProjectGameMcpConfiguration(context, describe: false));
+            return GameMcpToolExecution.Read(
+                GameMcpConfigurationProjection.ProjectGameMcpConfiguration(context, describe: false));
         if (uri == "orb://trace/health")
-            return GameMcpToolExecution.Text(ProjectGameMcpTraceHealthText(context));
+            return GameMcpToolExecution.Text(
+                GameMcpHealthProjection.ProjectGameMcpTraceHealthText(context));
         var category = Uri.UnescapeDataString(
             uri.Substring("orb://world/category/".Length));
         return GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
@@ -1905,492 +1907,6 @@ public sealed class Plugin : BaseUnityPlugin
             });
         }
         return GameMcpToolExecution.Text(string.Join("\n", lines));
-    }
-
-    /// <summary>
-    /// The save's own reset count, read by id off the game's <c>WorldResets</c> variable — "How
-    /// many times you've reset the world", under the word the Statistics screen prints over it.
-    /// Empty while no world is published, because the page's next line already says that.
-    /// </summary>
-    /// <remarks>
-    /// <c>GlobalVariables.GetGenerationAttr()</c> is not this number and holds no number at all: it
-    /// returns the <c>AttributeSO</c> glossary word "Generation", which sits beside
-    /// <c>GenerationRateTime</c> and <c>GenerationSplash</c> and heads the tooltip section for how
-    /// fast a resource is gained.
-    /// </remarks>
-    private static string GameMcpWorldResetsText(GameMcpFrameContext context)
-    {
-        if (!GameMcpWorldQuery.IsWorldPublished(context)) return string.Empty;
-        return WorldLookup.TryFind(
-            context.World!.Snapshot.IntVariables,
-            KnownEntities.WorldResets.Uuid,
-            out var resets)
-            ? ", worldResets " + resets.Value.ToLong().ToString(CultureInfo.InvariantCulture)
-            : ", worldResets unavailable";
-    }
-
-    internal static string ProjectGameMcpHealthText(GameMcpFrameContext context)
-    {
-        var stopped = context.Runtime?.EmergencyStopEngaged ??
-            context.Configuration.Snapshot.Safety.EmergencyDisable;
-        var result = new StringBuilder()
-            .Append("available").Append('\n')
-            .Append("build: ").Append(PluginIds.Version).Append(" dll sha256 ")
-            .Append(GameMcpDllSha256).Append('\n')
-            .Append("scene: ").Append(GameMcpTextFormatter.Plain(context.SceneName)).Append('\n')
-            // The same lifecycle fact game_probe reports and the world reads refuse on, so the three
-            // cannot hold three beliefs about whether a game exists.
-            .Append("lifecycle: ").Append(context.LifecycleState.ToString())
-            // Named for what it counts: the lifecycle boundaries this process has crossed, from the
-            // plugin's load. It was called "generation", which a reader took for the save's NG+
-            // number — so that number is now printed beside it, under the game's own word for it,
-            // and neither counter borrows the other's name.
-            .Append(", lifecycleTransitions ")
-            .Append(context.LifecycleGeneration.ToString(CultureInfo.InvariantCulture))
-            .Append(GameMcpWorldResetsText(context)).Append('\n')
-            // The scene name alone cannot tell a caller which run a verdict describes: the runtime
-            // outlives every scene change, so the same scene answered both ways across one session.
-            // The publication counter is what actually moves, so it is published — and a lifecycle
-            // boundary flushes the publication, so this reads "not published" again once the run
-            // it described is gone. It counts publications and says so, because three counters
-            // share this page and none of them is another's number.
-            .Append("world: ").Append(GameMcpWorldQuery.IsWorldPublished(context)
-                ? "publication " +
-                    context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
-                : "not published").Append('\n')
-            .Append("emergency stop: ").Append(stopped ? "engaged" : "clear").Append('\n');
-        // Health is exception-shaped, the way it already is for features and services: a capability
-        // that works says nothing, so every line on the page is a thing the caller has to act on.
-        // The page leads with "available", which is the standing answer for everything unlisted.
-        if (!context.RuntimeAvailable) result.Append("runtime: unavailable").Append('\n');
-        if (!context.NativeContractsAvailable) result.Append("native contracts: unavailable").Append('\n');
-        var unavailableVerbs = (context.Runtime?.UnavailableGameActions ??
-            Array.Empty<UnavailableGameAction>()).ToList();
-        if (!context.ModalDismissAvailable)
-            unavailableVerbs.Add(
-                new UnavailableGameAction("game_modal", context.ModalDismissUnavailableReason));
-        foreach (var verb in unavailableVerbs)
-            result.Append(verb.Verb).Append(": unavailable").Append('\n');
-        if (!context.RuntimeAvailable && context.RuntimeNotAvailableReason.Length > 0)
-            result.Append("runtime reason: ").Append(
-                GameMcpTextFormatter.Plain(context.RuntimeNotAvailableReason)).Append('\n');
-        foreach (var verb in unavailableVerbs)
-        {
-            if (verb.Reason.Length == 0) continue;
-            result.Append(verb.Verb).Append(" reason: ").Append(
-                GameMcpTextFormatter.Plain(verb.Reason)).Append('\n');
-        }
-        foreach (var committed in CommittedAfterThrow.Latest)
-            result.Append(GameMcpTextFormatter.Plain(committed.Feature))
-                .Append(": committed, but the game threw; reference ").Append(committed.Reference)
-                .Append(" is in the suite log").Append('\n');
-        // The load normalizes three settings the documented verbs assume, and a caller never asked
-        // for them — so when one did not land, the develop queue and the spell cancel it silently
-        // costs are refusals nothing else on the wire can explain.
-        if (context.AgentSettingsFailure.Length > 0)
-            result.Append("agent settings: ").Append(
-                GameMcpTextFormatter.Plain(context.AgentSettingsFailure)).Append('\n');
-
-        // One roster, one line. The state groups are the facts; the word "features" in front of
-        // every one of them was the same nine characters repeated, on a roster that moved twice in
-        // a six-call round. Every state, every reason code and every name still ships.
-        var featureGroups = context.FeatureStatuses
-            .GroupBy(feature => new { feature.State, feature.Reason.Code })
-            .OrderBy(group => group.Key.State.ToString(), StringComparer.Ordinal)
-            .ThenBy(group => group.Key.Code.ToString(), StringComparer.Ordinal)
-            .Select(group =>
-            {
-                var state = GameMcpEntityWireNormalizer.Snake(group.Key.State.ToString());
-                var reasonCode = GameMcpEntityWireNormalizer.Snake(group.Key.Code.ToString());
-                var qualifier = reasonCode.Length > 0 && reasonCode != "none" &&
-                    !string.Equals(reasonCode, state, StringComparison.Ordinal)
-                        ? " (" + reasonCode + ")"
-                        : string.Empty;
-                return state + qualifier + ": " + string.Join(", ", group.Select(
-                    feature => GameMcpTextFormatter.Plain(
-                        CanonicalGameMcpFeatureName(feature.DisplayName))));
-            })
-            .ToArray();
-        if (featureGroups.Length > 0)
-            result.Append("features ").Append(string.Join("; ", featureGroups)).Append('\n');
-        foreach (var feature in context.FeatureStatuses)
-        {
-            var held = feature.State is (FeatureStatusState.TemporarilyBlocked or FeatureStatusState.Locked or
-                    FeatureStatusState.Faulted) &&
-                feature.Reason.Code != FeatureStatusReasonCode.EmergencyDisabled &&
-                feature.Reason.Summary.Length > 0;
-            if (!held && feature.Reason.Code != FeatureStatusReasonCode.InvariantViolation) continue;
-            result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
-                .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
-        }
-
-        var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();
-        var serviceGroups = runtimeServices
-            .GroupBy(service =>
-                service.HasRunner
-                    ? service.Runner.Fault.IsValid ? "faulted" : service.Runner.Phase.ToString()
-                    : "unavailable")
-            .OrderBy(group => group.Key, StringComparer.Ordinal)
-            .Select(group =>
-                GameMcpEntityWireNormalizer.Snake(group.Key) + ": " + string.Join(", ", group.Select(
-                    service => GameMcpTextFormatter.Plain(
-                        CanonicalGameMcpFeatureName(service.DisplayName)))))
-            .ToArray();
-        if (serviceGroups.Length > 0)
-            result.Append("services ").Append(string.Join("; ", serviceGroups)).Append('\n');
-        return result.ToString().TrimEnd();
-    }
-
-    /// <summary>
-    /// The one name a suite feature answers to, on health and on the automation list alike.
-    /// </summary>
-    /// <remarks>
-    /// Health said <c>Auto Buy</c> and the automation list said <c>auto_buy</c> for one feature, and
-    /// health names nine where the list names seven — so a caller comparing them had a naming
-    /// difference and a count difference at once and no way to see that one set contains the other.
-    /// Both now speak the ids the automation verb takes as arguments, and the two extra names on
-    /// health read as the two features that have no on/off button rather than as a contradiction.
-    /// </remarks>
-    private static string CanonicalGameMcpFeatureName(string name) =>
-        string.Equals(name, "Orb Mentor", StringComparison.Ordinal)
-            ? "mentor"
-            : GameMcpEntityWireNormalizer.Snake(name);
-
-    /// <summary>
-    /// The committed value of every writable setting, one setting per line, or of one section's.
-    /// </summary>
-    /// <remarks>
-    /// What a setting means and which values it takes do not change between calls, so they are
-    /// documentation, not an answer: the ordinary read is the values a caller came for, and
-    /// <c>mode=describe</c> is where the type, the domain — a range or a list of names, said the
-    /// same way for both — and the sentence live for whoever is deciding what to write.
-    /// <para>
-    /// The section is the grouping word every setting already wears in its own name, so
-    /// <c>section=AutoBuy</c> is "everything Auto Buy has" and needs no second vocabulary. It
-    /// narrows both modes, because the read whose answer is longest is the one worth narrowing. An
-    /// answer that was not narrowed names the sections it holds, so the word is read off the
-    /// surface rather than guessed at.
-    /// </para>
-    /// </remarks>
-    internal static GameMcpValue ProjectGameMcpConfiguration(
-        GameMcpFrameContext context,
-        bool describe,
-        string section = "")
-    {
-        if (!context.ConfigurationGeneration.IsValid)
-        {
-            return new GameMcpObjectBuilder
-            {
-                ["status"] = "not_available",
-                ["code"] = "configuration_unpublished",
-                ["reason"] = "no committed configuration has been published yet",
-            }.Freeze();
-        }
-        var narrowed = section.Length > 0;
-        if (narrowed &&
-            !TryConfigurationSection(
-                context.WritableConfiguration, section, out section, out var unknown))
-        {
-            return new GameMcpObjectBuilder
-            {
-                ["status"] = "not_available",
-                ["code"] = "unknown_section",
-                ["reason"] = unknown,
-            }.Freeze();
-        }
-        var described = new GameMcpArrayBuilder();
-        var values = new GameMcpObjectBuilder();
-        for (var index = 0; index < context.WritableConfiguration.Length; index++)
-        {
-            var item = context.WritableConfiguration[index];
-            if (narrowed && !string.Equals(item.Section, section, StringComparison.Ordinal))
-                continue;
-            var value = CanonicalConfigurationValue(
-                GameMcpConfigurationSchema.SerializePublishedValue(
-                    context.Configuration.Snapshot,
-                    item.Section,
-                    item.Key));
-            if (!describe)
-            {
-                values[item.Section + "/" + item.Key] = value;
-                continue;
-            }
-            var setting = new GameMcpObjectBuilder
-            {
-                ["setting"] = item.Section + "/" + item.Key,
-                ["value"] = value,
-                ["type"] = item.SettingType,
-            };
-            var domain = item.Constraint.Domain.Length > 0
-                ? item.Constraint.Domain
-                : PlainConfigurationDomain(item.Constraint.AcceptableValues);
-            if (domain.Length > 0) setting["domain"] = domain;
-
-            // The same two numbers a refused write hands back. A caller that has to parse a range
-            // out of prose before it may write is a caller that will get the parse wrong once.
-            GameMcpConfigurationValuePolicy.AddBound(setting, item.Constraint.Bound);
-            setting["description"] = item.Description;
-            described.Add(setting);
-        }
-        var result = new GameMcpObjectBuilder();
-        if (!narrowed)
-            result["sections"] = ConfigurationSectionNames(context.WritableConfiguration);
-        if (describe)
-        {
-            if (described.Count > 0) result["settings"] = described;
-            return result.Freeze();
-        }
-        result.CopyFrom(values);
-        return result.Freeze();
-    }
-
-    /// <summary>
-    /// The section a caller named, spelled the way every row spells it, or the sentence refusing it.
-    /// </summary>
-    /// <remarks>
-    /// The refusal names the sections that exist rather than pointing at a call that would list
-    /// them: there are few enough to fit on the line, and a caller who mistyped one should not have
-    /// to spend a round trip learning what it should have been.
-    /// </remarks>
-    private static bool TryConfigurationSection(
-        GameMcpWritableSettingDescriptor[] writable,
-        string requested,
-        out string canonical,
-        out string reason)
-    {
-        for (var index = 0; index < writable.Length; index++)
-        {
-            if (!string.Equals(
-                    writable[index].Section, requested, StringComparison.OrdinalIgnoreCase))
-                continue;
-            canonical = writable[index].Section;
-            reason = string.Empty;
-            return true;
-        }
-        canonical = string.Empty;
-        reason = "unknown section '" + requested + "'; the sections are " +
-            string.Join(", ", ConfigurationSectionNames(writable));
-        return false;
-    }
-
-    /// <summary>Each section once, in the order the writable schema declares its settings.</summary>
-    private static string[] ConfigurationSectionNames(
-        GameMcpWritableSettingDescriptor[] writable)
-    {
-        var names = new List<string>();
-        for (var index = 0; index < writable.Length; index++)
-        {
-            var section = writable[index].Section;
-            if (!names.Contains(section)) names.Add(section);
-        }
-        return names.ToArray();
-    }
-
-    internal static GameMcpValue ProjectGameMcpAutomationFeatures(GameMcpFrameContext context)
-    {
-        var config = context.Configuration.Snapshot;
-        var features = new GameMcpArrayBuilder();
-        foreach (var feature in GameMcpAutomationFeatures.All)
-        {
-            var row = new GameMcpObjectBuilder
-            {
-                ["feature"] = feature.Name,
-            };
-
-            // Every row names its feature the way the Mods rail names it. Publishing the name only
-            // where it was not the id in title case saved a column and left `-` on six of seven
-            // rows, which reads as a feature the suite could not name, while the reader was
-            // silently expected to derive the other six by a rule the page never stated. The name
-            // is a suite-side constant and the same one `suite_health` and a commit already print.
-            row["name"] = feature.DisplayName;
-            row["on"] = feature.IsOn(config);
-            if (RuntimeQualifier(context, feature.Name) is { } qualifier)
-                row["runtime"] = qualifier;
-            features.Add(row);
-        }
-        var result = new GameMcpObjectBuilder
-        {
-            ["features"] = features,
-        };
-        // Both of these silence every feature that reads as on, so a list that omitted them would
-        // be answering a different question than the caller asked.
-        GameMcpAutomationFeatures.AddSuiteOverrides(result, config);
-        return result.Freeze();
-    }
-
-    /// <summary>
-    /// What the runtime does with a feature the config says is on, said in the words
-    /// <c>suite_health</c> uses, or nothing where the runtime agrees with the switch.
-    /// </summary>
-    /// <remarks>
-    /// The <c>on</c> column is a config value wearing a runtime word: a feature can read
-    /// <c>on: yes</c> for a whole session while the runtime holds it progression-locked, and the
-    /// only way to see that was a second call to <c>suite_health</c> and a name-by-name join. This
-    /// follows the suite-override rule beside it — the qualifier appears exactly where it
-    /// contradicts the switch, so an agreeing row still costs the page nothing. A
-    /// configuration-disabled runtime is the switch itself and is not repeated.
-    /// </remarks>
-    private static string? RuntimeQualifier(GameMcpFrameContext context, string featureName)
-    {
-        var statuses = context.FeatureStatuses;
-        for (var index = 0; index < statuses.Length; index++)
-        {
-            var status = statuses[index];
-            if (!string.Equals(
-                    CanonicalGameMcpFeatureName(status.DisplayName),
-                    featureName,
-                    StringComparison.Ordinal))
-            {
-                continue;
-            }
-            if (status.State is FeatureStatusState.Operational or
-                FeatureStatusState.ConfigurationDisabled)
-            {
-                return null;
-            }
-            var state = GameMcpEntityWireNormalizer.Snake(status.State.ToString());
-            var code = GameMcpEntityWireNormalizer.Snake(status.Reason.Code.ToString());
-            return code.Length == 0 || code == "none" ||
-                string.Equals(code, state, StringComparison.Ordinal)
-                ? state
-                : state + " (" + code + ")";
-        }
-        return null;
-    }
-
-    internal static GameMcpValue ProjectGameMcpAutomationCommit(
-        GameMcpAutomationFeature feature,
-        bool wasOn,
-        SuiteRuntimeConfiguration settled)
-    {
-        var result = new GameMcpObjectBuilder
-        {
-            ["feature"] = feature.Name,
-            ["name"] = feature.DisplayName,
-            ["on"] = new GameMcpObjectBuilder
-            {
-                ["before"] = wasOn,
-                ["after"] = feature.IsOn(settled),
-            },
-        };
-        // Closing a breaker is an instruction, and an instruction whose answer is "on: yes" says
-        // nothing about what was just set running. The settings that decide that are already in
-        // hand, so the write answers with them rather than sending the caller to the settings pen —
-        // including when they add up to a feature that will do nothing at all. A breaker being
-        // opened needs no such line: nothing is about to happen.
-        if (feature.IsOn(settled)) result["policy"] = feature.Policy(settled);
-        // A caller who turns a feature on under an engaged stop has to read that here, in the
-        // answer to the write, not on a later list call.
-        GameMcpAutomationFeatures.AddSuiteOverrides(result, settled);
-        return result.Freeze();
-    }
-
-    /// <summary>
-    /// The published text of one setting, as the wire says it. How a value is spelled is decided
-    /// where it becomes text, in <see cref="GameMcpConfigurationSchema.SerializePublishedValue"/>,
-    /// so nothing here re-decides it by reading a type name back off the descriptor.
-    /// </summary>
-    private static object CanonicalConfigurationValue(string value)
-    {
-        // An allowlist stored as joined UUIDs printed 288 characters that resolved to nothing a
-        // caller could use, on a surface that says every other id as a named handle. Written as the
-        // list it is, each entry crosses the wire the way every other entity reference does.
-        var entries = TryConfigurationIdentityList(value);
-        if (entries is null) return value;
-        var list = new GameMcpArrayBuilder();
-        for (var index = 0; index < entries.Length; index++) list.Add(entries[index]);
-        return list;
-    }
-
-    /// <summary>The whole UUIDs a joined setting holds, or nothing when it holds something else.</summary>
-    private static string[]? TryConfigurationIdentityList(string value)
-    {
-        if (value.Length == 0) return null;
-        var entries = value.Split(',');
-        for (var index = 0; index < entries.Length; index++)
-        {
-            entries[index] = entries[index].Trim();
-            if (!Guid.TryParseExact(entries[index], "D", out _)) return null;
-        }
-        return entries;
-    }
-
-    private static string PlainConfigurationDomain(string value)
-    {
-        var result = (value ?? string.Empty).Trim();
-        const string marker = "# Acceptable value range:";
-        if (result.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
-            result = result.Substring(marker.Length).Trim();
-        return result;
-    }
-
-    internal static string ProjectGameMcpTraceHealthText(GameMcpFrameContext context)
-    {
-        var status = context.TraceWriterStatus;
-        if (status.State == DecisionJournalStatusState.Unavailable)
-        {
-            // The writer and the collection pass are two independent facts, and the pass is the one
-            // a session driving the game asks about. Returning here on the writer alone made the
-            // spans unreadable in exactly the runs that had no trace to open afterwards.
-            return "unavailable\nreason: the decision journal writer is not active in this runtime\n" +
-                GameMcpCollectionSpans.Describe(context);
-        }
-        var result = new StringBuilder()
-            .Append("available").Append('\n')
-            .Append("trace writer: ").Append(
-                GameMcpEntityWireNormalizer.Snake(status.State.ToString())).Append('\n');
-        var outcome = GameMcpEntityWireNormalizer.Snake(status.Result.ToString());
-        if (outcome.Length > 0 && outcome != "none")
-            result.Append("result: ").Append(outcome).Append('\n');
-        result.Append("records: accepted ").Append(
-                status.AcceptedRecords.ToString(CultureInfo.InvariantCulture))
-            .Append(", written ").Append(
-                status.WrittenRecords.ToString(CultureInfo.InvariantCulture))
-            .Append(", discarded ").Append(
-                status.DiscardedRecords.ToString(CultureInfo.InvariantCulture)).Append('\n')
-            .Append("bytes written: ").Append(
-                status.BytesWritten.ToString(CultureInfo.InvariantCulture)).Append('\n')
-            .Append("segments: written ").Append(
-                status.WrittenSegments.ToString(CultureInfo.InvariantCulture))
-            .Append(", retained ").Append(
-                status.RetainedSegments.ToString(CultureInfo.InvariantCulture)).Append('\n')
-            .Append("pending blocks: ").Append(
-                status.PendingBlocks.ToString(CultureInfo.InvariantCulture))
-            .Append(" (peak ").Append(
-                status.PeakPendingBlocks.ToString(CultureInfo.InvariantCulture))
-            .Append(")").Append('\n');
-        if (status.ArtifactName.Length > 0)
-            result.Append("artifact: ").Append(
-                GameMcpTextFormatter.Plain(status.ArtifactName)).Append('\n');
-        if (status.FaultSite.Length > 0)
-            result.Append("fault site: ").Append(
-                GameMcpTextFormatter.Plain(status.FaultSite)).Append('\n');
-        if (status.FaultMessage.Length > 0)
-            result.Append("fault: ").Append(
-                GameMcpTextFormatter.Plain(status.FaultMessage)).Append('\n');
-        result.Append("revision: ").Append(
-            context.TraceWriterRevision.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        result.Append(GameMcpCollectionSpans.Describe(context));
-        return result.ToString();
-    }
-
-    private static string ComputeExecutingDllSha256()
-    {
-        try
-        {
-            var path = Assembly.GetExecutingAssembly().Location;
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return "unavailable";
-            using var stream = File.OpenRead(path);
-            using var sha = SHA256.Create();
-            // A build fingerprint answers one question: same DLL or not. Six bytes settle it; the
-            // remaining twenty-six were a constant sixty-four-character tax on every health call.
-            return string.Concat(sha.ComputeHash(stream).Take(6).Select(
-                value => value.ToString("x2", CultureInfo.InvariantCulture)));
-        }
-        catch (Exception)
-        {
-            return "unavailable";
-        }
     }
 
     internal static bool TryPrepareGameMcpCommand(
@@ -2876,7 +2392,7 @@ public sealed class Plugin : BaseUnityPlugin
                 observedLifecycleGeneration: _lifecycleGeneration,
                 observedConfigurationGeneration:
                     _configurationStore.CurrentGeneration.Value,
-                details: ProjectGameMcpAutomationCommit(
+                details: GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
                     feature,
                     wasOn,
                     _configurationStore.Current));
@@ -3299,70 +2815,18 @@ public sealed class Plugin : BaseUnityPlugin
     {
         var scene = SceneManager.GetActiveScene().name;
         if (scene != "Main" || _uiShell is null || !_uiShell.IsAlive)
-            return ProjectGameMcpScreenCatalog(
+            return GameMcpScreenCatalogProjection.ProjectGameMcpScreenCatalog(
                 scene,
                 navigationAvailable: false,
                 Array.Empty<(string Label, bool Active, bool Locked)>(),
                 Array.Empty<(string Strip, string Label, bool Active)>());
         var tabs = _uiShell.CaptureNativeTabsForGameMcp();
         var subtabs = CaptureSubtabs();
-        return ProjectGameMcpScreenCatalog(
+        return GameMcpScreenCatalogProjection.ProjectGameMcpScreenCatalog(
             scene,
             navigationAvailable: true,
             tabs.Select(tab => (tab.Label, tab.Active, tab.Locked)).ToArray(),
             subtabs.Select(subtab => (subtab.StripKey, subtab.Label, subtab.Active)).ToArray());
-    }
-
-    /// <summary>
-    /// The live screen rail, each screen saying whether the game has unlocked it.
-    /// </summary>
-    /// <remarks>
-    /// A rail button exists for every screen from the first frame, so a catalog that reported only
-    /// label and active told a young run it had eight screens while the game drew three — and
-    /// <c>game_navigate</c> then offered the five it does not draw as candidates. <c>locked</c> is
-    /// <c>ViewSO.IsAvailable()</c> negated: the same member the world publication reads for every
-    /// view's <c>available</c>, so the catalog and the discovery previews cannot disagree.
-    /// </remarks>
-    internal static GameMcpValue ProjectGameMcpScreenCatalog(
-        string scene,
-        bool navigationAvailable,
-        IReadOnlyList<(string Label, bool Active, bool Locked)> tabs,
-        IReadOnlyList<(string Strip, string Label, bool Active)> subtabs)
-    {
-        var result = new GameMcpObjectBuilder
-        {
-            ["status"] = navigationAvailable ? "available" : "unavailable",
-            ["scene"] = scene,
-            ["navigationAvailable"] = navigationAvailable,
-        };
-        if (!navigationAvailable)
-        {
-            result["reasonCode"] = "navigation_unavailable";
-            result["reason"] = "the game is not showing its screen tabs right now — this answers " +
-                "only while a save is open";
-            result["screens"] = new GameMcpArrayBuilder();
-            return result.Freeze();
-        }
-        var projectedTabs = new GameMcpArrayBuilder();
-        for (var index = 0; index < tabs.Count; index++)
-        {
-            var tab = tabs[index];
-            var projectedTab = new GameMcpObjectBuilder
-            {
-                ["label"] = tab.Label,
-                ["active"] = tab.Active,
-                ["locked"] = tab.Locked,
-            };
-            if (!tab.Active || subtabs.Count == 0)
-            {
-                projectedTabs.Add(projectedTab);
-                continue;
-            }
-            projectedTab["subtabStrips"] = ProjectGameMcpSubtabStrips(subtabs);
-            projectedTabs.Add(projectedTab);
-        }
-        result["screens"] = projectedTabs;
-        return result.Freeze();
     }
 
     /// <summary>
@@ -3387,26 +2851,6 @@ public sealed class Plugin : BaseUnityPlugin
         var open = new GameMcpArrayBuilder();
         foreach (var title in titles) open.Add(title);
         details["openModals"] = open;
-    }
-
-    private static GameMcpValue ProjectGameMcpSubtabStrips(
-        IEnumerable<(string Strip, string Label, bool Active)> subtabs)
-    {
-        var projectedStrips = new GameMcpArrayBuilder();
-        var strips = subtabs.GroupBy(subtab => subtab.Strip, StringComparer.Ordinal);
-        foreach (var strip in strips)
-        {
-            var labels = new GameMcpArrayBuilder();
-            var projectedStrip = new GameMcpObjectBuilder();
-            foreach (var subtab in strip)
-            {
-                labels.Add(subtab.Label);
-                if (subtab.Active) projectedStrip["active"] = subtab.Label;
-            }
-            projectedStrip["labels"] = labels;
-            projectedStrips.Add(projectedStrip);
-        }
-        return projectedStrips.Freeze();
     }
 
     private bool TryBeginNavigateGameMcp(
@@ -3629,7 +3073,7 @@ public sealed class Plugin : BaseUnityPlugin
             var details = new GameMcpObjectBuilder
             {
                 ["scene"] = SceneManager.GetActiveScene().name,
-                ["subtabStrips"] = ProjectGameMcpSubtabStrips(
+                ["subtabStrips"] = GameMcpScreenCatalogProjection.ProjectGameMcpSubtabStrips(
                     subtabs.Select(value =>
                         (value.StripKey, value.Label, value.Active))),
             };

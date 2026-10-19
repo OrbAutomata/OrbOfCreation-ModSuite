@@ -87,7 +87,7 @@ public sealed class GameMcpLifecycleGameActionsTests
                 includeContract: id => id != missing)));
         var research = runtime.CaptureFrameFacts(includeServices: false);
 
-        var health = Plugin.ProjectGameMcpHealthText(Context(research, modalFailure: string.Empty));
+        var health = GameMcpHealthProjection.ProjectGameMcpHealthText(Context(research, modalFailure: string.Empty));
 
         Assert.Contains("\ngame_research: unavailable\n", health, StringComparison.Ordinal);
         Assert.Matches(
@@ -117,7 +117,7 @@ public sealed class GameMcpLifecycleGameActionsTests
                 includeContract: id => id != missing)));
         var research = runtime.CaptureFrameFacts(includeServices: false);
 
-        var health = Plugin.ProjectGameMcpHealthText(
+        var health = GameMcpHealthProjection.ProjectGameMcpHealthText(
             Context(research, modalFailure: "the panel controls did not bind"));
 
         Assert.Contains(

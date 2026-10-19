@@ -143,7 +143,7 @@ public sealed class GameMcpAutomationTests
     public void A_feature_the_runtime_is_holding_says_so_beside_the_switch()
     {
         var rows = Assert.IsType<JArray>(
-            GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationFeatures(
+            GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationFeatures(
                 GameMcpTestHarness.Context(
                     configuration: Configuration(autoBuy: true, mentor: true),
                     features: new[]
@@ -171,7 +171,7 @@ public sealed class GameMcpAutomationTests
     [Fact]
     public void The_two_switches_that_silence_every_feature_at_once_ride_on_the_list()
     {
-        var quiet = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationFeatures(
+        var quiet = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationFeatures(
             GameMcpTestHarness.Context(
                 configuration: Configuration(autoBuy: true) with
                 {
@@ -183,7 +183,7 @@ public sealed class GameMcpAutomationTests
         Assert.False((bool)quiet["automationEnabled"]!);
 
         // An ordinary running suite says neither: the caller asked which buttons are on.
-        var ordinary = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationFeatures(
+        var ordinary = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationFeatures(
             GameMcpTestHarness.Context(configuration: Configuration(autoBuy: true))));
         Assert.Null(ordinary["emergencyStop"]);
         Assert.Null(ordinary["automationEnabled"]);
@@ -194,7 +194,7 @@ public sealed class GameMcpAutomationTests
     {
         Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var feature));
 
-        var quiet = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var quiet = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             feature,
             wasOn: false,
             Configuration(autoBuy: true) with
@@ -210,7 +210,7 @@ public sealed class GameMcpAutomationTests
         Assert.False((bool)quiet["automationEnabled"]!);
 
         // A running suite says neither, exactly as the list does not.
-        var ordinary = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var ordinary = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             feature,
             wasOn: false,
             Configuration(autoBuy: true)));
@@ -227,7 +227,7 @@ public sealed class GameMcpAutomationTests
     public void Arming_a_breaker_says_what_that_feature_will_now_do()
     {
         Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
-        var armed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var armed = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             buy,
             wasOn: false,
             Configuration(autoBuy: true) with
@@ -251,7 +251,7 @@ public sealed class GameMcpAutomationTests
             (string?)armed["policy"]);
 
         Assert.True(GameMcpAutomationFeatures.TryGet("auto_cast", out var cast));
-        var casting = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var casting = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             cast,
             wasOn: false,
             Configuration() with
@@ -283,7 +283,7 @@ public sealed class GameMcpAutomationTests
     public void A_breaker_armed_over_settings_that_do_nothing_says_so()
     {
         Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
-        var armed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var armed = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             buy,
             wasOn: false,
             Configuration(autoBuy: true)));
@@ -299,7 +299,7 @@ public sealed class GameMcpAutomationTests
     public void Opening_a_breaker_carries_no_policy_line()
     {
         Assert.True(GameMcpAutomationFeatures.TryGet("auto_buy", out var buy));
-        var opened = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationCommit(
+        var opened = GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
             buy,
             wasOn: true,
             Configuration()));
@@ -392,7 +392,7 @@ public sealed class GameMcpAutomationTests
 
     private static JArray Rows(SuiteRuntimeConfiguration configuration) =>
         Assert.IsType<JArray>(
-            GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpAutomationFeatures(
+            GameMcpTestHarness.Json(GameMcpAutomationFeatures.ProjectGameMcpAutomationFeatures(
                 GameMcpTestHarness.Context(configuration: configuration)))["features"]);
 
     private static SuiteRuntimeConfiguration Configuration(

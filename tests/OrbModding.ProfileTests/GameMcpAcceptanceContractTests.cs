@@ -643,7 +643,7 @@ public sealed class GameMcpProtocolSurfaceTests
                 "Automata Emergency Disable is active."),
             lifecycleGeneration: 9);
 
-        var compact = Plugin.ProjectGameMcpHealthText(
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { concept, stopped }));
 
         Assert.Contains(
@@ -666,7 +666,7 @@ public sealed class GameMcpProtocolSurfaceTests
                 "The experience grant left Mentor experience unchanged."),
             lifecycleGeneration: 9);
 
-        var compact = Plugin.ProjectGameMcpHealthText(
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { mentor }));
 
         Assert.Contains(
@@ -695,7 +695,7 @@ public sealed class GameMcpProtocolSurfaceTests
             new FeatureStatusReason(FeatureStatusReasonCode.None, string.Empty),
             lifecycleGeneration: 9);
         var context = GameMcpTestHarness.Context(features: new[] { feature, mentor });
-        var compact = Plugin.ProjectGameMcpHealthText(context);
+        var compact = GameMcpHealthProjection.ProjectGameMcpHealthText(context);
         Assert.StartsWith("available\n", compact, StringComparison.Ordinal);
         // The fingerprint answers "same DLL or not", which twelve hex characters settle as well as
         // sixty-four did — and this is a line every health call pays for.
@@ -728,7 +728,7 @@ public sealed class GameMcpProtocolSurfaceTests
             traceWriterRevision: 0,
             writableConfiguration: Array.Empty<GameMcpWritableSettingDescriptor>(),
             modalDismissAvailable: true);
-        var withoutRuntime = Plugin.ProjectGameMcpHealthText(modalAvailable);
+        var withoutRuntime = GameMcpHealthProjection.ProjectGameMcpHealthText(modalAvailable);
         // Health names exceptions, the way it already does for features and services. A capability
         // that works is covered by the leading verdict, so it costs no line at all.
         Assert.DoesNotContain("game_modal", withoutRuntime, StringComparison.Ordinal);
@@ -738,7 +738,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.DoesNotContain("agent settings", withoutRuntime, StringComparison.Ordinal);
         Assert.Contains(
             "agent settings: Research Queue Mode did not stay on after the setting was written",
-            Plugin.ProjectGameMcpHealthText(new GameMcpFrameContext(
+            GameMcpHealthProjection.ProjectGameMcpHealthText(new GameMcpFrameContext(
                 world: null,
                 runtime: null,
                 configuration: context.Configuration,
@@ -765,7 +765,7 @@ public sealed class GameMcpProtocolSurfaceTests
             StringComparison.Ordinal);
         // A collected world always carries the moment it was read; health answers published exactly
         // when the world readers do, so the fixture has to be a world they would serve.
-        var withWorld = Plugin.ProjectGameMcpHealthText(
+        var withWorld = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(
                 new GameWorldState
                 {
@@ -830,7 +830,7 @@ public sealed class GameMcpProtocolSurfaceTests
             new FeatureStatusReason(FeatureStatusReasonCode.ConfigurationDisabled, "disabled"),
             lifecycleGeneration: 9);
 
-        var health = Plugin.ProjectGameMcpHealthText(
+        var health = GameMcpHealthProjection.ProjectGameMcpHealthText(
             GameMcpTestHarness.Context(features: new[] { autoBuy, autoHarvest }));
 
         Assert.Matches(
@@ -940,7 +940,7 @@ public sealed class GameMcpConfigurationTests
 
         var pinned = configuration.Current;
         configuration.AutoCastMode.Value = AutoCastOperationMode.Active;
-        var result = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var result = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 configurationGeneration: 12,
                 writable: schema,
@@ -978,7 +978,7 @@ public sealed class GameMcpConfigurationTests
                 descriptor => descriptor.Section == feature.Section &&
                     descriptor.Key == feature.Key));
 
-        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var listed = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 writable: schema,
                 configuration: configuration.Current),
@@ -1043,7 +1043,7 @@ public sealed class GameMcpConfigurationTests
                 GameMcpConfigurationSchema.SerializePublishedValue(
                     configuration.Current, "Mentor", "Mode")));
 
-        var listed = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var listed = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             GameMcpTestHarness.Context(
                 writable: schema,
                 configuration: configuration.Current),
@@ -1175,7 +1175,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void The_section_narrows_the_described_answer_as_well()
     {
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(),
             describe: true,
             section: "Reserves"));
@@ -1195,7 +1195,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void An_unknown_section_is_refused_by_naming_the_real_ones()
     {
-        var refusal = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var refusal = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(),
             describe: false,
             section: "autobuy_settings"));
@@ -1269,7 +1269,7 @@ public sealed class GameMcpConfigurationTests
             GameMcpAcceptanceFixture.CallText(
                 "suite_configuration", new JObject { ["section"] = "AutoBuy" }, context));
 
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             context, describe: true, section: "AutoBuy"));
         Assert.Equal(
             "yes",
@@ -1463,7 +1463,7 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void Every_setting_names_its_type_in_one_player_facing_vocabulary()
     {
-        var described = GameMcpTestHarness.Json(OrbModding.Plugin.ProjectGameMcpConfiguration(
+        var described = GameMcpTestHarness.Json(GameMcpConfigurationProjection.ProjectGameMcpConfiguration(
             BoundConfigurationContext(), describe: true));
 
         Assert.Equal(
