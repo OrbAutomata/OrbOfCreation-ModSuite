@@ -41,28 +41,6 @@ internal readonly struct WorldAttributeGroup : IWorldEntity
     internal string Description { get; }
 }
 
-/// <summary>The Statistics tab's headings: <c>AttributeGroupSO.All</c>.</summary>
-internal sealed class WorldAttributeGroupBinder : WorldPlainBinder<WorldAttributeGroup>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "attribute groups";
-
-    internal override string TypeName => "AttributeGroupSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldAttributeGroup Read(object entity) =>
-        new(_id!(entity), _description!(entity));
-}
-
 /// <summary>
 /// One thing a stat group's bonus reaches: the entity whose record the group merges into, which of
 /// that entity's records it is, and at what ratio.

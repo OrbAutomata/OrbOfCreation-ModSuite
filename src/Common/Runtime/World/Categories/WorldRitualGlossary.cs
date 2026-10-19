@@ -400,25 +400,3 @@ internal readonly struct WorldCharacterType : IWorldEntity
 
     internal string Description { get; }
 }
-
-/// <summary>The creature families: <c>CharacterTypeSO.All</c>.</summary>
-internal sealed class WorldCharacterTypeBinder : WorldPlainBinder<WorldCharacterType>
-{
-    private Func<object, Guid>? _id;
-    private Func<object, string>? _description;
-
-    internal override string Category => "character types";
-
-    internal override string TypeName => "CharacterTypeSO";
-
-    internal override string Bind(Type type)
-    {
-        var bind = new WorldMemberBinding(type, TypeName);
-        _id = bind.StableUuid();
-        _description = bind.Field<string>("description");
-        return bind.Failure;
-    }
-
-    internal override WorldCharacterType Read(object entity) =>
-        new(_id!(entity), _description!(entity));
-}
