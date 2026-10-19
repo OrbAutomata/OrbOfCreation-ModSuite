@@ -333,10 +333,11 @@ After a native call, `NativeMutationVerifier` classifies every throw first by re
 after-state. A landed change followed by an unexpected throw commits, and the throw is logged with a
 reference that `suite_health` names as the feature's latest. A change that did not land runs
 the caller's quarantine, and only then does an unexpected exception escape, so the defect stays
-loud and the quarantine already holds when the fault tracker retries the batch. Auto Scribe's
-re-drive is the one exception: once it has paid, an unexpected exception is written whole to the
-suite log and returned as a post-payment fault naming its type and message, so the recipe backs off
-for a minute instead of the service retrying a paid craft within seconds.
+loud and the quarantine already holds when the fault tracker retries the batch. Auto Scribe rereads
+the after-state the same way, and a visible craft commits with the throw logged. Its one exception
+is a paid craft whose work is not visible: the unexpected exception is written whole to the suite
+log and returned as a post-payment fault naming its type and message, so the recipe backs off for a
+minute instead of the service retrying a paid craft within seconds.
 
 ## MCP responses: worked, or why not
 

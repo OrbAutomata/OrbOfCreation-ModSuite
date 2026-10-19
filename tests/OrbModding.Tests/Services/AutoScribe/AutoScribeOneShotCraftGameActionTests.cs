@@ -198,6 +198,29 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
+    public void AnUnexpectedThrowAfterAdmissionCommitsWhenTheWorkIsVisibleAndLogsTheThrow()
+    {
+        var fixture = Fixture();
+        fixture.Active.AfterAddFault = new NullReferenceException("injected failure after admission");
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
+
+            var result = Submit(actionBoundary, fixture.Action);
+
+            Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+            Assert.Single(fixture.Active.value);
+            Assert.Contains("System.NullReferenceException: injected failure after admission", Assert.Single(log));
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
     public void QueueFullIsRejectedBeforePayment()
     {
         var fixture = Fixture();

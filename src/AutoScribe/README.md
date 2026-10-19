@@ -60,9 +60,9 @@ The action verifies one outcome: either the newly constructed exact instance ent
 queue or that exact instance reached native completion on the instant path. It does not read
 resource balances, Scroll ledgers, reconstruct payment deltas, or assemble a receipt. After a native
 exception it rereads that same sentinel; an observable outcome commits, while an absent transition
-is a post-payment fault. An unexpected exception after payment is caught there too, written whole to
-the suite log, and returned as the same fault with its type and message in the reason; one before
-payment still escapes. A post-payment fault or failed verification names the recipe, the stage and
+is a post-payment fault. An unexpected exception after payment gets the same reread and is written
+whole to the suite log; without an observable outcome it is the same fault, with its type and
+message in the reason. One before payment still escapes. A post-payment fault or failed verification names the recipe, the stage and
 what was paid, warns from the first failure, and keeps the feature Degraded, naming the recipe and
 its attempts, while that recipe is backing off. Ordinary pre-payment refusals and
 readiness/ownership contention remain quiet. Contract and relationship contradictions and

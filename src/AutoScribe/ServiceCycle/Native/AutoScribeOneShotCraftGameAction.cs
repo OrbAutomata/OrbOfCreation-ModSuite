@@ -223,30 +223,14 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
                 "The exact crafted work reached its native destination."));
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            var landed = WorkObservedBestEffort(
-                native,
-                activeQueue,
-                instance,
-                admissionKnown,
-                instant);
-            if (landed)
-                return new AutoScribeSubmission(NativeActionOutcome.Commit(
-                    new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "The exact crafted work was observable after native code threw."));
-            return PaidWithoutWork(
-                in action,
-                native,
-                totalCost,
-                AutoScribeActionResultCodes.PostPaymentFault,
-                stage,
-                NativeMutationOutcome.ExecutionThrew,
-                nativeCalls,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
-        }
         catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
+            var expected = NativeFailureClassifier.IsExpected(ex);
+            if (WorkObservedBestEffort(native, activeQueue, instance, admissionKnown, instant))
+                return new AutoScribeSubmission(NativeActionOutcome.Commit(
+                    new NativeMutationCallOutcome(nativeCalls, 1, 1),
+                    "The exact crafted work was observable after native code threw." +
+                    (expected ? string.Empty : GameActionFaultLog.Record(ex, "Scholar > Scribe"))));
             return PaidWithoutWork(
                 in action,
                 native,
@@ -255,7 +239,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
-                $"{ex.GetType().FullName}: {ex.Message}. " +
+                (expected ? string.Empty : $"{ex.GetType().FullName}: {ex.Message}. ") +
                 GameActionAnswer.GameErrored("Scholar > Scribe", ex));
         }
     }
@@ -292,7 +276,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             }
             return paid.Length == 0 ? "a price with no readable rows" : paid.ToString();
         }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
             return "a price the game could not read back (" + ex.GetBaseException().Message + ")";
         }
