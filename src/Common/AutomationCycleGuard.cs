@@ -26,9 +26,10 @@ public static class AutomationCycleGuard
 /// </summary>
 /// <remarks>
 /// Only faults reach the log. Refusals are frequent and ordinary, so their reasons travel on the
-/// result to the wire and the health surface instead. A fault repeating with the same code and
-/// sentence is warned about once until an action lands, whatever reference each attempt's cause
-/// was logged under.
+/// result to the wire and the health surface instead. A fault repeating on the same target with
+/// the same code and sentence is warned about once until an action lands, whatever reference each
+/// attempt's cause was logged under. An unreadable epoch is one fault of the game whichever target
+/// met it, so it is warned about once across targets.
 /// </remarks>
 public sealed class AutomationCycleGuard<TAction>
 {
@@ -64,7 +65,7 @@ public sealed class AutomationCycleGuard<TAction>
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            var reason = Record(ex, EpochUnreadable, EpochUnreadable, in action);
+            var reason = Record(ex, EpochUnreadable, EpochUnreadable, string.Empty, in action);
             refusal = ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, reason.Text);
             return false;
         }
@@ -85,7 +86,7 @@ public sealed class AutomationCycleGuard<TAction>
     /// </summary>
     public NativeActionOutcome Fault(Exception exception, in TAction action)
     {
-        var reason = Record(exception, "adapter fault", FaultedSentence, in action);
+        var reason = Record(exception, "adapter fault", FaultedSentence, _describe(action), in action);
         return NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
     }
 
@@ -95,10 +96,11 @@ public sealed class AutomationCycleGuard<TAction>
     /// What makes a repeat of this fault: the sentence it answers with, or, for an unreadable epoch,
     /// which answers with that same sentence, what failed.
     /// </param>
-    private GameActionReason Record(Exception exception, string what, string key, in TAction action)
+    /// <param name="target">The target a repeat must share, or empty when any target repeats it.</param>
+    private GameActionReason Record(Exception exception, string what, string key, string target, in TAction action)
     {
         var reason = GameActionFaultLog.Reason(FaultedSentence, exception, _feature);
-        if (!_warned.IsRepeat(key, CommonActionResultCodes.AdapterFault))
+        if (!_warned.IsRepeat(key, CommonActionResultCodes.AdapterFault, target))
             _warn($"{_describe(action)}: {what} ({exception.GetBaseException().Message})." +
                 GameActionFaultLog.Sentence(reason.Reference));
         return reason;
@@ -108,7 +110,7 @@ public sealed class AutomationCycleGuard<TAction>
     {
         if (outcome.Verified)
             _warned.Clear();
-        else if (outcome.IsFault && !_warned.IsRepeat(in outcome))
+        else if (outcome.IsFault && !_warned.IsRepeat(in outcome, _describe(action)))
         {
             _warn(outcome.Reason.Length == 0
                 ? $"{_describe(action)}."

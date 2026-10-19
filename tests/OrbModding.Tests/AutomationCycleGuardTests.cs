@@ -90,6 +90,29 @@ public sealed class AutomationCycleGuardTests : IDisposable
     }
 
     [Fact]
+    public void AFaultOnAnotherTargetIsWarnedAboutAndAnUnreadableEpochOnlyOnce()
+    {
+        var guard = Guard();
+
+        foreach (var target in new[] { "slot 1", "slot 2", "slot 1" })
+        {
+            var fault = guard.Fault(new InvalidOperationException("native list was null"), target);
+            guard.Finish(in fault, target);
+        }
+        foreach (var target in new[] { "slot 1", "slot 2" })
+        {
+            guard.TryAdmitEpoch(
+                static () => throw new InvalidOperationException("epoch read failed"), 7, target, out _);
+        }
+
+        Assert.Equal(4, _warnings.Count);
+        Assert.StartsWith("Test failed on slot 1: adapter fault", _warnings[0]);
+        Assert.StartsWith("Test failed on slot 2: adapter fault", _warnings[1]);
+        Assert.StartsWith("Test failed on slot 1: adapter fault", _warnings[2]);
+        Assert.StartsWith("Test failed on slot 1: the game's lifecycle epoch", _warnings[3]);
+    }
+
+    [Fact]
     public void RefusalsAndSkipsReachTheResultAndNeverTheLog()
     {
         var guard = Guard();
