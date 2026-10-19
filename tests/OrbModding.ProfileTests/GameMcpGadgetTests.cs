@@ -25,26 +25,6 @@ public sealed class GameMcpGadgetTests
         Assert.Empty(result["rows"]!);
     }
 
-    [Fact]
-    public void EveryRequestTimeGadgetHasOneDistinctAccessorAndGameplayHasNone()
-    {
-        var mappings = new[]
-        {
-            (GameMcpCommandKind.Screenshot, GameMcpGadgetAccess.Framebuffer),
-            (GameMcpCommandKind.Navigation, GameMcpGadgetAccess.Navigation),
-            (GameMcpCommandKind.Probe, GameMcpGadgetAccess.Probe),
-            (GameMcpCommandKind.TooltipCatalog, GameMcpGadgetAccess.TooltipCatalog),
-            (GameMcpCommandKind.TooltipRead, GameMcpGadgetAccess.TooltipRead),
-            (GameMcpCommandKind.ContinueRun, GameMcpGadgetAccess.ContinueRun),
-        };
-
-        Assert.Equal(6, mappings.Select(mapping => mapping.Item2).Distinct().Count());
-        Assert.All(mappings, mapping =>
-            Assert.Equal(mapping.Item2, GameMcpGadgetPolicy.AccessFor(mapping.Item1)));
-        Assert.Throws<System.ArgumentException>(() =>
-            GameMcpGadgetPolicy.AccessFor(GameMcpCommandKind.Purchase));
-    }
-
     [Theory]
     [InlineData("runtime", true)]
     [InlineData("action_queue_room", true)]

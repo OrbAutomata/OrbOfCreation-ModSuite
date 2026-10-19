@@ -25,15 +25,13 @@ internal sealed class GameMcpFrameExecutor : IDisposable
     private readonly AutomataDifferentialVerificationControl _mathVerification;
     private readonly AutomataWorldDemand _worldDemand;
     private readonly Func<bool> _nativeContractsAvailable;
-    private readonly Func<bool> _runtimeActivationAllowed;
-    private readonly AutomaticSaveBackupStatus _automaticSaveBackup;
-    private readonly Action<bool> _emergencyStopChanged;
     private GameMcpFrameInbox? _gameMcpOperations;
     private GameMcpHttpServer? _gameMcpServer;
     private GameMcpWritableSettingDescriptor[] _gameMcpWritableConfiguration =
         Array.Empty<GameMcpWritableSettingDescriptor>();
     private GameMcpTooltipNativeAccess? _gameMcpTooltipNativeAccess;
     private readonly GameMcpGadgets _gadgets;
+    private readonly GameMcpFrameCommandScope _commandScope;
     private string _gameMcpTooltipContractFailure =
         "tooltip native layout has not been bound";
 
@@ -70,22 +68,29 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         _worldDemand = worldDemand ?? throw new ArgumentNullException(nameof(worldDemand));
         _nativeContractsAvailable = nativeContractsAvailable ??
             throw new ArgumentNullException(nameof(nativeContractsAvailable));
-        _runtimeActivationAllowed = runtimeActivationAllowed ??
-            throw new ArgumentNullException(nameof(runtimeActivationAllowed));
-        _automaticSaveBackup = automaticSaveBackup ??
-            throw new ArgumentNullException(nameof(automaticSaveBackup));
-        _emergencyStopChanged = emergencyStopChanged ??
-            throw new ArgumentNullException(nameof(emergencyStopChanged));
         _gadgets = new GameMcpGadgets(
             host,
             uiShell,
             CompleteGameMcpCommand,
-            CompleteContinueRunGameMcp,
             lifecycleGeneration,
             () => _configurationStore.CurrentGeneration.Value,
             () => _gameMcpTooltipNativeAccess,
             () => _gameMcpTooltipContractFailure,
             message => _log.LogWarning(message));
+        _commandScope = new GameMcpFrameCommandScope(
+            host,
+            uiShell,
+            CompleteGameMcpCommand,
+            CompleteContinueRunGameMcp,
+            _gadgets,
+            _configurationStore,
+            lifecycleGeneration,
+            runtimeActivationAllowed ??
+                throw new ArgumentNullException(nameof(runtimeActivationAllowed)),
+            automaticSaveBackup ??
+                throw new ArgumentNullException(nameof(automaticSaveBackup)),
+            emergencyStopChanged ??
+                throw new ArgumentNullException(nameof(emergencyStopChanged)));
         if (!GameMcpTooltipNativeAccess.TryCreate(
                 typeof(HoverTooltip),
                 typeof(Spell),
@@ -279,23 +284,16 @@ internal sealed class GameMcpFrameExecutor : IDisposable
             return true;
         }
 
-        if (command.Kind is GameMcpCommandKind.ConfigurationSet or
-            GameMcpCommandKind.AutomationSet or GameMcpCommandKind.EmergencyStop)
+        if (!GameMcpCommandKinds.IsGameplayAction(command.Kind))
         {
-            execution = GameMcpFrameReads.ProjectGameMcpCommand(
-                command,
-                ExecuteAdministrativeGameMcp(command, context));
-            return true;
-        }
-        if (command.Kind is >= GameMcpCommandKind.Screenshot and
-            <= GameMcpCommandKind.ContinueRun or GameMcpCommandKind.Modal)
-        {
-            if (!_gadgets.TryExecuteGameMcpGadget(command, out var gadgetResult))
+            var answered = GameMcpCommandCatalog.Shipping.FrameExecutor(command.Kind)(
+                command, context, _commandScope);
+            if (answered is null)
             {
                 execution = null!;
                 return false;
             }
-            execution = GameMcpFrameReads.ProjectGameMcpCommand(command, gadgetResult);
+            execution = GameMcpFrameReads.ProjectGameMcpCommand(command, answered);
             return true;
         }
         var ownership = _automataActionFamilyOwnership();
@@ -461,171 +459,6 @@ internal sealed class GameMcpFrameExecutor : IDisposable
             });
         }
         return GameMcpToolExecution.Text(string.Join("\n", lines));
-    }
-
-    private GameMcpCommandResult ExecuteAdministrativeGameMcp(
-        GameMcpCommand command,
-        GameMcpFrameContext context)
-    {
-        var expected = command.ExpectedConfigurationGeneration;
-        var before = _configurationStore.CurrentGeneration;
-        if (expected != before.Value)
-        {
-            return GameMcpCommandResult.Rejected(
-                "stale_configuration_generation",
-                GameMcpDecisionReason.For("stale_configuration_generation"),
-                observedConfigurationGeneration: before.Value);
-        }
-
-        if (command.Kind == GameMcpCommandKind.ConfigurationSet)
-        {
-            if (GameMcpAutomationFeatures.IsBreakerSetting(command.Mode, command.PayloadKey))
-                return GameMcpCommandResult.Rejected(
-                    "wrong_configuration_surface",
-                    GameMcpDecisionReason.For("wrong_configuration_surface"),
-                    observedLifecycleGeneration: _lifecycleGeneration(),
-                    observedConfigurationGeneration: before.Value);
-            // The publication the write is about to replace, held as the snapshot it is rather than
-            // as text. Only an address the store admitted has a published value to spell, so the
-            // pair is rendered on the committed path and a name that resolves to no setting is
-            // refused by the store in its own words.
-            var priorConfiguration = _configurationStore.Current;
-            if (!GameMcpCommandPreparation.TryAdmitConfigurationWriteAgainstWorld(
-                    command, context, out var worldFailure))
-                return worldFailure;
-            var written = _configurationStore.SetGameMcp(
-                command.Mode,
-                command.PayloadKey,
-                command.PayloadValue,
-                before,
-                out var reason,
-                out var bound);
-            if (written == AutomataConfigurationWrite.Unconfirmed)
-                return GameMcpCommandResult.Failed(
-                    "configuration_write_unconfirmed",
-                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
-                    observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value);
-            if (written == AutomataConfigurationWrite.Refused)
-            {
-                return GameMcpCommandResult.Rejected(
-                    "configuration_write_rejected",
-                    reason,
-                    observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value,
-                    details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
-            }
-            return GameMcpCommandResult.Committed(
-                "configuration_committed",
-                observedLifecycleGeneration: _lifecycleGeneration(),
-                observedConfigurationGeneration:
-                    _configurationStore.CurrentGeneration.Value,
-                details: new GameMcpObjectBuilder
-                {
-                    ["setting"] = new GameMcpObjectBuilder
-                    {
-                        ["section"] = command.Mode,
-                        ["key"] = command.PayloadKey,
-
-                        // What a write changed is the pair, not the endpoint. A caller that reads
-                        // only `value` cannot tell a committed change from a no-op it repeated.
-                        ["value"] = new GameMcpObjectBuilder
-                        {
-                            ["before"] = GameMcpConfigurationSchema.SerializePublishedValue(
-                                priorConfiguration,
-                                command.Mode,
-                                command.PayloadKey),
-                            ["after"] = GameMcpConfigurationSchema.SerializePublishedValue(
-                                _configurationStore.Current,
-                                command.Mode,
-                                command.PayloadKey),
-                        },
-                    },
-                }.Freeze());
-        }
-
-        if (command.Kind == GameMcpCommandKind.AutomationSet)
-        {
-            if (!GameMcpAutomationFeatures.TryGet(command.PayloadKey, out var feature))
-                return GameMcpCommandResult.Rejected(
-                    "automation_feature_unknown",
-                    "no automation feature is registered as " + command.PayloadKey);
-            var requested = command.PayloadValue == "Active";
-            var wasOn = feature.IsOn(_configurationStore.Current);
-            if (wasOn == requested)
-                return GameMcpCommandResult.Rejected(
-                    "already_in_requested_state",
-                    feature.DisplayName + " is already " + (requested ? "on" : "off"),
-                    observedLifecycleGeneration: _lifecycleGeneration(),
-                    observedConfigurationGeneration: before.Value);
-            var automationWrite = _configurationStore.SetGameMcp(
-                feature.Section,
-                feature.Key,
-                command.PayloadValue,
-                before,
-                out var automationReason,
-                out _);
-            if (automationWrite == AutomataConfigurationWrite.Unconfirmed)
-                return GameMcpCommandResult.Failed(
-                    "configuration_write_unconfirmed",
-                    GameMcpDecisionReason.For("configuration_write_unconfirmed"),
-                    observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value);
-            if (automationWrite == AutomataConfigurationWrite.Refused)
-            {
-                return GameMcpCommandResult.Rejected(
-                    "configuration_write_rejected",
-                    automationReason,
-                    observedConfigurationGeneration:
-                        _configurationStore.CurrentGeneration.Value);
-            }
-            return GameMcpCommandResult.Committed(
-                "automation_committed",
-                observedLifecycleGeneration: _lifecycleGeneration(),
-                observedConfigurationGeneration:
-                    _configurationStore.CurrentGeneration.Value,
-                details: GameMcpAutomationFeatures.ProjectGameMcpAutomationCommit(
-                    feature,
-                    wasOn,
-                    _configurationStore.Current));
-        }
-
-        var engage = command.Mode == "engage";
-        if (!engage && !_runtimeActivationAllowed())
-        {
-            return GameMcpCommandResult.Rejected(
-                "runtime_activation_blocked",
-                !_automaticSaveBackup.AllowsAutomation
-                    ? "the emergency stop cannot resume while automatic save-backup failure blocks runtime activation"
-                    : "the emergency stop cannot resume while exact-build compatibility blocks runtime activation",
-                observedLifecycleGeneration: _lifecycleGeneration(),
-                observedConfigurationGeneration: before.Value);
-        }
-        if (_configurationStore.Current.Safety.EmergencyDisable == engage)
-        {
-            return GameMcpCommandResult.Rejected(
-                "already_in_requested_state",
-                engage
-                    ? "the suite emergency stop is already engaged"
-                    : "the suite emergency stop is already clear",
-                observedLifecycleGeneration: _lifecycleGeneration(),
-                observedConfigurationGeneration: before.Value);
-        }
-
-        // Match the in-game control's order. Engaging synchronously cancels the host before another
-        // queued command can run in this frame; resume is published and the host clears only through
-        // its ordinary configured-stop pump and fresh-world gate.
-        _emergencyStopChanged(engage);
-        _configurationStore.SetEmergencyStop(engage);
-        return GameMcpCommandResult.Committed(
-            engage ? "emergency_stop_engaged" : "emergency_stop_resume_committed",
-            observedLifecycleGeneration: _lifecycleGeneration(),
-            observedConfigurationGeneration:
-                _configurationStore.CurrentGeneration.Value,
-            details: new GameMcpObjectBuilder
-            {
-                ["emergencyStopEngaged"] = _configurationStore.Current.Safety.EmergencyDisable,
-            }.Freeze());
     }
 
     private IEnumerator CompleteContinueRunGameMcp(

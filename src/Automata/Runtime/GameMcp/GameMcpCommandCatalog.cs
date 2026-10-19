@@ -5,9 +5,9 @@ using System.Collections.Generic;
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
-/// Every gameplay command kind's descriptor, registered once and keyed by kind. The listener checks
-/// it before it binds, so a kind a GameAction family names cannot reach the main thread without an
-/// executor and a post-state rule.
+/// Every command kind's descriptor, registered once and keyed by kind. The listener checks it
+/// before it binds, so no kind can reach the main thread without an executor, and a kind a
+/// GameAction family names not without a post-state rule.
 /// </summary>
 internal sealed class GameMcpCommandCatalog
 {
@@ -46,12 +46,27 @@ internal sealed class GameMcpCommandCatalog
         GameMcpHarvestLifecycleCommand.Descriptor,
         GameMcpStructureLifecycleCommand.Descriptor,
         GameMcpReturnToMenuCommand.Descriptor,
+        GameMcpSuiteCommands.ConfigurationSet,
+        GameMcpSuiteCommands.AutomationSet,
+        GameMcpSuiteCommands.EmergencyStop,
+        GameMcpGadgetCommands.Screenshot,
+        GameMcpGadgetCommands.Navigation,
+        GameMcpGadgetCommands.Probe,
+        GameMcpGadgetCommands.TooltipCatalog,
+        GameMcpGadgetCommands.TooltipRead,
+        GameMcpGadgetCommands.ContinueRun,
+        GameMcpGadgetCommands.Modal,
     });
 
     internal IReadOnlyList<GameMcpCommandDescriptor> Commands { get; }
 
     internal GameMcpCommandExecutor Executor(GameMcpCommandKind kind) =>
         _commands.TryGetValue(kind, out var descriptor) && descriptor.Execute is { } execute
+            ? execute
+            : throw new InvalidOperationException("command " + kind + " has no executor");
+
+    internal GameMcpFrameCommandExecutor FrameExecutor(GameMcpCommandKind kind) =>
+        _commands.TryGetValue(kind, out var descriptor) && descriptor.ExecuteInFrame is { } execute
             ? execute
             : throw new InvalidOperationException("command " + kind + " has no executor");
 
@@ -69,22 +84,20 @@ internal sealed class GameMcpCommandCatalog
             var command = Commands[index];
             if (!registered.Add(command.Kind))
                 problems.Add("command " + command.Kind + " is registered twice");
-            if (!GameMcpCommandKinds.IsGameplayAction(command.Kind))
-                problems.Add("command " + command.Kind + " is registered, but no gameplay action " +
-                    "family names it");
-            if (command.Execute is null)
+            var gameplay = GameMcpCommandKinds.IsGameplayAction(command.Kind);
+            if (gameplay ? command.Execute is null : command.ExecuteInFrame is null)
                 problems.Add("command " + command.Kind + " has no executor");
-            if (command.PostState is null)
+            if (gameplay && command.PostState is null)
                 problems.Add("command " + command.Kind + " has no post-state rule");
+            if (!gameplay && command.PostState is not null)
+                problems.Add("command " + command.Kind + " is no gameplay action, but declares a " +
+                    "post-state rule");
         }
 
-        var families = AutomataActionFamilyOwnership.GameMcpFamilies;
-        for (var index = 0; index < families.Length; index++)
+        foreach (GameMcpCommandKind kind in Enum.GetValues(typeof(GameMcpCommandKind)))
         {
-            var kind = families[index].Kind;
             if (registered.Add(kind))
-                problems.Add("a gameplay action family names " + kind + ", but no command " +
-                    "descriptor registers it");
+                problems.Add("no command descriptor registers " + kind);
         }
         return problems;
     }

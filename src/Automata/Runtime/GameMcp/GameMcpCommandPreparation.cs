@@ -333,33 +333,5 @@ internal static class GameMcpCommandPreparation
         failure = null!;
         return true;
     }
-
-    /// <summary>
-    /// The half of a configuration write that only the live game can settle. A declared range is
-    /// checked against the setting; a range that is a game fact is checked against the world this
-    /// frame published, so a write that would silence a feature is refused instead of stored.
-    /// </summary>
-    internal static bool TryAdmitConfigurationWriteAgainstWorld(
-        GameMcpCommand command,
-        GameMcpFrameContext context,
-        out GameMcpCommandResult failure)
-    {
-        if (GameMcpConfigurationValuePolicy.TryValidateAgainstWorld(
-                command.Mode,
-                command.PayloadKey,
-                command.PayloadValue,
-                context.World?.Snapshot,
-                out var reason,
-                out var bound))
-        {
-            failure = null!;
-            return true;
-        }
-        failure = GameMcpCommandResult.Rejected(
-            "configuration_write_rejected",
-            reason,
-            details: GameMcpConfigurationValuePolicy.RefusalFacts(command, in bound));
-        return false;
-    }
 }
 #endif
