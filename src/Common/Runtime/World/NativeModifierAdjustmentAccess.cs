@@ -109,11 +109,6 @@ internal sealed class NativeModifierAdjustmentAccess
             readSource,
             readSourceId,
             passive: false);
-        if (copyPassive is null || copyActive is null)
-        {
-            failure = fieldName + ".modifier copier";
-            return null;
-        }
 
         return new NativeModifierAdjustmentAccess(
             record,
@@ -238,36 +233,22 @@ internal sealed class NativeModifierAdjustmentAccess
                 empty);
         }
 
-        try
-        {
-            return Expression.Lambda<Func<object, Guid>>(body, boxed).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda<Func<object, Guid>>(body, boxed).Compile();
     }
 
-    private static Delegate? Compile(
+    private static Delegate Compile(
         Type sourceType,
         Type resultType,
         Expression body,
         ParameterExpression source)
     {
-        try
-        {
-            return Expression.Lambda(
-                typeof(Func<,>).MakeGenericType(sourceType, resultType),
-                body,
-                source).Compile();
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return Expression.Lambda(
+            typeof(Func<,>).MakeGenericType(sourceType, resultType),
+            body,
+            source).Compile();
     }
 
-    private static Func<object, WorldResearchRequirementAdjustment[], int, int>? Copier(
+    private static Func<object, WorldResearchRequirementAdjustment[], int, int> Copier(
         Type modifierType,
         Func<object, object?> readDictionary,
         Delegate readType,
@@ -279,29 +260,20 @@ internal sealed class NativeModifierAdjustmentAccess
     {
         var factory = typeof(NativeModifierAdjustmentAccess).GetMethod(
             nameof(MakeCopier),
-            BindingFlags.Static | BindingFlags.NonPublic)?.MakeGenericMethod(modifierType);
-        if (factory is null) return null;
+            BindingFlags.Static | BindingFlags.NonPublic)!.MakeGenericMethod(modifierType);
 
-        try
-        {
-            return factory.Invoke(
-                    null,
-                    new object[]
-                    {
-                        readDictionary,
-                        readType,
-                        readOrder,
-                        readAmount,
-                        readSource,
-                        readSourceId,
-                        passive,
-                    })
-                as Func<object, WorldResearchRequirementAdjustment[], int, int>;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        return (Func<object, WorldResearchRequirementAdjustment[], int, int>)factory.Invoke(
+            null,
+            new object[]
+            {
+                readDictionary,
+                readType,
+                readOrder,
+                readAmount,
+                readSource,
+                readSourceId,
+                passive,
+            })!;
     }
 
     private static Func<object, WorldResearchRequirementAdjustment[], int, int> MakeCopier<TModifier>(
