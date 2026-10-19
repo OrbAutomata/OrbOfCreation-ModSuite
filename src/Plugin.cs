@@ -52,6 +52,8 @@ public sealed class Plugin : BaseUnityPlugin
     private GameMcpTooltipNativeAccess? _gameMcpTooltipNativeAccess;
     private ModalDismissGameAction? _modalDismissGameAction;
     private ModalOpenGameAction? _modalOpenGameAction;
+    private readonly GameMcpGadgetResults _gadgetResults;
+    private readonly GameMcpOpenModals _openModals;
     private string _gameMcpTooltipContractFailure =
         "tooltip native layout has not been bound";
 
@@ -179,6 +181,16 @@ public sealed class Plugin : BaseUnityPlugin
 
     internal static ManualLogSource Log { get; private set; } = null!;
 
+#if SERVICE_CYCLE_PROFILE
+    public Plugin()
+    {
+        _gadgetResults = new GameMcpGadgetResults(
+            () => _lifecycleGeneration,
+            () => _configurationStore?.CurrentGeneration.Value ?? 0);
+        _openModals = new GameMcpOpenModals(() => _modalDismissGameAction);
+    }
+
+#endif
     private void Awake()
     {
         Instance = this;
@@ -1958,7 +1970,7 @@ public sealed class Plugin : BaseUnityPlugin
         {
             StartCoroutine(CaptureGameMcpAtEndOfFrame(
                 command,
-                GadgetCommitted(
+                _gadgetResults.Committed(
                     "screenshot_captured",
                     new GameMcpObjectBuilder())));
             result = null!;
@@ -1989,19 +2001,19 @@ public sealed class Plugin : BaseUnityPlugin
             }
             if (_modalDismissGameAction is null)
             {
-                result = GadgetRejected("contract_unavailable",
+                result = _gadgetResults.Rejected("contract_unavailable",
                     "The native modal close control is unavailable.");
                 return true;
             }
             var submission = _modalDismissGameAction.Submit();
             if (submission.Faulted)
             {
-                result = GadgetFaulted(submission.Code, submission.Reason);
+                result = _gadgetResults.Faulted(submission.Code, submission.Reason);
                 return true;
             }
             if (!submission.Committed)
             {
-                result = GadgetRejected(submission.Code, submission.Reason);
+                result = _gadgetResults.Rejected(submission.Code, submission.Reason);
                 return true;
             }
             StartCoroutine(CompleteModalDismissGameMcp(command, submission.Title));
@@ -2037,46 +2049,33 @@ public sealed class Plugin : BaseUnityPlugin
     private GameMcpCommandResult OpenModalGameMcp(GameMcpCommand command)
     {
         if (_modalOpenGameAction is null)
-            return GadgetRejected("contract_unavailable", ModalOpenGameAction.NoActivator);
+            return _gadgetResults.Rejected("contract_unavailable", ModalOpenGameAction.NoActivator);
         var requested = command.PayloadValue;
-        if (!TryReadOpenModalTitles(out var openBefore, out var openFailure))
-            return GadgetRejected("contract_unavailable", openFailure);
+        if (!_openModals.TryReadTitles(out var openBefore, out var openFailure))
+            return _gadgetResults.Rejected("contract_unavailable", openFailure);
         if (openBefore.Length > 0)
         {
             if (Array.IndexOf(openBefore, requested) >= 0)
-                return GadgetCommitted("modal_opened", OpenedModal(requested));
-            return GadgetRejected(
+                return _gadgetResults.Committed("modal_opened", OpenedModal(requested));
+            return _gadgetResults.Rejected(
                 "modal_already_open",
                 "The " + (openBefore[0].Length == 0 ? "open" : openBefore[0]) +
                 " panel is covering the board, and the chrome beneath it takes no presses; " +
                 "dismiss it first.");
         }
         if (!_modalOpenGameAction.TryReadActivators(out var activators, out var readFailure))
-            return GadgetRejected("contract_unavailable", readFailure);
+            return _gadgetResults.Rejected("contract_unavailable", readFailure);
         var submission = _modalOpenGameAction.Submit(requested, activators);
         if (submission.Faulted)
-            return GadgetFaulted(submission.Code, submission.Reason);
+            return _gadgetResults.Faulted(submission.Code, submission.Reason);
         if (!submission.Committed)
-            return GadgetRejected(submission.Code, submission.Reason);
-        return GadgetCommitted("modal_opened", OpenedModal(submission.Title));
+            return _gadgetResults.Rejected(submission.Code, submission.Reason);
+        return _gadgetResults.Committed("modal_opened", OpenedModal(submission.Title));
     }
 
     /// <summary>The open's own post-state: the name of the panel now covering the board.</summary>
     private static GameMcpObjectBuilder OpenedModal(string title) =>
         new() { ["opened"] = title };
-
-    private bool TryReadOpenModalTitles(out string[] titles, out string reason)
-    {
-        titles = Array.Empty<string>();
-        reason = string.Empty;
-        if (_modalDismissGameAction is null)
-        {
-            reason = "The open panels cannot be read on this build, so no panel can be opened " +
-                "without guessing at what it did.";
-            return false;
-        }
-        return _modalDismissGameAction.TryReadOpenModals(out titles, out reason);
-    }
 
     private IEnumerator CompleteModalDismissGameMcp(GameMcpCommand command, string title)
     {
@@ -2098,7 +2097,7 @@ public sealed class Plugin : BaseUnityPlugin
             // Which modal went away. A zero-byte body left the caller with nothing to compare
             // against the screen, and a screenshot was the only way to learn the press had landed;
             // the title was in hand the whole time, read off the control before it closed.
-            CompleteGameMcpCommand(command, GadgetCommitted(
+            CompleteGameMcpCommand(command, _gadgetResults.Committed(
                 "modal_dismissed",
                 DismissedModal(title)));
             yield break;
@@ -2109,7 +2108,7 @@ public sealed class Plugin : BaseUnityPlugin
             ["reasonCode"] = "post_state_timeout",
             ["reason"] = "the modal began closing but remained open after one second",
         }.Freeze();
-        CompleteGameMcpCommand(command, GadgetCommitted("modal_dismissed", timedOut));
+        CompleteGameMcpCommand(command, _gadgetResults.Committed("modal_dismissed", timedOut));
     }
 
     /// <summary>
@@ -2130,12 +2129,9 @@ public sealed class Plugin : BaseUnityPlugin
                 "Start",
                 StringComparison.Ordinal))
         {
-            return GameMcpCommandResult.Rejected(
+            return _gadgetResults.Rejected(
                 "continue_wrong_scene",
-                "Continue is only on the game's title screen; you are already in a run.",
-                observedLifecycleGeneration: _lifecycleGeneration,
-                observedConfigurationGeneration:
-                    _configurationStore?.CurrentGeneration.Value ?? 0);
+                "Continue is only on the game's title screen; you are already in a run.");
         }
 
         var managerType = AccessTools.TypeByName("SaveStateManager");
@@ -2145,17 +2141,14 @@ public sealed class Plugin : BaseUnityPlugin
         var startGame = AccessTools.Method("SaveStateManager:StartGame");
         if (manager is null || startGame is null)
         {
-            return GameMcpCommandResult.Failed(
+            return _gadgetResults.Failed(
                 "continue_contract_unavailable",
                 "This build does not expose the Continue button, so a save cannot be started " +
-                "from here.",
-                observedLifecycleGeneration: _lifecycleGeneration,
-                observedConfigurationGeneration:
-                    _configurationStore?.CurrentGeneration.Value ?? 0);
+                "from here.");
         }
 
         startGame.Invoke(manager, Array.Empty<object>());
-        return GadgetCommitted(
+        return _gadgetResults.Committed(
             "continue_invoked",
             new GameMcpObjectBuilder());
     }
@@ -2225,7 +2218,7 @@ public sealed class Plugin : BaseUnityPlugin
                 if (!string.IsNullOrWhiteSpace(activeTab.Label))
                     details["activeScreen"] = activeTab.Label;
             }
-            AppendOpenModals(details);
+            _openModals.AppendTo(details);
             if (command.SaveCapture)
             {
                 var directory = AutomataTraceRunRoot.Child("mcp-screenshots");
@@ -2259,13 +2252,10 @@ public sealed class Plugin : BaseUnityPlugin
         {
             CompleteGameMcpCommand(
                 command,
-                GameMcpCommandResult.Faulted(
+                _gadgetResults.Faulted(
                     "inline_screenshot_failed",
                     "server defect: the end-of-frame screenshot did not finish." +
-                    GameActionFaultLog.Record(exception, "the screen being captured"),
-                    observedLifecycleGeneration: _lifecycleGeneration,
-                    observedConfigurationGeneration:
-                        _configurationStore?.CurrentGeneration.Value ?? 0));
+                    GameActionFaultLog.Record(exception, "the screen being captured")));
         }
         finally
         {
@@ -2276,22 +2266,14 @@ public sealed class Plugin : BaseUnityPlugin
     }
 
     private GameMcpCommandResult SavedScreenshotBudgetResult(
-        in GameMcpScreenshotBudgetAdmission admission)
-    {
-        var lifecycle = _lifecycleGeneration;
-        var configuration = _configurationStore?.CurrentGeneration.Value ?? 0;
-        return admission.Status == GameMcpScreenshotBudgetStatus.StorageUnavailable
-            ? GameMcpCommandResult.Faulted(
+        in GameMcpScreenshotBudgetAdmission admission) =>
+        admission.Status == GameMcpScreenshotBudgetStatus.StorageUnavailable
+            ? _gadgetResults.Faulted(
                 "screenshot_budget_unavailable",
-                "server defect: " + admission.Reason,
-                observedLifecycleGeneration: lifecycle,
-                observedConfigurationGeneration: configuration)
-            : GameMcpCommandResult.Rejected(
+                "server defect: " + admission.Reason)
+            : _gadgetResults.Rejected(
                 "screenshot_budget_reached",
-                admission.Reason,
-                observedLifecycleGeneration: lifecycle,
-                observedConfigurationGeneration: configuration);
-    }
+                admission.Reason);
 
     private static Texture2D DownscaleScreenshot(Texture2D source, int maxWidth)
     {
@@ -2332,30 +2314,6 @@ public sealed class Plugin : BaseUnityPlugin
             subtabs.Select(subtab => (subtab.StripKey, subtab.Label, subtab.Active)).ToArray());
     }
 
-    /// <summary>
-    /// Names whatever native modal is covering the board. A screen read that stayed silent about
-    /// an open Settings panel is what made a covered board look like a working one.
-    /// </summary>
-    private void AppendOpenModals(GameMcpObjectBuilder details)
-    {
-        if (_modalDismissGameAction is null)
-        {
-            details["openModalsUnavailable"] =
-                "The native modal contracts were not composed.";
-            return;
-        }
-        if (!_modalDismissGameAction.TryReadOpenModals(out var titles, out var reason))
-        {
-            details["openModalsUnavailable"] =
-                reason.Length == 0 ? "The open modal titles are unavailable." : reason;
-            return;
-        }
-        if (titles.Length == 0) return;
-        var open = new GameMcpArrayBuilder();
-        foreach (var title in titles) open.Add(title);
-        details["openModals"] = open;
-    }
-
     private bool TryBeginNavigateGameMcp(
         GameMcpCommand command,
         out GameMcpNavigationSelector? subtabSelector,
@@ -2368,7 +2326,7 @@ public sealed class Plugin : BaseUnityPlugin
         var scene = SceneManager.GetActiveScene().name;
         if (scene != "Main" || _uiShell is null || !_uiShell.IsAlive)
         {
-            failure = GadgetRejected(
+            failure = _gadgetResults.Rejected(
                 "native_navigation_unavailable",
                 "The game is not showing its screen tabs right now — this answers only while a " +
                 "save is open.");
@@ -2378,7 +2336,7 @@ public sealed class Plugin : BaseUnityPlugin
         var request = command.SourceOperation?.Request;
         if (request?.Tab is null)
         {
-            failure = GadgetFailed(
+            failure = _gadgetResults.Failed(
                 "navigation_request_invalid",
                 "The suite sent a navigation that named no screen, so nothing was applied.");
             return false;
@@ -2390,7 +2348,7 @@ public sealed class Plugin : BaseUnityPlugin
             var requestedDestination = request.Subtab is null
                 ? request.Tab.Label
                 : request.Tab.Label + "/" + request.Subtab.Label;
-            failure = GadgetRejected(
+            failure = _gadgetResults.Rejected(
                 "tile_destination_mismatch",
                 "A tile can be picked on the page that draws it — " +
                 GameMcpGadgetPolicy.TileDestinations + " — not on " + requestedDestination);
@@ -2412,14 +2370,14 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (tab.Locked)
         {
-            failure = GadgetRejected(
+            failure = _gadgetResults.Rejected(
                 "screen_locked",
                 tab.Label + " is not unlocked yet, so the game draws no such screen.");
             return false;
         }
         if (!_uiShell.TrySelectNativeTabForGameMcp(tab.Index, out var selectReason))
         {
-            failure = GadgetRejected("native_tab_rejected", selectReason);
+            failure = _gadgetResults.Rejected("native_tab_rejected", selectReason);
             return false;
         }
 
@@ -2479,7 +2437,7 @@ public sealed class Plugin : BaseUnityPlugin
                 {
                     yield return CompleteNavigateGameMcpAfterSettlement(
                         command,
-                        GadgetRejected("subtab_selection_failed", selectionReason)
+                        _gadgetResults.Rejected("subtab_selection_failed", selectionReason)
                             .WithDetails(details.Freeze()));
                     yield break;
                 }
@@ -2509,7 +2467,7 @@ public sealed class Plugin : BaseUnityPlugin
         // The strips are read once, after arrival settles, in one place. Reading them here — a
         // single frame after the subtab click, with the destination still assembling — is what let
         // the departed screen's strip ride along and made identical navigations disagree.
-        var result = GadgetCommitted(
+        var result = _gadgetResults.Committed(
             "navigation_arrived",
             details);
         yield return CompleteNavigateGameMcpAfterSettlement(command, result);
@@ -2545,7 +2503,7 @@ public sealed class Plugin : BaseUnityPlugin
         if (string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
             !settled[0])
         {
-            result = GadgetCommitted(
+            result = _gadgetResults.Committed(
                 "navigation_arrived",
                 new GameMcpObjectBuilder
                 {
@@ -2559,7 +2517,7 @@ public sealed class Plugin : BaseUnityPlugin
         else if (string.Equals(result.Status, "committed", StringComparison.Ordinal) &&
                  (_uiShell is null || !_uiShell.IsAlive))
         {
-            result = GadgetCommitted(
+            result = _gadgetResults.Committed(
                 "navigation_arrived",
                 new GameMcpObjectBuilder
                 {
@@ -2587,8 +2545,8 @@ public sealed class Plugin : BaseUnityPlugin
                 details[TileOf(command) == GameMcpTile.Spell ? "selectedSpell" : "selectedPlot"] =
                     command.TargetId.ToString("D");
             }
-            AppendOpenModals(details);
-            result = GadgetCommitted("navigation_arrived", details);
+            _openModals.AppendTo(details);
+            result = _gadgetResults.Committed("navigation_arrived", details);
         }
         CompleteGameMcpCommand(command, result);
     }
@@ -2625,7 +2583,7 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (scene != "Main")
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "wrong_scene",
                 "Spells can only be picked while a save is open.");
         }
@@ -2652,7 +2610,7 @@ public sealed class Plugin : BaseUnityPlugin
             clickRecipe.ReturnType != typeof(void) || isItem is null ||
             isItem.ReturnType != typeof(bool))
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_spell_navigation_unavailable",
                 "This build does not expose the spell list, so a spell cannot be selected.");
         }
@@ -2660,7 +2618,7 @@ public sealed class Plugin : BaseUnityPlugin
         var recipe = TypedRegistryResolver.Shared.Resolve(stableUuid, recipeType);
         if (!recipe.IsResolved)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_spell_not_resolved",
                 "No spell in this run carries that id; world_list category=spell-recipes names " +
                 "the ones it does.");
@@ -2675,7 +2633,7 @@ public sealed class Plugin : BaseUnityPlugin
             .ToArray();
         if (lists.Length != 1)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_spell_list_unavailable",
                 "The game is showing " + (lists.Length == 0 ? "no spell list" : "more than " +
                 "one spell list") + " right now, so which spell card was meant is unclear.");
@@ -2687,12 +2645,12 @@ public sealed class Plugin : BaseUnityPlugin
             clickRecipe.Invoke(lists[0], arguments);
         if (isItem.Invoke(selection, arguments) is not true)
         {
-            return GadgetFailed(
+            return _gadgetResults.Failed(
                 "verification_failed",
                 "The spell was clicked and its card did not open, so the suite cannot say what " +
                 "the Spells page shows.");
         }
-        return GadgetCommitted(
+        return _gadgetResults.Committed(
             "navigation_invoked",
             new GameMcpObjectBuilder
             {
@@ -2708,7 +2666,7 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (scene != "Main")
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "wrong_scene",
                 "Plots can only be picked while a save is open.");
         }
@@ -2718,7 +2676,7 @@ public sealed class Plugin : BaseUnityPlugin
         var listType = AccessTools.TypeByName("UIPlotNodeList");
         if (plotType is null || listType is null)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_plot_navigation_unavailable",
                 "This build does not expose the plot list, so a plot cannot be selected.");
         }
@@ -2726,7 +2684,7 @@ public sealed class Plugin : BaseUnityPlugin
         var plot = TypedRegistryResolver.Shared.Resolve(stableUuid, plotType);
         if (!plot.IsResolved)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_plot_not_resolved",
                 "No plot in this run carries that id; page World > Agromancy for the plots it " +
                 "does draw.");
@@ -2738,7 +2696,7 @@ public sealed class Plugin : BaseUnityPlugin
             .ToArray();
         if (activeLists.Length != 1)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_plot_list_unavailable",
                 "The game is showing " + (activeLists.Length == 0 ? "no plot list" : "more than " +
                 "one plot list") + " right now, so which plot was meant is unclear.");
@@ -2752,13 +2710,13 @@ public sealed class Plugin : BaseUnityPlugin
             modifiers: null);
         if (onNodeClick is null || onNodeClick.ReturnType != typeof(void))
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "native_plot_navigation_unavailable",
                 "This build does not expose the plot list, so a plot cannot be selected.");
         }
 
         onNodeClick.Invoke(activeLists[0], new[] { plot.Value });
-        return GadgetCommitted(
+        return _gadgetResults.Committed(
             "navigation_invoked",
             new GameMcpObjectBuilder
             {
@@ -2837,27 +2795,6 @@ public sealed class Plugin : BaseUnityPlugin
                 });
         }
         return result;
-    }
-
-    private static GameMcpArrayBuilder ProjectSubtabStrips(
-        IReadOnlyList<GameMcpSubtab> subtabs)
-    {
-        var strips = new GameMcpArrayBuilder();
-        foreach (var group in subtabs.GroupBy(subtab => subtab.StripKey, StringComparer.Ordinal))
-        {
-            var labels = new GameMcpArrayBuilder();
-            var strip = new GameMcpObjectBuilder();
-            var firstLabel = string.Empty;
-            foreach (var subtab in group)
-            {
-                if (firstLabel.Length == 0) firstLabel = subtab.Label;
-                labels.Add(subtab.Label);
-                if (subtab.Active) strip["active"] = subtab.Label;
-            }
-            strip["labels"] = labels;
-            strips.Add(strip);
-        }
-        return strips;
     }
 
     private static string ParentPath(string path)
@@ -2949,7 +2886,7 @@ public sealed class Plugin : BaseUnityPlugin
                 System.Globalization.CultureInfo.InvariantCulture,
                 out var offset))
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "tooltip_offset_invalid",
                 "That page marker is not one game_screen_elements printed; page it again — the " +
                 "markers change when the screen does.");
@@ -3011,7 +2948,7 @@ public sealed class Plugin : BaseUnityPlugin
         details["total"] = panels.Count;
         details["rows"] = projected;
         if (end < panels.Count) details["nextOffset"] = end;
-        return GadgetCommitted(
+        return _gadgetResults.Committed(
             "tooltip_catalog_read",
             details);
     }
@@ -3084,7 +3021,7 @@ public sealed class Plugin : BaseUnityPlugin
                 }
                 else
                 {
-                    return GadgetRejected(
+                    return _gadgetResults.Rejected(
                         "tooltip_content_unavailable",
                         "This control opens the " + panel + " panel and draws no tooltip of its " +
                         "own; put the panel up with game_modal mode open, title " + panel + ".");
@@ -3096,7 +3033,7 @@ public sealed class Plugin : BaseUnityPlugin
                 // from, and two scroll lists on one screen hand out colliding tails routinely; the
                 // catalog already published the prefix that separates them, so the refusal says to
                 // put it back on rather than leaving a caller to guess that a longer path exists.
-                return GadgetRejected(
+                return _gadgetResults.Rejected(
                     "tooltip_match_failed",
                     "tooltip path '" + requestedPath + "' matched " +
                     matches.Length + " active current-screen elements" +
@@ -3107,7 +3044,7 @@ public sealed class Plugin : BaseUnityPlugin
         }
         if (hover.tooltipItem is null)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "tooltip_content_unavailable",
                 "The game draws no tooltip for this element.");
         }
@@ -3159,23 +3096,23 @@ public sealed class Plugin : BaseUnityPlugin
         var catalog = EntityIdentities(command.FrameContext!);
         if (world is null || !catalog.IsBound)
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "entity_catalog_unavailable",
                 "Nothing this screen draws is about this id, and no save is loaded to read its " +
                 "tooltip from; continue a save first.");
         }
         if (!catalog.TryGet(command.TargetId, out var identity))
         {
-            return GadgetRejected("unknown_uuid", GameMcpTooltipPanelRow.UnknownEntity);
+            return _gadgetResults.Rejected("unknown_uuid", GameMcpTooltipPanelRow.UnknownEntity);
         }
         if (GameMcpEntityExplainer.IsHidden(world, command.TargetId))
         {
-            return GadgetRejected("not_on_screen", GameMcpTooltipPanelRow.HiddenEntity);
+            return _gadgetResults.Rejected("not_on_screen", GameMcpTooltipPanelRow.HiddenEntity);
         }
         if (!GameMcpEntityExplainer.TryResolveTooltip(
                 command.TargetId, identity.RuntimeType, out var tooltip))
         {
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "tooltip_content_unavailable",
                 identity.DisplayName + " is a " + identity.RuntimeType + " the game draws no " +
                 "tooltip for, and nothing this screen draws is about it.");
@@ -3214,7 +3151,7 @@ public sealed class Plugin : BaseUnityPlugin
                     Identify,
                     out details))
             {
-                return GadgetRejected(
+                return _gadgetResults.Rejected(
                     "tooltip_depth_exceeded",
                     "This tooltip leads on through more of the game than the suite will read in " +
                     "one answer, so none of its text is returned; the screen still shows it.");
@@ -3224,12 +3161,12 @@ public sealed class Plugin : BaseUnityPlugin
         catch (Exception exception)
         {
             if (linkFailure.Length > 0) return TooltipsUnreadableBecause(linkFailure);
-            return GadgetRejected(
+            return _gadgetResults.Rejected(
                 "tooltip_read_faulted",
                 "Reading this tooltip failed, so its text cannot be read." +
                 GameActionFaultLog.Record(exception, "tooltip"));
         }
-        var result = GadgetCommitted(
+        var result = _gadgetResults.Committed(
             "tooltip_read",
             details);
         return result;
@@ -3280,7 +3217,7 @@ public sealed class Plugin : BaseUnityPlugin
 
         var listed = new GameMcpArrayBuilder();
         for (var index = 0; index < address.Paths.Count; index++) listed.Add(address.Paths[index]);
-        refusal = GadgetRejected(
+        refusal = _gadgetResults.Rejected(
             address.Code, address.Reason, new GameMcpObjectBuilder { ["paths"] = listed });
         return false;
     }
@@ -3402,7 +3339,7 @@ public sealed class Plugin : BaseUnityPlugin
             case "action_queue_room":
                 var queue = new AutoBuyNativeQueueRoomAdapter();
                 if (!queue.TryReadRemainingRoom(out var remaining, out var queueFailure))
-                    return GadgetRejected(
+                    return _gadgetResults.Rejected(
                         "native_probe_unavailable",
                         "The action queue's free room could not be read: " + queueFailure);
                 // The game's own upgrade button queues past the maximum, so the reading goes
@@ -3427,35 +3364,15 @@ public sealed class Plugin : BaseUnityPlugin
                 };
                 break;
             default:
-                return GadgetFailed(
+                return _gadgetResults.Failed(
                     "unsupported_probe",
                     "The suite asked for a reading this build does not take, so nothing was read.");
         }
-        return GadgetCommitted(
+        return _gadgetResults.Committed(
             "probe_read",
             details);
     }
 
-    private GameMcpCommandResult GadgetCommitted(
-        string code,
-        GameMcpObjectBuilder details) =>
-        GameMcpCommandResult.Committed(
-            code,
-            observedLifecycleGeneration: _lifecycleGeneration,
-            observedConfigurationGeneration:
-                _configurationStore?.CurrentGeneration.Value ?? 0,
-            details.Freeze());
-
-    /// <summary>
-    /// A gadget answer for a call the suite stopped on its own, with the game never asked.
-    /// </summary>
-    /// <remarks>
-    /// The router validates every screen and every probe name before a gadget is reached, so the
-    /// guards below it are reachable only by the suite contradicting its own router. They stay —
-    /// a wrong assumption must fail closed rather than fall through — but the word for them is not
-    /// <c>refused</c>, which reads as the game having said no and sends a caller looking for a game
-    /// state to change that does not exist.
-    /// </remarks>
     /// <summary>
     /// The one tooltip-unreadable answer, with the binding layer's own account of what was missing
     /// written to the suite log rather than dropped.
@@ -3464,36 +3381,8 @@ public sealed class Plugin : BaseUnityPlugin
     {
         if (nativeDetail.Length > 0)
             Logger.LogWarning("Game MCP could not read a tooltip: " + nativeDetail);
-        return GadgetFailed("tooltip_contract_unavailable", TooltipsUnreadable);
+        return _gadgetResults.Failed("tooltip_contract_unavailable", TooltipsUnreadable);
     }
-
-    private GameMcpCommandResult GadgetFailed(string code, string reason) =>
-        GameMcpCommandResult.Failed(
-            code,
-            reason,
-            observedLifecycleGeneration: _lifecycleGeneration,
-            observedConfigurationGeneration:
-                _configurationStore?.CurrentGeneration.Value ?? 0);
-
-    private GameMcpCommandResult GadgetFaulted(string code, string reason) =>
-        GameMcpCommandResult.Faulted(
-            code,
-            reason,
-            observedLifecycleGeneration: _lifecycleGeneration,
-            observedConfigurationGeneration:
-                _configurationStore?.CurrentGeneration.Value ?? 0);
-
-    private GameMcpCommandResult GadgetRejected(
-        string code,
-        string reason,
-        GameMcpObjectBuilder? details = null) =>
-        GameMcpCommandResult.Rejected(
-            code,
-            reason,
-            observedLifecycleGeneration: _lifecycleGeneration,
-            observedConfigurationGeneration:
-                _configurationStore?.CurrentGeneration.Value ?? 0,
-            details?.Freeze());
 
     /// <summary>
     /// A navigate that reached the requested screen and then failed on its subtab moved the board.
@@ -3524,7 +3413,7 @@ public sealed class Plugin : BaseUnityPlugin
         var details = new GameMcpObjectBuilder();
         if (state is not null) details.CopyFrom(state);
         if (values.Count > 0) details[candidateField] = values;
-        return GadgetRejected(code, reason).WithDetails(details.Freeze());
+        return _gadgetResults.Rejected(code, reason).WithDetails(details.Freeze());
     }
 
     private sealed class GameMcpSubtab
