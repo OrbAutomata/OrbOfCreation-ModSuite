@@ -152,9 +152,11 @@ internal sealed class ServiceBatchCompletion<TState, TAction>
     {
         _runtime.State.PreviousReceipt = receipt;
         _runtime.State.ScheduleWake(
-            ServiceWakeSchedule.AtBatchTerminal(
-                _runtime.State.ActiveWake,
-                _runtime.State.ResponsePublishedAt,
+            _runtime.State.RetryGate.WakeNoLaterThanNextRetry(
+                ServiceWakeSchedule.AtBatchTerminal(
+                    _runtime.State.ActiveWake,
+                    _runtime.State.ResponsePublishedAt,
+                    terminalAt),
                 terminalAt),
             _runtime.State.ActiveCycle.Config,
             _runtime.State.ActiveCycle.World,

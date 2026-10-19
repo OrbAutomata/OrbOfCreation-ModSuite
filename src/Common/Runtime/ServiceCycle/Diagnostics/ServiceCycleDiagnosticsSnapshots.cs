@@ -56,7 +56,8 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
         ServiceCycleStartDecisionDiagnosticsFact lastStartDecision,
         ServiceCycleCaptureDiagnosticsFact lastCapture,
         ServiceCycleActionDiagnosticsFact lastAction,
-        ServiceCycleTimingDiagnosticsSnapshot timing)
+        ServiceCycleTimingDiagnosticsSnapshot timing,
+        ServiceRetryGateSnapshot? retryGate)
     {
         RegistrationInstance = registrationInstance;
         Ordinal = ordinal;
@@ -78,7 +79,10 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
         LastCapture = lastCapture;
         LastAction = lastAction;
         Timing = timing;
+        _retryGate = retryGate;
     }
+
+    private readonly ServiceRetryGateSnapshot? _retryGate;
 
     /// <summary>Stable identity for this registration instance, independent of reused ordinals.</summary>
     public long RegistrationInstance { get; }
@@ -103,6 +107,9 @@ public readonly struct ServiceCycleServiceDiagnosticsSnapshot
     public ServiceCycleCaptureDiagnosticsFact LastCapture { get; }
     public ServiceCycleActionDiagnosticsFact LastAction { get; }
     public ServiceCycleTimingDiagnosticsSnapshot Timing { get; }
+
+    /// <summary>The targets this service is backing off, each with its reason and retry time.</summary>
+    public ServiceRetryGateSnapshot RetryGate => _retryGate ?? ServiceRetryGateSnapshot.Empty;
 }
 
 public readonly struct ServiceCycleDiagnosticsCopyResult

@@ -41,11 +41,12 @@ public sealed partial class ServiceCycleArchitectureTests
             }
         }
 
-        var actionWriterField = typeof(ServiceActionWriter<>).GetFields(
-            BindingFlags.Instance | BindingFlags.NonPublic).Single();
+        var actionWriterFields = typeof(ServiceActionWriter<>).GetFields(
+            BindingFlags.Instance | BindingFlags.NonPublic);
         var projectionWriterField = typeof(ServiceStateProjectionBuilder).GetFields(
             BindingFlags.Instance | BindingFlags.NonPublic).Single();
-        Assert.False(actionWriterField.FieldType.IsInterface);
+        Assert.NotEmpty(actionWriterFields);
+        Assert.All(actionWriterFields, field => Assert.False(field.FieldType.IsInterface));
         Assert.False(projectionWriterField.FieldType.IsInterface);
         Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
     }

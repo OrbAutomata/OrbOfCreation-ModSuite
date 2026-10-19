@@ -39,8 +39,7 @@ internal sealed class ServiceFaultTracker
         MonotonicTimestamp observedAt)
     {
         if (_consecutiveFailures != int.MaxValue) _consecutiveFailures++;
-        var backoff = ComputeBackoff(_consecutiveFailures);
-        var retryDue = AddSaturated(observedAt, backoff);
+        var retryDue = observedAt.AddSaturated(_policy.BackoffAfter(_consecutiveFailures));
         _latestFault = new ServiceFault(category, code, _consecutiveFailures, observedAt);
         return new ServiceFaultRecord(_latestFault, retryDue);
     }
@@ -62,24 +61,5 @@ internal sealed class ServiceFaultTracker
     {
         _consecutiveFailures = 0;
         _latestFault = default;
-    }
-
-    private MonotonicDuration ComputeBackoff(int failureCount)
-    {
-        var ticks = _policy.InitialBackoff.Ticks;
-        for (var index = 1; index < failureCount && ticks < _policy.MaximumBackoff.Ticks; index++)
-        {
-            if (ticks > _policy.MaximumBackoff.Ticks / 2)
-                return _policy.MaximumBackoff;
-            ticks *= 2;
-        }
-        return new MonotonicDuration(Math.Min(ticks, _policy.MaximumBackoff.Ticks));
-    }
-
-    private static MonotonicTimestamp AddSaturated(MonotonicTimestamp timestamp, MonotonicDuration duration)
-    {
-        if (duration.Ticks > long.MaxValue - timestamp.Ticks)
-            return new MonotonicTimestamp(long.MaxValue);
-        return new MonotonicTimestamp(timestamp.Ticks + duration.Ticks);
     }
 }

@@ -7,6 +7,10 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Execution;
 
 internal sealed class ServiceCycleMainState
 {
+    internal ServiceCycleMainState(ServiceFaultRecoveryPolicy faultRecoveryPolicy) =>
+        RetryGate = new ServiceTargetRetryGate(faultRecoveryPolicy);
+
+    internal readonly ServiceTargetRetryGate RetryGate;
     internal ConfigurationPublication? CycleConfiguration;
     internal ServiceCycleIdentity InFlightCycle;
     internal BatchId InFlightBatch;

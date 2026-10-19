@@ -122,14 +122,13 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
 
             Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
             Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
-            Assert.True(health.HasFailure);
-            Assert.DoesNotContain("stub targeting read", result.Reason);
+            Assert.False(health.HasFailure);
             var reference = Assert.Single(logged);
             Assert.Contains("stub targeting read", reference);
             var id = reference.Split(' ')[3];
             Assert.Equal(
                 "Auto Items faulted at the native boundary. Reference " + id + " is in the suite log.",
-                health.Reason);
+                result.Reason);
         }
         finally
         {

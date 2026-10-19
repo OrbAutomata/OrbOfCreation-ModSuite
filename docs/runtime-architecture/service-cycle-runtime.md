@@ -209,7 +209,8 @@ on the result to the wire and the feature's health surface.
 - `Faulted` — an unexpected adapter, contract, or mutation failure occurred; terminate the batch and
   publish fault evidence.
 
-There is no `Deferred` outcome and no automatic retry. A skip emits one `ActionSkipped` fact and
+There is no `Deferred` outcome, and a batch is never retried; a faulted action's target backs off
+through [the per-target retry gate](#per-target-retry-gate). A skip emits one `ActionSkipped` fact and
 continues. The first rejection or fault preserves the processed prefix and discards the untouched
 suffix without executing it; one `BatchAborted` fact records the terminal index and suffix count rather
 than one event per untouched action. A later cycle may replan only after a world collected strictly
@@ -310,6 +311,34 @@ Ten fault categories are stable wire values: `Capture`, `Evaluation`, `StateProj
 principles but never retry an already rejected action. The first start or capture fault of a streak
 writes its cause (exception type, message and top frames) to the suite log; the retries behind it back
 off without logging until the service recovers. A process-fatal exception is never contained.
+
+### Per-target retry gate
+
+Every runner keeps a retry gate, keyed by the target an action is attributed to in the decision
+journal: stable UUID plus native type. A target in the gate waits and is tried again on a later world;
+the gate itself never latches. Auto Items is the service that plans from the gate and narrates it;
+every other service keeps the fault handling its own page describes.
+
+The gate is fed from two places:
+
+- a `Faulted` action records its target with the result's code and reason;
+- an evaluator that sees, in a later world, that an already committed action did not do what it should
+  reports it through `ServiceActionWriter.ReportFailure`.
+
+Each failure in a row doubles the wait from the service's fault-recovery initial backoff up to its
+maximum backoff. A reporter may name a cap of its own instead; `ReportFailure` refuses one shorter than
+the initial backoff. A committed action of that target ends an episode its own fault started; an
+episode the evaluator reported ends only on `ServiceActionWriter.EndRetry`, which the evaluator sends
+when it sees the target work again or stops considering it at all. The gate lives in the runner, so a
+new lifecycle starts with none.
+
+A planning service reads the gate from `ServiceCycleContext.RetryGate` and skips a target until it is
+due. The wake a finished batch or a successful evaluation schedules never outlasts the next target
+that comes due, so the service wakes when a backed-off target may try again; a service-wide fault
+backoff, a declined start and a failed or contended evaluation keep their own wake. The runner
+diagnostics snapshot carries the gate. A narrating feature logs one warning per failure, with the
+attempt count and the wait, and one when the episode ends, and degrades its status with the latest
+reason while any target waits.
 
 ## Common frame pump
 

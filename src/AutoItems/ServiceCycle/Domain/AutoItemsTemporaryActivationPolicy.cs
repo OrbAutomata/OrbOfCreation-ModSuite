@@ -11,13 +11,13 @@ internal enum AutoItemsTemporaryActivationState
     Active = 2,
     Completed = 3,
     Paused = 4,
+    Cancelled = 5,
 }
 
 internal enum AutoItemsTemporaryPauseCause
 {
     None = 0,
     MultipleUsages = 1,
-    MissingEngagementEvidence = 2,
 }
 
 internal readonly struct AutoItemsTemporaryActivationObservation
@@ -43,7 +43,8 @@ internal readonly struct AutoItemsTemporaryActivationObservation
 /// </summary>
 /// <remarks>
 /// A usage Auto Items did not create pauses that item while any usage of it remains, then the
-/// item resumes. The player owns those usages; the pause is never a lifecycle latch.
+/// item resumes. The player owns those usages; the pause is never a lifecycle latch. A usage that
+/// vanishes before it engaged was cancelled, and the evaluator backs that item off.
 /// </remarks>
 internal static class AutoItemsTemporaryActivationPolicy
 {
@@ -139,14 +140,12 @@ internal static class AutoItemsTemporaryActivationPolicy
                 AutoItemsTemporaryPauseCause.None);
         }
 
-        if (!state.TemporaryActivationSeen)
-            return Pause(
-                ref state,
-                AutoItemsTemporaryPauseCause.MissingEngagementEvidence);
-
+        var engagedBeforeItEnded = state.TemporaryActivationSeen;
         state.ClearPendingTemporary();
         return new AutoItemsTemporaryActivationObservation(
-            AutoItemsTemporaryActivationState.Completed,
+            engagedBeforeItEnded
+                ? AutoItemsTemporaryActivationState.Completed
+                : AutoItemsTemporaryActivationState.Cancelled,
             itemId,
             AutoItemsTemporaryPauseCause.None);
     }

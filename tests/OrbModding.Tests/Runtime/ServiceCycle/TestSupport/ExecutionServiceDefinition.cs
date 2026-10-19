@@ -22,6 +22,11 @@ internal class ExecutionServiceDefinition :
         _worker = new ExecutionWorkerControl(_signals.Id);
     }
 
+    /// <summary>The one native target every action of this service is attributed to.</summary>
+    internal static ServiceRetryTarget Target { get; } = new(
+        new Guid("11111111-1111-1111-1111-111111111111"),
+        ServiceActionNativeTypeId.StructureSO);
+
     public ServiceId ServiceId { get; }
     public WakePolicy DefaultWakePolicy { get; set; } = WakePolicy.Immediate;
     public ServiceFaultRecoveryPolicy FaultRecoveryPolicy { get; set; } = new(
@@ -100,6 +105,9 @@ internal class ExecutionServiceDefinition :
     internal int LastEvaluatedStructures => _worker.LastEvaluatedStructures;
     internal bool LastEvaluatedWorldWasTheEmptyDefault => _worker.LastEvaluatedWorldWasTheEmptyDefault;
 
+    internal int LastContextRetryFailures => _worker.LastContextRetryFailures;
+    internal void ReportFailureOnNextEvaluations(int count) => _worker.ReportFailureOnNextEvaluations(count);
+    internal void EndRetryOnNextEvaluation() => _worker.EndRetryOnNextEvaluation();
     internal void FailNextEvaluations(int count) => _worker.FailNextEvaluations(count);
     internal void FailNextProjections(int count) => _worker.FailNextProjections(count);
     internal void FailNextStateFactories(int count) => _worker.FailNextStateFactories(count);
@@ -120,9 +128,7 @@ internal class ExecutionServiceDefinition :
             throw new InvalidOperationException("attribution exploded");
         return PublishesGeneration.HasValue
             ? ServiceActionJournalAttribution.Publication
-            : ServiceActionJournalAttribution.Native(
-                new Guid("11111111-1111-1111-1111-111111111111"),
-                ServiceActionNativeTypeId.StructureSO);
+            : ServiceActionJournalAttribution.Native(Target.Id, Target.NativeType);
     }
 
     public ServiceActionResult TryExecute(

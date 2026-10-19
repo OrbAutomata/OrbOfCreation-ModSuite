@@ -152,17 +152,27 @@ public readonly struct ServiceCaptureContext
 
 public readonly struct ServiceCycleContext
 {
-    public ServiceCycleContext(ServiceCycleIdentity identity, BatchReceipt previousReceipt, MonotonicTimestamp decisionAt)
+    private readonly ServiceRetryGateSnapshot? _retryGate;
+
+    public ServiceCycleContext(
+        ServiceCycleIdentity identity,
+        BatchReceipt previousReceipt,
+        MonotonicTimestamp decisionAt,
+        ServiceRetryGateSnapshot? retryGate = null)
     {
         if (!identity.IsValid) throw new ArgumentException("A valid cycle identity is required.", nameof(identity));
         Identity = identity;
         PreviousReceipt = previousReceipt;
         DecisionAt = decisionAt;
+        _retryGate = retryGate;
     }
 
     public ServiceCycleIdentity Identity { get; }
     public BatchReceipt PreviousReceipt { get; }
     public MonotonicTimestamp DecisionAt { get; }
+
+    /// <summary>The targets backing off when this cycle opened; planning skips one until it is due.</summary>
+    public ServiceRetryGateSnapshot RetryGate => _retryGate ?? ServiceRetryGateSnapshot.Empty;
 }
 
 public readonly struct ServiceActionContext

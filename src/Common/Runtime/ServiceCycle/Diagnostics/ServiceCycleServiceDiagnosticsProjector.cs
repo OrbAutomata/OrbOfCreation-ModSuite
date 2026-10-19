@@ -131,7 +131,8 @@ internal static class ServiceCycleServiceDiagnosticsProjector
             lastStart,
             lastCapture,
             lastAction,
-            ProjectTiming(in runner, observedAt));
+            ProjectTiming(in runner, observedAt),
+            runner.RetryGate);
     }
 
     private static ServiceCycleServiceDiagnosticsSnapshot Unavailable(
@@ -179,7 +180,8 @@ internal static class ServiceCycleServiceDiagnosticsProjector
                 observedAt,
                 default, default, default, default,
                 ServiceCycleEvaluationTimingAvailability.NotAvailable,
-                false, default, false, default, false));
+                false, default, false, default, false),
+            null);
     }
 
     private static ServiceCycleOperationalPhase ProjectOperationalPhase(

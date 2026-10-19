@@ -39,7 +39,8 @@ internal readonly struct ServiceRunnerSnapshot
         ServiceStartDecisionFact lastStartDecision,
         ServiceCaptureFact lastCapture,
         ServiceActionFact lastAction,
-        ServiceRunnerEvaluationTimingSnapshot evaluationTiming)
+        ServiceRunnerEvaluationTimingSnapshot evaluationTiming,
+        ServiceRetryGateSnapshot retryGate)
     {
         Handoff = handoff;
         Phase = phase;
@@ -76,6 +77,7 @@ internal readonly struct ServiceRunnerSnapshot
         LastCapture = lastCapture;
         LastAction = lastAction;
         EvaluationTiming = evaluationTiming;
+        RetryGate = retryGate;
     }
 
     internal ServiceHandoffSnapshot Handoff { get; }
@@ -112,4 +114,5 @@ internal readonly struct ServiceRunnerSnapshot
     internal ServiceCaptureFact LastCapture { get; }
     internal ServiceActionFact LastAction { get; }
     internal ServiceRunnerEvaluationTimingSnapshot EvaluationTiming { get; }
+    internal ServiceRetryGateSnapshot RetryGate { get; }
 }

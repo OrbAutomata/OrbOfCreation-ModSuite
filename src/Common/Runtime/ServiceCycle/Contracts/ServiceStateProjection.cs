@@ -255,4 +255,23 @@ public readonly struct ServiceFaultRecoveryPolicy
     public bool IsValid =>
         InitialBackoff.Ticks > 0 &&
         MaximumBackoff >= InitialBackoff;
+
+    /// <summary>The wait after this many consecutive failures: the initial backoff, doubled per failure.</summary>
+    public MonotonicDuration BackoffAfter(int consecutiveFailures) =>
+        BackoffAfter(consecutiveFailures, MaximumBackoff);
+
+    /// <summary>The same doubling, held at a cap of the caller's own instead of the policy's.</summary>
+    public MonotonicDuration BackoffAfter(int consecutiveFailures, MonotonicDuration maximum)
+    {
+        if (consecutiveFailures < 1) throw new ArgumentOutOfRangeException(nameof(consecutiveFailures));
+        if (maximum < InitialBackoff) throw new ArgumentOutOfRangeException(nameof(maximum));
+        var ticks = InitialBackoff.Ticks;
+        for (var index = 1; index < consecutiveFailures && ticks < maximum.Ticks; index++)
+        {
+            if (ticks > maximum.Ticks / 2)
+                return maximum;
+            ticks *= 2;
+        }
+        return new MonotonicDuration(Math.Min(ticks, maximum.Ticks));
+    }
 }

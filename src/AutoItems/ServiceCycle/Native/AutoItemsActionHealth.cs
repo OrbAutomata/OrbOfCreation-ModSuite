@@ -5,9 +5,10 @@ using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 namespace OrbAutomata;
 
 /// <summary>
-/// Main-thread lifecycle-scoped evidence from the most recent Auto Items action boundary.
-/// Exact native and ownership reasons remain available to health/status projection instead
-/// of being reduced to a result code.
+/// Main-thread evidence of the most recent refusal at the Auto Items action boundary, kept until the
+/// next use verifies. Exact native and ownership reasons remain available to status projection
+/// instead of being reduced to a result code. A fault is not kept here: the service's retry gate
+/// backs that item off and owns its reason.
 /// </summary>
 internal sealed class AutoItemsActionHealth
 {
@@ -18,7 +19,7 @@ internal sealed class AutoItemsActionHealth
 
     internal void Observe(in NativeActionOutcome submission)
     {
-        if (submission.Verified)
+        if (submission.Verified || submission.IsFault)
         {
             Clear();
             return;

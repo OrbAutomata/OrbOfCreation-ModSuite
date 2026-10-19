@@ -26,6 +26,8 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
     {
         _runtime.Actions.AdvanceCurrentAndClear();
         if (committed) _runtime.State.CommittedCount++;
+        if (committed && ServiceRetryTarget.TryFrom(in attribution, out var target))
+            _runtime.State.RetryGate.ClearOnCommit(target);
         _runtime.State.ActionCursor++;
         if (_runtime.Actions.IsComplete)
         {
@@ -88,6 +90,15 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
         MonotonicTimestamp observedAt,
         string? executionFailureReason)
     {
+        if (result.Disposition == ServiceActionDisposition.Faulted &&
+            ServiceRetryTarget.TryFrom(in attribution, out var target))
+        {
+            _runtime.State.RetryGate.Record(
+                target,
+                result.Code,
+                FailureReason(in result, executionFailureReason),
+                observedAt);
+        }
         var terminal = BatchReceipt.Terminated(
             _runtime.State.ActiveCycle,
             _runtime.State.ActiveBatch,
@@ -129,6 +140,13 @@ internal sealed class ServiceBatchActionOutcome<TState, TAction>
             CommitRecovery(in pendingRecovery),
             attributionFailureReason,
             executionFailureReason);
+    }
+
+    private static string FailureReason(in ServiceActionResult result, string? executionFailureReason)
+    {
+        if (!string.IsNullOrWhiteSpace(result.Reason)) return result.Reason;
+        if (!string.IsNullOrWhiteSpace(executionFailureReason)) return executionFailureReason!;
+        return result.Code.Name;
     }
 
     private ServiceFaultRecoveryFact CommitRecovery(
