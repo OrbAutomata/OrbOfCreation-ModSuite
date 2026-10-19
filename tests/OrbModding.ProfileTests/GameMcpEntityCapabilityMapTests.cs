@@ -12,7 +12,7 @@ public sealed class GameMcpEntityCapabilityMapTests
     [Fact]
     public void EveryReadCategoryAndGameplayCapabilityHasExactlyOneAuthoritativeDescriptor()
     {
-        var readCategories = GameMcpWorldQuery.RegisteredCategoryNames()
+        var readCategories = GameMcpWorldCategories.RegisteredCategoryNames()
             .OrderBy(static name => name, StringComparer.Ordinal)
             .ToArray();
         var descriptors = GameMcpEntityCapabilityMap.Entries;

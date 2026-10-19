@@ -210,7 +210,7 @@ public sealed class GameMcpRitualGlossaryTests
             Assert.True(
                 GameMcpEntityCapabilityMap.TryCategoryForNativeType(nativeType, out var derived));
             Assert.Equal(category, derived);
-            Assert.Contains(category, GameMcpWorldQuery.RegisteredCategoryNames());
+            Assert.Contains(category, GameMcpWorldCategories.RegisteredCategoryNames());
         }
     }
 

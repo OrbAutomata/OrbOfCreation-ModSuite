@@ -160,7 +160,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
     [Fact]
     public void The_factor_table_is_retired()
     {
-        Assert.DoesNotContain("glyph-effects", GameMcpWorldQuery.RegisteredCategoryNames());
+        Assert.DoesNotContain("glyph-effects", GameMcpWorldCategories.RegisteredCategoryNames());
         Assert.Equal(
             "MCP world category 'glyph-effects' has no entity-capability descriptor",
             Assert.Throws<InvalidOperationException>(

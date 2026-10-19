@@ -1521,7 +1521,7 @@ internal static class GameMcpEntityExplainer
             // about its own core alchemy type, and the row's category cell is written from that
             // same fact — so a caller who read a category off a row can always send it back.
             EntityKind.AlchemyRecipe when row is WorldAlchemyRecipe alchemyRecipe =>
-                GameMcpWorldQuery.AlchemyRecipeCategory(alchemyRecipe.CoreTypeId),
+                GameMcpWorldCategories.AlchemyRecipeCategory(alchemyRecipe.CoreTypeId),
             EntityKind.CraftingRecipe => "crafting-recipes",
             EntityKind.Consumable => "consumables",
             EntityKind.Resource => "resources",

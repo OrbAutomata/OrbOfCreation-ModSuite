@@ -30,13 +30,13 @@ public sealed class GameMcpCollectorAccountabilityTests
         var report = new GameWorldCollector().Collect(frame);
         var page = Names(GameMcpTestHarness.Context(GameWorldFrameDeriver.Build(frame)));
         var reachedThroughATable = new HashSet<string>(
-            GameMcpWorldQuery.ListedCollectionReportNames(),
+            GameMcpWorldCategories.ListedCollectionReportNames(),
             StringComparer.Ordinal);
 
         var unaccounted = new List<string>();
         foreach (var category in report.Categories.ToArray())
         {
-            var name = GameMcpWorldQuery.Normalize(category.Category);
+            var name = GameMcpWorldCategories.Normalize(category.Category);
             if (reachedThroughATable.Contains(name) || page.Contains(name)) continue;
             unaccounted.Add(name);
         }
@@ -241,8 +241,8 @@ public sealed class GameMcpCollectorAccountabilityTests
         var listable = new HashSet<string>(Names(World()), StringComparer.Ordinal);
 
         var unlistable = reports
-            .Select(report => GameMcpWorldQuery.Normalize(report.Category))
-            .Concat(GameMcpWorldQuery.ListedCollectionReportNames())
+            .Select(report => GameMcpWorldCategories.Normalize(report.Category))
+            .Concat(GameMcpWorldCategories.ListedCollectionReportNames())
             .Distinct(StringComparer.Ordinal)
             .Where(name => !listable.Contains(name))
             .ToArray();
