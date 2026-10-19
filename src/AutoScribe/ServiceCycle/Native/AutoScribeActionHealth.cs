@@ -1,9 +1,12 @@
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
 internal sealed class AutoScribeActionHealth
 {
+    private readonly RepeatedFailure _observed = new();
+
     internal bool HasFailure { get; private set; }
     internal ServiceActionResultCode Code { get; private set; }
     internal string Reason { get; private set; } = string.Empty;
@@ -18,10 +21,7 @@ internal sealed class AutoScribeActionHealth
             return;
         }
         if (!IsFailure(in submission) || AutoScribeServicePolicies.PaidWithoutWork(outcome.Code)) return;
-        if (HasFailure &&
-            Code == outcome.Code &&
-            string.Equals(Reason, outcome.Reason, System.StringComparison.Ordinal))
-            return;
+        if (_observed.IsRepeat(in outcome)) return;
         HasFailure = true;
         Code = outcome.Code;
         Reason = outcome.Reason;
@@ -30,6 +30,7 @@ internal sealed class AutoScribeActionHealth
 
     internal void Clear()
     {
+        _observed.Clear();
         if (!HasFailure && Reason.Length == 0) return;
         HasFailure = false;
         Code = CommonActionResultCodes.Committed;

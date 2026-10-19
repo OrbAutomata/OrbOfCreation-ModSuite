@@ -21,6 +21,7 @@ namespace OrbModding.Tests.Services.AutoScribe;
 /// doubling up to half an hour, while Auto Scribe stays running and says what it paid. The test clock
 /// moves only when a test means to bring a retry due.
 /// </summary>
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
 {
     private static readonly MonotonicDuration FirstWait = MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1));

@@ -359,6 +359,29 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
+    public void AThrowAfterPaymentWithNoLevelRepeatingUnderAFreshReferenceIsWarnedAboutOnce()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var warnings = new List<string>();
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.SuppressLevelMutation = true;
+        spell.ThrowAfterLevelMutation = new NullReferenceException("injected failure before the level landed");
+        var adapter = new SpellLevelCycleActionAdapter(
+            new SpellLevelNativeAdapter(), () => PlannedEpoch, () => true, warnings.Add);
+
+        var first = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
+        var repeated = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
+
+        Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+        Assert.Equal(ServiceActionDisposition.Faulted, repeated.Disposition);
+        Assert.Equal(2, logged.Count);
+        Assert.NotEqual(first.Reason, repeated.Reason);
+        var warning = Assert.Single(warnings);
+        Assert.EndsWith(first.Reason, warning);
+    }
+
+    [Fact]
     public void AnExpectedThrowAfterPaymentWithNoLevelFaultsAfterTheGameThrewUnderItsLogReference()
     {
         var logged = new List<string>();
@@ -598,8 +621,18 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
             levels ?? new SpellLevelNativeAdapter(),
             readEpoch ?? (() => nativeEpoch),
             () => ownsActionFamily,
+            static _ => { },
             observeCapability,
             observeBoundaryStatus);
+        return Execute(adapter, kind, uuid, autoLevelSpells);
+    }
+
+    private static ServiceActionResult Execute(
+        SpellLevelCycleActionAdapter adapter,
+        SpellLevelActionKind kind,
+        Guid uuid,
+        bool autoLevelSpells = true)
+    {
         var action = new SpellLevelCycleAction(kind, uuid, PlannedEpoch);
         var config = new SuiteRuntimeConfiguration
         {

@@ -230,7 +230,7 @@ public sealed class GameMcpModalTests : IDisposable
 
         Assert.False(submission.Committed);
         Assert.Equal("post_commit_fault", submission.Code);
-        Assert.StartsWith(GameActionAnswer.GameErrored("the Player panel"), submission.Reason,
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Player panel").Sentence, submission.Reason,
             StringComparison.Ordinal);
         Assert.Contains("Reference MCP-", submission.Reason, StringComparison.Ordinal);
         Assert.Contains(_faults, fault =>
@@ -367,7 +367,7 @@ public sealed class GameMcpModalTests : IDisposable
 
         Assert.False(result.Committed);
         Assert.Equal("post_commit_fault", result.Code);
-        Assert.StartsWith(GameActionAnswer.GameErrored("the Ritual Results panel"), result.Reason,
+        Assert.StartsWith(GameActionAnswer.GameErrored("the Ritual Results panel").Sentence, result.Reason,
             StringComparison.Ordinal);
         Assert.Contains("Reference MCP-", result.Reason, StringComparison.Ordinal);
         Assert.Contains(_faults, fault =>

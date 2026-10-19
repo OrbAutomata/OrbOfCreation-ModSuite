@@ -629,7 +629,7 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
             new[] { new SpellWorkbenchGlyphStack(augment.GetGuid(), 2) }));
 
         Assert.Equal(SpellWorkbenchActionResultCodes.PostCommitFault, result.Code);
-        Assert.Contains(GameActionAnswer.GameErrored("Magic > Spellbook"), result.Reason, StringComparison.Ordinal);
+        Assert.Contains(GameActionAnswer.GameErrored("Magic > Spellbook").Sentence, result.Reason, StringComparison.Ordinal);
         Assert.EndsWith(GameActionAnswer.NotUndone("Magic > Spellbook"), result.Reason, StringComparison.Ordinal);
         Assert.Equal(2, SpellManager.instance.selectedAugmentGlyphs.GetStacks(augment));
     }

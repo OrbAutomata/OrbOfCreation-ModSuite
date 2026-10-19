@@ -196,8 +196,10 @@ gate: a lease the game cannot answer is not held, a plan from another or an unst
 submission is `Faulted(AdapterFault)`. Such a throw goes to the suite log whole through
 `GameActionFaultLog`, and the result's reason reads "{feature} faulted at the native boundary." plus the
 reference it was logged under, so the exception text stays off the result while its cause stays
-findable. The guard logs faults only, one line per fault until an action lands; refusal reasons travel
-on the result to the wire and the feature's health surface.
+findable. The guard logs faults only, one warning per target, code and sentence until an action
+lands or a new run is admitted, and an unreadable epoch once whichever target met it: every
+attempt's cause goes to the suite log under a fresh reference, so the reference is never part of the
+comparison. Refusal reasons travel on the result to the wire and the feature's health surface.
 
 ### Terminal outcomes
 

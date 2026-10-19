@@ -259,8 +259,9 @@ public sealed class ProductionSourceAuditTests
         Assert.True(
             offenders.Count == 0,
             "The game's own exception text reached a caller; hand the exception to " +
-            "GameActionFaultLog.Record instead so it goes to the suite log under the reference " +
-            "the sentence names: " + string.Join(", ", offenders));
+            "GameActionAnswer.CouldNotRead or GameErrored, or to GameActionFaultLog.Reason, " +
+            "instead so it goes to the suite log under a reference kept apart from the sentence: " +
+            string.Join(", ", offenders));
     }
 
     private static IEnumerable<string> FilesWhoseTextCanReachACaller(string sourceRoot)

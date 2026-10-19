@@ -128,10 +128,10 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                     AutoScribeActionResultCodes.Unaffordable,
                     $"GetTotalCost(0,{craftLevel}).HasEnough() refused recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)}.");
 
-            if (!TryCaptureMutationPermit(out reason))
+            if (!TryCaptureMutationPermit(out var permitRefusal))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.MutationPermitUnavailable,
-                    reason);
+                    permitRefusal);
 
             // Payment is deliberately the final pre-native risk. From here onward no metadata is
             // discovered and no policy/configuration decision is made.
@@ -218,7 +218,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                     stage,
                     NativeMutationOutcome.PostconditionFailed,
                     nativeCalls,
-                    GameActionAnswer.ChangeNotSeen("Scholar > Scribe"));
+                    thrown: null);
             return new AutoScribeSubmission(NativeActionOutcome.Commit(
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
                 "The exact crafted work reached its native destination."));
@@ -229,8 +229,10 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             if (WorkObservedBestEffort(native, activeQueue, instance, admissionKnown, instant))
                 return new AutoScribeSubmission(NativeActionOutcome.Commit(
                     new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    "The exact crafted work was observable after native code threw." +
-                    (expected ? string.Empty : GameActionFaultLog.Record(ex, "Scholar > Scribe"))));
+                    GameActionFaultLog.Reason(
+                        "The exact crafted work was observable after native code threw.",
+                        expected ? null : ex,
+                        "Scholar > Scribe")));
             return PaidWithoutWork(
                 in action,
                 native,
@@ -239,10 +241,14 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 stage,
                 NativeMutationOutcome.ExecutionThrew,
                 nativeCalls,
-                GameActionAnswer.GameErrored("Scholar > Scribe", ex));
+                ex);
         }
     }
 
+    /// <summary>
+    /// A paid press with no work to show. What the game threw and what reading the price back threw
+    /// go to the suite log as one entry, under the one reference the answer ends with.
+    /// </summary>
     private static AutoScribeSubmission PaidWithoutWork(
         in AutoScribeCycleAction action,
         AutoScribeNativeBindings native,
@@ -251,16 +257,26 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         string stage,
         NativeMutationOutcome outcome,
         int nativeCalls,
-        string reason) =>
-        new(NativeActionOutcome.Fault(
+        Exception? thrown)
+    {
+        var paid = Paid(native, totalCost, out var priceUnreadable);
+        var said = thrown is null
+            ? GameActionAnswer.ChangeNotSeen("Scholar > Scribe")
+            : GameActionAnswer.GameErrored("Scholar > Scribe").Sentence;
+        return new(NativeActionOutcome.Fault(
             code,
             outcome,
             new NativeMutationCallOutcome(nativeCalls, 1, 0),
-            $"Auto Scribe paid {Paid(native, totalCost)} for " +
-            $"{EntityIdentityFormatter.PlayerName(action.RecipeId)} and saw no work after {stage}: {reason}"));
+            new GameActionReason(
+                $"Auto Scribe paid {paid} for " +
+                $"{EntityIdentityFormatter.PlayerName(action.RecipeId)} and saw no work after {stage}: {said}",
+                GameActionFaultLog.RecordReference(
+                    thrown, "Scholar > Scribe", "Reading the price back", priceUnreadable))));
+    }
 
-    private static string Paid(AutoScribeNativeBindings native, object totalCost)
+    private static string Paid(AutoScribeNativeBindings native, object totalCost, out Exception? unreadable)
     {
+        unreadable = null;
         try
         {
             if (native.CostEntries(totalCost) is not { Count: > 0 } rows) return "a price with no readable rows";
@@ -277,10 +293,8 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         }
         catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
-            var reference = GameActionFaultLog.RecordReference(ex, "Scholar > Scribe price");
-            return reference.Length == 0
-                ? "a price the game could not read back"
-                : "a price the game could not read back (reference " + reference + " is in the suite log)";
+            unreadable = ex;
+            return "a price the game could not read back";
         }
     }
 
@@ -738,7 +752,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         }
     }
 
-    private bool TryCaptureMutationPermit(out string reason)
+    private bool TryCaptureMutationPermit(out GameActionReason reason)
     {
         try
         {
@@ -747,9 +761,10 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 reason = string.Empty;
                 return true;
             }
-            reason = _readOwnershipFailure();
-            if (string.IsNullOrWhiteSpace(reason))
-                reason = "Auto Scribe no longer owns CraftingQueueSubmission.";
+            var failure = _readOwnershipFailure();
+            reason = string.IsNullOrWhiteSpace(failure)
+                ? "Auto Scribe no longer owns CraftingQueueSubmission."
+                : failure;
             return false;
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))

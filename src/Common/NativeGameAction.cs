@@ -232,11 +232,12 @@ internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
         if (evidence.Exception is { } exception)
             return NativeActionOutcome.Fault(_codes.PostCommitFault, evidence.Outcome, calls,
                 FaultReason(stage, target,
-                    GameActionAnswer.GameErrored(page, exception, evidence.PutBackException) +
-                    (putBack is null ||
-                     NativeMutationVerifier.TryReadAfterCall(putBack.Landed, out var back) && back
-                        ? string.Empty
-                        : " " + GameActionAnswer.NotUndone(page))));
+                    GameActionAnswer.GameErrored(page, exception, evidence.PutBackException).Around(
+                        string.Empty,
+                        putBack is null ||
+                        NativeMutationVerifier.TryReadAfterCall(putBack.Landed, out var back) && back
+                            ? string.Empty
+                            : " " + GameActionAnswer.NotUndone(page))));
         if (stop is not { } stopped)
             return NativeActionOutcome.Fault(_codes.VerificationFailed, evidence.Outcome, calls,
                 FaultReason(stage, target, GameActionAnswer.ChangeNotSeen(page)));
@@ -250,8 +251,8 @@ internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
                 FaultReason(stage, target, stopped.Reason + " " + GameActionAnswer.NotUndone(page)));
     }
 
-    private string FaultReason(string stage, string target, string reason) =>
-        _feature + " " + stage + " failed on " + target + ": " + reason;
+    private GameActionReason FaultReason(string stage, string target, GameActionReason reason) =>
+        reason.Around(_feature + " " + stage + " failed on " + target + ": ");
 
     private void BindLifecycle()
     {

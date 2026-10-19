@@ -133,7 +133,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
     private static ServiceActionResult LevelSpell(global::SpellRecipeSO spell)
     {
         var adapter = new SpellLevelCycleActionAdapter(
-            new SpellLevelNativeAdapter(), () => Epoch, () => true);
+            new SpellLevelNativeAdapter(), () => Epoch, () => true, static _ => { });
         var action = new SpellLevelCycleAction(SpellLevelActionKind.Single, Guid.Parse(spell.uuid), Epoch);
         var config = new SuiteRuntimeConfiguration
         {

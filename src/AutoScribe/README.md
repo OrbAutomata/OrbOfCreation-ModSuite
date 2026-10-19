@@ -61,13 +61,16 @@ queue or that exact instance reached native completion on the instant path. It d
 resource balances, Scroll ledgers, reconstruct payment deltas, or assemble a receipt. After a native
 exception it rereads that same sentinel; an observable outcome commits, while an absent transition
 is a post-payment fault. An unexpected exception after payment gets the same reread and is written
-whole to the suite log; without an observable outcome it is the same fault, with its type and
-message in the reason. One before payment still escapes. A post-payment fault or failed verification names the recipe, the stage and
-what was paid, warns from the first failure, and keeps the feature Degraded, naming the recipe and
-its attempts, while that recipe is backing off. Ordinary pre-payment refusals and
+whole to the suite log; without an observable outcome it is the same fault, under the log reference
+its reason ends with. One before payment still escapes. A post-payment fault or failed verification
+names the recipe, the stage and what was paid; a price that will not read back is written into the
+same log entry. It warns from the first failure, and keeps the feature Degraded, naming the recipe
+and its attempts, while that recipe is backing off. Ordinary pre-payment refusals and
 readiness/ownership contention remain quiet. Contract and relationship contradictions and
 wrong-thread execution enter action health and warning logs; a warning is emitted when that failure
-state is entered or changes. Nothing attempts rollback of game-owned irreversible effects.
+state is entered or changes. A change is a new code or sentence: every attempt logs its cause under
+a fresh reference, and a fresh reference alone changes nothing. Nothing attempts rollback of
+game-owned irreversible effects.
 
 Live identity resolution preserves the registry's retryability verdict. `RegistryNotReady`,
 `NotFound`, and `StaleGeneration` wait quietly for another publication; `WrongType`,
