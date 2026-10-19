@@ -742,8 +742,9 @@ internal sealed class FakeQueueCapacity
 {
     public Guid Identity = Guid.NewGuid();
     public int Maximum;
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 }
 
 internal class FakeQueueSlot
@@ -756,9 +757,9 @@ internal class FakeQueueSlot
     public bool IsEmpty() => quantity <= 0;
 
     public bool throwsOnEngaged;
+    public Exception engagedFailure = new InvalidOperationException("IsEngaged failed");
 
-    public bool IsEngaged() =>
-        throwsOnEngaged ? throw new InvalidOperationException("IsEngaged failed") : engaged;
+    public bool IsEngaged() => throwsOnEngaged ? throw engagedFailure : engaged;
 
     public int GetActualQuantity() => quantity;
 
@@ -2582,8 +2583,9 @@ internal sealed class FakePlotNodeAction
     public FakeCraftingResourceCostList actionDrain = new();
     public List<FakeEffectBlock> actionEffects = new();
     public List<FakeEffectBlock> completeEffects = new();
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 }
 
 /// <summary>Positionally identical to the game's PlotNodeActionSO.CostType.</summary>
@@ -2694,8 +2696,9 @@ internal sealed class FakeScalingWeightRef
 internal sealed class FakeScalingWeight
 {
     public Guid Identity = Guid.NewGuid();
+    public Exception? GetGuidFailure;
 
-    public Guid GetGuid() => Identity;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Identity;
 }
 
 /// <summary>An effect script that pays a treasure out of a pool.</summary>

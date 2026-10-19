@@ -705,7 +705,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
             {
                 sampled += Read(plot, buffer, instances, drains);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)

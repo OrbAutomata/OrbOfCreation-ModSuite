@@ -329,7 +329,7 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
             {
                 if (Read(plot, authoring, phases)) sampled++;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
                 if (firstFailure.Length == 0)
