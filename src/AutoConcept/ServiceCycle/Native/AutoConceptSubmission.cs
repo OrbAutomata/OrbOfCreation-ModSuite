@@ -21,15 +21,15 @@ internal readonly struct AutoConceptSubmission
     public int AppliedDelta { get; }
     public int MaximumAmount { get; }
 
-    internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, string reason) =>
+    internal static AutoConceptSubmission Rejected(ServiceActionResultCode code, GameActionReason reason) =>
         new(NativeActionOutcome.Reject(code, reason));
 
-    internal static AutoConceptSubmission Backpressure(string reason, int maximumAmount = 0) =>
+    internal static AutoConceptSubmission Backpressure(GameActionReason reason, int maximumAmount = 0) =>
         new(
             NativeActionOutcome.Skip(AutoConceptActionResultCodes.AmountUnavailable, reason),
             maximumAmount: maximumAmount);
 
-    internal static AutoConceptSubmission FaultBeforeCall(string reason) =>
+    internal static AutoConceptSubmission FaultBeforeCall(GameActionReason reason) =>
         new(NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason));
 
     internal static AutoConceptSubmission Attempted(

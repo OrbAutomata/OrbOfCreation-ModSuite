@@ -67,7 +67,11 @@ internal sealed class AlchemyLoadoutGameAction : NativeGameAction<AlchemyLoadout
                 " is not the current Alchemy recipe instance.";
             return false;
         }
-        if (!_classifier.TryInitialize(out reason)) return false;
+        if (!_classifier.TryInitialize(out var classifierReason))
+        {
+            reason = classifierReason.Text;
+            return false;
+        }
         var classification = _classifier.ClassifyRecipe(candidate);
         if (!classification.IsMutationGrade ||
             classification.Domain != AlchemyGameplayDomain.OrdinaryAlchemy)

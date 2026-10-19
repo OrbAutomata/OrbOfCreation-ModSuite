@@ -54,7 +54,7 @@ internal sealed class AutoConceptNativeAdapter :
     private object? _activeConcepts;
     private TypedRegistryResolution? _activeConceptsResolution;
     private TypedRegistryResolution? _conceptRecipesResolution;
-    private string? _contractMismatch;
+    private GameActionReason? _contractMismatch;
     private NativeMutationCallOutcome _lastNativeMutationOutcome;
 
     internal const string Feature = "Auto Concept";
@@ -88,16 +88,16 @@ internal sealed class AutoConceptNativeAdapter :
         AutoConceptNativeBindings.TryCreate(out _bindings, out _bindingFailure, resolveType, includeContract);
     }
 
-    public bool TryInitialize(out string reason)
+    public bool TryInitialize(out GameActionReason reason)
     {
         if (IsReady)
         {
             reason = string.Empty;
             return true;
         }
-        if (_contractMismatch is not null)
+        if (_contractMismatch is { } mismatch)
         {
-            reason = _contractMismatch;
+            reason = mismatch;
             return false;
         }
         if (_bindings is not { } native)
@@ -111,8 +111,8 @@ internal sealed class AutoConceptNativeAdapter :
             if (!_domainClassifier.TryInitialize(out var classifierReason))
             {
                 return _domainClassifier.Status == AlchemyDomainClassifierStatus.Blocked
-                    ? Mismatch($"Auto Concept domain classifier blocked: {classifierReason}", out reason)
-                    : Retry($"Auto Concept domain classifier is not ready: {classifierReason}", out reason);
+                    ? Mismatch(classifierReason.Around("Auto Concept domain classifier blocked: "), out reason)
+                    : Retry(classifierReason.Around("Auto Concept domain classifier is not ready: "), out reason);
             }
 
             var activeId = KnownEntities.ActiveConcepts.Uuid;
@@ -158,8 +158,7 @@ internal sealed class AutoConceptNativeAdapter :
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Retry(
-                "Auto Concept contract initialization failed." +
-                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, Feature)),
+                GameActionFaultLog.Reason("Auto Concept contract initialization failed.", ex, Feature),
                 out reason);
         }
     }
@@ -168,7 +167,7 @@ internal sealed class AutoConceptNativeAdapter :
         Guid recipeId,
         out NativeConceptCandidate? candidate,
         out ServiceActionResultCode refusal,
-        out string reason)
+        out GameActionReason reason)
     {
         candidate = null;
         refusal = AutoConceptActionResultCodes.RecipeIdentityChanged;
@@ -214,7 +213,7 @@ internal sealed class AutoConceptNativeAdapter :
         int desiredTarget,
         AutoConceptResourceLimits? limits,
         out int safeTarget,
-        out string reason,
+        out GameActionReason reason,
         out AutoConceptProjectionRefusal refusal)
     {
         safeTarget = candidate.Quantity;
@@ -250,7 +249,7 @@ internal sealed class AutoConceptNativeAdapter :
         if (!TryResolveCandidate(action.RecipeId, out var candidate, out var refusal, out var reason) ||
             candidate is null)
         {
-            var missing = string.IsNullOrWhiteSpace(reason)
+            var missing = string.IsNullOrWhiteSpace(reason.Sentence)
                 ? "the planned recipe is no longer in ConceptRecipes"
                 : reason;
             return IsReady
@@ -378,7 +377,7 @@ internal sealed class AutoConceptNativeAdapter :
         Guid replacementId,
         NativeConceptCandidate active,
         AutoConceptResourceLimits? limits,
-        out string reason,
+        out GameActionReason reason,
         out bool unreadable)
     {
         unreadable = false;
@@ -499,7 +498,7 @@ internal sealed class AutoConceptNativeAdapter :
         NativeConceptCandidate candidate,
         int targetQuantity,
         AutoConceptResourceLimits? limits,
-        out string reason,
+        out GameActionReason reason,
         out AutoConceptProjectionRefusal refusal)
     {
         refusal = AutoConceptProjectionRefusal.Contract;
@@ -569,8 +568,7 @@ internal sealed class AutoConceptNativeAdapter :
         {
             refusal = AutoConceptProjectionRefusal.ReadFailed;
             return FailProjection(
-                "Auto Concept could not project the drain of " + candidate.DisplayName + "." +
-                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, Feature)),
+                GameActionFaultLog.Reason("Auto Concept could not project the drain of " + candidate.DisplayName + ".", ex, Feature),
                 out reason);
         }
     }
@@ -637,9 +635,9 @@ internal sealed class AutoConceptNativeAdapter :
     private bool HandleRegistryFailure(
         string label,
         TypedRegistryResolution resolution,
-        out string reason)
+        out GameActionReason reason)
     {
-        var message = $"{label} resolution failed. {resolution.Format()}";
+        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
         return resolution.IsRetryable
             ? Retry(message, out reason)
             : Mismatch(message, out reason);
@@ -649,20 +647,22 @@ internal sealed class AutoConceptNativeAdapter :
     /// A contract the game proved does not match holds until the next lifecycle, which probes it
     /// again; everything else retries.
     /// </summary>
-    private bool Mismatch(string reason, out string output)
+    private bool Mismatch(GameActionReason reason, out GameActionReason output)
     {
-        _contractMismatch = reason.TrimEnd('.') + ". Auto Concept holds it until the next scene or load.";
-        output = _contractMismatch;
+        output = new GameActionReason(
+            reason.Sentence.TrimEnd('.') + ". Auto Concept holds it until the next scene or load.",
+            reason.Reference);
+        _contractMismatch = output;
         return false;
     }
 
-    private static bool FailProjection(string reason, out string output)
+    private static bool FailProjection(GameActionReason reason, out GameActionReason output)
     {
         output = reason;
         return false;
     }
 
-    private static bool Retry(string reason, out string output)
+    private static bool Retry(GameActionReason reason, out GameActionReason output)
     {
         output = reason;
         return false;

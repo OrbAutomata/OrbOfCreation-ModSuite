@@ -47,7 +47,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
         if (!resolution.IsResolved)
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.ItemUnavailable,
-                resolution.Format());
+                resolution.FormatCause());
         var item = resolution.Value!;
         if (!HasExpectedFamily(item, action.Family, native, out var reason))
             return NativeActionOutcome.Reject(AutoItemsActionResultCodes.FamilyChanged, reason);

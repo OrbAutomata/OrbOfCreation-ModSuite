@@ -130,11 +130,11 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
     private readonly string _bindingFailure;
     private readonly Dictionary<Guid, CachedRecipe> _recipes = new Dictionary<Guid, CachedRecipe>();
     private TypedRegistryResolution? _registryResolution;
-    private string _statusReason = "classifier has not been initialized for this lifecycle";
+    private GameActionReason _statusReason = "classifier has not been initialized for this lifecycle";
     private int _classifierGeneration = 1;
 
     public AlchemyDomainClassifierStatus Status { get; private set; } = AlchemyDomainClassifierStatus.Uninitialized;
-    public string StatusReason => _statusReason;
+    public string StatusReason => _statusReason.Text;
     public long LifecycleGeneration => _registryResolution?.LifecycleGeneration ?? -1;
     public int ClassifierGeneration => _classifierGeneration;
     public int CachedRecipeCount => _recipes.Count;
@@ -154,7 +154,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             out _bindings, out _bindingFailure, resolveType, includeContract);
     }
 
-    public bool TryInitialize(out string reason)
+    public bool TryInitialize(out GameActionReason reason)
     {
         if (_registryResolution is not null && !_registryResolver.IsCurrent(_registryResolution))
             InvalidateLifecycle();
@@ -217,8 +217,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Retry(
-                "native alchemy classifier initialization failed." +
-                GameActionFaultLog.Sentence(GameActionFaultLog.RecordReference(ex, "the alchemy classifier")),
+                GameActionFaultLog.Reason("native alchemy classifier initialization failed.", ex, "the alchemy classifier"),
                 out reason);
         }
     }
@@ -229,7 +228,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             (_registryResolution is null || !_registryResolver.IsCurrent(_registryResolution)))
             InvalidateLifecycle();
         if (Status != AlchemyDomainClassifierStatus.Ready || _bindings is not { } native)
-            return Unknown(null, AlchemyDomainEvidence.None, _statusReason);
+            return Unknown(null, AlchemyDomainEvidence.None, _statusReason.Text);
         if (recipe is null || recipe.GetType() != native.RecipeType)
             return Unknown(null, AlchemyDomainEvidence.None, "value is not the exact native AlchemyRecipeSO type");
         if (!TryReadStableUuid(native.RecipeId, recipe, out var recipeUuid))
@@ -261,7 +260,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
             (_registryResolution is null || !_registryResolver.IsCurrent(_registryResolution)))
             InvalidateLifecycle();
         if (Status != AlchemyDomainClassifierStatus.Ready || _bindings is not { } native)
-            return Unknown(null, AlchemyDomainEvidence.None, _statusReason);
+            return Unknown(null, AlchemyDomainEvidence.None, _statusReason.Text);
         if (alchemyType is null || alchemyType.GetType() != native.AlchemyType)
             return Unknown(null, AlchemyDomainEvidence.None, "value is not the exact native AlchemyTypeSO type");
         if (!TryReadStableUuid(native.AlchemyTypeId, alchemyType, out var typeUuid))
@@ -460,7 +459,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         return EvidenceAssessment.Unresolved(sources);
     }
 
-    private bool Retry(string message, out string reason)
+    private bool Retry(GameActionReason message, out GameActionReason reason)
     {
         _recipes.Clear();
         Status = AlchemyDomainClassifierStatus.Retryable;
@@ -469,7 +468,7 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         return false;
     }
 
-    private bool Block(string message, out string reason)
+    private bool Block(GameActionReason message, out GameActionReason reason)
     {
         _recipes.Clear();
         Status = AlchemyDomainClassifierStatus.Blocked;
@@ -481,9 +480,9 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
     private bool HandleRegistryFailure(
         string label,
         TypedRegistryResolution resolution,
-        out string reason)
+        out GameActionReason reason)
     {
-        var message = $"{label} resolution failed. {resolution.Format()}";
+        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
         return resolution.IsRetryable
             ? Retry(message, out reason)
             : Block(message, out reason);

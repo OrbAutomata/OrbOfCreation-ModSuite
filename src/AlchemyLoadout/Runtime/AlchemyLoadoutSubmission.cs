@@ -21,6 +21,6 @@ internal readonly struct AlchemyLoadoutSubmission
     internal int MaximumAmount { get; }
 
     internal static AlchemyLoadoutSubmission Reject(
-        ServiceActionResultCode code, string reason, int maximumAmount = -1) =>
+        ServiceActionResultCode code, GameActionReason reason, int maximumAmount = -1) =>
         new(NativeActionOutcome.Reject(code, reason), maximumAmount);
 }

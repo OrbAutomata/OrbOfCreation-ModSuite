@@ -41,8 +41,8 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         var resolution = _registry.Resolve(action.RecipientId, type);
         if (!resolution.IsResolved)
             return resolution.IsRetryable
-                ? Identity(resolution.Format())
-                : Contract(resolution.Format());
+                ? Identity(resolution.FormatCause())
+                : Contract(resolution.FormatCause());
         var recipient = resolution.Value!;
         var identity = action.RecipientId.ToString();
 
@@ -75,7 +75,7 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return Contract(ex.GetBaseException().Message);
+            return Contract(GameActionFaultLog.Reason("Mentor could not grant mastery XP.", ex, "Mentor"));
         }
     }
 
@@ -173,10 +173,10 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
             CommonActionResultCodes.NativeRejected,
             "the grant is too small to change the recipient's mastery XP at its magnitude");
 
-    private static NativeActionOutcome Contract(string reason) =>
+    private static NativeActionOutcome Contract(GameActionReason reason) =>
         NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason);
 
-    private static NativeActionOutcome Identity(string reason) =>
+    private static NativeActionOutcome Identity(GameActionReason reason) =>
         NativeActionOutcome.Reject(CommonActionResultCodes.NativeRejected, reason);
 
     private readonly struct MentorMasteryProgress

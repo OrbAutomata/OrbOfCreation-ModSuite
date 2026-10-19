@@ -39,14 +39,14 @@ public sealed class AutoConceptDomainClassifierAdoptionTests : IDisposable
         Assert.Equal(AlchemyDomainClassifierStatus.Retryable, classifier.Status);
         Assert.Contains(
             "Auto Concept domain classifier is not ready:",
-            reason,
+            reason.Text,
             StringComparison.Ordinal);
         Assert.Contains(
             AlchemyGameplayDomainClassifier.ConceptRecipesUuid.ToString("D"),
-            reason,
+            reason.Text,
             StringComparison.Ordinal);
-        Assert.Contains("resolution failed.", reason, StringComparison.Ordinal);
-        Assert.Contains("Status=NotFound", reason, StringComparison.Ordinal);
+        Assert.Contains("resolution failed.", reason.Text, StringComparison.Ordinal);
+        Assert.Contains("Status=NotFound", reason.Text, StringComparison.Ordinal);
 
         var generation = classifier.ClassifierGeneration;
         boundary.InvalidateLifecycle();
@@ -66,7 +66,7 @@ public sealed class AutoConceptDomainClassifierAdoptionTests : IDisposable
         Assert.False(boundary.TryInitialize(out var reason));
 
         Assert.Equal(AlchemyDomainClassifierStatus.Blocked, classifier.Status);
-        Assert.Contains("Auto Concept domain classifier blocked:", reason, StringComparison.Ordinal);
+        Assert.Contains("Auto Concept domain classifier blocked:", reason.Text, StringComparison.Ordinal);
     }
 
     private static AlchemyTypeSO Type(Guid uuid)

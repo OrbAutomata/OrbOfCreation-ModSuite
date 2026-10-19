@@ -40,7 +40,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var initialized = runtime.TryInitialize(out var reason);
 
         Assert.False(initialized);
-        Assert.Contains("without verified Scholar type evidence", reason);
+        Assert.Contains("without verified Scholar type evidence", reason.Text);
         Assert.False(runtime.IsReady);
     }
 
@@ -495,7 +495,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
                 AutoConceptActionKind.Add, RecipeId, 1, Guid.Empty, 1, in belief);
 
             Assert.False(runtime.TryInitialize(out var reason));
-            Assert.Contains(missing, reason, StringComparison.Ordinal);
+            Assert.Contains(missing, reason.Text, StringComparison.Ordinal);
             var submission = runtime.Submit(in action, DefaultLimits);
 
             Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);

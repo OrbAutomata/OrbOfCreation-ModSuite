@@ -223,6 +223,24 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
+    public void AFaultThatRepeatsUnderAFreshLogReferenceEachAttemptIsWarnedOnce()
+    {
+        const string cause = "injected concept registry read failure";
+        var thought = Concept(Thought, "Thought");
+        using var harness = new Harness(thought);
+        harness.Recipes.GetGuidFailure = new InvalidOperationException(cause);
+
+        harness.PumpWorldsUntil(() => harness.RetryGate.Count == 1);
+        harness.Advance(PastEveryWait);
+        harness.PumpWorldsUntil(() => harness.RetryGate.Latest.ConsecutiveFailures == 2);
+        harness.Advance(PastEveryWait);
+        harness.PumpWorldsUntil(() => harness.RetryGate.Latest.ConsecutiveFailures == 3);
+
+        Assert.True(_faultLog.Count(entry => entry.Contains(cause, StringComparison.Ordinal)) >= 3);
+        Assert.Single(harness.Warnings, warning => warning.StartsWith("Auto Concept did not complete", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AProvenConceptContractMismatchHoldsForTheLifecycleAndTheNextOneProbesAgain()
     {
         var thought = Concept(Thought, "Thought");
