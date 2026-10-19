@@ -24,9 +24,10 @@ internal static class AutoHarvestService
                 createWorker: static () => new AutoHarvestWorkerDefinition(),
                 shouldStart: ShouldStart,
                 describeAction: static (in AutoHarvestCycleAction action) =>
-                    ServiceActionJournalAttribution.Native(
-                        AutoHarvestPairAuthoring.For(action.Pair).ActionId,
-                        ServiceActionNativeTypeId.PlotNodeActionSO),
+                {
+                    var target = AutoHarvestServicePolicies.RetryTarget(action.Pair);
+                    return ServiceActionJournalAttribution.Native(target.Id, target.NativeType);
+                },
                 execute: actions.TryExecute);
     }
 
