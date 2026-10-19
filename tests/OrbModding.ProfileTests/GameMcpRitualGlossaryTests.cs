@@ -150,7 +150,7 @@ public sealed class GameMcpRitualGlossaryTests
                 "[id | name | category | keywords | matchedOn]",
                 "f8a932 | Summon Reinforcements | character-actions | - | internalName",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
                 GameMcpTestHarness.Context(World()),
                 "SummonReinforcements",
                 0,

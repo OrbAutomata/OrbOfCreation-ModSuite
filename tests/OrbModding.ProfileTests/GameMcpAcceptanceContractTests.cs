@@ -380,7 +380,7 @@ public sealed class GameMcpWorldQueryTests
                 CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
                     GameMcpTestHarness.AllCategoriesCollected()),
             });
-        var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var search = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             searchState,
             GameMcpAcceptanceFixture.SpellId.ToString("D"),
             0,

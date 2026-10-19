@@ -196,7 +196,7 @@ public sealed class GameMcpTypeReachTests
                 "c1f000 | Metallurgy | research | Technology | category",
                 "c4a000 | Weave | plot-node-action-types | - | nativeType",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
                 GameMcpTestHarness.Context(World()),
                 "ar", 0, 50, string.Empty, string.Empty, string.Empty,
                 limitFromCaller: false), Catalog)));
@@ -246,7 +246,7 @@ public sealed class GameMcpTypeReachTests
 
         // The word a parent is spelled with is on none of its children's members, so the query this
         // filter replaces answers nothing at all.
-        Assert.Empty(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        Assert.Empty(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             "Primal", 0, 50, "attributes", limitFromCaller: false), Catalog)
             ["rows"]!.Values<JObject>());
@@ -426,7 +426,7 @@ public sealed class GameMcpTypeReachTests
     [Fact]
     public void A_keyword_filter_naming_something_with_no_members_is_refused_by_name()
     {
-        var refused = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var refused = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
             Insight.ToString("D"), limitFromCaller: false), Catalog);
@@ -454,7 +454,7 @@ public sealed class GameMcpTypeReachTests
         Assert.Equal(byId, Render(Walk("Workshop", "attributes")));
         Assert.Equal(byId, Render(Walk("workshop", "attributes")));
 
-        var refused = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var refused = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, string.Empty, string.Empty, string.Empty,
             "Workshopp", limitFromCaller: false), Catalog);
@@ -471,7 +471,7 @@ public sealed class GameMcpTypeReachTests
         Walk(keyword.ToString("D"), category);
 
     private static JObject Walk(string keyword, string category) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 200, category, string.Empty, string.Empty,
             keyword, limitFromCaller: false), Catalog);

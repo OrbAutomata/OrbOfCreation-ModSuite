@@ -180,7 +180,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()), query, 0, 50, limitFromCaller: false), Catalog);
 
     private static JObject[] Rows(JObject page) =>

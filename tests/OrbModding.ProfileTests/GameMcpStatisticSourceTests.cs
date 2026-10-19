@@ -120,7 +120,7 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
     private static string Render(JObject page) => GameMcpTextPage.Render(page).TrimEnd('\n');
 
     private static JObject Search(string query = "", string modifies = "") =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             query, 0, 50, limitFromCaller: false, modifiesFilter: modifies), Catalog);
 
