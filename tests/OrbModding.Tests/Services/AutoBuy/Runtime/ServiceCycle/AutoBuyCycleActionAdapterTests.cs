@@ -1848,7 +1848,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         global::ActionManager.instance = new global::ActionManager();
         global::ActionManager.RemainingRoomFault = null;
         global::ActionManager.AdmissionFault = null;
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
     }
 
     private static AutoBuyNativePurchaseAdapter NativeAdapter(

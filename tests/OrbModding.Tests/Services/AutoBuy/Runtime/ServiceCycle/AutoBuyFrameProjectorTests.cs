@@ -723,6 +723,6 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
         // Capturing warms the process-global native-contract caches and their
         // resolution counters (multi-buy and int-variable). Reset them so this
         // suite leaves no trace for order-sensitive assertions elsewhere.
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
     }
 }

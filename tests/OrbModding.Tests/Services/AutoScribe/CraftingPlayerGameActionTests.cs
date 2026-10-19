@@ -19,7 +19,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     {
         IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
         GlobalVariables.MultiBuy = new IntVariable { Value = 25 };
     }
 

@@ -22,7 +22,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
     }
 
     public void Dispose()
@@ -34,7 +34,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
         Inventory.ResetLists();
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
         GameActionFaultLog.ConfigureLog(null);
     }
 

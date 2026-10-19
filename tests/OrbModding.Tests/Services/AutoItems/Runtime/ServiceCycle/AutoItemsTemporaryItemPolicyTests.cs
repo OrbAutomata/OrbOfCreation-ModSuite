@@ -743,7 +743,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         ConsumableSO.All.Clear();
         Inventory.ResetLists();
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
-        NativeMultiBuyScope.ResetQuarantineForTests();
+        NativeMultiBuyScope.ResetForTests();
     }
 
     private static void Publish(RegistryCapture capture, GameWorldState world) =>
