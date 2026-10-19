@@ -184,10 +184,17 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
         impostor.SetGuid(plotId);
         IdScriptableObject.RuntimeLookup[plotId] = impostor;
         using var harness = new Harness();
+        var shownBackingOff = false;
+        bool Shows(FeatureStatusState state)
+        {
+            var current = harness.Status.Current.State;
+            shownBackingOff |= current == FeatureStatusState.Degraded;
+            return current == state;
+        }
 
         harness.PumpWorldsUntil(() => harness.RetryGate.Count == 1);
         harness.Advance(PastTheServiceWait);
-        harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.ContractUnavailable);
+        harness.PumpWorldsUntil(() => Shows(FeatureStatusState.ContractUnavailable));
         IdScriptableObject.RuntimeLookup[plotId] = game.Plot(AutoHarvestPair.FruitTree);
         harness.Advance(PastEveryWait);
         harness.PumpUntilTheNewestWorldIsEvaluated();
@@ -198,6 +205,8 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
         harness.PumpUntilTheNewestWorldIsEvaluated();
 
         Assert.Equal(FeatureStatusState.ContractUnavailable, heldAfterTheWaits);
+        Assert.False(shownBackingOff);
+        Assert.Equal(1, FaultWarnings(harness));
         Assert.False(runningBeforeTheNewLifecycle);
         Assert.Equal(0, harness.RetryGate.Count);
         Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);

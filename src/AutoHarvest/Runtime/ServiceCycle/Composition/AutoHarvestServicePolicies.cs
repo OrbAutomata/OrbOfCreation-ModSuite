@@ -27,11 +27,21 @@ internal static class AutoHarvestServicePolicies
     internal static ServiceRetryTarget RetryTarget(AutoHarvestPair pair) =>
         new(AutoHarvestPairAuthoring.For(pair).ActionId, ServiceActionNativeTypeId.PlotNodeActionSO);
 
-    /// <summary>The same result, backing its pair off on the pair's own waits when it faulted.</summary>
+    /// <summary>
+    /// The same result, backing its pair off on the pair's own waits when it faulted. A proven
+    /// contract mismatch backs off quietly, since the worker holds the pair for the lifecycle anyway.
+    /// </summary>
     internal static ServiceActionResult BackingOffThePair(in ServiceActionResult result) =>
         result.Disposition == ServiceActionDisposition.Faulted
-            ? result.BackingOffTarget(PairWaitCap, initialBackoff: PairFirstWait)
+            ? result.BackingOffTarget(
+                PairWaitCap,
+                quietFirstFailure: IsContractMismatch(result.Code),
+                initialBackoff: PairFirstWait)
             : result;
+
+    private static bool IsContractMismatch(ServiceActionResultCode code) =>
+        code == AutoHarvestActionResultCodes.PairContractUnavailable ||
+        code == AutoHarvestActionResultCodes.FeatureContractUnavailable;
 
     /// <summary>A retry target in a sentence: which plot the service was collecting.</summary>
     internal static string Describe(ServiceRetryTarget target)

@@ -92,7 +92,7 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
             var pairs = _bindings.ResolvePairSet();
             var resolution = pairs.For(action.Pair);
             if (!resolution.Succeeded)
-                return ServiceActionResult.Faulted(FailureCode(resolution.Failure), resolution.Failure.Reason);
+                return Unresolved(resolution.Failure, in action);
             resolved = resolution.Pair;
             var lifecycle = resolved.LifecycleGeneration;
             if (!_guard.TryAdmitEpoch(
@@ -129,13 +129,16 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
 
     /// <summary>
     /// A proven mismatch is named by how far it reaches, which is what the worker holds for the rest
-    /// of the lifecycle; any other failure to resolve is an adapter fault and is retried.
+    /// of the lifecycle, and it is warned about once; any other failure to resolve is an adapter fault
+    /// and is retried.
     /// </summary>
-    private static ServiceActionResultCode FailureCode(in AutoHarvestNativeFailure failure)
+    private ServiceActionResult Unresolved(in AutoHarvestNativeFailure failure, in AutoHarvestCycleAction action)
     {
-        if (failure.Kind != AutoHarvestRuntimeFailureKind.Contract) return CommonActionResultCodes.AdapterFault;
-        return failure.Scope == AutoHarvestRuntimeFailureScope.Feature
+        if (failure.Kind != AutoHarvestRuntimeFailureKind.Contract)
+            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault, failure.Reason);
+        var code = failure.Scope == AutoHarvestRuntimeFailureScope.Feature
             ? AutoHarvestActionResultCodes.FeatureContractUnavailable
             : AutoHarvestActionResultCodes.PairContractUnavailable;
+        return _guard.Finish(NativeActionOutcome.FaultBeforeCall(code, failure.Reason), in action);
     }
 }
