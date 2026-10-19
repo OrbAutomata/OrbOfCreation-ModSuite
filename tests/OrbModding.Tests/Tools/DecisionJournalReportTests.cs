@@ -80,6 +80,26 @@ public sealed class DecisionJournalReportTests
     }
 
     [Fact]
+    public void ARefusedReportNameSaysWhichNamesAreReserved()
+    {
+        using var fixture = new DecisionJournalTestDirectory();
+        fixture.WriteSegment(
+            0,
+            run: 11,
+            firstSequence: 1,
+            DecisionJournalRecord.Decision(CreateObservation(1, 10)));
+        using var report = DecisionJournalReportReader.Read(fixture.Root);
+
+        var error = Assert.Throws<InvalidOperationException>(() => report.EnsureSafeReportPath(
+            Path.Combine(Path.GetTempPath(), "journal-findings.md")));
+
+        Assert.Equal(
+            "A report cannot be named journal-findings.md: names starting with journal- or ending " +
+            "with .osjd are reserved for decision-journal evidence.",
+            error.Message);
+    }
+
+    [Fact]
     public void ReportKeepsTheSameNumericServiceSeparateAcrossRuns()
     {
         using var fixture = new DecisionJournalTestDirectory();
