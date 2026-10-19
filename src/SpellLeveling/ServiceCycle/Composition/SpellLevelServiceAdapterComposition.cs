@@ -1,4 +1,5 @@
 using System;
+using OrbModding;
 
 namespace OrbAutomata;
 
@@ -46,6 +47,7 @@ internal sealed class SpellLevelServiceAdapterComposition
             natives,
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnsActionFamily,
+            message => Plugin.Log?.LogAutomataWarning(message),
             dependencies.Capability.Observe,
             boundaryStatus.Observe);
         return new SpellLevelServiceAdapterComposition(
