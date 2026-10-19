@@ -37,7 +37,7 @@ public sealed class GameMcpUpgradeLockTests
         Assert.Equal(
             new[] { GameMcpTestHarness.Handle(Capped) },
             GameMcpTestHarness
-                .Json(GameMcpWorldQuery.Search(
+                .Json(GameMcpWorldSearch.Search(
                     context, string.Empty, 0, 50, "upgrades", stateFilter: "available"))["rows"]!
                 .Values<JObject>().Select(row => (string?)row!["uuid"]).ToArray());
 
@@ -71,7 +71,7 @@ public sealed class GameMcpUpgradeLockTests
             (string?)Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50)))
                 .Single()["state"]);
         Assert.Empty(GameMcpTestHarness
-            .Json(GameMcpWorldQuery.Search(
+            .Json(GameMcpWorldSearch.Search(
                 context, string.Empty, 0, 50, "upgrades", stateFilter: "available"))["rows"]!);
         var predicates = GameMcpTestHarness.Detail(context, Capped)["predicates"]!;
         Assert.All(new[] { "available", "canPurchase" }, name =>

@@ -162,7 +162,7 @@ internal static class GameMcpWorldTools
             },
             FrameRead(ReadOnly, World, static (request, context) =>
                 GameMcpToolExecution.Read(
-                    GameMcpWorldQuery.Search(
+                    GameMcpWorldSearch.Search(
                         context,
                         request.Query,
                         request.Offset,

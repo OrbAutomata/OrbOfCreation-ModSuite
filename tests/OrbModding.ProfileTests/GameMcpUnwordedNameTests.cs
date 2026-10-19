@@ -80,10 +80,10 @@ public sealed class GameMcpUnwordedNameTests
     {
         var context = GameMcpTestHarness.Context(World(), generation: 5202);
 
-        var unworded = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var unworded = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, "SummonedLevel", 0, 10, limitFromCaller: false))["rows"]!
             .Values<JObject>())!;
-        var worded = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var worded = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, "World Resets", 0, 10, limitFromCaller: false))["rows"]!
             .Values<JObject>())!;
 
@@ -105,7 +105,7 @@ public sealed class GameMcpUnwordedNameTests
     {
         var context = GameMcpTestHarness.Context(World(), generation: 5203);
 
-        var hit = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var hit = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, "WorldResets", 0, 10, limitFromCaller: false))["rows"]!
             .Values<JObject>())!;
 

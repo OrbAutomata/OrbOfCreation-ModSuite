@@ -105,9 +105,9 @@ public sealed class GameMcpSpellWorkbenchTests
             context, "spell-recipes", 0, 50, discovered: true));
         var listedOther = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             context, "spell-recipes", 0, 50, discovered: false));
-        var found = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var found = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "spell-recipes", discoveredFilter: true));
-        var foundOther = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var foundOther = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "spell-recipes", discoveredFilter: false));
 
         Assert.True((bool)Assert.Single(listed["rows"]!.Values<JObject>())!["discovered"]!);
@@ -121,7 +121,7 @@ public sealed class GameMcpSpellWorkbenchTests
         // than being handed a silently unfiltered page.
         var listRefusal = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
             context, "resources", 0, 50, discovered: true));
-        var searchRefusal = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var searchRefusal = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "rituals", discoveredFilter: true));
 
         Assert.Equal("ERR_INPUT", (string?)listRefusal["reasonCode"]);

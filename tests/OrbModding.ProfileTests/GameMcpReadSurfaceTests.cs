@@ -897,7 +897,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Equal("ERR_UNAVAILABLE", (string?)rows["reasonCode"]);
 
         var search = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Search(state, "resource", 0, 10));
+            GameMcpWorldSearch.Search(state, "resource", 0, 10));
         Assert.Null(search["status"]);
         Assert.Null(search["reasonCode"]);
         Assert.NotEmpty(search["unavailableCategories"]!.Values<JObject>());
@@ -960,7 +960,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var unaffectedSearch = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var unaffectedSearch = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             state,
             unaffectedId.ToString("D"),
             0,
@@ -969,7 +969,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(unaffectedSearch["code"]);
         Assert.Single(unaffectedSearch["rows"]!.Values<JObject>());
 
-        var affectedSearch = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var affectedSearch = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             state,
             affectedId.ToString("D"),
             0,
@@ -1133,7 +1133,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 45,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var search = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(world),
             "00000000",
             0,
@@ -1184,7 +1184,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var search = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var search = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             state,
             ownerId.ToString("D"),
             0,

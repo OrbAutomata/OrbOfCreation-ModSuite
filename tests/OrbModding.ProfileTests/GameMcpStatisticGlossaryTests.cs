@@ -142,7 +142,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 "[id | name | category | keywords | matchedOn]",
                 "399623 | Elemental Resonance | statistics | - | name",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
                 GameMcpTestHarness.Context(World()), "Resonance", 0, 10), Catalog)));
     }
 

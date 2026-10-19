@@ -157,7 +157,7 @@ public sealed class GameMcpTypeWorthTests
     [Fact]
     public void A_spell_type_word_walks_to_the_spells_its_page_counts()
     {
-        var page = Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var page = Render(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             GameMcpTestHarness.Context(World()),
             string.Empty, 0, 50, "spell-recipes", string.Empty, string.Empty,
             "Ember", limitFromCaller: false), Catalog));
@@ -389,7 +389,7 @@ public sealed class GameMcpTypeWorthTests
                 "a0a000 | Focus | equipment-types | - | name",
                 "a1c000 | Focus Ward | augment-glyphs | - | name",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+            Render(GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
                 GameMcpTestHarness.Context(World()),
                 "focus", 0, 50, string.Empty, string.Empty, string.Empty,
                 limitFromCaller: false), Catalog)));

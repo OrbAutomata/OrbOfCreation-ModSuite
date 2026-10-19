@@ -94,7 +94,7 @@ public sealed class GameMcpConceptCategoryTests
     {
         var context = GameMcpTestHarness.Context(World(), generation: 5104);
 
-        var page = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var page = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, stateFilter: "available", limitFromCaller: false));
         var byName = page["rows"]!.Values<JObject>()
             .ToDictionary(row => (string?)row!["name"] ?? string.Empty, row => row!);
@@ -114,9 +114,9 @@ public sealed class GameMcpConceptCategoryTests
     {
         var context = GameMcpTestHarness.Context(World(), generation: 5105);
 
-        var concepts = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var concepts = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "concepts", limitFromCaller: false));
-        var alchemy = GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var alchemy = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "alchemy-recipes", limitFromCaller: false));
 
         Assert.Equal(3, concepts["rows"]!.Values<JObject>().Count());

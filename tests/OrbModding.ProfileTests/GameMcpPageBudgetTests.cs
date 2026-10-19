@@ -51,7 +51,7 @@ public sealed class GameMcpPageBudgetTests
         var listed = (JObject)GameMcpTestHarness.Json(
             GameMcpWorldQuery.ListRows(state, "resources", 0, 200).Freeze())["rows"]![0]!;
 
-        var match = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.Search(
+        var match = (JObject)GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             state,
             (string)listed["name"]!,
             0,

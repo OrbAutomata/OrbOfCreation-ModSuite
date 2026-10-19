@@ -304,7 +304,7 @@ public sealed class GameMcpCollectorAccountabilityTests
                 firstFailure: string.Empty));
 
         var searched = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.Search(context, "orb", 0, 25, "entity-keywords"));
+            GameMcpWorldSearch.Search(context, "orb", 0, 25, "entity-keywords"));
         Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)searched["reasonCode"]);
         Assert.Equal(Refusal(context, "entity-keywords"), (string?)searched["reason"]);
     }

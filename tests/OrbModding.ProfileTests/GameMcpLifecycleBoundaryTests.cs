@@ -89,7 +89,7 @@ public sealed class GameMcpLifecycleBoundaryTests
         {
             GameMcpTestHarness.Json(GameMcpWorldQuery.Overview(context)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "attributes", 0, 10)),
-            GameMcpTestHarness.Json(GameMcpWorldQuery.Search(context, "orb", 0, 10)),
+            GameMcpTestHarness.Json(GameMcpWorldSearch.Search(context, "orb", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
                 context, "attributes", new[] { Guid.NewGuid().ToString("D") })),
         };
