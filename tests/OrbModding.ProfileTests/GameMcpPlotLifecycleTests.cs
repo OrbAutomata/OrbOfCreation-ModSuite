@@ -112,10 +112,13 @@ public sealed class GameMcpPlotLifecycleTests
         var world = DrainingWorld(active: 1);
         var context = GameMcpTestHarness.Context(world, generation: 916);
 
-        var detail = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
-            context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(), world)
-            ["results"]!.Values<JObject>());
-        var drain = Assert.Single(detail["row"]!["drainCostsPerSecond"]!.Values<JObject>())!;
+        var read = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
+            context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(), world);
+        var results = Assert.IsType<JArray>(read["results"]);
+        var detail = Assert.IsType<JObject>(Assert.Single(results));
+        var detailRow = Assert.IsType<JObject>(detail["row"]);
+        var drains = Assert.IsType<JArray>(detailRow["drainCostsPerSecond"]);
+        var drain = Assert.IsType<JObject>(Assert.Single(drains));
         Assert.Equal("Alchemic Scroll", (string?)drain["resource"]!["name"]);
         Assert.Equal("0.500", (string?)drain["cost"]);
         Assert.Equal("20", (string?)drain["spendableAmount"]);
