@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -404,7 +405,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);
@@ -484,7 +485,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);
@@ -587,7 +588,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
             Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
             Assert.All(observedContexts, observed => Assert.Same(context, observed));
             Assert.All(operations, operation => Assert.True(operation.Completion.TryWait(
-                TimeSpan.FromMilliseconds(50), out _)));
+                ServiceCycleTestDeadline.Value, out _)));
         }
         finally
         {

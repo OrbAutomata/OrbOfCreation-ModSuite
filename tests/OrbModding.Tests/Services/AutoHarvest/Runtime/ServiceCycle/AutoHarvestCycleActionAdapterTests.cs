@@ -167,7 +167,7 @@ public sealed class AutoHarvestCycleActionAdapterTests
     public void EveryMissingMemberDisablesTheCompleteSet(string missing)
     {
         using var fixture = new Fixture(circuit => new AutoHarvestBindingResolver(
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 () => throw new InvalidOperationException("the registry was read"),
                 () => throw new InvalidOperationException("the registry was read"),
                 _ => throw new InvalidOperationException("the registry was read")),

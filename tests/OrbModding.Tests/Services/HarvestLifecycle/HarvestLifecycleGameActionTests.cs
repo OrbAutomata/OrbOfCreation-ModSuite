@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -173,9 +174,7 @@ public sealed class HarvestLifecycleGameActionTests
 
     private HarvestLifecycleGameAction Boundary(Func<string, bool>? includeContract = null)
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(() => Epoch, _registry);
         return new HarvestLifecycleGameAction(() => Epoch, static () => true,
             static () => "HarvestLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

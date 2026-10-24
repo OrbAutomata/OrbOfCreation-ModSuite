@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,10 +25,7 @@ internal sealed class AutoScribeNativeFixture
         Func<TypedRegistrySourceSnapshot>? readRegistry = null)
     {
         IDictionary dictionary = Registry;
-        return new TypedRegistryResolver(
-            readLifecycle,
-            readRegistry ?? (() => TypedRegistrySourceSnapshot.Ready(dictionary)),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        return TestRegistryResolver.For(readLifecycle, readRegistry ?? (() => TypedRegistrySourceSnapshot.Ready(dictionary)));
     }
 
     internal AutoScribeNativeFixtureState Build(AutoScribeIdentityProfile profile, bool withTarget = true)

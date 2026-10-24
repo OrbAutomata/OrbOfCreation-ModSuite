@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
@@ -122,7 +123,7 @@ public sealed class ServiceCycleProfileMeasurementFailureTests
         });
 
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(2)), "The foreign-thread probe did not complete.");
+        Assert.True(thread.Join(ServiceCycleTestDeadline.Value), "The foreign-thread probe did not complete.");
 
         Assert.Null(failure);
         Assert.False(began);

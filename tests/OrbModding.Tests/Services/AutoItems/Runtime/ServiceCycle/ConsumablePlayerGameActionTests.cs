@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -300,10 +301,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
         Func<long>? readGeneration = null)
     {
         IDictionary dictionary = _registry;
-        var resolver = new TypedRegistryResolver(
-            readGeneration ?? (static () => 1),
-            () => TypedRegistrySourceSnapshot.Ready(dictionary),
-            value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readGeneration ?? (static () => 1), dictionary);
         return new AutoItemsConsumablePlayerGameAction(
             resolver,
             readLifecycleEpoch ?? (static () => 1),

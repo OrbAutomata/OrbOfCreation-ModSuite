@@ -271,7 +271,7 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
                 new ConfigGeneration(1),
                 new LifecycleGeneration((ulong)_epoch),
                 _clock);
-            var resolver = new TypedRegistryResolver(
+            var resolver = TestRegistryResolver.For(
                 () => _epoch,
                 readRegistry ?? (static () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup)),
                 static value => ((IdScriptableObject)value).GetGuid());

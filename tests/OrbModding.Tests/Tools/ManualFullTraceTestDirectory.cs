@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Globalization;
 using System.IO;
@@ -9,6 +10,7 @@ namespace OrbModding.Tests.Tools;
 
 internal sealed class ManualFullTraceTestDirectory : IDisposable
 {
+    private readonly TempDirectory _temporary = new(create: true);
     private static readonly FullTraceSessionId Session = new(0x2a);
     private readonly string _root;
 
@@ -17,7 +19,7 @@ internal sealed class ManualFullTraceTestDirectory : IDisposable
         bool writeManifest = true,
         ServiceCycleTraceRoster? roster = null)
     {
-        _root = Path.Combine(Path.GetTempPath(), "orb-manual-trace-report-" + Guid.NewGuid().ToString("N"));
+        _root = _temporary.Path;
         SessionPath = Path.Combine(
             _root,
             "session-" + Session.Value.ToString("x16", CultureInfo.InvariantCulture));
@@ -51,7 +53,7 @@ internal sealed class ManualFullTraceTestDirectory : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temporary.Dispose();
     }
 
     private void WriteManifest(ServiceCycleSemanticEvent[] events, ulong segmentCount, ulong segmentBytes)

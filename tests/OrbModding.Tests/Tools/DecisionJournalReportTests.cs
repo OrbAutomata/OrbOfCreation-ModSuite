@@ -75,7 +75,7 @@ public sealed class DecisionJournalReportTests
 
         Assert.Throws<InvalidOperationException>(() => report.EnsureSafeReportPath(path));
         Assert.Throws<InvalidOperationException>(() => report.EnsureSafeReportPath(
-            Path.Combine(Path.GetTempPath(), "journal-000001.osjd")));
+            Path.Combine(fixture.Root, "journal-000001.osjd")));
         report.EnsureSafeReportPath(Path.Combine(fixture.Root, "report.md"));
     }
 
@@ -91,7 +91,7 @@ public sealed class DecisionJournalReportTests
         using var report = DecisionJournalReportReader.Read(fixture.Root);
 
         var error = Assert.Throws<InvalidOperationException>(() => report.EnsureSafeReportPath(
-            Path.Combine(Path.GetTempPath(), "journal-findings.md")));
+            Path.Combine(fixture.Root, "journal-findings.md")));
 
         Assert.Equal(
             "A report cannot be named journal-findings.md: names starting with journal- or ending " +

@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,37 +23,31 @@ public sealed class TraceDashboardReaderTests
     [Fact]
     public void AttributedActionSurfacesItsExactWireIdentityAndOutcome()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var run = Path.Combine(root, "run-20260101-000000-test");
-            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
-            Directory.CreateDirectory(fullSession);
-            WriteFullTrace(fullSession, CycleStarted(1, lifecycle: 1, cycleId: 1, timestampTicks: 100));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var run = Path.Combine(root, "run-20260101-000000-test");
+        var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+        Directory.CreateDirectory(fullSession);
+        WriteFullTrace(fullSession, CycleStarted(1, lifecycle: 1, cycleId: 1, timestampTicks: 100));
 
-            var candidate = new Guid("11111111-1111-1111-1111-111111111111");
-            var list = new Guid("22222222-2222-2222-2222-222222222222");
-            var view = new Guid("33333333-3333-3333-3333-333333333333");
-            WriteJournal(run, Action(candidate, list, view));
+        var candidate = new Guid("11111111-1111-1111-1111-111111111111");
+        var list = new Guid("22222222-2222-2222-2222-222222222222");
+        var view = new Guid("33333333-3333-3333-3333-333333333333");
+        WriteJournal(run, Action(candidate, list, view));
 
-            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
-            var decision = Assert.Single(document.Decisions);
+        var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+        var decision = Assert.Single(document.Decisions);
 
-            Assert.Equal(DecisionJournalRecordKind.Action.ToString(), decision.Kind);
-            Assert.Equal(1, decision.ActionOrdinal);
-            Assert.Equal(candidate.ToString("D"), decision.CandidateId);
-            Assert.Equal(ServiceActionNativeTypeId.UpgradeSO.ToString(), decision.NativeType);
-            Assert.Equal(list.ToString("D"), decision.ListId);
-            Assert.Equal(view.ToString("D"), decision.ViewId);
-            Assert.Equal(ServiceActionRouteStatus.Resolved.ToString(), decision.RouteStatus);
-            Assert.Equal("Committed", decision.Outcome);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(DecisionJournalRecordKind.Action.ToString(), decision.Kind);
+        Assert.Equal(1, decision.ActionOrdinal);
+        Assert.Equal(candidate.ToString("D"), decision.CandidateId);
+        Assert.Equal(ServiceActionNativeTypeId.UpgradeSO.ToString(), decision.NativeType);
+        Assert.Equal(list.ToString("D"), decision.ListId);
+        Assert.Equal(view.ToString("D"), decision.ViewId);
+        Assert.Equal(ServiceActionRouteStatus.Resolved.ToString(), decision.RouteStatus);
+        Assert.Equal("Committed", decision.Outcome);
+
+
     }
 
     /// <summary>
@@ -64,38 +59,32 @@ public sealed class TraceDashboardReaderTests
     [Fact]
     public void CyclesRepeatingTheirIdInALaterLifecycleStayDistinctRows()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var run = Path.Combine(root, "run-20260101-000000-test");
-            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
-            Directory.CreateDirectory(fullSession);
-            WriteFullTrace(
-                fullSession,
-                CycleStarted(1, lifecycle: 9, cycleId: 1, timestampTicks: 100),
-                CycleStarted(2, lifecycle: 9, cycleId: 2, timestampTicks: 200),
-                CycleStarted(3, lifecycle: 14, cycleId: 1, timestampTicks: 300),
-                CycleStarted(4, lifecycle: 14, cycleId: 2, timestampTicks: 400));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var run = Path.Combine(root, "run-20260101-000000-test");
+        var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+        Directory.CreateDirectory(fullSession);
+        WriteFullTrace(
+            fullSession,
+            CycleStarted(1, lifecycle: 9, cycleId: 1, timestampTicks: 100),
+            CycleStarted(2, lifecycle: 9, cycleId: 2, timestampTicks: 200),
+            CycleStarted(3, lifecycle: 14, cycleId: 1, timestampTicks: 300),
+            CycleStarted(4, lifecycle: 14, cycleId: 2, timestampTicks: 400));
 
-            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+        var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
 
-            Assert.Equal(
-                new[] { (9UL, 1UL), (9UL, 2UL), (14UL, 1UL), (14UL, 2UL) },
-                document.Cycles
-                    .Select(x => (x.Lifecycle, x.Cycle))
-                    .OrderBy(x => x.Lifecycle)
-                    .ThenBy(x => x.Cycle)
-                    .ToArray());
-            Assert.Single(
-                document.Cycles,
-                x => x.Temperature == nameof(ServiceCycleProfileTemperature.ColdProcess));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(
+            new[] { (9UL, 1UL), (9UL, 2UL), (14UL, 1UL), (14UL, 2UL) },
+            document.Cycles
+                .Select(x => (x.Lifecycle, x.Cycle))
+                .OrderBy(x => x.Lifecycle)
+                .ThenBy(x => x.Cycle)
+                .ToArray());
+        Assert.Single(
+            document.Cycles,
+            x => x.Temperature == nameof(ServiceCycleProfileTemperature.ColdProcess));
+
+
     }
 
     /// <summary>
@@ -106,29 +95,23 @@ public sealed class TraceDashboardReaderTests
     [Fact]
     public void TwoStartsMergingIntoOneCycleRowIsRefused()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var run = Path.Combine(root, "run-20260101-000000-test");
-            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
-            Directory.CreateDirectory(fullSession);
-            WriteFullTrace(
-                fullSession,
-                CycleStarted(1, lifecycle: 9, cycleId: 1, timestampTicks: 100),
-                CycleStarted(2, lifecycle: 9, cycleId: 1, timestampTicks: 200));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var run = Path.Combine(root, "run-20260101-000000-test");
+        var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+        Directory.CreateDirectory(fullSession);
+        WriteFullTrace(
+            fullSession,
+            CycleStarted(1, lifecycle: 9, cycleId: 1, timestampTicks: 100),
+            CycleStarted(2, lifecycle: 9, cycleId: 1, timestampTicks: 200));
 
-            var failure = Assert.Throws<InvalidOperationException>(
-                () => TraceDashboardReader.Read(TraceCaptureLocator.Locate(run)));
+        var failure = Assert.Throws<InvalidOperationException>(
+            () => TraceDashboardReader.Read(TraceCaptureLocator.Locate(run)));
 
-            Assert.Contains("started 2 cycles", failure.Message);
-            Assert.Contains("kept 1 rows", failure.Message);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Contains("started 2 cycles", failure.Message);
+        Assert.Contains("kept 1 rows", failure.Message);
+
+
     }
 
     /// <summary>
@@ -138,30 +121,24 @@ public sealed class TraceDashboardReaderTests
     [Fact]
     public void EveryPumpAfterTheFirstCarriesTheFrameItLandedIn()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var run = Path.Combine(root, "run-20260101-000000-test");
-            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
-            Directory.CreateDirectory(fullSession);
-            WriteFullTrace(
-                fullSession,
-                PumpCompleted(1, frame: 10, timestampTicks: 1_000_000),
-                PumpCompleted(2, frame: 11, timestampTicks: 1_250_000),
-                PumpCompleted(3, frame: 12, timestampTicks: 1_400_000));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var run = Path.Combine(root, "run-20260101-000000-test");
+        var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+        Directory.CreateDirectory(fullSession);
+        WriteFullTrace(
+            fullSession,
+            PumpCompleted(1, frame: 10, timestampTicks: 1_000_000),
+            PumpCompleted(2, frame: 11, timestampTicks: 1_250_000),
+            PumpCompleted(3, frame: 12, timestampTicks: 1_400_000));
 
-            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+        var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
 
-            Assert.Equal(
-                new double?[] { null, 25, 15 },
-                document.Pumps.Select(x => x.AmbientMilliseconds).ToArray());
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        Assert.Equal(
+            new double?[] { null, 25, 15 },
+            document.Pumps.Select(x => x.AmbientMilliseconds).ToArray());
+
+
     }
 
     /// <summary>
@@ -173,55 +150,49 @@ public sealed class TraceDashboardReaderTests
     [Fact]
     public void CollectionSpansBecomeAPerCategoryDistributionSortedByTotalCost()
     {
-        var root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-trace-dashboard-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            var run = Path.Combine(root, "run-20260101-000000-test");
-            var fullSession = Path.Combine(run, "full", "session-000000000000002a");
-            Directory.CreateDirectory(fullSession);
-            WriteFullTrace(
-                fullSession,
-                CategoryRoster(),
-                Span(1, category: 1, sampled: 2_628, frame: 100, timestampTicks: 1_000, milliseconds: 1),
-                Span(2, category: 2, sampled: 180, frame: 100, timestampTicks: 1_000, milliseconds: 4),
-                Span(3, category: 1, sampled: 2_628, frame: 101, timestampTicks: 2_000, milliseconds: 3),
-                Span(4, category: 2, sampled: 180, frame: 101, timestampTicks: 2_000, milliseconds: 0),
-                Span(5, category: 1, sampled: 16, frame: 102, timestampTicks: 3_000, milliseconds: 10),
-                Span(6, category: 2, sampled: 180, frame: 102, timestampTicks: 3_000, milliseconds: 0));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var run = Path.Combine(root, "run-20260101-000000-test");
+        var fullSession = Path.Combine(run, "full", "session-000000000000002a");
+        Directory.CreateDirectory(fullSession);
+        WriteFullTrace(
+            fullSession,
+            CategoryRoster(),
+            Span(1, category: 1, sampled: 2_628, frame: 100, timestampTicks: 1_000, milliseconds: 1),
+            Span(2, category: 2, sampled: 180, frame: 100, timestampTicks: 1_000, milliseconds: 4),
+            Span(3, category: 1, sampled: 2_628, frame: 101, timestampTicks: 2_000, milliseconds: 3),
+            Span(4, category: 2, sampled: 180, frame: 101, timestampTicks: 2_000, milliseconds: 0),
+            Span(5, category: 1, sampled: 16, frame: 102, timestampTicks: 3_000, milliseconds: 10),
+            Span(6, category: 2, sampled: 180, frame: 102, timestampTicks: 3_000, milliseconds: 0));
 
-            var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
+        var document = TraceDashboardReader.Read(TraceCaptureLocator.Locate(run));
 
-            Assert.Equal(3, document.Categories.Passes);
-            Assert.Equal(6, document.Categories.Spans);
-            Assert.Equal(0, document.Categories.ShortPasses);
-            Assert.Equal(string.Empty, document.Categories.Discrepancy);
+        Assert.Equal(3, document.Categories.Passes);
+        Assert.Equal(6, document.Categories.Spans);
+        Assert.Equal(0, document.Categories.ShortPasses);
+        Assert.Equal(string.Empty, document.Categories.Discrepancy);
 
-            var scribe = document.Categories.Rows[0];
-            Assert.Equal("scribe relations", scribe.Name);
-            Assert.Equal(3, scribe.Passes);
-            Assert.Equal(14, scribe.TotalMilliseconds, 3);
-            Assert.Equal(14d / 3, scribe.AverageMilliseconds, 3);
-            Assert.Equal(3, scribe.MedianMilliseconds, 3);
-            Assert.Equal(10, scribe.WorstMilliseconds, 3);
-            // The population moved across a prestige, and the row says so rather than averaging it.
-            Assert.Equal(16, scribe.SampledLast);
-            Assert.Equal(2_628, scribe.SampledMaximum);
+        var scribe = document.Categories.Rows[0];
+        Assert.Equal("scribe relations", scribe.Name);
+        Assert.Equal(3, scribe.Passes);
+        Assert.Equal(14, scribe.TotalMilliseconds, 3);
+        Assert.Equal(14d / 3, scribe.AverageMilliseconds, 3);
+        Assert.Equal(3, scribe.MedianMilliseconds, 3);
+        Assert.Equal(10, scribe.WorstMilliseconds, 3);
+        // The population moved across a prestige, and the row says so rather than averaging it.
+        Assert.Equal(16, scribe.SampledLast);
+        Assert.Equal(2_628, scribe.SampledMaximum);
 
-            var effects = document.Categories.Rows[1];
-            Assert.Equal("effect blocks", effects.Name);
-            Assert.Equal(4, effects.TotalMilliseconds, 3);
-            Assert.Equal(180, effects.SampledLast);
+        var effects = document.Categories.Rows[1];
+        Assert.Equal("effect blocks", effects.Name);
+        Assert.Equal(4, effects.TotalMilliseconds, 3);
+        Assert.Equal(180, effects.SampledLast);
 
-            // Spans stay out of the timeline: one pass is sixty-odd of them at four passes a second,
-            // and they are a distribution rather than events to click through.
-            Assert.Empty(document.Events);
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
+        // Spans stay out of the timeline: one pass is sixty-odd of them at four passes a second,
+        // and they are a distribution rather than events to click through.
+        Assert.Empty(document.Events);
+
+
     }
 
     private static ServiceCycleTraceRoster CategoryRoster() => new(new[]

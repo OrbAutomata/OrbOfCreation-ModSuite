@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -68,7 +69,7 @@ public sealed class AutoHarvestBindingResolverTests
         var lifecycle = 7L;
         var registry = new Dictionary<Guid, object>();
         var identities = new Dictionary<object, Guid>();
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.Ready((IDictionary)registry),
             value => identities[value]);
@@ -114,7 +115,7 @@ public sealed class AutoHarvestBindingResolverTests
     {
         var circuit = new BlockingCircuit();
         var resolver = new AutoHarvestBindingResolver(
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 () => throw new InvalidOperationException("shared resolution was not admitted"),
                 () => throw new InvalidOperationException("shared resolution was not admitted"),
                 _ => throw new InvalidOperationException("shared resolution was not admitted")),

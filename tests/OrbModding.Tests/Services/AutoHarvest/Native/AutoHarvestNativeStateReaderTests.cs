@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -153,7 +154,7 @@ public sealed class AutoHarvestNativeStateReaderTests
             [currentPlot.GetGuid()] = currentPlot,
             [currentAction.GetGuid()] = currentAction,
         };
-        var resolver = new OrbModding.Common.TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => 1,
             () => OrbModding.Common.TypedRegistrySourceSnapshot.Ready((IDictionary)registry),
             value => ((IdScriptableObject)value).GetGuid());

@@ -54,7 +54,7 @@ public sealed class GameMcpFrameInboxTests
         Assert.True(canceled.Completion.TryCancelBeforeClaim(cancellation));
         Assert.Equal(new[] { live }, inbox.ClaimPending());
         Assert.True(canceled.Completion.TryWait(
-            TimeSpan.FromMilliseconds(50), out var terminal));
+            ServiceCycleTestDeadline.Value, out var terminal));
         Assert.Equal("ERR_UNAVAILABLE", (string?)GameMcpTestHarness.Json(terminal.Payload!)["reasonCode"]);
     }
 
@@ -91,8 +91,8 @@ public sealed class GameMcpFrameInboxTests
         var second = Submit(inbox, "world_categories");
         inbox.Close("shutdown", "server stopping");
 
-        Assert.True(first.Completion.TryWait(TimeSpan.FromMilliseconds(50), out var firstResult));
-        Assert.True(second.Completion.TryWait(TimeSpan.FromMilliseconds(50), out var secondResult));
+        Assert.True(first.Completion.TryWait(ServiceCycleTestDeadline.Value, out var firstResult));
+        Assert.True(second.Completion.TryWait(ServiceCycleTestDeadline.Value, out var secondResult));
         Assert.Equal("ERR_REFUSED", (string?)GameMcpTestHarness.Json(firstResult.Payload!)["reasonCode"]);
         Assert.Equal("ERR_REFUSED", (string?)GameMcpTestHarness.Json(secondResult.Payload!)["reasonCode"]);
         Assert.Empty(inbox.ClaimPending());
@@ -300,7 +300,7 @@ public sealed class GameMcpFrameInboxTests
         Assert.Equal(submitted.Select(static operation => operation.Sequence), executed);
         Assert.All(contexts, context => Assert.Same(contexts[0], context));
         Assert.All(submitted, operation => Assert.True(operation.Completion.TryWait(
-            TimeSpan.FromMilliseconds(50), out _)));
+            ServiceCycleTestDeadline.Value, out _)));
     }
 
     [Fact]

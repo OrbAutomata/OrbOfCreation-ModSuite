@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using OrbModding.Common;
@@ -49,7 +50,8 @@ public sealed class SuiteLoadGateTests
     public void AMissingInstallIsRefusedRatherThanTreatedAsUnverifiable()
     {
         // An audit that cannot run is not an audit that passed.
-        var decision = SuiteLoadGate.Evaluate(Path.Combine(Path.GetTempPath(), "orb-suite-absent-" + Guid.NewGuid().ToString("N")));
+        using var temporary = new TempDirectory();
+        var decision = SuiteLoadGate.Evaluate(temporary.Path);
 
         Assert.False(decision.ShouldLoad);
         Assert.False(decision.CanLoadControlPlane);
@@ -79,9 +81,10 @@ public sealed class SuiteLoadGateTests
     /// <summary>A throwaway managed-assembly layout the audit will discover and hash.</summary>
     private sealed class FakeInstall : IDisposable
     {
+        private readonly TempDirectory _temporary = new();
         internal FakeInstall(string? assemblyCSharp, string? firstPass)
         {
-            Root = Path.Combine(Path.GetTempPath(), "orb-suite-gate-" + Guid.NewGuid().ToString("N"));
+            Root = _temporary.Path;
             var managed = Path.Combine(Root, "Orb Of Creation_Data", "Managed");
             Directory.CreateDirectory(managed);
 
@@ -93,16 +96,6 @@ public sealed class SuiteLoadGateTests
 
         internal string Root { get; }
 
-        public void Dispose()
-        {
-            try
-            {
-                if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
-            }
-            catch (IOException)
-            {
-                // A leaked temp directory must never fail a test run.
-            }
-        }
+        public void Dispose() => _temporary.Dispose();
     }
 }

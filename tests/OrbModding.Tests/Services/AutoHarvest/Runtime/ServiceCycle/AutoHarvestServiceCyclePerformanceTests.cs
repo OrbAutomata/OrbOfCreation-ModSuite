@@ -94,7 +94,7 @@ public sealed class AutoHarvestServiceCyclePerformanceTests
             }, ServiceCycleTestDeadline.Value));
             Assert.NotEqual(Environment.CurrentManagedThreadId, storage.ReconcileThreadId);
             // Armed only once the journal is recording, so warm-up latency cannot eat the measured window.
-            var deadline = ArmDeadline();
+            var deadline = new ServiceCycleTestDeadline.Budget();
             RunCycle(pump, registry, world, journal, diagnostics, registration, clock, ref frame, deadline, out _);
             // A collection can charge this thread its unused allocation quantum inside the probe.
             Assert.True(GC.TryStartNoGCRegion(NoGcRegionSize, disallowFullBlockingGC: true));
@@ -151,7 +151,7 @@ public sealed class AutoHarvestServiceCyclePerformanceTests
             AutoHarvestCycleAction> registration,
         ThreadSafeTestClock clock,
         ref long frame,
-        long deadline,
+        ServiceCycleTestDeadline.Budget deadline,
         out long workerAllocated)
     {
         clock.Advance(Interval);
@@ -161,13 +161,13 @@ public sealed class AutoHarvestServiceCyclePerformanceTests
         var expectedWorkerCycles = registration.Runner.Snapshot.MeasuredWorkerCycleCount + 1;
         var allocated = MeasurePump(pump, journal, diagnostics, ref frame, out var capture);
         Assert.Equal(1, capture.CyclesStarted);
-        Assert.True(registration.WaitForResponseReady(Remaining(deadline)));
-        WaitForMeasuredWorkerCycle(registration, expectedWorkerCycles, deadline);
+        Assert.True(registration.WaitForResponseReady(deadline.Remaining));
+        deadline.For(() => registration.Runner.Snapshot.MeasuredWorkerCycleCount >= expectedWorkerCycles, "Auto Harvest allocation publication");
         workerAllocated = registration.Runner.Snapshot.WorkerCycleAllocatedBytes;
         allocated += MeasurePump(pump, journal, diagnostics, ref frame, out var response);
         allocated += MeasurePump(pump, journal, diagnostics, ref frame, out var action);
         allocated += MeasurePump(pump, journal, diagnostics, ref frame, out var handback);
-        WaitForCleanup(registration, deadline);
+        deadline.For(() => !registration.Runner.Snapshot.Handoff.CleanupPending, "Auto Harvest worker cleanup");
 
         Assert.Equal(1, response.ResponsesAcquired);
         Assert.Equal(1, action.ActionsAttempted);
@@ -189,46 +189,6 @@ public sealed class AutoHarvestServiceCyclePerformanceTests
         return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
-    private static void WaitForCleanup(
-        ServiceRegistration<
-            AutoHarvestCycleState,
-            AutoHarvestCycleAction> registration,
-        long deadline)
-    {
-        var spin = new SpinWait();
-        while (registration.Runner.Snapshot.Handoff.CleanupPending)
-        {
-            if (Stopwatch.GetTimestamp() >= deadline)
-                throw new TimeoutException("Auto Harvest worker cleanup exceeded the test deadline.");
-            spin.SpinOnce();
-        }
-    }
-
-    private static void WaitForMeasuredWorkerCycle(
-        ServiceRegistration<
-            AutoHarvestCycleState,
-            AutoHarvestCycleAction> registration,
-        long expectedCount,
-        long deadline)
-    {
-        var spin = new SpinWait();
-        while (registration.Runner.Snapshot.MeasuredWorkerCycleCount < expectedCount)
-        {
-            if (Stopwatch.GetTimestamp() >= deadline)
-                throw new TimeoutException("Auto Harvest worker allocation publication exceeded the test deadline.");
-            spin.SpinOnce();
-        }
-    }
-
-    private static long ArmDeadline() => Stopwatch.GetTimestamp()
-        + (long)(ServiceCycleTestDeadline.Value.TotalSeconds * Stopwatch.Frequency);
-
-    private static TimeSpan Remaining(long deadline)
-    {
-        var ticks = deadline - Stopwatch.GetTimestamp();
-        if (ticks <= 0) throw new TimeoutException("Auto Harvest allocation evidence exceeded its deadline.");
-        return TimeSpan.FromSeconds((double)ticks / Stopwatch.Frequency);
-    }
 
     private static SuiteRuntimeConfiguration Configuration() => AutoHarvestConfigurationFactory.Create(
         masterEnabled: true,

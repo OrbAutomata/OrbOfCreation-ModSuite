@@ -38,7 +38,7 @@ public sealed class AutoHarvestServiceCycleSoakEvidence
         registry.Seal();
         using var pump = new SuiteFramePump(registry);
         TestWorldCollector.CollectedAtActivation(registry);
-        var deadline = Stopwatch.GetTimestamp() + 20 * Stopwatch.Frequency;
+        var deadline = new ServiceCycleTestDeadline.Budget();
         var frame = 0L;
         var lifecycle = 2UL;
         var maximumLivePositions = 1;
@@ -80,42 +80,20 @@ public sealed class AutoHarvestServiceCycleSoakEvidence
             AutoHarvestCycleAction> registration,
         ThreadSafeTestClock clock,
         ref long frame,
-        long deadline)
+        ServiceCycleTestDeadline.Budget deadline)
     {
         clock.Advance(Step);
         TestWorldCollector.CollectedAt(registry, frame + 2, world);
         Assert.Equal(1, pump.PumpFrame(++frame).CyclesStarted);
-        Assert.True(registration.WaitForResponseReady(Remaining(deadline)));
+        Assert.True(registration.WaitForResponseReady(deadline.Remaining));
         Assert.Equal(1, pump.PumpFrame(++frame).ResponsesAcquired);
         Assert.Equal(1, pump.PumpFrame(++frame).ActionsAttempted);
         pump.PumpFrame(++frame);
-        WaitForCleanup(registration, deadline);
+        deadline.For(() => !registration.Runner.Snapshot.Handoff.CleanupPending, "Auto Harvest worker cleanup");
     }
 
     private static void PublishConfiguration(ServiceCycleRegistry registry) =>
         registry.ConfigurationPublication.Publish(Configuration());
-
-    private static void WaitForCleanup(
-        ServiceRegistration<
-            AutoHarvestCycleState,
-            AutoHarvestCycleAction> registration,
-        long deadline)
-    {
-        var spin = new SpinWait();
-        while (registration.Runner.Snapshot.Handoff.CleanupPending)
-        {
-            if (Stopwatch.GetTimestamp() >= deadline)
-                throw new TimeoutException("Auto Harvest action cleanup did not settle.");
-            spin.SpinOnce();
-        }
-    }
-
-    private static TimeSpan Remaining(long deadline)
-    {
-        var ticks = deadline - Stopwatch.GetTimestamp();
-        if (ticks <= 0) throw new TimeoutException("Auto Harvest soak exceeded its deadline.");
-        return TimeSpan.FromSeconds((double)ticks / Stopwatch.Frequency);
-    }
 
     private static SuiteRuntimeConfiguration Configuration() => AutoHarvestConfigurationFactory.Create(
         masterEnabled: true,

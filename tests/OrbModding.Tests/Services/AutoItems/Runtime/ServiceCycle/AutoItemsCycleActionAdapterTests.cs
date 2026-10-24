@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -170,7 +171,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();
         return new AutoItemsConsumableUseGameAction(
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 static () => 7,
                 () => TypedRegistrySourceSnapshot.Ready(registry),
                 static _ => Guid.Empty),

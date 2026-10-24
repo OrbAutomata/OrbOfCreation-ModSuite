@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -375,10 +376,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Func<long>? readGeneration = null)
     {
         IDictionary registry = _registry;
-        var resolver = new TypedRegistryResolver(
-            readGeneration ?? (() => _lifecycle),
-            () => TypedRegistrySourceSnapshot.Ready(registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readGeneration ?? (() => _lifecycle), registry);
         return new AutoScribeOneShotCraftPlayerGameAction(
             resolver,
             readLifecycleEpoch ?? (() => _lifecycle),

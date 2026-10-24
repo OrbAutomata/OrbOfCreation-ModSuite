@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
@@ -230,7 +231,7 @@ public sealed class ServiceCycleProfileProbeTests
             }
         });
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(1)), "Profile probe thread did not finish.");
+        Assert.True(thread.Join(ServiceCycleTestDeadline.Value), "Profile probe thread did not finish.");
         return result;
     }
 

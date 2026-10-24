@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using System.Text;
@@ -8,13 +9,12 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.Observation;
 
 public sealed class AutomataLegacyObservabilityCleanupTests : IDisposable
 {
-    private readonly string _configRoot = Path.Combine(
-        Path.GetTempPath(),
-        "orb-legacy-observability-" + Guid.NewGuid().ToString("N"));
+    private readonly TempDirectory _temporary = new();
+    private string _configRoot => _temporary.Path;
 
     public void Dispose()
     {
-        if (Directory.Exists(_configRoot)) Directory.Delete(_configRoot, recursive: true);
+        _temporary.Dispose();
     }
 
     [Fact]

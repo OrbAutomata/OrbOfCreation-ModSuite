@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using OrbAutomata;
@@ -389,7 +390,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         GameActionFaultLog.ConfigureLog(logged.Add);
         var warnings = new List<string>();
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
-        var registry = new TypedRegistryResolver(
+        var registry = TestRegistryResolver.For(
             () => 1,
             () => throw new InvalidOperationException(cause),
             _ => Guid.Empty);
@@ -614,7 +615,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         const string cause = "injected registry outage";
         var outage = true;
         var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
-        var levels = new SpellLevelNativeAdapter(new TypedRegistryResolver(
+        var levels = new SpellLevelNativeAdapter(TestRegistryResolver.For(
             () => 1,
             () => outage
                 ? throw new InvalidOperationException(cause)

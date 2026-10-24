@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -91,7 +92,7 @@ public sealed class GameMcpReturnToMenuTests
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);

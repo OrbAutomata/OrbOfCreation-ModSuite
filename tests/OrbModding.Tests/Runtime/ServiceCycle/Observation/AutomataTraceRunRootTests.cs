@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using OrbAutomata;
@@ -24,11 +25,11 @@ public sealed class AutomataTraceRunRootTests
     [Fact]
     public void SweepingKeepsTheNewestFoldersAndCountsTheCurrentLaunchAmongThem()
     {
-        using var root = new TemporaryDirectory();
-        root.CreateRunFolder("run-20260101-000001-aaaa");
-        root.CreateRunFolder("run-20260102-000002-bbbb");
-        root.CreateRunFolder("run-20260103-000003-cccc");
-        root.CreateRunFolder("run-20260104-000004-dddd");
+        using var root = new TempDirectory(create: true);
+        CreateRunFolder(root, "run-20260101-000001-aaaa");
+        CreateRunFolder(root, "run-20260102-000002-bbbb");
+        CreateRunFolder(root, "run-20260103-000003-cccc");
+        CreateRunFolder(root, "run-20260104-000004-dddd");
 
         var removed = AutomataTraceRunRoot.SweepRunFolders(
             root.Path,
@@ -45,9 +46,9 @@ public sealed class AutomataTraceRunRootTests
     [Fact]
     public void SweepingNeverDeletesTheCurrentRunFolder()
     {
-        using var root = new TemporaryDirectory();
-        root.CreateRunFolder("run-20260101-000001-aaaa");
-        root.CreateRunFolder("run-20260102-000002-bbbb");
+        using var root = new TempDirectory(create: true);
+        CreateRunFolder(root, "run-20260101-000001-aaaa");
+        CreateRunFolder(root, "run-20260102-000002-bbbb");
 
         var removed = AutomataTraceRunRoot.SweepRunFolders(
             root.Path,
@@ -70,11 +71,11 @@ public sealed class AutomataTraceRunRootTests
     [Fact]
     public void SweepingLeavesEveryEntryThatIsNotAWellFormedRunFolder()
     {
-        using var root = new TemporaryDirectory();
-        root.CreateRunFolder("journal");
-        root.CreateRunFolder("run-notatimestamp");
-        root.CreateRunFolder("run-20260102-000002-BBBB");
-        root.CreateRunFolder("run-20260101-000001-aaaa");
+        using var root = new TempDirectory(create: true);
+        CreateRunFolder(root, "journal");
+        CreateRunFolder(root, "run-notatimestamp");
+        CreateRunFolder(root, "run-20260102-000002-BBBB");
+        CreateRunFolder(root, "run-20260101-000001-aaaa");
 
         var removed = AutomataTraceRunRoot.SweepRunFolders(root.Path, "run-x", retained: 1);
 
@@ -88,35 +89,18 @@ public sealed class AutomataTraceRunRootTests
     [Fact]
     public void SweepingAnAbsentTraceRootIsNotAFailure()
     {
-        var absent = Path.Combine(Path.GetTempPath(), "orb-trace-absent-" + Guid.NewGuid().ToString("N"));
+        using var temporary = new TempDirectory();
+        var absent = temporary.Path;
 
         Assert.Equal(0, AutomataTraceRunRoot.SweepRunFolders(absent, "run-x", retained: 4));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             AutomataTraceRunRoot.SweepRunFolders(absent, "run-x", retained: 0));
     }
 
-    private sealed class TemporaryDirectory : IDisposable
+
+    private static void CreateRunFolder(TempDirectory root, string name)
     {
-        internal TemporaryDirectory()
-        {
-            Path = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(),
-                "orb-trace-root-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Path);
-        }
-
-        internal string Path { get; }
-
-        internal void CreateRunFolder(string name)
-        {
-            var folder = System.IO.Path.Combine(Path, name);
-            Directory.CreateDirectory(folder);
-            File.WriteAllBytes(System.IO.Path.Combine(folder, "artifact.bin"), new byte[] { 1 });
-        }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true);
-        }
+        var folder = root.CreateDirectory(name);
+        File.WriteAllBytes(Path.Combine(folder, "artifact.bin"), new byte[] { 1 });
     }
 }

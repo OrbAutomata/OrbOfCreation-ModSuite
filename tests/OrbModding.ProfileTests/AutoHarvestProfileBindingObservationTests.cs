@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ public sealed class AutoHarvestProfileBindingObservationTests
         var lifecycle = 1L;
         var registry = new Dictionary<Guid, object>();
         var identities = new Dictionary<object, Guid>();
-        var nativeResolver = new TypedRegistryResolver(
+        var nativeResolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.Ready((IDictionary)registry),
             value => identities[value]);

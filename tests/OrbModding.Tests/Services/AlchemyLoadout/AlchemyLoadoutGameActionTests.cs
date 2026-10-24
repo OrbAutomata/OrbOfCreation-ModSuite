@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -174,9 +175,7 @@ public sealed class AlchemyLoadoutGameActionTests : IDisposable
         Func<long>? epoch = null)
     {
         var readEpoch = epoch ?? (() => Epoch);
-        var resolver = new TypedRegistryResolver(readEpoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readEpoch, _registry);
         return new AlchemyLoadoutGameAction(readEpoch, static () => true,
             static () => "AlchemyLoadout ownership was revoked.",
             includeContract: includeContract, registry: resolver,

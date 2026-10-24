@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -714,10 +715,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
     {
         IDictionary source = registry;
         var composed = new RegistryCapture(new AutoItemsServiceCycleFeature(new AutoItemsFeatureDependencies(
-            new TypedRegistryResolver(
-                static () => 1,
-                () => TypedRegistrySourceSnapshot.Ready(source),
-                value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty),
+            TestRegistryResolver.For(static () => 1, source),
             static () => 1,
             ownsActionFamily: static () => true,
             tryCaptureMutationPermit: static () => true,

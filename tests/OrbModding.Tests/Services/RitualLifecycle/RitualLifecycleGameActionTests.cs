@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -272,9 +273,7 @@ public sealed class RitualLifecycleGameActionTests : IDisposable
         Func<string, bool>? includeContract = null,
         Func<long>? epoch = null)
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(() => Epoch, _registry);
         return new RitualLifecycleGameAction(epoch ?? (() => Epoch), static () => true,
             static () => "RitualLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

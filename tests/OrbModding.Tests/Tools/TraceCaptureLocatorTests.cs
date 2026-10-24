@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using OrbModding.ServiceCycleTrace;
@@ -101,7 +102,8 @@ public sealed class TraceCaptureLocatorTests
     [Fact]
     public void MissingInputIsReportedWithThePathThatWasNamed()
     {
-        var missing = Path.Combine(Path.GetTempPath(), "orb-trace-locator-" + Guid.NewGuid().ToString("N"));
+        using var temporary = new TempDirectory();
+        var missing = temporary.Path;
 
         var error = Assert.Throws<DirectoryNotFoundException>(() => TraceCaptureLocator.Locate(missing));
 
@@ -110,11 +112,10 @@ public sealed class TraceCaptureLocatorTests
 
     private sealed class TraceRootTestDirectory : IDisposable
     {
+        private readonly TempDirectory _temporary = new(create: true);
         internal TraceRootTestDirectory()
         {
-            Path = System.IO.Path.Combine(
-                System.IO.Path.GetTempPath(),
-                "orb-trace-locator-" + Guid.NewGuid().ToString("N"));
+            Path = _temporary.Path;
             Directory.CreateDirectory(Path);
         }
 
@@ -129,7 +130,7 @@ public sealed class TraceCaptureLocatorTests
 
         public void Dispose()
         {
-            if (Directory.Exists(Path)) Directory.Delete(Path, recursive: true);
+            _temporary.Dispose();
         }
     }
 }

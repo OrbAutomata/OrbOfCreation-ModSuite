@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -104,7 +105,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
 
     private ResearchGameAction ResearchAction()
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
+        var resolver = TestRegistryResolver.For(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is ResearchSO research ? research.GetGuid() : Guid.Empty);
         return new ResearchGameAction(() => Epoch, () => true,

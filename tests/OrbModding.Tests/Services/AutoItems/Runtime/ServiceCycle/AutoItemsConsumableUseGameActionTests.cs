@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -449,10 +450,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Func<string>? failure = null)
     {
         IDictionary dictionary = _registry;
-        var resolver = new TypedRegistryResolver(
-            static () => 1,
-            () => TypedRegistrySourceSnapshot.Ready(dictionary),
-            value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(static () => 1, dictionary);
         return new AutoItemsConsumableUseGameAction(
             resolver,
             permit ?? (static () => true),
