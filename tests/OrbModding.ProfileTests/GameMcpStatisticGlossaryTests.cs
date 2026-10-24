@@ -23,6 +23,7 @@ namespace OrbModding.ProfileTests;
 /// the assertions are about what one page says without a second call.
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpStatisticGlossaryTests : IDisposable
 {
     private static readonly Guid Cost = Guid.Parse("bb3cd428-054a-4e36-9f5e-7e83cbd9c5bb");

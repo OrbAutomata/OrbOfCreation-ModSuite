@@ -704,9 +704,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::UpgradeSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
 
         // The upgrade has to be reachable the way production reaches it, which is the typed registry

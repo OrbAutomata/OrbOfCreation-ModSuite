@@ -4,21 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public class UpgradeSO : IdScriptableObject, IActionable
+public class UpgradeSO : StringIdScriptableObject, IActionable
 {
     public static List<UpgradeSO> All = new List<UpgradeSO>();
-    private string stableUuid;
 
-    public UpgradeSO() => stableUuid = base.GetGuid().ToString("D");
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
+
     // The game stores one owned level and one in-flight count; every level question it answers is
     // derived from those two and maxLevel. Storing the answers independently let a fixture describe
     // an upgrade the game could never produce, which the suite then read straight out of the fields.
@@ -110,4 +100,6 @@ public class UpgradeSO : IdScriptableObject, IActionable
         queuedLevels--;
         level++;
     }
+    public int Level { get => level; set => level = value; }
+    public bool Available { get => available; set => available = value; }
 }

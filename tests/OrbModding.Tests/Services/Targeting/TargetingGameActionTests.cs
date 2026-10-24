@@ -12,11 +12,11 @@ namespace OrbModding.Tests.Services.TargetingActions;
 public sealed class TargetingGameActionTests : IDisposable
 {
     private const long Epoch = 17;
-    public TargetingGameActionTests() => TargetingManager.Reset();
+    public TargetingGameActionTests() => OrbModding.GameStubs.GameStubState.Reset();
 
     public void Dispose()
     {
-        TargetingManager.Reset();
+        OrbModding.GameStubs.GameStubState.Reset();
         GameActionFaultLog.ConfigureLog(null);
     }
 
@@ -156,7 +156,8 @@ public sealed class TargetingGameActionTests : IDisposable
         var submit = action.Submit(new TargetingAction(TargetingActionKind.Submit, target.GetGuid(), Epoch));
         Assert.True(submit.Outcome.Verified);
 
-        TargetingManager.Reset();
+        TargetingManager.ThrowAfterSubmit = false;
+        TargetingManager.SubmittedTargets.Clear();
         Open(Target());
         EffectResultInfo.ThrowAfterCancel = true;
         using var cancelAction = Action();

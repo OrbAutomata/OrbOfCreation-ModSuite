@@ -249,19 +249,5 @@ internal static class GameMcpEntityDetailFixture
         return GameWorldFrameDeriver.Build(frame);
     }
 
-    internal static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::RitualSO.All.Clear();
-        global::GlyphSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::IntVariable.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::GameManager.currentFrame = 0;
-    }
+
 }

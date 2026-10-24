@@ -14,14 +14,10 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
 
     public DiscoveryTreeOfferGameActionTests()
     {
-        DiscoveryTreeSO.All.Clear();
-        ResourceSO.All.Clear();
     }
 
     public void Dispose()
     {
-        DiscoveryTreeSO.All.Clear();
-        ResourceSO.All.Clear();
     }
 
     [Fact]

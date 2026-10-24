@@ -17,9 +17,9 @@ namespace OrbModding.Tests.Runtime.Verification;
 /// </remarks>
 public sealed class AutomataUpgradeCostVerifierTests : IDisposable
 {
-    public AutomataUpgradeCostVerifierTests() => global::UpgradeSO.All.Clear();
+    public AutomataUpgradeCostVerifierTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => global::UpgradeSO.All.Clear();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing() =>

@@ -182,6 +182,7 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
     [Fact]
     public void ARecipeWithTwoCraftingTypesDegradesTheCategoryRatherThanPublishingOne()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         Seed();
         Registered<global::CraftingRecipeListVariable>(KnownEntities.ScribeCraftingRecipes.Uuid)
             .value[0]
@@ -191,13 +192,15 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Contains("recipe types", report.FirstFailure, StringComparison.Ordinal);
+        Assert.Equal("reading crafting relations failed", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, "recipe types");
         Assert.Equal(0, frame.ScribeRecipes.Count);
     }
 
     [Fact]
     public void AQueueThatContradictsItsAutomationRoleDegradesTheCategory()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         Seed();
         Registered<global::CraftingInstanceListVariable>(KnownEntities.AutoScribeInstances.Uuid)
             .isAutoList = false;
@@ -206,10 +209,8 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Contains(
-            "contradicted its native automation role",
-            report.FirstFailure,
-            StringComparison.Ordinal);
+        Assert.Equal("reading crafting relations failed", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, "contradicted its native automation role");
     }
 
     /// <summary>
@@ -239,6 +240,7 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
     [Fact]
     public void AScrollWhoseEnchantEffectMovedDegradesTheCategory()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         Seed();
         var scroll = Registered<global::ConsumableSO>(KnownEntities.ScrollEcho.Uuid);
         ((global::EnchantmentSO.EnchantItemScript)scroll.onUseEffects[0].effectScripts[1])
@@ -248,7 +250,8 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Contains("enchant effects", report.FirstFailure, StringComparison.Ordinal);
+        Assert.Equal("reading crafting relations failed", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, "enchant effects");
     }
 
     /// <summary>
@@ -319,10 +322,7 @@ public sealed class WorldScribeRelationReaderTests : IDisposable
 
     private static void Clear()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::StructureSO.All.Clear();
-        global::CraftingRecipeSO.All.Clear();
-        global::UnityEngine.Resources.Objects.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
     }
 
     private static void Seed()

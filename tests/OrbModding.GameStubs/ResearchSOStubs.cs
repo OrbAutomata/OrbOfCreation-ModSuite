@@ -158,4 +158,8 @@ public class ResearchSO : ILevelable
     public int GetMaxLevel() => maxLevel;
     public int GetArtificialMaxLevel() => maxLevelCap.GetValue().ToInt();
     public int GetRequirementLevel() => requirementsAdjust.Adjust(new BigDouble(GetBaseLevel())).ToInt();
+    public Guid Identity { get => GetGuid(); set => uuid = value.ToString("D"); }
+    public bool Available { get => available; set => available = value; }
+    public int RequiredStagesCached { get => requiredStagesCached; set => requiredStagesCached = value; }
+    public BigDouble RequiredTimeCached { get => requiredTimeCached; set => requiredTimeCached = value; }
 }

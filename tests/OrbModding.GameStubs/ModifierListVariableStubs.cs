@@ -18,4 +18,5 @@ public sealed class ModifierListVariable
     public Guid GetGuid() => uuid;
 
     public ValueModifierList GetValue() => value;
+    public Guid Identity { get => GetGuid(); set => uuid = value; }
 }

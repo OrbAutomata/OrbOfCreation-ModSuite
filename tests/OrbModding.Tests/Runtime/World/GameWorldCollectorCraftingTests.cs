@@ -10,54 +10,54 @@ public sealed class GameWorldCollectorCraftingTests : GameWorldCollectorTestBase
     public void CraftingRecipesPublishNativeVerdictsAndConcreteRecipeEdgesTogether()
     {
         var recipeId = Guid.Parse("b1b7d331-587a-4b4c-87cf-4a8f57c8256b");
-        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
-        var input = new FakeResource
+        var type = new CraftingRecipeTypeSO { Identity = Guid.NewGuid() };
+        var input = new ResourceSO
         {
             Identity = Guid.NewGuid(),
             Quantity = 80d,
-            quality = new FakeModifierRecord(100d),
-            maxQuantity = new FakeModifierRecord(100d),
-            usage = new FakeModifierRecord(4d),
-            drain = new FakeModifierRecord(1.5d),
+            quality = new ValueModifierRecord(100d),
+            maxQuantity = new ValueModifierRecord(100d),
+            usage = new ValueModifierRecord(4d),
+            drain = new ValueModifierRecord(1.5d),
             bandwidthResource = true,
             Visible = true,
         };
-        var generated = new FakeResource
+        var generated = new ResourceSO
         {
             Identity = Guid.NewGuid(),
             Quantity = 12d,
-            quality = new FakeModifierRecord(100d),
-            maxQuantity = new FakeModifierRecord(50d),
+            quality = new ValueModifierRecord(100d),
+            maxQuantity = new ValueModifierRecord(50d),
             Visible = true,
         };
-        var sigil = new FakeConsumable { Identity = Guid.NewGuid() };
-        var completion = new FakeScribeInstantBlock();
-        completion.effectScripts.Add(new FakeScribeConsumableGainEffect { consumable = sigil });
-        var recipe = new FakeScribeRecipe
+        var sigil = new ConsumableSO { Identity = Guid.NewGuid() };
+        var completion = new InstantEffectBlock();
+        completion.effectScripts.Add(new ConsumableSO.ConsumableGainEffect { consumable = sigil });
+        var recipe = new CraftingRecipeSO
         {
             Identity = recipeId,
             visible = false,
-            canBuy = false,
-            startingQuantity = new BigDouble(2d),
+            BuyAllowed = false,
+            StartingQuantity = new BigDouble(2d),
             useQuantityAsLevel = true,
             timeToComplete = 9.5d,
-            recipeCost = new FakeCraftingResourceCostList().With(input, new BigDouble(3d)),
-            generatedResources = new FakeCraftingResourceCostList
+            recipeCost = new ResourceCostList().With(input, new BigDouble(3d)),
+            generatedResources = new ResourceCostList
             {
                 withinCapacity = false,
             }.With(generated, new BigDouble(7d)),
         };
         recipe.craftingTypes.Add(type);
         recipe.completeEffects.Add(completion);
-        recipe.engagementEffects.Add(new FakeCraftingEngagementBlock
+        recipe.engagementEffects.Add(new PersistentEffectBlock
         {
-            necessaryDrainRatio = new BigDouble(0.75d),
+            NecessaryDrainRatio = new BigDouble(0.75d),
         });
-        FakeCraftingRecipeType.All.Add(type);
-        FakeResource.All.Add(input);
-        FakeResource.All.Add(generated);
-        FakeConsumable.All.Add(sigil);
-        FakeScribeRecipe.All.Add(recipe);
+        CraftingRecipeTypeSO.All.Add(type);
+        ResourceSO.All.Add(input);
+        ResourceSO.All.Add(generated);
+        ConsumableSO.All.Add(sigil);
+        CraftingRecipeSO.All.Add(recipe);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -113,16 +113,16 @@ public sealed class GameWorldCollectorCraftingTests : GameWorldCollectorTestBase
     [Fact]
     public void ACraftingRecipeWhoseAuthoringThrowsUnexpectedlyFaultsThePass()
     {
-        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var type = new CraftingRecipeTypeSO { Identity = Guid.NewGuid() };
         var failure = new NullReferenceException("generated resource was destroyed");
-        var output = new FakeResource { GetGuidFailure = failure };
-        var recipe = new FakeScribeRecipe
+        var output = new ResourceSO { GetGuidFailure = failure };
+        var recipe = new CraftingRecipeSO
         {
-            generatedResources = new FakeCraftingResourceCostList().With(output, BigDouble.One),
+            generatedResources = new ResourceCostList().With(output, BigDouble.One),
         };
         recipe.craftingTypes.Add(type);
-        FakeCraftingRecipeType.All.Add(type);
-        FakeScribeRecipe.All.Add(recipe);
+        CraftingRecipeTypeSO.All.Add(type);
+        CraftingRecipeSO.All.Add(recipe);
 
         var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
 
@@ -136,12 +136,12 @@ public sealed class GameWorldCollectorCraftingTests : GameWorldCollectorTestBase
     [Fact]
     public void ACraftingRecipeWhoseLiveStateThrowsUnexpectedlyFaultsThePass()
     {
-        var type = new FakeCraftingRecipeType { Identity = Guid.NewGuid() };
+        var type = new CraftingRecipeTypeSO { Identity = Guid.NewGuid() };
         var failure = new NullReferenceException("starting quantity was destroyed");
-        var recipe = new FakeScribeRecipe { StartingQuantityFailure = failure };
+        var recipe = new CraftingRecipeSO { StartingQuantityFailure = failure };
         recipe.craftingTypes.Add(type);
-        FakeCraftingRecipeType.All.Add(type);
-        FakeScribeRecipe.All.Add(recipe);
+        CraftingRecipeTypeSO.All.Add(type);
+        CraftingRecipeSO.All.Add(recipe);
 
         var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
 

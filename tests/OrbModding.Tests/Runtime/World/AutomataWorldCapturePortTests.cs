@@ -89,24 +89,27 @@ public sealed class AutomataWorldCapturePortTests
     [Fact]
     public void AnInstanceThatContradictsItsContainingQueueFailsCaptureLoudly()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         var seeded = SeedScribeRelations();
         var active = Assert.IsType<global::CraftingInstanceListVariable>(
             global::IdScriptableObject.RuntimeLookup[KnownEntities.ActiveScribeInstances.Uuid]);
         active.value.Add(new global::CraftingInstance { Automatic = true });
-        var announced = new List<string>();
+        var announced = new List<WorldCollectionReport>();
         var port = new AutomataWorldCapturePort(
             new GameWorldCollector(),
             () => 1,
             () => 1,
-            r => announced.Add(r.Describe()));
+            r => announced.Add(r));
 
         try
         {
             port.Collect(new GameWorldCycleFrame());
 
-            var line = Assert.Single(announced);
+            var observed = Assert.Single(announced);
+            var line = observed.Describe();
             Assert.StartsWith("World collection incomplete", line);
-            Assert.Contains("CraftingInstance.IsAuto() contradicted", line);
+            Assert.DoesNotContain("CraftingInstance.IsAuto() contradicted", line);
+            faults.AssertLogged(observed.For("scribe relations").Failure.Reason, "CraftingInstance.IsAuto() contradicted");
         }
         finally
         {

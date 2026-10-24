@@ -31,8 +31,7 @@ public sealed class AutoHarvestActionSafetyTests : IDisposable
 
     private static void Clear()
     {
-        PlotNodeSO.All.Clear();
-        PlotNodeActionSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
     }
 
     [Fact]

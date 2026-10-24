@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class AlchemyInstance : AbstractRefInstance<AlchemyRecipeSO>
+public class AlchemyInstance : AbstractRefInstance<AlchemyRecipeSO>
 {
     public AlchemyInstance()
     {

@@ -736,10 +736,9 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
 
     private static void ResetNativeStubs()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
         NativeMultiBuyScope.ResetForTests();
     }

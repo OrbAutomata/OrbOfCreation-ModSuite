@@ -4,23 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
+public sealed class EquipmentSO : StringIdScriptableObject, IDiscoverable
 {
     public List<PersistentEffectBlock> equipEffects = new List<PersistentEffectBlock>();
     public static List<EquipmentSO> All = new List<EquipmentSO>();
     private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
-    private string stableUuid;
 
-    public EquipmentSO() => stableUuid = base.GetGuid().ToString("D");
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
+
     public new string name = "Equipment";
     public int masteryLevel;
     public BigDouble masteryXp;
@@ -40,7 +30,7 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
     public bool ThrowAfterDiscovery { get; set; }
     public bool ThrowOnStateRead { get; set; }
     public int DiscoverCalls { get; private set; }
-    public new Guid GetGuid() => Guid.Parse(uuid);
+    public new Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : Guid.Parse(uuid);
     public new Guid GetId() => GetGuid();
     public string GetName() => name;
     public bool IsCreated() => isCreated;
@@ -101,4 +91,8 @@ public sealed class EquipmentSO : IdScriptableObject, IDiscoverable
     private int attuningLevel;
     private double attunementTimeLeft;
     private BigDouble baseXpRate;
+    public int EquippedLevel { get => equippedLevel; set => equippedLevel = value; }
+    public int AttuningLevel { get => attuningLevel; set => attuningLevel = value; }
+    public double AttunementTimeLeft { get => attunementTimeLeft; set => attunementTimeLeft = value; }
+    public BigDouble BaseXpRate { get => baseXpRate; set => baseXpRate = value; }
 }

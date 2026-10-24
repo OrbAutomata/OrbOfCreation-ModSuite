@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
+public class SpellRecipeSO : StringIdScriptableObject, IDiscoverable, ILevelable
 {
     public List<InstantEffectBlock> onCastEffects = new List<InstantEffectBlock>();
     public List<PersistentEffectBlock> toggledEffects = new List<PersistentEffectBlock>();
@@ -12,23 +12,13 @@ public class SpellRecipeSO : IdScriptableObject, IDiscoverable, ILevelable
     private List<SpellTypeSO> notSpellTypes = new List<SpellTypeSO>();
 #pragma warning restore CS0414
     public static List<SpellRecipeSO> All = new List<SpellRecipeSO>();
-    private string stableUuid;
 
-    public SpellRecipeSO() => stableUuid = base.GetGuid().ToString("D");
     /// <summary>
     /// Fixture-facing string form of the inherited identity. The game declares <c>GetGuid()</c> on
     /// <see cref="IdScriptableObject"/>, so this surface keeps that base identity synchronized and
     /// deliberately does not redeclare the method.
     /// </summary>
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
+
     public int masteryLevel;
     public BigDouble masteryExperience;
     public ExperienceContainer masteryXpContainer = new ExperienceContainer();

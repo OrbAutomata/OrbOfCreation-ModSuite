@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,7 +64,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         GameMcpFrameOperation[] claimed = Array.Empty<GameMcpFrameOperation>();
         Assert.True(SpinWait.SpinUntil(
             () => (claimed = inbox.ClaimPending()).Length > 0 || pending.IsCompleted,
-            TimeSpan.FromSeconds(1)));
+            ServiceCycleTestDeadline.Value));
         Assert.False(pending.IsCompleted, "the mutating request bypassed the Unity-frame claim");
         var operation = Assert.Single(claimed);
 

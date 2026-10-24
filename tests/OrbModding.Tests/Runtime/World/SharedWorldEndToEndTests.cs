@@ -27,11 +27,11 @@ public sealed class SharedWorldEndToEndTests : IDisposable
 {
     private readonly ServiceWorldPublisher<GameWorldState> _world = new(GameWorldStateDefaults.Empty);
 
-    public SharedWorldEndToEndTests() => ResetRegistries();
+    public SharedWorldEndToEndTests() => OrbModding.GameStubs.GameStubState.Reset();
 
     public void Dispose()
     {
-        ResetRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         _world.Dispose();
     }
 
@@ -273,15 +273,7 @@ public sealed class SharedWorldEndToEndTests : IDisposable
     /// Reset on the way in as well as out — a class that only cleaned up after itself would still
     /// inherit whatever ran before it.
     /// </summary>
-    private static void ResetRegistries()
-    {
-        global::ResourceSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::ValueModifierVariable.All.Clear();
-    }
+
 
     private static SuiteRuntimeConfiguration Config() => new()
     {

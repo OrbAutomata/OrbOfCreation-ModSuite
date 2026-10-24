@@ -7,7 +7,7 @@ using System.Reflection;
 public class Spell : ITooltipable
 {
     public List<SpellTypeSO> augmentedSpellTypes = new List<SpellTypeSO>();
-    private readonly SpellRecipeSO? reference;
+    private SpellRecipeSO? reference;
     public static Action? FireSignal { get; set; }
     public string DisplayName { get; set; } = "Spell";
     public bool Channeled { get; set; }
@@ -25,7 +25,7 @@ public class Spell : ITooltipable
     /// </summary>
     public bool SwitchedToTimeBasedCooldown { get; set; }
     public UnityEngine.Sprite Icon { get; set; } = new UnityEngine.Sprite();
-    public ResourceCostList Cost { get; } = new ResourceCostList();
+    public ResourceCostList Cost { get; set; } = new ResourceCostList();
     public GuidContainer guidContainer = new GuidContainer(Guid.NewGuid());
     public Stacked.StackedIdRecord<GlyphSO> augmentGlyphRefs = new Stacked.StackedIdRecord<GlyphSO>();
     private List<GlyphSO> augmentGlyphs = new List<GlyphSO>();
@@ -101,9 +101,9 @@ public class Spell : ITooltipable
 
     public bool CanCast() => NativeCanCast;
     public bool CanFire() => NativeCasting || NativeCanCast;
-    public bool IsAttuning() => false;
+    public bool IsAttuning() => NativeAttuning;
     public bool IsChargeAvailable() => NativeChargeAvailable;
-    public bool CanRemove() => IsChargeAvailable() && !IsCasting();
+    public bool CanRemove() { CanRemoveCalls++; return IsChargeAvailable() && !IsCasting(); }
 
     /// <summary>
     /// <c>charges &gt;= GetMaxSpellCharges()</c>, which is the first of the three facts
@@ -111,7 +111,7 @@ public class Spell : ITooltipable
     /// predicate the removal path never reads.
     /// </summary>
     public bool IsAtMaxCharges() => CurrentCharges >= MaximumCharges;
-    public bool HasEnoughResources() => true;
+    public bool HasEnoughResources() => NativeHasEnoughResources;
     public int GetCurrSpellCharges() => CurrentCharges;
     public int GetMaxSpellCharges() => MaximumCharges;
     public BigDouble GetCooldownTimeRemaining() => CooldownRemaining;
@@ -124,7 +124,7 @@ public class Spell : ITooltipable
     public ResourceCostList GetCost() => Cost;
     public bool ThrowOnDrainCost { get; set; }
     public ResourceCostList GetDrainCost() =>
-        ThrowOnDrainCost ? throw new InvalidOperationException("GetDrainCost failed") : new ResourceCostList();
+        ThrowOnDrainCost ? throw new InvalidOperationException("GetDrainCost failed") : DrainCost;
     public int GetOutputLevel() => Player.GetSpellOutputLevel().AsInt();
     public int GetLevel() => Math.Max(GetOutputLevel(), BaseEffectLevel);
     public int GetRequiredLevel() => GlyphSO.GetMasterReqOfList(augmentGlyphs);
@@ -190,4 +190,10 @@ public class Spell : ITooltipable
         numCasts++;
         TargetingManager.OpenRequests += RequestsOnFire;
     }
+    public SpellRecipeSO? Reference { get => reference; set => reference = value; }
+    public bool NativeAttuning { get; set; }
+    public bool NativeHasEnoughResources { get; set; } = true;
+    public ResourceCostList DrainCost { get; set; } = new ResourceCostList();
+    public int CanRemoveCalls { get; private set; }
+
 }

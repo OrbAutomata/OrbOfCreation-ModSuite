@@ -165,9 +165,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
 
     private static void ResetSpellState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::UpgradeSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         var levelAll = new global::UpgradeSO
         {

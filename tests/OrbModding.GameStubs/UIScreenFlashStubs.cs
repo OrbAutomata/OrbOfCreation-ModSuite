@@ -18,9 +18,4 @@ public class UIScreenFlash : UnityEngine.MonoBehaviour
     public static bool SuppressFade { get; set; }
     public bool ActiveForTests => isActive;
 
-    public static void ResetForTests()
-    {
-        instance = new UIScreenFlash();
-        SuppressFade = false;
-    }
 }

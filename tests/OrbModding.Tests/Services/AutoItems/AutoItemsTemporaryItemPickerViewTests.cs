@@ -16,7 +16,6 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
 {
     public AutoItemsTemporaryItemPickerViewTests()
     {
-        ConsumableSO.All.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
         var prototype = new GameObject("prototype").AddComponent<MonoBehaviour>();
         ModConfigUiFactory.UseNativeVisuals(new NativeFeatureRailVisualPrimitives(
@@ -33,7 +32,6 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
 
     public void Dispose()
     {
-        ConsumableSO.All.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
     }
 

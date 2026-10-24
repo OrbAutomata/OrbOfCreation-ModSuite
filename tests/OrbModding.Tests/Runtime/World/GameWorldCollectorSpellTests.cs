@@ -11,25 +11,25 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void UnifiedLevelRowsPublishEachConcreteTypesLiveNextDecision()
     {
-        var resource = new FakeResource
+        var resource = new ResourceSO
         {
             Identity = Guid.NewGuid(),
             Quantity = new BigDouble(20),
             Visible = true,
         };
-        FakeResource.All.Add(resource);
-        FakeCraftingResourceCostList Cost(int amount) =>
-            new FakeCraftingResourceCostList { affordabilityUsesResourceAmounts = true }
+        ResourceSO.All.Add(resource);
+        ResourceCostList Cost(int amount) =>
+            new ResourceCostList()
                 .With(resource, new BigDouble(amount));
 
-        var equipment = new FakeEquipmentType
+        var equipment = new EquipmentTypeSO
         {
             level = 3,
             freeLevels = 2,
             LevelCost = Cost(5),
             BonusLevelCost = Cost(7),
         };
-        var glyph = new FakeGlyph
+        var glyph = new GlyphSO
         {
             level = 4,
             freeLevels = 1,
@@ -38,24 +38,24 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
             LevelCost = Cost(6),
             BonusLevelCost = Cost(8),
         };
-        var resourceType = new FakeResourceType
+        var resourceType = new ResourceTypeSO
         {
             level = 5,
             freeLevels = 3,
             LevelCost = Cost(9),
             BonusLevelCost = Cost(10),
         };
-        var timeRune = new FakeTimeRune
+        var timeRune = new TimeRuneSO
         {
             level = 6,
             masteryXp = new BigDouble(1.96),
             LevelCost = Cost(11),
         };
-        timeRune.xpContainer.cachedRequiredXp = new BigDouble(10);
-        FakeEquipmentType.All.Add(equipment);
-        FakeGlyph.All.Add(glyph);
-        FakeResourceType.All.Add(resourceType);
-        FakeTimeRune.All.Add(timeRune);
+        timeRune.MasteryBar.CachedRequiredXp = new BigDouble(10);
+        EquipmentTypeSO.All.Add(equipment);
+        GlyphSO.All.Add(glyph);
+        ResourceTypeSO.All.Add(resourceType);
+        TimeRuneSO.All.Add(timeRune);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -83,22 +83,22 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
         // threshold. Capture must not ask the native predicate for the answer.
         var ready = Guid.NewGuid();
         var banking = Guid.NewGuid();
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe
-        {
+        SpellRecipeSO.All.Add(new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
             Identity = ready,
             discovered = true,
             masteryLevel = 4,
             masteryExperience = new BigDouble(8d),
-            masteryXpContainer = new FakeExperienceContainer { cachedRequiredXp = new BigDouble(8d) },
+            masteryXpContainer = new ExperienceContainer { CachedRequiredXp = new BigDouble(8d) },
         });
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe
-        {
+        SpellRecipeSO.All.Add(new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
             Identity = banking,
             discovered = true,
             masteryLevel = 4,
             masteryExperience = new BigDouble(7d),
-            masteryXpContainer = new FakeExperienceContainer { cachedRequiredXp = new BigDouble(8d) },
-            levelCost = new FakeSpellLevelCost { affordable = false },
+            masteryXpContainer = new ExperienceContainer { CachedRequiredXp = new BigDouble(8d) },
+            levelCost = new ResourceCostList { affordable = false },
         });
 
         var collector = Collector();
@@ -117,16 +117,16 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void ASpellWithoutAnAuthoredLevelCostIsUnaffordableAndNamedInTheReport()
     {
-        var spell = new FakeSpellRecipe
+        var spell = new SpellRecipeSO
         {
             Identity = Guid.NewGuid(),
             discovered = true,
             masteryLevel = 4,
             masteryExperience = new BigDouble(8d),
-            masteryXpContainer = new FakeExperienceContainer { cachedRequiredXp = new BigDouble(8d) },
-            baseLevelingCost = new FakeSpellCostList(),
+            masteryXpContainer = new ExperienceContainer { CachedRequiredXp = new BigDouble(8d) },
+            baseLevelingCost = new ResourceCostList(),
         };
-        FakeSpellRecipe.All.Add(spell);
+        SpellRecipeSO.All.Add(spell);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -157,11 +157,11 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     {
         var unmet = Guid.NewGuid();
         var met = Guid.NewGuid();
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe
-        {
-            Identity = unmet, penaltyUsageCost = 6, usageRequirementsMet = false,
+        SpellRecipeSO.All.Add(new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
+            Identity = unmet, penaltyUsageCost = 6, NativeUsageRequirementsMet = false,
         });
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe { Identity = met, penaltyUsageCost = 6 });
+        SpellRecipeSO.All.Add(new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), Identity = met, penaltyUsageCost = 6 });
 
         var collector = Collector();
         collector.Collect();
@@ -177,39 +177,39 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void SpellDiscoveryAndLoadoutCapacityArePublishedFromTheirOwningNativeSurfaces()
     {
-        var first = new FakeGlyph { Identity = Guid.NewGuid(), level = 7, discovered = true };
-        var second = new FakeGlyph { Identity = Guid.NewGuid(), level = 3, discovered = true };
-        var discoveryResource = new FakeSpellWorkbenchResource
+        var first = new GlyphSO { Identity = Guid.NewGuid(), level = 7, discovered = true };
+        var second = new GlyphSO { Identity = Guid.NewGuid(), level = 3, discovered = true };
+        var discoveryResource = new ResourceSO
         {
             Identity = Guid.NewGuid(),
-            amount = new BigDouble(9d, 6),
+            Quantity = new BigDouble(9d, 6),
         };
-        var recipe = new FakeSpellRecipe
-        {
+        var recipe = new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
             Identity = Guid.NewGuid(),
             discovered = false,
             coreRecipe = { first, second },
-            discoveryCost = new FakeSpellWorkbenchCostList
+            baseDiscoveryCost = new ResourceCostList
             {
                 affordable = true,
                 costs =
                 {
-                    new FakeSpellWorkbenchCost
+                    new ResourceTuple
                     {
                         resource = discoveryResource,
-                        amount = new BigDouble(4.4d, 3),
+                        Amount = new BigDouble(4.4d, 3),
                     },
                 },
             },
         };
-        FakeGlyph.All.Add(first);
-        FakeGlyph.All.Add(second);
-        FakeSpellRecipe.All.Add(recipe);
+        GlyphSO.All.Add(first);
+        GlyphSO.All.Add(second);
+        SpellRecipeSO.All.Add(recipe);
 
-        var manager = new FakeSpellManager();
-        manager.activeSpells.maximum = 3;
-        manager.activeSpells.value.Add(new FakeSpell());
-        FakeSpellManager.instance = manager;
+        var manager = new SpellManager();
+        manager.activeSpells.Maximum = 3;
+        manager.activeSpells.value.Add(new Spell());
+        SpellManager.instance = manager;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -243,11 +243,11 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     {
         var firstResource = Guid.NewGuid();
         var secondResource = Guid.NewGuid();
-        var first = new FakeSpellRecipe { baseLevelingCost = new FakeSpellCostList().With(firstResource, 3) };
-        var second = new FakeSpellRecipe { baseLevelingCost = new FakeSpellCostList().With(secondResource, 7) };
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe { Identity = Guid.Empty });
-        FakeSpellRecipe.All.Add(first);
-        FakeSpellRecipe.All.Add(second);
+        var first = new SpellRecipeSO { baseLevelingCost = new ResourceCostList().With(firstResource, 3) };
+        var second = new SpellRecipeSO { baseLevelingCost = new ResourceCostList().With(secondResource, 7) };
+        SpellRecipeSO.All.Add(new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), Identity = Guid.Empty });
+        SpellRecipeSO.All.Add(first);
+        SpellRecipeSO.All.Add(second);
 
         var collector = Collector();
         var report = collector.Collect().For("spell level costs");
@@ -266,7 +266,7 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void ASpellLevelCostThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe { baseLevelingCost = null! });
+        SpellRecipeSO.All.Add(new SpellRecipeSO { baseLevelingCost = null! });
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
@@ -274,7 +274,7 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void ASpellGraphRowThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakeSpellRecipe.All.Add(new FakeSpellRecipe { maxChannel = null! });
+        SpellRecipeSO.All.Add(new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), maxChannel = null! });
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
@@ -282,52 +282,58 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void ASpellIsAnAttackOnlyWhenEveryScriptItCastsIsACombatEffect()
     {
-        static FakeEffectBlock Block(params object[] scripts)
+        static InstantEffectBlock Block(params IInstantEffectScript[] scripts)
         {
-            var block = new FakeEffectBlock();
+            var block = new InstantEffectBlock();
             block.effectScripts.AddRange(scripts);
             return block;
         }
 
-        var firebolt = new FakeSpellRecipe { Identity = Guid.NewGuid(), onCastEffects = { Block(new FakeCombatEffect()) } };
-        var mixed = new FakeSpellRecipe
-        {
+        var firebolt = new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), Identity = Guid.NewGuid(), onCastEffects = { Block(new Combat.CombatEffect()) } };
+        var mixed = new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
             Identity = Guid.NewGuid(),
-            onCastEffects = { Block(new FakeCombatEffect()), Block(new FakeScribeRequestTargetEffect()) },
+            onCastEffects = { Block(new Combat.CombatEffect()), Block(new RequestTargetEffectScript()) },
         };
-        var toggled = new FakeSpellRecipe
-        {
+        var ToggledSpell = new SpellRecipeSO
+        { baseLevelingCost = AuthoredSpellLevelCost(),
             Identity = Guid.NewGuid(),
-            onCastEffects = { Block(new FakeCombatEffect()) },
-            toggledEffects = { Block(new object()) },
+            onCastEffects = { Block(new Combat.CombatEffect()) },
+            toggledEffects =
+            {
+                new PersistentEffectBlock
+                {
+                    effectScripts = { new NumberVariable.PersistentEffect { numberVariable = new NumberVariable() } },
+                },
+            },
         };
-        var silent = new FakeSpellRecipe { Identity = Guid.NewGuid() };
-        FakeSpellRecipe.All.AddRange(new[] { firebolt, mixed, toggled, silent });
+        var silent = new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), Identity = Guid.NewGuid() };
+        SpellRecipeSO.All.AddRange(new[] { firebolt, mixed, ToggledSpell, silent });
 
         var collector = Collector();
         var report = collector.Collect();
         var world = collector.Build();
 
         Assert.True(report.IsComplete, report.Describe());
-        bool CombatOnly(FakeSpellRecipe recipe)
+        bool CombatOnly(SpellRecipeSO recipe)
         {
             Assert.True(WorldSpellGraphLookup.TryFindAuthoring(world.SpellRecipeAuthoring, recipe.Identity, out var row));
             return row.CombatOnly;
         }
         Assert.True(CombatOnly(firebolt));
         Assert.False(CombatOnly(mixed));
-        Assert.False(CombatOnly(toggled));
+        Assert.False(CombatOnly(ToggledSpell));
         Assert.False(CombatOnly(silent));
     }
 
     [Fact]
     public void PendingTargetRequestPublishesEveryEligibleStructureInNativeOrder()
     {
-        var owner = new FakeStructure { Identity = Guid.NewGuid() };
-        var first = new FakeStructure { Identity = Guid.NewGuid(), Level = 3 };
-        var second = new FakeStructure { Identity = Guid.NewGuid(), Level = 7 };
-        FakeStructure.All.AddRange(new[] { owner, first, second });
-        FakeTargetingManager.Current = new FakeTargetingManager.TargetLink(owner, first, second);
+        var owner = new StructureSO { Identity = Guid.NewGuid() };
+        var first = new StructureSO { Identity = Guid.NewGuid(), Level = 3 };
+        var second = new StructureSO { Identity = Guid.NewGuid(), Level = 7 };
+        StructureSO.All.AddRange(new[] { owner, first, second });
+        TargetingManager.Current = new TargetingManager.TargetLink(owner, first, second);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -346,9 +352,9 @@ public sealed class GameWorldCollectorSpellTests : GameWorldCollectorTestBase
     [Fact]
     public void ATargetCandidateThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        var owner = new FakeStructure { Identity = Guid.NewGuid() };
-        var candidate = new FakeStructure { GetGuidFailure = new NullReferenceException("candidate") };
-        FakeTargetingManager.Current = new FakeTargetingManager.TargetLink(owner, candidate);
+        var owner = new StructureSO { Identity = Guid.NewGuid() };
+        var candidate = new StructureSO { GetGuidFailure = new NullReferenceException("candidate") };
+        TargetingManager.Current = new TargetingManager.TargetLink(owner, candidate);
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }

@@ -160,7 +160,7 @@ public sealed class BufferedServiceCycleProfileSinkTests
             if (ordinal == 0)
             {
                 WriteEntered.Set();
-                if (_blockFirstSegment) ReleaseWrite.Wait(TimeSpan.FromSeconds(2));
+                if (_blockFirstSegment) ServiceCycleTestDeadline.ForSignal(ReleaseWrite, "the profile writer release");
                 if (_failFirstSegment) throw new InvalidOperationException("Expected write failure.");
             }
             Segments.Add(bytes.ToArray());

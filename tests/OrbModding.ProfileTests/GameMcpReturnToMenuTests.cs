@@ -85,7 +85,7 @@ public sealed class GameMcpReturnToMenuTests
     [Fact]
     public void MainThreadRuntimeInvokesTheSharedActionAndReturnsBeforeTeardown()
     {
-        UIScreenFlash.ResetForTests();
+        OrbModding.GameStubs.GameStubState.Reset();
         var button = new UIBackToMenuButton();
         var lifecycle = 7L;
         var configuration = new SuiteRuntimeConfiguration

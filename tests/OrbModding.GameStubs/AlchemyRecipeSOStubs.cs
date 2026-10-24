@@ -4,35 +4,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
+public sealed class AlchemyRecipeSO : StringIdScriptableObject, IDiscoverable
 {
     public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
     public List<PersistentEffectBlock> equipEffectBlocks = new List<PersistentEffectBlock>();
     public List<PersistentEffectBlock> advancementEffectBlocks = new List<PersistentEffectBlock>();
     public static List<AlchemyRecipeSO> All = new List<AlchemyRecipeSO>();
-    private readonly ExperienceContainer experienceContainer = new ExperienceContainer();
+    private ExperienceContainer experienceContainer = new ExperienceContainer();
 
-    private string stableUuid;
 
-    public AlchemyRecipeSO() => stableUuid = base.GetGuid().ToString("D");
+
+    public AlchemyRecipeSO() { }
 
     public AlchemyRecipeSO(string uuid, string name, IEnumerable<AlchemyTypeSO> types)
     {
-        stableUuid = base.GetGuid().ToString("D");
         this.uuid = uuid;
         this.name = name;
         alchemyTypes.AddRange(types);
     }
 
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
+
     public new string name = "Alchemy";
     public bool discovered = true;
 
@@ -62,7 +53,7 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public ResourceCostList bandwidthCost = new ResourceCostList();
     public ModifierListRef completionCostAdvanceMod = new ModifierListRef();
     public ModifierListRef drainCostLevelMod = new ModifierListRef();
-    public Prerequisites.Container usagePrerequisites = new Prerequisites.Container();
+    public Prerequisites.Container usagePrerequisites = new Prerequisites.Container { NativeCheckResult = true };
     public InstanceScalingRef instanceScaling = new InstanceScalingRef();
     public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
     public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
@@ -76,7 +67,7 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public AlchemyTypeSO coreType = new AlchemyTypeSO("scholar-slot");
     public List<BigDouble> GrantedMasteryExperience { get; } = new List<BigDouble>();
 
-    public new Guid GetGuid() => Guid.TryParse(uuid, out var guid) ? guid : base.GetGuid();
+    public new Guid GetGuid() => base.GetGuid();
     public new Guid GetId() => GetGuid();
     public new void SetGuid(Guid guid)
     {
@@ -98,8 +89,13 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public BigDouble GetExperience() => masteryXp;
     public BigDouble GetRequiredExperience() => experienceContainer.GetRequiredExperience();
     public Exception? MaxUsageReadFailure { get; set; }
-    public int GetMaxUsageSlots() =>
-        MaxUsageReadFailure is { } failure ? throw failure : maxUsageSlots.GetValue().ToInt();
+    public int GetMaxUsageSlots()
+    {
+        if (MaxUsageReadFailure is { } failure) throw failure;
+        if (coreType.maxUsageByMastery) return masteryLevel + 1;
+        var maximum = maxUsageSlots.GetValue();
+        return maximum < BigDouble.Zero ? int.MaxValue : BigDouble.Floor(maximum).ToInt();
+    }
     public AlchemyTypeSO GetCoreType() => coreType;
     public string GetName() => name;
     public void Discover()
@@ -150,4 +146,7 @@ public sealed class AlchemyRecipeSO : IdScriptableObject, IDiscoverable
     public ValueModifierRecord maxUsageSlots = new ValueModifierRecord(new BigDouble(0.0, 0));
     private BigDouble cachedCompletionTime;
     private BigDouble cachedRequiredXp;
+    public BigDouble CachedCompletionTime { get => cachedCompletionTime; set => cachedCompletionTime = value; }
+    public BigDouble CachedRequiredXp { get => cachedRequiredXp; set => cachedRequiredXp = value; }
+    public ExperienceContainer ExperienceContainer { get => experienceContainer; set => experienceContainer = value; }
 }

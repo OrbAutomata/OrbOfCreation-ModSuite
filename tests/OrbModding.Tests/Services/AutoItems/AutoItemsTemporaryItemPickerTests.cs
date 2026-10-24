@@ -10,9 +10,9 @@ namespace OrbModding.Tests.Services.AutoItems;
 
 public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
 {
-    public AutoItemsTemporaryItemPickerTests() => ConsumableSO.All.Clear();
+    public AutoItemsTemporaryItemPickerTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ConsumableSO.All.Clear();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void DiscoveryCaptureListsOnlyVisibleTemporaryItemsInFamilyThenNameOrder()

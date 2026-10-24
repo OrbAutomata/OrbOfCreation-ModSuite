@@ -12,23 +12,24 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     {
         var unlocked = Guid.NewGuid();
         var locked = Guid.NewGuid();
-        var tree = new FakeDiscoveryTree();
-        var lockedView = new FakeView
+        var tree = new DiscoveryTreeSO();
+        var lockedView = new ViewSO
         {
             Identity = locked,
             active = false,
             alwaysActive = false,
         };
-        var tabs = new FakeAbstractListVariable<FakeView>();
+        var tabs = new ViewListVariable();
         tabs.value.Add(lockedView);
-        FakeView.All.Add(new FakeView
+        ViewSO.All.Add(new ViewSO
         {
             Identity = unlocked,
             active = true,
+            available = true,
             discoveryTree = tree,
             subViews = tabs,
         });
-        FakeView.All.Add(lockedView);
+        ViewSO.All.Add(lockedView);
 
         var collector = Collector();
         collector.Collect();
@@ -54,14 +55,14 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var costScaling = Guid.NewGuid();
         var offlineProgress = Guid.NewGuid();
 
-        FakeCount.All.Add(new FakeCount { Identity = multiBuy, value = new FakeModifierRecord(3d) });
-        FakeNumber.All.Add(new FakeNumber
+        IntVariable.All.Add(new IntVariable { Identity = multiBuy, value = new ValueModifierRecord(3d) });
+        DoubleVariable.All.Add(new DoubleVariable
         {
             Identity = costScaling,
-            value = new FakeModifierRecord(150d),
+            value = new ValueModifierRecord(150d),
             isPercentVariable = true,
         });
-        FakeFlag.All.Add(new FakeFlag { Identity = offlineProgress, value = true });
+        BoolVariable.All.Add(new BoolVariable { Identity = offlineProgress, value = true });
 
         var collector = Collector();
         var report = collector.Collect();
@@ -94,10 +95,10 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // these. Collecting the registry is what lets an entity row carry an identity instead of a
         // copy, and lets one modifier shared by twenty structures be read once.
         var perQuantity = Guid.NewGuid();
-        FakeModifierVariable.All.Add(new FakeModifierVariable
+        ValueModifierVariable.All.Add(new ValueModifierVariable
         {
             Identity = perQuantity,
-            value = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.15d, order: 2),
+            value = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 1.15d, order: 2),
         });
 
         var collector = Collector();
@@ -108,7 +109,7 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         Assert.True(WorldLookup.TryFind(world.ModifierVariables, perQuantity, out var row));
 
         // The enum travels as its integer, for the reason every other game enum does.
-        Assert.Equal((int)FakeModifierKind.MultiStacking, row.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.MultiStacking, row.ModifierType);
         Assert.Equal(1.15d, row.Amount.ToDouble(), 10);
 
         // Order is not decoration: modifiers sharing an order merge with each other before any of
@@ -120,12 +121,12 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     public void TheStatisticGlossaryTravelsAsTheWordsTheScreenPrints()
     {
         var cost = Guid.NewGuid();
-        FakeStatistic.All.Add(new FakeStatistic
+        AttributeSO.All.Add(new AttributeSO
         {
             Identity = cost,
-            displayTypeRef = new FakeDisplayTypeReference
+            displayTypeRef = new DisplayTypeSO.Reference
             {
-                displayType = new FakeDisplayType { displayName = "Statistic" },
+                displayType = new DisplayTypeSO { displayName = "Statistic" },
             },
             globalDefinition = "Cost",
             isPercent = false,
@@ -158,10 +159,10 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // One shipped record — Starting Level — references no display type at all. The chain yields
         // the member default rather than dropping the row or inventing a fourth word.
         var starting = Guid.NewGuid();
-        FakeStatistic.All.Add(new FakeStatistic
+        AttributeSO.All.Add(new AttributeSO
         {
             Identity = starting,
-            displayTypeRef = new FakeDisplayTypeReference { displayType = null },
+            displayTypeRef = new DisplayTypeSO.Reference { displayType = null! },
             globalDefinition = "CraftingStartingLevel",
             description = "The level this component starts at.",
         });
@@ -182,12 +183,12 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // Eight of the 211 carry no description. An absent sentence is the absence of one, not a
         // reason to drop the word the screen still prints.
         var plumbing = Guid.NewGuid();
-        FakeStatistic.All.Add(new FakeStatistic
+        AttributeSO.All.Add(new AttributeSO
         {
             Identity = plumbing,
-            displayTypeRef = new FakeDisplayTypeReference
+            displayTypeRef = new DisplayTypeSO.Reference
             {
-                displayType = new FakeDisplayType { displayName = "Information" },
+                displayType = new DisplayTypeSO { displayName = "Information" },
             },
             globalDefinition = "Tooltip:ChallengeActive",
             description = string.Empty,
@@ -217,7 +218,7 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var berserk = Guid.NewGuid();
         var strike = Guid.NewGuid();
 
-        FakeStatusEffect.All.Add(new FakeStatusEffect
+        CombatStatusSO.All.Add(new CombatStatusSO
         {
             Identity = burning,
             isBuff = false,
@@ -227,27 +228,27 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
             effectTimer = 1.5d,
             description = "Deals fire damage over time.",
         });
-        var fireType = new FakeDamageType
+        var fireType = new DamageTypeSO
         {
             Identity = fire,
             damageReductionRate = 0.25d,
             ignoreEntrenched = true,
             description = "Burns through wards.",
         };
-        FakeDamageType.All.Add(fireType);
-        FakeCharacterAttribute.All.Add(new FakeCharacterAttribute
+        DamageTypeSO.All.Add(fireType);
+        CharacterAttributeSO.All.Add(new CharacterAttributeSO
         {
             Identity = strength,
             damageType = fireType,
             description = "How hard this creature hits.",
         });
-        FakeCharacterModifier.All.Add(new FakeCharacterModifier
+        CharacterModifierSO.All.Add(new CharacterModifierSO
         {
             Identity = berserk,
             weightChance = 0.4f,
             description = "Attacks faster and defends worse.",
         });
-        FakeCharacterAction.All.Add(new FakeCharacterAction
+        CharacterActionSO.All.Add(new CharacterActionSO
         {
             Identity = strike,
             prepTime = 2d,
@@ -299,12 +300,12 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var enchantment = Guid.NewGuid();
         var stone = Guid.NewGuid();
 
-        FakeScribeEnchantment.All.Add(new FakeScribeEnchantment
+        EnchantmentSO.All.Add(new EnchantmentSO
         {
             Identity = enchantment,
             description = "Adds fire damage to the weapon.",
         });
-        FakeRuneStone.All.Add(new FakeRuneStone
+        RuneStoneSO.All.Add(new RuneStoneSO
         {
             Identity = stone,
             description = "Holds one time rune.",
@@ -332,17 +333,17 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var group = Guid.NewGuid();
         var target = Guid.NewGuid();
         var other = Guid.NewGuid();
-        var targetStatistic = new FakeStatistic { Identity = target };
-        var otherStatistic = new FakeStatistic { Identity = other };
-        FakeStatistic.All.Add(targetStatistic);
-        FakeStatistic.All.Add(otherStatistic);
-        FakeAttributeGroup.All.Add(new FakeAttributeGroup
+        var targetStatistic = new AttributeSO { Identity = target };
+        var otherStatistic = new AttributeSO { Identity = other };
+        AttributeSO.All.Add(targetStatistic);
+        AttributeSO.All.Add(otherStatistic);
+        AttributeGroupSO.All.Add(new AttributeGroupSO
         {
             Identity = group,
             description = "Everything that raises agromancy power.",
             recordReferences =
             {
-                new FakeAttributeGroupReference
+                new AttributeGroupSO.MergingRecordReference
                 {
                     upgradeableObject = targetStatistic,
                     propertyType = "Power",
@@ -351,7 +352,7 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
                     ratioExp = 1d,
                     orderAdjust = 0,
                 },
-                new FakeAttributeGroupReference
+                new AttributeGroupSO.MergingRecordReference
                 {
                     upgradeableObject = otherStatistic,
                     propertyType = "Speed",
@@ -393,10 +394,10 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     [Fact]
     public void AStatGroupThatDistributesNothingIsStillAHeading()
     {
-        var empty = Guid.NewGuid();
-        FakeAttributeGroup.All.Add(new FakeAttributeGroup
+        var NativeEmpty = Guid.NewGuid();
+        AttributeGroupSO.All.Add(new AttributeGroupSO
         {
-            Identity = empty,
+            Identity = NativeEmpty,
             description = "A heading with nothing under it yet.",
         });
 
@@ -405,9 +406,9 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var world = collector.Build();
 
         Assert.True(report.IsComplete, report.Describe());
-        Assert.True(WorldLookup.TryFind(world.AttributeGroups, empty, out _));
+        Assert.True(WorldLookup.TryFind(world.AttributeGroups, NativeEmpty, out _));
         Assert.False(WorldAttributeGroupMemberLookup.TryFindRange(
-            world.AttributeGroupMembers, empty, out _, out var count));
+            world.AttributeGroupMembers, NativeEmpty, out _, out var count));
         Assert.Equal(0, count);
     }
 
@@ -419,19 +420,19 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // its tooltip prints. Thirteen empty slots publish nothing.
         var cost = Guid.NewGuid();
         var cooldown = Guid.NewGuid();
-        FakeStatistic.All.Add(new FakeStatistic { Identity = cost, globalDefinition = "Cost" });
-        FakeStatistic.All.Add(new FakeStatistic
+        AttributeSO.All.Add(new AttributeSO { Identity = cost, globalDefinition = "Cost" });
+        AttributeSO.All.Add(new AttributeSO
         {
             Identity = cooldown,
             globalDefinition = "Cooldown",
         });
 
         var quick = Guid.NewGuid();
-        FakeGlyph.All.Add(new FakeGlyph
+        GlyphSO.All.Add(new GlyphSO
         {
             Identity = quick,
-            spellCost = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.15d, 0),
-            spellCooldown = new FakeValueModifier(FakeModifierKind.MultiStacking, 0.7d, 0),
+            spellCost = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 1.15d, 0),
+            spellCooldown = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 0.7d, 0),
         });
 
         var collector = Collector();
@@ -449,14 +450,14 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var first = world.GlyphEffects[start];
         Assert.Equal("spellCost", first.Property);
         Assert.Equal(cost, first.StatisticId);
-        Assert.Equal((int)FakeModifierKind.MultiStacking, first.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.MultiStacking, first.ModifierType);
         Assert.Equal(1.15d, first.Amount.ToDouble(), 6);
         Assert.Equal(0, first.Order);
 
         var second = world.GlyphEffects[start + 1];
         Assert.Equal("spellCooldown", second.Property);
         Assert.Equal(cooldown, second.StatisticId);
-        Assert.Equal((int)FakeModifierKind.MultiStacking, second.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.MultiStacking, second.ModifierType);
         Assert.Equal(0.7d, second.Amount.ToDouble(), 6);
     }
 
@@ -474,11 +475,11 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     public void AGlyphFactorPrintedAgainstAPlayerVariableCarriesThatEdge()
     {
         var glyph = Guid.NewGuid();
-        FakeGlyph.All.Add(new FakeGlyph
+        GlyphSO.All.Add(new GlyphSO
         {
             Identity = glyph,
-            spellCriticalRating = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 0.17d, 0),
-            creationCostMod = new FakeValueModifier(FakeModifierKind.MultiStacking, 4d, 0),
+            spellCriticalRating = new ValueModifier(ValueModifier.ValueModifierType.MultiDiminishing, 0.17d, 0),
+            creationCostMod = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 4d, 0),
         });
 
         var collector = Collector();
@@ -493,7 +494,7 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         Assert.Equal("spellCriticalRating", world.GlyphEffects[start].Property);
         Assert.Equal(Guid.Empty, world.GlyphEffects[start].StatisticId);
         Assert.Equal(
-            FakePlayerGlobals.SpellCriticalCastRating.Identity,
+            Player.Current.spellCriticalCastRating.Identity,
             world.GlyphEffects[start].VariableId);
 
         Assert.Equal("creationCostMod", world.GlyphEffects[start + 1].Property);
@@ -516,31 +517,31 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     [Fact]
     public void AnUpgradesPermanentEffectsPublishOneTupleColumnFromThreeVocabularies()
     {
-        var maxDruidryLevel = new FakeNumberVariable();
-        var allPlot = new FakeUpgradeableObject();
-        var plotCapacity = new FakeResource { Identity = Guid.NewGuid() };
-        FakeResource.All.Add(plotCapacity);
+        var maxDruidryLevel = new NumberVariable();
+        var allPlot = new ResourceSO();
+        var plotCapacity = new ResourceSO { Identity = Guid.NewGuid() };
+        ResourceSO.All.Add(plotCapacity);
 
         var upgrade = Guid.NewGuid();
-        var raise = new FakeUpgrade { Identity = upgrade, maxLevel = -1 };
-        raise.permanentEffects.numberVariableEffects.Add(new FakeTupleMod
+        var raise = new UpgradeSO { Identity = upgrade, maxLevel = -1 };
+        raise.permanentEffects.numberVariableEffects.Add(new TupleMod<NumberVariable>
         {
             item = maxDruidryLevel,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 1d, 0),
         });
-        raise.permanentEffects.upgradeableObjectEffects.Add(new FakeObjectPropertyEffect
+        raise.permanentEffects.upgradeableObjectEffects.Add(new UpgradeableObject.UpgradeEffectModifier
         {
             upgradeableObject = allPlot,
             propertyType = "Yield",
-            modifier = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.02d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 1.02d, 0),
         });
-        raise.permanentEffects.resourceEffects.Add(new FakeResourceEffect
+        raise.permanentEffects.resourceEffects.Add(new ResourceSO.PersistentEffect
         {
             resource = plotCapacity,
-            upgradeType = FakeResourceModifiableType.MaxQuantity,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+            upgradeType = ResourceSO.ModifiableType.MaxQuantity,
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 5d, 0),
         });
-        FakeUpgrade.All.Add(raise);
+        UpgradeSO.All.Add(raise);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -555,14 +556,14 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         var variable = world.LevelEffects[start];
         Assert.Equal(string.Empty, variable.Property);
         Assert.Equal(maxDruidryLevel.Identity, variable.TargetId);
-        Assert.Equal((int)FakeModifierKind.Raw, variable.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.Raw, variable.ModifierType);
         Assert.Equal(1d, variable.Amount.ToDouble(), 6);
         Assert.Equal(0, variable.Order);
 
         var property = world.LevelEffects[start + 1];
         Assert.Equal("Yield", property.Property);
         Assert.Equal(allPlot.Identity, property.TargetId);
-        Assert.Equal((int)FakeModifierKind.MultiStacking, property.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.MultiStacking, property.ModifierType);
         Assert.Equal(1.02d, property.Amount.ToDouble(), 6);
 
         var resource = world.LevelEffects[start + 2];
@@ -578,56 +579,56 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     [Fact]
     public void EveryBlockHolderPublishesItsAuthoredTuplesAndNothingElse()
     {
-        var stockRestore = new FakeUpgradeableObject();
+        var stockRestore = new ResourceSO();
         var glyph = Guid.NewGuid();
-        var glyphAsset = new FakeGlyph { Identity = glyph };
-        glyphAsset.levelingEffects.Add(Block(new FakeObjectPropertyEffect
+        var glyphAsset = new GlyphSO { Identity = glyph };
+        glyphAsset.levelingEffects.Add(Block(new UpgradeableObject.UpgradeEffectModifier
         {
             upgradeableObject = stockRestore,
             propertyType = "Value",
-            modifier = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 1.15d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.MultiDiminishing, 1.15d, 0),
         }));
-        FakeGlyph.All.Add(glyphAsset);
+        GlyphSO.All.Add(glyphAsset);
 
         var equipmentType = Guid.NewGuid();
-        var amulet = new FakeEquipmentType { Identity = equipmentType };
-        amulet.levelEffects.Add(Block(new FakeObjectPropertyEffect
+        var amulet = new EquipmentTypeSO { Identity = equipmentType };
+        amulet.levelEffects.Add(Block(new UpgradeableObject.UpgradeEffectModifier
         {
-            upgradeableObject = new FakeUpgradeableObject(),
+            upgradeableObject = new ResourceSO(),
             propertyType = "EffectLevel",
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 5d, 0),
         }));
-        FakeEquipmentType.All.Add(amulet);
+        EquipmentTypeSO.All.Add(amulet);
 
-        var plotCapacity = new FakeResource { Identity = Guid.NewGuid() };
-        FakeResource.All.Add(plotCapacity);
+        var plotCapacity = new ResourceSO { Identity = Guid.NewGuid() };
+        ResourceSO.All.Add(plotCapacity);
         var resourceType = Guid.NewGuid();
-        var blooming = new FakeResourceType { Identity = resourceType };
-        blooming.levelEffects.Add(Block(new FakeResourceEffect
+        var blooming = new ResourceTypeSO { Identity = resourceType };
+        blooming.levelEffects.Add(Block(new ResourceSO.PersistentEffect
         {
             resource = plotCapacity,
-            upgradeType = FakeResourceModifiableType.MaxQuantity,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 5d, 0),
+            upgradeType = ResourceSO.ModifiableType.MaxQuantity,
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 5d, 0),
         }));
-        FakeResourceType.All.Add(blooming);
+        ResourceTypeSO.All.Add(blooming);
 
-        var castTime = new FakeNumberVariable();
+        var castTime = new NumberVariable();
         var spellType = Guid.NewGuid();
-        var arcane = new FakeSpellType { Identity = spellType };
-        arcane.perLevelEffects.Add(Block(new FakeVariableEffect
+        var arcane = new SpellTypeSO { Identity = spellType };
+        arcane.perLevelEffects.Add(Block(new NumberVariable.PersistentEffect
         {
             numberVariable = castTime,
-            modifier = new FakeValueModifier(FakeModifierKind.MultiDiminishing, 0.9d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.MultiDiminishing, 0.9d, 0),
         }));
-        FakeSpellType.All.Add(arcane);
+        SpellTypeSO.All.Add(arcane);
 
         // A block whose script grants advancement experience rather than applying a modifier is
         // walked and publishes nothing, which is what the pinned build's twenty time-rune
         // level-up blocks all do.
         var rune = Guid.NewGuid();
-        var runeAsset = new FakeTimeRune { Identity = rune };
-        runeAsset.onLevelEffects.Add(Block(new FakeTreasureEffect()));
-        FakeTimeRune.All.Add(runeAsset);
+        var runeAsset = new TimeRuneSO { Identity = rune };
+        runeAsset.onLevelEffects.Add(new InstantEffectBlock { effectScripts = { new TreasurePoolSO.TreasurePoolInstantEffect() } });
+        TimeRuneSO.All.Add(runeAsset);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -679,39 +680,39 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     [Fact]
     public void ChallengeSectionsAndStructurePropertiesPublishAsTheTooltipGroupsThem()
     {
-        var discoveryOptions = new FakeNumberVariable();
-        var trial = new FakeChallenge();
-        trial.challengeEffects.Add(Block(new FakeVariableEffect
+        var discoveryOptions = new NumberVariable();
+        var trial = new ChallengeSO();
+        trial.challengeEffects.Add(Block(new NumberVariable.PersistentEffect
         {
             numberVariable = discoveryOptions,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, -1d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, -1d, 0),
         }));
-        trial.completionRewards.Add(Block(new FakeVariableEffect
+        trial.completionRewards.Add(Block(new NumberVariable.PersistentEffect
         {
             numberVariable = discoveryOptions,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 2d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 2d, 0),
         }));
-        FakeChallenge.All.Add(trial);
+        ChallengeSO.All.Add(trial);
 
-        var research = new FakeResearch();
-        research.researchEffectBlocks.Add(Block(new FakeVariableEffect
+        var research = new ResearchSO();
+        research.researchEffectBlocks.Add(Block(new NumberVariable.PersistentEffect
         {
             numberVariable = discoveryOptions,
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 1d, 0),
         }));
-        FakeResearch.All.Add(research);
+        ResearchSO.All.Add(research);
 
-        var field = new FakeUpgradeableObject();
-        var plot = new FakeStructure { Identity = Guid.NewGuid() };
-        var properties = new FakePermanentEffects();
-        properties.upgradeableObjectEffects.Add(new FakeObjectPropertyEffect
+        var field = new ResourceSO();
+        var plot = new StructureSO { Identity = Guid.NewGuid() };
+        var properties = new PersistentEffectDeprecated.Property();
+        properties.upgradeableObjectEffects.Add(new UpgradeableObject.UpgradeEffectModifier
         {
             upgradeableObject = field,
             propertyType = "Quality",
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 0.005d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 0.005d, 0),
         });
         plot.structureProperties.Add(properties);
-        FakeStructure.All.Add(plot);
+        StructureSO.All.Add(plot);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -751,18 +752,18 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // factors. Without the slot on the row a reader meets one statistic twice and cannot say
         // which arithmetic belongs to which.
         var cooldown = Guid.NewGuid();
-        FakeStatistic.All.Add(new FakeStatistic
+        AttributeSO.All.Add(new AttributeSO
         {
             Identity = cooldown,
             globalDefinition = "Cooldown",
         });
 
         var glyph = Guid.NewGuid();
-        FakeGlyph.All.Add(new FakeGlyph
+        GlyphSO.All.Add(new GlyphSO
         {
             Identity = glyph,
-            spellCooldown = new FakeValueModifier(FakeModifierKind.MultiStacking, 1.2d, 0),
-            spellBaseCooldown = new FakeValueModifier(FakeModifierKind.Raw, -2d, -1),
+            spellCooldown = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 1.2d, 0),
+            spellBaseCooldown = new ValueModifier(ValueModifier.ValueModifierType.Raw, -2d, -1),
         });
 
         var collector = Collector();
@@ -790,11 +791,11 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
         // is empty at one, and a Raw one at zero. A glyph that fills nothing reaches the table not
         // at all rather than as fifteen rows of identity values.
         var glyph = Guid.NewGuid();
-        FakeGlyph.All.Add(new FakeGlyph
+        GlyphSO.All.Add(new GlyphSO
         {
             Identity = glyph,
-            spellPower = new FakeValueModifier(FakeModifierKind.MultiStacking, 1d, 0),
-            spellCost = new FakeValueModifier(FakeModifierKind.Raw, 0d, 0),
+            spellPower = new ValueModifier(ValueModifier.ValueModifierType.MultiStacking, 1d, 0),
+            spellCost = new ValueModifier(ValueModifier.ValueModifierType.Raw, 0d, 0),
         });
 
         var collector = Collector();
@@ -817,32 +818,32 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     public void AnUnexpectedThrowReadingALevelEffectFaultsThePass(string owner)
     {
         var failure = new NullReferenceException("effect target was destroyed");
-        var effect = new FakeObjectPropertyEffect
+        var effect = new UpgradeableObject.UpgradeEffectModifier
         {
-            upgradeableObject = new FakeUpgradeableObject { GetGuidFailure = failure },
+            upgradeableObject = new ResourceSO { GetGuidFailure = failure },
             propertyType = "power",
-            modifier = new FakeValueModifier(FakeModifierKind.Raw, 1d, 0),
+            modifier = new ValueModifier(ValueModifier.ValueModifierType.Raw, 1d, 0),
         };
         switch (owner)
         {
             case "upgrade":
-                var upgrade = new FakeUpgrade();
+                var upgrade = new UpgradeSO();
                 upgrade.permanentEffects.upgradeableObjectEffects.Add(effect);
-                FakeUpgrade.All.Add(upgrade);
+                UpgradeSO.All.Add(upgrade);
                 break;
             case "structure":
-                var properties = new FakePermanentEffects();
+                var properties = new PersistentEffectDeprecated.Property();
                 properties.upgradeableObjectEffects.Add(effect);
-                var structure = new FakeStructure();
+                var structure = new StructureSO();
                 structure.structureProperties.Add(properties);
-                FakeStructure.All.Add(structure);
+                StructureSO.All.Add(structure);
                 break;
             default:
-                var block = new FakeEffectBlock();
+                var block = new PersistentEffectBlock();
                 block.effectScripts.Add(effect);
-                var research = new FakeResearch();
+                var research = new ResearchSO();
                 research.researchEffectBlocks.Add(block);
-                FakeResearch.All.Add(research);
+                ResearchSO.All.Add(research);
                 break;
         }
 
@@ -859,13 +860,13 @@ public sealed class GameWorldCollectorViewTests : GameWorldCollectorTestBase
     public void AnUnexpectedThrowReadingAStatGroupMemberFaultsThePass()
     {
         var failure = new NullReferenceException("member statistic was destroyed");
-        var group = new FakeAttributeGroup();
-        group.recordReferences.Add(new FakeAttributeGroupReference
+        var group = new AttributeGroupSO();
+        group.recordReferences.Add(new AttributeGroupSO.MergingRecordReference
         {
-            upgradeableObject = new FakeStatistic { GetGuidFailure = failure },
+            upgradeableObject = new AttributeSO { GetGuidFailure = failure },
             propertyType = "power",
         });
-        FakeAttributeGroup.All.Add(group);
+        AttributeGroupSO.All.Add(group);
 
         var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
 

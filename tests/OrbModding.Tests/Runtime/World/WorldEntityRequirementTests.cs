@@ -15,9 +15,9 @@ namespace OrbModding.Tests.Runtime.World;
 /// </remarks>
 public sealed class WorldEntityRequirementTests : IDisposable
 {
-    public WorldEntityRequirementTests() => ClearRegistries();
+    public WorldEntityRequirementTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnUpgradesPerLevelResearchConditionIsPublished()
@@ -648,20 +648,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         return world.EntityRequirements[0];
     }
 
-    private static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::ConsumableSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::IntVariable.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GlyphSO.All.Clear();
-        global::RecipeBookSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-    }
+
 
     private sealed class MissingCheckLink
     {

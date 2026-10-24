@@ -40,6 +40,7 @@ public sealed class AutoConceptNativeJourneyIntegrationTests : IDisposable
         var active = Install(activeRecipe, replacementRecipe);
         active.TypelessSlots = 1;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var native = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
 
         var removeBelief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);

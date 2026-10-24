@@ -193,10 +193,10 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
     private static void ResetNativeState()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         global::SpellManager.NativeCanCast = true;
         global::SettingsManager.CancellableSpells = true;
-        global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         global::BattleManager.instance = null;
     }

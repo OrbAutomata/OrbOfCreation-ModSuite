@@ -20,4 +20,5 @@ public sealed class DoubleVariable
     public BigDouble AsPercent() => value.AsPercent();
 
     public Guid GetGuid() => uuid;
+    public Guid Identity { get => GetGuid(); set => uuid = value; }
 }

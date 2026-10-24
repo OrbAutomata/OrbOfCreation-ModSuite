@@ -20,4 +20,5 @@ public class NumberVariable
         public NumberVariable? numberVariable;
         public ValueModifier modifier;
     }
+    public Guid Identity { get => GetGuid(); set => uuid = value; }
 }

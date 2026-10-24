@@ -10,12 +10,8 @@ using System.Reflection;
 /// </summary>
 public abstract class UpgradeableObject : TooltipableObject
 {
-    private string stableUuid;
+    public new string uuid { get => StringUuid; set => StringUuid = value; }
 
-    protected UpgradeableObject()
-    {
-        stableUuid = base.GetGuid().ToString("D");
-    }
 
     /// <summary>One effect's modification of one named property of one upgradeable object.</summary>
     /// <remarks>
@@ -31,14 +27,6 @@ public abstract class UpgradeableObject : TooltipableObject
         public bool useTargetRef;
     }
 
-    public new string uuid
-    {
-        get => stableUuid;
-        set
-        {
-            stableUuid = value;
-            if (Guid.TryParse(value, out var guid)) base.SetGuid(guid);
-        }
-    }
+
 
 }

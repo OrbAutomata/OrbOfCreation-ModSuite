@@ -17,6 +17,7 @@ namespace OrbModding.ProfileTests;
 /// count from this page's row count.
 /// </summary>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpCollectorAccountabilityTests
 {
     [Fact]

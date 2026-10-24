@@ -51,6 +51,7 @@ public class ResourceCostList
     public List<ResourceTuple> GetEntries() => EntriesFault is { } fault ? throw fault : costs;
     public BigDouble MaximumCostTimes()
     {
+        if (maximumCostTimes is { } maximum) return maximum;
         if (costs.Count == 0) return new BigDouble(int.MaxValue);
         var result = new BigDouble(int.MaxValue);
         foreach (var row in costs)
@@ -140,4 +141,7 @@ public class ResourceCostList
     {
         foreach (var row in costs) row.resource?.RemoveUsage(guid);
     }
+    public bool withinCapacity { get => WithinCapacity; set => WithinCapacity = value; }
+    public BigDouble? maximumCostTimes;
+
 }

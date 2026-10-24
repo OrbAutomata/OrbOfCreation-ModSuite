@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class AlchemyTypeSO : IdScriptableObject
+public sealed class AlchemyTypeSO : StringIdScriptableObject
 {
     public static List<AlchemyTypeSO> All = new List<AlchemyTypeSO>();
 
@@ -13,7 +13,7 @@ public sealed class AlchemyTypeSO : IdScriptableObject
     public ValueModifierRecord level = new ValueModifierRecord(new BigDouble(0.0, 0));
 
     /// <summary>The chosen level, held in the shared variable registry rather than on the type.</summary>
-    public IntVariable selectedLevel;
+    public IntVariable selectedLevel = null!;
 
     // Composed records: no cached value of their own, so collection counts their active set.
     public bool maxUsageByMastery;
@@ -33,25 +33,7 @@ public sealed class AlchemyTypeSO : IdScriptableObject
     public ValueModifier reqCostPenalty;
     public ValueModifier reqSpeedPenalty;
 
-    public AlchemyTypeSO()
-    {
-        uuid = base.GetGuid().ToString();
-    }
+    public AlchemyTypeSO() { }
 
-    public AlchemyTypeSO(string uuid)
-    {
-        this.uuid = uuid;
-        if (Guid.TryParse(uuid, out var guid))
-        {
-            base.SetGuid(guid);
-        }
-    }
-
-    public new string uuid;
-
-    public new void SetGuid(Guid guid)
-    {
-        base.SetGuid(guid);
-        uuid = guid.ToString();
-    }
+    public AlchemyTypeSO(string uuid) => this.uuid = uuid;
 }

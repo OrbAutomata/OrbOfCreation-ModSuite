@@ -12,4 +12,5 @@ public sealed class ResourceDrain
     public ResourceCostList drainCostMult = new ResourceCostList();
     public BigDouble GetRatio() => new BigDouble(1.0, 0);
     public ResourceCostList GetCurrentDrain() => drainCostMult;
+    public ResourceCostList current { get => drainCostMult; set => drainCostMult = value; }
 }

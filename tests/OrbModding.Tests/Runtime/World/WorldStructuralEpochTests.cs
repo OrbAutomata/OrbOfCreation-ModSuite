@@ -36,7 +36,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
 
     public WorldStructuralEpochTests()
     {
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         var mana = new global::ResourceSO();
         mana.SetGuid(KnownEntities.Mana.Uuid);
         global::IdScriptableObject.RuntimeLookup[KnownEntities.Mana.Uuid] = mana;
@@ -50,7 +50,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
 
     public void Dispose()
     {
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         foreach (var identity in ResourceBar) global::IdScriptableObject.RuntimeLookup.Remove(identity);
     }
 
@@ -81,7 +81,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
         collector.Collect(frame);
 
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         collector.Collect(frame);
         var world = GameWorldFrameDeriver.Build(frame);
 
@@ -105,7 +105,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         collector.Collect(frame);
         Assert.Equal(1, GameWorldFrameDeriver.Build(frame).PlotNodes.Count);
 
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         collector.Collect(frame);
 
         Assert.Equal(0, GameWorldFrameDeriver.Build(frame).PlotNodes.Count);
@@ -196,7 +196,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
         collector.Collect(frame);
 
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         frame.CollectedAtEpoch = 6;
         collector.Collect(frame);
         var world = GameWorldFrameDeriver.Build(frame);
@@ -264,7 +264,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
         var frame = new GameWorldCycleFrame { CollectedAtEpoch = 5 };
         var first = collector.Collect(frame);
 
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         var second = collector.Collect(frame);
 
         Assert.Equal(first.For("plot authoring").Sampled, second.For("plot authoring").Sampled);
@@ -595,7 +595,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
             WorldCategoryOutcome.Unavailable,
             collector.Collect(frame).For("spell authored graph").Outcome);
 
-        ClearRegistries();
+        OrbModding.GameStubs.GameStubState.Reset();
         collector.Collect(frame);
 
         Assert.Equal(1, GameWorldFrameDeriver.Build(frame).PlotAuthoring.Count);
@@ -636,21 +636,5 @@ public sealed class WorldStructuralEpochTests : IDisposable
         global::PlotNodeActionSO.All.Add(action);
     }
 
-    private static void ClearRegistries()
-    {
-        global::PlotNodeSO.All.Clear();
-        global::PlotNodeActionSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::ResearchSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
-        global::CraftingRecipeTypeSO.All.Clear();
-        global::CraftingRecipeSO.All.Clear();
-        global::ConsumableSO.All.Clear();
-        global::GlyphSO.All.Clear();
-        global::DiscoveryTreeSO.All.Clear();
-    }
+
 }

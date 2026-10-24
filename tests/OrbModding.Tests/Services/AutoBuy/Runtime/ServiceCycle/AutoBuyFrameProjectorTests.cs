@@ -701,20 +701,13 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         var structures = new global::StructureListVariable { value = global::StructureSO.All };
         var upgrades = new global::UpgradeListVariable { value = global::UpgradeSO.All };
         var owningView = new global::ViewSO { available = true };
         owningView.relevantLists.Add(structures);
         owningView.relevantLists.Add(upgrades);
         global::ViewSO.All.Add(owningView);
-        global::ResearchSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::ResourceSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
         global::ActionManager.instance = new global::ActionManager();
         global::ActionManager.RemainingRoom = 0;
         global::GlobalVariables.MultiBuy = new global::IntVariable();

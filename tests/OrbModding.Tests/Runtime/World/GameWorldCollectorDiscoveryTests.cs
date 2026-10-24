@@ -13,16 +13,16 @@ public sealed class GameWorldCollectorDiscoveryTests : GameWorldCollectorTestBas
         glyphComponent.SetGuid(Guid.NewGuid());
         var resourceComponent = new global::ResourceSO();
         resourceComponent.SetGuid(Guid.NewGuid());
-        var output = new FakeGlyph
+        var output = new GlyphSO
         {
             Identity = Guid.NewGuid(),
             NativeAvailable = true,
             NativeDiscoverVisible = true,
             NativeCanDiscover = true,
         };
-        output.genericDiscoveryGlyphs.Add(glyphComponent);
-        output.genericDiscoveryResources.Add(resourceComponent);
-        FakeGlyph.All.Add(output);
+        output.glyphRecipe.Add(glyphComponent);
+        output.resourceRecipe.Add(resourceComponent);
+        GlyphSO.All.Add(output);
 
         var collector = Collector();
         collector.Collect();
@@ -36,32 +36,32 @@ public sealed class GameWorldCollectorDiscoveryTests : GameWorldCollectorTestBas
     [Fact]
     public void DiscoveryTreesPublishExactDecisionCostsAndOrderedOfferIdentities()
     {
-        var currency = new FakeResource { Quantity = new BigDouble(563, 22) };
-        var idle = new FakeDiscoveryTree
+        var currency = new ResourceSO { Quantity = new BigDouble(563, 22) };
+        var idle = new DiscoveryTreeSO
         {
-            actionMode = FakeState.Idle,
+            actionMode = DiscoveryTreeSO.DiscoveryTreeModes.Idle,
             rerollsLeft = 1,
-            hasRemainingDiscovery = true,
-            nextItemCost = new FakeDiscoveryCostList { affordable = true },
-            totalDiscoveredCount = 3,
-            allDiscoverableItems = { new object(), new object(), new object(), new object() },
-            mainDiscoverableItemPool = { new object(), new object() },
+            HasRemainingDiscovery = true,
+            nextItemCost = new ResourceCostList { affordable = true },
+            TotalDiscoveredCount = 3,
+            allDiscoverableItems = { new DiscoveryTestItemSO(), new DiscoveryTestItemSO(), new DiscoveryTestItemSO(), new DiscoveryTestItemSO() },
+            mainDiscoverableItemPool = { new DiscoveryTestItemSO(), new DiscoveryTestItemSO() },
         };
         idle.nextItemCost.costs.Add(
-            new FakeDiscoveryCost(currency, new BigDouble(11, 23)));
+            new ResourceTuple(currency, new BigDouble(11, 23)));
 
         var firstOffer = Guid.NewGuid();
         var secondOffer = Guid.NewGuid();
-        var choice = new FakeDiscoveryTree
+        var choice = new DiscoveryTreeSO
         {
-            actionMode = FakeState.Done,
+            actionMode = DiscoveryTreeSO.DiscoveryTreeModes.Choice,
             rerollsLeft = 2,
-            hasRemainingDiscovery = true,
+            HasRemainingDiscovery = true,
         };
-        choice.currentChoiceIds.Add(new FakeGuidContainer(firstOffer));
-        choice.currentChoiceIds.Add(new FakeGuidContainer(secondOffer));
-        FakeDiscoveryTree.All.Add(idle);
-        FakeDiscoveryTree.All.Add(choice);
+        choice.currentChoiceIds.Add(new GuidContainer(firstOffer));
+        choice.currentChoiceIds.Add(new GuidContainer(secondOffer));
+        DiscoveryTreeSO.All.Add(idle);
+        DiscoveryTreeSO.All.Add(choice);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -91,10 +91,10 @@ public sealed class GameWorldCollectorDiscoveryTests : GameWorldCollectorTestBas
     [Fact]
     public void ADiscoveryTreeBookThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        var tree = new FakeDiscoveryTree();
+        var tree = new DiscoveryTreeSO();
         tree.availableRecipeBooks!.value.Add(
-            new FakeRecipeBook { GetGuidFailure = new NullReferenceException("tree book") });
-        FakeDiscoveryTree.All.Add(tree);
+            new RecipeBookSO { GetGuidFailure = new NullReferenceException("tree book") });
+        DiscoveryTreeSO.All.Add(tree);
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
@@ -106,9 +106,9 @@ public sealed class GameWorldCollectorDiscoveryTests : GameWorldCollectorTestBas
     [Fact]
     public void ARecipeBookGlyphThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakeGlyph.All.Add(new FakeGlyph
+        GlyphSO.All.Add(new GlyphSO
         {
-            associatedRecipeBook = new FakeRecipeBook
+            associatedRecipeBook = new RecipeBookSO
             {
                 GetGuidFailure = new NullReferenceException("glyph book"),
             },

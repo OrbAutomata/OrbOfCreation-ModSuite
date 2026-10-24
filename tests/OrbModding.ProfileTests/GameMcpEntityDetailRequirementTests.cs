@@ -9,11 +9,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 {
-    public GameMcpEntityDetailRequirementTests() => ClearRegistries();
+    public GameMcpEntityDetailRequirementTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void RequirementsExpandOrderedLinkTiersAndPreserveAndOrGroups()

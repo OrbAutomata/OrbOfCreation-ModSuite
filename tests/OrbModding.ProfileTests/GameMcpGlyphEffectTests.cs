@@ -33,6 +33,7 @@ namespace OrbModding.ProfileTests;
 /// </para>
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpGlyphEffectTests : IDisposable
 {
     private static readonly Guid Quick = Guid.Parse("0eff1e6f-8e7d-4bb9-a94b-0d58b12935ba");

@@ -28,7 +28,15 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
 
     /// <summary>The add lands, then the game throws while its instances keep reading.</summary>
     public Exception? AddFailureAfterWrite { get; set; }
-    public int TypelessSlots { get; set; } = 16;
+    private int numTypelessSlots = 16;
+    private int numEmptyTypelessSlots = 16;
+    private readonly Dictionary<AlchemyTypeSO, int> typeCounts = new();
+
+    public int TypelessSlots
+    {
+        get => numTypelessSlots;
+        set { numTypelessSlots = value; numEmptyTypelessSlots = value; }
+    }
     public Dictionary<AlchemyTypeSO, int> TypeSlots { get; } =
         new Dictionary<AlchemyTypeSO, int>();
 
@@ -36,44 +44,36 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     {
         if (ThrowOnCanAdd || ReferenceEquals(recipe, ThrowOnCanAddFor))
             throw CanAddFailure;
-        var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
-        if (instance is not null && instance.queuedQuantity >= recipe.GetMaxUsageSlots()) return false;
+        // Native HasInstance -> FindInstance calls the reference getter on each stored element.
+        // A capacity placeholder is AlchemyInstance(null), not a literal null element.
+        var instance = value.Find(item => ReferenceEquals(item.get_reference(), recipe));
         if (instance is not null) return true;
         return recipe.alchemyTypes.Any(type =>
             GetNumEmptyTypelessSlots() + Math.Max(GetSlotsOnlyForType(type) - GetNumOfType(type), 0) > 0);
     }
 
+    // Native getters read RebuildCounts' cache; a read never repairs or scans malformed storage.
     public int GetNumOfType(AlchemyTypeSO type) =>
-        value.Count(item =>
-            Math.Max(item.quantity, item.queuedQuantity) > 0 &&
-            item.reference is not null &&
-            item.reference.alchemyTypes.Contains(type));
+        typeCounts.TryGetValue(type, out var count) ? count : 0;
 
     public int GetSlotsOnlyForType(AlchemyTypeSO type) =>
         TypeSlots.TryGetValue(type, out var slots) ? slots : 0;
 
-    public int GetNumEmptyTypelessSlots()
-    {
-        var totalSlots = TypelessSlots + TypeSlots.Values.Sum();
-        var emptySlots = Math.Max(0, totalSlots - value.Count(item =>
-            Math.Max(item.quantity, item.queuedQuantity) > 0));
-        var reservedTyped = TypeSlots.Sum(entry =>
-            Math.Max(entry.Value - GetNumOfType(entry.Key), 0));
-        return emptySlots - reservedTyped;
-    }
+    public int GetNumEmptyTypelessSlots() => numEmptyTypelessSlots;
 
     public void AddAlchemyInstances(AlchemyRecipeSO recipe, int delta)
     {
         if (SuppressAddMutation || ReferenceEquals(recipe, SuppressAddMutationOf)) return;
         if (AddFailure is { } failure && (AddFailureFor is null || ReferenceEquals(recipe, AddFailureFor)))
             throw failure;
-        var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
+        var instance = value.SingleOrDefault(item => ReferenceEquals(item.get_reference(), recipe));
         if (instance is null)
         {
             instance = new AlchemyInstance(recipe);
             value.Add(instance);
         }
         instance.queuedQuantity += delta;
+        RebuildCounts();
         if (BreakAfterMutation) Break();
         if (AddFailureAfterWrite is { } after) throw after;
     }
@@ -87,15 +87,16 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
     public void RemoveAlchemyInstances(AlchemyRecipeSO recipe, int delta)
     {
         if (SuppressRemoveMutation) return;
-        var instance = value.Single(item => ReferenceEquals(item.reference, recipe));
+        var instance = value.Single(item => ReferenceEquals(item.get_reference(), recipe));
         instance.queuedQuantity = Math.Max(instance.queuedQuantity - delta, 0);
         if (instance.queuedQuantity == 0) value.Remove(instance);
+        RebuildCounts();
     }
 
     public void EngageAlchemy(AlchemyRecipeSO recipe)
     {
         if (!CanAddInstance(recipe)) return;
-        var instance = value.SingleOrDefault(item => ReferenceEquals(item.reference, recipe));
+        var instance = value.SingleOrDefault(item => ReferenceEquals(item.get_reference(), recipe));
         var free = instance?.GetRemainingFreeUsageSlots() ?? recipe.GetFreeUsageSlots();
         var remaining = instance?.GetRemainingMaxUsageSlots() ?? recipe.GetMaxUsageSlots();
         var cost = recipe.GetUsageCost();
@@ -111,7 +112,22 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
 
     public void RebuildCounts()
     {
-        foreach (var instance in value) instance.quantity = instance.queuedQuantity;
+        typeCounts.Clear();
+        var occupied = 0;
+        foreach (var instance in value)
+        {
+            if (instance.IsEmpty()) continue;
+            occupied++;
+            foreach (var type in instance.get_reference().alchemyTypes)
+            {
+                typeCounts.TryGetValue(type, out var count);
+                typeCounts[type] = count + 1;
+            }
+        }
+        // Fixtures author a total capacity instead of padding value with native empty placeholders.
+        var empty = Math.Max(0, numTypelessSlots + TypeSlots.Values.Sum() - occupied);
+        var reservedTyped = TypeSlots.Sum(entry => Math.Max(entry.Value - GetNumOfType(entry.Key), 0));
+        numEmptyTypelessSlots = empty - reservedTyped;
     }
 
     public void SetupMaxSlotsValue()
@@ -138,5 +154,6 @@ public sealed class AlchemyInstanceListVariable : AbstractListVariable<AlchemyIn
                 queuedQuantity = entry.Item2,
             });
         }
+        RebuildCounts();
     }
 }

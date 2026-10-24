@@ -26,12 +26,12 @@ public struct ValueModifier
     private IdScriptableObject? reference;
 #pragma warning restore CS0414
 
-    public ValueModifier(ValueModifierType type, BigDouble amount, int order = 0)
+    public ValueModifier(ValueModifierType type, BigDouble amount, int order = 0, IdScriptableObject? reference = null)
     {
         this.type = type;
         adjustReal = amount;
         this.order = order;
-        reference = null;
+        this.reference = reference;
     }
 
     public BigDouble Adjust(BigDouble value) => type switch

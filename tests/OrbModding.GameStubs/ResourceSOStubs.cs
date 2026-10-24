@@ -123,7 +123,7 @@ public class ResourceSO : UpgradeableObject
     private bool inRestMode;
     private bool inRallyMode;
     public override string GetName() => name;
-    public BigDouble GetQuantity() => quantity;
+    public BigDouble GetQuantity() => QuantityFailure is { } failure ? throw failure : quantity;
     // The game's own formula. A settable field here would let the stub's GetTrueQuantity()
     // disagree with its own quantity and quality, which is precisely the drift that makes a
     // passing test mean nothing.
@@ -133,7 +133,7 @@ public class ResourceSO : UpgradeableObject
     public BigDouble GetTrueSpend(BigDouble amount) =>
         amount / BigDouble.Normalize(quality.GetValue().Mantissa, quality.GetValue().Exponent - 2);
     public Exception? TrueRateReadFailure { get; set; }
-    public BigDouble GetTrueRate() => TrueRateReadFailure is { } failure ? throw failure : trueRate;
+    public BigDouble GetTrueRate() => TrueRateReadFailure is { } failure ? throw failure : ThrowOnRate ? throw new InvalidOperationException("rate unavailable") : trueRate;
     public BigDouble GetModdedDrain() => drain.GetValue() / quality.GetValue().AsPercent();
     public bool IsAtZero() => quantity <= new BigDouble(0.01);
     public bool IsAvailable() => available;
@@ -168,4 +168,20 @@ public class ResourceSO : UpgradeableObject
         quantity -= amount / normalizedQuality;
     }
     public BigDouble GetTrueAmount(BigDouble amount) => amount;
+    public BigDouble Quantity { get => quantity; set => quantity = value; }
+    public BigDouble Rate { get => trueRate; set => trueRate = value; }
+    public bool Visible { get => visible; set => visible = value; }
+    public Exception? QuantityFailure { get; set; }
+    public bool ThrowOnRate { get; set; }
+
+    public BigDouble CalcRarityValue { get => calcRarityValue; set => calcRarityValue = value; }
+    public double CurrentLossRate { get => currentLossRate; set => currentLossRate = value; }
+    public BigDouble LastReservation { get => lastReservation; set => lastReservation = value; }
+    public BigDouble DebouncedReplenish { get => debouncedReplenish; set => debouncedReplenish = value; }
+    public BigDouble DebouncedReverberate { get => debouncedReverberate; set => debouncedReverberate = value; }
+    public BigDouble DebouncedDecay { get => debouncedDecay; set => debouncedDecay = value; }
+    public bool FirstIncrement { get => firstIncrement; set => firstIncrement = value; }
+    public bool InLossMode { get => inLossMode; set => inLossMode = value; }
+    public bool InRestMode { get => inRestMode; set => inRestMode = value; }
+    public bool InRallyMode { get => inRallyMode; set => inRallyMode = value; }
 }

@@ -76,8 +76,8 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
         Assert.True(second.CanAdd);
         Assert.True(second.IsActive);
 
-        // A recipe already holding every slot it allows: the game refuses another, and the reader
-        // publishes the refusal beside a maximum of none rather than in place of one.
+        // Native admission accepts an already held recipe even when its usage limit leaves no
+        // further purchases. The reader publishes that admission separately from MaximumAdd.
         var third = frame.AlchemyLoadout[2];
         Assert.Equal(ThirdRecipeId, third.RecipeId);
         Assert.Equal(0, third.Position);
@@ -86,7 +86,7 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
         Assert.Equal(0, third.FreeUsesRemaining);
         Assert.Equal(0, third.MaximumAdd);
         Assert.True(third.Discovered);
-        Assert.False(third.CanAdd);
+        Assert.True(third.CanAdd);
 
         // Usage costs come out per sampled recipe in recipe order, and within a recipe in the order
         // the native cost list holds them. The empty-priced recipe contributes none.
@@ -94,6 +94,25 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
         AssertCost(frame.AlchemyUsageCosts[0], SecondRecipeId, FirstResourceId, 250d);
         AssertCost(frame.AlchemyUsageCosts[1], ThirdRecipeId, FirstResourceId, 100d);
         AssertCost(frame.AlchemyUsageCosts[2], ThirdRecipeId, SecondResourceId, 400d);
+
+        // With both capacity slots occupied, native admission refuses the unheld first recipe.
+        // Its usage maximum remains nine; the held third stays admitted with no purchases left.
+        var active = global::AlchemyManager.instance!.activeAlchemy;
+        active.TypelessSlots = 2;
+        active.RebuildCounts();
+        var fullFrame = new GameWorldCycleFrame();
+
+        var fullReport = new WorldAlchemyLoadoutReader(Resolve).Collect(new HashSet<Guid>(), fullFrame);
+
+        Assert.Equal(WorldCategoryOutcome.Collected, fullReport.Outcome);
+        Assert.Equal(0, fullReport.Skipped);
+        Assert.Equal(3, fullFrame.AlchemyLoadout.Count);
+        Assert.Equal(FirstRecipeId, fullFrame.AlchemyLoadout[0].RecipeId);
+        Assert.False(fullFrame.AlchemyLoadout[0].CanAdd);
+        Assert.Equal(9, fullFrame.AlchemyLoadout[0].MaximumAdd);
+        Assert.Equal(ThirdRecipeId, fullFrame.AlchemyLoadout[2].RecipeId);
+        Assert.True(fullFrame.AlchemyLoadout[2].CanAdd);
+        Assert.Equal(0, fullFrame.AlchemyLoadout[2].MaximumAdd);
     }
 
     /// <summary>An absent registry position is skipped by its position rather than read as a recipe.</summary>
@@ -113,20 +132,26 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
     }
 
     /// <summary>
-    /// A native refusal degrades the whole category with the game's own message, rather than being
+    /// A native refusal degrades the whole category with a named reason, rather than being
     /// published as a partial reading or escaping into the pass.
     /// </summary>
     [Fact]
-    public void ANativeThrowDegradesTheCategoryWithItsMessage()
+    public void ANativeThrowDegradesTheCategoryWithANamedReason()
     {
         Seed();
-        global::AlchemyManager.instance!.activeAlchemy.ThrowOnCanAdd = true;
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
+        var active = global::AlchemyManager.instance!.activeAlchemy;
+        var failure = new InvalidOperationException("CanAddInstance failed");
+        active.CanAddFailure = failure;
+        active.ThrowOnCanAdd = true;
 
         var frame = new GameWorldCycleFrame();
         var report = new WorldAlchemyLoadoutReader(Resolve).Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Equal("reading ordinary alchemy threw: CanAddInstance failed", report.FirstFailure);
+        Assert.Equal("reading ordinary alchemy threw", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, failure);
+        Assert.Contains("Reference " + report.Failure.Reason.Reference, report.FirstFailure);
         Assert.Equal(0, frame.AlchemyLoadout.Count);
         Assert.Equal(0, frame.AlchemyUsageCosts.Count);
     }
@@ -224,11 +249,8 @@ public sealed class WorldAlchemyLoadoutReaderTests : IDisposable
 
     private static void Clear()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         global::AlchemyManager.instance = null;
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::AlchemyTypeSO.All.Clear();
-        global::UnityEngine.Resources.Objects.Clear();
     }
 
     private static void Seed()

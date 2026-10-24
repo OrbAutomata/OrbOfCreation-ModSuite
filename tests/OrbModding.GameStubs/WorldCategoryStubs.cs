@@ -267,6 +267,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     public BigDouble GetStartingQuantity()
     {
         StartingQuantityCalls++;
+        if (StartingQuantityFailure is { } failure) throw failure;
         return StartingQuantity;
     }
     public ResourceCostList GetTotalCost(BigDouble previousQuantity, BigDouble purchasedQuantity) =>
@@ -298,6 +299,7 @@ public sealed class CraftingRecipeSO : IdScriptableObject
     }
 
     public PassiveObservable.Channel GetEffectChannel() => effectChannel;
+    public Exception? StartingQuantityFailure;
 }
 
 public sealed class CraftingInstanceListVariable : GenericListVariable<CraftingInstance>
@@ -508,7 +510,7 @@ public sealed class HarvestElementSO : UpgradeableObject
 
     public bool IsVisible() => visible;
     public bool IsAvailable() => available;
-    public BigDouble MaximumNumberInstances() => new BigDouble(MaximumAdditional);
+    public BigDouble MaximumNumberInstances() => throwsOnMaximum ? throw new InvalidOperationException("MaximumNumberInstances failed") : new BigDouble(MaximumAdditional);
     public List<HarvestActionInstance> GetActionInstances() => actionInstances;
     public void AddAction(HarvestActionSO action) =>
         actionInstances.Add(new HarvestActionInstance(this, action));
@@ -518,6 +520,12 @@ public sealed class HarvestElementSO : UpgradeableObject
     /// registry cannot reach it and it is read through its owner.
     /// </summary>
     private ResourceSO harvestResource = new ResourceSO();
+    public ResourceSO Resource { get => harvestResource; set => harvestResource = value; }
+    public bool Visible { get => visible; set => visible = value; }
+    public bool Available { get => available; set => available = value; }
+    public bool throwsOnMaximum;
+    public BigDouble HarvestRate { get => harvestRate; set => harvestRate = value; }
+    public BigDouble LastOutputRate { get => lastOutputRate; set => lastOutputRate = value; }
 }
 
 public sealed class HarvestActionSO : UpgradeableObject
@@ -697,13 +705,16 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
 
     // GlyphSO.IsAvailable() returns `discovered` when `discoverable` is set and this container's
     // Check() otherwise, so only the recipe-book half authors anything here.
-    public Prerequisites.Container prerequisites = new Prerequisites.Container();
+    public Prerequisites.Container prerequisites = new Prerequisites.Container { NativeCheckResult = true };
 
     // Authored one way and non-null on exactly the twenty-five that are the internal half of a
     // Recipe Book. The world publishes an Augment Glyph row only where this is null.
     public RecipeBookSO? associatedRecipeBook;
-    public bool NativeAvailable { get; set; } = true;
-    public bool NativeVisible { get; set; } = true;
+    public bool NativeAvailable
+    {
+        get => discoverable ? discovered : prerequisites.available;
+        set { prerequisites.available = value; prerequisites.NativeCheckResult = value; }
+    }
     public ResourceCostList discoveryCost = new ResourceCostList();
     public List<GlyphSO> glyphRecipe = new List<GlyphSO>();
     public List<ResourceSO> resourceRecipe = new List<ResourceSO>();
@@ -745,8 +756,8 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public List<PersistentEffectBlock> levelingEffects = new List<PersistentEffectBlock>();
 
     public string GetName() => DisplayName;
-    public bool IsAvailable() => NativeAvailable;
-    public bool IsVisible() => NativeVisible;
+    public bool IsAvailable() => discoverable ? discovered : prerequisites.Check();
+    public bool IsVisible() => IsAvailable();
     public ResourceCostList GetDiscoverCost() => discoveryCost;
     public List<GlyphSO> GetGlyphRecipe() => new List<GlyphSO>(glyphRecipe);
     public List<ResourceSO> GetResourceRecipe() => new List<ResourceSO>(resourceRecipe);
@@ -955,6 +966,9 @@ public sealed partial class ConsumableSO : IdScriptableObject
     public bool hasDuration;
     public double durationBase;
     private bool queueOnStart;
+    public int Quantity { get => quantity; set => quantity = value; }
+    public int QueuedQuantity { get => queuedQuantity; set => queuedQuantity = value; }
+    public int GainedSince { get => gainedSince; set => gainedSince = value; }
 }
 
 public sealed class ConsumableCount
@@ -1070,10 +1084,6 @@ public sealed class Inventory
 
     public static Inventory Current => _instance;
 
-    public static void ResetLists()
-    {
-        _instance = new Inventory();
-    }
 }
 
 public sealed class ConsumableRefListVariable : GenericListVariable<ConsumableSO>
@@ -1193,6 +1203,14 @@ public sealed class RitualSO : IdScriptableObject, IDiscoverable
     public int GetRequiredWaves() => Math.Min(
         baseWaves + (wavesPerLevel * GetCurrentLevel()),
         maxWaves > 0 ? maxWaves : int.MaxValue);
+
+    public int CritLevel { get => critLevel; set => critLevel = value; }
+
+    public int EchoLevel { get => echoLevel; set => echoLevel = value; }
+
+    public int ChainLevel { get => chainLevel; set => chainLevel = value; }
+
+    public BigDouble BattleTotalWeight { get => battleTotalWeight; set => battleTotalWeight = value; }
 }
 
 public sealed class SpoilsRecordEntry
@@ -2170,6 +2188,11 @@ public sealed class DiscoveryTreeSO : IdScriptableObject
         if (throwAfterReroll)
             throw new InvalidOperationException("injected failure after reroll");
     }
+    public int TotalDiscoveredCount { get => totalDiscoveredCount; set => totalDiscoveredCount = value; }
+    public int PoolDiscoveredCount { get => poolDiscoveredCount; set => poolDiscoveredCount = value; }
+    public bool HasRequiredDiscovery { get => hasRequiredDiscovery; set => hasRequiredDiscovery = value; }
+    public bool HasRemainingDiscovery { get => hasRemainingDiscovery; set => hasRemainingDiscovery = value; }
+    public bool HasCompletedAllDiscoveries { get => hasCompletedAllDiscoveries; set => hasCompletedAllDiscoveries = value; }
 }
 
 public sealed class RecipeBookSO : TooltipableObject
@@ -2181,6 +2204,7 @@ public sealed class RecipeBookSO : TooltipableObject
     public Prerequisites.Container prerequisites = new Prerequisites.Container();
 
     public bool IsAvailable() => available;
+    public bool Available { get => available; set => available = value; }
 }
 
 /// <summary>The authored book list a discovery tree draws its pool from.</summary>
@@ -2287,13 +2311,15 @@ public sealed class PlotNodeSO : IdScriptableObject
         actionInstances.Add(instance);
         return instance;
     }
+
+    public int LastQuantity { get => lastQuantity; set => lastQuantity = value; }
 }
 
 /// <summary>
 /// One running action on a plot. Its identity travels as the serialized reference the game holds,
 /// which is a struct with a memoised guid beside the string it was parsed from.
 /// </summary>
-public sealed class PlotNodeActionInstance : ITooltipable
+public class PlotNodeActionInstance : ITooltipable
 {
     public IdObjectRef refObj;
     public int quantity;
@@ -2319,7 +2345,9 @@ public sealed class PlotNodeActionInstance : ITooltipable
 
     public bool IsEmpty() => quantity <= 0;
 
-    public bool IsEngaged() => engaged;
+    public bool throwsOnEngaged;
+    public Exception engagedFailure = new InvalidOperationException("IsEngaged failed");
+    public bool IsEngaged() => throwsOnEngaged ? throw engagedFailure : engaged;
 
     public int GetActualQuantity() => quantity;
 
@@ -2368,6 +2396,8 @@ public sealed class PlotNodeActionInstance : ITooltipable
         quantity = Math.Max(1, Math.Min(quantity + change, GetMaximumInstances()));
 
     public void Engage() => engaged = true;
+    public PlotNodeActionSO? Action { get => action; set => action = value; }
+    public bool Engaged { get => engaged; set => engaged = value; }
 }
 
 public struct IdObjectRef
@@ -2380,6 +2410,9 @@ public struct IdObjectRef
         idStr = action.GetGuid().ToString();
         _guid = action.GetGuid();
     }
+    public static IdObjectRef Memoised(Guid identity) => new() { idStr = identity.ToString(), _guid = identity };
+    public static IdObjectRef Serialized(Guid identity) => new() { idStr = identity.ToString(), _guid = Guid.Empty };
+    public static IdObjectRef Unresolvable() => new() { idStr = string.Empty, _guid = Guid.Empty };
 }
 
 /// <summary>The game nests this inside PlotNodeSO; the suite reads it by name and not by nesting.</summary>
@@ -2453,5 +2486,8 @@ public sealed class TreasurePoolSO : IdScriptableObject
     public bool forceLevel;
     private int treasureLevel;
     private bool calculatedTreasureLevel;
-}
 
+    public int TreasureLevel { get => treasureLevel; set => treasureLevel = value; }
+
+    public bool CalculatedTreasureLevel { get => calculatedTreasureLevel; set => calculatedTreasureLevel = value; }
+}

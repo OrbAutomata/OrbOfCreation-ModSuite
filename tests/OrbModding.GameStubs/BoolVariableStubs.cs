@@ -27,4 +27,6 @@ public sealed class BoolVariable
     public bool initialValue;
     public bool isSaved;
     private int observerId;
+    public Guid Identity { get => GetGuid(); set => uuid = value; }
+    public int ObserverId { get => observerId; set => observerId = value; }
 }

@@ -22,6 +22,7 @@ namespace OrbModding.ProfileTests;
 /// <c>reqSpeedPenalty</c> ran it at a quarter speed. The row now says both.
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
 {
     private static readonly Guid ExtractThaumicScrolls =

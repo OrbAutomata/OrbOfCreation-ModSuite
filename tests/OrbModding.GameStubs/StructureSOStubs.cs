@@ -129,4 +129,10 @@ public class StructureSO : UpgradeableObject, Targeting.ITargetable, IActionable
         queuedQuantity--;
         quantity++;
     }
+    public int Level { get => quantity; set => quantity = value; }
+    public int Queued { get => queuedQuantity; set => queuedQuantity = value; }
+    public BigDouble CurrentBuildTime { get => currentBuildTime; set => currentBuildTime = value; }
+    public int ObservableId { get => observableId; set => observableId = value; }
+    public bool InsufficientReqPenaltyActive { get => insufficientReqPenaltyActive; set => insufficientReqPenaltyActive = value; }
+    public int BufferDevelopedQuantity { get => bufferDevelopedQuantity; set => bufferDevelopedQuantity = value; }
 }

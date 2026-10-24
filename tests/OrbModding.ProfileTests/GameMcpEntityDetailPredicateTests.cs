@@ -10,11 +10,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailPredicateTests : IDisposable
 {
-    public GameMcpEntityDetailPredicateTests() => ClearRegistries();
+    public GameMcpEntityDetailPredicateTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void ExplanationStaysPinnedAndEveryPlayerPredicateHasTrueAndFalseEvidence()

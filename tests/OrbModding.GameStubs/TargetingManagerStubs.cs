@@ -21,6 +21,11 @@ public static class TargetingManager
     public static bool ThrowOnIsTargeting { get; set; }
     public static Exception? IsTargetingFault { get; set; }
     private static TargetLink? currentLink;
+    public static TargetLink? Current
+    {
+        get => currentLink;
+        set { currentLink = value; OpenRequests = value is null ? 0 : 1; }
+    }
 
     public static bool Targeting
     {
@@ -34,9 +39,9 @@ public static class TargetingManager
         : OpenRequests > 0;
 
     public static TargetLink? GetTargetingLink() =>
-        !IsTargeting() || AvailableTarget is null
+        !IsTargeting()
             ? null
-            : currentLink ??= new TargetLink(AvailableTarget);
+            : currentLink ?? (AvailableTarget is null ? null : currentLink = new TargetLink(AvailableTarget));
 
     public static void SubmitTarget(Targeting.ITargetable target)
     {
@@ -56,23 +61,10 @@ public static class TargetingManager
         if (OpenRequests > 0) OpenRequests--;
     }
 
-    public static void Reset()
-    {
-        OpenRequests = 0;
-        AvailableTarget = null;
-        currentLink = null;
-        SubmittedTargets.Clear();
-        SuppressSubmit = false;
-        ThrowAfterSubmit = false;
-        ThrowOnIsTargeting = false;
-        IsTargetingFault = null;
-        EffectResultInfo.SuppressCancel = false;
-        EffectResultInfo.ThrowAfterCancel = false;
-    }
-
     public class TargetLink
     {
         private readonly Targeting.ITargetable offered;
+        private readonly List<ITooltipable>? offeredTargets;
         private readonly ITooltipable owner;
         private readonly Targeting.BaseTargetSelection targetSelection = new Targeting.BaseTargetSelection();
         private Targeting.ITargetable? target;
@@ -87,8 +79,16 @@ public static class TargetingManager
             resultInfo.Links.Add(this);
         }
 
+        public TargetLink(ITooltipable requestOwner, params ITooltipable[] targets)
+        {
+            owner = requestOwner;
+            offeredTargets = new List<ITooltipable>(targets);
+            offered = targets.OfType<Targeting.ITargetable>().FirstOrDefault()!;
+            resultInfo = new EffectResultInfo();
+            resultInfo.Links.Add(this);
+        }
         public Targeting.ITargetable GetRandom() => offered;
-        public List<ITooltipable> GetAllTargets() => offered is ITooltipable tooltipable
+        public List<ITooltipable> GetAllTargets() => offeredTargets is not null ? new List<ITooltipable>(offeredTargets) : offered is ITooltipable tooltipable
             ? new List<ITooltipable> { tooltipable }
             : new List<ITooltipable>();
         public ITooltipable GetOwner() => owner;

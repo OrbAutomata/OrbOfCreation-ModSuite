@@ -24,9 +24,9 @@ namespace OrbModding.Tests.Runtime.Verification;
 /// </remarks>
 public sealed class AutomataRequirementVerifierTests : IDisposable
 {
-    public AutomataRequirementVerifierTests() => ClearRegistries();
+    public AutomataRequirementVerifierTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing()
@@ -308,15 +308,7 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         return session;
     }
 
-    private static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::AlchemyRecipeSO.All.Clear();
-    }
+
 
     /// <summary>A build whose container exposes only the overload that writes.</summary>
     private sealed class LatchingOnlyContainer

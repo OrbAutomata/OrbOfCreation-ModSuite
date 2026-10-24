@@ -9,11 +9,12 @@ namespace OrbModding.Tests.Services.RunTransition;
 public sealed class ReturnToMenuGameActionTests
 {
     private const long Epoch = 141;
-    private readonly UIBackToMenuButton _button = new();
+    private readonly UIBackToMenuButton _button;
 
     public ReturnToMenuGameActionTests()
     {
-        UIScreenFlash.ResetForTests();
+        OrbModding.GameStubs.GameStubState.Reset();
+        _button = new UIBackToMenuButton();
         SaveStateManager.instance = new SaveStateManager();
     }
 
@@ -38,7 +39,7 @@ public sealed class ReturnToMenuGameActionTests
         UIScreenFlash.instance.FadeIn(0f, 0f);
         using var active = Boundary();
         Assert.Equal(ReturnToMenuActionResultCodes.TransitionInProgress, Submit(active).Outcome.Code);
-        UIScreenFlash.ResetForTests();
+        UIScreenFlash.instance = new UIScreenFlash();
 
         using var missing = Boundary(buttons: Array.Empty<object>());
         Assert.Equal(ReturnToMenuActionResultCodes.ControlUnavailable, Submit(missing).Outcome.Code);
@@ -59,7 +60,7 @@ public sealed class ReturnToMenuGameActionTests
 
         Assert.True(accepted.Outcome.Verified, accepted.Outcome.Reason);
 
-        UIScreenFlash.ResetForTests();
+        UIScreenFlash.instance = new UIScreenFlash();
         var second = new UIBackToMenuButton { name = "Second live control" };
         using var ambiguous = Boundary(buttons: new object[] { _button, second });
         var refused = Submit(ambiguous);

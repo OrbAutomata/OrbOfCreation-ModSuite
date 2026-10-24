@@ -8,8 +8,8 @@ public struct ResourceTuple
 {
     // Both magnitudes, named as the game names them. `value` is the serialized double Unity writes to
     // disk; `valueBig` is the one the arithmetic uses and the one world collection reads.
-    private readonly double value;
-    private readonly BigDouble valueBig;
+    private double value;
+    private BigDouble valueBig;
 
     public ResourceTuple(ResourceSO resource, BigDouble value)
     {
@@ -21,4 +21,7 @@ public struct ResourceTuple
     public ResourceSO resource;
 
     public BigDouble GetValue() => valueBig;
+    public ResourceTuple(Guid identity, double amount) : this(new ResourceSO { Identity = identity }, new BigDouble(amount)) { }
+    public BigDouble Amount { get => valueBig; set { valueBig = value; this.value = value.ToDouble(); } }
+
 }

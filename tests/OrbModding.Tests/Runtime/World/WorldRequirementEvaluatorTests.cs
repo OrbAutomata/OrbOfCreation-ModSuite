@@ -22,9 +22,13 @@ namespace OrbModding.Tests.Runtime.World;
 /// </remarks>
 public sealed class WorldRequirementEvaluatorTests : IDisposable
 {
-    public WorldRequirementEvaluatorTests() => ClearRegistries();
+    public WorldRequirementEvaluatorTests()
+    {
+        OrbModding.GameStubs.GameStubState.Reset();
+        global::RitualManager.instance = new global::RitualManager();
+    }
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     /// <summary>
     /// The common case. An empty container passes unconditionally in the game, so an owner with no
@@ -1228,21 +1232,5 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         return GameWorldFrameDeriver.Build(frame);
     }
 
-    private static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::ConsumableSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::RitualSO.All.Clear();
-        global::TimeRuneSO.All.Clear();
-        global::RitualManager.instance = new global::RitualManager();
-        global::IntVariable.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::GameManager.currentFrame = 0;
-    }
+
 }

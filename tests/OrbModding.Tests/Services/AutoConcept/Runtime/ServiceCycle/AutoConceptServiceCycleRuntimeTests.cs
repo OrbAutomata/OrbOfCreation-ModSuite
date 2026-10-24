@@ -44,14 +44,12 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 
     public AutoConceptServiceCycleRuntimeTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         GameActionFaultLog.ConfigureLog(_faultLog.Add);
     }
 
     public void Dispose()
     {
         GameActionFaultLog.ConfigureLog(null);
-        IdScriptableObject.RuntimeLookup.Clear();
     }
 
     [Fact]
@@ -464,6 +462,8 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 
         private void PumpWorld()
         {
+            // Model the native quantity settlement explicitly; RebuildCounts itself only counts.
+            foreach (var instance in Active.value) instance.quantity = instance.queuedQuantity;
             Active.RebuildCounts();
             _generation = Math.Max(_generation + 1, checked((ulong)_frame));
             _registry.WorldPublication.Publish(World(), new WorldGeneration(_generation));

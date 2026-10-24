@@ -23,6 +23,7 @@ namespace OrbModding.ProfileTests;
 /// only, so until the reverse edge existed the statistic's own page named none of them.
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpStatisticSourceTests : IDisposable
 {
     private static readonly Guid DiscoveryOptions = Guid.Parse("6d1962c7-4bb3-4c5f-ac88-776fd8bbd415");

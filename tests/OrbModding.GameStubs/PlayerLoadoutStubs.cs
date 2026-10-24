@@ -51,7 +51,8 @@ public sealed class PlayerLoadout
         ThrowOnSelectedRead ? throw new InvalidOperationException("injected failure reading the selected loadout") : isSelected;
     public bool HasEquipment() => saveEquipment;
     public bool HasAlchemy() => saveAlchemy;
-    public List<Spell> GetSpells() => new List<Spell>(spells);
+    public bool throwsOnSpells;
+    public List<Spell> GetSpells() => throwsOnSpells ? throw new InvalidOperationException("GetSpells failed") : new List<Spell>(spells);
     public LoadoutLabel GetLabel() => label;
     public void SetSaveEquipment(bool value)
     {
@@ -61,4 +62,5 @@ public sealed class PlayerLoadout
     {
         if (!SuppressSectionMutation) saveAlchemy = value;
     }
+    public Guid Identity { get => GetGuid(); set => guidContainer = new GuidContainer(value); }
 }

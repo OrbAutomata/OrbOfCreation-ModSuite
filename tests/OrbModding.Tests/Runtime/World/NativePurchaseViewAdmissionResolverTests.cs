@@ -20,9 +20,9 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
 {
     private const long Lifecycle = 41;
 
-    public NativePurchaseViewAdmissionResolverTests() => ClearRegistries();
+    public NativePurchaseViewAdmissionResolverTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnEpochlessReadDoesNotReplaceTheSnapshotALifecyclePublished()
@@ -84,6 +84,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
     [Fact]
     public void ACandidateWhoseIdentityCannotBeReadNamesWhyInTheReport()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         global::StructureSO.All.Add(new global::StructureSO
         {
             GetGuidFailure = new InvalidOperationException("identity was unreadable"),
@@ -93,7 +94,8 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
             new HashSet<Guid>(), new GameWorldCycleFrame { CollectedAtEpoch = Lifecycle });
 
         Assert.Equal(1, report.Skipped);
-        Assert.Contains("identity was unreadable", report.FirstFailure, StringComparison.Ordinal);
+        Assert.Contains("identity threw", report.Failure.Reason.Sentence, StringComparison.Ordinal);
+        faults.AssertLogged(report.Failure.Reason, "identity was unreadable");
     }
 
     private static NativePurchaseViewAdmissionResolver Resolver()
@@ -231,11 +233,5 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         return structure.GetGuid();
     }
 
-    private static void ClearRegistries()
-    {
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
-        global::IdScriptableObject.RuntimeLookup.Clear();
-    }
+
 }

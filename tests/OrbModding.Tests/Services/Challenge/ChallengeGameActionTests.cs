@@ -27,7 +27,6 @@ public sealed class ChallengeGameActionTests : IDisposable
     {
         ChallengeManager.instance = new ChallengeManager();
         PersistentResetManager.instance = new PersistentResetManager();
-        IdScriptableObject.RuntimeLookup.Clear();
     }
 
     [Fact]

@@ -19,4 +19,6 @@ public sealed class GuidContainer
     public GuidContainer(Guid guid) => _guid = guid;
 
     public Guid guid => _guid;
+    public Guid Identity { get => guid; set => _guid = value; }
+    public Guid GetGuid() => guid;
 }

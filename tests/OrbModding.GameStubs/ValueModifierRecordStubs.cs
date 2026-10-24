@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class ValueModifierRecord
+public sealed class ValueModifierRecord : ModifierRecord
 {
     /// <summary>
     /// The value the game memoises. [NonSerialized] in the game, so it is zero for every record a save
@@ -27,9 +27,9 @@ public sealed class ValueModifierRecord
     /// The two modifier sets, named and shaped as the game names them on ModifierRecord. World
     /// collection reads both and evaluates Calculate() itself when the record is dirty.
     /// </summary>
-    public Dictionary<Guid, ValueModifier> passiveModifiers = new Dictionary<Guid, ValueModifier>();
 
-    public Dictionary<Guid, ValueModifier> activeModifiers = new Dictionary<Guid, ValueModifier>();
+
+
 
     public ValueModifierRecord(BigDouble value)
     {
@@ -63,12 +63,19 @@ public sealed class ValueModifierRecord
     /// deliberately does not: a stand-in that reimplemented Calculate() would be a second copy of the
     /// arithmetic under test, and agreeing with it would prove nothing.
     /// </summary>
-    public BigDouble GetValue() => calculatedValue;
+    public BigDouble GetValue() { GetValueCalls++; return calculatedValue; }
 
     /// <summary>The whole-number reading, which the game defines as <c>GetValue().ToInt()</c>.</summary>
     public int AsInt() => GetValue().ToInt();
 
     public BigDouble AsPercent() => GetValue().AsPercent();
 
-    public bool HasActiveElements() => activeModifiers.Count > 0;
+
+    public ValueModifierRecord(double value, int activeCount) : this(new BigDouble(value))
+    {
+        for (var index = 0; index < activeCount; index++) activeModifiers[Guid.NewGuid()] = default;
+        if (activeCount > 0) calculationDirty = true;
+    }
+    public int GetValueCalls { get; private set; }
+
 }

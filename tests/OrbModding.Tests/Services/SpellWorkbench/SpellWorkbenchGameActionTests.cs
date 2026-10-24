@@ -18,8 +18,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
 
     public SpellWorkbenchGameActionTests()
     {
-        SpellRecipeSO.All.Clear();
-        IdScriptableObject.RuntimeLookup.Clear();
         SpellManager.instance = new SpellManager();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(Epoch));
         LoadoutScreen();
@@ -993,8 +991,6 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     public void Dispose()
     {
         GameActionFaultLog.ConfigureLog(null);
-        SpellRecipeSO.All.Clear();
-        IdScriptableObject.RuntimeLookup.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(Epoch));
         SpellManager.instance = null;
     }

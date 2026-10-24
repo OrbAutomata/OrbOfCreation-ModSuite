@@ -12,11 +12,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailIdentityTests : IDisposable
 {
-    public GameMcpEntityDetailIdentityTests() => ClearRegistries();
+    public GameMcpEntityDetailIdentityTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void ExplanationSeparatesUnknownFromKnownButUnprojectedIdentity()

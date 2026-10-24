@@ -11,11 +11,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailCostAndBlockerTests : IDisposable
 {
-    public GameMcpEntityDetailCostAndBlockerTests() => ClearRegistries();
+    public GameMcpEntityDetailCostAndBlockerTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     /// <summary>
     /// The game develops research on leeway **or** on being below both caps, so a spent leeway

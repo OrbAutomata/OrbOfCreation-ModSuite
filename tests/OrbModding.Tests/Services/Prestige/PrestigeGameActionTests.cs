@@ -1,6 +1,6 @@
+using OrbModding.Tests.Services.TestSupport;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using OrbAutomata;
 using OrbModding.Common;
 using Xunit;
@@ -140,10 +140,7 @@ public sealed class PrestigeGameActionTests : IDisposable
     public void Wrong_thread_refuses_before_native_access()
     {
         using var boundary = Boundary();
-        NativeActionOutcome submission = default;
-        var thread = new Thread(() => submission = Submit(boundary));
-        thread.Start();
-        thread.Join();
+        var submission = ForeignThread.Run(() => Submit(boundary));
 
         Assert.Equal(PrestigeActionResultCodes.WrongThread, submission.Code);
         Assert.Equal(0, PersistentResetManager.instance.ResetCalls);

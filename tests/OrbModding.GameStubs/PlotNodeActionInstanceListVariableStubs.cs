@@ -79,4 +79,6 @@ public sealed class PlotNodeActionInstanceListVariable : EmptyTypeListVariable<P
         if (existing is null || existing.IsEmpty()) return;
         existing.PlayerChangeInstanceQuantity(-quantity);
     }
+    public int? ReportedUsedSpots;
+    public new int GetUsedSpots() => ReportedUsedSpots ?? base.GetUsedSpots();
 }

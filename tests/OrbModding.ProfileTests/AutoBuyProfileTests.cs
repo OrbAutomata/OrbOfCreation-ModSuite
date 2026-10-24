@@ -16,6 +16,7 @@ using static OrbModding.ProfileTests.AutoHarvestProfileTestSupport;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class AutoBuyProfileTests : IDisposable
 {
     private const long PlannedEpoch = 7;
@@ -566,12 +567,7 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::ActionManager.instance = new global::ActionManager();
         global::ActionManager.RemainingRoom = 0;
         global::GlobalVariables.MultiBuy = new global::IntVariable();

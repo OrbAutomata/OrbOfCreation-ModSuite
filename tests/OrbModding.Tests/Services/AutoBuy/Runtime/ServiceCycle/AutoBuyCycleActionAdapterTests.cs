@@ -2021,10 +2021,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         var structures = new global::StructureListVariable { value = global::StructureSO.All };
         var upgrades = new global::UpgradeListVariable { value = global::UpgradeSO.All };
         var owningView = new global::ViewSO { available = true };

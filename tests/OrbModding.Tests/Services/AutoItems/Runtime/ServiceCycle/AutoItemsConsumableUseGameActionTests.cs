@@ -17,8 +17,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
     {
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
+        OrbModding.GameStubs.GameStubState.Reset();
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
@@ -30,8 +29,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
         TargetingManager.ThrowOnIsTargeting = false;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
+        OrbModding.GameStubs.GameStubState.Reset();
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
         NativeMultiBuyScope.ResetForTests();

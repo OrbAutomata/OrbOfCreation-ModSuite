@@ -12,5 +12,21 @@ public class IdScriptableObject : UnityEngine.ScriptableObject
     public Exception? GetGuidFailure { get; set; }
     public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : uuid;
     public Guid GetId() => uuid;
-    public void SetGuid(Guid guid) => uuid = guid;
+    public void SetGuid(Guid guid)
+    {
+        uuid = guid;
+        stableStringUuid = guid.ToString("D");
+    }
+
+    private string? stableStringUuid;
+    protected string StringUuid
+    {
+        get => stableStringUuid ??= uuid.ToString("D");
+        set
+        {
+            stableStringUuid = value;
+            if (Guid.TryParse(value, out var guid)) uuid = guid;
+        }
+    }
+    public Guid Identity { get => GetGuid(); set => SetGuid(value); }
 }

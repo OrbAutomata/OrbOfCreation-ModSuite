@@ -13,8 +13,8 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
 
     public AutoCastNativeAdapterTests()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         SpellManager.instance = new SpellManager();
-        TargetingManager.Reset();
         Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         DecoyTargetingManager.Reset();
     }
@@ -277,7 +277,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     {
         SpellManager.NativeCanCast = true;
         SpellManager.instance = null;
-        TargetingManager.Reset();
+        OrbModding.GameStubs.GameStubState.Reset();
         DecoyTargetingManager.Reset();
     }
 }

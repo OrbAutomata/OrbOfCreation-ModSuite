@@ -11,28 +11,26 @@ public sealed class IntVariable
     // rather than naming the hundred-odd accessors that read out of it.
     public static List<IntVariable> All = new List<IntVariable>();
     public Guid uuid = Guid.NewGuid();
-    public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(0.0, 0));
+    public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(1.0, 0));
     public bool isPercentVariable;
 
     // The two flags that decide the value is a count of seconds, and how finely the game draws it.
     public bool isTimeVariable;
     public bool isTimeAccurateVariable;
 
-    public Guid GetGuid() => uuid;
+    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : uuid;
 
     // The game's AsInt() reads out of `value`; storing the answer separately let a fixture set a
     // count the collector could never see. Setting either keeps both in step.
     public int Value
     {
-        get => count;
+        get => this.value.AsInt();
         set
         {
-            count = value;
             this.value = new ValueModifierRecord(new BigDouble(value, 0));
         }
     }
 
-    private int count = 1;
 
     public int SetCalls { get; private set; }
 
@@ -87,4 +85,7 @@ public sealed class IntVariable
         All.Add(replacement);
         return replacement;
     }
+    public Guid Identity { get => GetGuid(); set => uuid = value; }
+    public int Maximum { get => Value; set => Value = value; }
+    public Exception? GetGuidFailure { get; set; }
 }

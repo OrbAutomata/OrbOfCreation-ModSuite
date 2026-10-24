@@ -18,7 +18,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
     public CraftingPlayerGameActionTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
         NativeMultiBuyScope.ResetForTests();
         GlobalVariables.MultiBuy = new IntVariable { Value = 25 };
@@ -26,7 +25,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
     public void Dispose()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
     }
 

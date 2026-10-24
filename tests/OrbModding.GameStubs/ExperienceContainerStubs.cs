@@ -58,4 +58,5 @@ public sealed class ExperienceContainer : IExperienceElement
     }
 
     private static int Compare(BigDouble left, BigDouble right) => left.CompareTo(right);
+    public BigDouble CachedRequiredXp { get => cachedRequiredXp; set => cachedRequiredXp = value; }
 }

@@ -14,10 +14,7 @@ internal sealed class AutoScribeNativeFixture
 
     internal static void ResetStubs()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
-        StructureSO.All.Clear();
-        ConsumableSO.All.Clear();
-        CraftingRecipeSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
     }
 
     internal TypedRegistryResolver Resolver(
