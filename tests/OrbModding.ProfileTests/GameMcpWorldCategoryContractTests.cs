@@ -7,6 +7,7 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpWorldCategoryContractTests
 {
     [Fact]
