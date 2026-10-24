@@ -332,8 +332,7 @@ public sealed class WorldStructuralEpochTests : IDisposable
     /// </summary>
     /// <remarks>
     /// The authored list is deliberately destroyed between the two passes: a second traversal would
-    /// publish the emptied one. The verdict half used to refresh here and no longer exists — the
-    /// game's own answer is asked for one entity at a time, by request.
+    /// publish the emptied one.
     /// </remarks>
     [Fact]
     public void RequirementGraphStaysStructuralAndNoPassAsksTheGame()

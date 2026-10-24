@@ -104,11 +104,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     /// <summary>
     /// Says once per run that the purchase-screen topology was published, and for which run.
     /// </summary>
-    /// <remarks>
-    /// The publication is the single fact every purchase is admitted against, and it used to leave no
-    /// trace at all: an outage where it was stamped under the wrong run took a source reading to
-    /// diagnose, because the log could not even say whether it had happened.
-    /// </remarks>
     internal void AnnounceTopologyPublication()
     {
         if (_purchases is not IAutoBuyPurchaseTopologyPort topology) return;

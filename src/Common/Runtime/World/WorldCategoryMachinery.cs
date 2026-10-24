@@ -302,11 +302,7 @@ internal abstract class WorldRowBinder<TSample, TRow>
     /// holding this binder.
     /// </summary>
     /// <remarks>
-    /// Derivation used to be a method here, which made "the worker never touches a native accessor" a
-    /// convention rather than a fact: a worker holding the binder in order to derive would also hold
-    /// <see cref="Read"/> and every compiled game accessor behind it, and nothing but care would stop
-    /// it being called. Splitting the two means the worker is handed a type that has no native
-    /// surface to reach for.
+    /// Splitting the two means the worker is handed a type that has no native surface to reach for.
     /// </remarks>
 }
 

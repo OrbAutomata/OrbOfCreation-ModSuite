@@ -6,8 +6,7 @@ namespace OrbModding.GameContractTests;
 
 /// <summary>
 /// The shape of the panel the screen draws for one hovered element, which is the shape the MCP
-/// tooltip reader projects. Each of these was a hop the reader used to take on its own: a second
-/// node list, a recursive sub-panel row, and a link followed instead of named.
+/// tooltip reader projects.
 /// </summary>
 public sealed class TooltipContainerContractTests
 {

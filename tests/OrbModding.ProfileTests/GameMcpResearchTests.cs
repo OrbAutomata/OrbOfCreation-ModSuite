@@ -129,8 +129,7 @@ public sealed class GameMcpResearchTests
 
     /// <remarks>
     /// Greater Spell Capacity costs 1 Magical Advancement and then drains 20 Knowledge while it
-    /// develops. The drain was printed as <c>cost=20</c> beside no price at all, and a live round
-    /// read it as the node's price.
+    /// develops.
     /// </remarks>
     [Fact]
     public void The_drain_says_what_the_development_still_takes_and_is_not_a_price()
@@ -528,9 +527,9 @@ public sealed class GameMcpResearchTests
     }
 
     /// <summary>
-    /// Choosing among 148 researches used to need a detail page per candidate. `state` is the same
-    /// lifecycle word every purchasable row on the surface says, so `visible`, `available` and
-    /// `complete` — the three facts it is derived from — do not each repeat a third of it.
+    /// `state` is the same lifecycle word every purchasable row on the surface says, so `visible`,
+    /// `available` and `complete` — the three facts it is derived from — do not each repeat a third
+    /// of it.
     /// </summary>
     /// <remarks>
     /// What the queue is doing this moment is not on the row. `development` said
@@ -679,11 +678,8 @@ public sealed class GameMcpResearchTests
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        // The budget is on the answer a caller really receives. It used to be measured against a
-        // singular read that carried the row and nothing else, while every caller of world_get was
-        // also sent the block's identity, its predicates, its requirement tree, its research
-        // thresholds and its blockers. Those are 1,327 bytes here, and the number a guard watches
-        // has to be the one that was always being paid.
+        // The budget is on the answer a caller really receives. Those are 1,327 bytes here, and the
+        // number a guard watches has to be the one that was always being paid.
         Assert.True(
             responseBytes < 1_328, "research world_get was " + responseBytes + " bytes");
 

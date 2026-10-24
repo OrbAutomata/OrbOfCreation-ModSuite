@@ -110,12 +110,8 @@ internal static class GameMcpTextPage
     /// a sentence in a second grammar.
     /// </summary>
     /// <remarks>
-    /// A count belongs to the rows it counted. Every array of a paged object used to be handed the
-    /// page's own <c>total</c> and <c>nextOffset</c>, so a degraded search — whose rows sit beside a
-    /// short list of the categories it could not read — headed that second list
-    /// <c>unavailableCategories 1/174 next=30</c>: a total and a resume offset belonging to an
-    /// entirely different set, on a list that is complete and has no offsets at all. The rows are
-    /// the page; a second array beside them counts itself.
+    /// A count belongs to the rows it counted. The rows are the page; a second array beside them
+    /// counts itself.
     /// </remarks>
     internal static string? TableProperty(JObject item)
     {
@@ -290,12 +286,10 @@ internal static class GameMcpTextPage
     /// predicates answering the same way named together.
     /// </summary>
     /// <remarks>
-    /// One live round shipped 6,531 bytes of <c>predicates:</c>, of which 26 blocks said nothing
-    /// but yes on a line each and 10 pairs carried the same refusal sentence twice. No name and no
-    /// reason string leaves the page — each name is still printed and each distinct sentence is
-    /// still said. The fold needs no knowledge of what any slot implies, so it can never hide a
-    /// verdict: two names share a line only when their verdict, class and sentence are the same
-    /// three facts.
+    /// No name and no reason string leaves the page — each name is still printed and each distinct
+    /// sentence is still said. The fold needs no knowledge of what any slot implies, so it can
+    /// never hide a verdict: two names share a line only when their verdict, class and sentence are
+    /// the same three facts.
     /// </remarks>
     internal static bool TryPredicates(
         JObject item,

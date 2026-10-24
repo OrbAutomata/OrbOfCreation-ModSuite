@@ -39,11 +39,6 @@ public class SpellManager
     /// are the recipes whose core is the same length, each is then filtered by whether it contains
     /// the glyph — membership, not position and not multiplicity — and the first survivor wins.
     /// </summary>
-    /// <remarks>
-    /// Ordered reference equality, which this stub used to apply, cannot produce the case the wire
-    /// actually met: two recipes are candidates for one layout and the earlier one in the registry
-    /// takes it, so the caller's recipe is unreachable through a layout that looks exactly right.
-    /// </remarks>
     public SpellRecipeSO? GetSpellFromRecipe(List<GlyphSO> glyphs)
     {
         if (SuppressSelectionResolution || glyphs.Count == 0) return null;

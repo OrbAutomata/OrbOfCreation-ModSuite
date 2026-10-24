@@ -329,13 +329,8 @@ internal static class GameMcpWorldSearch
         // and found nothing has a second question — is it in the game at all — and no line on this
         // surface said the question had an answer. Said only on the empty page, and said whichever
         // way it comes out, because "nothing loaded is called that" closes the question where
-        // silence would send the caller off to ask it anyway.
-        //
-        // The line names no verb. It used to point at the page that listed the leftovers and count
-        // this query against it; the world publishes those rows now, so the pointer would name a
-        // verb this server no longer has and the count would be a number with nothing to spend it
-        // on. What is left is the answer itself, in one sentence, with no noun declined against a
-        // count.
+        // silence would send the caller off to ask it anyway. The line names no verb. What is left
+        // is the answer itself, in one sentence, with no noun declined against a count.
         if (hits.Count == 0 && normalized.Length > 0)
         {
             result["unprojected"] =
@@ -475,10 +470,9 @@ internal static class GameMcpWorldSearch
     /// What this row's own attempt is doing, or nothing where its category runs nothing.
     /// </summary>
     /// <remarks>
-    /// Challenges are the one category that publishes a second lifecycle column, and until now only
-    /// the first of the two could be filtered. A round that wanted the rows reading
-    /// <c>run: passed</c> had to page all 98 by hand — four calls with hand-computed offsets — to
-    /// prove a negative. This reads the word the challenge's own list row says and derives none.
+    /// Challenges are the one category that publishes a second lifecycle column, and until only the
+    /// first of the two could be filtered. This reads the word the challenge's own list row says
+    /// and derives none.
     /// </remarks>
     private static string SearchRun(object row) =>
         row is WorldChallenge challenge ? GameMcpChallengeProjection.ChallengeRun(challenge.State) : string.Empty;

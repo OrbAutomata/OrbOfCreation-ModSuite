@@ -12,9 +12,8 @@ namespace OrbModding.ProfileTests;
 /// What Auto Concept's action boundary hands its native port depends on who pressed.
 /// </summary>
 /// <remarks>
-/// Round 15 met <c>ERR_LIMIT</c> from one of Auto Concept's dials on <c>game_concept add</c>
-/// while Auto Concept's Mode was Disabled. The dials belong to the worker: they say when it may
-/// spend the player's rate on its own, and they say nothing about a press the player asked for.
+/// The dials belong to the worker: they say when it may spend the player's rate on its own, and
+/// they say nothing about a press the player asked for.
 /// </remarks>
 public sealed class AutoConceptManualPressProfileTests
 {

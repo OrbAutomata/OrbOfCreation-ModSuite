@@ -171,8 +171,6 @@ public sealed class GameMcpConfigurationTests
         Assert.Equal("Active", stored);
         Assert.False(file.TryGetPersisted("Mentor", "Mode", out _));
 
-        // And it reads back at the address it was written at, through the same round trip every
-        // other setting makes: what the wire prints deserializes to exactly what the entry holds.
         Assert.Equal(
             "Active",
             GameMcpConfigurationSchema.SerializePublishedValue(
@@ -196,8 +194,6 @@ public sealed class GameMcpConfigurationTests
     }
 
     /// <summary>
-    /// A caller holding the address the wire used to answer to is told where its setting went, in
-    /// the same class of no an address nothing owns earns — a name this surface does not answer to.
     /// Being told the suite has no such setting would be true and useless.
     /// </summary>
     [Fact]
@@ -481,16 +477,14 @@ public sealed class GameMcpConfigurationTests
     /// <summary>
     /// A write the suite accepted and then could not publish is the suite's failure, not the
     /// caller's. It shipped as <c>configuration_write_rejected</c> — ERR_INPUT, "the caller's own
-    /// argument is what is wrong" — for a call whose argument the suite had just taken, and the
-    /// two shared one bool so no producer could tell them apart.
+    /// argument is what is wrong" — for a call whose argument the suite had just taken, and the two
+    /// shared one bool so no producer could tell them apart.
     /// </summary>
     /// <remarks>
     /// All three arms are driven against a real store. The third is reached the way the game
     /// reaches it: BepInEx's <c>ConfigEntry&lt;T&gt;.set_Value</c> compares the incoming value with
     /// the one it holds and returns before storing or raising, so writing <c>no</c> onto an entry
-    /// already holding it is accepted and publishes nothing. That is the whole shape of the bug —
-    /// the suite took the caller's argument and then had no change to confirm — and it used to be
-    /// unreachable here only because the stub raised its event unconditionally.
+    /// already holding it is accepted and publishes nothing.
     /// </remarks>
     [Fact]
     public void An_accepted_write_the_suite_cannot_publish_is_the_suites_failure()

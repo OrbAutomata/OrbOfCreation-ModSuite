@@ -253,12 +253,9 @@ internal static class GameMcpSpellWorkbenchProjection
         if (recipe.Discovered)
         {
             // The row's own button is disabled on five facts, and the only one a recipe row can
-            // read ahead of the call is whether the loadout has a spot. The core glyphs used to be
-            // a gate here because the suite staged them; the game's Loadout row reads no core at
-            // all, so a page refusing on them was refusing a press that works.
-            // Locked, unaffordable and full are three different answers. A screen the game has
-            // not unlocked draws no row at all, so the loadout being empty says nothing about
-            // whether the press exists.
+            // read ahead of the call is whether the loadout has a spot. Locked, unaffordable and
+            // full are three different answers. A screen the game has not unlocked draws no row at
+            // all, so the loadout being empty says nothing about whether the press exists.
             var unlocked = IsScreenUnlocked(world, KnownEntities.MagicSpellbookLoadout.Uuid);
             var weightShortfall = SpellWeightShortfall(world, weight);
             var available = unlocked && world.SpellWorkbench.HasEmptySlot &&
@@ -300,9 +297,7 @@ internal static class GameMcpSpellWorkbenchProjection
                     "Augments add their own weight and requirements, which the press settles.";
             }
 
-            // Published on both sides of the answer. The vocabulary a caller needs in order to plan
-            // the call used to appear only once the call was already legal, so while the page was
-            // refusing you it could not teach you the call it was refusing.
+            // Published on both sides of the answer.
             var options = ProjectRecipeAugmentOptions(world, in recipe);
             if (options.Count > 0) next["augmentOptions"] = options;
         }

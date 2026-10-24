@@ -138,9 +138,9 @@ internal static class GameMcpEntityPredicates
             {
                 WorldLookup.TryFind(world.SpellRecipes, id, out var spell);
                 var offered = GameMcpDiscoveryTreeOfferProjection.IsCurrentDiscoveryOffer(world, id);
-                // A hidden row's whole answer used to be that it was hidden. The book it is behind
-                // is the one thing a caller can act on, and the row beside these predicates now
-                // names it, so the predicates say the same sentence rather than a shorter one.
+                // The book it is behind is the one thing a caller can act on, and the row beside
+                // these predicates names it, so the predicates say the same sentence rather
+                // than a shorter one.
                 var hidden = GameMcpRecipeBookProjection.MissingRecipeBookReason(world, in spell);
                 var visible = hidden.Length > 0
                     ? Verdict(
@@ -201,9 +201,7 @@ internal static class GameMcpEntityPredicates
             }
             // A resource has no predicate of its own. Its one evaluated fact is whether the game
             // counts it in its resource list, and that rides on the row as `inLedger`, where it can
-            // carry the sentence that says what the bit means. It used to be published here twice —
-            // `visible` and a copy of it under `available` — so a resource with a computed capacity,
-            // a bar on the open screen and another entity's price quoted in it read as unavailable.
+            // carry the sentence that says what the bit means.
             case EntityKind.Resource:
                 break;
             case EntityKind.Ritual:
@@ -217,12 +215,8 @@ internal static class GameMcpEntityPredicates
                 WorldLookup.TryFind(world.AugmentGlyphs, id, out var glyph);
 
                 // The game cannot show a glyph it will not offer: GlyphSO.IsVisible() is a call to
-                // IsAvailable(), and the picker tile's own IsVisible() calls IsAvailable() too. The
-                // two verdicts are one fact, so the discovery-shaped predicate that used to stand in
-                // for `visible` contradicted `state` on all 25 unlockers at once — for them the raw
-                // discovered field is not what availability reads, and no unlocker is ever a
-                // discovery-tree offer, so both of that predicate's inputs were the wrong facts.
-                // Whether an undiscovered augment is on offer right now is a real fact and rides on
+                // IsAvailable(), and the picker tile's own IsVisible() calls IsAvailable() too.
+                // Whether an undiscovered augment is on offer right is a real fact and rides on
                 // the row's own `discover` block.
                 var picker = Verdict(
                     glyph.Learned,

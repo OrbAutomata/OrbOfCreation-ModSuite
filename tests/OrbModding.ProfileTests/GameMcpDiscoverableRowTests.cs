@@ -282,7 +282,6 @@ public sealed class GameMcpDiscoverableRowTests
     private static readonly Guid ConceptTreeId =
         Guid.Parse("3444dae4-9323-4e4e-8a0a-ae800da15ab8");
 
-    /// <summary>The game's own Psi, the resource the live round's concept row asked 100 of.</summary>
     private static readonly Guid PsiId =
         Guid.Parse("471e1ce5-18ab-446d-a3bc-fcaa17bda96e");
 

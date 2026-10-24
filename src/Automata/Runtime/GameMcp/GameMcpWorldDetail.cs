@@ -239,23 +239,18 @@ internal static class GameMcpWorldDetail
 
         // A block that answered says nothing about having answered. Silence is the yes on every
         // other read on this surface, and inside a batch it is also what separates the blocks that
-        // answered from the one that refused beside them.
-        //
-        // Identity rides the detail read and only the detail read. What the asset is called and what
-        // native type answers for it are catalog-browsing facts, so they are published where someone
-        // browsing asks for them, and never stamped on a table's rows.
-        //
-        // One skeleton for every category: identity at the top, the published row under `row:`, and
-        // the evaluated sections below it wherever this build has them. It used to be gated twice
-        // over — on the category having evaluated sections, and on the live catalog holding a name
-        // for the id — so three layouts lived at once and no caller could write one reader for
-        // them. A plot node, which has no sections, answered as a bare field dump with no category
-        // and no lifecycle word while its own list page said `locked`; an equipment type carried
-        // its uuid, name and category INSIDE `row:` because nothing had claimed the top level; and
-        // a variable, which the catalog names nothing, answered as a lone `row:` envelope that the
-        // page then flattened into a field list. The id and the table are facts this call already
-        // holds, so the top level is published from them and the catalog only adds what it knows.
-        // A category with no predicates now simply has no predicates section.
+        // answered from the one that refused beside them. Identity rides the detail read and only
+        // the detail read. What the asset is called and what native type answers for it are
+        // catalog-browsing facts, so they are published where someone browsing asks for them, and
+        // never stamped on a table's rows. One skeleton for every category: identity at the top,
+        // the published row under `row:`, and the evaluated sections below it wherever this build
+        // has them. A plot node, which has no sections, answered as a bare field dump with no
+        // category and no lifecycle word while its own list page said `locked`; an equipment type
+        // carried its uuid, name and category INSIDE `row:` because nothing had claimed the top
+        // level; and a variable, which the catalog names nothing, answered as a lone `row:`
+        // envelope that the page then flattened into a field list. The id and the table are facts
+        // this call already holds, so the top level is published from them and the catalog only
+        // adds what it knows. A category with no predicates simply has no predicates section.
         var item = new JObject
         {
             ["uuid"] = uuid.ToString("D"),

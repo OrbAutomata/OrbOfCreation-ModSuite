@@ -208,7 +208,6 @@ public sealed class UnsupportedRequirement : IRequirementCondition
 {
 }
 
-/// <summary>An intentionally unmodelled leaf used to prove fail-closed publication and evaluation.</summary>
 public sealed class OpaqueRequirement : IRequirementCondition
 {
 }

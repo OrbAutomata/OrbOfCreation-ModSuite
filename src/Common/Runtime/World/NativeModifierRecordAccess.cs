@@ -120,10 +120,8 @@ internal sealed class NativeModifierRecordAccess
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The dirty flag is read first and decides everything, which is both the correctness of this and
-    /// most of its speed. A clean record's number is its memo whatever the modifiers would produce,
-    /// because the game will not recompute it either — so the modifier copy and the arithmetic are
-    /// skipped outright, and in a live save the great majority of records are clean.
+    /// The dirty flag is read first and decides everything, which is both the correctness of this
+    /// and most of its speed.
     /// </para>
     /// <para>
     /// The empty short-circuit inside the dirty branch is the original's, in

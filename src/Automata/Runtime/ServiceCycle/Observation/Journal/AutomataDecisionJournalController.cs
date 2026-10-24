@@ -160,10 +160,6 @@ internal sealed class AutomataDecisionJournalController
     /// <summary>
     /// Names the observation the journal died in, and what it threw.
     /// </summary>
-    /// <remarks>
-    /// A producer fault used to reach the log as "stopped after ProducerFailed" and nothing else,
-    /// which says only that the journal is gone — not what the runtime disagreed with itself about.
-    /// </remarks>
     private static string FormatFault(DecisionJournalStatus status)
     {
         if (status.FaultSite.Length == 0) return string.Empty;

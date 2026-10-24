@@ -243,8 +243,7 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(3, rows.Length);
 
         var firstSummary = Assert.IsType<JObject>(rows[0]);
-        // The number on the row is the number the verbs take. It used to be the internal index, so
-        // a caller reading slot 5 off the list unequipped what the same list called slot 4.
+        // The number on the row is the number the verbs take.
         Assert.Equal(1, (int)firstSummary["slot"]!);
         Assert.Null(firstSummary["slotIndex"]);
 
@@ -273,11 +272,8 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     /// <summary>
-    /// A slot's row says what is in it, and never what it is doing this instant. Whether a spell is
-    /// mid-cast turns over on its own between two reads — a live round caught the column on one page
-    /// of a scan and gone from the next with nothing about the request changed — so a page of it
-    /// plans nothing and is not a page. The whole row is the slot, its spell and that spell's
-    /// weight, asserted here in full.
+    /// A slot's row says what is in it, and never what it is doing this instant. The whole row is
+    /// the slot, its spell and that spell's weight, asserted here in full.
     /// </summary>
     [Fact]
     public void A_spell_slot_row_says_what_the_slot_holds_and_not_what_it_is_doing()
@@ -417,9 +413,9 @@ public sealed class GameMcpSpellLoadoutTests
     /// of its own, and "not now" without a number plans nothing.
     /// </summary>
     /// <remarks>
-    /// <c>Spell.CanRemove()</c> used to answer this. It reads charge availability, which is false
-    /// the moment a charge is spent, and the removal path never calls it — so the page called slots
-    /// stuck that the game would have cleared on request.
+    /// It reads charge availability, which is false the moment a charge is spent, and the removal
+    /// path never calls it — so the page called slots stuck that the game would have cleared on
+    /// request.
     /// </remarks>
     [Fact]
     public void A_blocked_removal_names_the_games_own_gate_with_its_numbers()
@@ -449,9 +445,7 @@ public sealed class GameMcpSpellLoadoutTests
                 new[] { ready, midCast, recharging }),
         };
 
-        // One state, one word. The read side used to answer a cast with "mid-cast" while the verb
-        // answered the same moment with "still recharging", which is the game's own word for both:
-        // its popup is "Cannot remove a spell that is still recharging." whichever of the two it is.
+        // One state, one word.
         Assert.Equal("{\"available\":true}", Remove(world, ready));
         Assert.Equal(
             "{\"available\":false,\"reason\":\"" +
@@ -689,11 +683,6 @@ public sealed class GameMcpSpellLoadoutTests
     /// <summary>
     /// A refused removal names the slot pressed, not the runtime instance behind it.
     /// </summary>
-    /// <remarks>
-    /// A live round's two remove refusals on Psychic Blast echoed
-    /// <c>uuid: 96a6b7 / name: (unnamed 96a6b7)</c>: the spell instance's id, which no catalog
-    /// names, in place of what the caller pressed.
-    /// </remarks>
     [Fact]
     public void A_refused_removal_names_the_slot_pressed_rather_than_the_spell_instance()
     {

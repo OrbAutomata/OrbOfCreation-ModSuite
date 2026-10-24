@@ -123,24 +123,22 @@ internal static class GameMcpRecipeBookProjection
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The whole of a book is a yes/no. <c>RecipeBookSO</c> carries exactly one instance field —
-    /// <c>prerequisites</c> — so there is no level, no cost curve and no button; the wire offered
-    /// all three while the game drew none of them, and a live round spent a currency on it. What is
-    /// actionable is the one purchase that flips the answer, which is why an unowned book names it.
+    /// The whole of a book is a yes/no. What is actionable is the one purchase that flips the
+    /// answer, which is why an unowned book names it.
     /// </para>
     /// <para>
     /// <c>widens</c> and "which screen draws this" are the same authored fact:
     /// <c>UIDiscoveryTreePage.UIStart()</c> is the only reader of
-    /// <c>DiscoveryTreeSO.availableRecipeBooks</c>, so a book appears exactly on the discovery pages
-    /// whose pool it opens — six of the seven trees on the pinned build, and four of them for each
-    /// of the seven elemental books. A separate <c>screen</c> column would restate this edge in a
-    /// worse form: it would have to pick one page where the game draws several.
+    /// <c>DiscoveryTreeSO.availableRecipeBooks</c>, so a book appears exactly on the discovery
+    /// pages whose pool it opens — six of the seven trees on the pinned build, and four of them for
+    /// each of the seven elemental books. A separate <c>screen</c> column would restate this edge
+    /// in a worse form: it would have to pick one page where the game draws several.
     /// </para>
     /// <para>
     /// Six books share a display name with a spell type — Arcane, Dragon, Expansion, Flow, Psionic,
-    /// Storm — and a single spell-recipe response can print both, so the row names its twin by uuid.
-    /// It is read from the published world rather than pinned to those six names, because which
-    /// names collide is a fact about the build.
+    /// Storm — and a single spell-recipe response can print both, so the row names its twin by
+    /// uuid. It is read from the published world rather than pinned to those six names, because
+    /// which names collide is a fact about the build.
     /// </para>
     /// </remarks>
     internal static GameMcpValue ProjectRecipeBook(GameWorldState world, in WorldRecipeBook book)

@@ -384,8 +384,7 @@ internal sealed class GameMcpCommandResult
             else if (command.TargetId != Guid.Empty)
                 projected["uuid"] = command.TargetId.ToString("D");
 
-            // The pair's second half is a field on the refusal too. It used to appear only inside
-            // the sentence, which left it unreadable to anything but a human.
+            // The pair's second half is a field on the refusal too.
             if (pair && role.Length > 0)
                 projected[role + "Uuid"] = command.SecondaryId.ToString("D");
         }
@@ -402,8 +401,7 @@ internal sealed class GameMcpCommandResult
     }
 
     /// <summary>
-    /// What the second entity of a two-entity request is to the first. The pair's second half is
-    /// named on the refusal too, where it used to appear only inside the sentence.
+    /// What the second entity of a two-entity request is to the first.
     /// </summary>
     private static string SecondaryRole(GameMcpCommandKind kind) => kind switch
     {

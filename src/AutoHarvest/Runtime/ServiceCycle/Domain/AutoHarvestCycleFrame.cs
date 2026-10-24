@@ -80,9 +80,9 @@ internal readonly struct AutoHarvestPairCapture
 /// One cycle's view of the two harvest pairs.
 /// </summary>
 /// <remarks>
-/// Whether this instance owns the harvest action family used to be here too. It is a lease another
-/// plugin can take mid-cycle, so the action boundary re-reads it before mutating and a copy carried
-/// through the decision was a pre-filter over an answer taken again. See W46.
+/// It is a lease another plugin can take mid-cycle, so the action boundary re-reads it before
+/// mutating and a copy carried through the decision was a pre-filter over an answer taken again.
+/// See W46.
 /// </remarks>
 internal readonly struct AutoHarvestCycleFrame
 {

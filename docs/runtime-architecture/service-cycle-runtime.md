@@ -32,7 +32,7 @@ stateDiagram-v2
     Capturing --> Evaluating: Common queues the cycle with its pinned context
     Evaluating --> Executing: worker publishes response
     Executing --> Waiting: batch terminal
-    Waiting --> [*]: disabled or lifecycle retired
+    Waiting --> [*]: disabled or lifecycle replaced
 ```
 
 `Capturing` is the phase a service is in while its own main-thread callbacks run. For an ordinary
@@ -364,8 +364,8 @@ projection it last read: a missing read is not an empty gate, which would end ev
 narrating feature logs one warning when an episode is
 announced, with the attempt count, the wait and the reason, and one when it ends; failures in between
 stay quiet, and so does a quiet entry. It degrades its status with the latest announced reason only
-while an announced target is still backing off. Once that target's retry is due, the status no longer
-names it, even though its entry stays until a commit or `EndRetry` ends it: a target that is due may
+while an announced target is still backing off. Once that target's retry is due, the status does not
+name it, even though its entry stays until a commit or `EndRetry` ends it: a target that is due may
 be held by something else, such as its price, and that wait is not a retry.
 
 ## Common frame pump

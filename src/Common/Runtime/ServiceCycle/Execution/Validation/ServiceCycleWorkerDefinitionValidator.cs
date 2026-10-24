@@ -107,16 +107,11 @@ internal static class ServiceCycleWorkerDefinitionValidator
     }
 
     /// <summary>
-    /// The runtime's own service-cycle types. Who counts as runtime plumbing used to be answered by
-    /// assembly identity, which stops discriminating once the suite ships as one DLL; the namespace
-    /// keeps saying the same thing on both sides of that merge.
+    /// The runtime's own service-cycle types.
     /// </summary>
     /// <remarks>
-    /// A badge pair — <c>[ServiceCycleTrustedWorkerStorage]</c> on a runtime-owned worker base plus
-    /// <c>[ServiceCycleAuditedWorkerDependency]</c> on its fields — used to exempt such a base from
-    /// the field walk and audit its dependencies by instance instead. Its only bearer was
-    /// <c>ServiceCycleReplayWorker&lt;&gt;</c>, and it retired with replay. Revive that pattern if a
-    /// runtime-owned worker base ever needs worker-resident buffers again.
+    /// Its only bearer was <c>ServiceCycleReplayWorker&lt;&gt;</c>, and it retired with replay.
+    /// Revive that pattern if a runtime-owned worker base ever needs worker-resident buffers again.
     /// </remarks>
     private static bool IsRuntimeOwnedStorage(Type type) =>
         (type.Namespace ?? string.Empty).StartsWith(RuntimeStorageNamespace, StringComparison.Ordinal);

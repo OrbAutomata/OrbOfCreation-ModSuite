@@ -56,8 +56,6 @@ internal static class GameMcpRequirementProjection
         // The verdict is the screen's, not one container's. The rows below are the *next level's*
         // container; the game's own lock is `UpgradeSO.prerequisites` / `StructureSO.prerequisites`
         // / `ResearchSO.visibilityPrerequisites`, a different authored list the reader never walks.
-        // While the block published the per-level answer alone it said `Met` beside `state: locked`
-        // on the same response, three rounds running.
         var verdict = suite == WorldRequirementVerdict.Unevaluable || !lockedByUnlockGate
             ? suite
             : WorldRequirementVerdict.Unmet;
@@ -79,21 +77,17 @@ internal static class GameMcpRequirementProjection
 
         // The line a player can act on, first. Everything a locked entity is waiting for, each row
         // naming the thing, what it asks and what is held — read straight off the leaves below, so
-        // it can never disagree with them. A round read one of these out of column ten of a
-        // twenty-column table and wrote down that it was buried; a reader who needs no more than
-        // this now stops at the second line of the block.
-        // No block-wide `checkLevel`. It is the level the thresholds scale to, which matters only on
-        // the rows whose threshold scales at all — those carry it as `forLevel` — and on every other
-        // entity it was a number printed once per read that changed nothing.
+        // it can never disagree with them. No block-wide `checkLevel`. It is the level the
+        // thresholds scale to, which matters only on the rows whose threshold scales at all — those
+        // carry it as `forLevel` — and on every other entity it was a number printed once per read
+        // that changed nothing.
         if (unmet.Count > 0) requirements["unmet"] = unmet;
         requirements["root"] = root;
 
         // No `authority` paragraph. It was 178 bytes of fixed prose asserting that the authored
         // rows are met and are not what holds the entity shut — the claim `suiteVerdict: Met`
         // already makes one line above it, and the gap it was written to name is what
-        // `predicates.available` says with its own reason code. A live round emitted it nine times,
-        // byte-identical, and in eight of those it sat under `root: no conditions`: it declared a
-        // set of rows met for entities that have no rows at all.
+        // `predicates.available` says with its own reason code.
         return requirements;
     }
 
@@ -365,10 +359,7 @@ internal static class GameMcpRequirementProjection
         var evaluated = WorldRequirementEvaluator.ExplainLeaf(world, in row, checkLevel);
 
         // What the row wants, in the words the screen uses for it, then whether it holds. Those are
-        // the two facts a player acts on. Everything the leaf used to carry beside them — the tree
-        // position, the native class, the selected value's internal name, and three thresholds of
-        // which only one is ever displayed — was the suite explaining itself: a live round met the
-        // one usable line in column ten of twenty and wrote down that it was buried.
+        // the two facts a player acts on.
         var tierUnmet = new JArray();
         var tier = row.Kind == WorldRequirementConditionKind.PrerequisiteLink
             ? LinkTierConditions(world, in row, in evaluated, checkLevel, trail, referenceDepth + 1, tierUnmet)

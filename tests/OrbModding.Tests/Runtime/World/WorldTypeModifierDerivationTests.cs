@@ -252,10 +252,7 @@ public sealed class WorldTypeModifierDerivationTests
     }
 
     /// <summary>
-    /// A research type reaches its entries like every other taxonomy reaches its members. The edge
-    /// is <c>ResearchSO.researchTypes</c> — the same list <c>GetBaseDisplayType()</c> joins into the
-    /// word line the game prints — and it is published inside the research category rather than in
-    /// the keyword table, which is the only reason the count used to be missing.
+    /// A research type reaches its entries like every other taxonomy reaches its members.
     /// </summary>
     [Fact]
     public void AResearchTypeCountsTheEntriesThatWearIt()

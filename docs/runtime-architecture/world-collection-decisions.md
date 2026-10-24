@@ -26,21 +26,10 @@ generation and every world-bound service with it.
 
 ## W5 — A modifier record is read the way the game reads it
 
-`GetValue()` is `calculationDirty ? Calculate() : calculatedValue`; both halves are reproduced without
-calling it, because calling it recalculates and re-stamps observables. Specified as
-[D16](world-collection.md). Neither half is the rule alone, and each shipped alone once: the raw memo
-published the `[NonSerialized]` zero of an untouched record, pricing all 180 structures at nothing;
-unconditional folding "corrected" `passiveCostMod` from its memo of 0 to its base of 100, over-pricing
-every structure by 1.25^levels, because a record with no modifiers is never dirtied and its memo *is*
-the price. "Dirty" and "never calculated" being one flag is therefore safe. A live run measured 40–45%
-dirty at read time (consumables 100%, alchemy types 0%), so most reads are a flag test and a field
-load — which is what makes exactness affordable at ~5,000 records a collection.
-
-## W8 — A cost can name a resource that is not in `ResourceSO.All`
-
-Element-owned resources are created at runtime and never registered, so `TryFindResource` searches
-`Resources` then `HarvestResources`. A resource in neither still fails the candidate, deliberately: a
-missing row means the pass could not read it, and treating unreadable as free buys the unaffordable.
+A modifier record is read through the same dirty/memo decision as the native accessor, without
+calling the accessor that mutates its memo. Neither unconditional recomputation nor unconditional
+memo reads satisfy [D16](world-collection.md#d16-the-suite-owns-transcribed-economy-math-gated-by-an-assembly-hash).
+The active flag is checked before arithmetic; a clean record's stored value remains authoritative.
 
 ## W26 — Every source directory is an audit root from the start
 
@@ -48,36 +37,15 @@ A root the reflection audit does not walk reports nothing, which is indistinguis
 nothing to report. `sourceAudit.roots` lists every source directory; the cost of a missing one is
 silence, not failure.
 
-## W28 — Frame-wide terms live on the frame, and degrade to their own identities
-
-The six inputs belonging to no single entity ride on `WorldFrameGlobals`, so resource derivers are
-per-cycle instances rather than shared singletons — a shared instance holding mutable globals would let
-the next collection rewrite terms a worker was still deriving against. Binding failure degrades per
-term and never throws, but **neutral is not zero everywhere**: `structureCost` multiplies, so a zeroed
-one prices every structure at nothing and it degrades to one; `attributeQualityBonus` is an exponent
-whose identity is zero, since `Pow(quality, 1)` would divide the price by the quality. The `*HasActive`
-flags are modifier counts, not zero-checks — the chain branches on whether a term *participates*, which
-differs from contributing zero for a stack that cancels out.
-
-## W35 — A plot node's quantities are summed during collection
-
-`GetQuantity()` and `GetTotalQuantity()` reach the list through `GetPhaseInstance(phase)`, which lazily
-caches *and creates a missing instance* — a write from a pass that does not write. The total sums
-**authored phases, not instances**: the game iterates `phaseInfos`, so summing the instance list would
-count a phase the node does not author and put the suite out of step with the game's own calculations.
-`GetRemainingQuantity()` is asymmetric — main usage comes off the idle count, any usage is absorbed
-first by whatever is busy — and is left free to go negative, because the game's callers compare against
-zero rather than clamping.
-
 ## W36 — Plot-and-action pairs are their own table
 
 A pair is not an entity: neither side owns it and every term is a function of both, so `PlotActions` is
 keyed by the composite. **Both sides are counted, not flagged** — a plot can name the same action twice
-and can hold an instance of one it no longer offers.
+and can hold an instance of one it does not offer.
 
 **`Prerequisites.Container.Check()` is a write.** It stamps `gameId` and latches `available`, so the
 field carries the same answer without the write — third accessor that looks like a question and is not,
-after D16's `GetValue()` and W35's `GetPhaseInstance()`. Reading the latch errs one way only: a
+alongside the [no-write collection rule](world-collection.md#reading-rules). Reading the latch errs one way only: a
 prerequisite satisfiable since the game last asked reads as unmet, the right direction for a gate.
 
 **One branch of `GetElementCost` is not ported and fails closed.** `GetGivenCostIncrease()` is a
@@ -96,18 +64,16 @@ pre-filter over an answer taken again anyway. `FillAvailableQueue` means "keep g
 `LeaveQueueSlots` remain", which only the boundary can know. Contracts losing their only reader are
 deleted, not orphaned.
 
-## W40 — Retired
+## W40 — Safety precedes queue admission
 
-Superseded by W54 on where an action's audited safety is checked. Two sub-decisions still hold: safety
-is checked *before* the queue, because an unsafe action is unsafe whether or not there is room and a
-rejection naming the full queue reads as "try again later" for something that must never be submitted;
-and a codec version moves with the record rather than the layout being widened, because an older
-recording decodes to evidence the current policy would not have decided from.
+Safety is checked before queue room: an unsafe action remains unsafe even when the queue has
+space. A recording's codec version describes the policy its evidence can support; changing a wire
+contract requires the version owned by the codec.
 
-## W43 — Retired
+## W43 — Cost ordering uses stable identity
 
-Auto Buy ranks by cost ratio and stable UUID. The configuration key, policy, world category, native
-reads, and tests for the structure-effect priority tier were deleted together.
+Auto Buy ranks by cost ratio and stable UUID. [The evaluator](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Application/AutoBuyCycleEvaluator.cs)
+owns ordering; no parallel effect-priority roster is maintained here.
 
 ## W45 — A failure's scope decides how far it stops the feature
 
@@ -152,11 +118,11 @@ nothing downstream would notice.
 
 ## W51 — A worker definition may hold no runtime-owned storage
 
-The profile probe is runtime-owned storage, so the three capture-side stages could not follow the frame
-projection onto the worker. **A retired profile stage code is burned rather than reused:** codes
-1003–1005 are gone, the record keeps its fixed size with the retired slots as zero padding the reader
-checks, and the trace tool's decoder arms retire in the same commit, since the gate builds that tool
-under the profiler symbol and a split would fail it rather than rot quietly.
+The profile probe is runtime-owned storage and cannot follow feature projection onto the worker.
+[The span enumeration](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/ServiceCycle/Observation/Profile/ServiceCycleProfileSpan.cs)
+and [record codec](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/ServiceCycle/Observation/Profile/Format/ServiceCycleProfileRecordCodec.cs)
+own stage identities and reserved wire space; incompatible evidence cannot be reinterpreted by
+reassigning an unused number.
 
 ## W53 — Both action queues are published, and a queue reading still admits nothing
 
@@ -174,120 +140,18 @@ declared on its generic base and the member binder does not walk base types, so 
 through the identity registry, keeping the action-manager singleton out of the collector. A queue is an
 entity and a slot is not.
 
-## W54 — Facts in the collector, classification in the service
+## W58 — Per-level requirements need authored rows
 
-An action's audited structural safety is published as its *terms* — plot authoring, phase descriptors,
-audited scalars, authored completion blocks — never as a verdict, because a summary of a whole-graph
-check is a conclusion the deriver cannot justify. The verdict is a pure function of the snapshot
-computed on the worker from the same world the plan was made against, and carried to the boundary on
-the action rather than looked up there. Two comparisons are weaker than the reference-equality checks
-they replace, since a row carries identities rather than objects; what catches an object replaced by
-one with the same uuid is the collected epoch (W55), so the trade holds only while the five lifecycle
-hooks live.
+A parameterized prerequisite depends on the proposed level, so a stored no-argument latch cannot
+answer the same question. [Capture](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/Categories/WorldEntityRequirementReader.cs)
+publishes the authored program for [the shared evaluator](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/WorldRequirementEvaluator.cs)
+to fold against one immutable world. The evaluator owns supported comparisons and explicit
+unevaluable cases; the [refusal tests](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/tests/OrbModding.Tests/Runtime/World/WorldRequirementRefusalTests.cs)
+check that boundary without a copied discriminant or enum-member census in this document.
 
-## W55 — The snapshot says which run of the game it describes
-
-`CollectedAtEpoch` is stamped at capture from the lifecycle monitor's generation. A generation says
-*when* — a frame number, monotonic within one run — and cannot say the run itself was replaced, which
-is what W54's identity comparisons need told. **It makes structural readings skippable:** plot
-authoring, effect blocks and entity requirements are skipped when the same frame object is filled at
-the same epoch it was last filled at. Skipping means skipping the *native reads*, not the derivation —
-buffers are left alone rather than reset, tables rebuild every cycle from unchanged samples, and a
-skipped category returns the report of the pass that actually read it.
-
-**What it cannot do:** detect a save-load that changes no identity, because nothing has measured
-whether one occurs. The five `PatchOptional` lifecycle hooks are the signal, and they are the
-*intended* signal for "we are moving to a new game, trash everything". `AutoHarvestBindingCoherence`
-stays anchored on resolver lifecycle generations, because what it guards is whether a registry
-resolution is still current — a fact about the resolver, not a snapshot. Auto Buy's boundary compares
-against the snapshot's epoch ferried in on the action, so a world collected under a new epoch is not
-refused while runner replacement lags; a plan made against a run the game has left still cannot submit,
-and neither can one carrying a zero epoch.
-
-## W56 — The patches that survive, and what each waits on
-
-A service woken by a generation gate needs no second way to be told, so a service consuming the
-published world carries no signal patch: keeping a patch-fed generation beside the collected world
-would create two answers to one question, and structure and upgrade completion announcements, queue
-postfixes, `AfterNativeCompletion` and Auto Concept's signal patches are each an instance of that rule.
-
-Three groups survive it. `SpellFirePatch` is the before/after probe of `NativeMutationVerifier.Execute`
-for Auto Cast's fire, which is the declared verifier exception, since a verifier that may not observe
-the game cannot verify anything. The five lifecycle hooks wait on the experiment W55 defers. The four
-mastery hooks registered from `ComposeMentor` are exact-XP **inputs**, not a signal the world already
-carries: a native rollover consumes saved XP and Mentor's own grant writes the same value, so no
-snapshot delta recovers what was earned. They publish value-only rows with the world and retire only
-with Mentor itself. The tick-fault transpilers carry no signal at all; they are the doctrine's
-[diagnostic observe-and-rethrow exception](game-boundary-doctrine.md#diagnostic-observe-and-rethrow-exception).
-
-## W57 — Lifecycle observation installs with Automata, not with Mentor
-
-The five optional lifecycle hooks — `SaveStateManager:ImplementLoadedJson` prefix and postfix,
-`GameManager:InitGame`, `GameManager:ResetGameState`, `PersistentResetManager:PersistentResetLogic` —
-install from `ComposeAutomata`, enumerated in `Plugin.LifecycleObservationHooks`. Behind Mentor's early
-returns an unavailable mastery hook silently blocks lifecycle observation, and what that costs is not
-Mentor's to spend: the monitor's generation stops moving, the collected epoch freezes with it, the
-structural-fact skip never re-reads after a save-load, and Auto Buy's boundary compares one stale epoch
-against another and admits. A degraded mastery feature is still a feature; a frozen epoch is every
-consumer deciding against a world the game has left. The three `SpellManager` loadout postfixes stay
-Mentor's own signal. The list is a `(Target, Handler, Postfix)` tuple table because one target carries
-both a prefix and a postfix.
-
-## W58 — The per-level prerequisite is rows, because the game's own answer takes an argument
-
-`WorldEntityRequirement` is one row per authored condition on an entity's *next* level, read once per
-lifecycle. An entity's two containers answer different questions: `prerequisites` gates the entity at
-all and latches into the published `available` field, while `prerequisitesPerLevel` gates the level
-being bought — `Check(level + queuedLevels + 1)` for an upgrade, `Check(quantity)` for a structure — so
-there is no field to read and no parameterless call to make.
-
-**The gating container is rows too, under its own program.** A published `available: false` says a
-row is locked and nothing more, and "what would unlock it" is the question a player actually asks, so
-`UpgradeSO.prerequisites`, `StructureSO.prerequisites` and both of `ResearchSO`'s visibility
-containers are read as a third program kind, `Unlock`. Reading them is fields only — the no-argument
-`Check()` that answers them is the write W36 refused, and it stays refused: the program is evaluated
-at level nought because that is the level that overload's own `ConditionInfo` carries, and the
-container's `adjustValue`, which only that overload reads, rides on each row and is added to the
-leveled threshold the way `ConditionValueInstance` adds it. A Research's two containers are ANDed by
-the game, so the second one's group ordinals continue after the first's and the existing all-of fold
-across group positions *is* that AND — no new node kind, no operator row.
-
-**What is published is the conditions, not the verdict.** Every value a condition compares against is
-already a row in the same snapshot, so the verdict is arithmetic a worker can do, and doing it there
-keeps the snapshot free of an answer only true at one level. It also leaves the rows for consumers that
-want the fact: "this upgrade waits on that research reaching six" is what chain planning needs and a
-boolean throws away. The row carries its owner's registry, because the level a container is checked at
-is a property of the owner.
-
-**Seven of the thirty comparisons are refused.** The thirty are the members of the ten discriminant
-enums the condition classes carry, each counted once: `ResearchRequirement` declares none of its own
-and compares through `UpgradeRequirementType`, so a research row's `Visible` is the same refusal as
-an upgrade row's. `WorldRequirementRefusalTests` recomputes all three numbers from the evaluator's
-own discriminant constants against those enums, so the count here and the code cannot part company
-quietly.
-
-Five of the seven reach the latching no-argument `Check()` W36 logged as a write —
-`UpgradeRequirementType.Visible`, `StructureRequirementType.Available`,
-`SpellRequirementType.Visible`, `AlchemyRecipeType.Visible`, `GenericRequirementType.Visible`. None
-occurs in a per-level container on this baseline, but "none today" is what needs a guard rather than
-a habit, and the guard is what carries the refusal into the gating containers, where such a
-comparison publishes its `Unknown` row and leaves that entity's verdict unevaluable rather than
-wrong. `SpellRequirementType.MasteryLevelReady` asks for state the snapshot does not publish (W59
-adds it for the spell's own row, not for this comparison). `ListRequirementType.Count` is a count
-against the threshold that no authored content in this baseline exercises, and it reads as
-unevaluable rather than as a comparison nobody has checked.
-
-The remaining twenty-three are modelled. `GenericRequirement.Discovered` is one of them: its target
-is an arbitrary `UpgradeableObject` whose `IsDiscovered()` is virtual across six implementers
-reading different fields, and a row carries an identity rather than a type — so the answer comes
-from whichever of the six categories published that identity, and a target in none of them refuses.
-`GenericRequirement.Level` is modelled on the same ground, against the two number registries whose
-override is `value.AsInt()`, and refuses every other target. The last three are
-`ResourceRequirement`'s — list membership, lifetime total, ceiling — each a stored field the
-snapshot already carried, which is what took this build's 303 resource leaves out of the unmodelled
-count. **Unknown is a row, not an absence:** an unaudited condition class publishes a row of kind `Unknown` and the pass reports
-itself incomplete, because an entity with no rows reads as unconditional — the wrong answer for one
-gated by something nobody modelled.
+The native parameterized call remains a differential oracle, not a published admission verdict.
+[World collection](world-collection.md#layout) owns graph capture, missing-container semantics and
+reference guards; [requirements](../reverse-engineering/requirements.md) explains the native latch.
 
 ## W59 — Mastery readiness is the game's own answer, because the threshold is not published
 

@@ -19,8 +19,6 @@ public sealed class GameMcpPageBudgetTests
     [Fact]
     public void A_full_page_really_is_a_twelve_kilobyte_page()
     {
-        // The estimate used to be a flat per-field guess about three times the real row, so a full
-        // page delivered about a quarter of the bound and a caller paged four times for one page.
         var state = ResourceWorld(200);
 
         var page = GameMcpTestHarness.Json(

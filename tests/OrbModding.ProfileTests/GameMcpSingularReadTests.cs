@@ -12,12 +12,10 @@ namespace OrbModding.ProfileTests;
 /// <summary>
 /// The singular read is the live read. <c>GetRow</c> answers one id and <c>GetRows</c> answers a
 /// batch of them, and for one id they are the same block: the same category resolution, the same
-/// fields, the same words. It used to be a second implementation of all of that, called only from
-/// tests, so the shape those tests held to account was one no caller ever received.
+/// fields, the same words.
 /// </summary>
 public sealed class GameMcpSingularReadTests
 {
-    /// <summary>Study Mind, a Concept round fifteen read off the Scholar screen.</summary>
     private static readonly Guid StudyMind =
         Guid.Parse("fa165240-42a6-447d-9d3b-f6fa2865dbf9");
 

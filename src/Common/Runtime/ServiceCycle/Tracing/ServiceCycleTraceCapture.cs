@@ -59,9 +59,8 @@ public sealed class ServiceCycleTraceCapture
 
     private void ResetForLoss(ServiceCycleTraceDropRange loss, int newlyCopied)
     {
-        // Any observed loss follows the current cursor. Previously retained events therefore form a prefix
-        // separated from the new resident suffix and must be discarded. Root the cumulative loss at one so
-        // the remaining suffix is always a canonical, portable incomplete document.
+        // Any observed loss follows the current cursor. Root the cumulative loss at one so the
+        // remaining suffix is always a canonical, portable incomplete document.
         if (newlyCopied != 0)
             _events.AsSpan(_count, newlyCopied).CopyTo(_events);
         _count = 0;

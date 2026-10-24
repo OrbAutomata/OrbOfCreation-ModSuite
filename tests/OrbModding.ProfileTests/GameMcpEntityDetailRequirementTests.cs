@@ -33,10 +33,7 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         global::PrerequisiteLinkSO.All.Add(link);
         link.linkTiers.Add(Tier(Require(research, 1)));
         link.linkTiers.Add(Tier(Require(research, 2)));
-        // A third rung, and the row asks for the last of them. Round 15's two gates
-        // (Conceptualization and Innovation, both on the same named-tier link) asked for tier 0
-        // and read "at tier 1"; a fixture asking for tier 1 would have read right by accident,
-        // because the number printed was the met pair's hard-coded one.
+        // A third rung, and the row asks for the last of them.
         link.linkTiers.Add(Tier(Require(research, 3)));
         owner.prerequisitesPerLevel.prerequisites.Add(
             new Requirements.PrerequisiteLinkRequirement
@@ -221,9 +218,7 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         Assert.Null(leaves[1]["current"]);
         Assert.Null(leaves[1]["required"]);
 
-        // Neither leaf carries a class or a sentence. A met row never did; an unmet one used to read
-        // `ERR_LOCKED` beside a paragraph restating that a requirement is unmet, which is the one
-        // thing `met: false` already says.
+        // Neither leaf carries a class or a sentence.
         Assert.Null(leaves[0]["reasonCode"]);
         Assert.Null(leaves[0]["reason"]);
         Assert.Null(leaves[1]["reasonCode"]);
@@ -259,14 +254,8 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// A locked entity never reads <c>Met</c>. The lock is <c>UpgradeSO.prerequisites</c> and the
-    /// rows are <c>prerequisitesPerLevel</c> — two different authored containers — so a block that
-    /// published the per-level answer alone said "requirements met" of a thing the screen draws
-    /// shut, three live rounds running. There is still no <c>authority</c> paragraph: it restated
-    /// the verdict in prose, and eight of its nine appearances in a live round sat under <c>root:
-    /// no conditions</c>, declaring a set of authored rows met that does not exist. This is the
-    /// post-prestige shape: levels reset to nought, no authored condition published, and the game's
-    /// own gate shut.
+    /// A locked entity never reads <c>Met</c>. This is the post-prestige shape: levels reset to
+    /// nought, no authored condition published, and the game's own gate shut.
     /// </summary>
     [Fact]
     public void RequirementsNeverReadMetWhileTheGameHoldsTheEntityShut()
@@ -313,10 +302,8 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// The shape the game actually has, and the one three live rounds hit: an authored per-level
-    /// requirement that is genuinely satisfied on an upgrade the game's own
-    /// <c>prerequisites</c> container holds shut. The rows read <c>prerequisitesPerLevel</c>, and
-    /// the lock is in a container they do not look at.
+    /// The rows read <c>prerequisitesPerLevel</c>, and the lock is in a container they do not look
+    /// at.
     /// </summary>
     [Fact]
     public void AnUpgradeWhoseNextLevelRowsAreMetStillReadsUnmetWhileItsOwnGateIsShut()
@@ -585,11 +572,6 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     /// A resource the game has not counted yet says what would add it, read off the container
     /// <c>ResourceSO.CheckVisibility()</c> consults.
     /// </summary>
-    /// <remarks>
-    /// The bit used to answer "The game is not showing this yet" — which the Scholar page
-    /// contradicted while drawing a Scholar Xp bar of its own — and nothing on the wire named the
-    /// gate, because <c>visiblePrerequisites</c> was captured nowhere.
-    /// </remarks>
     [Fact]
     public void AResourceTheGameHasNotCountedSaysWhatWouldAddIt()
     {
@@ -617,11 +599,6 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     /// <summary>
     /// The ledger bit is not an availability verdict, and no longer answers as one.
     /// </summary>
-    /// <remarks>
-    /// One bit used to be published twice — as <c>visible</c> and as a copy of it under
-    /// <c>available</c> — so Scholar Xp, with a computed capacity and a bar on the open screen, read
-    /// as locked and unavailable, and Psi read the same on the line under the price quoted in it.
-    /// </remarks>
     [Fact]
     public void AResourcesLedgerBitIsNotCopiedOntoAnAvailabilityVerdict()
     {

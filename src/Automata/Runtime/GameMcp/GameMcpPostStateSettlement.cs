@@ -49,13 +49,12 @@ internal static class GameMcpPostStateSettlement
     /// its command descriptor registers. Transport code only waits and delegates here.
     /// </summary>
     /// <remarks>
-    /// A committed answer used to carry what it charged and what the next level asks. Both were
-    /// wire-only bookkeeping: the paid rows priced the game's multi-buy variable rather than the
-    /// count the call committed, so a two-level buy reported one level's price as though it were the
-    /// whole charge, and the caller that most needed the number got the one running in the
-    /// dangerous direction. The world publication still holds every cost curve — Auto Buy plans off
-    /// it — and a refusal that cannot afford something still names what it needs and what is held.
-    /// A live caller gets the outcome.
+    /// Both were wire-only bookkeeping: the paid rows priced the game's multi-buy variable rather
+    /// than the count the call committed, so a two-level buy reported one level's price as though
+    /// it were the whole charge, and the caller that most needed the number got the one running in
+    /// the dangerous direction. The world publication still holds every cost curve — Auto Buy plans
+    /// off it — and a refusal that cannot afford something still names what it needs and what is
+    /// held. A live caller gets the outcome.
     /// </remarks>
     internal static GameMcpValue Project(
         GameMcpFrameContext state,

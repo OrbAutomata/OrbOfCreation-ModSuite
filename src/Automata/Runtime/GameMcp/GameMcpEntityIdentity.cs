@@ -29,14 +29,6 @@ internal static class GameMcpEntityIdentity
     /// <summary>
     /// The authored description for one id, read through the native type its own category declares.
     /// </summary>
-    /// <remarks>
-    /// The description used to be reachable only through the evaluated-detail resolver, which
-    /// answers thirteen kinds because that is the set this build evaluates predicates and blockers
-    /// for. Nothing about a description follows from that set — it follows from the id's type being
-    /// <c>ITooltipable</c> — so a live round walked the <c>agromancy-actions</c> and
-    /// <c>plot-node-actions</c> graphs to a detail page and found no description on either, though
-    /// both native types carry one and the page already holds the type name to read it with.
-    /// </remarks>
     internal static string ReadDescription(Guid uuid, string nativeType) =>
         string.IsNullOrEmpty(nativeType) ? string.Empty : TryReadNativeDescription(uuid, nativeType);
 
@@ -114,10 +106,7 @@ internal static class GameMcpEntityIdentity
         }
         // A remedy names a verb that will answer, and there is none to name: an id no published
         // category claims is this build's own internal machinery, and its whole readable identity
-        // is on this block already. This arm used to split — a pointer at the page that listed the
-        // leftovers, or no pointer for machinery — and the world publishes those leftovers now, so
-        // the pointing half named a page that would come back empty even before the verb retired.
-        // The sentence says what is true of the id and stops.
+        // is on this block already. The sentence says what is true of the id and stops.
         return Unresolved(
             uuid,
             "not_world_projected",

@@ -26,8 +26,7 @@ document wins wherever this one drifts from it.
    pre-allocation are acceptable here; trace overhead must never appear inside profiler spans. The
    detailed trace records three of its four intended streams; raw world capture remains an explicit
    [deferral](deferrals.md).
-4. **Replay** — retired as a runtime system. Hand-crafted scenario fixtures serve its testing value
-   without the runtime carrying a line of replay machinery.
+4. **Scenario fixtures** — deterministic authored inputs exercise behavior without a replay runtime.
 
 The bundle coordinates explicit flush and snapshot ports but does not merge their runtime ownership.
 Each underlying product keeps its own pool, queue, writer, format, retention policy, status, and failure
@@ -176,26 +175,15 @@ Ordinals are dense, sessions are never resumed or pruned automatically, and init
 manifest-publication failure leaves the durable segments unmodified with no manifest — there is no
 recovery path that fabricates terminal evidence.
 
-**A session that ends at process exit is drained, not raced.** The writer thread is a background
-thread, so exit kills it wherever it stands; a teardown that only signalled its stop left the last
-segments and the whole manifest to a race, and a profiling session — which hands its entire payload
-over during that stop — usually lost it. Each teardown therefore waits up to two seconds for its own
-writer, and the writer publishes the same complete or incomplete manifest it would have published at
-any other ending. The wait is bounded and the thread stays a background thread, so a writer wedged in
-a storage call can never hold the game's quit. When the bound expires nothing is written from the
-teardown: a manifest invented there could overwrite the well-formed one the writer is still
-committing, so the session keeps the shape an interrupted capture has always had — segments with no
-manifest — and the suite logs, by name, the session whose drain outlived its bound.
+**A session that ends at process exit drains its writer with a bounded wait.** Each writer owns its
+terminal manifest. If the wait expires, teardown logs the session and leaves completion unavailable;
+it cannot invent a manifest while the writer may still be committing one. A blocked writer cannot
+hold the game's quit indefinitely.
 
-**Completeness is about loss, not about which door the session left by.** A producer that stops
-because the runtime is going away seals and publishes its partial block first, so the drain behind it
-makes every accepted record durable; that session publishes `Complete` with no first-missing sequence
-and reports its terminal reason as the shutdown it was. Equal accepted and durable counts alone do not
-earn the word: a session that exhausted its buffers or its sequence space also ends with everything it
-accepted on disk, and there the equality means the sink began refusing records, which is the
-truncation `Incomplete` exists to report. Faulting a clean shutdown cost one 43-minute capture its
-credibility — it read `Incomplete` at a first-missing sequence one past its own last record, a
-contradiction only the offline tool could see and only arithmetic could dismiss.
+**Completeness reports loss.** Shutdown seals the producer's partial block and lets the writer make
+accepted evidence durable. Equal accepted/durable counts alone do not establish completeness if
+buffer or sequence exhaustion prevented records from being accepted. The format owner's terminal
+reason and first-missing evidence determine that distinction.
 
 **Generation-keyed publication stores.** The semantic stream says which generation a cycle decided
 against, not what that generation held. A recording session writes `configuration-<generation>.oscv`
@@ -245,8 +233,8 @@ byte budget would destroy. The name is a fixed-width UTC timestamp, so oldest me
 rather than by a filesystem timestamp a copy would not preserve. A folder that cannot be deleted is
 left for the next launch: retention never denies the suite its own recording.
 
-At startup the suite also owns the retired stable `trace/full`, stable `trace/profile`, and
-`replay/auto-harvest` layouts. It deletes only files whose exact retired path, extension, and four-byte
+At startup the suite also owns the owned compatibility `trace/full`, stable `trace/profile`, and
+`replay/auto-harvest` layouts. It deletes only files whose exact compatibility path, extension, and four-byte
 format magic agree, then removes empty directories and emits one aggregate line. Unrecognized entries
 remain and make that line a warning.
 
@@ -324,12 +312,11 @@ naming the prestige behind one mid-session epoch change took a purchase-topology
 independent clock anchors, and a file timestamp. A field with no fact reads `unnamed` rather than
 empty, so an absent fact cannot be mistaken for a broken line.
 
-A full-trace session names itself in the log at both ends: one line when it starts, carrying the
-session id and the run-relative path it is writing to, and one when it closes, carrying the records it
-had taken. The closing line exists because shutdown is the one boundary no tick follows — the writer
-publishes its manifest on its own thread afterwards and Unity does not wait for it — so a completeness
-line alone left one 43-minute capture without a single word about itself anywhere in the log, and
-pairing it to that log took two independent clock anchors and a file mtime.
+A full-trace session announces its start and end in the log, with session identity, run-relative
+artifact path and final record count. Writer completion occurs on the writer's own thread, so the
+closing announcement is available even when no further Unity tick follows shutdown. The bounded
+drain and terminal manifest determine durability; a log line does not replace that evidence.
+
 
 Each completed Game MCP operation writes one ledger line naming the verb, the disposition, its own
 duration, and the frame it finished on. The frame is what makes the line correlatable: pump and
@@ -338,15 +325,10 @@ needing a wall-clock anchor. The code appears beside the disposition only when i
 disposition does not, and the reason only when there is one; a refusal is written as a sentence and
 the line does not double its full stop.
 
-Every operation, not only the ones that mutate. A read drew an operation number and wrote no
-completion, so the sequence had holes in it and what a read cost was answerable on no surface — one
-session sized a two-hundred-id batch by watching the frame counter against a wall clock. A line for
-an operation the frame answered itself carries two things a mutation's does not: a summary of what
-was asked for — the category, the page, the filters, and the number of ids, never the ids
-themselves — and how much came back, as rows when the answer is a page and bytes when it is text. An
-answer that is one block claims no size rather than inventing one. Commands answered inside their
-claiming frame are written here too and keep the mutation vocabulary; a command that leaves its
-frame is written when it completes, so nothing is written twice.
+Every completed operation is announced, including reads and commands completed inside their claiming
+frame. Read announcements identify the requested category/page/filter and ID count without copying
+IDs, plus rows or bytes where that answer has a meaningful size. Commands retain their mutation
+vocabulary and asynchronous commands announce their actual completion.
 
 The suite does not use `LogOutput.log` as an action ledger. Verified successes and ordinary preflight
 no-actions emit no per-action line; the action journal and Runtime outcome projection own those facts.
@@ -381,15 +363,12 @@ category costs across hundreds of passes, which is the only form in which a spik
 Neither derives the other: three named categories in one pass cannot be averaged, and a session
 average cannot say which pass was the expensive one.
 
-Auto Buy affordability drift is an ordinary refusal: its reason travels on the result, with no log
-line and no bundle. Availability drift and level contradictions back the candidate off on the retry
-gate, which logs once when the episode is announced and once when it ends; the first refusal of
-either stays quiet until a fresher world refuses again. Only a planned purchase reaches the
-responder; a refused `game_purchase` press answers its caller. A refusal the suite's model says
-cannot happen holds Auto Buy off for the lifecycle and retains a full text bundle under
-`trace/diagnostics`, capped before each write at eight owned files and 1 MiB total. A collision,
-oversized bundle, inspection failure, or retention failure leaves the refusal loud and names the
-bundle as unavailable rather than overwriting evidence or faulting gameplay.
+Auto Buy returns a structured diagnosis on the action result. Attempt evidence and its full fault
+cause remain available even when warnings or health coalesce a repeated condition. The
+[diagnosis owner](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Native/AutoBuyAdmissionDiagnosis.cs) and
+[retry runtime](service-cycle-runtime.md) define the next attempt and invariant-stop policy.
+Diagnostic bundle capture uses its owner's bounded envelope; storage failure names the unavailable
+bundle rather than overwriting evidence or claiming gameplay success.
 
 ## Mode 3: opt-in performance profile
 
@@ -401,34 +380,18 @@ ordinary-build structural test inspects the compiled code and rejects profiler t
 probe calls, buffers, worker startup, or profile-only timestamp reads — compile-time absence is
 evidence, not a runtime no-op.
 
-**Format.** Profile v1 is independent of the trace and journal. Each `OSPS` segment has a 128-byte
-envelope, at most 4,096 fixed 144-byte numeric records, and a 40-byte `OSPF` footer with dense
-session/ordinal/sequence fences and an IEEE CRC32. A terminal 160-byte `OSPM` manifest declares
-calibration, build identity, trace/allocation flags, accepted and durable counts, the first missing
-sequence, segment bytes, and complete or incomplete termination; no manifest means interrupted
-evidence, never inferred complete. Sessions publish as `session-{id}` directories of dense
-`segment-{ordinal}.osps` files under
-`BepInEx/config/OrbOfCreation-ModSuite/trace/run-<timestamp>/profile/`, in that launch's own run folder
-beside the full trace it correlates with.
+**Format.** The [profile format owners](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/Common/Runtime/ServiceCycle/Observation/Profile/Format)
+validate segment/record/footer sizes, schema, CRC and sequence fences. The
+[operation model](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/ServiceCycle/Observation/Profile/ServiceCycleProfileContracts.cs)
+and [record codec](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/ServiceCycle/Observation/Profile/Format/ServiceCycleProfileRecordCodec.cs)
+own the counters and their widths/offsets. A missing terminal manifest means interrupted evidence,
+never inferred completeness. When allocation evidence is unavailable it is labeled unavailable,
+not measured zero. Sessions live in that launch's own run folder beside its correlated full trace.
 
-Records are tagged aggregates or sparse samples, both retaining a neutral numeric stage code, service
-ordinal, lifecycle temperature, raw tick range, allocation evidence, and the exact operation
-signature: the stage's stable-id reads and list entries, each a 64-bit count. Impossible summaries and unknown tags fail closed. When allocation probing is
-unavailable the session flag says so, every encoded allocation total must be zero, and reports must
-render `Unavailable` rather than measured zero.
-
-**Stage codes** come from one enumeration, `ServiceCycleProfileSpan`, read by the runtime, the services
-and the analysis tool alike. The numbers are wire values, so **a retired span's number is burned rather
-than reused** and the blocks stay non-contiguous: 1–999 the suite runtime, 1000–1999 Auto Harvest,
-2000–2999 Auto Buy. The frame's own phases are measured alongside the whole pump, and a frame
-reconciles lifecycle twice, so that span is two occurrences per frame. Worker stages remain unmeasured:
-the probe is owner-thread affine and a worker definition may hold no runtime-owned storage.
-
-A span the enumeration marks as observer overhead — the three semantic-emission spans — is subtracted
-from every enclosing span before it is recorded. The full trace emits from inside the frame, so without
-that fence `Overall pump` would report the cost of recording the frame rather than the cost of the
-frame, which is exactly the red herring the full-trace mandate forbids. The subtraction happens in the
-measurement recorder, so the probe API is unchanged and no reader has to know to subtract.
+[Stage codes](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/ServiceCycle/Observation/Profile/ServiceCycleProfileSpan.cs) are
+wire identities; an unassigned code cannot be reused to reinterpret recorded evidence. The runtime,
+services and analysis tool consume that same owner. Observer overhead is subtracted from enclosing
+measurements so tracing work is not attributed to gameplay stages.
 
 Feature stages live on native adapters, where the main-thread cost is. Every capture snapshots one
 temperature before binding and uses it for all its stages, so cold, `LifecycleRebind` and warm work are

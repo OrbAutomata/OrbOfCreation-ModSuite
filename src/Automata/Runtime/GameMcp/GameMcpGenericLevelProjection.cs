@@ -24,10 +24,9 @@ internal static class GameMcpGenericLevelProjection
     /// What the press bought and what the game asked for it.
     /// </summary>
     /// <remarks>
-    /// <c>free</c> used to be read off the world standing before the press, which prices only the
-    /// next rung. A ×5 rune buy off a ladder whose first level is free answered <c>free: yes</c>
-    /// while Time Advancements fell 94 → 84. The press is the only thing that saw all five prices,
-    /// so the press is what answers: <c>free</c> when every level it bought asked for nothing, and
+    /// A ×5 rune buy off a ladder whose first level is free answered <c>free: yes</c> while Time
+    /// Advancements fell 94 → 84. The press is the only thing that saw all five prices, so the
+    /// press is what answers: <c>free</c> when every level it bought asked for nothing, and
     /// otherwise what it was charged, for how many levels.
     /// </remarks>
     internal static GameMcpValue Project(in GenericLevelSubmission submission, GameWorldState world)
@@ -268,11 +267,9 @@ internal static class GameMcpGenericLevelProjection
     /// A level's price, in the one price shape.
     /// </summary>
     /// <remarks>
-    /// These rows used to say three of the four columns and hoist <c>affordable</c> out to a
-    /// sibling key on the decision, so a glyph's price and a research's price read as two different
-    /// tables in one session and a caller scanning them positionally read the second one wrong. The
-    /// sibling key is a different fact and stays — it answers whether the whole purchase is payable
-    /// — while the column answers it per resource, which is what names the one that is short.
+    /// The sibling key is a different fact and stays — it answers whether the whole purchase is
+    /// payable — while the column answers it per resource, which is what names the one that is
+    /// short.
     /// </remarks>
     internal static JArray ProjectLevelCosts(
         GameWorldState world,

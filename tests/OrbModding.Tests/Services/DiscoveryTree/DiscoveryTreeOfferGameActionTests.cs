@@ -297,9 +297,7 @@ public sealed class DiscoveryTreeOfferGameActionTests : IDisposable
     }
 
     /// <remarks>
-    /// The refusal used to recite the rule it believed it enforced, and two of its three clauses
-    /// were false — a planner that cached the sentence learned never to reroll from a mode that
-    /// rerolls fine. It now names the one axis that failed and carries the number it read.
+    /// It names the one axis that failed and carries the number it read.
     /// </remarks>
     [Fact]
     public void Reroll_without_budget_refuses_on_the_one_axis_that_failed()

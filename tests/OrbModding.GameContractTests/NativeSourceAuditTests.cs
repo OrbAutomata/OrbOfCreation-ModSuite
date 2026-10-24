@@ -38,13 +38,11 @@ public sealed class NativeSourceAuditTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The check is on the native shape, not on which of our files touches it. It used to be both:
-    /// every contract carried a hand-maintained <c>sources[]</c> path list and a literal counted as
-    /// declared only against contracts naming that same file. That coupled an audit of the game's
-    /// surface to our own folder layout — moving a file broke it while the native surface was
-    /// unchanged, and a new file reflecting on an already-declared member meant hand-editing entries
-    /// spread across the manifest with no compiler help. The scoping bought nothing the global check
-    /// does not: an undeclared native target still fails here.
+    /// The check is on the native shape, not on which of our files touches it. That coupled an
+    /// audit of the game's surface to our own folder layout — moving a file broke it while the
+    /// native surface was unchanged, and a new file reflecting on an already-declared member meant
+    /// hand-editing entries spread across the manifest with no compiler help. The scoping bought
+    /// nothing the global check does not: an undeclared native target still fails here.
     /// </para>
     /// <para>
     /// Deriving the list instead of dropping it was considered and rejected — a field computed from
@@ -378,8 +376,6 @@ public sealed class NativeSourceAuditTests
         ("static", "StaticReference", "_manager = NativeAccessorBinder.StaticReference(managerType, \"zzProbeField\");", new[] { "zzProbeField" }),
         ("static", "StaticReference", "_globals = NativeAccessorBinder.StaticReference(globalsType, \"zzProbeField\", globalsType);", new[] { "zzProbeField" }),
 
-        // A selector built out of another selector: the outer call's own name sits past the inner
-        // call's closing parenthesis, which is exactly where the audit used to stop reading.
         ("composed", "Call", "_id = NativeAccessorBinder.Call<Guid>(NativeAccessorBinder.CollectionElementType(spellType, \"zzProbeField\"), \"ZzProbeCall\");", new[] { "ZzProbeCall", "zzProbeField" }),
 
         ("override", "", "internal override string TypeName => \"ZzProbeType\";", new[] { "ZzProbeType" }),

@@ -505,8 +505,7 @@ internal sealed class GameMcpScreenReader
     /// hierarchy path.
     /// </summary>
     /// <remarks>
-    /// The ancestry is walked once per element. Sorting, the shared prefix, and each row's printed
-    /// path all read that one result, where they previously walked the same chain three times over.
+    /// The ancestry is walked once per element.
     /// </remarks>
     private static IReadOnlyList<TooltipElement> CaptureActiveHoverTooltips() =>
         Resources.FindObjectsOfTypeAll(typeof(HoverTooltip))

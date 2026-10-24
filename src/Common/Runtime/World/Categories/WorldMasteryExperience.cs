@@ -16,8 +16,7 @@ internal enum MasteryExperienceDomain
 /// </summary>
 /// <remarks>
 /// Saved XP cannot be differenced safely: a mastery rollover may consume it and an automation
-/// action may add to it. The patch therefore records the native method argument, while the world
-/// supplies every relationship fact used to decide what that input means.
+/// action may add to it.
 /// </remarks>
 internal readonly struct WorldMasteryExperience
 {

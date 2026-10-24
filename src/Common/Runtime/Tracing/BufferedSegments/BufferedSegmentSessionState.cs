@@ -160,13 +160,10 @@ internal sealed class BufferedSegmentSessionState<TRecord> where TRecord : struc
     /// Whether the latched fault is the producer's own stop and nothing was lost to it.
     /// </summary>
     /// <remarks>
-    /// A producer that stops because the runtime is going away seals and publishes its partial block
-    /// before latching, so the drain that follows makes every accepted record durable. Reporting that
-    /// session as truncated cost a 43-minute capture its credibility: the manifest read
-    /// <c>Incomplete</c> with a first-missing sequence one past the last record it had actually
-    /// written, which the next reader has to disprove by arithmetic before trusting a single number.
-    /// The reason is checked as well as the counts, because a session that exhausted its buffers or
-    /// its sequence space also ends with everything it accepted on disk — and there the equal counts
+    /// A producer that stops because the runtime is going away seals and publishes its partial
+    /// block before latching, so the drain that follows makes every accepted record durable. The
+    /// reason is checked as well as the counts, because a session that exhausted its buffers or its
+    /// sequence space also ends with everything it accepted on disk — and there the equal counts
     /// mean the sink started refusing records, which is exactly the truncation this word exists to
     /// report.
     /// </remarks>

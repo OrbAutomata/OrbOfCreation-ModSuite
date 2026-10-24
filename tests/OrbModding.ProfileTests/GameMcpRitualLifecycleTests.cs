@@ -213,9 +213,8 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     /// <summary>
-    /// Comparing 32 rituals used to mean 32 detail pages, because the list row carried nothing the
-    /// screen is scanned by. Every column here is written unconditionally, so the header a caller
-    /// parses is the same one after a prestige.
+    /// Every column here is written unconditionally, so the header a caller parses is the same one
+    /// after a prestige.
     /// </summary>
     [Fact]
     public void A_ritual_list_row_carries_what_the_ritual_screen_is_scanned_by()
@@ -315,10 +314,8 @@ public sealed class GameMcpRitualLifecycleTests
 
     /// <summary>
     /// "Activate a ritual" answers in battle vocabulary, so the answer says what the battle it just
-    /// started holds shut. A live round read <c>activeBattle: no -&gt; yes</c>, found nothing on the
-    /// wire naming a consequence, and twenty minutes later committed the round's one irreversible
-    /// action while still guessing whether a running battle blocked it. Ending a battle says
-    /// nothing about the gate, because there is none left to state.
+    /// started holds shut. Ending a battle says nothing about the gate, because there is none left
+    /// to state.
     /// </summary>
     [Fact]
     public void An_activate_names_what_the_battle_it_started_holds_shut()
@@ -447,10 +444,8 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     /// <summary>
-    /// Nothing on the surface aggregated "a battle is running", so a live round making a lifecycle
-    /// decision had no verb to ask and hedged into the round's one irreversible action. The overview
-    /// names the ritual that is in the battle and the gate it holds shut — and says nothing at all
-    /// while no battle runs, because a fact that costs no decision costs no line.
+    /// The overview names the ritual that is in the battle and the gate it holds shut — and says
+    /// nothing at all while no battle runs, because a fact that costs no decision costs no line.
     /// </summary>
     [Fact]
     public void The_overview_names_a_running_battle_and_what_it_gates()

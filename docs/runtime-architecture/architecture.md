@@ -48,18 +48,8 @@ a feature's native side owns its own cache coherence.
 
 ## Common module structure
 
-```text
-Runtime/ServiceCycle/
-  Contracts/       phases, identities, contexts, outcomes, wake policies
-  Configuration/   immutable saved-config and strategy publications
-  Execution/       feature ports, validation, runner handoff, worker, storage
-  Registration/    deterministic erased-slot composition and sealing
-  Orchestration/   SuiteFramePump and lifecycle/emergency control
-  Diagnostics/     neutral snapshots and state-projection transport
-  Tracing/         semantic schema, bounded capture, schema-v7 codec, graph validation
-    Emission/      causal writer plus context, cycle, admission, evaluation, and batch emitters
-  Observation/     mode-specific full trace, compact journal, and compile-time profile composition
-```
+[Common ServiceCycle](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/Common/Runtime/ServiceCycle) owns its module layout, including Lifecycle. The source directory is the current component index.
+
 
 Exact filenames may change; dependency direction may not. The pump does not become a god class:
 registration, runner handoff, reusable action storage, diagnostics, tracing, and lifecycle replacement

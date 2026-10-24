@@ -74,8 +74,7 @@ public sealed class GameMcpEntityCatalogTests
     }
 
     /// <summary>
-    /// One answer, said once. The result used to carry a machine copy beside the page a caller
-    /// reads, so every client decoded and truncated the same bytes twice.
+    /// One answer, said once.
     /// </summary>
     [Fact]
     public void ToolResultEmitsThePageOnceWithoutAStructuredDuplicate()
@@ -120,9 +119,7 @@ public sealed class GameMcpEntityCatalogTests
     }
 
     /// <summary>
-    /// An asset id that is the player's word plus the word the block's own <c>category</c> states
-    /// says nothing the lines beside it have not — six of one round's eleven <c>internalName</c>
-    /// lines were exactly that. An id that adds a fact still ships whole.
+    /// An id that adds a fact still ships whole.
     /// </summary>
     /// <remarks>
     /// The rule needs a category to read, so it lives where one is printed: the identity block

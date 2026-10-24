@@ -20,10 +20,9 @@ internal static class GameMcpWireShape
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A live round spent 3,712 bytes on <c>isPercent: no</c> — 76% of every time it was said — and
-    /// 726 on <c>order: 0</c>, which was the value on 100% of the rows that carried it. Neither is
-    /// a reading that could be missing: the game holds a bool and an int, so absence has exactly
-    /// one meaning and <c>docs/development/mcp-tools.md</c> states it beside the field.
+    /// Neither is a reading that could be missing: the game holds a bool and an int, so absence has
+    /// exactly one meaning and <c>docs/development/mcp-response-format.md</c> states it beside the
+    /// field.
     /// </para>
     /// <para>
     /// A block only, never a row. A table's header promises a column on every row of the page, so
@@ -65,12 +64,9 @@ internal static class GameMcpWireShape
     /// The sentence sits under the code it explains, wherever the two arrived from.
     /// </summary>
     /// <remarks>
-    /// A block that publishes both adjacently reads as one fact; one that does not reads as two. A
-    /// live round met a locked glyph whose <c>reasonCode</c> and <c>reason</c> sat seven lines
-    /// apart with three decisions wedged between them — the sentence ending up beside an unrelated
-    /// <c>discover: yes</c> — and could not tell whether the trailing sentence was that block's
-    /// blocker or a stray, so it spent a second read on two other rows to learn the shape. The pair
-    /// is one pair on every page now, whether the producer wrote both or this pass supplied one.
+    /// A block that publishes both adjacently reads as one fact; one that does not reads as two.
+    /// The pair is one pair on every page now, whether the producer wrote both or this pass
+    /// supplied one.
     /// </remarks>
     internal static void KeepReasonBesideItsCode(JObject item)
     {
@@ -143,27 +139,17 @@ internal static class GameMcpWireShape
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Four entities of one live round printed
-    /// <c>discover: no (ERR_STATE): This is already discovered.</c> on the row and
-    /// <c>canDiscover: no (ERR_STATE): This is already discovered.</c> under predicates — the
-    /// identical sentence twice inside one entity — while the word <c>predicates</c> appeared once
-    /// in the caller's entire reasoning and <c>blockers</c> never appeared at all.
-    /// </para>
-    /// <para>
     /// The rule is per field and it turns on the duplicate being present, not on the two agreeing.
-    /// Agreement was the wrong test: three augments of one live round printed
-    /// <c>canDiscover: yes</c> under a row saying <c>discover: no (ERR_LOCKED)</c>, so the coarser
-    /// answer survived precisely where it contradicted the screen. The row's block is the screen's
-    /// truth — it knows the costs, the owning page and whether that page is drawn — and one
-    /// question gets one answer. A <c>canDiscover</c> whose row publishes no <c>discover</c> action
-    /// still prints, because then nothing else answers it. A predicate carrying anything of its own
-    /// still prints, which is why <c>canUse: yes slots=[1]</c> keeps its slot list — that list
-    /// appears nowhere else on the page. A blocked axis prints in full, because the numbers behind a
-    /// no are what a caller acts on; an axis whose whole content is that it is not blocking says
-    /// what an unlisted axis already says, and <c>blockers</c> then reads as the list of what
-    /// blocks. Both keys survive even when everything under them goes: an entity with no applicable
-    /// predicate and one whose predicates were never evaluated are different answers, and an omitted
-    /// key says both.
+    /// The row's block is the screen's truth — it knows the costs, the owning page and whether that
+    /// page is drawn — and one question gets one answer. A <c>canDiscover</c> whose row publishes
+    /// no <c>discover</c> action still prints, because then nothing else answers it. A predicate
+    /// carrying anything of its own still prints, which is why <c>canUse: yes slots=[1]</c> keeps
+    /// its slot list — that list appears nowhere else on the page. A blocked axis prints in full,
+    /// because the numbers behind a no are what a caller acts on; an axis whose whole content is
+    /// that it is not blocking says what an unlisted axis already says, and <c>blockers</c> then
+    /// reads as the list of what blocks. Both keys survive even when everything under them goes: an
+    /// entity with no applicable predicate and one whose predicates were never evaluated are
+    /// different answers, and an omitted key says both.
     /// </para>
     /// </remarks>
     internal static void DropRowRestatements(JObject item)

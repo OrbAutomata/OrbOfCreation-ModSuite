@@ -152,8 +152,6 @@ internal static class GameMcpTargetingProjection
         {
             var structure = world.Structures[index];
             if (structure.EntityId != id) continue;
-            // The column the caller ranks by leads: this list is read to pick the strongest
-            // candidate, and the number that decides it used to sit last behind three that do not.
             // The two counts under it are the ones the attribute's own badge owns, under the names
             // every other surface uses for them. Their sum has no badge, and a separate
             // work-in-flight flag only restates a queue the caller can already read.

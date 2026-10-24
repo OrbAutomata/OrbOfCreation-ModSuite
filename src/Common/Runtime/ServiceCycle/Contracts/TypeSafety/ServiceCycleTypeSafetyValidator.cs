@@ -37,9 +37,8 @@ internal static class ServiceCycleTypeSafetyValidator
     /// The suite's one configuration record, audited once instead of on every registration.
     /// </summary>
     /// <remarks>
-    /// It used to be walked as part of each service's types, back when a service named the snapshot
-    /// it read and every registration could bring a new one. There is one, it is the same one every
-    /// time, and re-proving it per service proves nothing a single audit does not.
+    /// There is one, it is the same one every time, and re-proving it per service proves nothing a
+    /// single audit does not.
     /// </remarks>
     internal static ServiceCycleTypeViolation? ValidateSuiteConfiguration() =>
         ServiceCycleTypeGraphWalker.Validate(

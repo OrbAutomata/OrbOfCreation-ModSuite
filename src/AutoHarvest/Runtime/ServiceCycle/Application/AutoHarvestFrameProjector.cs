@@ -11,26 +11,19 @@ namespace OrbAutomata;
 /// <para>
 /// Nothing here touches the game, and nothing here is this service's own memory either. The two
 /// pairs are named by constants and their facts come from the snapshot; the contract circuit is the
-/// action boundary's, and what it means for a decision reaches the worker as a result code it records
-/// in its own state. See W45.
+/// action boundary's, and what it means for a decision reaches the worker as a result code it
+/// records in its own state. See W45.
 /// </para>
 /// <para>
-/// The structural safety audit is taken here too, from the same snapshot. It used to run against the
-/// live objects while the binding resolved, which made it a native read on the main thread and a
-/// verdict cached for a lifecycle; it is now a pure reading of collected facts, taken every cycle
-/// beside the facts it will be judged with.
+/// The structural safety audit is taken here too, from the same snapshot.
 /// </para>
 /// <para>
-/// Binding resolution used to happen here as well, to reach two uuids
-/// <see cref="AutoHarvestKnownIds"/> already holds. It stayed at the action boundary, which resolves
-/// the pair it is about to mutate and re-checks its lifecycle there; a copy taken while deciding was
-/// a pre-filter over an answer that had to be taken again anyway.
+/// Binding resolution belongs to the action boundary: the adapter resolves the pair selected for
+/// mutation and validates its live lifecycle against the admitted cycle before mutation.
 /// </para>
 /// <para>
-/// It is a static class holding nothing, and the world reaches it as an argument. The three profile
-/// stages that used to time this on the main thread could not follow it here: a worker definition may
-/// not hold runtime-owned storage, and the profile probe is exactly that. There is no main-thread cost
-/// left to attribute — the runtime times the whole evaluation. See W51.
+/// It is a static class holding nothing, and the world reaches it as an argument. There is no
+/// main-thread cost left to attribute — the runtime times the whole evaluation. See W51.
 /// </para>
 /// </remarks>
 internal static class AutoHarvestFrameProjector

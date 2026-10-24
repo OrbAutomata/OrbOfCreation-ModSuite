@@ -83,8 +83,6 @@ public sealed class GameMcpDiscoveryTreeReadTests
             "discovery-trees",
             GameMcpCommandKind.DiscoveryTreeOffer));
 
-        // The scan row used to fall through to the reflected projector and publish the raw native
-        // actionMode integer, so the same fact had two names and two shapes across two reads.
         var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "discovery-trees", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
         Assert.Equal("idle", (string?)listed["mode"]);
@@ -154,19 +152,15 @@ public sealed class GameMcpDiscoveryTreeReadTests
         Assert.Equal("100",
             (string?)unaffordable["row"]!["initiate"]!["costs"]![0]!["spendableAmount"]);
 
-        // The price row reads in the screen's rounding, and a round read `cost: 5 of 5 Knowledge
-        // affordable=no` off 4.6 Knowledge and went looking for a suite bug. The sentence carries
-        // the same two numbers game_purchase's refusal does, so a near miss reads as a near miss
-        // rather than as "The named resources fall short of the price."
+        // The sentence carries the same two numbers game_purchase's refusal does, so a near miss
+        // reads as a near miss rather than as "The named resources fall short of the price."
         Assert.Equal("Needs 1.10e24 Knowledge (have 100).",
             (string?)unaffordable["row"]!["initiate"]!["reason"]);
     }
 
     /// <summary>
-    /// A tree the game is not showing quotes no price. The row used to print
-    /// "The game is not showing this discovery tree." and then <c>400 of 100 Mana affordable=no</c>
-    /// in the same block, which sent a caller to go and earn a price for a press that would still
-    /// not exist. An unpressable press says why it is unpressable and nothing else.
+    /// A tree the game is not showing quotes no price. An unpressable press says why it is
+    /// unpressable and nothing else.
     /// </summary>
     [Fact]
     public void ATreeTheGameIsNotShowingQuotesNoPrice()
@@ -438,9 +432,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
 
     /// <summary>
     /// The game marks a discovery page's tab while its tree owes a required discovery, and that
-    /// roll is priced in the required item's own resources. A live round hunted a Skill source for
-    /// several reads while the mark on Magic &gt; Spellbook &gt; Unlock held the answer, because no
-    /// world read carried the mark.
+    /// roll is priced in the required item's own resources.
     /// </summary>
     [Fact]
     public void TheOverviewNamesEveryMarkedRequiredRollWithItsScreenAndPrice()
@@ -505,8 +497,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
 
     /// <summary>
     /// The game draws a tab, and the mark on it, only while that tab's view is available, so a
-    /// discovery page under a locked screen carries no mark. A live round read a required roll on
-    /// Alchemy &gt; Alchemy &gt; Learn while Alchemy itself answered that it is not unlocked yet.
+    /// discovery page under a locked screen carries no mark.
     /// </summary>
     [Fact]
     public void ARequiredRollUnderALockedScreenIsNotListed()

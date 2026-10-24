@@ -28,12 +28,8 @@ internal static class GameMcpCastProjection
     /// <remarks>
     /// The boundary knows only that the game said no. The published slot knows how many charges
     /// this spell is short and when the next one lands, or which other spell is holding the caster.
-    /// The boundary's string used to be taken unconditionally, so it clobbered the sentence
-    /// <see cref="ExactGameMcpReason"/> had already composed seventy-nine lines earlier: a live
-    /// round read "the game refused the cast on its own readiness terms" twenty-five times, never
-    /// once with a number, while the very next <c>world_get</c> on the same slot printed "0 of 1
-    /// charges, next in 5.66s". Both producers run here, in this order, and the live press has no
-    /// second copy of the rule to drift from.
+    /// Both producers run here, in this order, and the live press has no second copy of the rule to
+    /// drift from.
     /// </remarks>
     internal static string? CastRefusalReason(
         GameMcpCommand command,
@@ -93,12 +89,12 @@ internal static class GameMcpCastProjection
     /// </summary>
     /// <remarks>
     /// The game's popup for a blocked removal is "Cannot remove a spell that is still recharging.",
-    /// and it says that whether the spell is mid-cast or merely below full charges. The read side
-    /// answered the first case with "mid-cast" and the verb answered the second with "still
-    /// recharging", so one moment wore two words and a round could not tell it was the same state.
-    /// The game's word wins, and the numbers the screen does not print ride with it.
+    /// and it says that whether the spell is mid-cast or merely below full charges. The game's word
+    /// wins, and the numbers the screen does not print ride with it.
     /// </remarks>
-    /// <summary>The two recharge numbers, wherever a spell's charge state reaches the wire.</summary>
+    /// <summary>
+    /// The two recharge numbers, wherever a spell's charge state reaches the wire.
+    /// </summary>
     internal static void AddRechargeFacts(JObject target, in WorldSpellSlot slot)
     {
         if (slot.CurrentCharges >= slot.MaximumCharges) return;
@@ -216,29 +212,23 @@ internal static class GameMcpCastProjection
         var fire = string.Equals(command.Mode, "fire", StringComparison.Ordinal);
         if (fire)
         {
-            // The price of casting this again, against the stock the settled world holds now — one
-            // instant, both numbers from it. Under the bare name `costs` the same two numbers read
-            // as one statement about the press that just committed, and a live round read
-            // `cost: 100 of 7.3 Mana affordable=no` as "the cast cost 100, you have 7.3", which is
-            // a committed cast reported as a failure. What the press charged is not published here
-            // and is not computed: this row is the current price, which is the price then only for
-            // a spell whose cost did not move, so publishing it as a payment would be a guess
-            // wearing a number — the same defect that retired `paid[]` from game_purchase.
+            // The price of casting this again, against the stock the settled world holds — one
+            // instant, both numbers from it. What the press charged is not published here and is
+            // not computed: this row is the current price, which is the price then only for a spell
+            // whose cost did not move, so publishing it as a payment would be a guess wearing a
+            // number — the same defect that retired `paid[]` from game_purchase.
             var costs = ProjectEquippedSpellCosts(
                 state.World.Snapshot, slotIndex, WorldSpellCostKind.Immediate);
             if (costs.Count > 0) result["nextCastCosts"] = costs;
             // What a committed fire moved: a cast that was not running is running now. The boundary
             // verifies the press against the game's own fire hook, and it refuses a spell that is
-            // already casting, so a commit is a cast this call started.
-            //
-            // The game's finished-cast counter used to stand here and could not do this job. The
-            // game increments it when a cast completes, not when one starts, so a cast shorter than
-            // the world cadence and a cast that never happened produced the same number — a landed
-            // press and a dropped press read byte-identical.
-            //
-            // Fire is the only mode that carries it, because it is the only mode with a native
-            // delta behind it: a release is a native call with nothing to verify a start against,
-            // and a toggle-off's own sentinel is a cast ending. Neither may claim one either way.
+            // already casting, so a commit is a cast this call started. The game increments it when
+            // a cast completes, not when one starts, so a cast shorter than the world cadence and a
+            // cast that never happened produced the same number — a landed press and a dropped
+            // press read byte-identical. Fire is the only mode that carries it, because it is the
+            // only mode with a native delta behind it: a release is a native call with nothing to
+            // verify a start against, and a toggle-off's own sentinel is a cast ending. Neither may
+            // claim one either way.
             result["casting"] = true;
         }
         // Whether this press left a charge held — an input the caller has to pick back up, which no

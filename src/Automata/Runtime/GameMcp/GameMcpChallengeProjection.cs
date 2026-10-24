@@ -95,10 +95,7 @@ internal static class GameMcpChallengeProjection
             };
 
             // The press the caller did not ask for, named — in the same shape a displaced spell
-            // already answers in, because it is the same fact. Selecting past a full list is two
-            // presses and this tool makes the first one itself, so an answer that said only
-            // `selected: no -> yes` confessed half of what it did: a live round had to spend a
-            // follow-up `state` call to learn which challenge it had given up.
+            // already answers in, because it is the same fact.
             if (command.SecondaryId != Guid.Empty)
                 selected["displaced"] = new JObject
                 {
@@ -276,11 +273,8 @@ internal static class GameMcpChallengeProjection
 
         // The button reads "activate" on the screen but it queues: the challenge starts at the next
         // reset, not now. Naming the verb after the press taught callers to expect a running
-        // challenge and to read the queued state as a failure.
-        // The gate says whether the press is open and why not; the row beside it already says where
-        // the challenge stands. `selected=` and `queued=` on these two lines agreed with the row's
-        // own `selected` and `run` columns on every one of a live round's hundred blocks, which is
-        // what a restatement is.
+        // challenge and to read the queued state as a failure. The gate says whether the press is
+        // open and why not; the row beside it already says where the challenge stands.
         var queueAvailable = context.Available && (inTime || inPrestige) && challenge.State is 0 or 1;
         var queue = new JObject { ["available"] = queueAvailable };
         if (!queueAvailable)
@@ -310,11 +304,9 @@ internal static class GameMcpChallengeProjection
     /// Everything the challenge screen shows, answered when a caller asks for it.
     /// </summary>
     /// <remarks>
-    /// This block used to ride every challenge read: a request for one row at offset fifty came back
-    /// nine tenths ambient state, repeated verbatim on every page of a ninety-eight-row category. It
-    /// also said the same list three times — the two offer arrays and the surviving-selection filter
-    /// were byte-identical on every live sample — under two reroll decisions that were one budget,
-    /// one list, and one button. It is one answer now, and a caller asks for it.
+    /// It also said the same list three times — the two offer arrays and the surviving-selection
+    /// filter were byte-identical on every live sample — under two reroll decisions that were one
+    /// budget, one list, and one button. It is one answer now, and a caller asks for it.
     /// </remarks>
     internal static JObject ChallengeStateRead(GameMcpFrameContext state)
     {

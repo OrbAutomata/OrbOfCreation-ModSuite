@@ -19,12 +19,12 @@ internal enum AutoBuyOwningViewStatus
 /// grouping and lifecycle gating.
 /// </summary>
 /// <remarks>
-/// Three things used to be here and are not any more. The action queue's capacity and free room
-/// describe a resource every service competes for and that this service's own actions consume, so an
-/// answer carried through a decision is stale before it is used (W39). Which action families this
-/// instance owns is a lease another plugin can take mid-cycle, and is checked before submitting
-/// (W46). The emergency signal was the configuration's own <c>EmergencyDisable</c> read a second way,
-/// and the operational check beside it already asked.
+/// The action queue's capacity and free room describe a resource every service competes for and
+/// that this service's own actions consume, so an answer carried through a decision is stale before
+/// it is used (W39). Which action families this instance owns is a lease another plugin can take
+/// mid-cycle, and is checked before submitting (W46). The emergency signal was the configuration's
+/// own <c>EmergencyDisable</c> read a second way, and the operational check beside it already
+/// asked.
 /// </remarks>
 internal readonly struct AutoBuyGlobalRow
 {
@@ -55,14 +55,14 @@ internal readonly struct AutoBuyGlobalRow
 /// <summary>
 /// One candidate row. Identity is a stable UUID plus the exact native type name
 /// (Structure/Upgrade); levels and availability come from the world snapshot. Cost rows live in the
-/// frame's shared cost array, referenced here by
-/// <see cref="CostRowStart"/>/<see cref="CostRowCount"/>.
+/// frame's shared cost array, referenced here by <see cref="CostRowStart"/>/<see
+/// cref="CostRowCount"/>.
 /// </summary>
 /// <remarks>
-/// The game's <c>CanPurchase()</c> verdict used to be here. Its exact fold is type-specific:
-/// structures ask only per-level requirements and action-load admission, while upgrades also ask
-/// max-queued level, affordability, own availability, and queued-level requirements. Every term is
-/// live, so the purchase adapter asks the fold immediately before mutating. See W39.
+/// Its exact fold is type-specific: structures ask only per-level requirements and action-load
+/// admission, while upgrades also ask max-queued level, affordability, own availability, and
+/// queued-level requirements. Every term is live, so the purchase adapter asks the fold immediately
+/// before mutating. See W39.
 /// </remarks>
 internal readonly struct AutoBuyCandidateRow
 {
@@ -245,17 +245,14 @@ internal readonly struct AutoBuyCostRow : IExactCostRow<int>
 
 /// <summary>
 /// The immutable per-cycle snapshot the Auto Buy worker evaluates. Rows live in reusable arrays the
-/// frame itself owns; the frame exposes only bounded read-only spans, and counts bound the live region
-/// of each reused array.
+/// frame itself owns; the frame exposes only bounded read-only spans, and counts bound the live
+/// region of each reused array.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The frame carries its own storage because the projection runs on the worker, and a worker
-/// definition may hold no arrays of its own — <c>ServiceCycleWorkerDefinitionValidator</c> forbids it,
-/// which is what stops a worker retaining anything that could reach the game. The runtime already
-/// keeps one frame per service and hands it back every cycle, so lending the arrays out and taking
-/// them back is the same reuse the reader used to get from its own fields, without the feature owning
-/// mutable storage. See W50.
+/// definition may hold no arrays of its own — <c>ServiceCycleWorkerDefinitionValidator</c> forbids
+/// it, which is what stops a worker retaining anything that could reach the game. See W50.
 /// </para>
 /// </remarks>
 internal readonly struct AutoBuyCycleFrame

@@ -50,8 +50,7 @@ public sealed class GameMcpConceptCategoryTests
     }
 
     /// <summary>
-    /// The word a row prints under <c>category</c> is the word the list verb takes. Round 15 saw
-    /// the two differ once, which is a page a caller cannot reach from the row that named it.
+    /// The word a row prints under <c>category</c> is the word the list verb takes.
     /// </summary>
     [Fact]
     public void The_category_a_row_prints_is_the_category_the_list_verb_answers_to()
@@ -125,10 +124,6 @@ public sealed class GameMcpConceptCategoryTests
             alchemy["rows"]!.Values<JObject>().Select(row => (string?)row!["name"]).ToArray());
     }
 
-    /// <summary>
-    /// The inventory counts each page for itself, and the name it used to publish them all under
-    /// says where they went rather than answering as an unknown word.
-    /// </summary>
     [Fact]
     public void The_category_inventory_counts_both_pages_and_the_retired_name_points_at_one()
     {

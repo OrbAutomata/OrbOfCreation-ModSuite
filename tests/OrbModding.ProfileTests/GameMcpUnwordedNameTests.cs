@@ -25,11 +25,6 @@ public sealed class GameMcpUnwordedNameTests
     private static readonly Guid WorldResets =
         Guid.Parse("56039067-0092-49c0-a7bd-3c43eb119d37");
 
-    /// <summary>
-    /// The pass that names a row is the wire normalizer, so the rule is pinned there directly as
-    /// well as through the verbs: it is the pass that used to staple the asset id on as a second
-    /// column, and the one that must now put it in the first.
-    /// </summary>
     [Fact]
     public void The_normalizer_names_an_unworded_row_and_leaves_a_worded_one_its_word()
     {

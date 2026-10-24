@@ -89,13 +89,10 @@ internal sealed class AutomataFullTraceController : IDisposable
     /// Closes the session and says how it ended, behind the drain rather than in front of it.
     /// </summary>
     /// <remarks>
-    /// The completeness line is reported from <see cref="Tick"/>, and shutdown is the one boundary no
-    /// tick follows. This used to announce a manifest that "publishes behind this line" — a promise
-    /// the writer kept only when it won a race against process exit, which is why a 43-minute capture
-    /// ended without one word about itself anywhere in the log. The session now waits, bounded, for
-    /// its own writer, so the same terminal line every other ending gets is available here too. A
-    /// drain that outlives its bound is its own line: it is the one ending whose manifest may never
-    /// arrive.
+    /// The completeness line is reported from <see cref="Tick"/>, and shutdown is the one boundary
+    /// no tick follows. The session waits, bounded, for its own writer, so the same terminal line
+    /// every other ending gets is available here too. A drain that outlives its bound is its own
+    /// line: it is the one ending whose manifest may never arrive.
     /// </remarks>
     public void Dispose()
     {

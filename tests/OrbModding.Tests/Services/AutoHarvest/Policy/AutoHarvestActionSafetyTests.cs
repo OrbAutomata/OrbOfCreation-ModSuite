@@ -14,13 +14,11 @@ namespace OrbModding.Tests.Services.AutoHarvest.Policy;
 /// <remarks>
 /// <para>
 /// Every case here authors the game's own content and then breaks exactly one thing about it, so
-/// each term of the audit is proved to be load-bearing rather than merely present. The audit used to
-/// read those terms off the live objects; running the cases through the collector is what says the
-/// published facts carry the same weight the live reads did.
+/// each term of the audit is proved to be load-bearing rather than merely present.
 /// </para>
 /// <para>
-/// Only the fruit pair is ever re-authored. The treasure pair is the control: a verdict that changed
-/// for both would mean the audit was answering about the wrong pair.
+/// Only the fruit pair is ever re-authored. The treasure pair is the control: a verdict that
+/// changed for both would mean the audit was answering about the wrong pair.
 /// </para>
 /// </remarks>
 public sealed class AutoHarvestActionSafetyTests : IDisposable

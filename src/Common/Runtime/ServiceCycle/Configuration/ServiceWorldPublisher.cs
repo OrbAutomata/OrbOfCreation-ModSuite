@@ -53,25 +53,24 @@ public sealed class WorldPublication<TWorld>
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the same bargain configuration and strategy already make, applied to the readings that
-/// were previously captured once per service. A consumer that runs before a newer snapshot lands uses
-/// the previous one and picks the new one up next cycle, so nothing here introduces cross-service
-/// scheduling — ordering between services stays conceptual.
+/// A consumer that runs before a newer snapshot lands uses the previous one and picks the new one
+/// up next cycle, so nothing here introduces cross-service scheduling — ordering between services
+/// stays conceptual.
 /// </para>
 /// <para>
-/// The generation is the whole point of publishing rather than sharing a mutable object. There is no
-/// value in a service acting twice on the same reading of the world, so a consumer records the
-/// generation it last acted on and waits until the published one differs. <see cref="WorldGeneration"/>
-/// rejects zero precisely so that a consumer's initial <c>default</c> can never collide with a real
-/// publication.
+/// The generation is the whole point of publishing rather than sharing a mutable object. There is
+/// no value in a service acting twice on the same reading of the world, so a consumer records the
+/// generation it last acted on and waits until the published one differs. <see
+/// cref="WorldGeneration"/> rejects zero precisely so that a consumer's initial <c>default</c> can
+/// never collide with a real publication.
 /// </para>
 /// <para>
 /// The first publication is generation 1 and normally carries an empty world, since collection has
 /// not run yet. That is deliberate: a service that starts early reads "nothing known" through the
 /// ordinary lookup path and proceeds, rather than blocking on a snapshot that may be a frame away.
-/// It also means generation 1 is spoken for: a caller stamping generations with a frame counter must
-/// not stamp frame 1, which no real host does — Unity's counter is already in the thousands by the
-/// time a save is playable.
+/// It also means generation 1 is spoken for: a caller stamping generations with a frame counter
+/// must not stamp frame 1, which no real host does — Unity's counter is already in the thousands by
+/// the time a save is playable.
 /// </para>
 /// </remarks>
 public sealed class ServiceWorldPublisher<TWorld> :

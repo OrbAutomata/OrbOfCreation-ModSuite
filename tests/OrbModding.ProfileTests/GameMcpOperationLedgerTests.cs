@@ -3,10 +3,6 @@ using Xunit;
 
 namespace OrbModding.ProfileTests;
 
-/// <summary>
-/// Thirteen of these lines were the whole record of one 43-minute session's MCP traffic, and every
-/// one of them read <c>Game MCP operation 85 completed committed (committed):</c>.
-/// </summary>
 public sealed class GameMcpOperationLedgerTests
 {
     [Fact]

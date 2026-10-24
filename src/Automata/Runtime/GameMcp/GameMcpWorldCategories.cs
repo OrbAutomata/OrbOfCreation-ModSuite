@@ -271,9 +271,8 @@ internal static class GameMcpWorldCategories
     }
 
     /// <summary>
-    /// A name the wire used to answer to, kept only so a caller holding it is told where its rows
-    /// went. `glyphs` published two player concepts under one native class, and each half is its
-    /// own category now, so the refusal names both rather than sending the caller back to the list.
+    /// `glyphs` published two player concepts under one native class, and each half is its own
+    /// category now, so the refusal names both rather than sending the caller back to the list.
     /// </summary>
     private static readonly Dictionary<string, string> RetiredCategoryNames =
         new(StringComparer.Ordinal)

@@ -12,9 +12,7 @@ namespace OrbAutomata.GameMcp;
 /// <remarks>
 /// <para>
 /// Identity is still the full canonical UUID everywhere inside the suite: this type changes what an
-/// id looks like on the wire and what a caller may type, never what identity is. The full 36-char
-/// form cost 17.4% of one live round's bytes for an address a caller used about once per hundred
-/// emissions.
+/// id looks like on the wire and what a caller may type, never what identity is.
 /// </para>
 /// <para>
 /// The length is a property of the id set rather than of any one id, and the suite pins the game
@@ -39,13 +37,11 @@ internal static class GameMcpEntityHandle
     internal static string Format(Guid uuid) => uuid.ToString("D").Substring(0, Length);
 
     /// <summary>
-    /// The one name every surface says for an id: the player's own word for it, or a marked stand-in
-    /// when the catalog has none.
+    /// The one name every surface says for an id: the player's own word for it, or a marked
+    /// stand-in when the catalog has none.
     /// </summary>
     /// <remarks>
-    /// A nameless id used to render as a bare id, which reads exactly like a named row whose name
-    /// happens to be a hex string — so the one case where a caller must stop and look the thing up
-    /// was the one case that announced nothing. <c>(unnamed 2c20e7)</c> says it out loud.
+    /// <c>(unnamed 2c20e7)</c> says it out loud.
     /// </remarks>
     internal static string Name(Guid uuid, EntityIdentityCatalogSnapshot? catalog = null)
     {
@@ -62,9 +58,7 @@ internal static class GameMcpEntityHandle
         Ambiguous = 2,
 
         /// <summary>
-        /// No catalog is published, so no handle can name anything. A run's teardown used to turn
-        /// every handle the same run had just handed out into a malformed-argument refusal, while
-        /// the whole UUID for the same entity correctly answered that no save is loaded.
+        /// No catalog is published, so no handle can name anything.
         /// </summary>
         CatalogUnavailable = 3,
     }

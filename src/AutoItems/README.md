@@ -24,7 +24,7 @@ parallel postconditions. An absent transition is a `use_not_verified` fault for 
 backs off through the shared
 [per-target retry gate](../../docs/runtime-architecture/service-cycle-runtime.md#per-target-retry-gate)
 and is tried again once due. The scan ends an item's backoff when it stops considering the item at
-all: not approved, not visible, out of stock, or no longer of a usable shape.
+all: not approved, not visible, out of stock, or of an unusable shape.
 
 A failed ownership read, live Scroll-target check, or temporary-item catalog read writes its full
 original exception to the suite fault log on every attempt. Its visible reason is an authored

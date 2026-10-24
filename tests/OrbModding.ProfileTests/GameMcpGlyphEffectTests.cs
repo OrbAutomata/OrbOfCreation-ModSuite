@@ -13,9 +13,7 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 /// <summary>
-/// What a glyph does, on the wire. The gap this closes was observed in a live round: a glyph's
-/// published row carried its price and its levels and said nothing whatever about its effect, so the
-/// only way to learn that Quick trades 15% more cost for 30% less cooldown was to hover it.
+/// What a glyph does, on the wire.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,11 +23,10 @@ namespace OrbModding.ProfileTests;
 /// <c>spellCost</c> and <c>spellCooldown</c> at MultiStacking with <c>adjust</c> 0.15 and -0.30.
 /// </para>
 /// <para>
-/// The factors used to be a listable table of their own beside this. They are not any more: one
-/// glyph's factors are one glyph's answer, and the cross-glyph question the table existed for
-/// ("which glyph touches Cooldown") is a <c>world_search</c> query, which is the question a reader
-/// actually asks and the table never answered without being paged by hand. Both facts the table
-/// pinned are still pinned — here, on the surfaces that survived it.
+/// They are not any more: one glyph's factors are one glyph's answer, and the cross-glyph question
+/// the table existed for ("which glyph touches Cooldown") is a <c>world_search</c> query, which is
+/// the question a reader actually asks and the table never answered without being paged by hand.
+/// Both facts the table pinned are still pinned — here, on the surfaces that survived it.
 /// </para>
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]

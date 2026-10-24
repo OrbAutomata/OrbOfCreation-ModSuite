@@ -10,8 +10,7 @@ namespace OrbModding.Tests.Runtime.World;
 
 /// <summary>
 /// A lifecycle boundary destroys the run a published world was read from, so the publication has to
-/// go with it. Round 6 proved it did not: after Back to Menu the suite still served the destroyed
-/// run's economy under <c>status: available</c>.
+/// go with it.
 /// </summary>
 public sealed class WorldLifecycleFlushTests
 {

@@ -7,11 +7,6 @@ using Xunit;
 
 namespace OrbModding.Tests;
 
-/// <summary>
-/// Auto Cast's configuration surface and its toggle button, which are all that is left in this file:
-/// the runtime it used to test moved onto the ServiceCycle and is covered by the evaluator and
-/// action-adapter tests beside it.
-/// </summary>
 public sealed class AutoCastTests
 {
     [Fact]

@@ -48,19 +48,15 @@ public sealed class AutoHarvestRuntimeDiagnosticsPublisherTests
         Assert.Equal(FeatureStatusReasonCode.ProgressionLocked, snapshot.Capabilities[1].Reason.Code);
     }
 
-    /// <summary>
-    /// Each of the refusals that used to share "this harvest content is not currently unlocked
-    /// and available" now says its own thing, and the two that are not locks do not claim to be.
-    /// </summary>
     /// <remarks>
     /// <para>
-    /// A loop rather than a <c>[Theory]</c>: the health kind is an enum internal to the suite, and a
-    /// public test method may not name one in its signature.
+    /// A loop rather than a <c>[Theory]</c>: the health kind is an enum internal to the suite, and
+    /// a public test method may not name one in its signature.
     /// </para>
     /// <para>
-    /// <c>ProgressionLocked</c> is in the list without being produced any more. Its sentence is what a
-    /// journal recorded before the prerequisite reading was corrected still renders as, and a rewrite
-    /// of it would rewrite what those journals said.
+    /// <c>ProgressionLocked</c> is in the list without being produced any more. Its sentence is
+    /// what a journal recorded before the prerequisite reading was corrected still renders as, and
+    /// a rewrite of it would rewrite what those journals said.
     /// </para>
     /// </remarks>
     [Fact]

@@ -33,10 +33,8 @@ public sealed class GameMcpDecisionReasonTests
     /// ever asked (<c>failed</c>).
     /// </summary>
     /// <remarks>
-    /// The suite's own staging write failing to land used to ship as <c>refused</c>, which reads
-    /// as "the game said no" and sent a caller looking for a game state to change. The word is
-    /// derived from who owns the reason rather than from a fifth disposition, so the service-cycle
-    /// contract keeps answering the one question it asks — did the mutation run.
+    /// The word is derived from who owns the reason rather than from a fifth disposition, so the
+    /// service-cycle contract keeps answering the one question it asks — did the mutation run.
     /// </remarks>
     [Theory]
     [InlineData("contract_unavailable", "failed")]
@@ -44,9 +42,7 @@ public sealed class GameMcpDecisionReasonTests
     [InlineData("pair_contract_unavailable", "failed")]
     [InlineData("wrong_thread", "failed")]
     [InlineData("staged_write_failed", "failed")]
-    // The multi-buy multiplier the suite pins for one upgrade press. The pin is entirely the
-    // suite's own step, and when it will not hold, the game is never shown the press — so the word
-    // cannot be `refused`, which used to send a caller hunting for a game state to change.
+    // The multi-buy multiplier the suite pins for one upgrade press.
     [InlineData("single_buy_unavailable", "failed")]
     [InlineData("world_not_published", "failed")]
     [InlineData("entity_catalog_unavailable", "failed")]
@@ -286,12 +282,6 @@ public sealed class GameMcpDecisionReasonTests
     public void A_value_outside_its_range_is_one_class_on_every_verb(string reasonCode) =>
         Assert.Equal(GameMcpDecisionReason.ClassInput, GameMcpDecisionReason.Class(reasonCode));
 
-    /// <summary>
-    /// The two configuration refusals used to explain themselves with internal counters — "expected
-    /// configuration generation 41 but the main thread now has generation 42" — which no read on
-    /// this surface publishes, so the numbers were unlookupable and the cause unsaid. Both now say
-    /// what happened and what to do, and the same words wherever they are produced.
-    /// </summary>
     [Theory]
     [InlineData("stale_configuration_generation")]
     [InlineData("configuration_not_available")]
@@ -345,10 +335,6 @@ public sealed class GameMcpDecisionReasonTests
         Assert.Contains("not showing", GameMcpDecisionReason.For("tree_unavailable"));
     }
 
-    /// <summary>
-    /// The rule, not this press's effect: "does nothing" read as a shrug about the button just
-    /// pressed, so a round spent a second mutation asking whether the next row behaved the same.
-    /// </summary>
     [Fact]
     public void A_challenge_that_has_run_states_the_standing_rule() =>
         Assert.Equal(
@@ -356,11 +342,7 @@ public sealed class GameMcpDecisionReasonTests
             GameMcpDecisionReason.For("already_ran"));
 
     /// <summary>
-    /// Every code that reaches a <c>reasonCode</c> field ships the sentence that explains it. The
-    /// one code that used to be exempt — <c>collector_not_listable</c> — no longer reaches that
-    /// field at all: <c>world_categories</c> prints its sentence once under <c>unlistable:</c> and
-    /// the rows that cannot be paged say that word back in their own reason cell, so the exemption
-    /// and the mechanism that carried it are both gone.
+    /// Every code that reaches a <c>reasonCode</c> field ships the sentence that explains it.
     /// </summary>
     [Fact]
     public void Every_code_that_reaches_the_wire_ships_the_sentence_that_explains_it()
@@ -413,10 +395,6 @@ public sealed class GameMcpDecisionReasonTests
         Assert.Equal("Needs 20 Arcana (have 1); 4 Orb Advancement (have 0).", sentence);
     }
 
-    /// <summary>
-    /// A live round was refused with <c>Needs 119 Knowledge (have 119).</c>: both figures rounded to
-    /// the screen's spelling and the price read as met.
-    /// </summary>
     [Fact]
     public void A_shortfall_the_screen_rounds_together_shows_enough_digits_to_see_the_gap()
     {
@@ -489,8 +467,8 @@ public sealed class GameMcpDecisionReasonTests
     public void Every_code_the_reference_files_under_a_class_is_sent_with_that_class()
     {
         var lines = File.ReadAllLines(
-            Path.Combine(RepositorySources.Root, "docs", "development", "mcp-tools.md"));
-        var header = Array.IndexOf(lines, "| Class | Internal codes that reach it |");
+            Path.Combine(RepositorySources.Root, "docs", "development", "mcp-refusal-vocabulary.md"));
+        var header = Array.IndexOf(lines, "| Class | Example internal codes |");
         Assert.True(header >= 0, "could not find the class table");
         var filed = new List<(string Class, string Code)>();
         for (var line = header + 2;

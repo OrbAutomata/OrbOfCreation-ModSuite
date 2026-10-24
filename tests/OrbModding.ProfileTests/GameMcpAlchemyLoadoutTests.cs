@@ -154,8 +154,7 @@ public sealed class GameMcpAlchemyLoadoutTests
     }
 
     /// <summary>
-    /// The loadout list row says the same slot number the recipe detail says. It used to print the
-    /// raw array position, one below both of them.
+    /// The loadout list row says the same slot number the recipe detail says.
     /// </summary>
     [Fact]
     public void The_loadout_list_row_names_the_same_slot_the_detail_does()

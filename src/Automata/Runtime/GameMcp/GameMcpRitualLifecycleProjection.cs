@@ -80,9 +80,7 @@ internal static class GameMcpRitualLifecycleProjection
                 var drain = ProjectRitualCosts(world, current.Decision.CompletionCosts);
                 if (drain.Count > 0) postState["completionCosts"] = drain;
 
-                // The consequence, on the answer that starts it. "Activate a ritual" replies in
-                // battle vocabulary and a live round then had to guess what a running battle
-                // blocked — guessing its way into the round's one irreversible action.
+                // The consequence, on the answer that starts it.
                 postState["gates"] = GameMcpDecisionReason.RitualBattleGate;
             }
             else

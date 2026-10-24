@@ -142,11 +142,9 @@ internal static class GameMcpTextBlocks
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The same arithmetic a table's share line does, on the shape a detail read answers in. A
-    /// live round's three-glyph <c>world_get</c> spent 796 of its 1,736 bytes — 46% of the answer —
-    /// printing the same eighteen lines three times, because the hoist only ever existed on the
-    /// table path and a batch of entities is not a table. No fact leaves the page: a line that is
-    /// identical in every block is stated once, and every block keeps everything that is its own.
+    /// The same arithmetic a table's share line does, on the shape a detail read answers in. No
+    /// fact leaves the page: a line that is identical in every block is stated once, and every
+    /// block keeps everything that is its own.
     /// </para>
     /// <para>
     /// Only a top-level line of a block is a candidate, and only where it stands alone: a header
@@ -215,12 +213,6 @@ internal static class GameMcpTextBlocks
     /// One block's facts: each a line written at the block's own indent, together with whatever is
     /// indented under it.
     /// </summary>
-    /// <remarks>
-    /// The fold used to see only the lines with nothing under them, because lifting a header away
-    /// from its body would leave the body attached to nothing. A header and its body together are
-    /// one fact and move as one, which is how a batch of entities stops shipping the same nested
-    /// block once per id — 3,856 bytes of one live round's answers.
-    /// </remarks>
     internal static List<List<string>> Units(List<string> block, string indent)
     {
         var units = new List<List<string>>(block.Count);

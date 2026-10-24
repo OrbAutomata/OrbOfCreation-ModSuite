@@ -70,12 +70,9 @@ internal static class GameMcpWorldOverview
         };
         if (world.SpellWorkbench.MaximumOutputLevel > 0)
             // The two dials on Magic > Casting, under the words that screen prints beside them —
-            // Output Lv and Reserve Lv — and the ceiling each has been raised to. A bare `output`
-            // said neither what it counted nor where the player would see it, and a live round
-            // read `casting: output 1/1` beside a mana bar of 133/133 and left the two
-            // unreconciled. The floor is the same number on every dial in every save, so it
-            // belongs in the casting-dial tool's documentation, not in an answer a caller reads
-            // every few calls.
+            // Output Lv and Reserve Lv — and the ceiling each has been raised to. The floor is the
+            // same number on every dial in every save, so it belongs in the casting-dial tool's
+            // documentation, not in an answer a caller reads every few calls.
             result["castingDials"] = new JObject
             {
                 ["outputLevel"] = new JObject
@@ -103,9 +100,7 @@ internal static class GameMcpWorldOverview
             };
         // Exception-shaped, like every other line that costs a caller a decision: absent while no
         // battle runs, and present with the ritual that is in it and the gate it holds shut while
-        // one does. A live round activated a ritual, read `activeBattle: no -> yes`, and twenty
-        // minutes later hedged its way into the round's one irreversible action because no surface
-        // aggregated "a battle is running" or said what that blocked.
+        // one does.
         for (var index = 0; index < world.Rituals.Count; index++)
         {
             if (!world.Rituals[index].InBattle) continue;
@@ -252,11 +247,8 @@ internal static class GameMcpWorldOverview
     /// against beside it.
     /// </summary>
     /// <remarks>
-    /// This was one unnamed number, <c>occupiedActionQueueSlots</c>, printed beside a queue count of
-    /// two. It covered only the plot-action queue — the one whose slots are walked — and silently
-    /// omitted the attribute and upgrade queue every purchase's ceiling comes from, so a live round
-    /// read <c>0</c> from it five times while asking about the other queue entirely. A number that
-    /// answers for one queue and names none is worse than no number at all.
+    /// This was one unnamed number, <c>occupiedActionQueueSlots</c>, printed beside a queue count
+    /// of two. A number that answers for one queue and names none is worse than no number at all.
     /// </remarks>
     private static JArray ActionQueueOccupancy(GameWorldState world)
     {
@@ -390,13 +382,12 @@ internal static class GameMcpWorldOverview
                 ["count"] = report.Sampled,
 
                 // The word the sentence above this table is keyed under, not a class code. A bare
-                // `ERR_LOCKED` in this cell meant "this collector has no table", while the same code
-                // everywhere else on the surface means "progression has not unlocked this" — one
-                // code, two unrelated conditions, with the sentence that told them apart printed
-                // once at the top and detached from the fourteen cells that needed it. A live round
-                // could not sweep the cell by eye and certified the page clean of exactly this
-                // shape. The cell now speaks the reason vocabulary the rest of the column speaks,
-                // and the word it says is defined on the page that says it.
+                // `ERR_LOCKED` in this cell meant "this collector has no table", while the same
+                // code everywhere else on the surface means "progression has not unlocked this" —
+                // one code, two unrelated conditions, with the sentence that told them apart
+                // printed once at the top and detached from the fourteen cells that needed it. The
+                // cell speaks the reason vocabulary the rest of the column speaks, and the word
+                // it says is defined on the page that says it.
                 ["reason"] = detail.Length == 0 ? Unlistable : Unlistable + ". " + detail,
             }));
         }
@@ -457,13 +448,10 @@ internal static class GameMcpWorldOverview
         if (GameMcpWorldRead.TryLocalizedRequirementFailures(world, out var implicated) &&
             implicated.Length > 0)
         {
-            // The overview is read every few calls and this evidence is the same bytes every
-            // time. It used to name every owner, which on a mature save is a wall of two hundred
-            // and forty names on every single call, for a fact that is one fact: this build has a
-            // condition the suite does not model, and the entities carrying it cannot be planned.
+            // The overview is read every few calls and this evidence is the same bytes every time.
             // How many, on how many entities, which class, and the two reads that hold the rest.
-            // The class name stays: it is the suite saying what it does not model, which is the
-            // one thing nobody else can say, and it is not a column on an entity's row.
+            // The class name stays: it is the suite saying what it does not model, which is the one
+            // thing nobody else can say, and it is not a column on an entity's row.
             var seenOwners = new HashSet<Guid>();
             var nativeTypes = new List<string>();
             var seenTypes = new HashSet<string>(StringComparer.Ordinal);

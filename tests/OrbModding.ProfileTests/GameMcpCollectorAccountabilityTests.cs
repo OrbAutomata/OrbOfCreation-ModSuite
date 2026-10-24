@@ -117,11 +117,8 @@ public sealed class GameMcpCollectorAccountabilityTests
         var row = Assert.Single(page, item => (string?)item["category"] == "type-modifiers");
         Assert.Equal(63, (int)row["count"]!);
 
-        // The cell says the word the standing sentence above the table is keyed under, not a class
-        // code: `ERR_LOCKED` here meant "this collector has no table" while the same code everywhere
-        // else means "progression has not unlocked this", and a live round could not sweep the cell
-        // by eye. No `available` column beside it either — it was the reason cell's own emptiness
-        // spelled a second way.
+        // No `available` column beside it either — it was the reason cell's own emptiness spelled a
+        // second way.
         Assert.Equal("unlistable", (string?)row["reason"]);
         Assert.Null(row["reasonCode"]);
         Assert.Null(row["available"]);
@@ -222,9 +219,7 @@ public sealed class GameMcpCollectorAccountabilityTests
     }
 
     /// <summary>
-    /// A name printed by <c>world_categories</c> is a name this surface has heard of. Every category
-    /// the world collects that no page is named for used to refuse as "unknown category", which
-    /// contradicted the very page the caller read the name from.
+    /// A name printed by <c>world_categories</c> is a name this surface has heard of.
     /// </summary>
     [Fact]
     public void EveryCategoryTheWorldCollectsIsRefusedWithWhereItsRowsAreRead()

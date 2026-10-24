@@ -48,8 +48,7 @@ internal static class GameMcpPurchaseProjection
     /// <summary>
     /// Whether the next level can be paid for. A completed upgrade has no next level, so the world
     /// publishes no price for one — the same absence <see cref="GameMcpListColumns.Unpriced"/>
-    /// already names. It used to answer <c>already_maxed</c> here, which was the completed state
-    /// wearing an affordability column's clothes; <c>state</c> says that now, once.
+    /// already names.
     /// </summary>
     internal static object UpgradeAffordability(GameWorldState world, in WorldUpgrade upgrade)
     {

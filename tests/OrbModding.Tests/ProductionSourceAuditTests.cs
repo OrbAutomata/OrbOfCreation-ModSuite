@@ -182,24 +182,21 @@ public sealed class ProductionSourceAuditTests
     /// A stack trace and a type name are the one thing a caller can do nothing with, so
     /// <c>GameActionAnswer.CouldNotRead</c> and <c>GameErrored</c> take the exception and
     /// <c>GameActionFaultLog</c> writes it to the suite log under a reference the sentence ends
-    /// with. The rule is mechanical because the alternative is remembering it: a new fault arm
-    /// that concatenates <c>GetBaseException().Message</c> onto its reason reads exactly like the
-    /// thirty-four that used to, and only a sweep tells the two apart. Enumerating
-    /// <c>*GameAction.cs</c> alone was too narrow to say that: it left
-    /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
-    /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
-    /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
-    /// reason, which every narrating feature prints in its status. Every feature's service cycle is
-    /// included because its init, registry, ownership and press reasons can become those reasons. So is the multi-buy
-    /// scope, whose refusal every GameAction that pins the multiplier quotes.
+    /// with. Enumerating <c>*GameAction.cs</c> alone was too narrow to say that: it left
+    /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the tooltip
+    /// words a caller reads, so the roots are the whole transport. The shared service-cycle runtime
+    /// is a root too: the action executor's reason for a throw becomes the retry gate's reason,
+    /// which every narrating feature prints in its status. Every feature's service cycle is
+    /// included because its init, registry, ownership and press reasons can become those reasons.
+    /// So is the multi-buy scope, whose refusal every GameAction that pins the multiplier quotes.
     /// </para>
     /// <para>
-    /// A GameAction, feature service cycle and the multi-buy scope author the reasons a
-    /// mutation answers with, so there the sweep also catches the other shapes that carry the same
-    /// text: <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation
-    /// verifier's evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception
-    /// it caught. Everywhere, besides <c>GetBaseException</c>, the sweep reads the <c>Message</c> of
-    /// any exception a file caught through <c>NativeFailureClassifier.IsExpected</c>, which is the
+    /// A GameAction, feature service cycle and the multi-buy scope author the reasons a mutation
+    /// answers with, so there the sweep also catches the other shapes that carry the same text:
+    /// <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation verifier's
+    /// evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception it caught.
+    /// Everywhere, besides <c>GetBaseException</c>, the sweep reads the <c>Message</c> of any
+    /// exception a file caught through <c>NativeFailureClassifier.IsExpected</c>, which is the
     /// game's own text by definition.
     /// </para>
     /// <para>
@@ -207,9 +204,10 @@ public sealed class ProductionSourceAuditTests
     /// by the sink they write to rather than by a path, so no file is exempt and a wire sentence
     /// cannot borrow them. <c>_bindingFailure</c> holds the suite's own composition text — the
     /// binding helpers throw <c>owner.Name + "." + name + " did not match."</c> — which names the
-    /// native member rather than a runtime fault, and <c>docs/development/mcp-tools.md</c> keeps
-    /// that deliberately: a <c>contract_unavailable</c> result is a defect report and the member is
-    /// its subject. <c>nativeDetail</c> is the tooltip reader's log-only sink, which
+    /// native member rather than a runtime fault, and
+    /// <c>docs/development/mcp-response-format.md</c> keeps that deliberately: a
+    /// <c>contract_unavailable</c> result is a defect report and the member is its subject.
+    /// <c>nativeDetail</c> is the tooltip reader's log-only sink, which
     /// <c>GameMcpScreenReader.TooltipsUnreadableBecause</c> writes to the log before answering the
     /// caller with an authored sentence. A statement that writes to a log is the third shape, and
     /// it is the destination this whole rule exists to push the text towards —

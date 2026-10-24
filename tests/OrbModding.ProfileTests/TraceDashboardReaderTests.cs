@@ -52,9 +52,7 @@ public sealed class TraceDashboardReaderTests
 
     /// <summary>
     /// Cycle ids restart at one in every lifecycle, so a dashboard keyed on service and cycle alone
-    /// let a later lifecycle overwrite an earlier one row for row. On one 43-minute capture that lost
-    /// 2,782 of World collection's 7,822 cycles and rendered the service as post-prestige-only, in
-    /// the same table that rendered Auto Buy as pre-prestige-only, without saying anything.
+    /// let a later lifecycle overwrite an earlier one row for row.
     /// </summary>
     [Fact]
     public void CyclesRepeatingTheirIdInALaterLifecycleStayDistinctRows()

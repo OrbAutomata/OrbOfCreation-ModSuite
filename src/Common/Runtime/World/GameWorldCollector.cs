@@ -217,10 +217,7 @@ internal sealed class GameWorldCollector
     /// <remarks>
     /// Production purchase topology is an explicit, named opt-in and nothing else selects it. A
     /// collector built any other way binds its own resolver, so a diagnostic, a verifier or a test
-    /// cannot restamp the live snapshot no matter how it is constructed. The inverse default cost a
-    /// live save twenty-seven minutes of refused purchases: a verification pass allocated four
-    /// throwaway <c>new GameWorldCollector()</c> collectors, each took the shared resolver, and each
-    /// stamped it at the epoch its own frame carried — zero.
+    /// cannot restamp the live snapshot no matter how it is constructed.
     /// </remarks>
     internal static GameWorldCollector ForSession() =>
         ForSession(EmptyWorldMasteryExperienceSource.Instance);
@@ -616,12 +613,10 @@ internal sealed class GameWorldCollector
         }
 
         // The gate says the structural rows in this frame describe this run of the game, so it may
-        // only close over rows a read actually delivered. A bound reader that hit an expected native
-        // failure left its buffer reset, and calling that "already read for this epoch" is how one
-        // transient native exception used to disable a whole lifecycle's worth of admissions —
-        // recovery needed a prestige. A reader that did not bind at all is a different fact: nothing
-        // on this build will ever make it deliver, and holding the gate open for it would re-walk
-        // every other structural category four times a second for an answer that cannot arrive.
+        // only close over rows a read actually delivered. A reader that did not bind at all is a
+        // different fact: nothing on this build will ever make it deliver, and holding the gate
+        // open for it would re-walk every other structural category four times a second for an
+        // answer that cannot arrive.
         if (!structuralIsCurrent && structuralWasRead)
         {
             _structuralFrame = frame;

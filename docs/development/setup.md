@@ -94,7 +94,7 @@ Only after the user explicitly authorizes a local installation:
 ```
 
 Both modes refuse to run while the game is open, run the gates, back up saves and
-installed DLLs, reject duplicate or retired DLLs, install the verified output,
+installed DLLs, reject duplicate or unsupported DLLs, install the verified output,
 and print SHA-256 hashes. `release` installs the same committed-reference build
 that ships. The local `perf-debug` installer includes ServiceCycle profiling
 and continues to compile against the real game closure; the CI perf-debug asset

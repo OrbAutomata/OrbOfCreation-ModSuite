@@ -437,9 +437,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     /// A spell the game quotes a creation price for still loads, and nothing is spent.
     /// </summary>
     /// <remarks>
-    /// The suite used to read <c>SpellManager.GetSpellCreateCost</c>, gate on it, and pay it. The
-    /// Loadout row reads none of that: <c>CreateRecipe</c> takes no payment at all, so an add that
-    /// paid was moving resources on a press that costs nothing — and refused loads the player
+    /// The Loadout row reads none of that: <c>CreateRecipe</c> takes no payment at all, so an add
+    /// that paid was moving resources on a press that costs nothing — and refused loads the player
     /// makes with one click whenever that invented price was out of reach.
     /// </remarks>
     [Fact]
@@ -784,10 +783,8 @@ public sealed class SpellWorkbenchGameActionTests : IDisposable
     /// A spell whose Recipe Book core the workbench cannot hold at once still loads in one call.
     /// </summary>
     /// <remarks>
-    /// The workbench holds one core glyph at a time — <c>Max Spell Creation Slots</c> is authored
-    /// at one — and the suite used to stage the recipe's whole authored core into it before
-    /// pressing the row. The list truncated silently and every two- and three-book spell refused,
-    /// which is 50 of the game's 65 recipes. The row reads no core at all.
+    /// The list truncated silently and every two- and three-book spell refused, which is 50 of the
+    /// game's 65 recipes. The row reads no core at all.
     /// </remarks>
     [Theory]
     [InlineData(2)]

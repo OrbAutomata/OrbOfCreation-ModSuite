@@ -55,8 +55,7 @@ public sealed class GameMcpListColumnContractTests
 
     /// <summary>
     /// A finished upgrade has no next level, so there is no price for one — the same absence a row
-    /// the world published no cost for has. It used to answer <c>already_maxed</c> here, which was
-    /// the completed state said a second time in a column that asks about money.
+    /// the world published no cost for has.
     /// </summary>
     [Fact]
     public void A_row_with_no_price_names_which_kind_of_no_price_it_is()
@@ -935,11 +934,8 @@ public sealed class GameMcpListColumnContractTests
 
     /// <summary>
     /// A list read answers a planning question, and the test for a column is whether two reads
-    /// seconds apart with nobody playing between them would agree. These five did not: each named
-    /// what the game was doing at the instant it was asked, so a page of them was stale on arrival
-    /// and — as a live round caught with spell-slots' <c>casting</c> — could change the header
-    /// between two pages of one scan. They are named here so a later edit cannot bring one back by
-    /// only looking at the row in front of it.
+    /// seconds apart with nobody playing between them would agree. They are named here so a later
+    /// edit cannot bring one back by only looking at the row in front of it.
     /// </summary>
     [Fact]
     public void No_declared_column_names_what_the_game_is_doing_this_instant()

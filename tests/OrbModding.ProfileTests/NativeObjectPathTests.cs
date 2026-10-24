@@ -95,10 +95,9 @@ public sealed class NativeObjectPathTests
     /// One walk of an element's ancestry answers both questions the tooltip catalog asks of it.
     /// </summary>
     /// <remarks>
-    /// The catalog used to walk the same chain three times per element — once to sort, once to
-    /// find the shared prefix, once to print the row. This pins that the single walk still returns
-    /// the selector <see cref="NativeObjectPath.BuildIndexed"/> returns, and an order key that
-    /// sorts by sibling index rather than by name.
+    /// This pins that the single walk still returns the selector <see
+    /// cref="NativeObjectPath.BuildIndexed"/> returns, and an order key that sorts by sibling index
+    /// rather than by name.
     /// </remarks>
     [Fact]
     public void One_walk_answers_both_the_selector_and_the_screen_order()

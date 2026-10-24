@@ -84,15 +84,14 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// The epoch the boundary trusts is the one the plan's own world was collected under, not the one
-    /// the runner was built with.
+    /// The epoch the boundary trusts is the one the plan's own world was collected under, not the
+    /// one the runner was built with.
     /// </summary>
     /// <remarks>
-    /// The two come apart in exactly one window, and it is a real one: the game reloads, the collector
-    /// reads the new run, and the host has not yet been told to replace the runner. The plan is about
-    /// the world it was made from, and that world is the current one — so the purchase stands. Judging
-    /// it by the runner's frozen lifecycle would refuse a purchase that is perfectly good, which is
-    /// what this used to do.
+    /// The two come apart in exactly one window, and it is a real one: the game reloads, the
+    /// collector reads the new run, and the host has not yet been told to replace the runner. The
+    /// plan is about the world it was made from, and that world is the current one — so the
+    /// purchase stands.
     /// </remarks>
     [Fact]
     public void Execute_WorldCollectedAheadOfTheRunnersLifecycle_PurchasesAnyway()
@@ -283,9 +282,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// The price is what refused, and the submission says so.
     /// </summary>
     /// <remarks>
-    /// <c>CanPurchase()</c> answers with one bool over several conditions, so "the game said no" is
-    /// all a refusal used to carry. Reading the terms the game exposes individually turns that into a
-    /// cause a person can act on.
+    /// Reading the terms the game exposes individually turns that into a cause a person can act on.
     /// </remarks>
     [Fact]
     public void Submit_RefusedOnPrice_NamesTheCostList()
@@ -450,11 +447,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// A topology stamped for another run is its own refusal, and it says which run it holds.
     /// </summary>
     /// <remarks>
-    /// This used to share one preflight and one number with four other causes, so the twenty-seven
-    /// minutes of refused purchases it produced looked exactly like an unbound contract. All three
-    /// numbers are in the sentence because none can be inferred from the others: stamped-at-zero was
-    /// never published under a lifecycle, stamped-at-another-epoch means the game moved on, and the
-    /// row count separates both from a topology that was captured and simply holds nothing.
+    /// All three numbers are in the sentence because none can be inferred from the others:
+    /// stamped-at-zero was never published under a lifecycle, stamped-at-another-epoch means the
+    /// game moved on, and the row count separates both from a topology that was captured and simply
+    /// holds nothing.
     /// </remarks>
     [Fact]
     public void Submit_TopologyStampedForAnotherRun_NamesBothEpochsAndTheRowCount()
@@ -903,10 +899,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// <summary>
     /// Structure availability can drop after planning and is therefore re-read at the boundary.
     /// </summary>
-    /// <remarks>
-    /// The structure CanPurchase contract does not contain this term, so only the explicit live gate
-    /// can stop a previously planned action after its own availability drops.
-    /// </remarks>
     [Fact]
     public void Execute_StructureAvailabilityDroppedAfterPlanning_RefusesWithNamedCode()
     {
@@ -1033,11 +1025,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// <summary>
     /// A structure asked for several levels queues several, one native call each.
     /// </summary>
-    /// <remarks>
-    /// The native structure purchase forces exactly one level and consults no multiplier, so bulk
-    /// development is the same call repeated — which is why the count used to be discarded here and
-    /// the game's own bulk-build setting did nothing.
-    /// </remarks>
     [Fact]
     public void Submit_StructureBulk_QueuesEveryRequestedLevel()
     {

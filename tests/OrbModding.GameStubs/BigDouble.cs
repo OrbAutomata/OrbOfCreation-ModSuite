@@ -56,7 +56,6 @@ using UnityEngine;
         private long exponent;
 #endif
 
-        // This constructor is used to prevent non-normalized values to be created via constructor.
         // ReSharper disable once UnusedParameter.Local
         private BigDouble(double mantissa, long exponent, PrivateConstructorArg _)
         {

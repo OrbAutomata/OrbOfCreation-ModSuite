@@ -84,12 +84,8 @@ internal static class GameMcpEntityBlockers
         {
             var slack = research.Modifiers.LeewayPoints.ToInt();
             // Leeway blocks only together with the caps: native develops on leeway OR on being
-            // below both caps, so an exhausted leeway beside an open cap is not a blocker.
-            //
-            // The reason has to say the same thing the verdict does. It used to be chosen off the
-            // leeway term alone while the verdict was chosen off the whole gate, so a spent leeway
-            // under open caps published `blocked: no` beside "Native leeway exhausted." — one field
-            // contradicting the other in the same block. Three states, three answers.
+            // below both caps, so an exhausted leeway beside an open cap is not a blocker. The
+            // reason has to say the same thing the verdict does. Three states, three answers.
             var capsOpen =
                 research.BelowArtificialMaxLevel && research.BelowMaxInvestmentLevel;
             var leewayBlocks = !research.StillHasLeeway && !capsOpen;
@@ -334,11 +330,8 @@ internal static class GameMcpEntityBlockers
     /// The blocked half of one resource axis, under the axis's own reason code.
     /// </summary>
     /// <remarks>
-    /// The code used to be built here by concatenation — <c>axis + "_blocked"</c> — so neither
-    /// <c>bandwidth_blocked</c> nor <c>drain_blocked</c> existed anywhere a table could meet them,
-    /// both landed on the default class, and both reached a caller as their own spelling with the
-    /// underscore taken out. A third axis added tomorrow would have inherited the same silence with
-    /// nothing to signal it; a whole code passed in cannot.
+    /// A third axis added tomorrow would have inherited the same silence with nothing to signal it;
+    /// a whole code passed in cannot.
     /// </remarks>
     internal static JObject? ResourceBlocker(JArray rows, bool blocked, string reasonCode)
     {

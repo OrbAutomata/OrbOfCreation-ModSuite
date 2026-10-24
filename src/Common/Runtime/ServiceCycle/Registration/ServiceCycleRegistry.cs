@@ -107,16 +107,15 @@ public sealed partial class ServiceCycleRegistry : IDisposable
     internal IMonotonicClock Clock => _clock;
 
     /// <summary>
-    /// The one world publication the suite has. Written by whichever service collects the game, read
-    /// by every service the registry hands a cycle to.
+    /// The one world publication the suite has. Written by whichever service collects the game,
+    /// read by every service the registry hands a cycle to.
     /// </summary>
     /// <remarks>
-    /// The registry owns it because there is one game and therefore one world, and because a service
-    /// must not be able to reach a publisher of its own — a worker holding one could read it twice in
-    /// a cycle and evaluate against one snapshot while acting against another. The runtime pins it
-    /// once at cycle start and hands the worker the immutable snapshot, exactly as it does with
-    /// configuration. It used to be constructed and owned by OrbAutomata, which made the game's world
-    /// one feature's property. See W50.
+    /// The registry owns it because there is one game and therefore one world, and because a
+    /// service must not be able to reach a publisher of its own — a worker holding one could read
+    /// it twice in a cycle and evaluate against one snapshot while acting against another. The
+    /// runtime pins it once at cycle start and hands the worker the immutable snapshot, exactly as
+    /// it does with configuration. See W50.
     /// </remarks>
     internal ServiceWorldPublisher<GameWorldState> World => _world;
 

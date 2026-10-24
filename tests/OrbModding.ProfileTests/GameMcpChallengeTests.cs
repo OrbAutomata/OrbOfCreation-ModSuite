@@ -59,8 +59,7 @@ public sealed class GameMcpChallengeTests
     }
 
     /// <summary>
-    /// The screen state used to ride every page of a ninety-eight-row category, so a request for one
-    /// row came back nine tenths ambient state. It is one answer a caller asks for now.
+    /// It is one answer a caller asks for now.
     /// </summary>
     [Fact]
     public void Challenge_reads_carry_rows_only_and_the_screen_is_its_own_answer()
@@ -75,7 +74,7 @@ public sealed class GameMcpChallengeTests
         Assert.Equal("Prismatic Trial", (string?)first["name"]);
 
         // Two questions on one row: how far the player has come with this challenge, and what its
-        // own run is doing. They used to share the name `state`, which is why the run word moved.
+        // own run is doing.
         Assert.Equal("available", (string?)first["state"]);
         Assert.Equal("queued", (string?)first["run"]);
         Assert.Equal("1", (string?)first["level"]);
@@ -343,9 +342,7 @@ public sealed class GameMcpChallengeTests
     }
 
     /// <summary>
-    /// The selection budget is the game's own gate and the published world carries no reading of
-    /// it: a round read <c>select: no (ERR_LIMIT)</c> off a page and then watched the verb perform
-    /// the swap. The page refuses on what the world states outright and leaves the rest to the verb.
+    /// The page refuses on what the world states outright and leaves the rest to the verb.
     /// </summary>
     [Fact]
     public void The_page_never_predicts_a_selection_refusal_the_verb_performs()
@@ -382,9 +379,8 @@ public sealed class GameMcpChallengeTests
 
     /// <summary>
     /// Selecting past a full list is two presses on the screen and the verb makes the first one
-    /// itself. Answering only <c>selected: no -&gt; yes</c> confessed half of that, and a live round
-    /// spent a follow-up <c>state</c> call learning which challenge had been given up. The swap
-    /// names the displaced one in the shape a displaced spell slot already answers in.
+    /// itself. The swap names the displaced one in the shape a displaced spell slot already answers
+    /// in.
     /// </summary>
     [Fact]
     public void A_select_that_swaps_names_the_challenge_it_displaced()

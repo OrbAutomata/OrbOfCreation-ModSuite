@@ -34,12 +34,7 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     /// <summary>
-    /// Four verbs were named for something other than the button they press. <c>game_level</c> read
-    /// as a noun as easily as a verb; <c>game_spell_level</c> was named for Spell Lv, a screen
-    /// number it never moves, while the number it does move is Mastery Lv; <c>game_tooltips</c>
-    /// differed from the reader beside it by one letter, and a round that could not tell them apart
-    /// never called the reader at all; and <c>suite_automation</c> named a family rather than the
-    /// seven switches it flips.
+    /// Four verbs were named for something other than the button they press.
     /// </summary>
     [Fact]
     public void Every_renamed_verb_title_says_what_it_presses()
@@ -101,9 +96,7 @@ public sealed class GameMcpProtocolSurfaceTests
     }
 
     /// <summary>
-    /// The detail read takes an id and nothing else is required. A caller holding an id from a
-    /// search, a refusal or an action response can read it without first learning which table it
-    /// lives in, which is the whole of what naming a category used to cost them.
+    /// The detail read takes an id and nothing else is required.
     /// </summary>
     [Fact]
     public void DetailReadRequiresNoCategoryAndHasNoIdAlias()

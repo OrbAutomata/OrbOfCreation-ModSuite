@@ -73,13 +73,11 @@ internal static class GameMcpResourceProjection
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The bit used to reach a caller as <c>predicates.visible</c> and again, copied, as
-    /// <c>predicates.available</c>, under the sentence "The game is not showing this yet" — which
-    /// the screen contradicts whenever a page owns a bar. <c>ResourceSO.CheckVisibility()</c> sets
-    /// it from <c>startVisible &amp;&amp; visiblePrerequisites.Check()</c> and it gates ledger
-    /// membership (<c>ResourceTypeSO.GetVisibleResources</c>), whether a price prints as a known
-    /// resource (<c>ResourceCostList.AllVisible</c>), and the rarity and global-progress math. A
-    /// page-owned bar is bound to its resource and drawn by the page, filtered through none of that.
+    /// <c>ResourceSO.CheckVisibility()</c> sets it from <c>startVisible &amp;&amp;
+    /// visiblePrerequisites.Check()</c> and it gates ledger membership
+    /// (<c>ResourceTypeSO.GetVisibleResources</c>), whether a price prints as a known resource
+    /// (<c>ResourceCostList.AllVisible</c>), and the rarity and global-progress math. A page-owned
+    /// bar is bound to its resource and drawn by the page, filtered through none of that.
     /// </para>
     /// <para>
     /// The game's own name for the bit is <c>ResourceSO.IsDiscovered()</c>, a one-line call to
@@ -93,12 +91,9 @@ internal static class GameMcpResourceProjection
     {
         if (resource.Reading.Visible) return new JObject { ["available"] = true }.Freeze();
 
-        // The sentence used to point at `unlocksWhen` on every unledgered resource, and for most of
-        // them there is no such block to read: `ResourceSO.CheckVisibility()` consults
-        // `visiblePrerequisites` only where `startVisible` is authored, and `MakeVisible()`'s other
-        // two callers are `RegisterGain` and `IncrementTick`. So a resource with no captured
-        // container says what actually adds it, and points nowhere. The one that does have
-        // conditions names the read that prints them, because a list row renders no such block.
+        // So a resource with no captured container says what actually adds it, and points nowhere.
+        // The one that does have conditions names the read that prints them, because a list row
+        // renders no such block.
         return new JObject
         {
             ["available"] = false,

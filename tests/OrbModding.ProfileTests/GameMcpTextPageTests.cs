@@ -40,10 +40,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// The T3 contract, both ways at once, on the shape a live round found it in: the worth block
-    /// printed <c>these 32 share: effect=raw, order=0</c> and then <c>| raw | 0</c> on all 32 rows,
-    /// while the one column that varied — who each contribution came from — was the column it left
-    /// out. A declared-constant column leaves the rows; a varying column is never omitted.
+    /// A declared-constant column leaves the rows; a varying column is never omitted.
     /// </summary>
     [Fact]
     public void A_share_line_takes_the_constant_columns_and_never_the_varying_one()
@@ -125,9 +122,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// One table dialect for the whole surface. A page whose cells happen to hold no space used to
-    /// separate its columns with one, so two categories read in one batch came back in two
-    /// grammars and the safe one was the one that got lucky with its names.
+    /// One table dialect for the whole surface.
     /// </summary>
     [Fact]
     public void Every_table_separates_its_columns_the_same_way()
@@ -267,9 +262,7 @@ public sealed class GameMcpTextPageTests
 
     /// <summary>
     /// The order the columns are named in is a fact about the category, not about which row the
-    /// page happened to start with. Round 9 paged one tooltip catalog and got
-    /// <c>[id | name | path]</c> then <c>[path | name | id]</c>, because page two's first row was
-    /// the one carrying no id.
+    /// page happened to start with.
     /// </summary>
     [Fact]
     public void Two_pages_of_one_category_name_their_columns_in_one_order()
@@ -433,12 +426,9 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A block too big for a cell is not too big for a share line. Twenty rows carrying the same
-    /// refusal used to render as twenty paragraphs, because one constant nobody could fit in a
-    /// column disqualified the whole page from being a table; the length relaxation that fixed it
-    /// now pays for itself, because the long constant is said once instead of once per row. The
-    /// agromancy page this was found on now says two words instead, so the fixture is the retired
-    /// shape and the rule is what still has to hold for any long page constant.
+    /// A block too big for a cell is not too big for a share line. The agromancy page this was
+    /// found on says two words instead, so the fixture is the retired shape and the rule is what
+    /// still has to hold for any long page constant.
     /// </summary>
     [Fact]
     public void A_constant_nobody_could_fit_in_a_cell_is_said_once_on_the_share_line()
@@ -500,9 +490,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A count belongs to the rows it counted. A second list beside a page's rows used to be handed
-    /// the page's own total and resume offset, so a complete two-item list of what could not be read
-    /// came back as a page of a set it has nothing to do with.
+    /// A count belongs to the rows it counted.
     /// </summary>
     [Fact]
     public void A_second_list_beside_a_page_does_not_borrow_the_page_count()
@@ -560,10 +548,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// The page is not JSON and never wears JSON's escapes. A description the game authors with a
-    /// real paragraph break used to arrive as the two literal characters <c>\</c> and <c>n</c>,
-    /// because every scalar was serialized to JSON and then unquoted — while the same text through
-    /// <c>game_tooltip</c>, which never took that detour, rendered correctly.
+    /// The page is not JSON and never wears JSON's escapes.
     /// </summary>
     [Fact]
     public void A_multi_paragraph_value_renders_as_paragraphs_and_never_as_escape_characters()
@@ -608,10 +593,7 @@ public sealed class GameMcpTextPageTests
     /// Every block of a batch carries its own cause, and one every block shares is said once above.
     /// </summary>
     /// <remarks>
-    /// A live round's five-rune <c>world_get</c> printed "This is already discovered." under the
-    /// first block and a bare <c>discover: no</c> under the other four, and a two-rune batch left
-    /// Workshop Weight's <c>purchase: no</c> without its cause, while a single-id read of the same
-    /// rune printed it. A bare verdict in a fact block reads as a no with nothing behind it.
+    /// A bare verdict in a fact block reads as a no with nothing behind it.
     /// </remarks>
     [Fact]
     public void Every_block_of_a_batch_says_its_own_cause()
@@ -743,11 +725,9 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// The hoist a table already had, on the shape a detail read answers in. A live round's
-    /// three-glyph <c>world_get</c> spent 46% of its 1,736 bytes printing the same eighteen lines
-    /// three times, because the share line only ever existed on the table path and a batch of
-    /// entities is not a table. Nothing leaves the page: what every block says identically is said
-    /// once, and each block keeps everything of its own.
+    /// The hoist a table already had, on the shape a detail read answers in. Nothing leaves the
+    /// page: what every block says identically is said once, and each block keeps everything of its
+    /// own.
     /// </summary>
     [Fact]
     public void A_batch_says_what_every_block_shares_once_and_keeps_what_each_owns()
@@ -811,9 +791,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A header and the body under it are one fact and move as one. The fold used to see only the
-    /// lines with nothing beneath them, so a batch of entities shipped the same nested block once
-    /// per id — 3,856 bytes of one live round's answers.
+    /// A header and the body under it are one fact and move as one.
     /// </summary>
     [Fact]
     public void A_nested_block_every_result_repeats_is_hoisted_whole()
@@ -877,9 +855,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A price with one resource in it is said on the line that names it. The table around it was
-    /// three lines of frame for one row, and a live round paid that frame 106 times: 11,540 bytes
-    /// of table to deliver 4,613 bytes of price.
+    /// A price with one resource in it is said on the line that names it.
     /// </summary>
     [Fact]
     public void A_price_with_one_resource_in_it_is_said_on_one_line()
@@ -996,8 +972,7 @@ public sealed class GameMcpTextPageTests
     }
 
     /// <summary>
-    /// A block that says nothing but yes says it once. One live round shipped 26 of these, a line
-    /// per slot, and every one of them carried the same word.
+    /// A block that says nothing but yes says it once.
     /// </summary>
     [Fact]
     public void A_block_of_predicates_that_all_say_yes_is_one_line()
@@ -1143,9 +1118,7 @@ public sealed class GameMcpTextPageTests
 
     /// <summary>
     /// The hoist is measured against the page it would produce rather than against a formula about
-    /// it. On a short table the share line costs more than the column it lifts, and the eighteen of
-    /// one round's twenty-seven hoists that lost bytes were all of them tables of four rows or
-    /// fewer.
+    /// it.
     /// </summary>
     [Fact]
     public void A_table_too_short_for_the_share_line_to_pay_keeps_its_columns()

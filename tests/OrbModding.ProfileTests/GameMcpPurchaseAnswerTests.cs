@@ -76,8 +76,7 @@ public sealed class GameMcpPurchaseAnswerTests
 
     /// <summary>
     /// The game's own purchase loop stops as soon as it cannot pay for the next level, so a caller
-    /// has to be able to tell a partial delivery from a satisfied ask. Round 9 could not: an
-    /// <c>amount=1000</c> that delivered one level was byte-identical to <c>amount=1</c>.
+    /// has to be able to tell a partial delivery from a satisfied ask.
     /// </summary>
     [Fact]
     public void APartialPurchaseSaysDeliveredAgainstAskedOnOneLine()
@@ -93,9 +92,7 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// The suite's own half of a shortfall is explained on the same line as the delivery. Round 13
-    /// asked for ten levels against nine of room and got a refusal that delivered nothing; the press
-    /// now fills and says, in the sentence it already had, how many it kept back and why.
+    /// The suite's own half of a shortfall is explained on the same line as the delivery.
     /// </summary>
     [Fact]
     public void AnOverAskTheQueueCannotHoldFillsAndNamesWhatTheSuiteWithheld()
@@ -244,9 +241,7 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// The one purchase refusal left. It used to answer "The game refused, and nothing it reports
-    /// explains why" — or worse, blame the caller's resources for a queue that had no room — which
-    /// was the worst answer in the verb.
+    /// The one purchase refusal left.
     /// </summary>
     [Fact]
     public void AFullActionQueueRefusesNamingTheQueueAndNotTheCallersPockets()
@@ -283,11 +278,8 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// These verbs promise "it queued and how many", and the commonest press of all — one level —
-    /// used to answer a bare <c>yes</c>: the observation the sentinel had already made was spent on
-    /// a word that says nothing, and a live round had to re-read the entity to learn what its own
-    /// commit did. An observed count is always the number. Only a count the evidence does not carry
-    /// stays a bare yes, because inventing one would be the worse defect.
+    /// An observed count is always the number. Only a count the evidence does not carry stays a
+    /// bare yes, because inventing one would be the worse defect.
     /// </summary>
     [Fact]
     public void AQueuedMutationSaysTheCountItObservedIncludingTheCountOfOne()
@@ -304,12 +296,9 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// A committed purchase answers with what moved. It used to answer with what it charged as
-    /// well, and on a multi-level call that figure priced one level of a rising ladder while
-    /// reading like the whole charge — always short, always in the direction of believing there is
-    /// more left to spend. The cost curves live in the world publication, where Auto Buy plans off
-    /// them; a caller that could not afford something still reads what it needs and what it holds
-    /// in the refusal's own sentence.
+    /// A committed purchase answers with what moved. The cost curves live in the world publication,
+    /// where Auto Buy plans off them; a caller that could not afford something still reads what it
+    /// needs and what it holds in the refusal's own sentence.
     /// </summary>
     [Fact]
     public void ACommittedPurchaseReportsTheLevelsItBoughtAndNoPaymentRows()
@@ -477,8 +466,7 @@ public sealed class GameMcpPurchaseAnswerTests
             context, "upgrades", exhaustedId.ToString("D")))["row"]!;
         Assert.Equal(10, (int)exhausted["maximum"]!);
 
-        // One word, where a code, a boolean and a levels-left count used to divide the same fact
-        // between them. `get` says the lifecycle in the page's vocabulary, not a second one.
+        // `get` says the lifecycle in the page's vocabulary, not a second one.
         Assert.Equal("completed", (string?)exhausted["state"]);
         Assert.Null(exhausted["reasonCode"]);
         Assert.Null(exhausted["available"]);

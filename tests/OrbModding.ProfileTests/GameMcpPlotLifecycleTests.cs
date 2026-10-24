@@ -201,13 +201,10 @@ public sealed class GameMcpPlotLifecycleTests
             frameContext: GameMcpTestHarness.Context(before));
 
     /// <summary>
-    /// The page this lane was called for. Twenty pairs whose prerequisite the game will not
-    /// evaluate until the action starts used to repeat a 133-character sentence and its
-    /// <c>ERR_</c> class in two columns of every row — 6,710 bytes for twenty rows of five facts.
-    /// Words carry the same two decisions, and what a reader has to hold in their head is a
-    /// vocabulary instead of a paragraph. The three the whole page agrees on are said once above
-    /// the rows and then not said again: a share line that named them and left them on every row
-    /// under it was the same fact printed twenty-one times.
+    /// The page this lane was called for. Words carry the same two decisions, and what a reader has
+    /// to hold in their head is a vocabulary instead of a paragraph. The three the whole page
+    /// agrees on are said once above the rows and then not said again: a share line that named them
+    /// and left them on every row under it was the same fact printed twenty-one times.
     /// </summary>
     [Fact]
     public void A_page_of_blocked_pairs_says_the_block_in_one_word_per_cell()
@@ -266,9 +263,7 @@ public sealed class GameMcpPlotLifecycleTests
 
     /// <summary>
     /// A harvest node's own page says what it is, where it stands and what it holds, in the same
-    /// words every other category's page uses. It used to be the reflective dump of the scan's
-    /// field list — no `category`, no `state` — so a live round read `locked` off the node's list
-    /// row, opened its page, and found no lifecycle word anywhere on it.
+    /// words every other category's page uses.
     /// </summary>
     /// <remarks>
     /// Every fact here is one the list row already computes. Nothing new is read from the game;

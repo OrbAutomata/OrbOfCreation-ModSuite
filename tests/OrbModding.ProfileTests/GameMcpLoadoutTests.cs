@@ -197,8 +197,7 @@ public sealed class GameMcpLoadoutTests
     }
 
     /// <summary>
-    /// The snapshot list rows count the way the snapshot verbs do. They used to print the internal
-    /// array index, so a caller who read a row and passed its number back addressed the row above.
+    /// The snapshot list rows count the way the snapshot verbs do.
     /// </summary>
     [Fact]
     public void Snapshot_rows_count_slots_the_way_the_snapshot_verbs_take_them()

@@ -45,10 +45,8 @@ internal static class GameMcpDiscoveryTreeOfferProjection
     }
 
     /// <summary>
-    /// What a confirmed offer produced. The press permanently spends a discovery choice, and the
-    /// answer used to be a bare count with nothing naming what was taken — so a caller could not
-    /// confirm the discovery landed, and read the tree again to learn what it had got. The tool
-    /// held that identity in its own request the whole time.
+    /// What a confirmed offer produced. The tool held that identity in its own request the whole
+    /// time.
     /// </summary>
     internal static GameMcpValue ProjectDiscoveryOfferConfirmDelta(
         GameMcpFrameContext state,
@@ -278,17 +276,15 @@ internal static class GameMcpDiscoveryTreeOfferProjection
                 tree.HasImmediateRequiredDiscovery,
         };
 
-        // Seconds, in the format every other duration on this surface reads in. It shipped as a
-        // bare magnitude and a live round watched it climb 0.22 → 2.72 with nothing saying what
-        // the number counted, then kept `actionTime` — `DiscoveryTreeSO`'s own field name, which
-        // says neither which clock nor which direction. The key is the mode the row is already in
-        // and the direction the number runs: this tree has been crafting for that long.
+        // Seconds, in the format every other duration on this surface reads in. The key is the mode
+        // the row is already in and the direction the number runs: this tree has been crafting for
+        // that long.
         if (tree.ActionMode == 1)
         {
             result["craftingFor"] = CoarseClock(tree.ActionTime);
 
             // The press starts a roll, it does not produce offers: the game rolls them three
-            // seconds of game time later. A round read the empty list as a press that had failed.
+            // seconds of game time later.
             result["rolling"] =
                 "This roll is still running. The game rolls its offers three seconds after the " +
                 "press, and this tree has been rolling " + CoarseClock(tree.ActionTime) + ".";
@@ -319,10 +315,8 @@ internal static class GameMcpDiscoveryTreeOfferProjection
                 var shortfalls = new List<(string, BigDouble, BigDouble)>();
                 initiate["costs"] = DiscoveryTreeCosts(world, in tree, shortfalls);
 
-                // The price row reads in the screen's rounding, and a round read `cost: 5 of 5
-                // Knowledge affordable=no` off 4.6 Knowledge and went looking for a bug. The
-                // sentence carries the same two numbers game_purchase's does, so the near miss is
-                // legible as a near miss.
+                // The sentence carries the same two numbers game_purchase's does, so the near miss
+                // is legible as a near miss.
                 var sentence = GameMcpDecisionReason.Shortfall(shortfalls);
                 if (sentence.Length > 0 &&
                     (string?)initiate["reasonCode"] == "unaffordable")

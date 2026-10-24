@@ -62,11 +62,6 @@ internal static class GameMcpRowKit
     /// <c>isPercent</c> by being silent, because those are properties of the declared paths and the
     /// paths did not change. Only the type behind <c>value</c> did.
     /// </para>
-    /// <para>
-    /// Every time-shaped number but <c>Time Played</c> used to print as its count of seconds —
-    /// <c>1.53e3</c> for a cooldown the screen draws as <c>25:30</c> — because the suite formatted
-    /// the one variable it had hard-coded and read the flag on none of the others.
-    /// </para>
     /// </remarks>
     internal static object AsDisplayed(object row) =>
         row is WorldNumberVariable variable && variable.IsTime
@@ -348,12 +343,9 @@ internal static class GameMcpRowKit
     /// resolves for nobody, and the recipe carries the same name.
     /// </summary>
     /// <remarks>
-    /// Whether the slot is casting right now is not on the row. It is the transient this table's
-    /// rule was written from: a live round caught the column present on one page of a scan and
-    /// absent on the next, with nothing about the request changed, because the cast started between
-    /// two reads. The fact keeps every surface that answers for the instant — the scan, the
-    /// <c>world_get</c> detail, and the <c>game_cast</c> response, which is the one a caller
-    /// deciding its next press should be reading anyway.
+    /// Whether the slot is casting right is not on the row. The fact keeps every surface that
+    /// answers for the instant — the scan, the <c>world_get</c> detail, and the <c>game_cast</c>
+    /// response, which is the one a caller deciding its next press should be reading anyway.
     /// </remarks>
 
     internal static GameMcpProjectedDomainValue ReflectedDetail(

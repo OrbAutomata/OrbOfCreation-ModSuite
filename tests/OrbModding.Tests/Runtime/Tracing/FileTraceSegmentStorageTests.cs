@@ -107,10 +107,7 @@ public sealed class FileTraceSegmentStorageTests
     /// A store holding a name this writer cannot read is abandoned, not refused forever.
     /// </summary>
     /// <remarks>
-    /// Both of these used to be permanent startup failures: the directory outlives the process, so
-    /// every later launch met the same artifact and threw again, and the writer stayed dead on that
-    /// machine until someone deleted files by hand. What was discarded is counted rather than
-    /// silently dropped.
+    /// What was discarded is counted rather than silently dropped.
     /// </remarks>
     [Fact]
     public void FileStorageNeverOverwritesCommittedCollisionAndAbandonsUnreadableNames()

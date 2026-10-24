@@ -49,9 +49,8 @@ public sealed class ServicePublicationTests
     /// A registry has its configuration from the moment it exists, on the all-defaults snapshot.
     /// </summary>
     /// <remarks>
-    /// This used to be an installation step with an ordering rule and a "the suite has one" guard.
-    /// Both are gone with the type: there is one configuration record, so the registry constructs it
-    /// the way it constructs the world, and a service registered before anything published still
+    /// Both are gone with the type: there is one configuration record, so the registry constructs
+    /// it the way it constructs the world, and a service registered before anything published still
     /// reads a real snapshot rather than failing.
     /// </remarks>
     [Fact]

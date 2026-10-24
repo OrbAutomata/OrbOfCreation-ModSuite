@@ -160,9 +160,7 @@ public sealed class GameMcpRitualGlossaryTests
     }
 
     /// <summary>
-    /// A turn is a wind-up and then the act, and the column says the act. It used to say
-    /// <c>actionTime</c> — <c>CharacterActionSO</c>'s own field name — which is the game's spelling
-    /// of the fact rather than a word beside <c>prepTime</c>.
+    /// A turn is a wind-up and then the act, and the column says the act.
     /// </summary>
     [Fact]
     public void A_combat_actions_two_clocks_read_as_the_pair_they_are()

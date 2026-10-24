@@ -103,12 +103,8 @@ internal static class GameMcpHarvestLifecycleProjection
     /// One harvest node's own page, in the words every other category's page uses.
     /// </summary>
     /// <remarks>
-    /// It used to have none: no hand-written projection existed, so the block was the reflective
-    /// dump of the scan's field list — <c>remainingQuantity</c>, <c>visible</c>, <c>masteryLevel</c>,
-    /// <c>currentTime</c>, <c>idleQuantity</c>, <c>totalQuantity</c> and nothing else. A live round
-    /// read <c>locked</c> off the node's list row, opened its page, and found no lifecycle word
-    /// anywhere on it. Every fact is the one the list row already computes; only the words are new
-    /// here, and <c>visible</c> is folded into <c>state</c> exactly as it is on that row, because
+    /// Every fact is the one the list row already computes; only the words are new here, and
+    /// <c>visible</c> is folded into <c>state</c> exactly as it is on that row, because
     /// <c>PlotNodeSO.IsVisible()</c> is what both are read from.
     /// </remarks>
     internal static GameMcpValue ProjectPlotNode(in WorldPlotNode plot) =>
@@ -252,13 +248,11 @@ internal static class GameMcpHarvestLifecycleProjection
         GameWorldState world,
         in WorldActionQueueSlot slot)
     {
-        // The occupant columns say `empty` where there is no occupant, which is what the separate
-        // `empty` flag used to say — one bit on five columns. What fills the slot answers it.
-        //
-        // Whether the occupant is under way rather than merely present — the game's `IsEngaged()` —
-        // is not a column. It is the same fact as a spell's `casting`: a flag the game turns over on
-        // its own between two reads of one scan, so a page of it plans nothing. What the slot holds
-        // and how much of it are the standing facts, and they are here.
+        // What fills the slot answers it. Whether the occupant is under way rather than merely
+        // present — the game's `IsEngaged()` — is not a column. It is the same fact as a spell's
+        // `casting`: a flag the game turns over on its own between two reads of one scan, so a page
+        // of it plans nothing. What the slot holds and how much of it are the standing facts, and
+        // they are here.
         var queueFound = WorldLookup.TryFind(world.ActionQueues, slot.QueueId, out var queue);
         var result = new JObject
         {

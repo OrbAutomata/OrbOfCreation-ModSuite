@@ -76,10 +76,9 @@ public sealed class GameMcpWorldQueryTests
         var row = block["row"]!;
 
         // Identity is said once, on the block, and the row under it carries only its own columns.
-        // The row used to repeat the same handle, name and category the block already published.
         // `nativeType` is gone from a block a category names: `resources` is one native class and
-        // `world_categories` publishes which, so the block said the same fact twice.
-        // No `predicates`: a resource's one gate is its ledger membership, and that is a row fact
+        // `world_categories` publishes which, so the block said the same fact twice. No
+        // `predicates`: a resource's one gate is its ledger membership, and that is a row fact
         // under the name that says what it is rather than a verdict on the resource itself.
         Assert.Equal(
             new[] { "uuid", "name", "category", "row" },

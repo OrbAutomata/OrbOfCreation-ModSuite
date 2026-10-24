@@ -32,11 +32,6 @@ public sealed class GameMcpCollectionSpansTests
             text);
     }
 
-    /// <summary>
-    /// A span names the table the reader can list, not the collector behind it: the two vocabularies
-    /// disagreed on sixteen of seventy-four collectors, and a round that needed the join could only
-    /// guess it by matching row counts.
-    /// </summary>
     [Fact]
     public void ASpanIsNamedForTheTableTheReaderCanList()
     {

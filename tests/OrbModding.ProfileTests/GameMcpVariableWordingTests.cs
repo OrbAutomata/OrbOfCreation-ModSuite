@@ -95,9 +95,6 @@ public sealed class GameMcpVariableWordingTests
     }
 
     /// <summary>
-    /// A percent variable and a plain one read identically once the flag is gone, so the scan
-    /// column carries it: round ten spent 22% of its whole wire on two 200-id detail re-reads whose
-    /// only new fact was this one word per row, because the page that listed them did not say it.
     /// The detail block says the same fact by saying nothing — `isPercent` is printed when it is
     /// `yes` and silent when it is `no` — because a documented default spelled out on every block
     /// of a batch is most of that batch.
@@ -106,8 +103,8 @@ public sealed class GameMcpVariableWordingTests
     /// The two rules are one rule seen from both sides: a table's header promised the column, so
     /// the column prints on every row of it including the ones holding the default; a block
     /// promised nothing, so the default is absence. What makes the second readable is that it is
-    /// written down where the shape is — <c>docs/development/mcp-tools.md</c> — and a caller who
-    /// has read it knows a missing `isPercent` is `no` rather than unknown.
+    /// written down where the shape is — <c>docs/development/mcp-response-format.md</c> — and a
+    /// caller who has read it knows a missing `isPercent` is `no` rather than unknown.
     /// </remarks>
     [Fact]
     public void A_percent_variable_says_so_in_its_row_and_a_plain_one_says_so_by_being_silent()

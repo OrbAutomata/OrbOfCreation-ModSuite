@@ -230,10 +230,6 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Null(schema["oneOf"]);
     }
 
-    /// <summary>
-    /// A batch refused as a whole used to carry an empty results collection beside the refusal,
-    /// four rendered lines saying nothing the refusal sentence had not already said.
-    /// </summary>
     [Fact]
     public void A_world_get_refused_as_a_whole_answers_in_the_one_refusal_line()
     {
@@ -396,11 +392,10 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// page that answers <c>rows 0/0</c> for ever.
     /// </summary>
     /// <remarks>
-    /// The query is the one that used to prove the page was worth having. A combat action was the
-    /// clearest thing it was for — the game prints the word, no world category published a row for
-    /// it, and no other verb would say it — and that is exactly the gap the
-    /// <c>character-actions</c> category closed. The word is on <c>world_search</c> now, with the
-    /// facts the page could never hold beside it.
+    /// A combat action was the clearest thing it was for — the game prints the word, no world
+    /// category published a row for it, and no other verb would say it — and that is exactly the
+    /// gap the <c>character-actions</c> category closed. The word is on <c>world_search</c> now,
+    /// with the facts the page could never hold beside it.
     /// </remarks>
     [Fact]
     public void TheRetiredCatalogVerbIsNoLongerAToolThisServerHas()
@@ -449,9 +444,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// The all-zero UUID is perfectly well formed and names nothing. It used to collide with the
-    /// sentinel the id reader uses for "no id was sent", so a live round probing it was told its id
-    /// was malformed and went off to debug a string that was fine. What is wrong with it is that
+    /// The all-zero UUID is perfectly well formed and names nothing. What is wrong with it is that
     /// nothing carries it.
     /// </summary>
     [Fact]
@@ -477,9 +470,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// A handle valid ninety seconds earlier used to read as a typo the moment the run ended, so a
-    /// caller had reason to throw away good ids after any teardown. It now says the same lifecycle
-    /// fact the whole UUID for the same entity already answered with.
+    /// It says the same lifecycle fact the whole UUID for the same entity already answered with.
     /// </summary>
     [Fact]
     public void A_handle_after_teardown_says_the_lifecycle_fact_rather_than_calling_it_malformed()
@@ -981,7 +972,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(affectedSearch["status"]);
         Assert.Null(affectedSearch["reasonCode"]);
         // A hit is a row of a page, so it keeps its own columns and says the one thing that is
-        // missing. The refusal block it used to be swapped for lives on world_get.
+        // missing.
         var affectedMatch = Assert.Single(affectedSearch["rows"]!.Values<JObject>());
         Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)affectedMatch["uuid"]);
         Assert.Equal("upgrades", (string?)affectedMatch["category"]);

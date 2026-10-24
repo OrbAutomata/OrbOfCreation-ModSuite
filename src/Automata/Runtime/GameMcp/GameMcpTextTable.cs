@@ -62,17 +62,15 @@ internal static class GameMcpTextTable
     /// The line is page-scoped in its wording, because <c>all</c> beside <c>/229</c> claimed the
     /// whole category from six rows. It is where a page-constant column is named: the header names
     /// the columns the rows carry, this names the rest with the value they carry, and between them
-    /// the declared set is complete on every page. A live round read
-    /// <c>these 32 share: effect=raw, order=0</c> and then thirty-two rows of <c>| raw | 0</c>
-    /// underneath it — the shape contradicting itself in the same breath.
+    /// the declared set is complete on every page.
     /// </para>
     /// <para>
     /// Which means it has to be worth reading, so it is said only when it is shorter than what it
     /// takes off the page — a summary longer than the six rows under it is not compression, and at
-    /// the page sizes callers actually ask for that is what the old header had become. It also never
-    /// takes the last column: a page whose every column is constant keeps its table, because rows
-    /// with nothing in them are not rows. Values are comma-free by construction so a reader can
-    /// split the line on <c>, </c> and the first <c>=</c>: free prose belongs in a cell, where
+    /// the page sizes callers actually ask for that is what the old header had become. It also
+    /// never takes the last column: a page whose every column is constant keeps its table, because
+    /// rows with nothing in them are not rows. Values are comma-free by construction so a reader
+    /// can split the line on <c>, </c> and the first <c>=</c>: free prose belongs in a cell, where
     /// nothing is trying to parse around it.
     /// </para>
     /// </remarks>
@@ -95,11 +93,10 @@ internal static class GameMcpTextTable
     /// </summary>
     /// <remarks>
     /// The share line only ever fired on a column that was constant to the last row, so a
-    /// ninety-eight-row page spent 1,076 bytes printing <c>available</c> ninety-five times and
-    /// 566 more printing <c>idle</c> ninety-four times — and the three rows that were not available
-    /// had to be found by eye down a wall of the same word. A live round read that wall as a
-    /// truncated answer and misread a name out of it. Naming the majority once and then naming the
-    /// exceptions puts the rows that differ where a reader is already looking, and every row's
+    /// ninety-eight-row page spent 1,076 bytes printing <c>available</c> ninety-five times and 566
+    /// more printing <c>idle</c> ninety-four times — and the three rows that were not available had
+    /// to be found by eye down a wall of the same word. Naming the majority once and then naming
+    /// the exceptions puts the rows that differ where a reader is already looking, and every row's
     /// value is still recoverable exactly: it is the majority unless the line says otherwise.
     /// </remarks>
     internal static string MajorityLine(
@@ -236,10 +233,7 @@ internal static class GameMcpTextTable
             }
         }
 
-        // Every cell of the whole table, rendered once. The plans below differ only in which of
-        // these columns reach the page, so what each one costs is arithmetic over strings that
-        // already exist rather than a formula about them — which is what the old worth test was,
-        // and it fired on eighteen of one round's twenty-seven tables where it did not pay.
+        // Every cell of the whole table, rendered once.
         var full = new List<string[]>(array.Count);
         for (var index = 0; index < array.Count; index++)
         {

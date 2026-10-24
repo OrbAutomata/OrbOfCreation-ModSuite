@@ -79,12 +79,9 @@ internal sealed class GameMcpCastCommand : IGameMcpServiceCommand
     /// The cast this press started, seen in the settled world.
     /// </summary>
     /// <remarks>
-    /// A fire had no sentinel at all, so the first world one generation newer than the press was
-    /// accepted — and a live round's committed fire answered <c>active: no  castReady: yes</c> with
-    /// no recharge block, describing a world that had not yet seen the cast.
     /// <para>
-    /// The game spends the charge at the END of the cast, not at the press:
-    /// <c>Spell.Cast()</c> loads a cooldown and sets the prep state, and only
+    /// The game spends the charge at the END of the cast, not at the press: <c>Spell.Cast()</c>
+    /// loads a cooldown and sets the prep state, and only
     /// <c>Spell.EndCasting</c>/<c>Spell.ExecuteSpell</c> call <c>Spell.ConsumeCharge()</c>. So a
     /// spell slower than the world cadence is still readying when the next world lands and its
     /// charge has not moved, while a spell faster than it has already finished and dropped one.

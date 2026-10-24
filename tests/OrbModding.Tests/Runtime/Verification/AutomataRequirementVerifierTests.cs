@@ -89,10 +89,8 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     /// went unchecked. It is deliberately not a mismatch: the verdict already refuses the purchase.
     /// </summary>
     /// <remarks>
-    /// The sentence used to be <c>the OpaqueRequirement condition on {guid} is not modelled</c> — a
-    /// C# class name and a raw id, in prose, naming neither the entity the way every other sentence
-    /// names one nor the decision that went unanswered. Which class the suite does not model is
-    /// reported once, by the collection check that owns that fact.
+    /// Which class the suite does not model is reported once, by the collection check that owns
+    /// that fact.
     /// </remarks>
     [Fact]
     public void AnUnmodelledConditionIsUnverifiableAndSaysWhatWentUnchecked()

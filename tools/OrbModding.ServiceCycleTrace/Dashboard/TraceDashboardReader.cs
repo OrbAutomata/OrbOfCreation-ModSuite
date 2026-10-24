@@ -271,16 +271,12 @@ internal static class TraceDashboardReader
         value.MutationsCommitted);
 
     /// <summary>
-    /// Splits every cycle in the window into its stages. Nothing here is new measurement: the worker
-    /// already reads the monotonic clock three times per cycle and all three readings already reach
-    /// the wire, they were simply never correlated back into one cycle.
+    /// Splits every cycle in the window into its stages. Nothing here is new measurement: the
+    /// worker already reads the monotonic clock three times per cycle and all three readings
+    /// already reach the wire, they were simply never correlated back into one cycle.
     /// </summary>
     /// <remarks>
-    /// The key carries the lifecycle because cycle ids restart at one in every lifecycle. Keyed on
-    /// service and cycle alone, a later lifecycle overwrote an earlier one row for row: one 43-minute
-    /// capture lost 2,782 of World collection's 7,822 cycles and showed the service as
-    /// post-prestige-only in the same table that showed Auto Buy as pre-prestige-only, silently, with
-    /// the surviving rows mixing stamps from two lifecycles into one handoff and derive figure.
+    /// The key carries the lifecycle because cycle ids restart at one in every lifecycle.
     /// </remarks>
     private static TraceDashboardCycle[] Cycles(List<TraceDashboardEvent> events)
     {

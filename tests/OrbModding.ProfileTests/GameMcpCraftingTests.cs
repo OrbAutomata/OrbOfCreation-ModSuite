@@ -154,8 +154,6 @@ public sealed class GameMcpCraftingTests
     [Fact]
     public void The_scan_row_names_the_starting_amount_the_detail_row_names()
     {
-        // The scan row used to fall through to the reflected projector and publish the raw native
-        // path reading.startingQuantity, so the same fact had two names and two shapes.
         var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             Context(), "crafting-recipes", 0, 10).Freeze(), Identities())["rows"]!.Values<JObject>())!;
         var detail = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(

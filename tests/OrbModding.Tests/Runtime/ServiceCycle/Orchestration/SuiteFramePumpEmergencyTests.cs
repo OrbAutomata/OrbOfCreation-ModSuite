@@ -245,12 +245,9 @@ public sealed class SuiteFramePumpEmergencyTests
     /// reads a configuration saying the suite is not disabled.
     /// </summary>
     /// <remarks>
-    /// This used to be stated as "a configuration that says nothing leaves the stop alone", which is
-    /// no longer a shape a configuration can have — the suite has one configuration record and its
-    /// emergency-disable flag always answers, defaulting to false. So "says nothing" and "says not
-    /// disabled" became the same reading, and a pump that acted on it would cancel a shutdown stop on
-    /// the next frame and let prepared work run against a game that is going away. The reason on the
-    /// episode is what keeps them apart.
+    /// So "says nothing" and "says not disabled" became the same reading, and a pump that acted on
+    /// it would cancel a shutdown stop on the next frame and let prepared work run against a game
+    /// that is going away. The reason on the episode is what keeps them apart.
     /// </remarks>
     [Fact]
     public void AConfiguredReadingDoesNotClearAShutdownStop()

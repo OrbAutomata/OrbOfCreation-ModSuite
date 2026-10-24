@@ -92,26 +92,22 @@ Migration code must use explicit known-key maps and closed safe failure codes. I
 
 `OrbModding.Common.Runtime` holds monotonic time, catalogs, configuration and strategy publications, the shared world collection, diagnostics, and tracing. The contracts contain no Unity objects or gameplay policy, and the configuration UI consumes their typed projections.
 
-`OrbModding.Common.Runtime.ServiceCycle` is the accepted foundation and is production-composed: it
-drives world collection, Auto Items, Auto Scribe, Auto Harvest, Auto Buy, Spell Leveling, Auto Cast,
-Auto Concept, and Mentor. The ordinary runner through semantic export, snapshot export, and schema-v7
-recording is verified by the portable suite. Replay was retired as a runtime system rather than
-rebuilt. See the [runtime architecture dossier](../docs/runtime-architecture/README.md).
+[Common ServiceCycle](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/Common/Runtime/ServiceCycle) is the runtime foundation. [Architecture](../docs/runtime-architecture/architecture.md) owns the service roster and [Plugin](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Plugin.cs) owns typed composition. The [testing guide](../docs/testing/README.md) defines the evidence for its execution and recording contracts.
 
 ## Shared gameplay controls
 
-`AutomationFeatureControlRegistry` is the one ordered roster for the Mods feature headers and the
+[AutomationFeatureControlRegistry](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomationFeatureControlRegistry.cs) is the one ordered roster for the Mods feature headers and the
 gameplay quick controls. The closed surface is one native-width compound control under the native
 top-left gear and character buttons: a full-size emergency stop followed by an attached,
 separately framed disclosure footer. The square's size, alignment, and vertical stack step are
 captured from the adjacent native buttons instead of guessed; its icon is the exact shipped
 `power-lightning` Sprite, enlarged inside that unchanged square rather than enlarging the control.
 The disclosure enumerates the
-registry into a transient, native-framed four-column panel below the compound control; it never
+registry into a transient, native-framed panel below the compound control; [QuickControlColumn](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/QuickControlColumn.cs) owns the layout. It never
 maintains a second feature list. The closed disclosure carries a separate exclamation marker plus
 red color whenever a contained feature is faulted or blocked. The surface anchors through the
 declared, scene-bound `UIContentArea.canvas` contract and exact `Canvas/HelpButtons` structure. The
-32-pixel footer and panel reuse the audited recessed `UIViewRadioButton` frame as sliced border
+footer and panel reuse the audited recessed `UIViewRadioButton` frame as sliced border
 dressing;
 the panel surrounds an opaque suite-owned background.
 Every suite-created UI node requests `RectTransform` through
@@ -141,7 +137,7 @@ The classifier binds its native members once at construction, on its own strict 
 
 `OrbModding.Common.TypedRegistryResolver` is the suite boundary for `IdScriptableObject.RuntimeLookup`. Resolve by non-empty UUID plus exact expected native type, retain the returned lifecycle generation with cached native references, and use `IsRetryable` rather than parsing reason strings. Names are diagnostics only.
 
-Common's suite-internal `KnownEntities` is a checked-in generated declaration set for the small, explicitly selected supported-domain subset in `data/known-entities.tsv`. Each `KnownEntity<TContract>` has a suite-owned type marker plus UUID, expected managed type name, and diagnostic asset name; generated signatures never embed fragile game types. The build verifies it against the canonical 2,792-row mapping, while runtime consumers still resolve through `TypedRegistryResolver` and validate the installed game.
+Common's suite-internal `KnownEntities` is a checked-in generated declaration set for the small, explicitly selected supported-domain subset in `data/known-entities.tsv`. Each `KnownEntity<TContract>` has a suite-owned type marker plus UUID, expected managed type name, and diagnostic asset name; generated signatures never embed fragile game types. The build verifies it against the [canonical mapping](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/data/entity-mappings.tsv), while runtime consumers still resolve through `TypedRegistryResolver` and validate the installed game.
 
 `OrbModding.Common.ActionFamilyOwnershipRegistry` is a small process-local safety boundary, not a gameplay framework. Suite features atomically claim only the native mutation families they own, release them with configuration and lifecycle teardown, and recheck their lease immediately before mutation. Exact known external conflicts revoke overlaps; unknown unregistered callers remain an explicit limitation.
 

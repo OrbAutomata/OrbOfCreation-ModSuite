@@ -17,10 +17,7 @@ namespace OrbModding.ProfileTests;
 public sealed class GameMcpOverviewTests
 {
     /// <summary>
-    /// Every queue answers for itself, with the capacity it is measured against. The overview used
-    /// to print one unnamed occupancy beside a queue count of two: it covered the walked plot-action
-    /// queue only, and a live round read it five times while asking about the attribute queue a
-    /// purchase's ceiling comes from.
+    /// Every queue answers for itself, with the capacity it is measured against.
     /// </summary>
     [Fact]
     public void WorldOverviewPublishesEachActionQueuesOccupancyUnderItsOwnName()
@@ -62,8 +59,6 @@ public sealed class GameMcpOverviewTests
         Assert.Equal(2, queues!.Count);
         Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
         Assert.Equal("Plot actions", (string?)queues[0]["name"]);
-        // The asset id the normalizer used to staple beside that authored word, on the one row in
-        // the suite that had to author one.
         Assert.Null(queues[0]["internalName"]);
         Assert.Equal(1, (int?)queues[0]["usedSlots"]);
         Assert.Equal(2, (int?)queues[0]["capacity"]);

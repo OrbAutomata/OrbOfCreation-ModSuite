@@ -238,13 +238,11 @@ internal static class GameMcpSpellLevelProjection
     /// is short by a named amount.
     /// </summary>
     /// <remarks>
-    /// The two were one sentence — <c>This spell has no ready mastery level whose cost you can
-    /// afford</c> — and a round could not tell which half it had met. It spent a mastery listing,
-    /// two navigations, a refused tooltip, a screenshot and a screen read to find out, while the
-    /// research verb two calls earlier had answered the same shape of question in eighty-nine
-    /// bytes. The game publishes both halves: <c>IsReady()</c> rides on the recipe and
-    /// <c>GetLevelCost()</c> rides in the mastery cost table, so the sentence is composed from
-    /// them rather than left as the union of two answers.
+    /// It spent a mastery listing, two navigations, a refused tooltip, a screenshot and a screen
+    /// read to find out, while the research verb two calls earlier had answered the same shape of
+    /// question in eighty-nine bytes. The game publishes both halves: <c>IsReady()</c> rides on the
+    /// recipe and <c>GetLevelCost()</c> rides in the mastery cost table, so the sentence is
+    /// composed from them rather than left as the union of two answers.
     /// </remarks>
     internal static string MasteryRefusalReason(GameWorldState world, Guid recipeId)
     {

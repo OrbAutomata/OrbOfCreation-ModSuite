@@ -46,12 +46,11 @@ public sealed class ServiceCyclePublicationTableTypeSafetyTests
     [Fact]
     public void TheAdmissionAttributeIsHonoredWhereverItIsDeclared()
     {
-        // This test used to assert the opposite, on the premise that the declaring assembly decides
-        // who may wear the badge. That premise is retired: "declared in Common" becomes true of every
-        // type in the suite once it ships as one DLL, so admission is now the attribute alone and the
-        // review gate moved to ServiceCycleAuditedTypeAllowlistTests, which pins the exact bearer set
-        // and fails naming any newcomer. The fixture below is attributed and declared out here, and it
-        // is admitted — the runtime no longer asks where a type lives, only whether it was reviewed.
+        // That premise is retired: "declared in Common" becomes true of every type in the suite
+        // once it ships as one DLL, so admission is the attribute alone and the review gate
+        // moved to ServiceCycleAuditedTypeAllowlistTests, which pins the exact bearer set and fails
+        // naming any newcomer. The fixture below is attributed and declared out here, and it is
+        // admitted — the runtime no longer asks where a type lives, only whether it was reviewed.
         var declared = new SelfDeclaredConfig(new SelfDeclaredTable());
         AssertConfigurationAccepted(declared);
         Assert.Equal(1, declared.Rows.Count);

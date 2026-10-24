@@ -70,4 +70,4 @@ Concepts are their own category on the read surface, because they are their own 
 `world_list category=concepts` pages the 46 the Scholar screen draws, and `world_get` on one carries
 the development-slot budget and the assignment decision. They are not `alchemy-recipes` rows — that
 category is the 79 the Alchemy screen draws, and the two layers share a native class and nothing
-else. See [the tool reference](../development/mcp-tools.md).
+else. See [the tool reference](../development/mcp-gameplay-reference.md#concept-slots).

@@ -45,10 +45,8 @@ internal static class GameMcpPrestigeProjection
 
     /// <summary>
     /// What a reset says when the post-reset world has not landed yet. The reset is the one action
-    /// whose own identity is the lifecycle it replaced, so the answer carries that on both sides:
-    /// a caller learns the reset happened, and that only the republished world is still owed.
-    /// It used to answer the heaviest verb in the game with a bare timeout sentence and nothing to
-    /// correlate it against.
+    /// whose own identity is the lifecycle it replaced, so the answer carries that on both sides: a
+    /// caller learns the reset happened, and that only the republished world is still owed.
     /// </summary>
     internal static GameMcpValue PrestigeSettlementPending(
         long expectedLifecycleGeneration,
@@ -158,12 +156,8 @@ internal static class GameMcpPrestigeProjection
     /// One Time Advancement figure with the run it belongs to said beside it.
     /// </summary>
     /// <remarks>
-    /// The game's three display words are the block's keys and stay exactly as the screen prints
-    /// them, but read cold they point at the wrong runs: a live round read <c>starting</c> as "what
-    /// this run started with" and <c>previous</c> as "the run before", declared the wire in
-    /// contradiction with a maintained doc, and only unpicked it a paragraph later. The anchor is
-    /// what the word is missing, so each number carries its own — and the reader never has to hold
-    /// two of them side by side to work out which run either describes.
+    /// The anchor is what the word is missing, so each number carries its own — and the reader
+    /// never has to hold two of them side by side to work out which run either describes.
     /// </remarks>
     internal static string Anchored(int amount, string anchor) =>
         amount.ToString(CultureInfo.InvariantCulture) + " (" + anchor + ")";

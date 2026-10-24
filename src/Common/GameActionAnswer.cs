@@ -8,11 +8,9 @@ namespace OrbModding.Common;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Each feature used to compose its own: thread ids, lifecycle epochs, "preflight", "observable",
-/// "resolution", and the game's own .NET exception text all reached a caller as the explanation of
-/// what had happened. None of it named anything in the game, and none of it named a next move —
-/// while the refusals beside them, written by the same files, are player words. The split was never
-/// deliberate; it is what happens when the same sentence is authored twenty-one times.
+/// None of it named anything in the game, and none of it named a next move — while the refusals
+/// beside them, written by the same files, are player words. The split was never deliberate; it is
+/// what happens when the same sentence is authored twenty-one times.
 /// </para>
 /// <para>
 /// The screen each method takes is the game's own name for the page a caller should look at, as
@@ -27,10 +25,9 @@ namespace OrbModding.Common;
 internal static class GameActionAnswer
 {
     /// <summary>
-    /// A stop before anything was sent, because the facts the press needs would not read. The
-    /// game's own .NET exception text used to be the whole explanation here; it named a type and a
-    /// field, and a caller could neither look it up nor act on it. Hand the exception in and it
-    /// goes to the suite log instead, under a reference this sentence then ends with.
+    /// A stop before anything was sent, because the facts the press needs would not read. Hand the
+    /// exception in and it goes to the suite log instead, under a reference this sentence then ends
+    /// with.
     /// </summary>
     internal static GameActionReason CouldNotRead(string screen, Exception? exception = null) =>
         GameActionFaultLog.Reason(
@@ -103,10 +100,8 @@ internal static class GameActionAnswer
         " and check before retrying.";
 
     /// <summary>
-    /// The game's own code threw while running the press. The exception text used to ride on the
-    /// wire; it named a .NET type and a field, which is not a fact about the game a caller can act
-    /// on, and it sat where the answer to "did this land" belonged. Hand the exception in and it
-    /// goes to the suite log instead, under a reference this sentence then ends with.
+    /// The game's own code threw while running the press. Hand the exception in and it goes to the
+    /// suite log instead, under a reference this sentence then ends with.
     /// </summary>
     internal static GameActionReason GameErrored(string screen, Exception? exception = null, Exception? putBack = null) =>
         new("The game itself errored on this press, so nothing can be proven about whether it landed. " +

@@ -301,23 +301,16 @@ internal sealed class WorldConsumableDeriver : WorldRowDeriver<RawConsumableSamp
     /// <para>
     /// The original is a four-term conjunction and every term is a fact this snapshot holds:
     /// </para>
-    /// <code>
-    /// CanFire() =&gt; !IsOnCooldown() &amp;&amp; HasEnoughUsage() &amp;&amp; HasEnoughCost() &amp;&amp; quantity &gt; 0
-    ///   IsOnCooldown()   =&gt; currentCooldown &gt; 0
-    ///   HasEnoughUsage() =&gt; usageCost.HasEnough()
-    ///   HasEnoughCost()  =&gt; consumeCost.HasEnough()
+    /// <code> CanFire() =&gt; !IsOnCooldown() &amp;&amp; HasEnoughUsage() &amp;&amp;
+    /// HasEnoughCost() &amp;&amp; quantity &gt; 0 IsOnCooldown()   =&gt; currentCooldown &gt; 0
+    /// HasEnoughUsage() =&gt; usageCost.HasEnough() HasEnoughCost()  =&gt; consumeCost.HasEnough()
     /// </code>
     /// <para>
-    /// Calling it during capture cost more than the composition: <c>ResourceCostList.HasEnough()</c>
-    /// reaches <c>ResourceSO.HasAmount</c>, which for every non-bandwidth resource divides the cost
-    /// by <c>quality.AsPercent()</c> — and that is <c>ValueModifierRecord.GetValue()</c>, the
-    /// accessor that writes four fields on read and that
+    /// Calling it during capture cost more than the composition:
+    /// <c>ResourceCostList.HasEnough()</c> reaches <c>ResourceSO.HasAmount</c>, which for every
+    /// non-bandwidth resource divides the cost by <c>quality.AsPercent()</c> — and that is
+    /// <c>ValueModifierRecord.GetValue()</c>, the accessor that writes four fields on read and that
     /// <see cref="NativeModifierRecordAccess"/> exists to avoid. Twice per consumable per pass.
-    /// </para>
-    /// <para>
-    /// The two affordability terms are the suite's own answer over the published cost rows, and
-    /// that math is what the differential verifier's spell-level affordability pass compares
-    /// against native <c>HasEnough()</c> for every spell recipe on a live save.
     /// </para>
     /// </remarks>
     private static bool CanFire(

@@ -172,11 +172,9 @@ internal sealed class GameMcpNavigator
         }
         if (command.TargetId != Guid.Empty)
         {
-            // The tile pick used to run one frame after the last subtab click, with the destination
-            // still assembling — the same unsettled read that let a departed screen's strip ride
-            // along, one surface over. The tiles are drawn by that same rebuild, and
-            // `subtab.TrySelect` presses the tab whether or not it was already active, so being on
-            // the page already did not help: every pick read a page mid-rebuild.
+            // The tiles are drawn by that same rebuild, and `subtab.TrySelect` presses the tab
+            // whether or not it was already active, so being on the page already did not help:
+            // every pick read a page mid-rebuild.
             yield return SettleNavigation(settledScreen);
             var scene = SceneManager.GetActiveScene().name;
             var tileResult = TileOf(command) == GameMcpTile.Spell

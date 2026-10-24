@@ -201,15 +201,11 @@ public sealed class GameMcpRecipeBookTests
 
     /// <summary>
     /// Six books share a display name with a spell type, and a single spell-recipe response prints
-    /// both — under <c>belongsTo.recipeBooks</c> and <c>belongsTo.spellTypes</c>. The row names
-    /// the twin so a caller reading "Expansion" twice knows they are two entities.
+    /// both — under <c>belongsTo.recipeBooks</c> and <c>belongsTo.spellTypes</c>. The row names the
+    /// twin so a caller reading "Expansion" twice knows they are two entities.
     /// </summary>
     /// <summary>
     /// Twenty-five of the thirty-four books are the far half of an augment glyph of the same name.
-    /// The other nine — Compulsion, Death, Dismantle, Electric, Life, Occultic, Principle, Spirit
-    /// and Tempered — are books and nothing else, and their rows were shaped exactly like the
-    /// twenty-five: a live round read all thirty-four and could not tell the two kinds apart, with
-    /// the only tell being that five of the nine happen to carry an internal name.
     /// </summary>
     [Fact]
     public void A_book_no_augment_glyph_carries_says_it_is_only_ever_a_book()
@@ -268,9 +264,8 @@ public sealed class GameMcpRecipeBookTests
     }
 
     /// <summary>
-    /// Round 13's illegal move, refused: <c>game_level_up</c> on one of the twenty-five. The wire
-    /// answered "yes, and it is free" on entities the game gives no button for. The refusal says
-    /// what the id is and names the purchase that does what the caller wanted.
+    /// The wire answered "yes, and it is free" on entities the game gives no button for. The
+    /// refusal says what the id is and names the purchase that does what the caller wanted.
     /// </summary>
     [Fact]
     public void Levelling_a_retired_unlocker_id_refuses_in_player_words()
@@ -289,8 +284,8 @@ public sealed class GameMcpRecipeBookTests
     }
 
     /// <summary>
-    /// The name the wire used to answer to. `glyphs` was two player concepts under one native
-    /// class, so the refusal sends the caller to both rather than to the category catalog.
+    /// `glyphs` was two player concepts under one native class, so the refusal sends the caller to
+    /// both rather than to the category catalog.
     /// </summary>
     [Fact]
     public void The_retired_glyphs_category_name_refuses_by_naming_both_new_homes()

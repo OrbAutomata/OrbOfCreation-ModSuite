@@ -142,13 +142,6 @@ public sealed class GameMcpSpellWorkbenchTests
     /// The two gates a mastery purchase can meet answer in two sentences: no level is ready, or one
     /// is and the price is short by a named amount.
     /// </summary>
-    /// <remarks>
-    /// One sentence stood for both — <c>This spell has no ready mastery level whose cost you can
-    /// afford</c> — and a round read it, could not tell which half it had met, and spent a mastery
-    /// listing, two navigations, a refused tooltip, a screenshot and a screen read finding out.
-    /// The research verb had answered the same shape of question two calls earlier in eighty-nine
-    /// bytes, and the same round called that the friendliest unaffordable wording it saw.
-    /// </remarks>
     [Fact]
     public void A_refused_mastery_level_says_which_of_the_two_gates_stopped_it()
     {
@@ -370,9 +363,7 @@ public sealed class GameMcpSpellWorkbenchTests
     /// </summary>
     /// <remarks>
     /// <c>Spell.GetUsageCost()</c> adds <c>penaltyUsageCost</c> while the recipe's "use
-    /// effectively" requirements are unmet. A round read authored upkeep 6, headroom 7 and
-    /// <c>loadoutAdd: available: yes</c>, got a refusal with no number in it, and had to ask for a
-    /// screenshot to learn the tile printed a red 12.
+    /// effectively" requirements are unmet.
     /// </remarks>
     [Fact]
     public void A_recipe_reads_the_weight_the_game_charges_and_the_room_it_needs()
@@ -537,9 +528,8 @@ public sealed class GameMcpSpellWorkbenchTests
     /// The preview answers the one budget a load is weighed against, and nothing about paying.
     /// </summary>
     /// <remarks>
-    /// A round read a creation price off this preview, paid it on the add, and the game charged
-    /// nothing — there is no such price. What a load does draw is the usage allocation the loaded
-    /// spell holds, which is what the answer carries now.
+    /// What a load does draw is the usage allocation the loaded spell holds, which is what the
+    /// answer carries now.
     /// </remarks>
     [Fact]
     public void LoadPreviewNamesTheUsageAllocationTheLoadedSpellWouldHold()
@@ -627,10 +617,6 @@ public sealed class GameMcpSpellWorkbenchTests
     /// A glyph the caller named and the suite resolved is never "not found". A shut availability
     /// gate is a lock, and asking one glyph for more uses than it has is a ceiling.
     /// </summary>
-    /// <remarks>
-    /// Both refusals used to ship <c>ERR_NOT_FOUND</c>, which sent a caller holding a live uuid off
-    /// to look for an entity that was in its hand.
-    /// </remarks>
     [Fact]
     public void AResolvedGlyphIsRefusedAsAGateOrACeilingRatherThanAsAMiss()
     {

@@ -180,12 +180,9 @@ public sealed class AutoBuyProfileTests : IDisposable
     /// the one that was.
     /// </summary>
     /// <remarks>
-    /// This is the shape that cost a live save twenty-seven minutes of refused purchases: a
-    /// verification pass allocated throwaway collectors, each took the process-wide owning-view
-    /// resolver, and each restamped it at the epoch its own frame carried — zero. The adapter is
-    /// built through its production constructor on purpose. Handing it a resolver is what made the
-    /// defect invisible: an injected resolver is not the singleton the running suite reads from, so
-    /// a test that injects one cannot see the singleton being clobbered.
+    /// The adapter is built through its production constructor on purpose. Handing it a resolver is
+    /// what made the defect invisible: an injected resolver is not the singleton the running suite
+    /// reads from, so a test that injects one cannot see the singleton being clobbered.
     /// </remarks>
     [Fact]
     public void ThrowawayCollectorDoesNotUnreadTheSessionPurchaseTopology()
@@ -367,11 +364,8 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     /// <summary>
     /// The game's own buy buttons never refuse an over-ask: they deliver what fits. So does this.
-    /// Round 13 asked for ten levels against nine of room and was told to ask again — a refusal the
-    /// suite invented, which delivered nothing and cost a second press. What round 9's silent clamp
-    /// actually cost was the difference: an <c>amount=1000</c> that delivered one level read
-    /// byte-identical to a satisfied <c>amount=1</c>. So the press fills, and the levels the suite
-    /// kept back ride on the submission for the settled answer's own line to explain.
+    /// So the press fills, and the levels the suite kept back ride on the submission for the
+    /// settled answer's own line to explain.
     /// </summary>
     [Fact]
     public void AnExplicitOverAskFillsTheRoomAndCarriesWhatItWithheld()
@@ -405,9 +399,7 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     /// <summary>
     /// The reserve is Auto Buy's courtesy to the player — slots kept free FOR manual actions — so
-    /// charging it to the manual verb refused the very action it exists to protect. A live round hit
-    /// exactly that: Auto Buy was off, the queue was empty, and a ten-level ask was turned away by a
-    /// setting nobody had asked to apply to it.
+    /// charging it to the manual verb refused the very action it exists to protect.
     /// </summary>
     [Fact]
     public void TheManualVerbIgnoresTheQueueReserveTheAutomatedCycleKeeps()

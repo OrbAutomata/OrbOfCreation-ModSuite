@@ -110,15 +110,12 @@ public sealed class FullTraceRuntimeSessionTests
     }
 
     /// <summary>
-    /// A shutdown that reached the recorder mid-cycle ends the recording early and loses nothing, and
-    /// the manifest says exactly that: the reason names the shutdown, the completeness answers for
-    /// the records.
+    /// A shutdown that reached the recorder mid-cycle ends the recording early and loses nothing,
+    /// and the manifest says exactly that: the reason names the shutdown, the completeness answers
+    /// for the records.
     /// </summary>
     /// <remarks>
-    /// Completeness is about loss. Stamping a shutdown incomplete on the strength of the shutdown
-    /// alone cost one 43-minute capture its standing: 486,377 accepted records, 486,377 durable, and
-    /// a manifest naming 486,378 as the first record missing — a truncation that had not happened,
-    /// which is indistinguishable from one that had until somebody reconciles the two counts by hand.
+    /// Completeness is about loss.
     /// </remarks>
     [Fact]
     public void ShutdownDuringACycleNamesTheShutdownWithoutClaimingLossAndReleasesPumpOwnership()
@@ -237,9 +234,7 @@ public sealed class FullTraceRuntimeSessionTests
 
     /// <summary>
     /// A store that cannot be written costs a reader the settings behind a generation, not the
-    /// events. The session finishes, and its completion record says the stores were lost — the
-    /// failure used to live in a private flag nothing read, so the artifact reported itself whole
-    /// while missing every file a decision's generation pointed at.
+    /// events.
     /// </summary>
     [Fact]
     public void ALostPublicationStoreIsRecordedOnTheCompletedSessionAndStopsFurtherStoreWrites()

@@ -235,9 +235,7 @@ public sealed class GameMcpTooltipNativeAccessTests
     }
 
     /// <summary>
-    /// Round 16 listed TooltipNode and TooltipNodeSub rows on Time and Scholar with no tooltip on
-    /// screen, and different ones from call to call: the rows a pooled container drew last stay
-    /// alive after it closes. A container with nothing in it draws nothing.
+    /// A container with nothing in it draws nothing.
     /// </summary>
     [Fact]
     public void AClosedTooltipKeepsTheRowsItDrewAndTheyAreNotOnScreen()
@@ -267,10 +265,9 @@ public sealed class GameMcpTooltipNativeAccessTests
     }
 
     /// <summary>
-    /// Round 15 read Time's subtab strip on Magic, Magic's on Time, and Time-screen tooltip nodes
-    /// on Scholar. Leaving a screen does not deactivate it — its objects stay alive in the
-    /// hierarchy — so "alive" was answering a question it cannot answer. The game's own group says
-    /// which screen is being drawn, and both captures ask it.
+    /// Leaving a screen does not deactivate it — its objects stay alive in the hierarchy — so
+    /// "alive" was answering a question it cannot answer. The game's own group says which screen is
+    /// being drawn, and both captures ask it.
     /// </summary>
     [Fact]
     public void TheScreenThePlayerLeftIsStillAliveAndIsNoLongerOnScreen()

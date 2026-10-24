@@ -15,11 +15,10 @@ namespace OrbAutomata.GameMcp;
 /// two reads seconds apart, with nobody touching the game between them, would agree. A column that
 /// turns over on its own — casting-now, engaged-this-tick, the queue has-not-landed-yet — fails it,
 /// and the answer is to delete the column rather than to smooth it: a page of such a column plans
-/// nothing, and it was already false when the caller read it. A live round caught spell-slots'
-/// <c>casting</c> present on one page of a scan and absent on the next with nothing about the
-/// request changed, which is the shape of the whole problem. Nothing is deleted from the world:
+/// nothing, and it was already false when the caller read it. Nothing is deleted from the world:
 /// the raw-fact scan keeps every one of these, <c>world_get</c> keeps them where a reader asked
-/// about one row, and the action responses keep them because an action question is what they answer.
+/// about one row, and the action responses keep them because an action question is what they
+/// answer.
 /// </para>
 /// <para>
 /// A category's columns are a declared, total set: every row fills every column, in every world
@@ -36,31 +35,26 @@ namespace OrbAutomata.GameMcp;
 /// keeps this close to free: a page where every row says the same word says it once, in the header.
 /// </para>
 /// <para>
-/// A blocked row answers the same way. It used to answer with a code and a sentence — the pair a
-/// refusal carries — repeated in full on every row: twenty agromancy rows paid for the same 133
-/// characters of prose about a prerequisite the game does not evaluate until you press, and a
-/// maxed upgrade said "This is already at its maximum level." beside an <c>affordable</c> column
-/// that already said <c>already_maxed</c>. A cell now says one word or the column that already
-/// names the fact says it alone; the sentence keeps living where a reader asked for one, in
-/// <c>get</c> and in refusals. No cell ever carries an <c>ERR_</c> class: those name which kind of
-/// no a refusal is, and a table is not refusing anything.
+/// A blocked row answers the same way. A cell says one word or the column that already names the
+/// fact says it alone; the sentence keeps living where a reader asked for one, in <c>get</c> and in
+/// refusals. No cell ever carries an <c>ERR_</c> class: those name which kind of no a refusal is,
+/// and a table is not refusing anything.
 /// </para>
 /// <para>
 /// Everything the player buys moves through the same three states, so it says them with the same
 /// three words: <see cref="Locked"/>, <see cref="Available"/>, <see cref="Completed"/>. That is a
 /// lifecycle — how far the player has come with this row — and it is deliberately not the question
-/// of whether a purchase would go through right now. Affordability and per-level requirements are
-/// a second, independent axis, and they keep their own columns; a row that cannot be paid for is
+/// of whether a purchase would go through right now. Affordability and per-level requirements are a
+/// second, independent axis, and they keep their own columns; a row that cannot be paid for is
 /// still <see cref="Available"/>, because next week it will be bought with no state having moved.
 /// The word <c>purchasable</c> is banned outright for confusing the two.
 /// </para>
 /// <para>
 /// The word belongs to every category in which the player can meet a locked thing, not only the
 /// ones that are bought. What the player experiences as lockedness is the fact, and where the game
-/// hides a row or swaps a placeholder in front of it rather than greying it, that hiding <em>is</em>
-/// the locked state. So alchemy recipes, augment glyphs, rituals, plot nodes and challenges say it
-/// too, each
-/// off the member the game's own row renderer asks.
+/// hides a row or swaps a placeholder in front of it rather than greying it, that hiding
+/// <em>is</em> the locked state. So alchemy recipes, augment glyphs, rituals, plot nodes and
+/// challenges say it too, each off the member the game's own row renderer asks.
 /// </para>
 /// <para>
 /// How many of the three words a category reaches is a fact about the category rather than a shape

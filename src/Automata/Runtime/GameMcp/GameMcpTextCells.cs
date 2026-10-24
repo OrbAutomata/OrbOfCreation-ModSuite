@@ -18,11 +18,9 @@ internal static class GameMcpTextCells
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A table is three lines of frame — a count, a header naming four columns, and the row — and a
-    /// live round paid that frame 106 times for 106 prices of one resource each: 11,540 bytes to
-    /// deliver 4,613. Every word is the one the table used and in the table's order, so a reader
-    /// who has read one shape has read the other; only the frame is gone. Two or more resources
-    /// keep the table, because then the columns are doing what columns are for.
+    /// Every word is the one the table used and in the table's order, so a reader who has read one
+    /// shape has read the other; only the frame is gone. Two or more resources keep the table,
+    /// because then the columns are doing what columns are for.
     /// </para>
     /// <para>
     /// <c>affordable</c> is the one column that does not ride the line unconditionally. On its own

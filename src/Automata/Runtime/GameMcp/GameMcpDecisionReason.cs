@@ -23,12 +23,6 @@ namespace OrbAutomata.GameMcp;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A read block used to ship <c>reasonCode</c> alone thirty-four times against six that carried
-/// prose, which taught callers to fire the mutation just to read the sentence — the exact loop the
-/// pre-decision surface exists to spare them, and the one an unattended strategist must not enter
-/// on a spending verb.
-/// </para>
-/// <para>
 /// Where a site holds the numbers — a shortfall, a ceiling, a count — it writes its own sentence
 /// from them and this table is not consulted. What lives here is the sentence for a code that
 /// stands on its own.
@@ -66,10 +60,8 @@ internal static class GameMcpDecisionReason
     /// sentence beside it says everything else.
     /// </summary>
     /// <remarks>
-    /// Round 7 shipped forty distinct reason codes across sixty-nine uses, thirty-four of them used
-    /// exactly once — a vocabulary nobody could learn and nobody did, while the prose beside it
-    /// already carried the whole meaning. The producer vocabulary survives inside the suite, where
-    /// it selects the sentence; only the class crosses the wire.
+    /// The producer vocabulary survives inside the suite, where it selects the sentence; only the
+    /// class crosses the wire.
     /// </remarks>
     internal const string ClassNotFound = "ERR_NOT_FOUND";
     internal const string ClassState = "ERR_STATE";
@@ -93,27 +85,22 @@ internal static class GameMcpDecisionReason
     /// </summary>
     /// <remarks>
     /// "Activate a ritual" answers in battle vocabulary — <c>activeBattle: no -&gt; yes</c> — and
-    /// nothing on the wire said what that now blocked. Twenty minutes later a live round wrote "the
-    /// battle is currently active, and prestige might refuse to execute while one's ongoing — though
-    /// I'll attempt it anyway" and committed the round's one irreversible action while uncertain,
-    /// because there was no verb to ask. The gate is small and closed, so it is stated outright: the
-    /// enumeration is the whole set of decisions this surface conditions on a running battle, and a
-    /// test holds it to that.
+    /// nothing on the wire said what that blocked. The gate is small and closed, so it is stated
+    /// outright: the enumeration is the whole set of decisions this surface conditions on a running
+    /// battle, and a test holds it to that.
     /// </remarks>
     internal const string RitualBattleGate =
         "While a ritual battle runs no ritual can be activated and no ritual's starting level can " +
         "be set; no other decision on this surface is gated on it.";
 
     /// <summary>
-    /// A check that answered yes needs no code at all. Round 7 put <c>passed</c> and friends in the
-    /// same field as thirty-nine refusals, which taught a caller that "has a code" means "was
-    /// refused" and made a healthy entity read as a blocked one.
+    /// A check that answered yes needs no code at all.
     /// </summary>
     /// <remarks>
     /// Every affirmative half of a producer pair belongs here, not only the ones spelled
-    /// <c>passed</c>. A met requirement leaf carries <c>requirement_met</c>, and while that code sat
-    /// outside this list every satisfied leaf in <c>world_get</c> — the detail read's primary content —
-    /// rendered as a refusal, which is the exact confusion this method exists to end.
+    /// <c>passed</c>. A met requirement leaf carries <c>requirement_met</c>, and while that code
+    /// sat outside this list every satisfied leaf in <c>world_get</c> — the detail read's primary
+    /// content — rendered as a refusal, which is the exact confusion this method exists to end.
     /// </remarks>
     internal static bool IsPassing(string reasonCode) =>
         Rows.TryGetValue(reasonCode, out var row) && row.Passing;
@@ -150,14 +137,13 @@ internal static class GameMcpDecisionReason
             ? row.Sentence
             : Restate(reasonCode);
 
-    /// <summary>The locked-screen answer with the door named.</summary>
+    /// <summary>
+    /// The locked-screen answer with the door named.
+    /// </summary>
     /// <remarks>
-    /// "The screen this action lives on is not unlocked yet" is true and unusable: a live round met
-    /// it on a ritual, on an artifact and on a spell's own loadout row, and each time had to work
-    /// out which page it meant. Every producer holds the view's identity, so the path is always
-    /// available; a view the suite has not pinned a route for keeps the unnamed sentence rather
-    /// than a guessed route, because a reader sent to the wrong page cannot tell which half was
-    /// wrong.
+    /// Every producer holds the view's identity, so the path is always available; a view the suite
+    /// has not pinned a route for keeps the unnamed sentence rather than a guessed route, because a
+    /// reader sent to the wrong page cannot tell which half was wrong.
     /// </remarks>
     /// <summary>
     /// Where an undiscovered thing comes from: the roll on its tree's screen, and whether that roll
@@ -280,9 +266,8 @@ internal static class GameMcpDecisionReason
         ["wrong_level_surface"] = new(ClassInput),
         ["wrong_loadout_surface"] = new(ClassInput),
         ["wrong_selection"] = new(ClassInput),
-        // A feature had two doors onto one switch and a live round called both in one breath to be
-        // sure they agreed. The breaker is the door; the settings pen keeps publishing the value
-        // and stops writing it, so what is readable does not shrink and what is writable is one.
+        // The breaker is the door; the settings pen keeps publishing the value and stops writing
+        // it, so what is readable does not shrink and what is writable is one.
         ["wrong_configuration_surface"] = new(
             ClassInput,
             "This setting is one of the seven breakers, and suite_breakers is the one door that " +
@@ -304,8 +289,7 @@ internal static class GameMcpDecisionReason
         ["destination_out_of_range"] = new(ClassInput),
         ["name_out_of_range"] = new(ClassInput),
         // A value outside the range its setting accepts is the same kind of no as a dial value
-        // outside the range the game allows. It used to answer a different class on each verb,
-        // which taught a caller that the class described the tool rather than the failure.
+        // outside the range the game allows.
         ["configuration_write_rejected"] = new(ClassInput),
         // The caller quoted a page marker or a destination the screen catalog never printed.
         ["tooltip_offset_invalid"] = new(ClassInput),
@@ -381,9 +365,7 @@ internal static class GameMcpDecisionReason
         ["invalid_state"] = new(
             ClassState,
             "This is not in a state where that action does anything."),
-        // The rule, not this press's effect. "Does nothing" reads as a shrug about the button the
-        // caller just pressed, so a live round spent a second mutation finding out whether the
-        // next row would behave the same way; the standing rule answers both at once.
+        // The rule, not this press's effect.
         ["already_ran"] = new(
             ClassState,
             "A challenge that has already run cannot be queued again until the next reset."),
@@ -539,9 +521,7 @@ internal static class GameMcpDecisionReason
         ["augment_slots_exceeded"] = new(ClassLimit),
         // Both resource axes of a recipe. Their rows already answer
         // resource_or_headroom_insufficient one by one, and the axis that aggregates them says the
-        // same thing about the recipe as a whole.
-        // The two resource axes a recipe can be held on. Their codes used to be built by
-        // concatenation, so no table had ever met either of them.
+        // same thing about the recipe as a whole. The two resource axes a recipe can be held on.
         ["bandwidth_blocked"] = new(
             ClassLimit,
             "One of the resources this consumes has no bandwidth left."),
@@ -625,10 +605,8 @@ internal static class GameMcpDecisionReason
             ClassLocked,
             "The game draws this once it is discovered, or while a discovery tree offers it."),
         ["native_hidden"] = new(ClassLocked),
-        // Both of these used to fall through to the humanised code — "Hidden discovery." and
-        // "Not discovered or offered." — which named a mechanism and told a reader nothing about
-        // what would change it. One sentence, because they are one fact: the game draws this once
-        // it is discovered, and a discovery tree holding it as its current offer draws it early.
+        // One sentence, because they are one fact: the game draws this once it is discovered, and a
+        // discovery tree holding it as its current offer draws it early.
         ["hidden_discovery"] = new(
             ClassLocked,
             "The game draws this once it is discovered, or while a discovery tree offers it."),
@@ -651,9 +629,7 @@ internal static class GameMcpDecisionReason
             ClassLocked,
             "The screen this action lives on is not unlocked yet."),
         // The lock and the next level's requirements are two different authored lists, and this
-        // block once carried only the second. Saying "met" of the rows below while the thing was
-        // shut read as a green light three rounds running; the sentence names which list answers
-        // which question so the caller stops looking for the lock among the wrong rows.
+        // block once carried only the second.
         ["unlock_conditions_unmet"] = new(
             ClassLocked,
             "The game keeps this locked. What would unlock it is under \"unlocksWhen\"; the " +
@@ -667,16 +643,13 @@ internal static class GameMcpDecisionReason
         ["glyph_unavailable"] = new(ClassLocked),
         // ResourceSO.visible is false: the game does not count this resource in its own resource
         // list yet. A gate the unlock container beside it names, not a thing that is missing and
-        // not a claim about what any screen draws.
-        // ResourceSO.visible, in the one thing it actually governs. It used to answer "The game is
-        // not showing this yet", which the Scholar page contradicted while drawing a Scholar Xp bar
-        // of its own and pricing Mentality in Psi on the row above it.
-        // The lock the game states and does not explain. It is the honest floor under every other
-        // sentence here: those name a condition because the world published one, and this one is
-        // what is left to say when it published none. Restating the code produced "Native
-        // unavailable." — the suite's own word for the reading, in a sentence meant for a player,
-        // that named neither a gate nor a limit. Saying the limit out loud is the answer: a caller
-        // learns there is nothing further to look up, which is a decision it can act on.
+        // not a claim about what any screen draws. ResourceSO.visible, in the one thing it actually
+        // governs. The lock the game states and does not explain. It is the honest floor under
+        // every other sentence here: those name a condition because the world published one, and
+        // this one is what is left to say when it published none. Restating the code produced
+        // "Native unavailable." — the suite's own word for the reading, in a sentence meant for a
+        // player, that named neither a gate nor a limit. Saying the limit out loud is the answer: a
+        // caller learns there is nothing further to look up, which is a decision it can act on.
         ["native_unavailable"] = new(
             ClassLocked,
             "The game keeps this locked, and says nothing about what would unlock it."),
@@ -711,10 +684,7 @@ internal static class GameMcpDecisionReason
             ClassUnavailable,
             "The run changed underneath this call — a save load, reset, or new game plus — " +
             "so nothing was sent to the game."),
-        // The only cause these two used to give was a pair of internal counters — "expected
-        // configuration generation 41 but the main thread now has generation 42" — which no read on
-        // this surface publishes, so a caller could neither look them up nor act on them. Said once
-        // here because two producers said it in two different sets of words.
+        // Said once here because two producers said it in two different sets of words.
         ["stale_configuration_generation"] = new(
             ClassUnavailable,
             "The suite's settings changed after this call was accepted and before the game ran it, " +
@@ -824,10 +794,8 @@ internal static class GameMcpDecisionReason
             ClassUnavailable,
             "The game's own answer for this requirement could not be read, so whether it is " +
             "met is unknown."),
-        // The requirement graph. Every leaf on it used to ship its code with the underscores taken
-        // out — "Requirement unevaluable." — on the read whose whole job is explaining why a
-        // verb is shut, which is the loop this table exists to end. The unmet leaf writes its own sentence
-        // from the numbers already beside it and never reaches here.
+        // The requirement graph. The unmet leaf writes its own sentence from the numbers already
+        // beside it and never reaches here.
         ["tier_not_published"] = new(
             ClassUnavailable,
             "The game publishes no such tier on this gate, so what it asks for could not be read."),

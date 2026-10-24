@@ -143,8 +143,7 @@ public sealed class GameMcpGadgetTests
 
     /// <summary>
     /// The catalog is an address book and says so: it lists what can be hovered, it mints the only
-    /// address the reader takes, and it carries none of the text. A round that read the two names
-    /// as a plural and a singular of one idea called this one twice and the reader zero times.
+    /// address the reader takes, and it carries none of the text.
     /// </summary>
     [Fact]
     public void TheCatalogAdvertisesThatItMintsTheAddressesAndCarriesNoText()
@@ -204,10 +203,7 @@ public sealed class GameMcpGadgetTests
     /// A nested destination is one path, and the leaf is the page the caller asked to be on.
     /// </summary>
     /// <remarks>
-    /// Spellbook > Loadout and Augments > Glyphcraft each cost round fourteen two calls with a
-    /// guess between them, because a strip is only in the catalog while its parent is active:
-    /// asking for Loadout from the Augments strip refused with eight candidates, none of them
-    /// Loadout. Parent first, child second, inside one action.
+    /// Parent first, child second, inside one action.
     /// </remarks>
     [Theory]
     [InlineData("Loadout", new[] { "Loadout" }, "Loadout")]
@@ -399,10 +395,9 @@ public sealed class GameMcpGadgetTests
     /// unchanged: a scene that has moved is its own proof and pays nothing for the clause.
     /// </summary>
     /// <remarks>
-    /// A round called Continue during a slow load, read back the scene it had called from, and
-    /// could not tell the press from a no-op. It spent a health round-trip on that and wrote a
-    /// wrong finding which stood for a day, until a screenshot showed the press had landed and the
-    /// screen was already black behind the loading spinner.
+    /// It spent a health round-trip on that and wrote a wrong finding which stood for a day, until
+    /// a screenshot showed the press had landed and the screen was already black behind the loading
+    /// spinner.
     /// </remarks>
     [Fact]
     public void A_continue_whose_scene_has_not_moved_yet_still_says_the_press_landed()

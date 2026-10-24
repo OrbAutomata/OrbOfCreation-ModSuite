@@ -495,11 +495,8 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     /// The live owning-view gate, with each way of failing it kept apart.
     /// </summary>
     /// <remarks>
-    /// Five distinct facts used to leave here as one preflight and one result number: an unbound
-    /// contract, a lifecycle with no captured topology, a candidate whose chain the game refused
-    /// while the topology was being read, a status this build does not model, and a live
-    /// availability read that did not answer. Only one of those is fixed by waiting, only one is a
-    /// build problem, and the outage that motivated this split took a code trace to tell apart.
+    /// Only one of those is fixed by waiting, only one is a build problem, and the outage that
+    /// motivated this split took a code trace to tell apart.
     /// </remarks>
     private bool PassesLiveGate(
         AutoBuyPurchaseNativeBindings native,

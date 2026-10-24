@@ -6,16 +6,12 @@ namespace OrbAutomata;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Three different native refusals used to arrive here as <see cref="ProgressionLocked"/> and left
-/// as one sentence — "this harvest content is not currently unlocked and available" — which is true
-/// of a plot the player has not reached, false of a tree that is simply bare this minute, and
-/// unhelpful about which one the player is looking at. They are separate members now, so the status
-/// line can say the thing that is actually so.
+/// They are separate members now, so the status line can say the thing that is actually so.
 /// </para>
 /// <para>
 /// The numbers are the wire: the pair health rides the cycle projection as an integer. Existing
-/// members keep their values and the new ones are appended, so a journal recorded before this change
-/// still reads as what it meant.
+/// members keep their values and the new ones are appended, so a journal recorded before this
+/// change still reads as what it meant.
 /// </para>
 /// </remarks>
 internal enum AutoHarvestPairHealthKind

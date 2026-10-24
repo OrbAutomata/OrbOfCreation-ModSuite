@@ -17,9 +17,7 @@ internal static class ServiceCycleTypeSafetyFixtures
     /// </summary>
     /// <remarks>
     /// Asked of the walker directly rather than proved by registering a service that reads the
-    /// shape. The suite names one configuration type, so there is no longer a registration that
-    /// could carry another one — but the rule is about what may cross to a worker thread at all, and
-    /// it outlives the type parameter that used to be the only way to state it.
+    /// shape.
     /// </remarks>
     internal static void AssertConfigurationRejected<TShape>(TShape configuration)
         where TShape : notnull
@@ -50,10 +48,8 @@ internal static class ServiceCycleTypeSafetyFixtures
     /// Asserts a shape the capture-buffer role rejects.
     /// </summary>
     /// <remarks>
-    /// Asked of the walker directly, for the same reason the configuration assertions are: the suite
-    /// names one capture buffer, so no registration can carry another shape into the role. What the
-    /// role admits is still a rule about what may cross to a worker thread, and it outlives the type
-    /// parameter that used to be the only way to state it.
+    /// Asked of the walker directly, for the same reason the configuration assertions are: the
+    /// suite names one capture buffer, so no registration can carry another shape into the role.
     /// </remarks>
     internal static void AssertFrameRejected<TShape>(TShape frame)
         where TShape : notnull

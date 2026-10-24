@@ -11,7 +11,7 @@ performs that step too rather than refusing while the panel is shut. The button'
 asset the audited copy does not ship: `Assembly-CSharp` contains no `"Menu"` string literal at all,
 and `artifacts/game-v105` carries only `Managed/`. The resolver therefore never matched a caption —
 it binds `UIBackToMenuButton` by type and reads `UnityEngine.Object.name` only to enumerate a true
-ambiguity. Prose says "Back to Main Menu" because that is the caption the live round observed.
+ambiguity. Prose says "Back to Main Menu" to match the native caption.
 
 ## Audited v1.0.5 route
 

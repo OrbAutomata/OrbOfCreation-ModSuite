@@ -123,9 +123,6 @@ internal static class GameMcpGlyphProjection
                 ["statisticId"] = factor.StatisticId.ToString("D"),
 
                 // The four slots the game prints against a player variable instead of a statistic.
-                // They used to carry a blank where an edge belonged, which told a reader the factor
-                // moved something the game would not name — and the game does name it, through the
-                // accessor its own tooltip calls.
                 ["variableId"] = factor.VariableId.ToString("D"),
                 ["amount"] = GameMcpNativeVocabulary.ModifierMagnitude(
                     factor.ModifierType, factor.Amount),

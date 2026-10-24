@@ -274,12 +274,9 @@ internal sealed class AutomataRequirementVerifier
     /// What a pass could not check, in the words of the thing the player is looking at.
     /// </summary>
     /// <remarks>
-    /// This used to read <c>the ResourceRequirement condition on
-    /// c508d6a2-d569-4b22-927a-050edad2dad0 is not modelled</c>, three times in one answer: a C#
-    /// class name and a raw id, in prose, saying nothing about what went unchecked. Which class the
-    /// suite does not model is said once already, on the collection line that owns that fact. What
-    /// belongs here is the entity named the way every other sentence names one, and the decision
-    /// this pass therefore has no answer for.
+    /// Which class the suite does not model is said once already, on the collection line that owns
+    /// that fact. What belongs here is the entity named the way every other sentence names one, and
+    /// the decision this pass therefore has no answer for.
     /// </remarks>
     private static string Unreadable(RequirementOwnerShape shape, Guid entityId) =>
         "a condition this suite does not model holds them, first on " +

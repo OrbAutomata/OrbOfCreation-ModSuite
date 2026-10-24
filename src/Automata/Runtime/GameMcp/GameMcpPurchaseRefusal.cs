@@ -35,10 +35,8 @@ internal static class GameMcpPurchaseRefusal
             WorldLookup.TryFind(world.Upgrades, command.TargetId, out var upgrade) &&
             upgrade.IsExhausted)
         {
-            // The player's word for the thing, and only that. This sentence used to spell the
-            // target the way a log line does — display name, asset name in brackets, and the whole
-            // canonical UUID — inside prose a player reads. The id the caller acts on rides as the
-            // response's own `uuid` field, where it can be read without parsing a sentence.
+            // The player's word for the thing, and only that. The id the caller acts on rides as
+            // the response's own `uuid` field, where it can be read without parsing a sentence.
             return GameMcpCommandResult.Rejected(
                 "already_maxed",
                 EntityIdentityFormatter.PlayerName(command.TargetId, world.EntityIdentities) +

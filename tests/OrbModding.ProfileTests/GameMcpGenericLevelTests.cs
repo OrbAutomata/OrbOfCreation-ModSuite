@@ -89,11 +89,9 @@ public sealed class GameMcpGenericLevelTests
         Assert.Equal("5", (string?)cost["cost"]);
         Assert.Equal("80", (string?)cost["spendableAmount"]);
 
-        // One price shape: what it asks, what is held, whether that covers it, and the resource. A
-        // level price used to say three of the four and leave affordability to a sibling key on the
-        // decision, so a glyph's price and a research's price read as two different tables in one
-        // session. The sibling key stays because it is a different fact — the game's own answer for
-        // the whole purchase — while the column answers per resource and so names the one that is
+        // One price shape: what it asks, what is held, whether that covers it, and the resource.
+        // The sibling key stays because it is a different fact — the game's own answer for the
+        // whole purchase — while the column answers per resource and so names the one that is
         // short. Here they disagree, which is exactly why neither can stand in for the other.
         Assert.Equal(
             new[] { "cost", "spendableAmount", "affordable", "resource" },
@@ -264,12 +262,11 @@ public sealed class GameMcpGenericLevelTests
     /// What the press was charged survives the settlement that follows it.
     /// </summary>
     /// <remarks>
-    /// Round 15 bought two rungs of Elemental Persist — the first free, the second charged — and
-    /// the wire printed the two levels and not one word about the price. The press projection ran
-    /// and the settlement step replaced its document wholesale with the one built from the settled
-    /// world, so the only producer that saw every rung's price was constructed and discarded. This
-    /// runs the producers the way the press runs them: the prepared command, the committed result
-    /// <c>ExecuteGenericLevel</c> builds, and the merge the post-state completion performs.
+    /// The press projection ran and the settlement step replaced its document wholesale with the
+    /// one built from the settled world, so the only producer that saw every rung's price was
+    /// constructed and discarded. This runs the producers the way the press runs them: the prepared
+    /// command, the committed result <c>ExecuteGenericLevel</c> builds, and the merge the
+    /// post-state completion performs.
     /// </remarks>
     [Fact]
     public void A_settled_level_press_still_says_what_it_was_charged()
@@ -338,9 +335,7 @@ public sealed class GameMcpGenericLevelTests
     /// <summary>
     /// One gate is left. <c>GlyphSO.IsAvailable()</c> returns <c>discovered</c> for a discoverable
     /// glyph and every glyph the world publishes is one, so the grid refusing a row is its own
-    /// discovery and nothing else. The second case this used to carry — the honest-unknown sentence
-    /// for a glyph whose authored condition the suite could not read — belonged to the twenty-five
-    /// that are Recipe Books now, and their condition is answered on the book's row.
+    /// discovery and nothing else.
     /// </summary>
     [Fact]
     public void An_unlearned_glyph_names_the_gate_the_game_actually_published()

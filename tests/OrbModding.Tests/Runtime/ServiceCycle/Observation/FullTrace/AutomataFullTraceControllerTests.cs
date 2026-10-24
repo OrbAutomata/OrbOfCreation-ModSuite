@@ -87,11 +87,9 @@ public sealed class AutomataFullTraceControllerTests
     }
 
     /// <summary>
-    /// A 43-minute capture said nothing about itself anywhere in the log: no start, no stop, and the
-    /// completeness line is reported from a tick that shutdown has none of. Correlating that trace to
-    /// the log it belongs beside took two independent clock anchors and an mtime. The closing line is
-    /// the same terminal line every other ending gets, because the session now waits for its writer
-    /// instead of announcing a manifest it only hoped would follow.
+    /// Correlating that trace to the log it belongs beside took two independent clock anchors and
+    /// an mtime. The closing line is the same terminal line every other ending gets, because the
+    /// session waits for its writer instead of announcing a manifest it only hoped would follow.
     /// </summary>
     [Fact]
     public void TheSessionNamesItselfWhenItStartsAndWhenItCloses()

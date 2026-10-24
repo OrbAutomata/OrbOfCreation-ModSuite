@@ -193,9 +193,6 @@ internal static class GameMcpWorldList
     /// The pending target request, whose candidate list is the thing being paged.
     /// </summary>
     /// <remarks>
-    /// One request is one row, so paging the rows could only ever hand back the same single row or
-    /// nothing at all while the list a caller actually reads — 180 candidates, 8,216 bytes, the
-    /// largest text payload of a live round — came back whole every time to settle one choice.
     /// <c>limit</c> and <c>offset</c> therefore reach the candidates, which is where the length is,
     /// and every candidate stays reachable by asking for the next offset.
     /// </remarks>
@@ -236,11 +233,8 @@ internal static class GameMcpWorldList
     /// What a page row says when the world could not publish all of what gates its entity.
     /// </summary>
     /// <remarks>
-    /// A row of a list stays a row. It used to be swapped for a refusal block — a status, a code
-    /// that reads <c>ERR_</c> on the wire, a reason, the row itself demoted to <c>partialRow</c>
-    /// and the whole leaf list inline — once for every entity an unmodelled condition gates, which
-    /// on a mature save is most of page one. The row's own columns are what the page is for; one
-    /// sentence says what is missing, and the read that holds the detail is <c>world_get</c>.
+    /// A row of a list stays a row. The row's own columns are what the page is for; one sentence
+    /// says what is missing, and the read that holds the detail is <c>world_get</c>.
     /// </remarks>
 
     /// <summary>
@@ -322,12 +316,10 @@ internal static class GameMcpWorldList
     /// What one built row will weigh on the wire, measured from the row itself.
     /// </summary>
     /// <remarks>
-    /// The estimate used to be a flat 512 bytes plus 64 per declared field, which is roughly three
-    /// times what a row actually encodes to, so every page stopped at about a quarter of the byte
-    /// budget and callers paged four times for one page's worth of rows. The document is already
-    /// built when this runs, so the fields it really carries are countable; only the two things the
-    /// transport adds later are charged as constants — the named-entity expansion the wire
-    /// normalizer performs, and the large-magnitude values the JSON encoder renders.
+    /// The document is already built when this runs, so the fields it really carries are countable;
+    /// only the two things the transport adds later are charged as constants — the named-entity
+    /// expansion the wire normalizer performs, and the large-magnitude values the JSON encoder
+    /// renders.
     /// </remarks>
     internal static int EstimateListRowBytes(
         GameWorldState world,
@@ -339,8 +331,6 @@ internal static class GameMcpWorldList
         if (!category.TryIdentity(row, out var identity)) return bytes;
         var name = EntityIdentityFormatter.Describe(identity, world.EntityIdentities).Name;
 
-        // The row's own id shortens to its handle and gains the player's name for it; the asset name
-        // and the runtime type it used to carry no longer ride any identity.
         return checked(
             bytes + NameFieldBytes + Encoding.UTF8.GetByteCount(name) - HandleSavingBytes);
     }

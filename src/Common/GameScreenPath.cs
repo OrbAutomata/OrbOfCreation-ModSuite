@@ -7,11 +7,9 @@ namespace OrbModding.Common;
 /// </summary>
 /// <remarks>
 /// <para>
-/// "The screen this action lives on is not unlocked yet" is a true sentence a reader cannot act
-/// on: a live round met it on a ritual, on an artifact and on a spell's own loadout row, and each
-/// time had to go and work out which page that was. Every producer of that answer already holds
-/// the view's identity, so the door has a name at every one of them; this is where the name lives,
-/// so the read side and the verb cannot spell one screen two ways.
+/// Every producer of that answer already holds the view's identity, so the door has a name at every
+/// one of them; this is where the name lives, so the read side and the verb cannot spell one screen
+/// two ways.
 /// </para>
 /// <para>
 /// The breadcrumbs are the game's own tab labels, joined the way the game's own headers read them.

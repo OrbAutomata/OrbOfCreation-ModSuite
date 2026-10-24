@@ -205,9 +205,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
     }
 
     /// <summary>
-    /// The press permanently spends a discovery choice. It used to answer with a bare count and
-    /// nothing naming what was taken, so a caller could not confirm the discovery landed and read
-    /// the tree again to learn what it had got — with an identity the tool held in its own request.
+    /// The press permanently spends a discovery choice.
     /// </summary>
     [Fact]
     public void Confirming_an_offer_names_what_was_discovered_and_moves_the_count_as_a_pair()
@@ -239,8 +237,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
 
     /// <summary>
     /// A tree mid-craft counts seconds, so it says them the way every other duration on this
-    /// surface does. It shipped as a bare magnitude and a live round watched it climb 0.22 → 2.72
-    /// with nothing on the line saying what the number counted.
+    /// surface does.
     /// </summary>
     [Fact]
     public void A_crafting_tree_says_its_elapsed_time_as_a_duration()
@@ -414,16 +411,15 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
     }
 
     /// <summary>
-    /// The press that starts a roll settles on the mode change it makes, and says the roll is
-    /// still running.
+    /// The press that starts a roll settles on the mode change it makes, and says the roll is still
+    /// running.
     /// </summary>
     /// <remarks>
-    /// A round read <c>mode: crafting</c> on the initiate press and <c>mode: choice</c> on its next
-    /// read and took the word for a flip. The press settles on exactly what the press produces —
-    /// the tree leaving idle for crafting — and no further: the game rolls the offers three seconds
-    /// of game time later, which no frame-scale settlement budget can outwait, and waiting for the
-    /// offers reported a timeout on every initiate that had plainly landed. So the press says what
-    /// it is instead: the roll is running, and for how long.
+    /// The press settles on exactly what the press produces — the tree leaving idle for crafting —
+    /// and no further: the game rolls the offers three seconds of game time later, which no
+    /// frame-scale settlement budget can outwait, and waiting for the offers reported a timeout on
+    /// every initiate that had plainly landed. So the press says what it is instead: the roll is
+    /// running, and for how long.
     /// </remarks>
     [Fact]
     public void An_initiated_roll_settles_on_crafting_and_says_the_roll_is_running()

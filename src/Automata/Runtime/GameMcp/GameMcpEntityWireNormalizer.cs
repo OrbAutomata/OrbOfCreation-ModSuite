@@ -133,21 +133,15 @@ internal static class GameMcpEntityWireNormalizer
             item.Remove("status");
             item.Remove("code");
         }
-        // No bare no. The sentence rule used to bind only a block that already had a code, so a
-        // decision could refuse by publishing `available: false` and nothing else — a caller with
-        // no axis to branch on and no way to tell a temporary no from a permanent one. Producers
-        // that know the axis name it; this is the backstop that makes silence impossible.
-        //
-        // A table row is the one place it must not fire. There, `available` is a declared column a
-        // header already names, and the pair it invents is a code and a sentence saying the game
-        // refused and would not say why — the same 139 characters on every row of a page, telling
-        // a reader nothing the `no` in the column did not. Cells carry words; the sentence lives
-        // in get and in refusals, which are exactly the shapes this backstop still guards.
-        //
-        // A no that already carries its own sentence is not bare. Producers that hold the numbers
-        // write the better sentence and skip the code entirely, and inventing one over the top of
-        // theirs filed a stated limit as a lock the game had published no condition for.
-        //
+        // No bare no. Producers that know the axis name it; this is the backstop that makes silence
+        // impossible. A table row is the one place it must not fire. There, `available` is a
+        // declared column a header already names, and the pair it invents is a code and a sentence
+        // saying the game refused and would not say why — the same 139 characters on every row of a
+        // page, telling a reader nothing the `no` in the column did not. Cells carry words; the
+        // sentence lives in get and in refusals, which are exactly the shapes this backstop still
+        // guards. A no that already carries its own sentence is not bare. Producers that hold the
+        // numbers write the better sentence and skip the code entirely, and inventing one over the
+        // top of theirs filed a stated limit as a lock the game had published no condition for.
         // What it supplies is a lock, not a refusal. `available: false` with no axis beside it is
         // the game holding something shut and publishing no condition for it — which is what
         // ERR_LOCKED means. Filing it as ERR_REFUSED invented a refusal of an action nobody had
@@ -167,10 +161,7 @@ internal static class GameMcpEntityWireNormalizer
 
             // The producer vocabulary picked the sentence and stops there. What crosses the wire is
             // one of eight classes: the class says which kind of no this is, the sentence says
-            // everything else, and a check that answered yes carries neither. The sentence is
-            // defaulted inside the refusal branch for that reason — every yes used to gain
-            // "This check passes." as well, one line per verdict on the surface this idiom exists
-            // to compact.
+            // everything else, and a check that answered yes carries neither.
             if (GameMcpDecisionReason.IsPassing(code))
             {
                 item.Remove("reasonCode");
