@@ -543,8 +543,10 @@ edges, structure costs, upgrade costs, and entity keywords describe what the gam
 rather than what the player has done, so they re-read only when the frame
 arrives under a lifecycle epoch this collector has not already read for. A table derived from
 structural rows alone is derived once per read and shared by every publication until the next one;
-`WorldAuthoredTables` owns which tables those are. A table that joins a structural row to anything
-read every pass is derived for every publication. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
+The publication builder selects structural derivation at each table's single assignment; its buffer
+retains that immutable result until captured contents change. The purchase-view join retains one typed
+result per structural generation. There is no second table list to maintain. A table that joins a
+structural row to anything read every pass is derived for every publication. Their paired live facts remain ordinary 250-millisecond collection: prerequisite-link and
 native requirement verdicts, crafting visibility/purchase/capacity/drain verdicts, resources, active
 modifier inputs, and affordability. The field-by-field ownership table is in
 [Game MCP frame operations](game-mcp-frame-operations.md#data-lifetime-and-owner-inventory).
@@ -579,9 +581,10 @@ stated in exactly one place — `NotIdentityTables` in
 every second reading of an entity another table already claims lands there. Five exclusions have reasons
 worth knowing:
 
-- **Purchase costs.** `WorldPurchaseCost.cs` is a second walk of the structure registry with a buffer
-  admitting several rows per entity, and `WorldUpgradeCost.cs` the matching second walk of the upgrade
-  registry appending into the same buffer — which is why the collector, not either reader, resets it.
+- **Purchase costs.** One parameterized `WorldPurchaseCostReader` walks the structure and upgrade
+  registries into the same buffer, admitting several rows per entity; the upgrade instance also reads
+  its optional per-level `ModifierListRef` source. The collector, not either instance, resets that
+  shared cost buffer.
   Read through `WorldPurchaseCostLookup`, which returns an entity's whole range, because a partial price
   is worse than none.
 - **Plot actions.** A row is a *pair*, so it has no identity of its own. `WorldPlotAction.cs` walks the
@@ -603,9 +606,28 @@ worth knowing:
   containers disagree on 16 of the 25 pairs, and on Gloves and Herbalize they disagree in substance
   (`UnobtainableResearch` against `ArtifactGloves` and `LearnBiology`), so only the book's own answers
   for the tile the player presses.
-  A row carries its top-level position (`GroupOrdinal`, folded by the composite's `GroupKind`) and its
-  arm within that composite (`BranchOrdinal`): the leaves of a composite nested one level deeper share
-  an arm and fold by the opposite operator, and a third level reads as `Unknown`.
+  Every program uses one graph shape: container, program, node ordinal, parent ordinal, depth and
+  explicit AND/OR operator. Capture and the shared fold walk finite acyclic group trees iteratively,
+  without an authored-depth limit or recursive group calls, including empty AND (Met) and empty OR
+  (Unmet). Reference cycles and null conditions at any position publish durable Unknown leaves;
+  they report incomplete authored data without requesting a retry. A null top-level condition list
+  likewise publishes a durable Unknown for its owner/program/tier; a valid empty list keeps its
+  normal truth. A declared required container that returns null uses that same scoped Unknown path;
+  an undeclared program, such as a resource's NextLevel, remains legitimately absent. Both Research
+  unlock operands retain separate ordinals even if either is unreadable. Prerequisite-link container
+  references retain their separate cycle guard and 32-container expansion bound. Container threshold
+  adjustments reach every descendant leaf. Research's two unlock containers retain distinct node ordinals under the implicit
+  AND, and program filtering keeps unlock, next-level and usage gates separate. Auto Buy uses this
+  same fold, so a satisfied deeply nested gate admits its next-level candidate. A failed native tier
+  read discards that entire tier's prefix and publishes a scoped capture gap; later tiers are still
+  read independently. An unreadable tier list gaps every tier of that owner. Expected native faults
+  retain their full logged cause and retry in the same epoch; durable missing tier data remains
+  visible and unevaluable while reusing its authored publication. List membership publication is
+  atomic too: a failed member read cannot leave a partial list header or suppress a later attempt.
+  Null static membership is a durable skipped shortfall and publishes no successful list header,
+  so every owner referencing it remains Unevaluable. A real empty membership list still publishes
+  its header and folds Unmet; null members inside a real list retain the native Any predicate's false
+  contribution.
   Its list is `[SerializeReference]`, so accessors compile per concrete condition class on first sight,
   and a class that does not bind yields a row of kind `Unknown` rather than none — an unmodelled
   condition must be visible as a requirement nobody can evaluate rather than as an entity with no
@@ -640,3 +662,46 @@ worth knowing:
   and two may hold the same spell, so `SlotIndex` is the key and counts unfilled positions exactly as
   the game does, because it is the number a cast is addressed by
   ([W60](world-collection-decisions.md)).
+
+World relation buffers share one append/reset/truncate primitive, with a transform-and-sort overload
+for derived rows. Their lookups share one lower-bound search for identity, integer and composite keys;
+category wrappers retain their signatures and miss conventions. Consumable count rows at level zero,
+or with negative quantities, are omitted at capture and counted as Skipped with a named reason; valid
+counts and the consumable scalar remain published. Native read exceptions are logged whole under a
+fresh reference for each failed attempt. Collection reports carry the authored reason and that
+reference, never exception text; an unexpected reader exception still faults the whole world pass.
+
+A caught native read fault is retryable even when the category produced other rows: its structured
+collection failure keeps the structural epoch gate open. Clearing the native failure recaptures and
+invalidates the failed authored publication in the same epoch. Unsupported authored condition classes
+are durable facts rather than read faults; their Unknown rows and skip counts remain cached until the
+next structural read. A category's first read fault takes precedence over an earlier durable shortfall,
+so its log reference stays visible. Repeated warnings compare category/outcome and the reason's target,
+code and authored sentence; every failed attempt still logs the full exception under a fresh reference.
+Purchase-view category, membership and live-availability failures follow the same rule and carry their
+structured cause through the captured resolution and Auto Buy admission. Availability failures and
+diagnostic reads retry on each call; they introduce no fault cache.
+
+Challenge context retains its established first-failure precedence: an unavailable challenge-type
+binding is the report's sole reason even when prestige capture also fails. The prestige exception
+still receives its own full fault-log entry; retaining the first report reason never suppresses it.
+
+Structural capture records prerequisite capture completeness separately from retryability. An
+incomplete Alchemy identity mapping publishes a CaptureGap node for the affected Usage program and
+container, retaining the upstream reason/reference in the report. Its empty owner UUID is scope
+metadata for the identities that could not be mapped, never an entity identity. Evaluation checks
+explicit gaps for the requested owner/program/container; a successfully read empty NextLevel or
+Unlock scope stays Met even while Usage is incomplete. Other programs' rows cannot change that
+answer. A missing affected Usage graph remains Unevaluable, so owned concept math refuses it.
+
+An actual upstream native read fault keeps structural capture open and recovers in the same epoch;
+subsequent healthy worlds share the recovered authored tables. Durable null, duplicate, empty-ID or
+binding defects remain visibly incomplete and unevaluable, but their dependency does not invent a
+native retry flag: structural generation and unrelated authored tables remain cached. Spell authoring
+uses the same dependency primitive and withholds an incomplete positional identity mapping. Readers
+see only this pass's completed upstream reports; a previous pass's cause is never reused.
+
+Per-owner capture faults retain the stable UUID already obtained by that read, including effect,
+plot, relation, member, cost and dynamic reader paths. Helpers return that same identity to their
+catch scope; no extra native identity read is made for diagnostics. Before identity is established,
+or for a global read with no entity identity, the failure target remains empty.

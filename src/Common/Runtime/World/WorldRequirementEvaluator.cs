@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using OrbModding.Common.Runtime.GameMath;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbModding.Common.Runtime.World;
 
@@ -165,106 +167,7 @@ internal static class WorldRequirementEvaluator
         long level,
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
     {
-        if (world is null) throw new ArgumentNullException(nameof(world));
-        if (!WorldEntityRequirementLookup.TryFindRange(
-                world.EntityRequirements, ownerId, out var start, out var count))
-        {
-            return WorldRequirementVerdict.Met;
-        }
-
-        var rows = world.EntityRequirements.AsSpan();
-        var verdict = WorldRequirementVerdict.Met;
-        var priorGroup = -1;
-        for (var offset = 0; offset < count; offset++)
-        {
-            ref readonly var row = ref rows[start + offset];
-            if (row.Program != program || row.GroupOrdinal == priorGroup) continue;
-            priorGroup = row.GroupOrdinal;
-            var group = EvaluateGroup(world, rows, start, count, in row, level, program);
-            if (group == WorldRequirementVerdict.Unevaluable)
-                return WorldRequirementVerdict.Unevaluable;
-            if (group == WorldRequirementVerdict.Unmet)
-                verdict = WorldRequirementVerdict.Unmet;
-        }
-
-        return verdict;
-    }
-
-    private static WorldRequirementVerdict EvaluateGroup(
-        GameWorldState world,
-        ReadOnlySpan<WorldEntityRequirement> rows,
-        int start,
-        int count,
-        in WorldEntityRequirement first,
-        long level,
-        WorldRequirementProgramKind program)
-    {
-        var verdict = first.GroupKind == WorldRequirementGroupKind.Any
-            ? WorldRequirementVerdict.Unmet
-            : WorldRequirementVerdict.Met;
-        var priorBranch = -1;
-        for (var offset = 0; offset < count; offset++)
-        {
-            ref readonly var row = ref rows[start + offset];
-            if (row.Program != program || row.GroupOrdinal != first.GroupOrdinal) continue;
-            if (row.GroupKind != first.GroupKind) return WorldRequirementVerdict.Unevaluable;
-            if (row.BranchOrdinal == priorBranch) continue;
-            priorBranch = row.BranchOrdinal;
-
-            var child = EvaluateBranch(world, rows, start, count, in row, level, program);
-            if (first.GroupKind == WorldRequirementGroupKind.Any)
-            {
-                if (child == WorldRequirementVerdict.Met) return WorldRequirementVerdict.Met;
-                if (child == WorldRequirementVerdict.Unevaluable)
-                    verdict = WorldRequirementVerdict.Unevaluable;
-                continue;
-            }
-
-            // Preserve the evaluator's fail-closed AND contract: an unmodelled child stays named
-            // even when another child is ordinarily unmet.
-            if (child == WorldRequirementVerdict.Unevaluable)
-                return WorldRequirementVerdict.Unevaluable;
-            if (child == WorldRequirementVerdict.Unmet)
-                verdict = WorldRequirementVerdict.Unmet;
-        }
-
-        return verdict;
-    }
-
-    /// <summary>
-    /// One arm of a group: a leaf alone, or the leaves of a nested composite folded by the operator
-    /// opposite to the group's.
-    /// </summary>
-    private static WorldRequirementVerdict EvaluateBranch(
-        GameWorldState world,
-        ReadOnlySpan<WorldEntityRequirement> rows,
-        int start,
-        int count,
-        in WorldEntityRequirement first,
-        long level,
-        WorldRequirementProgramKind program)
-    {
-        var any = first.GroupKind == WorldRequirementGroupKind.All;
-        var hasUnevaluable = false;
-        var hasUnmet = false;
-        var hasMet = false;
-        for (var offset = 0; offset < count; offset++)
-        {
-            ref readonly var row = ref rows[start + offset];
-            if (row.Program != program || row.GroupOrdinal != first.GroupOrdinal ||
-                row.BranchOrdinal != first.BranchOrdinal)
-            {
-                continue;
-            }
-            var one = Evaluate(world, in row, level);
-            if (one == WorldRequirementVerdict.Unevaluable) hasUnevaluable = true;
-            else if (one == WorldRequirementVerdict.Unmet) hasUnmet = true;
-            else hasMet = true;
-        }
-
-        if (any && hasMet) return WorldRequirementVerdict.Met;
-        if (hasUnevaluable) return WorldRequirementVerdict.Unevaluable;
-        return hasUnmet ? WorldRequirementVerdict.Unmet : WorldRequirementVerdict.Met;
+        return EvaluateContainer(world, ownerId, 0, level, program);
     }
 
     /// <summary>
@@ -274,19 +177,18 @@ internal static class WorldRequirementEvaluator
     /// <remarks>
     /// An owner holding several containers — a prerequisite link holds one per tier — is not one
     /// requirement set, and the whole-owner overload would fold its tiers into an answer the game
-    /// never asks for. Containers are published as a parent-and-child graph rather than as the flat
-    /// groups an entity's own per-level container gets, so this is a different walk and not an
-    /// alternative spelling of the same one.
+    /// never asks for. Every program uses the same parent-and-child graph and fold.
     /// </remarks>
     internal static WorldRequirementVerdict EvaluateContainer(
         GameWorldState world,
         Guid ownerId,
         int containerIndex,
-        long level)
+        long level,
+        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
     {
         if (world is null) throw new ArgumentNullException(nameof(world));
         Span<RequirementContainerKey> trail = stackalloc RequirementContainerKey[MaximumExpansionDepth];
-        return EvaluateContainer(world, ownerId, containerIndex, level, trail, trailDepth: 0);
+        return EvaluateContainer(world, ownerId, containerIndex, level, trail, trailDepth: 0, program);
     }
 
     /// <summary>One condition, at the level being bought.</summary>
@@ -521,13 +423,20 @@ internal static class WorldRequirementEvaluator
         int containerIndex,
         long level,
         Span<RequirementContainerKey> trail,
-        int trailDepth)
+        int trailDepth,
+        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
     {
         if (trailDepth >= trail.Length) return WorldRequirementVerdict.Unevaluable;
-        var key = new RequirementContainerKey(ownerId, containerIndex);
+        var key = new RequirementContainerKey(ownerId, containerIndex, program);
         for (var index = 0; index < trailDepth; index++)
             if (trail[index].Equals(key)) return WorldRequirementVerdict.Unevaluable;
         trail[trailDepth] = key;
+
+        if (HasCaptureGap(world.EntityRequirements, Guid.Empty, containerIndex, program) ||
+            HasCaptureGap(world.EntityRequirements, ownerId, containerIndex, program) ||
+            HasCaptureGap(world.EntityRequirements, ownerId, -1, program) ||
+            HasCaptureGap(world.EntityRequirements, Guid.Empty, -1, program))
+            return WorldRequirementVerdict.Unevaluable;
 
         if (!WorldEntityRequirementLookup.TryFindContainerRange(
                 world.EntityRequirements, ownerId, containerIndex, out var start, out var count))
@@ -535,59 +444,96 @@ internal static class WorldRequirementEvaluator
             return WorldRequirementVerdict.Met;
         }
 
-        var rows = world.EntityRequirements.AsSpan();
-        var verdict = WorldRequirementVerdict.Met;
-        for (var offset = 0; offset < count; offset++)
-        {
-            ref readonly var row = ref rows[start + offset];
-            if (row.ParentOrdinal >= 0) continue;
-            var one = EvaluateNode(
-                world, rows, start, count, in row, level, trail, trailDepth + 1);
-            if (one == WorldRequirementVerdict.Unevaluable) return one;
-            if (one == WorldRequirementVerdict.Unmet) verdict = one;
-        }
-
-        return verdict;
+        return FoldContainer(world, world.EntityRequirements.AsSpan(), start, count, program,
+            level, trail, trailDepth + 1);
     }
 
-    private static WorldRequirementVerdict EvaluateNode(
+    private static bool HasCaptureGap(
+        PublicationTable<WorldEntityRequirement> table,
+        Guid ownerId,
+        int containerIndex,
+        WorldRequirementProgramKind program)
+    {
+        if (!WorldEntityRequirementLookup.TryFindContainerRange(
+                table, ownerId, containerIndex, out var start, out var count)) return false;
+        for (var index = start; index < start + count; index++)
+        {
+            var row = table[index];
+            if (row.Program == program && row.NodeKind == WorldRequirementNodeKind.CaptureGap) return true;
+        }
+        return false;
+    }
+
+    private static WorldRequirementVerdict FoldContainer(
         GameWorldState world,
         ReadOnlySpan<WorldEntityRequirement> rows,
         int start,
         int count,
-        in WorldEntityRequirement row,
+        WorldRequirementProgramKind program,
         long level,
         Span<RequirementContainerKey> trail,
         int trailDepth)
     {
-        if (row.NodeKind == WorldRequirementNodeKind.Leaf)
-            return EvaluateLeaf(world, in row, level, trail, trailDepth);
+        // Capture emits pre-order ordinals. In reverse order every child's verdict is available
+        // before its parent, so authored group nesting consumes neither the call stack nor the
+        // separately bounded trail of prerequisite-link container references.
+        var children = new Dictionary<int, RequirementFold>();
+        var roots = default(RequirementFold);
+        var previousOrdinal = int.MaxValue;
+        for (var index = start + count - 1; index >= start; index--)
+        {
+            ref readonly var row = ref rows[index];
+            if (row.Program != program) continue;
+            if (row.Ordinal < 0 || row.Ordinal >= previousOrdinal || row.ParentOrdinal >= row.Ordinal)
+                return WorldRequirementVerdict.Unevaluable;
+            previousOrdinal = row.Ordinal;
+            children.TryGetValue(row.Ordinal, out var foldedChildren);
+            children.Remove(row.Ordinal);
+            var one = row.NodeKind switch
+            {
+                WorldRequirementNodeKind.Leaf when !foldedChildren.HasChildren =>
+                    EvaluateLeaf(world, in row, level, trail, trailDepth),
+                WorldRequirementNodeKind.Group => foldedChildren.Verdict(row.Operator),
+                _ => WorldRequirementVerdict.Unevaluable,
+            };
+            if (row.ParentOrdinal < 0)
+                roots.Add(one);
+            else
+            {
+                children.TryGetValue(row.ParentOrdinal, out var parent);
+                parent.Add(one);
+                children[row.ParentOrdinal] = parent;
+            }
+        }
+        // An orphan must not become an empty, satisfied container.
+        return children.Count == 0
+            ? roots.Verdict(WorldRequirementOperator.And)
+            : WorldRequirementVerdict.Unevaluable;
+    }
 
-        var hasUnevaluable = false;
-        var hasUnmet = false;
-        for (var offset = 0; offset < count; offset++)
+    private struct RequirementFold
+    {
+        private bool _hasMet;
+        private bool _hasUnmet;
+        private bool _hasUnevaluable;
+        internal bool HasChildren => _hasMet || _hasUnmet || _hasUnevaluable;
+
+        internal void Add(WorldRequirementVerdict verdict)
         {
-            ref readonly var child = ref rows[start + offset];
-            if (child.ParentOrdinal != row.Ordinal) continue;
-            var one = EvaluateNode(
-                world, rows, start, count, in child, level, trail, trailDepth);
-            if (row.Operator == WorldRequirementOperator.Or && one == WorldRequirementVerdict.Met)
-                return WorldRequirementVerdict.Met;
-            if (one == WorldRequirementVerdict.Unevaluable) hasUnevaluable = true;
-            if (one == WorldRequirementVerdict.Unmet) hasUnmet = true;
+            _hasMet |= verdict == WorldRequirementVerdict.Met;
+            _hasUnmet |= verdict == WorldRequirementVerdict.Unmet;
+            _hasUnevaluable |= verdict == WorldRequirementVerdict.Unevaluable;
         }
 
-        if (row.Operator == WorldRequirementOperator.And)
+        internal readonly WorldRequirementVerdict Verdict(WorldRequirementOperator op)
         {
-            if (hasUnevaluable) return WorldRequirementVerdict.Unevaluable;
-            return hasUnmet ? WorldRequirementVerdict.Unmet : WorldRequirementVerdict.Met;
+            if (op == WorldRequirementOperator.Or && _hasMet) return WorldRequirementVerdict.Met;
+            if (_hasUnevaluable) return WorldRequirementVerdict.Unevaluable;
+            if (op == WorldRequirementOperator.And)
+                return _hasUnmet ? WorldRequirementVerdict.Unmet : WorldRequirementVerdict.Met;
+            return op == WorldRequirementOperator.Or
+                ? WorldRequirementVerdict.Unmet : WorldRequirementVerdict.Unevaluable;
         }
-        if (row.Operator == WorldRequirementOperator.Or)
-        {
-            if (hasUnevaluable) return WorldRequirementVerdict.Unevaluable;
-            return WorldRequirementVerdict.Unmet;
-        }
-        return WorldRequirementVerdict.Unevaluable;
     }
 
     private static WorldRequirementVerdict EvaluateLeaf(
@@ -714,17 +660,19 @@ internal static class WorldRequirementEvaluator
 
     private readonly struct RequirementContainerKey : IEquatable<RequirementContainerKey>
     {
-        internal RequirementContainerKey(Guid ownerId, int containerIndex)
+        internal RequirementContainerKey(Guid ownerId, int containerIndex, WorldRequirementProgramKind program)
         {
             OwnerId = ownerId;
             ContainerIndex = containerIndex;
+            Program = program;
         }
 
         private Guid OwnerId { get; }
         private int ContainerIndex { get; }
+        private WorldRequirementProgramKind Program { get; }
 
         public bool Equals(RequirementContainerKey other) =>
-            OwnerId == other.OwnerId && ContainerIndex == other.ContainerIndex;
+            OwnerId == other.OwnerId && ContainerIndex == other.ContainerIndex && Program == other.Program;
     }
 
     /// <summary>

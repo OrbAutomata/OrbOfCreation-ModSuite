@@ -52,7 +52,7 @@ internal readonly struct WorldMasteryExperience
 /// </summary>
 internal interface IWorldMasteryExperienceSource
 {
-    void CopyTo(long lifecycleEpoch, WorldMasteryExperienceBuffer destination);
+    void CopyTo(long lifecycleEpoch, WorldRelationBuffer<WorldMasteryExperience> destination);
 }
 
 internal sealed class EmptyWorldMasteryExperienceSource : IWorldMasteryExperienceSource
@@ -64,37 +64,7 @@ internal sealed class EmptyWorldMasteryExperienceSource : IWorldMasteryExperienc
     {
     }
 
-    public void CopyTo(long lifecycleEpoch, WorldMasteryExperienceBuffer destination)
+    public void CopyTo(long lifecycleEpoch, WorldRelationBuffer<WorldMasteryExperience> destination)
     {
-    }
-}
-
-internal sealed class WorldMasteryExperienceBuffer
-{
-    private WorldMasteryExperience[] _samples = new WorldMasteryExperience[32];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldMasteryExperience this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldMasteryExperience sample)
-    {
-        if (_count == _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldMasteryExperienceDeriver
-{
-    internal static PublicationTable<WorldMasteryExperience> Build(
-        WorldMasteryExperienceBuffer buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldMasteryExperience>.Empty;
-        var rows = new WorldMasteryExperience[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) => left.Sequence.CompareTo(right.Sequence));
-        return PublicationTable<WorldMasteryExperience>.Create(rows, rows.Length);
     }
 }

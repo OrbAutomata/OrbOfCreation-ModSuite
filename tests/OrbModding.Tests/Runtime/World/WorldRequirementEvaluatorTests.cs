@@ -448,7 +448,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     [Fact]
-    public void ADeeperCompositeShapeIsNamedAndUnevaluable()
+    public void AnEmptyAndInsideOrRetainsItsMetIdentity()
     {
         var gated = Upgrade();
         var outer = new Requirements.OrRequirement();
@@ -457,9 +457,9 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
 
         var world = Collect();
 
-        Assert.Equal("AndRequirement", world.EntityRequirements[0].ConditionTypeName);
+        Assert.Equal("AndRequirement", world.EntityRequirements[1].ConditionTypeName);
         Assert.Equal(
-            WorldRequirementVerdict.Unevaluable,
+            WorldRequirementVerdict.Met,
             WorldRequirementEvaluator.Evaluate(world, gated.GetGuid(), 1));
     }
 
@@ -710,7 +710,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     [Fact]
-    public void ARequirementGraphBeyondTheExpansionBoundFailsClosed()
+    public void ADeepFiniteRequirementGraphDoesNotConsumeReferenceExpansionBudget()
     {
         var gated = Upgrade();
         var scribing = Research();
@@ -724,7 +724,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         }
         gated.prerequisitesPerLevel.prerequisites.Add(nested);
 
-        Assert.Equal(WorldRequirementVerdict.Unevaluable,
+        Assert.Equal(WorldRequirementVerdict.Met,
             WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
     }
 
@@ -953,7 +953,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
                 WorldRequirementEvaluator.UnlockCheckLevel,
                 WorldRequirementProgramKind.Unlock));
 
-        // Both containers publish, at their own group positions, so neither can hide behind the other.
+        // Both containers publish, at their own graph positions, so neither can hide behind the other.
         Assert.True(WorldEntityRequirementLookup.TryFindRange(
             world.EntityRequirements, scribing.GetGuid(), out var start, out var count));
         var rows = world.EntityRequirements.AsSpan();
@@ -961,7 +961,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
-            if (row.Program == WorldRequirementProgramKind.Unlock) positions.Add(row.GroupOrdinal);
+            if (row.Program == WorldRequirementProgramKind.Unlock) positions.Add(row.Ordinal);
         }
         Assert.Equal(new[] { 0, 1 }, positions);
 

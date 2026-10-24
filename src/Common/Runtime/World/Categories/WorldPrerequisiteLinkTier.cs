@@ -49,27 +49,8 @@ internal static class WorldPrerequisiteLinkTierLookup
         int tierIndex,
         out WorldPrerequisiteLinkTier row)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            ref readonly var candidate = ref rows[middle];
-            var comparison = candidate.LinkId.CompareTo(linkId);
-            if (comparison == 0) comparison = candidate.TierIndex.CompareTo(tierIndex);
-            if (comparison == 0)
-            {
-                row = candidate;
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        row = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), (Id: linkId, Tier: tierIndex),
+            static (row, key) => row.LinkId != key.Id ? row.LinkId.CompareTo(key.Id) : row.TierIndex.CompareTo(key.Tier), out row);
     }
 }
 
@@ -132,15 +113,16 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         var collectedFrame = _currentFrame!();
         for (var linkIndex = 0; linkIndex < links.Count; linkIndex++)
         {
             var link = links[linkIndex];
             if (link is null) continue;
+            var linkId = Guid.Empty;
             try
             {
-                var linkId = _identity!(link);
+                linkId = _identity!(link);
                 var tiers = _tiers!(link);
                 if (linkId == Guid.Empty || tiers is null) continue;
                 for (var tierIndex = 0; tierIndex < tiers.Count; tierIndex++)
@@ -163,8 +145,7 @@ internal sealed class WorldPrerequisiteLinkTierReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading a prerequisite-link live gate threw: " +
-                        ex.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading a prerequisite-link live gate threw", ex, linkId));
             }
         }
 

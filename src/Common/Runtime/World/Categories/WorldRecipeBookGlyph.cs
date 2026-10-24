@@ -36,22 +36,10 @@ internal static class WorldRecipeBookGlyphLookup
         Guid glyphId,
         out Guid recipeBookId)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].GlyphId.CompareTo(glyphId);
-            if (comparison == 0)
-            {
-                recipeBookId = table[middle].RecipeBookId;
-                return true;
-            }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        recipeBookId = Guid.Empty;
-        return false;
+        var found = WorldLookup.TryFindFirst(table.AsSpan(), glyphId,
+            static (row, key) => row.GlyphId.CompareTo(key), out var row);
+        recipeBookId = found ? row.RecipeBookId : Guid.Empty;
+        return found;
     }
 }
 
@@ -108,11 +96,12 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
         {
             var glyph = glyphs[index];
             if (glyph is null) continue;
+            var id = Guid.Empty;
             try
             {
                 var book = _associatedRecipeBook!(glyph);
                 if (book == Guid.Empty) continue;
-                var id = _glyphIdentity!(glyph);
+                id = _glyphIdentity!(glyph);
                 if (id == Guid.Empty)
                     return Withheld(buffer, "a glyph carrying a recipe book had no usable identity");
                 buffer.Append(new WorldRecipeBookGlyph(id, book));
@@ -121,7 +110,7 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 return Withheld(
-                    buffer, "reading a glyph's recipe book threw: " + ex.GetBaseException().Message);
+                    buffer, WorldFailures.ReadFault("reading a glyph's recipe book threw", ex, id));
             }
         }
 
@@ -131,7 +120,7 @@ internal sealed class WorldRecipeBookGlyphReader : IWorldCategoryReader
 
     private WorldCategoryReport Withheld(
         WorldRelationBuffer<WorldRecipeBookGlyph> buffer,
-        string reason)
+        WorldCollectionFailure reason)
     {
         buffer.Reset();
         return WorldCategoryReport.Missing(Category, "the authored glyph-to-book link was withheld: " + reason);

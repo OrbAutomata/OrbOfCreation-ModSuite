@@ -59,16 +59,6 @@ internal enum WorldRequirementProgramKind
     Unlock = 2,
 }
 
-/// <summary>How the leaves at one top-level container position combine.</summary>
-internal enum WorldRequirementGroupKind
-{
-    /// <summary>A leaf or an explicit AndRequirement: every row must hold.</summary>
-    All = 0,
-
-    /// <summary>An explicit OrRequirement: one row must hold.</summary>
-    Any = 1,
-}
-
 /// <summary>
 /// Which of the game's condition classes a requirement row was read from, as this suite models them.
 /// </summary>
@@ -112,6 +102,12 @@ internal enum WorldRequirementNodeKind
 {
     Leaf = 0,
     Group = 1,
+
+    /// <summary>
+    /// Capture could not establish this program/container. An empty OwnerId scopes all its owners;
+    /// ContainerIndex -1 scopes every tier of one owner when the tier list itself was unreadable.
+    /// </summary>
+    CaptureGap = 2,
 }
 
 internal enum WorldRequirementOperator
@@ -176,46 +172,6 @@ internal readonly struct WorldEntityRequirement
     internal WorldEntityRequirement(
         Guid ownerId,
         WorldRequirementOwnerKind ownerKind,
-        int ordinal,
-        WorldRequirementConditionKind kind,
-        string conditionTypeName,
-        Guid targetId,
-        int reqType,
-        double baseValue,
-        in WorldRequirementScaling perLevel,
-        in WorldRequirementScaling modPerLevel,
-        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
-        WorldRequirementGroupKind groupKind = WorldRequirementGroupKind.All,
-        int groupOrdinal = -1,
-        BigDouble thresholdAdjustment = default,
-        int branchOrdinal = -1)
-        : this(
-            ownerId,
-            ownerKind,
-            containerIndex: 0,
-            ordinal,
-            parentOrdinal: -1,
-            depth: 0,
-            WorldRequirementNodeKind.Leaf,
-            WorldRequirementOperator.None,
-            kind,
-            conditionTypeName,
-            targetId,
-            reqType,
-            baseValue,
-            in perLevel,
-            in modPerLevel,
-            program,
-            groupKind,
-            groupOrdinal,
-            thresholdAdjustment,
-            branchOrdinal)
-    {
-    }
-
-    internal WorldEntityRequirement(
-        Guid ownerId,
-        WorldRequirementOwnerKind ownerKind,
         int containerIndex,
         int ordinal,
         int parentOrdinal,
@@ -230,10 +186,7 @@ internal readonly struct WorldEntityRequirement
         in WorldRequirementScaling perLevel,
         in WorldRequirementScaling modPerLevel,
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
-        WorldRequirementGroupKind groupKind = WorldRequirementGroupKind.All,
-        int groupOrdinal = -1,
-        BigDouble thresholdAdjustment = default,
-        int branchOrdinal = -1)
+        BigDouble thresholdAdjustment = default)
     {
         ThresholdAdjustment = thresholdAdjustment;
         OwnerId = ownerId;
@@ -252,33 +205,16 @@ internal readonly struct WorldEntityRequirement
         PerLevel = perLevel;
         ModPerLevel = modPerLevel;
         Program = program;
-        GroupKind = groupKind;
-        GroupOrdinal = groupOrdinal < 0 ? ordinal : groupOrdinal;
-        BranchOrdinal = branchOrdinal < 0 ? ordinal : branchOrdinal;
     }
 
-    /// <summary>The entity whose next level this condition gates.</summary>
+    /// <summary>
+    /// The entity whose condition this is. Empty only on a CaptureGap for an entire program/container
+    /// whose prerequisite identity capture was incomplete; it is scope metadata, not an entity UUID.
+    /// </summary>
     internal Guid OwnerId { get; }
 
     internal WorldRequirementOwnerKind OwnerKind { get; }
     internal WorldRequirementProgramKind Program { get; }
-
-    /// <summary>The native fold for the leaves at <see cref="GroupOrdinal"/>.</summary>
-    internal WorldRequirementGroupKind GroupKind { get; }
-
-    /// <summary>
-    /// The top-level container position this leaf belongs to. The container ANDs positions; rows
-    /// sharing one position are the children of an explicit Or/And composite.
-    /// </summary>
-    internal int GroupOrdinal { get; }
-
-    /// <summary>
-    /// The arm of its group this leaf belongs to. Rows sharing a branch are the children of a
-    /// composite nested one level inside the group's own, and fold by the opposite operator to
-    /// <see cref="GroupKind"/>; a same-operator nesting folds as its parent, so its leaves keep
-    /// branches of their own.
-    /// </summary>
-    internal int BranchOrdinal { get; }
 
     /// <summary>
     /// Zero for an entity's per-level container; otherwise the exact tier index on a
@@ -357,7 +293,9 @@ internal static class WorldEntityRequirementLookup
             var byOwner = left.OwnerId.CompareTo(right.OwnerId);
             if (byOwner != 0) return byOwner;
             var byContainer = left.ContainerIndex.CompareTo(right.ContainerIndex);
-            return byContainer != 0 ? byContainer : left.Ordinal.CompareTo(right.Ordinal);
+            if (byContainer != 0) return byContainer;
+            var byProgram = left.Program.CompareTo(right.Program);
+            return byProgram != 0 ? byProgram : left.Ordinal.CompareTo(right.Ordinal);
         };
 
     internal static bool TryFindRange(
@@ -366,33 +304,8 @@ internal static class WorldEntityRequirementLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].OwnerId.CompareTo(ownerId);
-            if (comparison == 0)
-            {
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].OwnerId == ownerId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), ownerId,
+            static (row, key) => row.OwnerId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 
     internal static bool TryFindContainerRange(
@@ -402,27 +315,9 @@ internal static class WorldEntityRequirementLookup
         out int start,
         out int count)
     {
-        if (!TryFindRange(table, ownerId, out var ownerStart, out var ownerCount))
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-
-        var rows = table.AsSpan();
-        start = ownerStart;
-        var ownerEnd = ownerStart + ownerCount;
-        while (start < ownerEnd && rows[start].ContainerIndex < containerIndex) start++;
-        if (start >= ownerEnd || rows[start].ContainerIndex != containerIndex)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-
-        count = 0;
-        while (start + count < ownerEnd && rows[start + count].ContainerIndex == containerIndex)
-            count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Owner: ownerId, Container: containerIndex),
+            static (row, key) => row.OwnerId != key.Owner
+                ? row.OwnerId.CompareTo(key.Owner) : row.ContainerIndex.CompareTo(key.Container),
+            out start, out count, resetOnMiss: true);
     }
 }

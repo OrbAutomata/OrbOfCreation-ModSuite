@@ -2,7 +2,7 @@ namespace OrbModding.Common.Runtime.World;
 
 internal static class WorldAlchemyInstanceBufferTestExtensions
 {
-    internal static void Append(this WorldAlchemyInstanceBuffer buffer, in WorldAlchemyInstance row)
+    internal static void Append(this WorldRelationBuffer<RawWorldAlchemyInstance> buffer, in WorldAlchemyInstance row)
     {
         var sample = new RawWorldAlchemyInstance(
             row.RecipeId,

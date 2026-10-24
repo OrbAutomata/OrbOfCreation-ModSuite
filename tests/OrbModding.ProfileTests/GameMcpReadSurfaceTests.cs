@@ -924,8 +924,9 @@ public sealed class GameMcpWorldEnvelopeTests
         var noScaling = default(WorldRequirementScaling);
         var unknownLeaf = new WorldEntityRequirement(
             affectedId,
-            WorldRequirementOwnerKind.Upgrade,
-            ordinal: 4,
+            WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+            ordinal: 4, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Unknown,
             "ListRequirement",
             Guid.Empty,
@@ -1155,8 +1156,9 @@ public sealed class GameMcpWorldEnvelopeTests
         var scaling = default(WorldRequirementScaling);
         var unknownLeaf = new WorldEntityRequirement(
             ownerId,
-            WorldRequirementOwnerKind.Upgrade,
-            ordinal: 1,
+            WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+            ordinal: 1, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Unknown,
             "ListRequirement",
             Guid.Empty,

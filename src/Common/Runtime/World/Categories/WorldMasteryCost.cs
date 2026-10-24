@@ -92,15 +92,16 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         for (var index = 0; index < spells.Count; index++)
         {
             var spell = spells[index];
             if (spell is null) { skipped++; continue; }
             var start = frame.MasteryCosts.Count;
+            var id = Guid.Empty;
             try
             {
-                var id = _spellId!(spell);
+                id = _spellId!(spell);
                 if (id == Guid.Empty) { skipped++; continue; }
                 var costs = _costs!(_baseCost!(spell)!);
                 var rows = 0;
@@ -127,7 +128,7 @@ internal sealed class WorldMasteryCostReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a spell level cost threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a spell level cost threw", ex, id));
             }
         }
 

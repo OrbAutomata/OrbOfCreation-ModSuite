@@ -181,16 +181,18 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
             return WorldCategoryReport.Missing(Category,
                 "an active harvest list had an unexpected native type");
 
+        var readOwnerId = Guid.Empty;
         try
         {
             var elements = _elements!();
             var activeActions = _activeActions!(actionList);
-            var active = BuildActive(activeActions);
+            var active = BuildActive(activeActions, ref readOwnerId);
             var sampled = 0;
             var skipped = 0;
-            var firstFailure = string.Empty;
+            var firstFailure = default(WorldCollectionFailure);
             for (var index = 0; index < (elements?.Count ?? 0); index++)
             {
+                readOwnerId = Guid.Empty;
                 var element = elements![index];
                 if (element is null || element.GetType() != _elementType)
                 {
@@ -198,7 +200,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
                         "a harvest element registry entry had an unexpected native type");
                     continue;
                 }
-                var elementId = _elementId!(element);
+                var elementId = readOwnerId = _elementId!(element);
                 if (elementId == Guid.Empty)
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure,
@@ -262,7 +264,7 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
-                "reading harvest lifecycle state threw: " + exception.GetBaseException().Message);
+                WorldFailures.ReadFault("reading harvest lifecycle state threw", exception, readOwnerId));
         }
     }
 
@@ -273,14 +275,15 @@ internal sealed class WorldHarvestLifecycleReader : IWorldCategoryReader
         frame.HarvestLifecycleCosts.Reset();
     }
 
-    private Dictionary<(Guid Element, Guid Action), object> BuildActive(IList? values)
+    private Dictionary<(Guid Element, Guid Action), object> BuildActive(IList? values, ref Guid readOwnerId)
     {
         var active = new Dictionary<(Guid, Guid), object>();
         for (var index = 0; index < (values?.Count ?? 0); index++)
         {
+            readOwnerId = Guid.Empty;
             var instance = values![index];
             if (instance is null || instance.GetType() != _instanceType) continue;
-            var key = (_instanceElementId!(instance), _instanceActionId!(instance));
+            var key = (readOwnerId = _instanceElementId!(instance), _instanceActionId!(instance));
             if (key.Item1 != Guid.Empty && key.Item2 != Guid.Empty && !active.ContainsKey(key))
                 active.Add(key, instance);
         }

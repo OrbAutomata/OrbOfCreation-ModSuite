@@ -248,6 +248,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         ResetRows(frame);
         if (!IsAvailable)
             return WorldCategoryReport.Missing(Category, _unavailable);
+        var readOwnerId = Guid.Empty;
         try
         {
             var manager = _manager!();
@@ -256,12 +257,13 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                     "LoadoutManager.instance is unavailable in this scene");
             var sampled = 0;
             var skipped = 0;
-            var firstFailure = string.Empty;
+            var firstFailure = default(WorldCollectionFailure);
             var playerList = _playerLoadouts!(manager);
             var players = playerList is null ? null : _playerValues!(playerList);
             var canSwap = _canSwap!(manager);
             for (var index = 0; index < (players?.Count ?? 0); index++)
             {
+                readOwnerId = Guid.Empty;
                 var player = players![index];
                 if (player is null || player.GetType() != _playerType)
                 {
@@ -269,7 +271,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                         "a player loadout had an unexpected native type");
                     continue;
                 }
-                var id = _playerId!(player);
+                var id = readOwnerId = _playerId!(player);
                 if (id == Guid.Empty)
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure,
@@ -298,10 +300,12 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                     ref skipped, ref firstFailure);
                 sampled++;
             }
+            readOwnerId = Guid.Empty;
             sampled += AppendSnapshotList(_alchemySnapshots!(manager), true,
-                claimed, frame, ref skipped, ref firstFailure);
+                claimed, frame, ref skipped, ref firstFailure, ref readOwnerId);
+            readOwnerId = Guid.Empty;
             sampled += AppendSnapshotList(_equipmentSnapshots!(manager), false,
-                claimed, frame, ref skipped, ref firstFailure);
+                claimed, frame, ref skipped, ref firstFailure, ref readOwnerId);
             return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected,
                 sampled, skipped, firstFailure);
         }
@@ -309,7 +313,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
-                "reading loadouts threw: " + exception.GetBaseException().Message);
+                WorldFailures.ReadFault("reading loadouts threw", exception, readOwnerId));
         }
     }
 
@@ -324,7 +328,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
 
     private void AppendPlayerEntries(object player, Guid ownerId,
         WorldRelationBuffer<WorldLoadoutEntry> destination,
-        ref int skipped, ref string firstFailure)
+        ref int skipped, ref WorldCollectionFailure firstFailure)
     {
         var spells = _playerSpells!(player);
         for (var index = 0; index < (spells?.Count ?? 0); index++)
@@ -358,7 +362,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
 
     private void AppendRecord(object? record, Guid ownerId, WorldLoadoutEntryKind kind,
         WorldRelationBuffer<WorldLoadoutEntry> destination,
-        ref int skipped, ref string firstFailure)
+        ref int skipped, ref WorldCollectionFailure firstFailure)
     {
         var alchemy = kind == WorldLoadoutEntryKind.Alchemy;
         var entries = record is null
@@ -373,7 +377,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
     }
 
     private bool TryReadEntry(object? entry, bool alchemy,
-        out Guid id, out int quantity, ref int skipped, ref string firstFailure)
+        out Guid id, out int quantity, ref int skipped, ref WorldCollectionFailure firstFailure)
     {
         id = Guid.Empty;
         var kind = alchemy ? "alchemy" : "equipment";
@@ -393,7 +397,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
     }
 
     private int AppendSnapshotList(object? owner, bool alchemy, HashSet<Guid> claimed,
-        GameWorldCycleFrame frame, ref int skipped, ref string firstFailure)
+        GameWorldCycleFrame frame, ref int skipped, ref WorldCollectionFailure firstFailure, ref Guid readOwnerId)
     {
         var expected = alchemy ? _alchemySnapshotListType : _equipmentSnapshotListType;
         if (owner is null || owner.GetType() != expected)
@@ -402,7 +406,7 @@ internal sealed class WorldLoadoutReader : IWorldCategoryReader
                 "a snapshot list had an unexpected native type");
             return 0;
         }
-        var id = _identity!(owner);
+        var id = readOwnerId = _identity!(owner);
         if (id == Guid.Empty || !claimed.Add(id))
         {
             WorldSkipTally.Skip(ref skipped, ref firstFailure,

@@ -34,8 +34,7 @@ internal sealed class ListVariableAccessors
 /// The three members are declared on the game's <c>BaseCondition&lt;T, TE&gt;</c>, whose <c>item</c>
 /// and <c>reqType</c> are its own type parameters — so there is no single closed type to bind
 /// against and the accessors are compiled against each concrete subclass instead. The two
-/// composites bind their explicit child lists and retain both their graph node and group-fold
-/// semantics.
+/// composites bind their explicit child lists and retain their graph node and operator.
 /// </remarks>
 internal sealed class ConditionAccessors
 {
@@ -54,7 +53,6 @@ internal sealed class ConditionAccessors
     private readonly Func<object, int>? _modPerLevelType;
     private readonly Func<object, BigDouble>? _modPerLevelAmount;
     private readonly Func<object, int>? _modPerLevelOrder;
-    private readonly WorldRequirementGroupKind? _groupKind;
     private readonly Func<object, object?>? _itemObject;
 
     private ConditionAccessors(
@@ -73,7 +71,6 @@ internal sealed class ConditionAccessors
         Func<object, int>? modPerLevelType,
         Func<object, BigDouble>? modPerLevelAmount,
         Func<object, int>? modPerLevelOrder,
-        WorldRequirementGroupKind? groupKind = null,
         Func<object, object?>? itemObject = null)
     {
         _itemObject = itemObject;
@@ -92,11 +89,7 @@ internal sealed class ConditionAccessors
         _modPerLevelType = modPerLevelType;
         _modPerLevelAmount = modPerLevelAmount;
         _modPerLevelOrder = modPerLevelOrder;
-        _groupKind = groupKind;
     }
-
-    internal bool IsComposite => _groupKind.HasValue;
-    internal WorldRequirementGroupKind GroupKind => _groupKind ?? WorldRequirementGroupKind.All;
 
     /// <summary>
     /// The list variable a <c>ListRequirement</c> compares against, as the object rather than as
@@ -135,10 +128,7 @@ internal sealed class ConditionAccessors
                 null,
                 null,
                 null,
-                null,
-                @operator == WorldRequirementOperator.Or
-                    ? WorldRequirementGroupKind.Any
-                    : WorldRequirementGroupKind.All);
+                null);
         }
 
         var kind = Classify(typeName);
@@ -190,44 +180,7 @@ internal sealed class ConditionAccessors
             modPerLevelType,
             modPerLevelAmount,
             modPerLevelOrder,
-            groupKind: null,
             itemObject: itemObject);
-    }
-
-    internal IList? Children(object condition) => _children?.Invoke(condition);
-
-    internal WorldEntityRequirement Read(
-        Guid ownerId,
-        WorldRequirementOwnerKind ownerKind,
-        int ordinal,
-        object condition,
-        WorldRequirementProgramKind program,
-        WorldRequirementGroupKind groupKind,
-        int groupOrdinal,
-        BigDouble adjustment = default,
-        int branchOrdinal = -1)
-    {
-        if (_kind == WorldRequirementConditionKind.Unknown)
-            return Unknown(
-                ownerId, ownerKind, ordinal, program, groupKind, groupOrdinal, branchOrdinal);
-        ReadScaling(condition, out var threshold, out var perLevel, out var modPerLevel);
-
-        return new WorldEntityRequirement(
-            ownerId,
-            ownerKind,
-            ordinal,
-            _kind,
-            _typeName,
-            _item!(condition),
-            _reqType!(condition),
-            threshold is null ? 0d : _baseValue!(threshold),
-            in perLevel,
-            in modPerLevel,
-            program,
-            groupKind,
-            groupOrdinal,
-            adjustment,
-            branchOrdinal);
     }
 
     internal WorldEntityRequirement ReadGraph(
@@ -237,7 +190,9 @@ internal sealed class ConditionAccessors
         int ordinal,
         int parentOrdinal,
         int depth,
-        object condition)
+        object condition,
+        WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel,
+        BigDouble adjustment = default)
     {
         if (_nodeKind == WorldRequirementNodeKind.Group ||
             _kind == WorldRequirementConditionKind.Unknown)
@@ -246,9 +201,7 @@ internal sealed class ConditionAccessors
                 ownerId, ownerKind, containerIndex, ordinal, parentOrdinal, depth,
                 _nodeKind, _operator, WorldRequirementConditionKind.Unknown, _typeName,
                 Guid.Empty, -1, 0d, default, default,
-                WorldRequirementProgramKind.NextLevel,
-                GroupKind,
-                groupOrdinal: containerIndex);
+                program, thresholdAdjustment: adjustment);
         }
 
         ReadScaling(condition, out var threshold, out var perLevel, out var modPerLevel);
@@ -257,9 +210,7 @@ internal sealed class ConditionAccessors
             _nodeKind, _operator, _kind, _typeName, _item!(condition),
             _reqType!(condition), threshold is null ? 0d : _baseValue!(threshold),
             in perLevel, in modPerLevel,
-            WorldRequirementProgramKind.NextLevel,
-            WorldRequirementGroupKind.All,
-            groupOrdinal: containerIndex);
+            program, thresholdAdjustment: adjustment);
     }
 
     private void ReadScaling(
@@ -279,51 +230,6 @@ internal sealed class ConditionAccessors
                 _modPerLevelType!(threshold), _modPerLevelAmount!(threshold),
                 _modPerLevelOrder!(threshold));
     }
-
-    internal WorldEntityRequirement Unknown(
-        Guid ownerId,
-        WorldRequirementOwnerKind ownerKind,
-        int ordinal,
-        WorldRequirementProgramKind program,
-        WorldRequirementGroupKind groupKind,
-        int groupOrdinal,
-        int branchOrdinal = -1) =>
-        new(
-            ownerId,
-            ownerKind,
-            ordinal,
-            WorldRequirementConditionKind.Unknown,
-            _typeName,
-            Guid.Empty,
-            reqType: -1,
-            baseValue: 0d,
-            default(WorldRequirementScaling),
-            default(WorldRequirementScaling),
-            program,
-            groupKind,
-            groupOrdinal,
-            branchOrdinal: branchOrdinal);
-
-    internal WorldEntityRequirement EmptyComposite(
-        Guid ownerId,
-        WorldRequirementOwnerKind ownerKind,
-        int ordinal,
-        WorldRequirementProgramKind program,
-        int groupOrdinal) =>
-        new(
-            ownerId,
-            ownerKind,
-            ordinal,
-            WorldRequirementConditionKind.Literal,
-            _typeName,
-            Guid.Empty,
-            reqType: GroupKind == WorldRequirementGroupKind.All ? 1 : 0,
-            baseValue: 0d,
-            default(WorldRequirementScaling),
-            default(WorldRequirementScaling),
-            program,
-            GroupKind,
-            groupOrdinal);
 
     /// <summary>
     /// The condition classes this suite has been audited against, by the name the game gives them.

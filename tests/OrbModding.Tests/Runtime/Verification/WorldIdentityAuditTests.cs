@@ -119,9 +119,9 @@ public sealed class WorldIdentityAuditTests
 
     private static GameWorldState WorldWith(params WorldModifierProgram[] programs)
     {
-        var buffer = new WorldModifierProgramBuffer();
+        var buffer = new WorldRelationBuffer<WorldModifierProgram>();
         foreach (var program in programs) buffer.Append(program);
-        return new GameWorldState { ModifierPrograms = WorldModifierProgramDeriver.Build(buffer) };
+        return new GameWorldState { ModifierPrograms = WorldRelationTable.Build(buffer, WorldModifierProgramMath.Order) };
     }
 
     private static WorldModifierProgram Program(Guid ownerId, WorldModifierProgramRole role) =>

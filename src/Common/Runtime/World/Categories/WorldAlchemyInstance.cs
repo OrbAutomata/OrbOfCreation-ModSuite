@@ -110,11 +110,14 @@ internal enum WorldAlchemyCostKind
 
 internal static class WorldConceptRecipeLookup
 {
+    internal static readonly Comparison<WorldConceptRecipe> Order =
+        static (left, right) => left.RecipeId.CompareTo(right.RecipeId);
+
     internal static bool TryFind(
         PublicationTable<WorldConceptRecipe> table,
         Guid recipeId,
         out WorldConceptRecipe recipe) =>
-        WorldAlchemyRowLookup.TryFind(table, recipeId, static row => row.RecipeId, out recipe);
+        WorldLookup.TryFindFirst(table.AsSpan(), recipeId, static (row, key) => row.RecipeId.CompareTo(key), out recipe);
 }
 
 internal static class WorldAlchemyInstanceLookup
@@ -123,97 +126,25 @@ internal static class WorldAlchemyInstanceLookup
         PublicationTable<WorldAlchemyInstance> table,
         Guid recipeId,
         out WorldAlchemyInstance instance) =>
-        WorldAlchemyRowLookup.TryFind(table, recipeId, static row => row.RecipeId, out instance);
-}
-
-internal static class WorldAlchemyRowLookup
-{
-    internal static bool TryFind<TRow>(
-        PublicationTable<TRow> table,
-        Guid recipeId,
-        Func<TRow, Guid> readId,
-        out TRow row)
-        where TRow : struct
-    {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = readId(rows[middle]).CompareTo(recipeId);
-            if (comparison == 0)
-            {
-                row = rows[middle];
-                return true;
-            }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        row = default;
-        return false;
-    }
-}
-
-internal sealed class WorldConceptRecipeBuffer
-{
-    private WorldConceptRecipe[] _samples = new WorldConceptRecipe[32];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly WorldConceptRecipe this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in WorldConceptRecipe sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal sealed class WorldAlchemyInstanceBuffer
-{
-    private RawWorldAlchemyInstance[] _samples = new RawWorldAlchemyInstance[16];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly RawWorldAlchemyInstance this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in RawWorldAlchemyInstance sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
+        WorldLookup.TryFindFirst(table.AsSpan(), recipeId, static (row, key) => row.RecipeId.CompareTo(key), out instance);
 }
 
 internal static class WorldAlchemyRowDeriver
 {
-    internal static PublicationTable<WorldConceptRecipe> Build(WorldConceptRecipeBuffer buffer)
-    {
-        var rows = new WorldConceptRecipe[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
-        return PublicationTable<WorldConceptRecipe>.Create(rows, rows.Length);
-    }
 
-    internal static PublicationTable<WorldAlchemyInstance> Build(WorldAlchemyInstanceBuffer buffer)
+
+    internal static PublicationTable<WorldAlchemyInstance> Build(WorldRelationBuffer<RawWorldAlchemyInstance> buffer)
     {
-        var rows = new WorldAlchemyInstance[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++)
+        return WorldRelationTable.Build(buffer, static sample =>
         {
-            var sample = buffer[index];
             var ratio = !sample.IsDrainApplied
                 ? BigDouble.One
                 : sample.CurrentRatio.CompareTo(sample.UsageRatio) <= 0
                     ? sample.CurrentRatio
                     : sample.UsageRatio;
-            rows[index] = new WorldAlchemyInstance(
-                sample.RecipeId,
-                sample.Quantity,
-                sample.QueuedQuantity,
-                sample.DrainReadable,
-                ratio);
-        }
-        Array.Sort(rows, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
-        return PublicationTable<WorldAlchemyInstance>.Create(rows, rows.Length);
+            return new WorldAlchemyInstance(sample.RecipeId, sample.Quantity, sample.QueuedQuantity,
+                sample.DrainReadable, ratio);
+        }, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
     }
 }
 
@@ -243,6 +174,16 @@ internal readonly struct WorldAlchemyCost
 
 internal static class WorldAlchemyCostLookup
 {
+    internal static readonly Comparison<WorldAlchemyCost> Order =
+        static (left, right) => {
+            var byRecipe = left.RecipeId.CompareTo(right.RecipeId);
+            if (byRecipe != 0) return byRecipe;
+            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
+            if (byKind != 0) return byKind;
+            var byTarget = left.TargetQuantity.CompareTo(right.TargetQuantity);
+            return byTarget != 0 ? byTarget : left.ResourceId.CompareTo(right.ResourceId);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldAlchemyCost> table,
         Guid recipeId,
@@ -250,30 +191,8 @@ internal static class WorldAlchemyCostLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = Compare(
-                rows[middle].RecipeId, rows[middle].Kind, rows[middle].TargetQuantity,
-                recipeId, kind, 0);
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               Compare(
-                   rows[start + count].RecipeId, rows[start + count].Kind,
-                   rows[start + count].TargetQuantity, recipeId, kind, 0) == 0)
-        {
-            count++;
-        }
-
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Id: recipeId, Kind: kind),
+            static (row, key) => Compare(row.RecipeId, row.Kind, row.TargetQuantity, key.Id, key.Kind, 0), out start, out count);
     }
 
     private static int Compare(
@@ -288,52 +207,6 @@ internal static class WorldAlchemyCostLookup
         if (byRecipe != 0) return byRecipe;
         var byKind = ((int)leftKind).CompareTo((int)rightKind);
         return byKind != 0 ? byKind : leftTarget.CompareTo(rightTarget);
-    }
-}
-
-internal sealed class WorldAlchemyCostBuffer
-{
-    private const int InitialCapacity = 64;
-    private WorldAlchemyCost[] _samples = new WorldAlchemyCost[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldAlchemyCost this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldAlchemyCost sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldAlchemyCostDeriver
-{
-    internal static PublicationTable<WorldAlchemyCost> Build(WorldAlchemyCostBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldAlchemyCost>.Empty;
-
-        var rows = new WorldAlchemyCost[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, CostComparer.Instance);
-        return PublicationTable<WorldAlchemyCost>.Create(rows, rows.Length);
-    }
-
-    private sealed class CostComparer : IComparer<WorldAlchemyCost>
-    {
-        internal static readonly IComparer<WorldAlchemyCost> Instance = new CostComparer();
-
-        public int Compare(WorldAlchemyCost left, WorldAlchemyCost right)
-        {
-            var byRecipe = left.RecipeId.CompareTo(right.RecipeId);
-            if (byRecipe != 0) return byRecipe;
-            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
-            if (byKind != 0) return byKind;
-            var byTarget = left.TargetQuantity.CompareTo(right.TargetQuantity);
-            return byTarget != 0 ? byTarget : left.ResourceId.CompareTo(right.ResourceId);
-        }
     }
 }
 
@@ -508,6 +381,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         if (recipeList.GetType() != _recipeListType || activeList.GetType() != _activeListType)
             return WorldCategoryReport.Missing(Category, "a Concept registry held an unexpected native type");
 
+        var readOwnerId = Guid.Empty;
         try
         {
             var recipes = _recipeValues!(recipeList);
@@ -516,10 +390,11 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             var capturedScalings = new HashSet<Guid>();
             var sampled = 0;
             var skipped = 0;
-            var firstFailure = string.Empty;
+            var firstFailure = default(WorldCollectionFailure);
 
             for (var index = 0; index < (recipes?.Count ?? 0); index++)
             {
+                readOwnerId = Guid.Empty;
                 var recipe = recipes![index];
                 if (recipe is null || recipe.GetType() != _recipeType)
                 {
@@ -527,7 +402,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
                     continue;
                 }
 
-                var id = _recipeId!(recipe);
+                var id = readOwnerId = _recipeId!(recipe);
                 var coreObject = _coreType!(recipe);
                 var core = coreObject is null ? Guid.Empty : _coreTypeId!(coreObject);
                 if (id == Guid.Empty || core == Guid.Empty || !conceptIds.Add(id))
@@ -547,6 +422,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
 
             for (var index = 0; index < (active?.Count ?? 0); index++)
             {
+                readOwnerId = Guid.Empty;
                 var instance = active![index];
                 if (instance is null || instance.GetType() != _instanceType)
                 {
@@ -556,7 +432,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
 
                 if (_instanceIsEmpty!(instance)) continue;
 
-                var id = _instanceRecipeId!(instance);
+                var id = readOwnerId = _instanceRecipeId!(instance);
                 if (!conceptIds.Contains(id))
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure, $"active instance {index} did not name a scoped Concept recipe");
@@ -585,7 +461,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(
-                Category, $"reading Concept instances threw: {ex.GetBaseException().Message}");
+                Category, WorldFailures.ReadFault($"reading Concept instances threw", ex, readOwnerId));
         }
     }
 
@@ -601,7 +477,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         Guid recipeId,
         WorldAlchemyCostKind kind,
         object? costList,
-        WorldAlchemyCostBuffer destination)
+        WorldRelationBuffer<WorldAlchemyCost> destination)
     {
         if (costList is null) return;
         var entries = _costEntries!(costList);

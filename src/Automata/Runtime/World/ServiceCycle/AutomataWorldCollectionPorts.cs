@@ -30,7 +30,7 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Action<WorldCollectionReport>? _announce;
     private readonly WorldCollectionSpanRegistry? _spans;
-    private string _announced = string.Empty;
+    private WorldCollectionReport? _announced;
     private int _announcedSampled;
 
     /// <param name="readFrameIdentity">
@@ -96,10 +96,9 @@ internal sealed class AutomataWorldCapturePort : IAutomataWorldCapturePort
     private void Announce(in WorldCollectionReport report)
     {
         if (_announce is null) return;
-        var key = report.IsComplete ? "complete" : report.Describe();
         var sampled = report.TotalSampled;
-        if (string.Equals(key, _announced, StringComparison.Ordinal) && !HasMoved(sampled)) return;
-        _announced = key;
+        if (_announced is not null && report.HasSameAnnouncementAs(_announced) && !HasMoved(sampled)) return;
+        _announced = report;
         _announcedSampled = sampled;
         _announce(report);
     }

@@ -206,7 +206,7 @@ internal sealed class WorldConsumableInventoryReader : IWorldCategoryReader
             frame.ConsumableInventory.Reset();
             return WorldCategoryReport.Missing(
                 Category,
-                "reading the consumable inventory threw: " + ex.GetBaseException().Message);
+                WorldFailures.ReadFault("reading the consumable inventory threw", ex));
         }
     }
 

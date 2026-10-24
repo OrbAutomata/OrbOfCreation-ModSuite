@@ -303,8 +303,7 @@ internal sealed class WorldSpellWorkbenchReader : IWorldCategoryReader
         {
             return WorldCategoryReport.Missing(
                 Category,
-                "reading the native spell loadout and level dials threw: " +
-                ex.GetBaseException().Message);
+                WorldFailures.ReadFault("reading the native spell loadout and level dials threw", ex));
         }
     }
 

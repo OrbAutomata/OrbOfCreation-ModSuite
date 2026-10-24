@@ -132,8 +132,9 @@ public sealed class GameMcpUpgradeLockTests
                 // Capped needs Uncapped at level 9 or better, and Uncapped holds 3.
                 new WorldEntityRequirement(
                     Capped,
-                    WorldRequirementOwnerKind.Upgrade,
-                    ordinal: 0,
+                    WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+                    ordinal: 0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
                     WorldRequirementConditionKind.Upgrade,
                     "UpgradeRequirement",
                     Uncapped,

@@ -106,6 +106,7 @@ internal static class WorldTable
 internal sealed class WorldRelationBuffer<TRow> where TRow : struct
 {
     private TRow[] _rows;
+    private PublicationTable<TRow>? _authored;
 
     internal WorldRelationBuffer(int capacity = 16)
     {
@@ -115,12 +116,17 @@ internal sealed class WorldRelationBuffer<TRow> where TRow : struct
 
     internal int Count { get; private set; }
     internal ref readonly TRow this[int index] => ref _rows[index];
-    internal void Reset() => Count = 0;
-    internal void Truncate(int count) => Count = count;
-    internal void Replace(int index, in TRow row) => _rows[index] = row;
+    internal void Reset() { Count = 0; _authored = null; }
+    internal void Truncate(int count) { Count = count; _authored = null; }
+    internal void Replace(int index, in TRow row) { _rows[index] = row; _authored = null; }
+
+    /// <summary>A structural buffer keeps its one publication until its captured contents change.</summary>
+    internal PublicationTable<TRow> BuildAuthored(Comparison<TRow>? order = null) =>
+        _authored ??= order is null ? WorldRelationTable.Publish(this) : WorldRelationTable.Build(this, order);
 
     internal void Append(in TRow row)
     {
+        _authored = null;
         if (Count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
         _rows[Count++] = row;
     }
@@ -134,8 +140,24 @@ internal static class WorldRelationTable
         Comparison<TRow> order)
         where TRow : struct
     {
+        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
         if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
         var rows = Copy(buffer);
+        Array.Sort(rows, order);
+        return PublicationTable<TRow>.Create(rows, rows.Length);
+    }
+
+    internal static PublicationTable<TRow> Build<TSource, TRow>(
+        WorldRelationBuffer<TSource> buffer,
+        Func<TSource, TRow> derive,
+        Comparison<TRow> order)
+        where TSource : struct
+        where TRow : struct
+    {
+        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
+        if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
+        var rows = new TRow[buffer.Count];
+        for (var index = 0; index < rows.Length; index++) rows[index] = derive(buffer[index]);
         Array.Sort(rows, order);
         return PublicationTable<TRow>.Create(rows, rows.Length);
     }
@@ -143,6 +165,7 @@ internal static class WorldRelationTable
     internal static PublicationTable<TRow> Publish<TRow>(WorldRelationBuffer<TRow> buffer)
         where TRow : struct
     {
+        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
         if (buffer.Count == 0) return PublicationTable<TRow>.Empty;
         var rows = Copy(buffer);
         return PublicationTable<TRow>.Create(rows, rows.Length);
@@ -172,38 +195,54 @@ internal static class WorldRowComparer<TRow>
     }
 }
 
-/// <summary>Identity lookup over a sorted category table.</summary>
+/// <summary>Compares a sorted row with a complete or prefix lookup key.</summary>
+internal delegate int RowKeyComparison<TRow, TKey>(TRow row, TKey key);
+
+/// <summary>One lower-bound search for identity, relation and composite-key tables.</summary>
 internal static class WorldLookup
 {
-    /// <summary>
-    /// Binary search by entity identity. Rows are sorted at build time, so this is logarithmic rather
-    /// than the linear probe a per-candidate scan would cost — with hundreds of entities across
-    /// thirty categories, consulted by every service every cycle, that difference is the whole reason
-    /// the tables are sorted at all.
-    /// </summary>
-    internal static bool TryFind<TRow>(PublicationTable<TRow> table, Guid entityId, out TRow row)
-        where TRow : struct, IWorldEntity
+    internal static int LowerBound<TRow, TKey>(
+        ReadOnlySpan<TRow> rows, in TKey key, RowKeyComparison<TRow, TKey> compare)
     {
-        var rows = table.AsSpan();
         var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
+        var high = rows.Length;
+        while (low < high)
         {
             var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].EntityId.CompareTo(entityId);
-            if (comparison == 0)
-            {
-                row = rows[middle];
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
+            if (compare(rows[middle], key) < 0) low = middle + 1;
+            else high = middle;
         }
+        return low;
+    }
 
-        row = default;
+    internal static bool TryFindRange<TRow, TKey>(
+        ReadOnlySpan<TRow> rows, in TKey key, RowKeyComparison<TRow, TKey> compare,
+        out int start, out int count, bool resetOnMiss = false)
+    {
+        start = LowerBound(rows, key, compare);
+        count = 0;
+        while (start + count < rows.Length && compare(rows[start + count], key) == 0) count++;
+        if (count == 0 && resetOnMiss) start = 0;
+        return count > 0;
+    }
+
+    internal static bool TryFindFirst<TRow, TKey>(
+        ReadOnlySpan<TRow> rows, in TKey key, RowKeyComparison<TRow, TKey> compare, out TRow row)
+    {
+        var start = LowerBound(rows, key, compare);
+        if (start < rows.Length && compare(rows[start], key) == 0)
+        {
+            row = rows[start];
+            return true;
+        }
+        row = default!;
         return false;
     }
+
+    internal static bool TryFind<TRow>(PublicationTable<TRow> table, Guid entityId, out TRow row)
+        where TRow : struct, IWorldEntity =>
+        TryFindFirst(table.AsSpan(), entityId,
+            static (value, key) => value.EntityId.CompareTo(key), out row);
 }
 
 /// <summary>
@@ -344,15 +383,17 @@ internal sealed class WorldSampleBuffer<TSample, TRow>
     private TRow[] _derived = new TRow[InitialCapacity];
 
     private int _count;
+    private PublicationTable<TRow>? _authored;
 
     internal int Count => _count;
 
     internal ref readonly TSample this[int index] => ref _samples[index];
 
-    internal void Reset() => _count = 0;
+    internal void Reset() { _count = 0; _authored = null; }
 
     internal void Append(in TSample sample)
     {
+        _authored = null;
         if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
         _samples[_count++] = sample;
     }
@@ -367,6 +408,9 @@ internal sealed class WorldSampleBuffer<TSample, TRow>
     /// each time would allocate twice per category per cycle for no benefit: the intermediate is
     /// sorted in place and then copied out of, and nothing ever sees it.
     /// </remarks>
+    internal PublicationTable<TRow> BuildAuthored(WorldRowDeriver<TSample, TRow> deriver) =>
+        _authored ??= Build(deriver);
+
     internal PublicationTable<TRow> Build(WorldRowDeriver<TSample, TRow> deriver)
     {
         if (deriver is null) throw new ArgumentNullException(nameof(deriver));
@@ -771,7 +815,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < entities.Count; index++)
         {
@@ -782,6 +826,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
                 continue;
             }
 
+            var id = Guid.Empty;
             try
             {
                 if (!_binder.Publishes(entity)) continue;
@@ -790,7 +835,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
                 // the worker, and calling it here to learn a Guid would quietly move it back onto the
                 // Unity thread — and would run it twice per entity into the bargain.
                 var sample = _binder.Read(entity);
-                var id = sample.EntityId;
+                id = sample.EntityId;
 
                 if (id == Guid.Empty)
                 {
@@ -812,7 +857,7 @@ internal sealed class WorldCategoryReader<TSample, TRow> : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a {_binder.TypeName} threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a {_binder.TypeName} threw", ex, id));
             }
         }
 

@@ -244,12 +244,13 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         if (_native is not { } native)
             return WorldCategoryReport.Missing(Category, _unavailable);
 
+        var readOwnerId = Guid.Empty;
         try
         {
-            var sampled = ReadRecipes(native, frame);
-            sampled += ReadQueues(native, frame);
-            sampled += ReadEnchantments(native, frame);
-            sampled += ReadTargets(native, frame);
+            var sampled = ReadRecipes(native, frame, ref readOwnerId);
+            sampled += ReadQueues(native, frame, ref readOwnerId);
+            sampled += ReadEnchantments(native, frame, ref readOwnerId);
+            sampled += ReadTargets(native, frame, ref readOwnerId);
             return new WorldCategoryReport(
                 Category,
                 WorldCategoryOutcome.Collected,
@@ -262,7 +263,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
             ResetRows(frame);
             return WorldCategoryReport.Missing(
                 Category,
-                ex.GetBaseException().Message);
+                WorldFailures.ReadFault("reading crafting relations failed", ex, readOwnerId));
         }
     }
 
@@ -276,8 +277,9 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         frame.ScrollTargetEvidence.Reset();
     }
 
-    private static int ReadRecipes(BindingSet native, GameWorldCycleFrame frame)
+    private static int ReadRecipes(BindingSet native, GameWorldCycleFrame frame, ref Guid readOwnerId)
     {
+        readOwnerId = KnownEntities.ScribeCraftingRecipes.Uuid;
         var registry = Resolve(
             native,
             KnownEntities.ScribeCraftingRecipes.Uuid,
@@ -288,8 +290,9 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         var sampled = 0;
         foreach (var value in recipes)
         {
+            readOwnerId = Guid.Empty;
             var recipe = RequireExact(value, native.RecipeType, "Scribe recipe");
-            var recipeId = native.RecipeIdentity(recipe);
+            var recipeId = readOwnerId = native.RecipeIdentity(recipe);
             var types = RequireEnumerable(
                 native.RecipeTypes(recipe),
                 "CraftingRecipeSO.craftingTypes");
@@ -341,7 +344,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         return sampled;
     }
 
-    private static int ReadQueues(BindingSet native, GameWorldCycleFrame frame)
+    private static int ReadQueues(BindingSet native, GameWorldCycleFrame frame, ref Guid readOwnerId)
     {
         var sampled = 0;
         foreach (var queueId in new[]
@@ -350,6 +353,7 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
             KnownEntities.AutoScribeInstances.Uuid,
         })
         {
+            readOwnerId = queueId;
             var queue = Resolve(native, queueId, native.InstanceListType);
             var values = RequireList(
                 native.InstanceListValue(queue),
@@ -384,15 +388,17 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         return sampled;
     }
 
-    private static int ReadEnchantments(BindingSet native, GameWorldCycleFrame frame)
+    private static int ReadEnchantments(BindingSet native, GameWorldCycleFrame frame, ref Guid readOwnerId)
     {
+        readOwnerId = Guid.Empty;
         var sampled = 0;
         foreach (var value in RequireEnumerable(
                      native.StructureAll(),
                      "StructureSO.All"))
         {
+            readOwnerId = Guid.Empty;
             var structure = RequireExact(value, native.StructureType, "StructureSO");
-            var structureId = native.StructureIdentity(structure);
+            var structureId = readOwnerId = native.StructureIdentity(structure);
             var table = RequireExact(
                 native.EnchantTable(structure),
                 native.EnchantTableType,
@@ -415,12 +421,13 @@ internal sealed class WorldScribeRelationReader : IWorldCategoryReader
         return sampled;
     }
 
-    private static int ReadTargets(BindingSet native, GameWorldCycleFrame frame)
+    private static int ReadTargets(BindingSet native, GameWorldCycleFrame frame, ref Guid readOwnerId)
     {
         var sampled = 0;
         for (var index = 0; index < TargetRoles.Length; index++)
         {
             var role = TargetRoles[index];
+            readOwnerId = role.ScrollId;
             var consumable = Resolve(native, role.ScrollId, native.ConsumableType);
             var targeting = ResolveTargeting(native, consumable, role.EnchantmentId);
             var recipeType = Resolve(

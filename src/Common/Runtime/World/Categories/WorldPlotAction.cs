@@ -236,7 +236,7 @@ internal readonly struct WorldPlotActionDrain
     internal BigDouble Amount { get; }
 }
 
-internal static class WorldPlotActionDrainDeriver
+internal static class WorldPlotActionDrainLookup
 {
     internal static readonly Comparison<WorldPlotActionDrain> Order =
         static (left, right) =>
@@ -253,19 +253,9 @@ internal static class WorldPlotActionDrainDeriver
         Guid plotNodeId,
         Guid plotNodeActionId)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length;
-        while (low < high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (Compare(rows[middle], plotNodeId, plotNodeActionId) < 0) low = middle + 1;
-            else high = middle;
-        }
-
-        var end = low;
-        while (end < rows.Length && Compare(rows[end], plotNodeId, plotNodeActionId) == 0) end++;
-        return rows.Slice(low, end - low);
+        WorldLookup.TryFindRange(table.AsSpan(), (Plot: plotNodeId, Action: plotNodeActionId),
+            static (row, key) => Compare(row, key.Plot, key.Action), out var start, out var count);
+        return table.AsSpan().Slice(start, count);
     }
 
     private static int Compare(in WorldPlotActionDrain row, Guid plotNodeId, Guid plotNodeActionId)
@@ -310,40 +300,8 @@ internal static class WorldPlotActionInstanceLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = Compare(rows[middle], plotNodeId, plotNodeActionId);
-            if (comparison == 0)
-            {
-                // Keep going left: the search must land on the pair's *first* instance, or the walk
-                // below starts in the middle of the pair.
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length &&
-               Compare(rows[start + count], plotNodeId, plotNodeActionId) == 0)
-        {
-            count++;
-        }
-
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Plot: plotNodeId, Action: plotNodeActionId),
+            static (row, key) => Compare(row, key.Plot, key.Action), out start, out count, resetOnMiss: true);
     }
 
     private static int Compare(in WorldPlotActionInstance row, Guid plotNodeId, Guid plotNodeActionId)
@@ -368,25 +326,8 @@ internal static class WorldPlotActionLookup
         Guid plotNodeActionId,
         out WorldPlotAction row)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = Compare(rows[middle], plotNodeId, plotNodeActionId);
-            if (comparison == 0)
-            {
-                row = rows[middle];
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        row = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), (Plot: plotNodeId, Action: plotNodeActionId),
+            static (row, key) => Compare(row, key.Plot, key.Action), out row);
     }
 
     private static int Compare(in WorldPlotAction row, Guid plotNodeId, Guid plotNodeActionId)
@@ -422,11 +363,12 @@ internal sealed class WorldPlotActionDeriver
         if (buffer is null) throw new ArgumentNullException(nameof(buffer));
         if (buffer.Count == 0) return PublicationTable<WorldPlotAction>.Empty;
 
-        var derived = new WorldPlotAction[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = Derive(buffer[index]);
-
-        Array.Sort(derived, 0, derived.Length, PlotActionComparer.ByPlotThenAction);
-        return PublicationTable<WorldPlotAction>.Create(derived, derived.Length);
+        return WorldRelationTable.Build(buffer, reading => Derive(in reading),
+            static (left, right) =>
+            {
+                var plot = left.PlotNodeId.CompareTo(right.PlotNodeId);
+                return plot != 0 ? plot : left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
+            });
     }
 
     private WorldPlotAction Derive(in RawPlotAction reading)
@@ -502,16 +444,7 @@ internal sealed class WorldPlotActionDeriver
     /// </summary>
     private const int MaximumInstances = 10000;
 
-    private sealed class PlotActionComparer : IComparer<WorldPlotAction>
-    {
-        internal static readonly IComparer<WorldPlotAction> ByPlotThenAction = new PlotActionComparer();
 
-        public int Compare(WorldPlotAction left, WorldPlotAction right)
-        {
-            var byPlot = left.PlotNodeId.CompareTo(right.PlotNodeId);
-            return byPlot != 0 ? byPlot : left.PlotNodeActionId.CompareTo(right.PlotNodeActionId);
-        }
-    }
 }
 
 /// <summary>
@@ -612,23 +545,24 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < plots.Count; index++)
         {
             var plot = plots[index];
             if (plot is null) continue;
 
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += Read(plot, buffer, instances, drains);
+                sampled += Read(plot, buffer, instances, drains, out readOwnerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a plot's actions threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a plot's actions threw", ex, readOwnerId));
             }
         }
 
@@ -640,9 +574,11 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
         object plot,
         WorldRelationBuffer<RawPlotAction> buffer,
         WorldRelationBuffer<WorldPlotActionInstance> instances,
-        WorldRelationBuffer<WorldPlotActionDrain> drains)
+        WorldRelationBuffer<WorldPlotActionDrain> drains,
+        out Guid readOwnerId)
     {
-        var plotId = _plotId!(plot);
+        readOwnerId = Guid.Empty;
+        var plotId = readOwnerId = _plotId!(plot);
         if (plotId == Guid.Empty) return 0;
 
         var appended = Offered(plot, plotId, buffer);

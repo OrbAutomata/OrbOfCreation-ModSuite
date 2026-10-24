@@ -482,9 +482,9 @@ public sealed class AutoConceptHeadlessJourneyTests
         {
             var occupied = _candidates.Count(
                 candidate => Math.Max(candidate.Quantity, candidate.QueuedQuantity) > 0);
-            var concepts = new WorldConceptRecipeBuffer();
+            var concepts = new WorldRelationBuffer<WorldConceptRecipe>();
             var recipes = new WorldAlchemyRecipe[_candidates.Count];
-            var instances = new WorldAlchemyInstanceBuffer();
+            var instances = new WorldRelationBuffer<RawWorldAlchemyInstance>();
             for (var index = 0; index < _candidates.Count; index++)
             {
                 var candidate = _candidates[index];
@@ -507,7 +507,7 @@ public sealed class AutoConceptHeadlessJourneyTests
             return new GameWorldState
             {
                 AlchemyRecipes = WorldTable.Create(recipes),
-                ConceptRecipes = WorldAlchemyRowDeriver.Build(concepts),
+                ConceptRecipes = WorldRelationTable.Build(concepts, WorldConceptRecipeLookup.Order),
                 AlchemyInstances = WorldAlchemyRowDeriver.Build(instances),
                 CollectedAtEpoch = 1,
             };

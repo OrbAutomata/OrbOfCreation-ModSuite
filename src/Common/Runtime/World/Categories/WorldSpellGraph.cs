@@ -207,7 +207,11 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
+        if (spells.Count != frame.SpellRecipes.Count)
+            return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, 0, 1,
+                WorldFailures.Dependency("spell registry identity snapshot was incomplete",
+                    frame.Report.For("spell recipes").Failure));
         for (var index = 0; index < spells.Count; index++)
         {
             var spell = spells[index];
@@ -217,11 +221,11 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
                 continue;
             }
 
+            var recipeId = frame.SpellRecipes[index].EntityId;
             try
             {
                 // Reuse the identity already read by the primary registry reader. Both readers walk
                 // SpellRecipeSO.All in its authored order, so this removes the second GetGuid call.
-                var recipeId = frame.SpellRecipes[index].EntityId;
                 frame.SpellRecipeAuthoring.Append(new WorldSpellRecipeAuthoring(
                     recipeId, _castType!(spell), _rechargeDuration!(spell),
                     _rechargeMultiplier!(spell), _rechargeType!(spell), _maximumChannel!(spell),
@@ -261,7 +265,7 @@ internal sealed class WorldSpellGraphReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a spell graph row threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a spell graph row threw", ex, recipeId));
             }
         }
 
@@ -337,15 +341,8 @@ internal static class WorldSpellGraphLookup
         Guid recipeId,
         out WorldSpellRecipeAuthoring authoring)
     {
-        var rows = table.AsSpan();
-        var start = LowerBound(rows, recipeId, static (in WorldSpellRecipeAuthoring row) => row.RecipeId);
-        if (start < rows.Length && rows[start].RecipeId == recipeId)
-        {
-            authoring = rows[start];
-            return true;
-        }
-        authoring = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out authoring);
     }
 
     internal static bool TryFindCosts(
@@ -354,11 +351,8 @@ internal static class WorldSpellGraphLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, recipeId, static (in WorldSpellAuthoredCost row) => row.RecipeId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out start, out count);
     }
 
     internal static bool TryFindRelations(
@@ -367,26 +361,10 @@ internal static class WorldSpellGraphLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, recipeId, static (in WorldSpellRelation row) => row.RecipeId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out start, out count);
     }
 
-    private delegate Guid RecipeOf<T>(in T row) where T : struct;
 
-    private static int LowerBound<T>(ReadOnlySpan<T> rows, Guid recipeId, RecipeOf<T> recipeOf)
-        where T : struct
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (recipeOf(in rows[middle]).CompareTo(recipeId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        return low;
-    }
+
 }

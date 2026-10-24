@@ -79,6 +79,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         var registry = _registry?.Invoke();
         if (registry is null) return Withheld(buffer, "the native identity registry was unreadable");
 
+        var readOwnerId = KnownEntities.Mana.Uuid;
         try
         {
             var orb = registry[KnownEntities.Mana.Uuid];
@@ -89,7 +90,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
 
             for (var index = 0; index < Lists.Length; index++)
             {
-                var listId = Lists[index];
+                var listId = readOwnerId = Lists[index];
                 var list = registry[listId];
                 if (list is null || list.GetType() != _listType)
                 {
@@ -126,7 +127,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return Withheld(
-                buffer, "reading the resource panel's lists threw: " + ex.GetBaseException().Message);
+                buffer, WorldFailures.ReadFault("reading the resource panel's lists threw", ex, readOwnerId));
         }
 
         return new WorldCategoryReport(
@@ -135,7 +136,7 @@ internal sealed class WorldResourceBarReader : IWorldCategoryReader
 
     private WorldCategoryReport Withheld(
         WorldRelationBuffer<WorldResourceBarEntry> buffer,
-        string reason)
+        WorldCollectionFailure reason)
     {
         buffer.Reset();
         return WorldCategoryReport.Missing(Category, "the resource panel's membership was withheld: " + reason);

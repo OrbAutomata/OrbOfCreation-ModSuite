@@ -57,33 +57,7 @@ internal static class WorldRequirementListLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-        if (listId == Guid.Empty) return false;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].ListId.CompareTo(listId);
-            if (comparison == 0)
-            {
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].ListId == listId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), listId,
+            static (row, key) => row.ListId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }

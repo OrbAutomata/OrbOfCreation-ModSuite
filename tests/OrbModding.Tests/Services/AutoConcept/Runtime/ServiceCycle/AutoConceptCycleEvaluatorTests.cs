@@ -611,7 +611,7 @@ public sealed class AutoConceptCycleEvaluatorTests
         WorldAlchemyCost[]? costs = null,
         double costScalingPerQuantity = 0)
     {
-        var concepts = new WorldConceptRecipeBuffer();
+        var concepts = new WorldRelationBuffer<WorldConceptRecipe>();
         foreach (var recipe in recipes)
         {
             var canAddNow = recipe.RecipeId != cannotAddNow;
@@ -630,7 +630,7 @@ public sealed class AutoConceptCycleEvaluatorTests
                 canAddNow);
             concepts.Append(in row);
         }
-        var active = new WorldAlchemyInstanceBuffer();
+        var active = new WorldRelationBuffer<RawWorldAlchemyInstance>();
         foreach (var instance in instances) active.Append(in instance);
 
         var programs = new List<WorldModifierProgram>();
@@ -664,7 +664,7 @@ public sealed class AutoConceptCycleEvaluatorTests
         return new GameWorldState
         {
             AlchemyRecipes = WorldTable.Create(recipes),
-            ConceptRecipes = WorldAlchemyRowDeriver.Build(concepts),
+            ConceptRecipes = WorldRelationTable.Build(concepts, WorldConceptRecipeLookup.Order),
             AlchemyInstances = WorldAlchemyRowDeriver.Build(active),
             Resources = WorldTable.Create(resources ?? Array.Empty<WorldResource>()),
             AlchemyCosts = PublicationTable<WorldAlchemyCost>.Create(

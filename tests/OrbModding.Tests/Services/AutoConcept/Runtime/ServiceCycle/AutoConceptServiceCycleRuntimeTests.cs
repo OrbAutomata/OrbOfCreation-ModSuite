@@ -472,9 +472,9 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
 
         private GameWorldState World()
         {
-            var concepts = new WorldConceptRecipeBuffer();
+            var concepts = new WorldRelationBuffer<WorldConceptRecipe>();
             var recipes = new WorldAlchemyRecipe[_published.Length];
-            var instances = new WorldAlchemyInstanceBuffer();
+            var instances = new WorldRelationBuffer<RawWorldAlchemyInstance>();
             for (var index = 0; index < _published.Length; index++)
             {
                 var recipe = _published[index];
@@ -494,7 +494,7 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
                 CollectedAtFrame = 10,
                 CollectedAtEpoch = _epoch,
                 AlchemyRecipes = WorldTable.Create(recipes),
-                ConceptRecipes = WorldAlchemyRowDeriver.Build(concepts),
+                ConceptRecipes = WorldRelationTable.Build(concepts, WorldConceptRecipeLookup.Order),
                 AlchemyInstances = WorldAlchemyRowDeriver.Build(instances),
             };
         }

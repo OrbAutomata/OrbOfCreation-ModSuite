@@ -91,7 +91,7 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<WorldRuneStone, WorldRuneStone> _runeStones;
     private readonly WorldCategoryReader<WorldDisplayType, WorldDisplayType> _displayTypes;
     private readonly WorldPurchaseCostReader _purchaseCosts;
-    private readonly WorldUpgradeCostReader _upgradeCosts;
+    private readonly WorldPurchaseCostReader _upgradeCosts;
     private readonly WorldPlotActionReader _plotActions;
     private readonly WorldActionQueueReader _actionQueues;
     private readonly WorldSpellSlotReader _spellSlots;
@@ -386,8 +386,11 @@ internal sealed class GameWorldCollector
         _recipeBooks = Reader(new WorldRecipeBookBinder(), resolveType, static frame => frame.RecipeBooks);
         _plotNodes = Reader(new WorldPlotNodeBinder(), resolveType, static frame => frame.PlotNodes);
         _treasurePools = Reader(new WorldTreasurePoolBinder(), resolveType, static frame => frame.TreasurePools);
-        _purchaseCosts = new WorldPurchaseCostReader(resolveType("StructureSO"), resolveType);
-        _upgradeCosts = new WorldUpgradeCostReader(resolveType("UpgradeSO"), resolveType);
+        _purchaseCosts = new WorldPurchaseCostReader(
+            resolveType("StructureSO"), "StructureSO", "baseCost", "structure costs");
+        _upgradeCosts = new WorldPurchaseCostReader(
+            resolveType("UpgradeSO"), "UpgradeSO", "resourceCost", "upgrade costs",
+            perLevelModifierField: "resourceCostModPerLevel");
         _plotActions = new WorldPlotActionReader(resolveType("PlotNodeSO"), resolveType);
         _actionQueues = new WorldActionQueueReader(
             resolveType("IdScriptableObject"),
@@ -580,6 +583,10 @@ internal sealed class GameWorldCollector
             reports[_readers.Length] = WorldCategoryReport.Missing(ModifierFoldingCategory, degradation);
         }
 
+        // Readers may depend on an earlier category's capture. This pass owns a fresh report array;
+        // expose its completed entries while capture is in progress, never the prior pass's causes.
+        var report = new WorldCollectionReport(reports);
+        frame.Report = report;
         var structuralWasRead = true;
         for (var index = 0; index < _readers.Length; index++)
         {
@@ -602,7 +609,7 @@ internal sealed class GameWorldCollector
             if (!_isStructural[index]) continue;
             _structuralReports[index] = reports[index];
             if (_readers[index].IsAvailable &&
-                reports[index].Outcome != WorldCategoryOutcome.Collected)
+                (reports[index].Outcome != WorldCategoryOutcome.Collected || reports[index].HasReadFault))
             {
                 structuralWasRead = false;
             }
@@ -621,8 +628,6 @@ internal sealed class GameWorldCollector
             _structuralEpoch = frame.CollectedAtEpoch;
         }
 
-        var report = new WorldCollectionReport(reports);
-        frame.Report = report;
         return report;
     }
 
@@ -640,7 +645,8 @@ internal sealed class GameWorldCollector
     /// <para>
     /// Skipping means skipping the <em>native reads</em>. The buffers are left alone rather than
     /// reset, and every pass that does read them moves the frame's structural generation, which is
-    /// what tells <see cref="WorldAuthoredTables"/> to derive its tables again.
+    /// what invalidates the cross-table authored result; each structural buffer also invalidates
+    /// its own publication when reset or appended to.
     /// </para>
     /// <para>
     /// The frame is compared by identity as well as by epoch because a collector may be handed more

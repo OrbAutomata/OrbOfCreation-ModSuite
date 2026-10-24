@@ -105,72 +105,19 @@ internal readonly struct WorldModifierProgramEntry : IWorldEntity
     internal GameValueModifier Modifier => new(Type, Amount, Order);
 }
 
-internal sealed class WorldModifierProgramBuffer
+internal static class WorldModifierProgramMath
 {
-    private WorldModifierProgram[] _rows = new WorldModifierProgram[64];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly WorldModifierProgram this[int index] => ref _rows[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in WorldModifierProgram row)
-    {
-        if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[_count++] = row;
-    }
-}
-
-internal sealed class WorldModifierProgramEntryBuffer
-{
-    private WorldModifierProgramEntry[] _rows = new WorldModifierProgramEntry[128];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly WorldModifierProgramEntry this[int index] => ref _rows[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in WorldModifierProgramEntry row)
-    {
-        if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[_count++] = row;
-    }
-}
-
-internal static class WorldModifierProgramDeriver
-{
-    internal static PublicationTable<WorldModifierProgram> Build(WorldModifierProgramBuffer buffer)
-    {
-        var rows = new WorldModifierProgram[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) => Compare(left.OwnerId, left.Role, right.OwnerId, right.Role));
-        return PublicationTable<WorldModifierProgram>.Create(rows, rows.Length);
-    }
-
-    internal static PublicationTable<WorldModifierProgramEntry> Build(
-        WorldModifierProgramEntryBuffer buffer)
-    {
-        var rows = new WorldModifierProgramEntry[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) =>
+    internal static readonly Comparison<WorldModifierProgram> Order =
+        static (left, right) => Compare(left.OwnerId, left.Role, right.OwnerId, right.Role);
+    internal static readonly Comparison<WorldModifierProgramEntry> EntryOrder =
+        static (left, right) =>
         {
             var key = Compare(left.OwnerId, left.Role, right.OwnerId, right.Role);
             if (key != 0) return key;
-            var set = ((int)left.Set).CompareTo((int)right.Set);
+            var set = left.Set.CompareTo(right.Set);
             return set != 0 ? set : left.Position.CompareTo(right.Position);
-        });
-        return PublicationTable<WorldModifierProgramEntry>.Create(rows, rows.Length);
-    }
+        };
 
-    private static int Compare(
-        Guid leftOwner,
-        WorldModifierProgramRole leftRole,
-        Guid rightOwner,
-        WorldModifierProgramRole rightRole)
-    {
-        var owner = leftOwner.CompareTo(rightOwner);
-        return owner != 0 ? owner : ((int)leftRole).CompareTo((int)rightRole);
-    }
-}
-
-internal static class WorldModifierProgramMath
-{
     internal static bool TryFoldRecord(
         PublicationTable<WorldModifierProgram> programs,
         PublicationTable<WorldModifierProgramEntry> entries,
@@ -244,19 +191,8 @@ internal static class WorldModifierProgramMath
         WorldModifierProgramRole role,
         out WorldModifierProgram row)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = Compare(rows[middle].OwnerId, rows[middle].Role, ownerId, role);
-            if (comparison == 0) { row = rows[middle]; return true; }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        row = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), (Id: ownerId, Role: role),
+            static (row, key) => Compare(row.OwnerId, row.Role, key.Id, key.Role), out row);
     }
 
     private static bool TryFindEntries(
@@ -266,21 +202,8 @@ internal static class WorldModifierProgramMath
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (Compare(rows[middle].OwnerId, rows[middle].Role, ownerId, role) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               Compare(rows[start + count].OwnerId, rows[start + count].Role, ownerId, role) == 0)
-            count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Id: ownerId, Role: role),
+            static (row, key) => Compare(row.OwnerId, row.Role, key.Id, key.Role), out start, out count);
     }
 
     private static int Compare(
@@ -337,8 +260,8 @@ internal sealed class NativeModifierProgramReader
         Guid ownerId,
         WorldModifierProgramRole role,
         object record,
-        WorldModifierProgramBuffer programs,
-        WorldModifierProgramEntryBuffer entries)
+        WorldRelationBuffer<WorldModifierProgram> programs,
+        WorldRelationBuffer<WorldModifierProgramEntry> entries)
     {
         programs.Append(new WorldModifierProgram(
             ownerId, role, isRecord: true, _base!(record), _dirty!(record), _memo!(record)));
@@ -350,8 +273,8 @@ internal sealed class NativeModifierProgramReader
         Guid ownerId,
         WorldModifierProgramRole role,
         object? list,
-        WorldModifierProgramBuffer programs,
-        WorldModifierProgramEntryBuffer entries)
+        WorldRelationBuffer<WorldModifierProgram> programs,
+        WorldRelationBuffer<WorldModifierProgramEntry> entries)
     {
         programs.Append(new WorldModifierProgram(ownerId, role, false, 0d, false, default));
         if (list is null) return;
@@ -364,7 +287,7 @@ internal sealed class NativeModifierProgramReader
         WorldModifierProgramRole role,
         WorldModifierProgramEntrySet set,
         object? source,
-        WorldModifierProgramEntryBuffer destination)
+        WorldRelationBuffer<WorldModifierProgramEntry> destination)
     {
         if (source is not IDictionary dictionary) return;
         var position = 0;
@@ -382,7 +305,7 @@ internal sealed class NativeModifierProgramReader
         WorldModifierProgramRole role,
         WorldModifierProgramEntrySet set,
         IList? source,
-        WorldModifierProgramEntryBuffer destination)
+        WorldRelationBuffer<WorldModifierProgramEntry> destination)
     {
         if (source is null) return;
         for (var index = 0; index < source.Count; index++)

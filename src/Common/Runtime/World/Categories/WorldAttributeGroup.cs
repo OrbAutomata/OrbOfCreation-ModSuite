@@ -200,21 +200,21 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < groups.Count; index++)
         {
             var group = groups[index];
             if (group is null) continue;
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += Read(group, frame.AttributeGroupMembers);
+                sampled += Read(group, frame.AttributeGroupMembers, out readOwnerId);
             }
             catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
             {
                 WorldSkipTally.Skip(ref skipped, ref firstFailure,
-                    "reading a stat group's members threw: " +
-                    exception.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading a stat group's members threw", exception, readOwnerId));
             }
         }
 
@@ -222,9 +222,11 @@ internal sealed class WorldAttributeGroupMemberReader : IWorldCategoryReader
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
-    private int Read(object group, WorldRelationBuffer<WorldAttributeGroupMember> buffer)
+    private int Read(object group, WorldRelationBuffer<WorldAttributeGroupMember> buffer,
+        out Guid readOwnerId)
     {
-        var groupId = _groupId!(group);
+        readOwnerId = Guid.Empty;
+        var groupId = readOwnerId = _groupId!(group);
         if (groupId == Guid.Empty) return 0;
 
         var references = _references!(group);
@@ -267,24 +269,7 @@ internal static class WorldAttributeGroupMemberLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].AttributeGroupId.CompareTo(attributeGroupId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               rows[start + count].AttributeGroupId == attributeGroupId)
-        {
-            count++;
-        }
-
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), attributeGroupId,
+            static (row, key) => row.AttributeGroupId.CompareTo(key), out start, out count);
     }
 }

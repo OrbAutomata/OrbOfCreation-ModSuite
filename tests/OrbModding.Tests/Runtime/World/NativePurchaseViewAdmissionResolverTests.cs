@@ -137,7 +137,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
         Resolver().ReadAll(
             Lifecycle, relations, routes, memberships, out _, out _, out _, out var failure);
 
-        Assert.Equal(string.Empty, failure);
+        Assert.Equal(string.Empty, failure.Text);
         Assert.Equal(
             new[] { KnownEntities.UpgradesAll.Uuid, KnownEntities.UpgradesScholarScreen.Uuid }
                 .OrderBy(id => id)
@@ -174,7 +174,7 @@ public sealed class NativePurchaseViewAdmissionResolverTests : IDisposable
 
         Assert.Equal(0, memberships.Count);
         Assert.Contains(
-            KnownEntities.UpgradesTimeScreen.Uuid.ToString("D"), failure, StringComparison.Ordinal);
+            KnownEntities.UpgradesTimeScreen.Uuid.ToString("D"), failure.Text, StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<WorldUpgradeListMembership> Rows(

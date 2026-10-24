@@ -218,7 +218,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     [Fact]
-    public void AnOrGroupPublishesItsLeavesAtOneAnyPosition()
+    public void AnOrGroupPublishesItsNodeAndChildLeaves()
     {
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });
         var first = new global::ResearchSO();
@@ -240,15 +240,19 @@ public sealed class WorldEntityRequirementTests : IDisposable
 
         var world = Collect();
 
-        Assert.Equal(2, world.EntityRequirements.Count);
-        Assert.All(world.EntityRequirements.AsSpan().ToArray(), row =>
+        Assert.Equal(3, world.EntityRequirements.Count);
+        var root = world.EntityRequirements[0];
+        Assert.Equal(WorldRequirementNodeKind.Group, root.NodeKind);
+        Assert.Equal(WorldRequirementOperator.Or, root.Operator);
+        Assert.Equal(-1, root.ParentOrdinal);
+        for (var index = 1; index < 3; index++)
         {
+            var row = world.EntityRequirements[index];
             Assert.Equal(WorldRequirementConditionKind.Research, row.Kind);
-            Assert.Equal(WorldRequirementGroupKind.Any, row.GroupKind);
-            Assert.Equal(0, row.GroupOrdinal);
-        });
-        Assert.Equal(0, world.EntityRequirements[0].Ordinal);
-        Assert.Equal(1, world.EntityRequirements[1].Ordinal);
+            Assert.Equal(WorldRequirementNodeKind.Leaf, row.NodeKind);
+            Assert.Equal(root.Ordinal, row.ParentOrdinal);
+            Assert.Equal(index, row.Ordinal);
+        }
     }
 
     [Fact]
@@ -266,7 +270,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         var report = collector.Collect(new GameWorldCycleFrame { CollectedAtEpoch = 1 });
         var category = report.For("entity requirements");
 
-        Assert.Equal(1, category.Sampled);
+        Assert.Equal(2, category.Sampled);
         Assert.Equal(0, category.Skipped);
         Assert.DoesNotContain("OrRequirement", category.FirstFailure, StringComparison.Ordinal);
     }
@@ -390,7 +394,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
         var category = collector.Collect(frame).For("entity requirements");
         var world = GameWorldFrameDeriver.Build(frame);
 
-        Assert.StartsWith("reading a per-level prerequisite threw: ", category.FirstFailure);
+        Assert.StartsWith("reading a per-level prerequisite threw", category.FirstFailure);
         Assert.True(WorldEntityRequirementLookup.TryFindRange(
             world.EntityRequirements, gated.GetGuid(), out var start, out var count));
         var programs = new List<WorldRequirementProgramKind>();
@@ -453,7 +457,7 @@ public sealed class WorldEntityRequirementTests : IDisposable
     }
 
     [Fact]
-    public void ACompositeNestedInsideACompositeIsOneBranchOfItsGroup()
+    public void ACompositeNestedInsideACompositeRetainsItsParentAndOperator()
     {
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });
         var scribing = new global::ResearchSO();
@@ -486,22 +490,20 @@ public sealed class WorldEntityRequirementTests : IDisposable
 
         var rows = Collect().EntityRequirements.AsSpan();
 
-        Assert.Equal(3, rows.Length);
-        Assert.Equal(WorldRequirementConditionKind.Research, rows[0].Kind);
-        Assert.Equal(WorldRequirementConditionKind.Structure, rows[1].Kind);
-        Assert.Equal(WorldRequirementConditionKind.Research, rows[2].Kind);
-        foreach (var row in rows.ToArray())
-        {
-            Assert.Equal(WorldRequirementGroupKind.Any, row.GroupKind);
-            Assert.Equal(0, row.GroupOrdinal);
-        }
-        Assert.Equal(0, rows[0].BranchOrdinal);
-        Assert.Equal(1, rows[1].BranchOrdinal);
-        Assert.Equal(1, rows[2].BranchOrdinal);
+        Assert.Equal(5, rows.Length);
+        Assert.Equal(WorldRequirementOperator.Or, rows[0].Operator);
+        Assert.Equal(WorldRequirementConditionKind.Research, rows[1].Kind);
+        Assert.Equal(0, rows[1].ParentOrdinal);
+        Assert.Equal(WorldRequirementOperator.And, rows[2].Operator);
+        Assert.Equal(0, rows[2].ParentOrdinal);
+        Assert.Equal(WorldRequirementConditionKind.Structure, rows[3].Kind);
+        Assert.Equal(WorldRequirementConditionKind.Research, rows[4].Kind);
+        Assert.Equal(2, rows[3].ParentOrdinal);
+        Assert.Equal(2, rows[4].ParentOrdinal);
     }
 
     [Fact]
-    public void AThirdLevelOfCompositeStaysNamedAndUnknown()
+    public void AThirdLevelOfCompositeRetainsItsGraphAndEmptyOrVerdict()
     {
         var gated = Author(new global::UpgradeSO { maxLevel = 1 });
         var outer = new Requirements.OrRequirement();
@@ -510,10 +512,15 @@ public sealed class WorldEntityRequirementTests : IDisposable
         outer.orConditions.Add(middle);
         gated.prerequisitesPerLevel.prerequisites.Add(outer);
 
-        var row = Assert.Single(Collect().EntityRequirements.AsSpan().ToArray());
-
-        Assert.Equal(WorldRequirementConditionKind.Unknown, row.Kind);
-        Assert.Equal("OrRequirement", row.ConditionTypeName);
+        var world = Collect();
+        Assert.Equal(3, world.EntityRequirements.Count);
+        var nested = world.EntityRequirements[2];
+        Assert.Equal(WorldRequirementNodeKind.Group, nested.NodeKind);
+        Assert.Equal(WorldRequirementOperator.Or, nested.Operator);
+        Assert.Equal(1, nested.ParentOrdinal);
+        Assert.Equal(2, nested.Depth);
+        Assert.Equal(WorldRequirementVerdict.Unmet,
+            WorldRequirementEvaluator.Evaluate(world, gated.GetGuid(), 1));
     }
 
     [Fact]

@@ -207,15 +207,13 @@ internal static class WorldGlyphFactorDeriver
             byKey[statistic.GlobalDefinition] = statistic.StatisticId;
         }
 
-        var rows = new WorldGlyphFactor[buffer.Count];
-        for (var index = 0; index < rows.Length; index++)
+        return WorldRelationTable.Build(buffer, row =>
         {
-            var row = buffer[index];
             var key = KeyFor(row.Property);
             var statisticId = key.Length > 0 && byKey.TryGetValue(key, out var found)
                 ? found
                 : Guid.Empty;
-            rows[index] = new WorldGlyphFactor(
+            return new WorldGlyphFactor(
                 row.GlyphId,
                 row.Property,
                 statisticId,
@@ -223,16 +221,13 @@ internal static class WorldGlyphFactorDeriver
                 row.ModifierType,
                 row.Amount,
                 row.Order);
-        }
-
-        Array.Sort(rows, static (left, right) =>
+        }, static (left, right) =>
         {
             var glyph = left.GlyphId.CompareTo(right.GlyphId);
             return glyph != 0
                 ? glyph
                 : SlotOrdinal(left.Property).CompareTo(SlotOrdinal(right.Property));
         });
-        return PublicationTable<WorldGlyphFactor>.Create(rows, rows.Length);
     }
 
     private static string KeyFor(string property)
@@ -264,32 +259,7 @@ internal static class WorldGlyphFactorLookup
         out int start,
         out int count)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].GlyphId.CompareTo(glyphId);
-            if (comparison < 0) low = middle + 1;
-            else
-            {
-                if (comparison == 0) found = middle;
-                high = middle - 1;
-            }
-        }
-
-        if (found < 0)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-
-        start = found;
-        var end = found + 1;
-        while (end < table.Count && table[end].GlyphId == glyphId) end++;
-        count = end - found;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), glyphId,
+            static (row, key) => row.GlyphId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }

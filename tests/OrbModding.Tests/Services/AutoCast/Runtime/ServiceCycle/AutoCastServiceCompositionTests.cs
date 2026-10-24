@@ -199,7 +199,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
     /// <summary>Firebolt equipped and ready, authored as one combat effect, with no ritual battle running.</summary>
     private static GameWorldState FireboltOutsideARitualWorld()
     {
-        var slots = new WorldSpellSlotBuffer();
+        var slots = new WorldRelationBuffer<WorldSpellSlot>();
         var slot = new WorldSpellSlot(
             0, Firebolt,
             occupied: true,
@@ -219,7 +219,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
 
         return new GameWorldState
         {
-            SpellSlots = WorldSpellSlotDeriver.Build(slots),
+            SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
             SpellCosts = PublicationTable<WorldSpellCost>.Empty,
             SpellRecipeAuthoring = PublicationTable<WorldSpellRecipeAuthoring>.Create(new[]
             {
@@ -231,7 +231,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
     /// <summary>One equipped slot the game calls ready, costing nothing.</summary>
     private static GameWorldState ReadyLoadoutWorld()
     {
-        var slots = new WorldSpellSlotBuffer();
+        var slots = new WorldRelationBuffer<WorldSpellSlot>();
         var slot = new WorldSpellSlot(
             0, Ember,
             occupied: true,
@@ -251,7 +251,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
 
         return new GameWorldState
         {
-            SpellSlots = WorldSpellSlotDeriver.Build(slots),
+            SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
             SpellCosts = PublicationTable<WorldSpellCost>.Empty,
         };
     }

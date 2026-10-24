@@ -354,22 +354,22 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             frame.CraftingQueueEntries.Reset();
             return WorldCategoryReport.Missing(
                 Category,
-                "reading the visible crafting queues failed: " +
-                exception.GetBaseException().Message);
+                WorldFailures.ReadFault("reading the visible crafting queues failed", exception));
         }
 
         var recipes = _allRecipes!() ??
             throw new InvalidOperationException("CraftingRecipeSO.All was null.");
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         for (var index = 0; index < recipes.Count; index++)
         {
             var recipe = recipes[index];
+            var readOwnerId = Guid.Empty;
             try
             {
                 if (recipe is null) throw new InvalidOperationException("recipe was null");
-                AppendDecision(recipe, frame);
+                AppendDecision(recipe, frame, out readOwnerId);
                 sampled++;
             }
             catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
@@ -377,8 +377,7 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "crafting decision row " + index + " failed: " +
-                        exception.GetBaseException().Message);
+                    "crafting decision row " + index + WorldFailures.ReadFault(" failed", exception, readOwnerId));
             }
         }
         return new WorldCategoryReport(
@@ -389,9 +388,10 @@ internal sealed class WorldCraftingDecisionReader : IWorldCategoryReader
             firstFailure);
     }
 
-    private void AppendDecision(object recipe, GameWorldCycleFrame frame)
+    private void AppendDecision(object recipe, GameWorldCycleFrame frame, out Guid readOwnerId)
     {
-        var recipeId = _identity!(recipe);
+        readOwnerId = Guid.Empty;
+        var recipeId = readOwnerId = _identity!(recipe);
         if (recipeId == Guid.Empty) throw new InvalidOperationException("recipe UUID was empty");
         object? matchedPage = null;
         for (var index = 0; index < _pages.Length; index++)

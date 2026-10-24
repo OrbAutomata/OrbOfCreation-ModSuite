@@ -111,8 +111,9 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers);
         var usage = new WorldEntityRequirement(
             ExtractThaumicScrolls,
-            WorldRequirementOwnerKind.AlchemyRecipe,
-            0,
+            WorldRequirementOwnerKind.AlchemyRecipe, containerIndex: 0,
+            0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Research,
             "ResearchRequirement",
             ExpertAlchemy,

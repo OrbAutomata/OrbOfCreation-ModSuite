@@ -177,8 +177,9 @@ public sealed class GameMcpRecipeBookTests
             {
                 new WorldEntityRequirement(
                     ExpansionBookId,
-                    WorldRequirementOwnerKind.RecipeBook,
-                    ordinal: 0,
+                    WorldRequirementOwnerKind.RecipeBook, containerIndex: 0,
+                    ordinal: 0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
                     WorldRequirementConditionKind.Upgrade,
                     "UpgradeRequirement",
                     LearnExpandId,

@@ -533,10 +533,10 @@ public sealed class AutoCastCycleEvaluatorTests
         RawResourceSample[] resources,
         long collectedAtEpoch = 1)
     {
-        var slotBuffer = new WorldSpellSlotBuffer();
+        var slotBuffer = new WorldRelationBuffer<WorldSpellSlot>();
         foreach (var slot in slots) slotBuffer.Append(in slot);
 
-        var costBuffer = new WorldSpellCostBuffer();
+        var costBuffer = new WorldRelationBuffer<WorldSpellCost>();
         foreach (var cost in costs) costBuffer.Append(in cost);
 
         var deriver = new WorldResourceDeriver(default);
@@ -546,8 +546,8 @@ public sealed class AutoCastCycleEvaluatorTests
 
         return new GameWorldState
         {
-            SpellSlots = WorldSpellSlotDeriver.Build(slotBuffer),
-            SpellCosts = WorldSpellCostDeriver.Build(costBuffer),
+            SpellSlots = WorldRelationTable.Build(slotBuffer, WorldSpellSlotLookup.Order),
+            SpellCosts = WorldRelationTable.Build(costBuffer, WorldSpellCostLookup.Order),
             Resources = WorldTable.Create(rows),
             CollectedAtEpoch = collectedAtEpoch,
         };

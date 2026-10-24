@@ -211,7 +211,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
         private static GameWorldState ChargingWorld()
         {
-            var slots = new WorldSpellSlotBuffer();
+            var slots = new WorldRelationBuffer<WorldSpellSlot>();
             var slot = new WorldSpellSlot(
                 0, Ember,
                 occupied: true,
@@ -231,7 +231,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
             return new GameWorldState
             {
                 CollectedAtEpoch = NativeEpoch,
-                SpellSlots = WorldSpellSlotDeriver.Build(slots),
+                SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
                 SpellCosts = PublicationTable<WorldSpellCost>.Empty,
             };
         }

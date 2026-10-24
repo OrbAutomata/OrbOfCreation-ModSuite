@@ -68,6 +68,14 @@ internal readonly struct WorldSpellCost
 /// </remarks>
 internal static class WorldSpellCostLookup
 {
+    internal static readonly Comparison<WorldSpellCost> Order =
+        static (left, right) => {
+            var bySlot = left.SlotIndex.CompareTo(right.SlotIndex);
+            if (bySlot != 0) return bySlot;
+            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
+            return byKind != 0 ? byKind : left.ResourceId.CompareTo(right.ResourceId);
+        };
+
     /// <summary>
     /// The half-open row range belonging to one slot's costs of one kind. Both indices are zero when
     /// the slot published none, which is the honest reading of a spell that costs nothing on that
@@ -81,102 +89,13 @@ internal static class WorldSpellCostLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = Compare(rows[middle].SlotIndex, rows[middle].Kind, slotIndex, kind);
-            if (comparison == 0)
-            {
-                // Keep going left: the search must land on the range's *first* row, or the forward
-                // walk below starts in the middle of it and reports a partial price.
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length &&
-            rows[start + count].SlotIndex == slotIndex &&
-            rows[start + count].Kind == kind)
-        {
-            count++;
-        }
-
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Slot: slotIndex, Kind: kind),
+            static (row, key) => Compare(row.SlotIndex, row.Kind, key.Slot, key.Kind), out start, out count, resetOnMiss: true);
     }
 
     private static int Compare(int leftSlot, WorldSpellCostKind leftKind, int rightSlot, WorldSpellCostKind rightKind)
     {
         var bySlot = leftSlot.CompareTo(rightSlot);
         return bySlot != 0 ? bySlot : ((int)leftKind).CompareTo((int)rightKind);
-    }
-}
-
-/// <summary>Every spell cost as read, held where a cycle can own them.</summary>
-internal sealed class WorldSpellCostBuffer
-{
-    private const int InitialCapacity = 32;
-
-    private WorldSpellCost[] _samples = new WorldSpellCost[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldSpellCost this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Truncate(int count) => _count = count;
-
-    internal void Append(in WorldSpellCost sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>
-/// Publishes the cost readings sorted by slot, then kind, then resource, so one slot's prices of one
-/// kind are contiguous and in a reproducible order.
-/// </summary>
-internal static class WorldSpellCostDeriver
-{
-    internal static PublicationTable<WorldSpellCost> Build(WorldSpellCostBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldSpellCost>.Empty;
-
-        var derived = new WorldSpellCost[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, SpellCostComparer.BySlotThenKindThenResource);
-        return PublicationTable<WorldSpellCost>.Create(derived, derived.Length);
-    }
-
-    private sealed class SpellCostComparer : IComparer<WorldSpellCost>
-    {
-        internal static readonly IComparer<WorldSpellCost> BySlotThenKindThenResource =
-            new SpellCostComparer();
-
-        public int Compare(WorldSpellCost left, WorldSpellCost right)
-        {
-            var bySlot = left.SlotIndex.CompareTo(right.SlotIndex);
-            if (bySlot != 0) return bySlot;
-            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
-            return byKind != 0 ? byKind : left.ResourceId.CompareTo(right.ResourceId);
-        }
     }
 }

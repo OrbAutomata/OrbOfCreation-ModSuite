@@ -131,26 +131,11 @@ internal static class WorldTypeModifierLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, typeId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].TypeId == typeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), typeId,
+            static (row, key) => row.TypeId.CompareTo(key), out start, out count);
     }
 
-    private static int LowerBound(ReadOnlySpan<WorldTypeModifier> rows, Guid typeId)
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].TypeId.CompareTo(typeId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
 
-        return low;
-    }
 }
 
 /// <summary>
@@ -179,37 +164,13 @@ internal static class WorldTypeModifierContributionLookup
         out int count)
     {
         if (property is null) throw new ArgumentNullException(nameof(property));
-        var rows = table.AsSpan();
-        start = LowerBound(rows, typeId, property);
-        count = 0;
-        while (start + count < rows.Length &&
-               rows[start + count].TypeId == typeId &&
-               string.Equals(rows[start + count].Property, property, StringComparison.Ordinal))
-        {
-            count++;
-        }
-
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Id: typeId, Property: property),
+            static (row, key) => row.TypeId != key.Id
+                ? row.TypeId.CompareTo(key.Id) : string.CompareOrdinal(row.Property, key.Property),
+            out start, out count);
     }
 
-    private static int LowerBound(
-        ReadOnlySpan<WorldTypeModifierContribution> rows,
-        Guid typeId,
-        string property)
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var type = rows[middle].TypeId.CompareTo(typeId);
-            var order = type != 0 ? type : string.CompareOrdinal(rows[middle].Property, property);
-            if (order < 0) low = middle + 1;
-            else high = middle - 1;
-        }
 
-        return low;
-    }
 }
 
 /// <summary>One parent structure type and one type it confers its records on.</summary>
@@ -526,7 +487,7 @@ internal static class WorldTypeModifierWalk
         Guid typeId,
         GameWorldCycleFrame frame,
         ref int skipped,
-        ref string firstFailure);
+        ref WorldCollectionFailure firstFailure);
 
     internal static WorldCategoryReport Walk(
         string category,
@@ -537,7 +498,7 @@ internal static class WorldTypeModifierWalk
     {
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         foreach (var taxonomy in bindings.Taxonomies)
         {
             var types = taxonomy.Registry!();
@@ -558,9 +519,10 @@ internal static class WorldTypeModifierWalk
                     continue;
                 }
 
+                var typeId = Guid.Empty;
                 try
                 {
-                    var typeId = taxonomy.TypeId!(asset);
+                    typeId = taxonomy.TypeId!(asset);
                     if (typeId == Guid.Empty)
                     {
                         WorldSkipTally.Skip(ref skipped, ref firstFailure,
@@ -575,8 +537,7 @@ internal static class WorldTypeModifierWalk
                 catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure,
-                        "reading a " + taxonomy.TypeName + " " + rowNoun + " threw: " +
-                        exception.GetBaseException().Message);
+                        "reading a " + taxonomy.TypeName + " " + rowNoun + WorldFailures.ReadFault(" threw", exception, typeId));
                 }
             }
         }
@@ -623,7 +584,7 @@ internal sealed class WorldTypeModifierReader : IWorldCategoryReader
         Guid typeId,
         GameWorldCycleFrame frame,
         ref int skipped,
-        ref string firstFailure)
+        ref WorldCollectionFailure firstFailure)
     {
         foreach (var record in taxonomy.Records)
         {
@@ -689,7 +650,7 @@ internal sealed class WorldTypeModifierContributionReader : IWorldCategoryReader
         Guid typeId,
         GameWorldCycleFrame frame,
         ref int skipped,
-        ref string firstFailure)
+        ref WorldCollectionFailure firstFailure)
     {
         foreach (var record in taxonomy.Records)
         {

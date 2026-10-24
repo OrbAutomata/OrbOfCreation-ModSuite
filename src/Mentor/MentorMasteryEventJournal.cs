@@ -54,7 +54,7 @@ internal sealed class MentorMasteryEventJournal : IWorldMasteryExperienceSource
         _count++;
     }
 
-    public void CopyTo(long lifecycleEpoch, WorldMasteryExperienceBuffer destination)
+    public void CopyTo(long lifecycleEpoch, WorldRelationBuffer<WorldMasteryExperience> destination)
     {
         if (destination is null) throw new ArgumentNullException(nameof(destination));
         if (lifecycleEpoch != _epoch) return;

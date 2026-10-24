@@ -545,7 +545,7 @@ public sealed record GameWorldState
 
     /// <summary>
     /// What each pair drains per second while it runs, sorted by plot, action, then authored order.
-    /// Read through <see cref="WorldPlotActionDrainDeriver.For"/>.
+    /// Read through <see cref="WorldPlotActionDrainLookup.For"/>.
     /// </summary>
     internal PublicationTable<WorldPlotActionDrain> PlotActionDrains { get; init; } =
         PublicationTable<WorldPlotActionDrain>.Empty;

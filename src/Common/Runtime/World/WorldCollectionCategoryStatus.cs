@@ -17,14 +17,14 @@ internal readonly struct WorldCollectionCategoryStatus
         WorldCategoryOutcome outcome,
         int sampled,
         int skipped,
-        string firstFailure,
+        WorldCollectionFailure firstFailure,
         long elapsedTicks = 0)
     {
         Category = category;
         Outcome = outcome;
         Sampled = sampled;
         Skipped = skipped;
-        FirstFailure = firstFailure;
+        Failure = firstFailure;
         ElapsedTicks = elapsedTicks;
     }
 
@@ -32,7 +32,8 @@ internal readonly struct WorldCollectionCategoryStatus
     internal WorldCategoryOutcome Outcome { get; }
     internal int Sampled { get; }
     internal int Skipped { get; }
-    internal string FirstFailure { get; }
+    internal WorldCollectionFailure Failure { get; }
+    internal string FirstFailure => Failure.Text;
 
     /// <summary>
     /// Raw <see cref="System.Diagnostics.Stopwatch"/> ticks the pass that published this world spent
@@ -45,7 +46,7 @@ internal readonly struct WorldCollectionCategoryStatus
     /// </remarks>
     internal long ElapsedTicks { get; }
 
-    internal bool IsClean => Outcome == WorldCategoryOutcome.Collected && Skipped == 0;
+    internal bool IsClean => Outcome == WorldCategoryOutcome.Collected && Skipped == 0 && !Failure.HasReadFault;
 
     internal static PublicationTable<WorldCollectionCategoryStatus> Build(
         WorldCollectionReport report)
@@ -62,7 +63,7 @@ internal readonly struct WorldCollectionCategoryStatus
                 category.Outcome,
                 category.Sampled,
                 category.Skipped,
-                category.FirstFailure,
+                category.Failure,
                 category.ElapsedTicks);
         }
         return PublicationTable<WorldCollectionCategoryStatus>.Create(rows, rows.Length);

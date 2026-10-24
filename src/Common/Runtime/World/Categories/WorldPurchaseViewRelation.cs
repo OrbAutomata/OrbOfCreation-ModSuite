@@ -208,16 +208,19 @@ internal readonly struct NativePurchaseViewResolution
     internal NativePurchaseViewResolution(
         in WorldPurchaseViewRelation relation,
         NativePurchaseViewRoute[] routes,
-        string candidateName)
+        string candidateName,
+        WorldCollectionFailure failure = default)
     {
         Relation = relation;
         Routes = routes ?? Array.Empty<NativePurchaseViewRoute>();
         CandidateName = candidateName ?? string.Empty;
+        Failure = failure;
     }
 
     internal WorldPurchaseViewRelation Relation { get; }
     internal NativePurchaseViewRoute[] Routes { get; }
     internal string CandidateName { get; }
+    internal WorldCollectionFailure Failure { get; }
 }
 
 /// <summary>
@@ -318,8 +321,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
         WorldRelationBuffer<WorldUpgradeListMembership> membershipOutput,
         out int unresolved,
         out int skipped,
-        out string skipFailure,
-        out string membershipFailure)
+        out WorldCollectionFailure skipFailure,
+        out WorldCollectionFailure membershipFailure)
     {
         if (output is null) throw new ArgumentNullException(nameof(output));
         if (membershipOutput is null) throw new ArgumentNullException(nameof(membershipOutput));
@@ -328,7 +331,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         skipFailure = string.Empty;
         membershipFailure = string.Empty;
         var identities = new HashSet<Guid>();
-        var identityCache = new Dictionary<object, Guid>(ReferenceComparer.Instance);
+        var identityCache = new Dictionary<object, Guid>(WorldObjectReferenceComparer.Instance);
         var candidates = new List<ForwardCandidate>();
         var snapshot = new Dictionary<CandidateKey, NativePurchaseViewResolution>();
         var memberships = new List<WorldUpgradeListMembership>();
@@ -359,15 +362,21 @@ internal sealed class NativePurchaseViewAdmissionResolver
         }
         catch (RelationFailure failure)
         {
+            membershipFailure = WorldFailures.ReadFault("the authored view walk failed", failure);
             for (var index = 0; index < candidates.Count; index++)
+            {
                 candidates[index].Status = failure.Status;
-            membershipFailure = "the authored view walk failed: " + failure.Message;
+                candidates[index].Failure = membershipFailure;
+            }
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
+            membershipFailure = WorldFailures.ReadFault("the authored view walk failed", ex);
             for (var index = 0; index < candidates.Count; index++)
+            {
                 candidates[index].Status = WorldPurchaseViewRelationStatus.Unreadable;
-            membershipFailure = "the authored view walk failed: " + ex.GetBaseException().Message;
+                candidates[index].Failure = membershipFailure;
+            }
         }
 
         if (membershipFailure.Length == 0)
@@ -376,6 +385,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         for (var index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index];
+            skipFailure = skipFailure.Include(candidate.Failure);
             candidate.Routes.Sort(static (left, right) =>
             {
                 var view = left.ViewId.CompareTo(right.ViewId);
@@ -402,7 +412,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             snapshot.Add(
                 new CandidateKey(candidate.Kind, candidate.Id),
                 new NativePurchaseViewResolution(
-                    in relation, routes, DiagnosticName(candidate.Id)));
+                    in relation, routes, DiagnosticName(candidate.Id), candidate.Failure));
             if (status != WorldPurchaseViewRelationStatus.Resolved) unresolved++;
         }
         // Membership is published whole or not at all. A row that is on no list and a row whose list
@@ -435,7 +445,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         List<WorldUpgradeListMembership> memberships,
         HashSet<Guid> alreadyRead,
         Dictionary<object, Guid> identityCache,
-        out string failure)
+        out WorldCollectionFailure failure)
     {
         failure = string.Empty;
         var registry = _identityRegistry?.Invoke();
@@ -482,8 +492,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             }
             catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
-                failure = "pinned upgrade list " + listId.ToString("D") + " was unreadable: " +
-                    ex.GetBaseException().Message;
+                failure = "pinned upgrade list " + listId.ToString("D") + WorldFailures.ReadFault(" was unreadable", ex);
                 return;
             }
         }
@@ -497,7 +506,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         Dictionary<object, Guid> identityCache,
         List<ForwardCandidate> candidates,
         ref int skipped,
-        ref string skipFailure)
+        ref WorldCollectionFailure skipFailure)
     {
         var registry = List(registryField(), expectedType.Name + ".All");
         foreach (var value in registry)
@@ -521,11 +530,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
             catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 skipped++;
-                if (skipFailure.Length == 0)
-                {
-                    skipFailure = "reading a " + expectedType.Name + "'s identity threw: " +
-                        ex.GetBaseException().Message;
-                }
+                var reason = WorldFailures.ReadFault("reading a " + expectedType.Name + "'s identity threw", ex);
+                skipFailure = skipFailure.Include(reason);
             }
         }
     }
@@ -534,7 +540,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
         List<ForwardCandidate> candidates,
         Dictionary<object, Guid> identityCache)
     {
-        var categories = new Dictionary<object, List<ForwardCandidate>>(ReferenceComparer.Instance);
+        var categories = new Dictionary<object, List<ForwardCandidate>>(WorldObjectReferenceComparer.Instance);
         for (var index = 0; index < candidates.Count; index++)
         {
             var candidate = candidates[index];
@@ -559,6 +565,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
                 candidate.Status = WorldPurchaseViewRelationStatus.Unreadable;
+                candidate.Failure = WorldFailures.ReadFault("reading a structure's purchase category failed", ex, candidate.Id);
             }
         }
 
@@ -569,7 +576,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 var authored = List(
                     _native.StructureCategoryMembers(pair.Key),
                     "StructureTypeSO.structures");
-                var counts = new Dictionary<object, int>(ReferenceComparer.Instance);
+                var counts = new Dictionary<object, int>(WorldObjectReferenceComparer.Instance);
                 foreach (var value in authored)
                 {
                     var member = Exact(value, _native.StructureType, "StructureTypeSO.structures[]");
@@ -587,8 +594,12 @@ internal sealed class NativePurchaseViewAdmissionResolver
             }
             catch (Exception ex) when (ex is RelationFailure || NativeFailureClassifier.IsExpected(ex))
             {
+                var failure = WorldFailures.ReadFault("reading a structure category's membership failed", ex, pair.Value[0].CategoryId);
                 for (var index = 0; index < pair.Value.Count; index++)
+                {
                     pair.Value[index].Status = WorldPurchaseViewRelationStatus.Unreadable;
+                    pair.Value[index].Failure = failure;
+                }
             }
         }
     }
@@ -599,10 +610,10 @@ internal sealed class NativePurchaseViewAdmissionResolver
         List<WorldUpgradeListMembership> memberships,
         HashSet<Guid> readUpgradeLists)
     {
-        var byNative = new Dictionary<object, ForwardCandidate>(ReferenceComparer.Instance);
+        var byNative = new Dictionary<object, ForwardCandidate>(WorldObjectReferenceComparer.Instance);
         for (var index = 0; index < candidates.Count; index++)
             byNative[candidates[index].Native] = candidates[index];
-        var listMembers = new Dictionary<object, List<ForwardCandidate>>(ReferenceComparer.Instance);
+        var listMembers = new Dictionary<object, List<ForwardCandidate>>(WorldObjectReferenceComparer.Instance);
         var seenViews = new HashSet<Guid>();
         var views = List(_native.ViewAll(), "ViewSO.All");
         foreach (var value in views)
@@ -648,7 +659,7 @@ internal sealed class NativePurchaseViewAdmissionResolver
             {
                 members = new List<ForwardCandidate>();
                 var authored = List(CandidateListMembers(kind)(value), runtimeType.Name + ".value");
-                var seen = new HashSet<object>(ReferenceComparer.Instance);
+                var seen = new HashSet<object>(WorldObjectReferenceComparer.Instance);
                 foreach (var memberValue in authored)
                 {
                     var member = Exact(memberValue, CandidateType(kind), runtimeType.Name + ".value[]");
@@ -710,16 +721,10 @@ internal sealed class NativePurchaseViewAdmissionResolver
         internal WorldPurchaseCandidateKind Kind { get; }
         internal Guid Id { get; }
         internal object Native { get; }
+        internal WorldCollectionFailure Failure;
         internal Guid CategoryId { get; set; }
         internal WorldPurchaseViewRelationStatus Status { get; set; }
         internal List<NativePurchaseViewRoute> Routes { get; } = new();
-    }
-
-    private sealed class ReferenceComparer : IEqualityComparer<object>
-    {
-        internal static readonly IEqualityComparer<object> Instance = new ReferenceComparer();
-        public new bool Equals(object? left, object? right) => ReferenceEquals(left, right);
-        public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
     }
 
     internal void Invalidate()
@@ -786,6 +791,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
                 }
                 catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
+                    available = "unreadable: " + WorldFailures.ReadFault(
+                        "reading a captured purchase screen's availability failed", ex, route.ViewId).Text;
                 }
                 builder.Append(available).Append(')');
             }
@@ -798,9 +805,11 @@ internal sealed class NativePurchaseViewAdmissionResolver
     /// <summary>Asks the exact resolved live <c>ViewSO</c> for its composed progression verdict.</summary>
     internal bool TryReadAvailability(
         in NativePurchaseViewResolution resolution,
-        out bool available)
+        out bool available,
+        out WorldCollectionFailure failure)
     {
         available = false;
+        failure = resolution.Failure;
         if (resolution.Relation.Status != WorldPurchaseViewRelationStatus.Resolved ||
             resolution.Routes.Length == 0)
             return false;
@@ -853,6 +862,8 @@ internal sealed class NativePurchaseViewAdmissionResolver
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
+            failure = WorldFailures.ReadFault("reading the purchase screen's availability failed", ex,
+                resolution.Relation.CandidateId);
             return false;
         }
     }
@@ -1096,31 +1107,8 @@ internal static class WorldPurchaseViewRouteLookup
         out int start,
         out int count)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].CandidateId.CompareTo(candidateId);
-            if (comparison < 0) low = middle + 1;
-            else
-            {
-                if (comparison == 0) found = middle;
-                high = middle - 1;
-            }
-        }
-        if (found < 0)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-        start = found;
-        var end = found + 1;
-        while (end < table.Count && table[end].CandidateId == candidateId) end++;
-        count = end - found;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), candidateId,
+            static (row, key) => row.CandidateId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -1162,11 +1150,12 @@ internal sealed class WorldPurchaseViewRelationReader : IWorldCategoryReader
                 out var skipped,
                 out var skipFailure,
                 out var membershipFailure);
-            var notes = unresolved == 0 && skipped == 0
-                ? string.Empty
+            WorldCollectionFailure notes = unresolved == 0 && skipped == 0
+                ? skipFailure
                 : unresolved + " candidate owning-view relation(s) were retained as named fail-closed facts; " +
                   skipped + " candidate(s) lacked a publishable exact identity" +
-                  (skipFailure.Length == 0 ? string.Empty : " (" + skipFailure + ")");
+                  string.Empty;
+            notes = WorldFailures.Join(notes, skipFailure);
             if (membershipFailure.Length > 0)
                 notes = WorldFailures.Join(
                     notes, "authored upgrade list membership was withheld: " + membershipFailure);
@@ -1188,7 +1177,7 @@ internal sealed class WorldPurchaseViewRelationReader : IWorldCategoryReader
             frame.PurchaseViewRelations.Reset();
             frame.PurchaseViewRoutes.Reset();
             frame.UpgradeListMemberships.Reset();
-            return WorldCategoryReport.Missing(Category, ex.GetBaseException().Message);
+            return WorldCategoryReport.Missing(Category, WorldFailures.ReadFault("reading authored purchase views failed", ex));
         }
     }
 

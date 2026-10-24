@@ -64,24 +64,14 @@ internal static class WorldAlchemyLoadoutLookup
 
     internal static bool TryFind(PublicationTable<WorldAlchemyLoadoutDecision> table,
         Guid recipeId, out WorldAlchemyLoadoutDecision decision) =>
-        WorldAlchemyRowLookup.TryFind(table, recipeId, static row => row.RecipeId, out decision);
+        WorldLookup.TryFindFirst(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out decision);
 
     internal static bool TryFindCostRange(PublicationTable<WorldAlchemyUsageCost> table,
         Guid recipeId, out int start, out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].RecipeId.CompareTo(recipeId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        start = low;
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out start, out count);
     }
 }
 
@@ -172,6 +162,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         if (frame is null) throw new ArgumentNullException(nameof(frame));
         ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
+        var readOwnerId = Guid.Empty;
         try
         {
             var manager = _manager!();
@@ -185,17 +176,18 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
             var recipes = _recipeValues!(recipeList);
             var sampled = 0;
             var skipped = 0;
-            var firstFailure = string.Empty;
+            var firstFailure = default(WorldCollectionFailure);
 
             for (var index = 0; index < (recipes?.Count ?? 0); index++)
             {
+                readOwnerId = Guid.Empty;
                 var recipe = recipes![index];
                 if (recipe is null || recipe.GetType() != _recipeType)
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure, $"recipe {index} had an unexpected native type");
                     continue;
                 }
-                var recipeId = _recipeId!(recipe);
+                var recipeId = readOwnerId = _recipeId!(recipe);
                 if (recipeId == Guid.Empty || !IsOrdinaryCore(_coreTypeId!(recipe))) continue;
                 object? instance = null;
                 var position = -1;
@@ -232,7 +224,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         {
             ResetRows(frame);
             return WorldCategoryReport.Missing(Category,
-                "reading ordinary alchemy threw: " + exception.GetBaseException().Message);
+                WorldFailures.ReadFault("reading ordinary alchemy threw", exception, readOwnerId));
         }
     }
 

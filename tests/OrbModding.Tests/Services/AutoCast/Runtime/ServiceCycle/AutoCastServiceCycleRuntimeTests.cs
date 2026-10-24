@@ -325,7 +325,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
         private static GameWorldState World()
         {
-            var slots = new WorldSpellSlotBuffer();
+            var slots = new WorldRelationBuffer<WorldSpellSlot>();
             var spells = global::SpellManager.instance!.activeSpells.value;
             for (var index = 0; index < spells.Count; index++)
             {
@@ -353,7 +353,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
             {
                 CollectedAtFrame = 10,
                 CollectedAtEpoch = Epoch,
-                SpellSlots = WorldSpellSlotDeriver.Build(slots),
+                SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
                 SpellCosts = PublicationTable<WorldSpellCost>.Empty,
             };
         }

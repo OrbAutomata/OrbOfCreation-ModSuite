@@ -84,10 +84,6 @@ internal readonly struct WorldPlotPhaseDescriptor
 /// <summary>
 /// Identity lookup over the authoring table.
 /// </summary>
-/// <remarks>
-/// The rows carry a plot's identity without claiming it, so <see cref="WorldLookup"/> — which is
-/// constrained to entities — cannot serve them. The search is the same binary one over the same sort.
-/// </remarks>
 internal static class WorldPlotAuthoringLookup
 {
     internal static readonly Comparison<WorldPlotAuthoring> Order =
@@ -98,25 +94,8 @@ internal static class WorldPlotAuthoringLookup
         Guid plotNodeId,
         out WorldPlotAuthoring row)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].PlotNodeId.CompareTo(plotNodeId);
-            if (comparison == 0)
-            {
-                row = rows[middle];
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        row = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), plotNodeId,
+            static (row, key) => row.PlotNodeId.CompareTo(key), out row);
     }
 }
 
@@ -142,33 +121,8 @@ internal static class WorldPlotPhaseDescriptorLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].PlotNodeId.CompareTo(plotNodeId);
-            if (comparison == 0)
-            {
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].PlotNodeId == plotNodeId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), plotNodeId,
+            static (row, key) => row.PlotNodeId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -233,23 +187,24 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < plots.Count; index++)
         {
             var plot = plots[index];
             if (plot is null) continue;
 
+            var readOwnerId = Guid.Empty;
             try
             {
-                if (Read(plot, authoring, phases)) sampled++;
+                if (Read(plot, authoring, phases, out readOwnerId)) sampled++;
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a plot's authoring threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a plot's authoring threw", ex, readOwnerId));
             }
         }
 
@@ -260,9 +215,11 @@ internal sealed class WorldPlotAuthoringReader : IWorldCategoryReader
     private bool Read(
         object plot,
         WorldRelationBuffer<WorldPlotAuthoring> authoring,
-        WorldRelationBuffer<WorldPlotPhaseDescriptor> phases)
+        WorldRelationBuffer<WorldPlotPhaseDescriptor> phases,
+        out Guid readOwnerId)
     {
-        var plotId = _plotId!(plot);
+        readOwnerId = Guid.Empty;
+        var plotId = readOwnerId = _plotId!(plot);
         if (plotId == Guid.Empty) return false;
 
         var infos = _phaseInfos!(plot);
