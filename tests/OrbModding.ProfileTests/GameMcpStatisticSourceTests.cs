@@ -113,7 +113,7 @@ public sealed class GameMcpStatisticSourceTests : IDisposable
 
     private static JObject Block(string category, Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

@@ -57,7 +57,7 @@ public sealed class GameMcpUnwordedNameTests
         var context = GameMcpTestHarness.Context(World(), generation: 5201);
 
         var byUuid = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "int-variables", 0, 10))["rows"]!
+            GameMcpWorldList.ListRows(context, "int-variables", 0, 10))["rows"]!
             .Values<JObject>()
             .ToDictionary(row => (string?)row!["uuid"] ?? string.Empty, row => row!);
 

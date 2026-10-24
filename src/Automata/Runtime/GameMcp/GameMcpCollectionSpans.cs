@@ -51,7 +51,7 @@ internal static class GameMcpCollectionSpans
     internal static string Describe(GameMcpFrameContext context)
     {
         if (context is null) throw new ArgumentNullException(nameof(context));
-        if (!GameMcpWorldQuery.IsWorldPublished(context))
+        if (!GameMcpWorldRead.IsWorldPublished(context))
         {
             return "collection: unavailable\n" +
                 "collection reason: no world is published, so no collection pass has reported " +

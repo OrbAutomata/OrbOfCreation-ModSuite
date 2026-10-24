@@ -45,7 +45,7 @@ public sealed class GameMcpPlotLifecycleTests
     public void Plot_action_rows_name_arbitrary_pairs_and_publish_only_runnable_costs()
     {
         var world = World(prerequisitesReady: true, active: 2);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 911),
             "agromancy-plot-actions", 0, 10).Freeze(), world);
 
@@ -59,9 +59,9 @@ public sealed class GameMcpPlotLifecycleTests
         // pair still finds it.
         Assert.Equal("yes", (string?)row["add"]);
         Assert.Equal("yes", (string?)row["remove"]);
-        Assert.Equal(3, (int)Detail(world)["add"]!["plotQuantityCost"]!);
+        Assert.Equal(3, (int)AddDecision(world, active: 2)["plotQuantityCost"]!);
 
-        var processing = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var processing = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 911),
             "agromancy-processing", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         Assert.Equal("Moon Garden", (string?)processing["plot"]!["name"]);
@@ -78,7 +78,7 @@ public sealed class GameMcpPlotLifecycleTests
             processing.Children<JProperty>().Select(property => property.Name));
 
         var blockedWorld = World(prerequisitesReady: false, active: 0);
-        var blocked = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var blocked = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(blockedWorld, generation: 912),
             "agromancy-plot-actions", 0, 10).Freeze(), blockedWorld)["rows"]!.Values<JObject>());
         // The prerequisite is not readable, which is a missing read rather than a refusal, so the
@@ -90,14 +90,15 @@ public sealed class GameMcpPlotLifecycleTests
 
         // The sentence and the repair are not lost, only left to the projection that has room for
         // them — the one a mutation answers with and an explanation reads from.
-        var blockedDetail = Detail(blockedWorld);
-        Assert.Equal("unavailable", (string?)blockedDetail["add"]!["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)blockedDetail["add"]!["reasonCode"]);
+        var blockedAdd = AddDecision(blockedWorld, active: 0);
+        Assert.Equal("unavailable", (string?)blockedAdd!["status"]);
+        Assert.Equal("ERR_UNAVAILABLE", (string?)blockedAdd!["reasonCode"]);
         Assert.Equal(
-            "game_agromancy add_plot_action", (string?)blockedDetail["add"]!["checkWith"]);
+            "game_agromancy add_plot_action", (string?)blockedAdd!["checkWith"]);
         Assert.Equal(
             "This is not active, so there is nothing to act on.",
-            (string?)blockedDetail["remove"]!["reason"]);
+            (string?)GameMcpTestHarness.Json(
+                GameMcpHarvestLifecycleProjection.PlotActionRemoveDecision(0))["reason"]);
     }
 
     /// <summary>
@@ -111,17 +112,20 @@ public sealed class GameMcpPlotLifecycleTests
         var world = DrainingWorld(active: 1);
         var context = GameMcpTestHarness.Context(world, generation: 916);
 
-        var drain = Assert.Single(Detail(world)["drainCostsPerSecond"]!.Values<JObject>())!;
+        var detail = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
+            context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(), world)
+            ["results"]!.Values<JObject>());
+        var drain = Assert.Single(detail["row"]!["drainCostsPerSecond"]!.Values<JObject>())!;
         Assert.Equal("Alchemic Scroll", (string?)drain["resource"]!["name"]);
         Assert.Equal("0.500", (string?)drain["cost"]);
         Assert.Equal("20", (string?)drain["spendableAmount"]);
         Assert.True((bool)drain["affordable"]!);
 
-        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>())!;
         Assert.Null(row["drainCostsPerSecond"]);
 
-        var page = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var page = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             context, "plot-node-actions", new[] { ActionId.ToString("D") }).Freeze(),
             world)["results"]!.Values<JObject>())!;
         Assert.True(JToken.DeepEquals(
@@ -206,7 +210,7 @@ public sealed class GameMcpPlotLifecycleTests
     public void A_page_of_blocked_pairs_says_the_block_in_one_word_per_cell()
     {
         var world = ManyPairs(20);
-        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 913),
             "agromancy-plot-actions", 0, 20).Freeze(), world));
         var lines = page.Split('\n');
@@ -273,10 +277,10 @@ public sealed class GameMcpPlotLifecycleTests
         var world = PlotNodeWorld(visible: false);
         var context = GameMcpTestHarness.Context(world, generation: 914);
         var listed = Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "plot-nodes", 0, 10).Freeze(), world)["rows"]!
+            GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "plot-nodes", 0, 10).Freeze(), world)["rows"]!
                 .Values<JObject>())!;
         var block = Assert.Single(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRows(context, "plot-nodes", new[] { PlotId.ToString("D") })
+            GameMcpWorldDetail.GetRows(context, "plot-nodes", new[] { PlotId.ToString("D") })
                 .Freeze(),
             world)["results"]!.Values<JObject>())!;
 
@@ -305,7 +309,7 @@ public sealed class GameMcpPlotLifecycleTests
         Assert.Equal(
             "available",
             (string?)Assert.Single(GameMcpTestHarness.Json(
-                GameMcpWorldQuery.GetRows(
+                GameMcpWorldDetail.GetRows(
                     GameMcpTestHarness.Context(open, generation: 915),
                     "plot-nodes",
                     new[] { PlotId.ToString("D") }).Freeze(),
@@ -342,10 +346,10 @@ public sealed class GameMcpPlotLifecycleTests
         };
     }
 
-    /// <summary>The same pair as a detail projection: the shape a mutation and an explanation read.</summary>
-    private static JObject Detail(GameWorldState world) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "agromancy-plot-actions", world.PlotActions[0]), world);
+    /// <summary>The full verdict consumed by the shipping list's decision cell.</summary>
+    private static JObject AddDecision(GameWorldState world, int active) =>
+        GameMcpTestHarness.Json(GameMcpHarvestLifecycleProjection.ProjectPlotActionDecision(
+            world, world.PlotActions[0], active).Freeze(), world);
 
     /// <summary>
     /// An Agromancy queue the world did not publish is a read that failed, not a list with no room.
@@ -356,13 +360,13 @@ public sealed class GameMcpPlotLifecycleTests
     {
         var world = World(prerequisitesReady: true, active: 0, queuePublished: false);
 
-        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 913),
             "agromancy-plot-actions", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         Assert.Equal("unreadable", (string?)row!["add"]);
         Assert.Equal(
             "The action queue was not readable in this world, so queue room is unknown.",
-            (string?)Detail(world)["add"]!["reason"]);
+            (string?)AddDecision(world, active: 0)["reason"]);
     }
 
     private static GameWorldState World(bool prerequisitesReady, int active, bool queuePublished = true)

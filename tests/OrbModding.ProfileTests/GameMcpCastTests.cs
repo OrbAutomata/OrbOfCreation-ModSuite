@@ -78,25 +78,23 @@ public sealed class GameMcpCastTests
     }
 
     [Theory]
-    [InlineData(true, true, null, null)]
-    [InlineData(false, false, "ERR_STATE",
+    [InlineData(true, true, null)]
+    [InlineData(false, false,
         "Cancellable spells are switched off, so this cast cannot be toggled off.")]
     public void ActiveToggleRowsPublishWhetherThePlayersSettingAllowsTheNextPress(
         bool cancellationEnabled,
         bool available,
-        string? reasonCode,
         string? reason)
     {
         var world = World(casting: true, cancellationEnabled);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world,
-            "spell-slots",
-            world.SpellSlots[0]));
+        var row = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
 
-        Assert.Equal(available, (bool)row["toggleOff"]!["available"]!);
-        Assert.Equal(reasonCode, (string?)row["toggleOff"]!["reasonCode"]);
-        Assert.Equal(reason, (string?)row["toggleOff"]!["reason"]);
+        var toggle = Assert.IsType<JObject>(row["toggleOff"]);
+        Assert.Equal(available, (bool)toggle["available"]!);
+        Assert.Equal(reason, (string?)toggle["reason"]);
+        Assert.Equal(available ? new[] { "available" } : new[] { "available", "reason" },
+            toggle.Properties().Select(property => property.Name));
     }
 
     [Fact]
@@ -301,10 +299,7 @@ public sealed class GameMcpCastTests
     {
         var world = World(casting: false, cancellationEnabled: true, castCount: 4);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world,
-            "spell-slots",
-            world.SpellSlots[0]));
+        var row = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
 
         Assert.Equal(4, (int)row["casts"]!);
     }
@@ -466,11 +461,11 @@ public sealed class GameMcpCastTests
         Assert.Equal(
             RecipeId.ToString("D") + " is still recharging: it holds 0 of 3 charges, " +
             "next in 41.0s.",
-            GameMcpWorldQuery.CastNotReadyReason(world, 0, RecipeId));
+            GameMcpCastProjection.CastNotReadyReason(world, 0, RecipeId));
 
         // At full charges the world holds no fact the sentence could carry, so it says nothing and
         // the boundary's own account stands.
-        Assert.Equal(string.Empty, GameMcpWorldQuery.CastNotReadyReason(
+        Assert.Equal(string.Empty, GameMcpCastProjection.CastNotReadyReason(
             World(casting: false, cancellationEnabled: true), 0, RecipeId));
     }
 
@@ -678,22 +673,18 @@ public sealed class GameMcpCastTests
     [Fact]
     public void An_equipped_spell_row_prints_its_charges_and_its_countdown()
     {
-        var recharging = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            World(
+        var recharging = GameMcpEntityDetailFixture.EquippedSpell(World(
                 casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
-                cooldownRemaining: new BigDouble(5.66d)),
-            "spell-slots",
-            World(
+                cooldownRemaining: new BigDouble(5.66d)), World(
                 casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
-                cooldownRemaining: new BigDouble(5.66d)).SpellSlots[0]));
+                cooldownRemaining: new BigDouble(5.66d)).SpellSlots[0]);
 
         Assert.Equal("0 of 1", (string?)recharging["charges"]);
         Assert.Equal("5.66s", (string?)recharging["nextChargeIn"]);
 
         // At full charges there is nothing to say, and the row says nothing.
         var full = World(casting: false, cancellationEnabled: true);
-        var ready = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            full, "spell-slots", full.SpellSlots[0]));
+        var ready = GameMcpEntityDetailFixture.EquippedSpell(full, full.SpellSlots[0]);
         Assert.Null(ready["charges"]);
         Assert.Null(ready["nextChargeIn"]);
     }

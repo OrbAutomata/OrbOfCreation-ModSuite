@@ -47,9 +47,10 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 
         var result = Explain(Collect(), owner.GetGuid(), 920);
 
-        Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
+        Assert.Null(result["status"]);
+        Assert.Null(result["reasonCode"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
+        Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
         var root = Assert.IsType<JObject>(requirements["root"]);
         Assert.Equal("AND", (string?)root["operator"]);
         var top = root["children"]!.OfType<JObject>().ToArray();
@@ -60,16 +61,11 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         var andChildren = orChildren[1]["children"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, andChildren.Length);
         Assert.EndsWith(" at level 6 (at 0)", (string?)andChildren[0]["needs"]);
-        // A group three levels deep is a shape no authored container has, so it says so in one
-        // authored sentence pointing at the screen that draws it.
-        var unread = andChildren[1];
-        Assert.False((bool)unread["met"]!);
-        Assert.Null(unread["reasonCode"]);
-        Assert.StartsWith(
-            "This requirement is one the suite cannot read yet; open ",
-            (string?)unread["reason"]);
-        Assert.Null(unread["diagnostics"]);
-        Assert.Null(unread["verdict"]);
+        var nestedOr = andChildren[1];
+        Assert.Equal("OR", (string?)nestedOr["operator"]);
+        Assert.Empty(Assert.IsType<JArray>(nestedOr["children"]));
+        Assert.Null(nestedOr["reasonCode"]);
+        Assert.Null(nestedOr["reason"]);
 
         // What it needs, in the screen's words, and whether it holds. Nothing else: the tree
         // position, the native class, the selected value's internal name and three thresholds of
@@ -104,6 +100,25 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         Assert.DoesNotContain("at level 1", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("at level 2", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("evaluatedFrame", gate.ToString(), StringComparison.Ordinal);
+
+        // The same depth-three branch can be satisfied; a real unknown class remains unreadable.
+        research.level = 6;
+        ((Requirements.OrRequirement)all.andConditions[1]).orConditions.Add(Require(research, 6));
+        link.linkTiers[2].isPassiveEnabled = true;
+        var met = Explain(Collect(), owner.GetGuid(), 921);
+        Assert.Null(met["status"]);
+        Assert.Equal("Met", (string?)met["requirements"]!["suiteVerdict"]);
+        Assert.True((bool)met["requirements"]!["root"]!["children"]![0]!["children"]![1]!
+            ["children"]![1]!["children"]![0]!["met"]!);
+
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.OpaqueRequirement());
+        var unknown = Explain(Collect(), owner.GetGuid(), 922);
+        Assert.Equal("unavailable", (string?)unknown["status"]);
+        Assert.Equal("Unevaluable", (string?)unknown["requirements"]!["suiteVerdict"]);
+        var unread = unknown["requirements"]!["root"]!["children"]!.OfType<JObject>().Last();
+        Assert.False((bool)unread["met"]!);
+        Assert.StartsWith("This requirement is one the suite cannot read yet; open ",
+            (string?)unread["reason"]);
     }
 
     /// <summary>
@@ -120,8 +135,10 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 
         var group = Assert.Single(
             Assert.IsType<JObject>(result["requirements"]!["root"])["children"]!.OfType<JObject>())!;
-        Assert.Equal("nothing — this group is empty", (string?)group["needs"]);
-        Assert.True((bool)group["met"]!);
+        Assert.Equal("AND", (string?)group["operator"]);
+        Assert.Empty(Assert.IsType<JArray>(group["children"]));
+        Assert.Equal("Met", (string?)result["requirements"]!["suiteVerdict"]);
+        Assert.Null(result["status"]);
         Assert.Null(group["reasonCode"]);
     }
 

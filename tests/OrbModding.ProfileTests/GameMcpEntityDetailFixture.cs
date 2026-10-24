@@ -1,5 +1,9 @@
 using System;
+using System.Linq;
+using OrbAutomata.GameMcp;
+using Xunit;
 using Newtonsoft.Json.Linq;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
@@ -25,6 +29,58 @@ internal static class GameMcpEntityDetailFixture
 
     internal static JObject Explain(GameWorldState world, Guid id, ulong generation) =>
         GameMcpTestHarness.Detail(GameMcpTestHarness.Context(world, generation), id);
+
+    /// <summary>Reads a runtime spell through the recipe detail that owns its equipped slots.</summary>
+    internal static JObject EquippedSpell(GameWorldState world, in WorldSpellSlot slot)
+    {
+        world = world with { CollectedAtUtcTicks = DateTime.UtcNow.Ticks };
+        var position = GameMcpSlotNumbering.Wire(slot.SlotIndex);
+        if (!slot.Occupied)
+        {
+            var context = GameMcpTestHarness.Context(world);
+            var publication = Assert.IsType<WorldPublication<GameWorldState>>(context.World);
+            var page = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
+                context, "spell-slots", 0, 200).Freeze(), publication.Snapshot);
+            var rows = Assert.IsType<JArray>(page["rows"]);
+            return Assert.Single(rows.Select(node => Assert.IsType<JObject>(node)),
+                row => row.Value<int>("slot") == position);
+        }
+
+        // These fixtures model runtime slots. Supply their owning recipe so the same public read
+        // a caller uses can reach them, retaining every existing row and report in the fixture.
+        if (!WorldLookup.TryFind(world.SpellRecipes, slot.SpellRecipeId, out _))
+        {
+            world = world with
+            {
+                SpellRecipes = PublicationTable<WorldSpellRecipe>.Create(
+                    world.SpellRecipes.AsSpan().ToArray()
+                        .Append(Spell(slot.SpellRecipeId, discovered: false, hidden: false, masteryLevel: 0))
+                        .OrderBy(row => row.EntityId).ToArray()),
+            };
+        }
+        if (!world.CollectionCategories.AsSpan().ToArray().Any(report =>
+                GameMcpWorldCategories.Normalize(report.Category) == "spell-recipes"))
+        {
+            world = world with
+            {
+                CollectionCategories = PublicationTable<WorldCollectionCategoryStatus>.Create(
+                    world.CollectionCategories.AsSpan().ToArray().Append(
+                        new WorldCollectionCategoryStatus("spell-recipes", WorldCategoryOutcome.Collected,
+                            world.SpellRecipes.Count, 0, string.Empty)).ToArray()),
+            };
+        }
+        var pinned = GameMcpTestHarness.Context(world);
+        var pinnedPublication = Assert.IsType<WorldPublication<GameWorldState>>(pinned.World);
+        var read = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
+            pinned, "spell-recipes", new[] { slot.SpellRecipeId.ToString("D") }).Freeze(),
+            pinnedPublication.Snapshot);
+        var results = Assert.IsType<JArray>(read["results"]);
+        var block = Assert.IsType<JObject>(Assert.Single(results));
+        var recipe = Assert.IsType<JObject>(block["row"]);
+        var equipped = Assert.IsType<JArray>(recipe["equipped"]);
+        return Assert.Single(equipped.Select(node => Assert.IsType<JObject>(node)),
+            row => row.Value<int>("slot") == position);
+    }
 
     internal static WorldSpellRecipe Spell(
         Guid id,

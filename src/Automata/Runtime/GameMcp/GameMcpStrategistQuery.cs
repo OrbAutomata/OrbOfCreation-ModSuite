@@ -8,7 +8,7 @@ internal static class GameMcpStrategistQuery
 {
     internal static GameMcpToolExecution Read(GameMcpFrameContext state, string section)
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out _, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out _, out var unavailable))
             return GameMcpToolExecution.Read(unavailable.Freeze());
         var runtime = state.Runtime!;
         var bulletin = runtime.StrategistBulletin;

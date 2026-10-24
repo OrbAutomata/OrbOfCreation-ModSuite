@@ -149,7 +149,7 @@ public sealed class GameMcpGenericLevelTests
     public void Listed_glyph_levels_match_the_row_for_a_bonus_levelled_glyph()
     {
         var world = World(total: 5, bonus: 2, purchaseAffordable: false);
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 901), "augment-glyphs", 0, 10).Freeze(), world);
         var row = Row(world, "augment-glyphs", GlyphId);
 
@@ -363,7 +363,7 @@ public sealed class GameMcpGenericLevelTests
     public void A_resource_type_list_row_carries_the_hidden_gate_its_detail_does()
     {
         var world = World(5, 2, purchaseAffordable: true, resourceTypeHidden: true);
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 901),
             "resource-types", 0, 10).Freeze(), world);
         var detail = Row(world, "resource-types", ResourceTypeId);
@@ -381,7 +381,7 @@ public sealed class GameMcpGenericLevelTests
         GameWorldState world,
         string category,
         Guid id) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             category, id.ToString("D")).Freeze(), world)["row"] as JObject ??
         throw new InvalidOperationException("row was unavailable");

@@ -49,7 +49,7 @@ public sealed class GameMcpTargetingTests
     [Fact]
     public void ReadSurfaceCarriesNamedOrderedCandidatesAndCurrentHoldings()
     {
-        var json = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var json = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(World()), "targeting", 0, 10));
         Assert.True(json["rows"] is JArray, json.ToString());
         var rows = (JArray)json["rows"]!;
@@ -101,11 +101,11 @@ public sealed class GameMcpTargetingTests
     {
         var context = GameMcpTestHarness.Context(World());
         var first = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "targeting", 0, 1));
+            GameMcpWorldList.ListRows(context, "targeting", 0, 1));
         var second = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "targeting", 1, 1));
+            GameMcpWorldList.ListRows(context, "targeting", 1, 1));
         var past = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "targeting", 2, 1));
+            GameMcpWorldList.ListRows(context, "targeting", 2, 1));
 
         Assert.Equal(
             new[]
@@ -133,7 +133,7 @@ public sealed class GameMcpTargetingTests
         var mapped = submission.Outcome.ToResult();
         var command = Command("submit", First);
         var terminal = GameMcpCommandResult.FromAction(in mapped, 9, 3, GameMcpTargetingProjection.Project(in submission));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectTargetingPostState(
+        terminal = terminal.WithSettledPostState(GameMcpTargetingProjection.ProjectTargetingPostState(
             GameMcpTestHarness.Context(World()),
             GameMcpTargetingProjection.SubmittedTarget(terminal.Details)));
 

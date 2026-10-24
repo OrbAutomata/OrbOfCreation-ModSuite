@@ -388,108 +388,35 @@ internal static class GameMcpListColumns
     /// vocabulary — the wire renames some of these on the way out, but it renames them for every
     /// row alike, so a set that is total here is total on the page.
     /// </summary>
-    private static readonly Dictionary<string, string[]> Columns = Declare();
+    internal static IReadOnlyCollection<string> Categories
+    {
+        get
+        {
+            var result = new List<string>();
+            foreach (var descriptor in GameMcpEntityCapabilityMap.Entries)
+                if (descriptor.DeclaresList) result.Add(descriptor.Category);
+            return result;
+        }
+    }
 
-    /// <summary>Every category that builds its own list rows, and therefore declares them.</summary>
-    internal static IReadOnlyCollection<string> Categories => Columns.Keys;
-
-    /// <summary>
-    /// This category's declaration, where it has one. A category with no hand-written projection
-    /// renders from its declared field list instead, which is total by construction.
-    /// </summary>
-    internal static bool TryDeclared(string category, out string[] declared) =>
-        Columns.TryGetValue(category, out declared!);
+    internal static bool TryDeclared(string category, out string[] declared)
+    {
+        if (GameMcpEntityCapabilityMap.TryDescriptor(category, out var descriptor) &&
+            descriptor.DeclaresList)
+        {
+            declared = descriptor.ListColumns;
+            return true;
+        }
+        declared = Array.Empty<string>();
+        return false;
+    }
 
     private static string[] Declared(string category) =>
-        Columns.TryGetValue(category, out var declared)
+        TryDeclared(category, out var declared)
             ? declared
             : throw new InvalidOperationException(
-                "world category '" + category +
-                "' builds its own list rows but declares no total column set");
+                "world category '" + category + "' builds its own list rows but declares no total column set");
 
-    private static Dictionary<string, string[]> Declare() => new(StringComparer.Ordinal)
-    {
-        ["attributes"] =
-            new[] { "entityId", "level", "queuedLevels", "state", "enabled", "affordable" },
-        ["upgrades"] = new[]
-        {
-            "entityId", "level", "queuedLevels", "screen", "state", "maximum",
-            "nextLevelRequirements", "affordable",
-        },
-        ["equipment"] = new[] { "entityId", "created", "equippedCount" },
-        ["rituals"] = new[]
-        {
-            "entityId", "state", "selected", "reachedLevel", "selectedLevel", "waveTotal",
-            "affordable",
-        },
-        ["alchemy-recipes"] = new[] { "entityId", "state", "masteryLevel" },
-
-        // The Scholar screen's Concept list. The same two columns as the Alchemy screen's recipes,
-        // because a Concept is discovered and mastered the same way; what makes it a page of its
-        // own is that the player meets it on another screen, under another word, for another
-        // purpose. The slot budget and the assignment decision are a world_get block, not columns:
-        // both are facts about the one Active Concepts list rather than about a row.
-        ["concepts"] = new[] { "entityId", "state", "masteryLevel" },
-        ["research"] = new[]
-        {
-            "entityId", "state", "paused", "totalLevel", "queuedLevels", "nextLevelRequirements",
-            "canDevelop", "affordable",
-        },
-        ["equipment-types"] = new[] { "entityId", "totalLevel" },
-        ["resource-types"] = new[] { "entityId", "totalLevel", "hidden" },
-        // No `screen`: all twenty-two are on Magic > Augments and nowhere else, so a per-row cell
-        // would repeat one category-level fact twenty-two times. No `discovered` either:
-        // `GlyphSO.IsAvailable()` returns `discovered` for a discoverable glyph and all twenty-two
-        // are, so `state` and it were one fact under two names.
-        ["augment-glyphs"] = new[]
-        {
-            "entityId", "state", "slots", "freeSlots", "paidLevel", "bonusLevel", "totalLevel",
-        },
-        ["plot-nodes"] = new[]
-        {
-            "entityId", "state", "masteryLevel", "quantity", "availableQuantity",
-        },
-        ["purchase-costs"] =
-            new[] { "resourceId", "cost", "spendableAmount", "affordable", "targetId" },
-        ["challenges"] = new[] { "entityId", "state", "run", "level" },
-        ["crafting-recipes"] = new[] { "entityId", "startingAmount" },
-        ["discovery-trees"] = new[] { "entityId", "mode" },
-        ["recipe-books"] = new[] { "entityId", "owned" },
-        ["resources"] = new[]
-        {
-            "entityId", "category", "meter", "amount", "capacity", "netRatePerSecond", "atCapacity",
-            "inLedger",
-        },
-        ["player-loadouts"] = new[] { "name", "selected" },
-        ["snapshot-loadouts"] = new[] { "name", "kind", "slots" },
-        ["snapshot-slots"] = new[] { "ownerId", "slot", "populated" },
-        ["snapshot-entries"] = new[] { "ownerId", "slot", "entryId", "quantity" },
-        ["crafting-queue-entries"] =
-            new[] { "queueId", "slot", "recipeId", "amount", "repetitions" },
-        ["spell-slots"] = new[] { "slot", "spellRecipeId", "weight" },
-        ["spell-costs"] = new[] { "slot", "kind", "resourceId", "amount" },
-        ["alchemy-instances"] =
-            new[] { "recipe", "activeCount", "queuedCount", "drainRatio" },
-        ["alchemy-loadout"] = new[] { "recipeId", "slot", "slotCount", "amount" },
-        ["agromancy-processing"] = new[]
-        {
-            "slot", "capacity", "used", "plot", "action", "amount",
-        },
-        ["agromancy-plot-actions"] = new[] { "plot", "action", "active", "add", "remove" },
-        ["targeting"] = new[] { "owner", "candidates" },
-    };
-
-    /// <summary>
-    /// Hold one built row to its category's declaration, so a column cannot be reintroduced as
-    /// conditional by an edit that only looked at the row in front of it.
-    /// </summary>
-    /// <remarks>
-    /// This fires on the first row of the first page of the category, which is every test that
-    /// reads it — the same loudness <c>ScanFields</c> has for a category with no scan projection,
-    /// and for the same reason: the shape a surface promises is not a runtime variable. The
-    /// verdict pair used to be exempt, which made a page holding one refused row wider than the
-    /// same page without it; now the declared set is the whole truth and there is no exception.
-    /// </remarks>
     internal static void Verify(string category, GameMcpObject row)
     {
         if (category is null) throw new ArgumentNullException(nameof(category));

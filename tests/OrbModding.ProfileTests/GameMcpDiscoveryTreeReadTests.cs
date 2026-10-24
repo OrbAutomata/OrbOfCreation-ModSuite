@@ -58,7 +58,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
         };
         var context = GameMcpTestHarness.Context(world, generation: 81);
 
-        var read = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var read = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context,
             "discovery-trees",
             treeId.ToString("D")));
@@ -85,7 +85,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
 
         // The scan row used to fall through to the reflected projector and publish the raw native
         // actionMode integer, so the same fact had two names and two shapes across two reads.
-        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "discovery-trees", 0, 10).Freeze())["rows"]!.Values<JObject>())!;
         Assert.Equal("idle", (string?)listed["mode"]);
         Assert.Null(listed["actionMode"]);
@@ -109,7 +109,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             },
             Guid.NewGuid(), Guid.NewGuid(), 9, 17, true, 2, 8, 5, 9, true, true, false));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 82),
             "discovery-trees",
             treeId.ToString("D")));
@@ -143,7 +143,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
                     new BigDouble(1, 2)),
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
-        var unaffordable = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unaffordable = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(DiscoveryWorld(unaffordableTree), generation: 83),
             "discovery-trees",
             treeId.ToString("D")));
@@ -183,7 +183,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 2, 8, 5, 9, true, true, false);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(DiscoveryWorld(hidden), generation: 84),
             "discovery-trees",
             treeId.ToString("D")))["row"]!;
@@ -224,7 +224,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             });
         var context = GameMcpTestHarness.Context(world, generation: 83);
 
-        var treeRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var treeRead = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "discovery-trees", treeId.ToString("D")));
         var offers = treeRead["row"]!["offers"]!.Values<JObject>().ToArray();
         Assert.Equal(
@@ -236,7 +236,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
         Assert.All(offers, offer => Assert.NotNull(offer!["name"]));
         Assert.True((bool)treeRead["row"]!["reroll"]!["available"]!);
 
-        var runeRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var runeRead = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "time-runes", runeId.ToString("D")));
         Assert.Equal("available", (string?)runeRead["status"]);
         var explanation = GameMcpTestHarness.Detail(context, runeId);
@@ -260,7 +260,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             new[] { missing }, false, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 0, 1, 3, 2, true, true, false));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 84),
             "discovery-trees",
             treeId.ToString("D")));
@@ -306,7 +306,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
                     BigDouble.Zero, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
             });
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 85),
             "discovery-trees",
             treeId.ToString("D")));
@@ -355,7 +355,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
                 new EntityIdentityName(offerId, "TimeRuneSO", "Slow Time", "slowTime"),
             });
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 85),
             "discovery-trees",
             treeId.ToString("D")))["row"]!;
@@ -386,7 +386,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
             Array.Empty<Guid>(), false, false, Array.Empty<WorldResourceCost>(),
             Guid.Empty, Guid.Empty, 0, 0, false, 1, 1, 4, 2, false, true, false);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(DiscoveryWorld(tree), generation: 85),
             "discovery-trees",
             treeId.ToString("D")))["row"]!;
@@ -424,7 +424,7 @@ public sealed class GameMcpDiscoveryTreeReadTests
     }
 
     private static JObject Initiate(Guid treeId, int discovered, int discoverable) =>
-        (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(
                 DiscoveryWorld(new WorldDiscoveryTree(
                     treeId, true, 0, BigDouble.Zero, 1, false, Guid.Empty,

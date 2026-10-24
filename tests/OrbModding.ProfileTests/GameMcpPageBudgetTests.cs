@@ -24,15 +24,15 @@ public sealed class GameMcpPageBudgetTests
         var state = ResourceWorld(200);
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 200).Freeze());
+            GameMcpWorldList.ListRows(state, "resources", 0, 200).Freeze());
         var bytes = Encoding.UTF8.GetByteCount(page.ToString(Formatting.None));
 
         Assert.NotNull(page["nextOffset"]);
         Assert.True(
-            bytes <= GameMcpWorldQuery.MaximumListResponseBytes,
+            bytes <= GameMcpWorldList.MaximumListResponseBytes,
             "a page of " + bytes + " bytes exceeded the published bound");
         Assert.True(
-            bytes > GameMcpWorldQuery.MaximumListResponseBytes * 3 / 4,
+            bytes > GameMcpWorldList.MaximumListResponseBytes * 3 / 4,
             "a page of " + bytes + " bytes left most of the published bound unused");
     }
 
@@ -49,7 +49,7 @@ public sealed class GameMcpPageBudgetTests
     {
         var state = ResourceWorld(200);
         var listed = (JObject)GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 200).Freeze())["rows"]![0]!;
+            GameMcpWorldList.ListRows(state, "resources", 0, 200).Freeze())["rows"]![0]!;
 
         var match = (JObject)GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             state,

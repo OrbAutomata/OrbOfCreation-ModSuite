@@ -76,7 +76,7 @@ public sealed class GameMcpSpellCompositionTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context,
             "spell-recipes",
             RecipeId.ToString("D")));
@@ -280,7 +280,7 @@ public sealed class GameMcpSpellCompositionTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
 
         // Words, not the game's ordinals: `castType: 2` and `rechargeProcessorType: 0` were the two

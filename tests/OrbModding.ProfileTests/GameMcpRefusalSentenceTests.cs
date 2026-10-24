@@ -28,7 +28,7 @@ public sealed class GameMcpRefusalSentenceTests
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
 
         var result = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(state, "spell-recipes", Absent.ToString("D")));
+            GameMcpWorldDetail.GetRow(state, "spell-recipes", Absent.ToString("D")));
 
         Assert.Equal("ERR_NOT_FOUND", (string?)result["reasonCode"]);
         var reason = (string?)result["reason"] ?? string.Empty;
@@ -41,7 +41,7 @@ public sealed class GameMcpRefusalSentenceTests
     {
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
 
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             state, "spell-recipes", new[] { Guid.Empty.ToString("D") }));
 
         var row = Assert.Single(result["results"]!.Values<JObject>())!;

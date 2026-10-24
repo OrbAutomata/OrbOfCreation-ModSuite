@@ -168,7 +168,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
         Assert.Equal(
             "unavailable (ERR_INPUT): unknown category 'glyph-effects'; call world_categories " +
             "for the exact discoverable names",
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "glyph-effects", 0, 50, limitFromCaller: false), Catalog)));
     }
@@ -188,7 +188,7 @@ public sealed class GameMcpGlyphEffectTests : IDisposable
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()),
                 "augment-glyphs", new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;

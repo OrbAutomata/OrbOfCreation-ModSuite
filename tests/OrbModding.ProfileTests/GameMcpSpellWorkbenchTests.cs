@@ -60,9 +60,9 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true));
 
         var list = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "spell-recipes", 0, 10));
+            GameMcpWorldList.ListRows(context, "spell-recipes", 0, 10));
         var listed = Assert.Single(list["rows"]!.Values<JObject>())!;
-        var get = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var get = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var exact = (JObject)get["row"]!;
 
@@ -101,9 +101,9 @@ public sealed class GameMcpSpellWorkbenchTests
         var context = GameMcpTestHarness.Context(World(
             discovered: true, discoveryAffordable: true, hasEmptySlot: true));
 
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "spell-recipes", 0, 50, discovered: true));
-        var listedOther = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listedOther = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "spell-recipes", 0, 50, discovered: false));
         var found = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "spell-recipes", discoveredFilter: true));
@@ -119,7 +119,7 @@ public sealed class GameMcpSpellWorkbenchTests
 
         // A category whose rows carry no such column is told which ones do, on both verbs, rather
         // than being handed a silently unfiltered page.
-        var listRefusal = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listRefusal = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "resources", 0, 50, discovered: true));
         var searchRefusal = GameMcpTestHarness.Json(GameMcpWorldSearch.Search(
             context, string.Empty, 0, 50, "rituals", discoveredFilter: true));
@@ -152,10 +152,10 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void A_refused_mastery_level_says_which_of_the_two_gates_stopped_it()
     {
-        var notReady = GameMcpWorldQuery.MasteryRefusalReason(
+        var notReady = GameMcpSpellLevelProjection.MasteryRefusalReason(
             Named(World(discovered: true, discoveryAffordable: true, hasEmptySlot: true)),
             RecipeId);
-        var shortfall = GameMcpWorldQuery.MasteryRefusalReason(
+        var shortfall = GameMcpSpellLevelProjection.MasteryRefusalReason(
             Named(World(
                 discovered: true,
                 discoveryAffordable: true,
@@ -179,7 +179,7 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void A_learned_spells_page_carries_its_cards_mastery_bar_and_confirm_mastery_button()
     {
-        var ready = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var ready = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(Named(World(
                 discovered: true,
                 discoveryAffordable: true,
@@ -192,7 +192,7 @@ public sealed class GameMcpSpellWorkbenchTests
                 spendable: 20))),
             "spell-recipes",
             RecipeId.ToString("D")))["row"]!;
-        var filling = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var filling = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(Named(World(
                 discovered: true,
                 discoveryAffordable: true,
@@ -201,7 +201,7 @@ public sealed class GameMcpSpellWorkbenchTests
                 requiredMasteryXp: 600))),
             "spell-recipes",
             RecipeId.ToString("D")))["row"]!;
-        var unlearned = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unlearned = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(
                 Named(World(discovered: false, discoveryAffordable: true, hasEmptySlot: true))),
             "spell-recipes",
@@ -264,10 +264,10 @@ public sealed class GameMcpSpellWorkbenchTests
             }),
         };
 
-        var grants = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var grants = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
                 GameMcpTestHarness.Context(world), "spell-recipes", RecipeId.ToString("D")))
             ["row"]!["confirmMastery"]!["grants"]!.Values<JObject>().ToArray();
-        var uncollected = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var uncollected = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
                 GameMcpTestHarness.Context(world with { SpellTypeXpPerMastery = 0d }),
                 "spell-recipes", RecipeId.ToString("D")))["row"]!["confirmMastery"]!;
 
@@ -284,7 +284,7 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true,
             equipped: true));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var row = response["row"]!;
 
@@ -317,7 +317,7 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true,
             loadoutScreenUnlocked: false));
 
-        var add = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var add = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")))["row"]!["loadoutAdd"]!;
 
         Assert.False((bool)add["available"]!);
@@ -350,7 +350,7 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true,
             usageBudget: true));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var budget = response["row"]!["loadBudget"]!;
 
@@ -377,7 +377,7 @@ public sealed class GameMcpSpellWorkbenchTests
     [Fact]
     public void A_recipe_reads_the_weight_the_game_charges_and_the_room_it_needs()
     {
-        var unmet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unmet = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(World(
                 discovered: true, discoveryAffordable: true, hasEmptySlot: true,
                 usageBudget: true, held: 24, spendable: 7, authoredWeight: 6, penaltyWeight: 6,
@@ -394,7 +394,7 @@ public sealed class GameMcpSpellWorkbenchTests
             "category=spell-slots",
             (string?)unmet["loadoutAdd"]!["reason"]);
 
-        var met = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var met = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(World(
                 discovered: true, discoveryAffordable: true, hasEmptySlot: true,
                 usageBudget: true, held: 24, spendable: 7, authoredWeight: 6, penaltyWeight: 6)),
@@ -430,7 +430,7 @@ public sealed class GameMcpSpellWorkbenchTests
             }),
         };
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world), "spell-recipes", RecipeId.ToString("D")))["row"]!;
 
         Assert.Equal(charged, (string?)row["weight"]);
@@ -479,7 +479,7 @@ public sealed class GameMcpSpellWorkbenchTests
             discoveryAffordable: true,
             hasEmptySlot: false));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var decision = response["row"]!["loadoutAdd"]!;
 
@@ -520,7 +520,7 @@ public sealed class GameMcpSpellWorkbenchTests
             discoveryAffordable: true,
             hasEmptySlot: true));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var decision = response["row"]!["loadoutAdd"]!;
 
@@ -661,7 +661,7 @@ public sealed class GameMcpSpellWorkbenchTests
             hasEmptySlot: true,
             discoveryVisible: false));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")));
         var row = response["row"]!;
 

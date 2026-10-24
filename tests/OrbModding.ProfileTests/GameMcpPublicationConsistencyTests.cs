@@ -29,7 +29,7 @@ public sealed class GameMcpPublicationConsistencyTests
         var pinned = GameMcpAcceptanceFixture.Snapshot(publisher.ReadLatest());
         publisher.Publish(GameMcpAcceptanceFixture.SpellWorld(9, 32), new WorldGeneration(1002));
 
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             pinned,
             "spell-recipes",
             GameMcpAcceptanceFixture.SpellId.ToString("D")));

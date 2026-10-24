@@ -73,7 +73,7 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
 
     private static JObject Row(GameWorldState world)
     {
-        var page = GameMcpWorldQuery.GetRows(
+        var page = GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world),
             "alchemy-recipes",
             new[] { ExtractThaumicScrolls.ToString("D") });

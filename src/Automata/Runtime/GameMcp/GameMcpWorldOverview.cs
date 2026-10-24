@@ -15,7 +15,7 @@ internal static class GameMcpWorldOverview
 {
     internal static JObject Overview(GameMcpFrameContext state)
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out var publication, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out var publication, out var unavailable))
             return unavailable;
 
         var world = publication.Snapshot;
@@ -28,14 +28,14 @@ internal static class GameMcpWorldOverview
         // The format is read off the variable's own two flags rather than assumed, so this line and
         // the same variable's row can never print one duration two ways.
         if (WorldLookup.TryFind(world.DoubleVariables, KnownEntities.TimePlayed.Uuid, out var played))
-            result["timePlayed"] = GameMcpWorldQuery.Clock(played.Value, played.IsTimeAccurate);
+            result["timePlayed"] = GameMcpRowKit.Clock(played.Value, played.IsTimeAccurate);
         // The game keeps a second clock — "Time Played this Reset" — and a run that has reset has
         // two different answers to "how long has this taken me". It is behind TimeResetUnlocked and
         // it does not survive a reset, so a save that has never reset publishes no such variable
         // and this key is simply absent; printing a zero there would claim a reset happened.
         if (WorldLookup.TryFind(
                 world.DoubleVariables, KnownEntities.TimePlayedThisReset.Uuid, out var thisReset))
-            result["timePlayedThisReset"] = GameMcpWorldQuery.Clock(thisReset.Value, thisReset.IsTimeAccurate);
+            result["timePlayedThisReset"] = GameMcpRowKit.Clock(thisReset.Value, thisReset.IsTimeAccurate);
         var resources = ResourceBarLines(world);
         if (resources.Count > 0) result["resources"] = resources;
         result["economy"] = new JObject
@@ -64,7 +64,7 @@ internal static class GameMcpWorldOverview
             // the field name promised the count and delivered the cap, and it delivered it in the
             // direction that matters, so a strategist sizing its loadout saw a full bar that was
             // five of eight.
-            ["equippedSpells"] = GameMcpWorldQuery.OccupiedSpellSlots(world),
+            ["equippedSpells"] = GameMcpSpellLoadoutProjection.OccupiedSpellSlots(world),
             ["maximumSpellSlots"] = world.SpellSlots.Count,
             ["activeConceptAssignments"] = world.AlchemyInstances.Count,
         };
@@ -89,13 +89,13 @@ internal static class GameMcpWorldOverview
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
                 },
             };
-        if (GameMcpWorldQuery.IsScreenUnlocked(world, KnownEntities.WorldAgromancyDruidryLvs.Uuid))
+        if (GameMcpScreenState.IsScreenUnlocked(world, KnownEntities.WorldAgromancyDruidryLvs.Uuid))
             result["druidryLevel"] = new JObject
             {
                 ["current"] = world.SpellWorkbench.DruidryLevel,
                 ["maximum"] = world.SpellWorkbench.MaximumDruidryLevel,
             };
-        if (GameMcpWorldQuery.IsScreenUnlocked(world, KnownEntities.AlchAlchemyLevel.Uuid))
+        if (GameMcpScreenState.IsScreenUnlocked(world, KnownEntities.AlchAlchemyLevel.Uuid))
             result["alchemyLevel"] = new JObject
             {
                 ["current"] = world.SpellWorkbench.AlchemyLevel,
@@ -218,7 +218,7 @@ internal static class GameMcpWorldOverview
                 ["screen"] = GameScreenPath.For(view.ViewId),
             };
             if (tree.NextItemCosts.Count > 0)
-                row["costs"] = GameMcpWorldQuery.DiscoveryTreeCosts(world, in tree, shortfalls: null);
+                row["costs"] = GameMcpDiscoveryTreeOfferProjection.DiscoveryTreeCosts(world, in tree, shortfalls: null);
             rows.Add(row);
         }
         return rows;
@@ -313,7 +313,7 @@ internal static class GameMcpWorldOverview
 
     internal static JObject ListCategories(GameMcpFrameContext state)
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out var publication, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         var result = new JObject();
         result["status"] = "available";
@@ -454,7 +454,7 @@ internal static class GameMcpWorldOverview
             ["skipped"] = skippedRows,
         };
         if (unavailable.Count > 0) result["unavailableCategories"] = unavailable;
-        if (GameMcpWorldQuery.TryLocalizedRequirementFailures(world, out var implicated) &&
+        if (GameMcpWorldRead.TryLocalizedRequirementFailures(world, out var implicated) &&
             implicated.Length > 0)
         {
             // The overview is read every few calls and this evidence is the same bytes every
@@ -506,7 +506,7 @@ internal static class GameMcpWorldOverview
         {
             var structure = world.Structures[index];
             if (structure.Reading.Unlocked &&
-                GameMcpWorldQuery.TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
+                GameMcpPurchaseProjection.TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
                 affordable)
                 count++;
         }
@@ -523,8 +523,8 @@ internal static class GameMcpWorldOverview
         for (var index = 0; index < world.Upgrades.Count; index++)
         {
             var upgrade = world.Upgrades[index];
-            if (GameMcpWorldQuery.IsUpgradeOffered(world, in upgrade) && !upgrade.IsExhausted &&
-                GameMcpWorldQuery.TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
+            if (GameMcpScreenState.IsUpgradeOffered(world, in upgrade) && !upgrade.IsExhausted &&
+                GameMcpPurchaseProjection.TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
                 affordable)
                 count++;
         }
@@ -588,7 +588,7 @@ internal static class GameMcpWorldOverview
         return true;
     }
 
-    private static JObject DescribeCategory(GameWorldState world, GameMcpWorldCategory category)
+    private static JObject DescribeCategory(GameWorldState world, GameMcpEntityCapabilityDescriptor category)
     {
         var availability = GameMcpWorldCategories.Availability(world, category);
 
@@ -615,13 +615,13 @@ internal static class GameMcpWorldOverview
     /// ring's 256 raw samples were advertised against a page that answers with 17 rows — two true
     /// numbers, one word, and nothing on either page saying they counted different things.
     /// </remarks>
-    private static int CategoryRowCount(GameWorldState world, GameMcpWorldCategory category)
+    private static int CategoryRowCount(GameWorldState world, GameMcpEntityCapabilityDescriptor category)
     {
         if (!string.Equals(category.Name, "mastery-experience", StringComparison.Ordinal))
             return category.Count(world);
         var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
         var counts = new List<int>();
-        GameMcpWorldQuery.MasteryExperienceSources(world, keys, counts);
+        GameMcpSpellLevelProjection.MasteryExperienceSources(world, keys, counts);
         return keys.Count;
     }
 }

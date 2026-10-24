@@ -4,6 +4,7 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 using Xunit;
@@ -135,18 +136,19 @@ public sealed class GameMcpListColumnContractTests
     /// <summary>
     /// Every declaring category is listed once here, from a world holding one row of each, so a
     /// column set is held to its own rows rather than only to the categories some other test
-    /// happens to read. The rows carry the game's zero values on purpose: that is the state in
-    /// which a conditional field is most likely to disappear.
+    /// happens to read. Each row has a real catalog identity and zero-valued readings, where a
+    /// conditional field is most likely to disappear.
     /// </summary>
     [Fact]
     public void Every_declaring_category_builds_rows_its_declaration_accepts()
     {
         var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
+        var world = Assert.IsType<WorldPublication<GameWorldState>>(context.World).Snapshot;
 
         Assert.All(GameMcpListColumns.Categories, category =>
         {
             var page = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ListRows(context, category, 0, 50));
+                GameMcpWorldList.ListRows(context, category, 0, 50).Freeze(), world);
             Assert.True(
                 page["rows"] is not null,
                 category + ": " + (string?)page["status"] + " " + (string?)page["reason"]);
@@ -164,43 +166,47 @@ public sealed class GameMcpListColumnContractTests
     public void An_empty_page_of_a_category_names_the_columns_a_full_page_shows()
     {
         var context = GameMcpTestHarness.Context(OneRowOfEach(), generation: 4242);
+        var world = Assert.IsType<WorldPublication<GameWorldState>>(context.World).Snapshot;
 
         Assert.All(GameMcpWorldCategories.RegisteredCategoryNames(), category =>
         {
             var page = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ListRows(context, category, 0, 50));
-            if (page["rows"] is not JArray rows || rows.Count == 0) return;
+                GameMcpWorldList.ListRows(context, category, 0, 50).Freeze(), world);
+            var rows = Assert.IsType<JArray>(page["rows"]);
+            Assert.True(rows.Count > 0, category + " has no fixture row");
             var empty = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ListRows(context, category, rows.Count, 50));
+                GameMcpWorldList.ListRows(context, category, rows.Count, 50).Freeze(), world);
             var emptyPage = GameMcpTextPage.Render(empty);
 
             Assert.Empty(empty["rows"]!.Values<JObject>());
-            Assert.Equal(
+            Assert.Contains(
                 "rows 0/" + rows.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                emptyPage.Split('\n')[0]);
+                emptyPage.Split('\n'));
             var declared = Bracket(emptyPage)
                 .Trim('[', ']')
                 .Split(" | ", StringSplitOptions.None);
-            var shown = Bracket(GameMcpTextPage.Render(page))
-                .Trim('[', ']')
-                .Split(" | ", StringSplitOptions.None);
-
-            // The fixture's rows carry the game's zero identity, which the wire drops rather than
-            // handing back an address nothing answers to, so a page here can show fewer columns
-            // than it declares. It may never show one the declaration does not name, and never in
-            // another order — either would be a header the empty page of this category would get
-            // wrong with nothing on it to say so. The verdict pair used to be exempt here, which
-            // is what let a page holding one blocked row be wider than the same page without it.
-            var next = 0;
-            foreach (var column in shown)
+            var fullPage = GameMcpTextPage.Render(page);
+            string[] shown;
+            if (declared.SequenceEqual(new[] { "id", "name" }))
             {
-                var found = Array.IndexOf(declared, column, next);
-                Assert.True(
-                    found >= 0,
-                    category + " renders [" + string.Join(" | ", shown) + "] against declared [" +
-                    string.Join(" | ", declared) + "]");
-                next = found + 1;
+                // Marker types carry only identity. The shipping surface prints their names and
+                // handles as an identity list, while an empty page still declares the same schema.
+                var identity = Assert.IsType<JObject>(Assert.Single(rows));
+                Assert.Equal(new[] { "uuid", "name" },
+                    identity.Properties().Select(property => property.Name));
+                Assert.Equal("rows: " + (string?)identity["name"] + " " + (string?)identity["uuid"],
+                    fullPage);
+                shown = identity.Properties()
+                    .Select(property => property.Name == "uuid" ? "id" : property.Name).ToArray();
             }
+            else
+            {
+                shown = Bracket(fullPage)
+                    .Trim('[', ']')
+                    .Split(" | ", StringSplitOptions.None);
+            }
+
+            Assert.Equal(declared, shown);
         });
     }
 
@@ -227,16 +233,171 @@ public sealed class GameMcpListColumnContractTests
 
     private static GameWorldState OneRowOfEach()
     {
-        return new GameWorldState
+        var world = new GameWorldState
         {
-            Structures = PublicationTable<WorldStructure>.Create(new WorldStructure[1]),
-            Upgrades = PublicationTable<WorldUpgrade>.Create(new WorldUpgrade[1]),
-            Equipment = PublicationTable<WorldEquipment>.Create(new WorldEquipment[1]),
-            Rituals = PublicationTable<WorldRitual>.Create(new WorldRitual[1]),
-            Research = PublicationTable<WorldResearch>.Create(new WorldResearch[1]),
-            ResourceTypes = PublicationTable<WorldResourceType>.Create(new WorldResourceType[1]),
-            EquipmentTypes = PublicationTable<WorldEquipmentType>.Create(new WorldEquipmentType[1]),
-            AugmentGlyphs = PublicationTable<WorldGlyph>.Create(new WorldGlyph[1]),
+            Structures = One(nameof(GameWorldState.Structures), id => new WorldStructure(
+                reading: new RawStructureSample(
+                    structureId: id,
+                    structureTypeId: FixtureId(nameof(GameWorldState.StructureTypes)),
+                    level: default,
+                    queuedLevels: default,
+                    unlocked: default,
+                    queuedEchos: default,
+                    completedEchos: default,
+                    selfBonusLevels: default,
+                    queueTimeLeft: default,
+                    currentBuildTime: default,
+                    flagged: default,
+                    baseLevel: default,
+                    queueTimeTotal: default,
+                    debugStructure: default,
+                    disabled: default,
+                    observableId: default,
+                    insufficientReqPenaltyActive: default,
+                    bufferDevelopedQuantity: default,
+                    costPerQuantityId: FixtureId(nameof(GameWorldState.IntVariables)),
+                    modifiers: default),
+                committedLevel: default,
+                hasWorkInFlight: default,
+                effectiveLevel: default,
+                developmentProgress: default)),
+            Upgrades = One(nameof(GameWorldState.Upgrades), id => new WorldUpgrade(
+                reading: new RawUpgradeSample(
+                    upgradeId: id,
+                    level: default,
+                    maxLevel: default,
+                    available: default,
+                    queuedLevels: default,
+                    buildTime: default,
+                    developmentTime: default,
+                    cachedCostLevel: default),
+                isBounded: default,
+                isExhausted: default,
+                remainingLevels: default,
+                committedLevel: default,
+                isDeveloping: default,
+                developmentProgress: default)),
+            Equipment = One(nameof(GameWorldState.Equipment), id => new WorldEquipment(
+                equipmentId: id,
+                isCreated: default,
+                discRarityLevel: default,
+                masteryXp: default,
+                masteryLevel: default,
+                isRequiredDiscovery: default,
+                power: default,
+                baseLevel: default,
+                experienceRateMod: default,
+                equippedLevel: default,
+                attuningLevel: default,
+                attunementTimeLeft: default,
+                baseXpRate: default)),
+            Rituals = One(nameof(GameWorldState.Rituals), id => new WorldRitual(
+                ritualId: id,
+                discovered: default,
+                inBattle: default,
+                activeInstances: default,
+                reachedLevel: default,
+                lastReachedLevel: default,
+                selectedLevel: default,
+                wavesCompleted: default,
+                discoveryRarityLevel: default,
+                critLevel: default,
+                echoLevel: default,
+                chainLevel: default,
+                durationRewardBlocks: default,
+                battleTotalWeight: default,
+                modifiers: default,
+                hideEndScreenResults: default,
+                isDiscoverRequired: default,
+                forceLevel: default,
+                forceLevelValue: default,
+                baseWaves: default,
+                maxWaves: default,
+                requiredWaves: default,
+                baseWeight: default,
+                minimumEffectLevel: default,
+                failedRun: default)),
+            Research = One(nameof(GameWorldState.Research), id => new WorldResearch(
+                researchId: id,
+                level: default,
+                queuedLevels: default,
+                researchStage: default,
+                selfBonusLevels: default,
+                maxLevel: default,
+                researchTime: default,
+                isDeveloping: default,
+                isActive: default,
+                flagged: default,
+                available: default,
+                visible: default,
+                complete: default,
+                canDevelop: default,
+                withinDevelopRange: default,
+                meetsLevelRequirements: default,
+                stillHasLeeway: default,
+                belowArtificialMaxLevel: default,
+                belowMaxInvestmentLevel: default,
+                purchasedLevels: default,
+                baseLevel: default,
+                bonusLevel: default,
+                totalLevel: default,
+                artificialMaxLevel: default,
+                hiddenLevel: default,
+                levelVisibilityRange: default,
+                requiredStagesCached: default,
+                requiredTimeCached: default,
+                baseRequirementLevel: default,
+                effectiveRequirementLevel: default,
+                requirementAdjustments: PublicationTable<WorldResearchRequirementAdjustment>.Empty,
+                modifiers: default)),
+            ResourceTypes = One(nameof(GameWorldState.ResourceTypes), id => new WorldResourceType(
+                resourceTypeId: id,
+                level: default,
+                freeLevels: default,
+                specialHidden: default,
+                ignoreAudit: default,
+                ignoreEffects: default,
+                auditHasMaxQuantity: default)),
+            EquipmentTypes = One(nameof(GameWorldState.EquipmentTypes), id => new WorldEquipmentType(
+                equipmentTypeId: id,
+                level: default,
+                freeLevels: default,
+                baseUsage: default,
+                masteryLevel: default,
+                maxTypeSlots: default)),
+            AugmentGlyphs = One(nameof(GameWorldState.AugmentGlyphs), id => new WorldGlyph(
+                glyphId: id,
+                level: 2,
+                freeLevels: 1,
+                discoveryRarityLevel: default,
+                learned: true,
+                discoverable: true,
+                discoveryRequired: default,
+                augmentsSpells: true,
+                requiresDuration: default,
+                requiresToggleable: default,
+                masteryReqCount: default,
+                freeUsages: default,
+                freeLoadoutUsages: default,
+                maxUsages: new BigDouble(3),
+                maximumUsages: 3,
+                maximumFreeUsages: 1,
+                levelDecision: new WorldLevelableDecision(
+                    totalLevel: 3,
+                    bonusLevels: 1,
+                    canPurchase: true,
+                    purchaseAffordable: false,
+                    paidCosts: PublicationTable<WorldLevelableCost>.Create(new[]
+                    {
+                        new WorldLevelableCost(FixtureId(nameof(GameWorldState.Resources)), BigDouble.One),
+                    }),
+                    supportsBonus: true,
+                    bonusResourcesVisible: false,
+                    bonusAffordable: false,
+                    bonusCosts: PublicationTable<WorldLevelableCost>.Create(new[]
+                    {
+                        new WorldLevelableCost(FixtureId(nameof(GameWorldState.Resources)), BigDouble.One),
+                    })))),
             // `alchemy-recipes` and `concepts` are one native class split by the recipe's own
             // core alchemy type, so one row of each category is two rows here. Everything but
             // that type stays at the game's zero values, like every other row in this fixture.
@@ -245,31 +406,165 @@ public sealed class GameMcpListColumnContractTests
                 ZeroRecipe(OrdinaryRecipe, KnownEntities.Brewing.Uuid),
                 ZeroRecipe(ConceptRecipe, KnownEntities.Reductive.Uuid),
             }.OrderBy(recipe => recipe.EntityId).ToArray()),
-            PlotNodes = PublicationTable<WorldPlotNode>.Create(new WorldPlotNode[1]),
-            PurchaseCosts = PublicationTable<WorldPurchaseCost>.Create(new WorldPurchaseCost[1]),
-            Challenges = PublicationTable<WorldChallenge>.Create(new WorldChallenge[1]),
-            CraftingRecipes =
-                PublicationTable<WorldCraftingRecipe>.Create(new WorldCraftingRecipe[1]),
-            DiscoveryTrees = PublicationTable<WorldDiscoveryTree>.Create(new WorldDiscoveryTree[1]),
-            RecipeBooks = PublicationTable<WorldRecipeBook>.Create(new WorldRecipeBook[1]),
-            Resources = PublicationTable<WorldResource>.Create(new WorldResource[1]),
-            PlayerLoadouts = PublicationTable<WorldPlayerLoadout>.Create(new WorldPlayerLoadout[1]),
-            SnapshotLoadouts =
-                PublicationTable<WorldSnapshotLoadout>.Create(new WorldSnapshotLoadout[1]),
-            SnapshotSlots = PublicationTable<WorldSnapshotSlot>.Create(new WorldSnapshotSlot[1]),
-            SnapshotEntries =
-                PublicationTable<WorldSnapshotEntry>.Create(new WorldSnapshotEntry[1]),
-            CraftingQueueEntries =
-                PublicationTable<WorldCraftingQueueEntry>.Create(new WorldCraftingQueueEntry[1]),
-            SpellSlots = PublicationTable<WorldSpellSlot>.Create(new WorldSpellSlot[1]),
-            SpellCosts = PublicationTable<WorldSpellCost>.Create(new WorldSpellCost[1]),
-            AlchemyInstances =
-                PublicationTable<WorldAlchemyInstance>.Create(new WorldAlchemyInstance[1]),
-            AlchemyLoadout = PublicationTable<WorldAlchemyLoadoutDecision>.Create(
-                new WorldAlchemyLoadoutDecision[1]),
-            ActionQueueSlots =
-                PublicationTable<WorldActionQueueSlot>.Create(new WorldActionQueueSlot[1]),
-            PlotActions = PublicationTable<WorldPlotAction>.Create(new WorldPlotAction[1]),
+            PlotNodes = One(nameof(GameWorldState.PlotNodes), id => new WorldPlotNode(
+                reading: new RawPlotNodeSample(
+                    plotNodeId: id,
+                    visible: default,
+                    currentTime: default,
+                    nextErraticTime: default,
+                    sizeLevel: default,
+                    masteryXp: default,
+                    masteryLevel: default,
+                    noMastery: default,
+                    noSizeDisplay: default,
+                    useVisibilityPrereq: default,
+                    hasErraticGrowth: default,
+                    debugMode: default,
+                    erraticQuantity: default,
+                    actionQuantityUsageMain: default,
+                    actionQuantityUsageAny: default,
+                    actionXpRate: default,
+                    yieldMod: default,
+                    specialMod: default,
+                    actionSpeed: default,
+                    actionCostMod: default,
+                    growingSpeed: default,
+                    restingSpeed: default,
+                    sizeMod: default,
+                    qualityMod: default,
+                    recoverySizeMod: default,
+                    naturalGrowth: default,
+                    naturalGrowthPower: default,
+                    lastQuantity: default,
+                    idleQuantity: default,
+                    totalQuantity: default),
+                remainingQuantity: default,
+                remainingTotalQuantity: default)),
+            PurchaseCosts = One(nameof(GameWorldState.PurchaseCosts), id => new WorldPurchaseCost(entityId: FixtureId(nameof(GameWorldState.Structures)), resourceId: FixtureId(nameof(GameWorldState.Resources)), amount: default)),
+            Challenges = One(nameof(GameWorldState.Challenges), id => new WorldChallenge(
+                challengeId: id,
+                level: default,
+                state: default,
+                seen: default,
+                rewardQueued: default,
+                maxLevel: default,
+                weight: default,
+                difficulty: default,
+                baseReward: default)),
+            CraftingRecipes = One(nameof(GameWorldState.CraftingRecipes), id => new WorldCraftingRecipe(
+                reading: new RawCraftingRecipeSample(
+                    recipeId: id,
+                    visible: default,
+                    canBuyAtStartingQuantity: default,
+                    startingQuantity: default,
+                    useQuantityAsLevel: default,
+                    timeToComplete: default,
+                    outputWithinCapacity: default,
+                    completionEffectCount: default),
+                types: PublicationTable<WorldCraftingRecipeTypeLink>.Empty,
+                resources: PublicationTable<WorldCraftingRecipeResource>.Empty,
+                consumableOutputs: PublicationTable<WorldCraftingRecipeConsumableOutput>.Empty,
+                drainBlocks: PublicationTable<WorldCraftingRecipeDrainBlock>.Empty)),
+            DiscoveryTrees = One(nameof(GameWorldState.DiscoveryTrees), id => new WorldDiscoveryTree(
+                treeId: id,
+                visible: default,
+                actionMode: default,
+                actionTime: default,
+                rerollsLeft: default,
+                usedRerollsLastDiscover: default,
+                selectedChoiceId: Guid.Empty,
+                currentOfferIds: Array.Empty<Guid>(),
+                hasImmediateRequiredDiscovery: default,
+                nextItemAffordable: default,
+                nextItemCosts: Array.Empty<WorldResourceCost>(),
+                overrideRerollsId: Guid.Empty,
+                overrideChoicesId: Guid.Empty,
+                additionalDiscoveryChoices: default,
+                discoveryBonusLevelCost: default,
+                debugMode: default,
+                totalDiscoveredCount: default,
+                poolDiscoveredCount: default,
+                totalDiscoverableCount: default,
+                poolDiscoverableCount: default,
+                hasRequiredDiscovery: default,
+                hasRemainingDiscovery: default,
+                hasCompletedAllDiscoveries: default)),
+            RecipeBooks = One(nameof(GameWorldState.RecipeBooks), id => new WorldRecipeBook(recipeBookId: id, available: default)),
+            Resources = One(nameof(GameWorldState.Resources), id => new WorldResource(
+                reading: new RawResourceSample(
+                    resourceId: id,
+                    quantity: default,
+                    capacity: default,
+                    visible: default,
+                    lifetimeQuantity: default,
+                    discoveryTime: default,
+                    quality: default,
+                    gainRate: default,
+                    drain: default,
+                    reservation: default,
+                    usage: default,
+                    inLossMode: default,
+                    inRestMode: default,
+                    inRallyMode: default,
+                    appliedLevels: default,
+                    levelVariableId: FixtureId(nameof(GameWorldState.IntVariables)),
+                    rateInputs: default,
+                    traits: default,
+                    modifiers: default),
+                isCapped: default,
+                headroom: default,
+                fillFraction: default,
+                isAtCapacity: default,
+                trueQuantity: default,
+                trueRate: default)),
+            PlayerLoadouts = One(nameof(GameWorldState.PlayerLoadouts), id => new WorldPlayerLoadout(
+                id: id,
+                name: "Column fixture loadout",
+                selected: default,
+                savesEquipment: default,
+                savesAlchemy: default,
+                icon: default,
+                color: default,
+                canSwitchNow: default)),
+            SnapshotLoadouts = One(nameof(GameWorldState.SnapshotLoadouts), id => new WorldSnapshotLoadout(id: id, kind: WorldSnapshotLoadoutKind.Alchemy, slots: 1)),
+            SnapshotSlots = One(nameof(GameWorldState.SnapshotSlots), id => new WorldSnapshotSlot(ownerId: FixtureId(nameof(GameWorldState.SnapshotLoadouts)), slot: default, populated: true)),
+            SnapshotEntries = One(nameof(GameWorldState.SnapshotEntries), id => new WorldSnapshotEntry(ownerId: FixtureId(nameof(GameWorldState.SnapshotLoadouts)), slot: default, entryId: OrdinaryRecipe, quantity: 1)),
+            CraftingQueueEntries = One(nameof(GameWorldState.CraftingQueueEntries), id => new WorldCraftingQueueEntry(
+                queueId: KnownEntities.ActivePlotNodeActions.Uuid,
+                slot: default,
+                recipeId: FixtureId(nameof(GameWorldState.CraftingRecipes)),
+                amount: default,
+                automatic: default,
+                repetitions: default)),
+            SpellSlots = One(nameof(GameWorldState.SpellSlots), id => new WorldSpellSlot(
+                slotIndex: default,
+                spellRecipeId: FixtureId(nameof(GameWorldState.SpellRecipes)),
+                occupied: default,
+                casting: default,
+                readyingCast: default,
+                attuning: default,
+                channeled: default,
+                toggled: default,
+                chargeable: default,
+                castReady: default,
+                chargeAvailable: default,
+                resourcesCovered: default,
+                currentCharges: default,
+                maximumCharges: default,
+                cooldownRemaining: default)),
+            SpellCosts = One(nameof(GameWorldState.SpellCosts), id => new WorldSpellCost(slotIndex: default, kind: default, resourceId: FixtureId(nameof(GameWorldState.Resources)), amount: default)),
+            AlchemyInstances = One(nameof(GameWorldState.AlchemyInstances), id => new WorldAlchemyInstance(recipeId: OrdinaryRecipe, quantity: default, queuedQuantity: default, drainReadable: default, drainRatio: default)),
+            AlchemyLoadout = One(nameof(GameWorldState.AlchemyLoadout), id =>
+                new WorldAlchemyLoadoutDecision(OrdinaryRecipe, 0, 0, 0, 0, 0, 0, false, false)),
+            ActionQueueSlots = One(nameof(GameWorldState.ActionQueueSlots), id => new WorldActionQueueSlot(
+                queueId: KnownEntities.ActivePlotNodeActions.Uuid,
+                index: default,
+                empty: default,
+                plotNodeId: FixtureId(nameof(GameWorldState.PlotNodes)),
+                plotNodeActionId: FixtureId(nameof(GameWorldState.PlotNodeActions)),
+                quantity: default,
+                engaged: default)),
+            PlotActions = One(nameof(GameWorldState.PlotActions), id => new WorldPlotAction(reading: new RawPlotAction(plotNodeId: FixtureId(nameof(GameWorldState.PlotNodes)), plotNodeActionId: FixtureId(nameof(GameWorldState.PlotNodeActions)), offeredCount: default, instanceCount: default, prerequisiteEvidence: default), elementCost: default, elementCostKnown: default, hasEnoughForOneInstance: default, maximumRemainingInstances: default)),
             // A request the game never made is not a default struct: the constructor is what
             // guarantees its three names are non-null, so the fixture goes through it.
             Targeting = PublicationTable<WorldTargetingRequest>.Create(new[]
@@ -281,13 +576,323 @@ public sealed class GameMcpListColumnContractTests
                     cancelAvailable: false,
                     PublicationTable<WorldTargetingCandidate>.Empty),
             }),
+            DoubleVariables = One(nameof(GameWorldState.DoubleVariables), id => new WorldNumberVariable(variableId: id, value: default, isPercent: default)),
+            IntVariables = One(nameof(GameWorldState.IntVariables), id => new WorldNumberVariable(variableId: id, value: default, isPercent: default)),
+            BoolVariables = One(nameof(GameWorldState.BoolVariables), id => new WorldBoolVariable(variableId: id, value: default, initialValue: default, isSaved: default, observerId: default)),
+            ModifierVariables = One(nameof(GameWorldState.ModifierVariables), id => new WorldModifierVariable(variableId: id, modifierType: default, amount: default, order: default)),
+            Statistics = One(nameof(GameWorldState.Statistics), id => new WorldStatistic(statisticId: id, displayType: string.Empty, isPercent: default, description: string.Empty, globalDefinition: string.Empty)),
+            AttributeGroups = One(nameof(GameWorldState.AttributeGroups), id => new WorldAttributeGroup(attributeGroupId: id, description: string.Empty)),
+            StatusEffects = One(nameof(GameWorldState.StatusEffects), id => new WorldStatusEffect(
+                statusEffectId: id,
+                isBuff: default,
+                maxDuration: default,
+                stacksSeparately: default,
+                resetDurationOnApplication: default,
+                effectTimer: default,
+                description: string.Empty)),
+            CharacterAttributes = One(nameof(GameWorldState.CharacterAttributes), id => new WorldCharacterAttribute(characterAttributeId: id, damageTypeId: FixtureId(nameof(GameWorldState.DamageTypes)), description: string.Empty)),
+            DamageTypes = One(nameof(GameWorldState.DamageTypes), id => new WorldDamageType(damageTypeId: id, damageReductionRate: default, ignoreEntrenched: default, description: string.Empty)),
+            CharacterModifiers = One(nameof(GameWorldState.CharacterModifiers), id => new WorldCharacterModifier(characterModifierId: id, weightChance: default, description: string.Empty)),
+            CharacterActions = One(nameof(GameWorldState.CharacterActions), id => new WorldCharacterAction(characterActionId: id, prepTime: default, actTime: default, speedMod: default, description: string.Empty)),
+            CharacterTypes = One(nameof(GameWorldState.CharacterTypes), id => new WorldCharacterType(characterTypeId: id, description: string.Empty)),
+            Enchantments = One(nameof(GameWorldState.Enchantments), id => new WorldEnchantment(enchantmentId: id, description: string.Empty)),
+            GlyphTypes = One(nameof(GameWorldState.GlyphTypes), id => new WorldGlyphType(glyphTypeId: id, description: string.Empty)),
+            RuneStones = One(nameof(GameWorldState.RuneStones), id => new WorldRuneStone(runeStoneId: id, description: string.Empty)),
+            DisplayTypes = One(nameof(GameWorldState.DisplayTypes), id => new WorldDisplayType(displayTypeId: id, description: string.Empty)),
+            AlchemyTypes = One(nameof(GameWorldState.AlchemyTypes), id => new WorldAlchemyType(alchemyTypeId: id, selectedLevelId: FixtureId(nameof(GameWorldState.IntVariables)), maxUsageByMastery: default, level: default)),
+            SpellRecipes = One(nameof(GameWorldState.SpellRecipes), id => new WorldSpellRecipe(
+                spellRecipeId: id,
+                discovered: default,
+                discRarityLevel: default,
+                masteryXp: default,
+                masteryLevel: default,
+                masteryLevelReady: default,
+                hiddenDiscovery: default,
+                isRequiredDiscovery: default,
+                penaltyUsageCost: default,
+                castSpeed: default,
+                baseCharges: default,
+                repeatInstantEffects: default,
+                spellPowerMod: default,
+                spellCostMod: default,
+                spellCdSpeedMod: default,
+                spellDurationMod: default,
+                spellSpecialMod: default,
+                spellXpMod: default,
+                hasAlertedThisMastery: default)),
+            SpellTypes = One(nameof(GameWorldState.SpellTypes), id => new WorldSpellType(
+                spellTypeId: id,
+                typeLevel: default,
+                typeXp: default,
+                typeXpRequiredBase: default,
+                augmentPowerMod: default,
+                hasNoLevels: default,
+                isElemental: default,
+                isLoadoutUnique: default,
+                hasNotTypeSignificance: default,
+                isVisible: default,
+                debugMode: default,
+                typeXpMod: default,
+                power: default,
+                cooldownSpeed: default,
+                cooldownTime: default,
+                costMod: default,
+                drainCostMod: default,
+                durationMod: default,
+                elementalResonance: default,
+                augmentResonance: default,
+                maxStacksMod: default,
+                scalingMod: default,
+                usageCostReduction: default,
+                bonusCritRate: default,
+                critEffectMod: default,
+                critDurationMod: default,
+                bonusDoubleCastRate: default,
+                doubleCastEffectMod: default,
+                chargeTimeMod: default,
+                chargeEffectMod: default,
+                chargeSpecialMod: default,
+                bonusFlashRate: default,
+                flashEffectMod: default)),
+            CraftingRecipeTypes = One(nameof(GameWorldState.CraftingRecipeTypes), id => new WorldCraftingRecipeType(
+                craftingRecipeTypeId: id,
+                startingLevel: default,
+                maxStartingLevel: default,
+                craftVerb: string.Empty,
+                isLevelType: default,
+                initiated: default,
+                magnitudeLoss: default,
+                magnitudeTime: default,
+                magnitudeIncrement: default)),
+            StructureTypes = One(nameof(GameWorldState.StructureTypes), id => new WorldStructureType(structureTypeId: id, baseEffectLevel: default, baseBuildTime: default, overrideRankDefault: default, overrideRank: default)),
+            RitualTypes = One(nameof(GameWorldState.RitualTypes), id => new WorldRitualType(ritualTypeId: id, initiated: default, activeRituals: default)),
+            HarvestTypes = One(nameof(GameWorldState.HarvestTypes), id => new WorldHarvestType(harvestTypeId: id, level: default)),
+            PlotNodeTypes = One(nameof(GameWorldState.PlotNodeTypes), id => new WorldPlotNodeType(plotNodeTypeId: id, totalLevel: default)),
+            ResearchTypes = One(nameof(GameWorldState.ResearchTypes), id => new WorldResearchType(
+                researchTypeId: id,
+                linkedDevelopCost: default,
+                linkedResourceCost: default,
+                linkedResearchTime: default,
+                ignoreWhenLevelDependent: default,
+                persistThroughReset: default,
+                cachedTotalLevel: default,
+                cachedPeakLevel: default,
+                cachedQueuedLevel: default,
+                cachedDevelopingLevel: default,
+                cachedQueuedValue: default,
+                cachedInvestmentLevel: default,
+                cachedPurchasedLevel: default,
+                freeBonusLevels: default,
+                usedBonusLevels: default,
+                maxInvestmentLevel: default)),
+            ConsumableFamilies = One(nameof(GameWorldState.ConsumableFamilies), id => new WorldConsumableFamily(consumableFamilyId: id, hidden: default, sortOrder: default)),
+            HarvestActionTypes = One(nameof(GameWorldState.HarvestActionTypes), id => new WorldHarvestActionType(harvestActionTypeId: id)),
+            PassiveAbilityTypes = One(nameof(GameWorldState.PassiveAbilityTypes), id => new WorldPassiveAbilityType(passiveAbilityTypeId: id)),
+            TimeRuneTypes = One(nameof(GameWorldState.TimeRuneTypes), id => new WorldTimeRuneType(timeRuneTypeId: id, initialized: default, totalLevel: default)),
+            PlayerLoadoutEntries = One(nameof(GameWorldState.PlayerLoadoutEntries), id => new WorldLoadoutEntry(ownerId: FixtureId(nameof(GameWorldState.PlayerLoadouts)), kind: WorldLoadoutEntryKind.Equipment, entryId: FixtureId(nameof(GameWorldState.Equipment)), referenceId: FixtureId(nameof(GameWorldState.Equipment)), quantity: 1)),
+            HarvestElements = One(nameof(GameWorldState.HarvestElements), id => new WorldHarvestElement(
+                harvestElementId: id,
+                masteryXp: default,
+                masteryLevel: default,
+                harvestTime: default,
+                growthTime: default,
+                rarityValue: default,
+                initialMaxQuantity: default,
+                requiredXpToLevel: default,
+                instances: default,
+                power: default,
+                harvestSpeedMod: default,
+                drainCostMod: default,
+                autoGenerationMod: default,
+                experienceRateMod: default,
+                actionXpRate: default,
+                actionPower: default,
+                actionSpeed: default,
+                actionCostMod: default,
+                harvestRate: default,
+                lastOutputRate: default)),
+            HarvestActions = One(nameof(GameWorldState.HarvestActions), id => new WorldHarvestAction(harvestActionId: id, power: default, speed: default, costMod: default)),
+            TimeRunes = One(nameof(GameWorldState.TimeRunes), id => new WorldTimeRune(
+                timeRuneId: id,
+                discovered: default,
+                level: default,
+                discRarityLevel: default,
+                masteryXp: default,
+                masteryLevel: default,
+                isDiscoverRequired: default,
+                seen: default,
+                freeUsages: default,
+                power: default,
+                powerScalingMod: default,
+                masteryXpMod: default)),
+            Consumables = One(nameof(GameWorldState.Consumables), id => new WorldConsumable(
+                consumableId: id,
+                visible: default,
+                randomized: default,
+                quantity: default,
+                queuedQuantity: default,
+                maximumCarryLoad: default,
+                gainedSince: default,
+                maxCreatedLevel: default,
+                currentPrepTime: default,
+                currentCooldown: default,
+                currentCooldownTime: default,
+                modifiers: default,
+                preparationTime: default,
+                canBeRandomized: default,
+                hasDuration: default,
+                durationBase: default,
+                queueOnStart: default)),
+            Achievements = One(nameof(GameWorldState.Achievements), id => new WorldAchievement(
+                achievementId: id,
+                level: default,
+                seen: default,
+                logProgress: default,
+                steamApiName: string.Empty,
+                maxLevels: default,
+                achievementStrength: default)),
+            Advancements = One(nameof(GameWorldState.Advancements), id => new WorldAdvancement(
+                advancementId: id,
+                levels: default,
+                xp: default,
+                isPersistent: default,
+                baseRequiredXp: default,
+                power: default)),
+            ThoughtStreams = One(nameof(GameWorldState.ThoughtStreams), id => new WorldThoughtStream(thoughtStreamId: id, state: default)),
+            Tutorials = One(nameof(GameWorldState.Tutorials), id => new WorldTutorial(tutorialId: id, isCompleted: default)),
+            Views = PublicationTable<WorldView>.Create(new[]
+            {
+                new WorldView(KnownEntities.MagicGlyphsUpgrade.Uuid,
+                    active: false, alwaysActive: false, available: true),
+            }),
+            PlotNodeActions = One(nameof(GameWorldState.PlotNodeActions), id => new WorldPlotNodeAction(
+                plotNodeActionId: id,
+                hasBeenUsed: default,
+                isGrowingAction: default,
+                showExitTooltip: default,
+                elementCost: default,
+                useSizeModForCost: default,
+                useAnyStateForCost: default,
+                parallelAction: default,
+                baseTime: default,
+                useSpaceUsageForTimeMult: default,
+                ignoreNodeYield: default,
+                useParentSize: default,
+                useParentQuality: default,
+                power: default,
+                speed: default,
+                costMod: default,
+                growthSizeMod: default,
+                refundRating: default,
+                sizeModNodeCount: default,
+                elementCostType: default,
+                elementCostExitPhase: default,
+                prerequisiteCount: default,
+                resourceCostCount: default,
+                persistentEffectCount: default,
+                completionEffectCount: default)),
+            PassiveAbilities = One(nameof(GameWorldState.PassiveAbilities), id => new WorldPassiveAbility(
+                passiveAbilityId: id,
+                muted: default,
+                touched: default,
+                hidden: default,
+                silent: default,
+                global: default,
+                startOnCooldown: default,
+                ignoreReactionCooldown: default,
+                reactionTokenCost: default,
+                maxTokens: default,
+                minTokenForEffect: default,
+                tokenIndividuateDuration: default,
+                applyWhileRecharging: default,
+                expireAttachedStatusEffect: default,
+                tokenRate: default)),
+            Characters = One(nameof(GameWorldState.Characters), id => new WorldCharacter(characterId: id, discovered: default, numberSlain: default, floats: default)),
+            MasteryExperience = One(nameof(GameWorldState.MasteryExperience), id => new WorldMasteryExperience(
+                sequence: 1,
+                domain: default,
+                sourceId: FixtureId(nameof(GameWorldState.SpellRecipes)),
+                sourceMastery: default,
+                sourceEligible: default,
+                amount: default)),
+            AlchemyCosts = One(nameof(GameWorldState.AlchemyCosts), id => new WorldAlchemyCost(recipeId: OrdinaryRecipe, kind: default, resourceId: FixtureId(nameof(GameWorldState.Resources)), amount: default)),
+            AlchemyUsageCosts = One(nameof(GameWorldState.AlchemyUsageCosts), id => new WorldAlchemyUsageCost(recipeId: OrdinaryRecipe, resourceId: FixtureId(nameof(GameWorldState.Resources)), amount: default)),
+            PlotAuthoring = One(nameof(GameWorldState.PlotAuthoring), id => new WorldPlotAuthoring(plotNodeId: FixtureId(nameof(GameWorldState.PlotNodes)), autoActionId: FixtureId(nameof(GameWorldState.PlotNodeActions)), phaseCount: default)),
+            PlotPhaseDescriptors = One(nameof(GameWorldState.PlotPhaseDescriptors), id => new WorldPlotPhaseDescriptor(
+                plotNodeId: FixtureId(nameof(GameWorldState.PlotNodes)),
+                ordinal: default,
+                phase: default,
+                phaseTimeSeconds: default,
+                processType: default,
+                exitPhase: default)),
+            EffectBlocks = One(nameof(GameWorldState.EffectBlocks), id => new WorldEffectBlock(
+                ownerId: FixtureId(nameof(GameWorldState.Structures)),
+                ordinal: default,
+                blockTypeName: string.Empty,
+                prerequisiteCount: default,
+                modCount: default,
+                scriptCount: default,
+                modTypeName: string.Empty,
+                scriptTypeName: string.Empty,
+                scalingWeightId: FixtureId(nameof(GameWorldState.ModifierVariables)),
+                treasurePoolId: FixtureId(nameof(GameWorldState.TreasurePools)),
+                effectTypeName: string.Empty,
+                effectValue: default,
+                filterListType: default,
+                filterContentCount: default)),
+            EntityRequirements = One(nameof(GameWorldState.EntityRequirements), id => new WorldEntityRequirement(
+                ownerId: FixtureId(nameof(GameWorldState.Upgrades)),
+                ownerKind: default,
+                containerIndex: default,
+                ordinal: default,
+                parentOrdinal: -1,
+                depth: default,
+                nodeKind: default,
+                @operator: default,
+                kind: default,
+                conditionTypeName: string.Empty,
+                targetId: FixtureId(nameof(GameWorldState.Research)),
+                reqType: default,
+                baseValue: default,
+                perLevel: default,
+                modPerLevel: default)),
+            TreasurePools = One(nameof(GameWorldState.TreasurePools), id => new WorldTreasurePool(
+                poolId: id,
+                treasuresFound: default,
+                partialReward: default,
+                forceLevel: default,
+                treasureLevel: default,
+                calculatedTreasureLevel: default)),
             CollectionCategories =
                 PublicationTable<WorldCollectionCategoryStatus>.Create(
                     GameMcpTestHarness.AllCategoriesCollected()),
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
+
+        var identities = new List<EntityIdentityName>();
+        foreach (var category in GameMcpWorldCategories.Categories)
+        {
+            if (category.IdentityMode != "stable_entity_uuid") continue;
+            for (var index = 0; index < category.Count(world); index++)
+            {
+                Assert.True(category.TryIdentity(category.Row(world, index), out var identity),
+                    category.Name + " requires a real fixture identity");
+                identities.Add(new EntityIdentityName(identity,
+                    category.ExpectedNativeType.Split('|')[0],
+                    category.Name + " fixture", category.Name + "Fixture"));
+            }
+        }
+        return world with { EntityIdentities = GameMcpTestHarness.CatalogWith(identities.ToArray()) };
     }
+
+    private static PublicationTable<TRow> One<TRow>(string table, Func<Guid, TRow> create)
+        where TRow : struct =>
+        PublicationTable<TRow>.Create(new[] { create(FixtureId(table)) });
+
+    private static Guid FixtureId(string table) =>
+        new(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(table))
+            .AsSpan(0, 16));
 
     /// <summary>
     /// A category that builds its own rows is held to its declaration on every row it builds, so a
@@ -378,8 +983,8 @@ public sealed class GameMcpListColumnContractTests
                 Upgrade(Exhausted, bounded: true, exhausted: true)),
             generation: 735);
 
-        var whole = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
-            context, "upgrades", 0, GameMcpWorldQuery.DefaultLimit, limitFromCaller: false));
+        var whole = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
+            context, "upgrades", 0, GameMcpWorldList.DefaultLimit, limitFromCaller: false));
 
         Assert.Equal(3, Rows(whole).Length);
         Assert.Equal(3, (int)whole["total"]!);
@@ -389,7 +994,7 @@ public sealed class GameMcpListColumnContractTests
         // A caller that named a smaller page gets the page it named, and is told where to resume.
         // The rule raises no page above what was asked for; it only stops lowering one below the
         // whole of a category nobody asked to have cut up.
-        var asked = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var asked = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "upgrades", 0, 2, limitFromCaller: true));
 
         Assert.Equal(2, Rows(asked).Length);
@@ -411,11 +1016,11 @@ public sealed class GameMcpListColumnContractTests
         var context = GameMcpTestHarness.Context(
             AlchemyTypesWorld(Guid.Empty), generation: 736);
 
-        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             context, "alchemy-types", 0, 50))["rows"]!.Values<JObject>());
         Assert.Equal("-", (string?)row!["selectedLevel"]);
 
-        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var detail = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             context, "alchemy-types", new[] { identity.ToString("D") }));
         var got = Assert.Single(detail["results"]!.Values<JObject>())!["row"]!;
 
@@ -448,7 +1053,7 @@ public sealed class GameMcpListColumnContractTests
     }
 
     private static JObject TypeRow(GameMcpFrameContext context, Guid identity) =>
-        (JObject)Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        (JObject)Assert.Single(GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             context, "alchemy-types", new[] { identity.ToString("D") }))["results"]!
             .Values<JObject>())!["row"]!;
 
@@ -483,7 +1088,7 @@ public sealed class GameMcpListColumnContractTests
 
     private static JObject AlchemyTypes(params Guid[] selectedLevels)
     {
-        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        return GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(AlchemyTypesWorld(selectedLevels)), "alchemy-types", 0, 50));
     }
 

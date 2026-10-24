@@ -64,7 +64,7 @@ public sealed class GameMcpConceptCategoryTests
 
             Assert.NotNull(printed);
             var page = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ListRows(context, printed!, 0, 50));
+                GameMcpWorldList.ListRows(context, printed!, 0, 50));
 
             Assert.Contains(
                 page["rows"]!.Values<JObject>(),
@@ -143,7 +143,7 @@ public sealed class GameMcpConceptCategoryTests
         Assert.DoesNotContain("concept-recipes", inventory.Keys);
 
         var retired = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "concept-recipes", 0, 50));
+            GameMcpWorldList.ListRows(context, "concept-recipes", 0, 50));
 
         Assert.Equal("unavailable", (string?)retired["status"]);
         Assert.Equal(
@@ -169,7 +169,7 @@ public sealed class GameMcpConceptCategoryTests
     }
 
     private static JObject[] Rows(GameMcpFrameContext context, string category) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))
+        GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, category, 0, 50))
             ["rows"]!.Values<JObject>().Select(row => row!).ToArray();
 
     private static GameWorldState World() => new()

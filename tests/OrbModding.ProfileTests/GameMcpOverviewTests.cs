@@ -212,11 +212,11 @@ public sealed class GameMcpOverviewTests
         var context = GameMcpTestHarness.Context(world);
 
         var listed = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
+            GameMcpWorldList.ListRows(context, "double-variables", 0, 10));
         Assert.Equal(expected, (string?)listed["rows"]![0]!["value"]);
 
         var block = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(context, "double-variables", id.ToString("D")));
+            GameMcpWorldDetail.GetRow(context, "double-variables", id.ToString("D")));
         Assert.Equal(expected, (string?)block["row"]!["value"]);
     }
 

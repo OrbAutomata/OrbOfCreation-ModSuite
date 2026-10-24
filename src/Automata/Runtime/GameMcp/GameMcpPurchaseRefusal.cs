@@ -72,8 +72,8 @@ internal static class GameMcpPurchaseRefusal
                 cost.ResourceId, world.EntityIdentities);
             shortfalls.Add((
                 resource.HasName ? resource.Name : cost.ResourceId.ToString("D"),
-                GameMcpWorldQuery.AdmittedCost(world, in cost),
-                GameMcpWorldQuery.SpendableAmount(
+                GameMcpDecisionReason.AdmittedCost(world, in cost),
+                GameMcpDecisionReason.SpendableAmount(
                     world, cost.ResourceId, cost.AvailableAmount)));
         }
         if (shortfalls.Count == 0) return null;
@@ -100,8 +100,8 @@ internal static class GameMcpPurchaseRefusal
             // native cost into the player's units turns the quality-scaled holding back too.
             shortfalls.Add((
                 resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
-                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Cost),
-                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Available)));
+                GameMcpDecisionReason.PlayerFacingCost(world, row.ResourceId, row.Cost),
+                GameMcpDecisionReason.PlayerFacingCost(world, row.ResourceId, row.Available)));
         }
         return GameMcpDecisionReason.Shortfall(shortfalls);
     }
@@ -118,7 +118,7 @@ internal static class GameMcpPurchaseRefusal
         in AutoBuyPurchaseSubmission submission)
     {
         if (submission.CommittedLevels >= submission.RequestedLevels) return null;
-        var watched = GameMcpWorldQuery.PurchaseStopClause(submission.GroupStop);
+        var watched = GameMcpPurchaseProjection.PurchaseStopClause(submission.GroupStop);
         if (watched is not null) return watched;
         if (!submission.NextLevelCosts.IsComplete) return null;
         var rows = new List<(string Resource, BigDouble Cost)>();
@@ -129,7 +129,7 @@ internal static class GameMcpPurchaseRefusal
                 resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
                 row.Cost));
         }
-        return GameMcpWorldQuery.NextLevelPriceClause(rows);
+        return GameMcpPurchaseProjection.NextLevelPriceClause(rows);
     }
 
     internal static void ProjectPurchaseDetails(
@@ -145,7 +145,7 @@ internal static class GameMcpPurchaseRefusal
         // The full-queue refusal is written here rather than at the boundary, because the
         // queue's capacity is a published world fact and the boundary reads only the room.
         if (submission.Outcome.Code == AutoBuyActionResultCodes.ActionQueueFull)
-            exactReason = GameMcpWorldQuery.ActionQueueFullReason(world);
+            exactReason = GameMcpPurchaseProjection.ActionQueueFullReason(world);
 
         // A refusal whose sentence names a ceiling carries that ceiling as a number too,
         // read from the same live reading the sentence was written from.
@@ -163,11 +163,11 @@ internal static class GameMcpPurchaseRefusal
             // delta, and no later world can add to it without contradicting it. Every level
             // short of the ask is explained on that same line: the suite's own withholding
             // plainly, the game's half with only what the suite watched or can still read.
-            details = GameMcpWorldQuery.QueuedMutation(
+            details = GameMcpRowKit.QueuedMutation(
                 command.TargetId,
                 command.Amount,
                 submission.CommittedLevels,
-                GameMcpWorldQuery.PurchaseShortfallReason(
+                GameMcpPurchaseProjection.PurchaseShortfallReason(
                     world,
                     submission.WithheldBySuite,
                     submission.RequestedLevels,

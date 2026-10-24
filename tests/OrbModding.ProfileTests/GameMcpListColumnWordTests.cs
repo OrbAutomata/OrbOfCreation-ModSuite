@@ -341,7 +341,7 @@ public sealed class GameMcpListColumnWordTests
             category =>
             {
                 var rows = GameMcpTestHarness
-                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Json(GameMcpWorldList.ListRows(context, category, 0, 50))["rows"]!
                     .Values<JObject>()
                     .Select(row => (string?)row!["state"])
                     .ToArray();
@@ -365,14 +365,14 @@ public sealed class GameMcpListColumnWordTests
             category => Assert.DoesNotContain(
                 "completed",
                 GameMcpTestHarness
-                    .Json(GameMcpWorldQuery.ListRows(context, category, 0, 50))["rows"]!
+                    .Json(GameMcpWorldList.ListRows(context, category, 0, 50))["rows"]!
                     .Values<JObject>()
                     .Select(row => (string?)row!["state"])
                     .ToArray()));
 
         // Challenges do have one — ChallengeSO.IsMaxLevel() — so they reach all three, and it is
         // asked before availability exactly as the game's own IsAvailableToRun() asks it.
-        var challenges = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var challenges = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(ChallengeWorld(
                 Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0),
                 Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
@@ -394,7 +394,7 @@ public sealed class GameMcpListColumnWordTests
     [Fact]
     public void A_challenge_says_its_lifecycle_and_its_run_in_two_columns_that_disagree()
     {
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(ChallengeWorld(
                 Challenge(Uncapped, availableToRun: true, maxLevelReached: false, run: 3),
                 Challenge(Capped, availableToRun: false, maxLevelReached: false, run: 0)),
@@ -424,7 +424,7 @@ public sealed class GameMcpListColumnWordTests
     [Fact]
     public void A_recipe_whose_gate_this_suite_cannot_read_says_so_instead_of_guessing()
     {
-        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var rows = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(
                 AlchemyWorld(
                     Recipe(Capped, discovered: true, gate: 1),
@@ -457,7 +457,7 @@ public sealed class GameMcpListColumnWordTests
             CollectedAtEpoch = 25,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        return GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world), "attributes", 0, 50));
     }
 

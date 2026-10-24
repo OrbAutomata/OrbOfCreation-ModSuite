@@ -224,7 +224,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal("array", (string?)properties["uuids"]?["type"]);
         Assert.Equal(1, (int)properties["uuids"]!["minItems"]!);
         Assert.Equal(
-            GameMcpWorldQuery.MaximumBatchSize,
+            GameMcpWorldList.MaximumBatchSize,
             (int)properties["uuids"]!["maxItems"]!);
         Assert.Null(schema["oneOf"]);
     }
@@ -236,7 +236,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     [Fact]
     public void A_world_get_refused_as_a_whole_answers_in_the_one_refusal_line()
     {
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(),
             "resources",
             new[] { Guid.NewGuid().ToString("D") }));
@@ -670,7 +670,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world), "purchase-costs", 0, 10));
 
         Assert.Null(result["status"]);
@@ -851,13 +851,13 @@ public sealed class GameMcpWorldEnvelopeTests
         var state = GameMcpTestHarness.Context(world);
 
         var unknown = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "does-not-exist", 0, 10));
+            GameMcpWorldList.ListRows(state, "does-not-exist", 0, 10));
         Assert.Equal("unavailable", (string?)unknown["status"]);
         Assert.Equal("ERR_INPUT", (string?)unknown["reasonCode"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)unknown["reason"]));
 
         var unavailable = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
+            GameMcpWorldList.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)unavailable["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
         Assert.Contains("quantity was not bound", (string?)unavailable["reason"]);
@@ -894,7 +894,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Contains("quantity was unreadable", (string?)resources["reason"]);
 
         var rows = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
+            GameMcpWorldList.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)rows["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)rows["reasonCode"]);
 
@@ -992,7 +992,7 @@ public sealed class GameMcpWorldEnvelopeTests
             "model, so its graph is incomplete. world_get on this uuid names the requirement.",
             (string?)affectedMatch["incomplete"]);
 
-        var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "upgrades",
             unaffectedId.ToString("D")));
@@ -1002,7 +1002,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.NotNull(unaffectedGet["row"]);
         Assert.Null(unaffectedGet["implicatedSkippedRows"]);
 
-        var affectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var affectedGet = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "upgrades",
             affectedId.ToString("D")));
@@ -1020,7 +1020,7 @@ public sealed class GameMcpWorldEnvelopeTests
             "its graph is incomplete.",
             (string?)getFailure["reason"]);
 
-        var batch = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var batch = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             state,
             "upgrades",
             new[] { unaffectedId.ToString("D"), affectedId.ToString("D") }));
@@ -1039,7 +1039,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Single(batchRows[1]["implicatedSkippedRows"]!.Values<JObject>());
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "upgrades", 0, 10));
+            GameMcpWorldList.ListRows(state, "upgrades", 0, 10));
         Assert.Null(page["status"]);
         Assert.Null(page["reasonCode"]);
         Assert.Equal(2, page["rows"]!.Count());
@@ -1059,7 +1059,7 @@ public sealed class GameMcpWorldEnvelopeTests
             (string?)pageRows[1]["incomplete"]);
 
         var requirements = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "entity-requirements", 0, 10));
+            GameMcpWorldList.ListRows(state, "entity-requirements", 0, 10));
         Assert.Null(requirements["status"]);
         Assert.Null(requirements["reasonCode"]);
         Assert.NotNull(requirements["rows"]);
@@ -1199,7 +1199,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(search["implicatedSkippedRows"]);
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "entity-requirements", 0, 10));
+            GameMcpWorldList.ListRows(state, "entity-requirements", 0, 10));
         Assert.Null(page["status"]);
         Assert.Null(page["reasonCode"]);
         var incompleteRow = Assert.Single(page["rows"]!.Values<JObject>());
@@ -1236,7 +1236,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "purchase-costs",
             Guid.NewGuid().ToString("D")));

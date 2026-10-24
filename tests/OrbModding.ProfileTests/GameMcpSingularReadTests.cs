@@ -27,7 +27,7 @@ public sealed class GameMcpSingularReadTests
         var context = GameMcpTestHarness.Context(World(), generation: 5301);
 
         var single = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(context, "concepts", StudyMind.ToString("D")));
+            GameMcpWorldDetail.GetRow(context, "concepts", StudyMind.ToString("D")));
         var batch = GameMcpTestHarness.Detail(context, "concepts", StudyMind);
 
         // The one difference the singular shape has, and the reason it has it: on the wire a block

@@ -29,7 +29,7 @@ internal static class GameMcpHealthProjection
     /// </remarks>
     private static string GameMcpWorldResetsText(GameMcpFrameContext context)
     {
-        if (!GameMcpWorldQuery.IsWorldPublished(context)) return string.Empty;
+        if (!GameMcpWorldRead.IsWorldPublished(context)) return string.Empty;
         return WorldLookup.TryFind(
             context.World!.Snapshot.IntVariables,
             KnownEntities.WorldResets.Uuid,
@@ -63,7 +63,7 @@ internal static class GameMcpHealthProjection
             // boundary flushes the publication, so this reads "not published" again once the run
             // it described is gone. It counts publications and says so, because three counters
             // share this page and none of them is another's number.
-            .Append("world: ").Append(GameMcpWorldQuery.IsWorldPublished(context)
+            .Append("world: ").Append(GameMcpWorldRead.IsWorldPublished(context)
                 ? "publication " +
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
                 : "not published").Append('\n')
@@ -109,8 +109,8 @@ internal static class GameMcpHealthProjection
             .ThenBy(group => group.Key.Code.ToString(), StringComparer.Ordinal)
             .Select(group =>
             {
-                var state = GameMcpEntityWireNormalizer.Snake(group.Key.State.ToString());
-                var reasonCode = GameMcpEntityWireNormalizer.Snake(group.Key.Code.ToString());
+                var state = GameMcpWireValues.Snake(group.Key.State.ToString());
+                var reasonCode = GameMcpWireValues.Snake(group.Key.Code.ToString());
                 var qualifier = reasonCode.Length > 0 && reasonCode != "none" &&
                     !string.Equals(reasonCode, state, StringComparison.Ordinal)
                         ? " (" + reasonCode + ")"
@@ -141,7 +141,7 @@ internal static class GameMcpHealthProjection
                     : "unavailable")
             .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group =>
-                GameMcpEntityWireNormalizer.Snake(group.Key) + ": " + string.Join(", ", group.Select(
+                GameMcpWireValues.Snake(group.Key) + ": " + string.Join(", ", group.Select(
                     service => GameMcpTextFormatter.Plain(
                         CanonicalGameMcpFeatureName(service.DisplayName)))))
             .ToArray();
@@ -163,7 +163,7 @@ internal static class GameMcpHealthProjection
     internal static string CanonicalGameMcpFeatureName(string name) =>
         string.Equals(name, "Orb Mentor", StringComparison.Ordinal)
             ? "mentor"
-            : GameMcpEntityWireNormalizer.Snake(name);
+            : GameMcpWireValues.Snake(name);
 
     internal static string ProjectGameMcpTraceHealthText(GameMcpFrameContext context)
     {
@@ -179,8 +179,8 @@ internal static class GameMcpHealthProjection
         var result = new StringBuilder()
             .Append("available").Append('\n')
             .Append("trace writer: ").Append(
-                GameMcpEntityWireNormalizer.Snake(status.State.ToString())).Append('\n');
-        var outcome = GameMcpEntityWireNormalizer.Snake(status.Result.ToString());
+                GameMcpWireValues.Snake(status.State.ToString())).Append('\n');
+        var outcome = GameMcpWireValues.Snake(status.Result.ToString());
         if (outcome.Length > 0 && outcome != "none")
             result.Append("result: ").Append(outcome).Append('\n');
         result.Append("records: accepted ").Append(

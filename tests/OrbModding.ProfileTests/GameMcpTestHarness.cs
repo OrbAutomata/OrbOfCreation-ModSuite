@@ -249,7 +249,7 @@ internal static class GameMcpTestHarness
     /// <summary>One id's block of the detail read, addressed to one named table.</summary>
     internal static JObject Detail(GameMcpFrameContext state, string category, Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(state, category, new[] { uuid.ToString("D") }))
+            Json(GameMcpWorldDetail.GetRows(state, category, new[] { uuid.ToString("D") }))
                 ["results"]!.Values<JObject>())!;
 
     internal static GameMcpProtocolResponse Handle(

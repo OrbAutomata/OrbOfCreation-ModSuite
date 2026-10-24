@@ -134,7 +134,7 @@ internal static class GameMcpConfigurationValuePolicy
     /// published yet — no save loaded — is not a ceiling this can hold a write against.
     /// </summary>
     private static bool TryReadActionQueueCapacity(GameWorldState? world, out int capacity) =>
-        GameMcpWorldQuery.TryReadActionQueueCapacity(world, out capacity);
+        GameMcpPurchaseProjection.TryReadActionQueueCapacity(world, out capacity);
 
     internal static GameMcpConfigurationConstraint Describe(ConfigEntryBase entry)
     {

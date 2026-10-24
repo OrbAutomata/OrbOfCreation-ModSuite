@@ -32,7 +32,7 @@ public sealed class GameMcpAffordabilityTests
     public void The_affordable_filter_pages_only_the_rows_whose_price_is_met()
     {
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(), "attributes", 0, 50, affordableOnly: true));
+            GameMcpWorldList.ListRows(World(), "attributes", 0, 50, affordableOnly: true));
 
         var row = Assert.Single(page["rows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(Cheap), (string?)row["uuid"]);
@@ -57,7 +57,7 @@ public sealed class GameMcpAffordabilityTests
     public void An_unfiltered_page_still_answers_for_the_whole_category()
     {
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(), "attributes", 0, 50));
+            GameMcpWorldList.ListRows(World(), "attributes", 0, 50));
 
         Assert.Equal(2, page["rows"]!.Values<JObject>().Count());
         Assert.Equal(2, (int)page["total"]!);
@@ -73,7 +73,7 @@ public sealed class GameMcpAffordabilityTests
     public void A_category_with_no_price_column_refuses_the_filter_in_the_pages_own_words()
     {
         var refusal = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(), "resources", 0, 50, affordableOnly: true));
+            GameMcpWorldList.ListRows(World(), "resources", 0, 50, affordableOnly: true));
 
         Assert.Equal("unavailable", (string?)refusal["status"]);
         Assert.Equal("ERR_INPUT", (string?)refusal["reasonCode"]);
@@ -97,7 +97,7 @@ public sealed class GameMcpAffordabilityTests
         string expected)
     {
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(World(code), "purchase-costs", 0, 50));
+            GameMcpWorldList.ListRows(World(code), "purchase-costs", 0, 50));
 
         var row = page["rows"]!.Values<JObject>().Single(candidate =>
             candidate!["affordable"] is not JValue { Type: JTokenType.Boolean, Value: true })!;

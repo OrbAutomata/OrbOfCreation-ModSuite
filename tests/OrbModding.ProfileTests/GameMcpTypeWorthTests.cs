@@ -250,7 +250,7 @@ public sealed class GameMcpTypeWorthTests
     [MemberData(nameof(LiveSpellTypeRecords))]
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
-        var results = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var results = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(World(SpellTypeRecords(property))),
             string.Empty,
             new[] { Ember.ToString("D") }), Catalog)["results"]!;
@@ -364,7 +364,7 @@ public sealed class GameMcpTypeWorthTests
     public void An_equipment_type_list_row_names_the_level_it_carries_the_way_its_page_does()
     {
         var world = World();
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50), Catalog);
         var row = Assert.Single(listed["rows"]!.Values<JObject>())!;
         var page = Detail(Focus);
@@ -399,7 +399,7 @@ public sealed class GameMcpTypeWorthTests
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

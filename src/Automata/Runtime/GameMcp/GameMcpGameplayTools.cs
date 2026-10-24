@@ -617,7 +617,7 @@ internal static class GameMcpGameplayTools
             },
             FrameRead(ReadOnly, GameplayData,
                 static (_, context) => GameMcpToolExecution.Read(
-                    GameMcpWorldQuery.ChallengeStateRead(context).Freeze()),
+                    GameMcpChallengeProjection.ChallengeStateRead(context).Freeze()),
                 static request => request.Mode == "state"),
             Command(Gameplay, GameplayData, GameMcpCommandKind.Challenge)),
         new GameMcpToolDescriptor(

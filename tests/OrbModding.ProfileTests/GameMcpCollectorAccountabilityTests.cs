@@ -315,7 +315,7 @@ public sealed class GameMcpCollectorAccountabilityTests
     /// </summary>
     private static string Refusal(GameMcpFrameContext context, string category)
     {
-        var refusal = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, category, 0, 25));
+        var refusal = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, category, 0, 25));
         Assert.Equal("unavailable", (string?)refusal["status"]);
         Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
         return (string?)refusal["reason"] ?? string.Empty;

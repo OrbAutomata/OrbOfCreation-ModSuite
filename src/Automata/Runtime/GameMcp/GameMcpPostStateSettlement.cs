@@ -67,7 +67,7 @@ internal static class GameMcpPostStateSettlement
         GameMcpFrameContext? latest) => Rule(command).TimedOut(command, latest);
 
     internal static GameMcpValue PostStateTimeout() =>
-        GameMcpWorldQuery.PostStateUnavailable(
+        GameMcpRowKit.PostStateUnavailable(
             "post_state_timeout",
             "The press went through, but the game had not redrawn within a second, so this " +
             "answer cannot say what changed. Read the entity again.");

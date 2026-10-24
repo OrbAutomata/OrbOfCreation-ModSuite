@@ -319,11 +319,11 @@ public sealed class GameMcpRefusalReasonTests
 
         Assert.Equal(
             "Level All Spells is locked until Unlock Level All Spells is bought (5 Skill).",
-            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 0)));
+            GameMcpSpellLevelProjection.LevelAllLockedReason(Build(queuedLevels: 0)));
         Assert.Equal(
             "Level All Spells is locked until Unlock Level All Spells finishes developing in " +
             "the action queue.",
-            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 1)));
+            GameMcpSpellLevelProjection.LevelAllLockedReason(Build(queuedLevels: 1)));
         Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class(
             SpellLevelActionResultCodes.LevelAllLocked.Name));
     }

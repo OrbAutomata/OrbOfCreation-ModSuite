@@ -309,7 +309,7 @@ internal sealed class GameMcpScreenReader
         {
             return _gadgetResults.Rejected("not_on_screen", GameMcpTooltipPanelRow.HiddenEntity);
         }
-        if (!GameMcpEntityExplainer.TryResolveTooltip(
+        if (!GameMcpEntityIdentity.TryResolveTooltip(
                 command.TargetId, identity.RuntimeType, out var tooltip))
         {
             return _gadgetResults.Rejected(

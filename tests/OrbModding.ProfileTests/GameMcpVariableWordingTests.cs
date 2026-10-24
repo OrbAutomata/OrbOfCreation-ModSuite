@@ -43,7 +43,7 @@ public sealed class GameMcpVariableWordingTests
         var state = GameMcpTestHarness.Context(world);
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "mastery-experience", 0, 50));
+            GameMcpWorldList.ListRows(state, "mastery-experience", 0, 50));
         var rows = page["rows"]!.Values<JObject>().ToArray();
 
         Assert.Equal(2, (int)page["total"]!);
@@ -83,7 +83,7 @@ public sealed class GameMcpVariableWordingTests
             CollectedAtEpoch = 47,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var rows = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world), "int-variables", 0, 10))["rows"]!
             .Values<JObject>()
             .ToArray();
@@ -131,7 +131,7 @@ public sealed class GameMcpVariableWordingTests
         var context = GameMcpTestHarness.Context(world);
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
+            GameMcpWorldList.ListRows(context, "double-variables", 0, 10));
         var rows = page["rows"]!.Values<JObject>().ToArray();
 
         Assert.True((bool)rows[0]!["isPercent"]!);
@@ -140,7 +140,7 @@ public sealed class GameMcpVariableWordingTests
             "[id | name | value | isPercent]",
             GameMcpTextPage.Render(page).Split('\n')[1]);
 
-        var blocks = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var blocks = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             context,
             "double-variables",
             new[] { percent.ToString("D"), plain.ToString("D") }))["results"]!

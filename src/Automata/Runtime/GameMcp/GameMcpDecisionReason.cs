@@ -1,8 +1,19 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.GameMath;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.World;
+using JObject = OrbAutomata.GameMcp.GameMcpObjectBuilder;
+using JArray = OrbAutomata.GameMcp.GameMcpArrayBuilder;
+
+
+using static OrbAutomata.GameMcp.GameMcpRowKit;
+using static OrbAutomata.GameMcp.GameMcpSpellWorkbenchProjection;
 
 namespace OrbAutomata.GameMcp;
 
@@ -959,5 +970,152 @@ internal static class GameMcpDecisionReason
         var text = reasonCode.Replace('_', ' ');
         return char.ToUpperInvariant(text[0]) + text.Substring(1) + ".";
     }
+
+    internal static BigDouble SpendableAmount(
+        GameWorldState world,
+        Guid resourceId,
+        BigDouble fallback) =>
+        TryFindResource(world, resourceId, out var resource)
+            ? WorldResourceCoordinate.SpendableAmount(in resource)
+            : fallback;
+
+    /// <summary>
+    /// Converts the game's nominal cost unit to the amount removed from the player's visible pool.
+    /// This is the owned equivalent of ResourceSO.GetTrueSpend(amount).
+    /// </summary>
+    internal static BigDouble PlayerFacingCost(
+        GameWorldState world,
+        Guid resourceId,
+        BigDouble nominalCost)
+    {
+        if (!TryFindResource(world, resourceId, out var resource))
+            return nominalCost;
+        return WorldResourceCoordinate.PlayerFacingCost(in resource, nominalCost);
+    }
+
+    internal static string ShortfallReason(
+        GameWorldState world,
+        PublicationTable<WorldResourceCost> costs)
+    {
+        var rows = new List<(string, BigDouble, BigDouble)>();
+        for (var index = 0; index < costs.Count; index++)
+        {
+            var value = costs[index];
+            if (CanAfford(world, value.ResourceId, value.Price, value.Held)) continue;
+            var identity = EntityIdentityFormatter.Describe(
+                value.ResourceId, world.EntityIdentities);
+            rows.Add((
+                identity.HasName ? identity.Name : value.ResourceId.ToString("D"),
+                PlayerFacingCost(world, value.ResourceId, value.Price),
+                SpendableAmount(world, value.ResourceId, value.Held)));
+        }
+        var sentence = GameMcpDecisionReason.Shortfall(rows);
+        return sentence.Length == 0
+            ? GameMcpDecisionReason.For("unaffordable")
+            : sentence;
+    }
+
+    internal static bool CanAfford(
+        GameWorldState world,
+        Guid resourceId,
+        BigDouble nominalCost,
+        BigDouble fallbackAvailable) =>
+        TryFindResource(world, resourceId, out var resource)
+            ? WorldResourceCoordinate.HasAmount(in resource, nominalCost)
+            : fallbackAvailable.CompareTo(nominalCost) >= 0;
+
+    internal static bool TryFindResource(
+        GameWorldState world,
+        Guid resourceId,
+        out WorldResource resource)
+    {
+        if (WorldLookup.TryFind(world.Resources, resourceId, out resource)) return true;
+        if (WorldLookup.TryFind(world.HarvestResources, resourceId, out var harvest))
+        {
+            resource = harvest.Resource;
+            return true;
+        }
+        resource = default;
+        return false;
+    }
+
+    /// <summary>
+    /// The price one cost row asks in the player's own units, straight from the capture the action
+    /// is admitted against. The published cost row, the unaffordable sentence, and a committed
+    /// purchase's <c>paid[]</c> all read this one expression, so they cannot disagree.
+    /// </summary>
+    internal static BigDouble AdmittedCost(GameWorldState world, in WorldPurchaseCost cost) =>
+        PlayerFacingCost(
+            world,
+            cost.ResourceId,
+            cost.AffordabilityEvaluated
+                ? cost.CombinedEffectiveAmount
+                : cost.EffectiveExactAmount);
+
+    internal static JObject ProjectPurchaseCost(
+        GameWorldState world,
+        in WorldPurchaseCost cost) =>
+        ProjectPurchaseCost(world, in cost, asRow: false);
+
+    internal static JObject ProjectPurchaseCost(
+        GameWorldState world,
+        in WorldPurchaseCost cost,
+        bool asRow)
+    {
+        var price = AdmittedCost(world, in cost);
+        var result = new JObject
+        {
+            ["resourceId"] = cost.ResourceId.ToString("D"),
+            ["cost"] = new GameMcpDomainValue(price),
+        };
+        // A price the publication could not compare against a same-generation holding says that,
+        // rather than dropping the two columns that would have said it.
+        if (!cost.AffordabilityEvaluated)
+        {
+            result["spendableAmount"] = GameMcpListColumns.Unevaluated;
+            result["affordable"] = GameMcpListColumns.Unevaluated;
+            return result;
+        }
+
+        (result["cost"], result["spendableAmount"]) = GameMcpNumberFormatter.CellsApart(
+            price, SpendableAmount(world, cost.ResourceId, cost.AvailableAmount));
+
+        // This row answers for its own resource. The whole-price verdict is what the rows fold
+        // to, and a row that reported it claimed to be short of a resource it holds plenty of.
+        result["affordable"] = cost.ResourceAffordable;
+
+        // `affordable: no` beside the cost and the holding already says "short of this". The
+        // plain shortfall code and the generic sentence behind it wrote that same fact a second
+        // and a third time on every row of a 744-row category, so only a shortfall that says
+        // something else — a bandwidth ceiling rather than a quantity — still names itself.
+        //
+        // On a row it names itself in the column that asked. `affordable` already answers with a
+        // word wherever a plain no would mislead, so the shortfall the cost and holding columns
+        // cannot show is one more word in that vocabulary rather than two columns of its own.
+        if (!cost.ResourceAffordable &&
+            !string.Equals(
+                cost.ResourceAffordabilityReasonCode,
+                "insufficient_quantity",
+                StringComparison.Ordinal))
+        {
+            if (asRow)
+                result["affordable"] =
+                    GameMcpListColumns.Word(cost.ResourceAffordabilityReasonCode);
+            else result["reasonCode"] = cost.ResourceAffordabilityReasonCode;
+        }
+        return result;
+    }
+
+    internal static GameMcpValue List(
+        GameWorldState world,
+        in WorldPurchaseCost purchaseCost,
+        int nestedOffset,
+        int nestedLimit)
+    {
+        var projected = ProjectPurchaseCost(world, in purchaseCost, asRow: true);
+        projected["targetId"] = purchaseCost.EntityId.ToString("D");
+        return projected.Freeze();
+    }
+
 }
 #endif

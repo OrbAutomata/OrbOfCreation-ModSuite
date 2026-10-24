@@ -105,7 +105,7 @@ public sealed class GameMcpRecipeBookTests
             World(new WorldRecipeBook(InsightBookId, true)));
 
         var row = GameMcpTestHarness
-            .Json(GameMcpWorldQuery.ListRows(context, "recipe-books", 0, 50))["rows"]!
+            .Json(GameMcpWorldList.ListRows(context, "recipe-books", 0, 50))["rows"]!
             .Values<JObject>()
             .Single()!;
 
@@ -297,7 +297,7 @@ public sealed class GameMcpRecipeBookTests
         var context = GameMcpTestHarness.Context(
             World(new WorldRecipeBook(InsightBookId, true)));
 
-        var page = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "glyphs", 0, 50));
+        var page = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "glyphs", 0, 50));
 
         Assert.Equal("ERR_INPUT", (string?)page["reasonCode"]);
         Assert.Equal(

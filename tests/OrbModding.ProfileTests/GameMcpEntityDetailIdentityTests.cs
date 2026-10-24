@@ -242,7 +242,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world, 949),
             string.Empty,
             new[]
@@ -407,7 +407,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         var page = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.GetRows(
+            GameMcpWorldDetail.GetRows(
                     GameMcpTestHarness.Context(world),
                     string.Empty,
                     new[] { mining.ToString("D") })
@@ -422,11 +422,11 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
         // declares the native type, and the type is what the authored text is read through.
         Assert.Equal(
             "Waters the node so it grows.",
-            GameMcpEntityExplainer.ReadDescription(
+            GameMcpEntityIdentity.ReadDescription(
                 watering, GameMcpEntityCapabilityMap.ExpectedNativeType("plot-node-actions")));
         Assert.Equal(
             "Digs the node for ore.",
-            GameMcpEntityExplainer.ReadDescription(
+            GameMcpEntityIdentity.ReadDescription(
                 mining, GameMcpEntityCapabilityMap.ExpectedNativeType("agromancy-actions")));
     }
 }

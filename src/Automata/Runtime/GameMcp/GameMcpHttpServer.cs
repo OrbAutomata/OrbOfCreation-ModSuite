@@ -63,10 +63,11 @@ internal sealed class GameMcpHttpServer : IDisposable
     {
         var problems = new List<string>(catalog.Problems());
         problems.AddRange(commands.Problems());
+        problems.AddRange(GameMcpEntityCapabilityMap.Problems());
         if (problems.Count > 0)
         {
             logError(
-                "Game MCP server refuses to start because its tool or command catalog is " +
+                "Game MCP server refuses to start because its tool, command or category catalog is " +
                 "malformed; gameplay remains active: " + string.Join("; ", problems));
             return null;
         }

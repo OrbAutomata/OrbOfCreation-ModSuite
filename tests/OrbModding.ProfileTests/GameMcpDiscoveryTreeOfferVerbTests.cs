@@ -163,7 +163,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
                 generation: 42),
             41, completedAt, command));
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.ProjectPostState(
             crafting, "discovery-trees", treeId));
         Assert.Equal("crafting", (string?)response["mode"]);
         Assert.Null(response["offers"]);
@@ -249,7 +249,7 @@ public sealed class GameMcpDiscoveryTreeOfferVerbTests
         var world = Tree(
             treeId, actionMode: 1, collectedAtUtcTicks: DateTime.UtcNow.Ticks);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 91),
             "discovery-trees",
             treeId.ToString("D")))["row"]!;

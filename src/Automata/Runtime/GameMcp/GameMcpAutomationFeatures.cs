@@ -231,8 +231,8 @@ internal static class GameMcpAutomationFeatures
             {
                 return null;
             }
-            var state = GameMcpEntityWireNormalizer.Snake(status.State.ToString());
-            var code = GameMcpEntityWireNormalizer.Snake(status.Reason.Code.ToString());
+            var state = GameMcpWireValues.Snake(status.State.ToString());
+            var code = GameMcpWireValues.Snake(status.Reason.Code.ToString());
             return code.Length == 0 || code == "none" ||
                 string.Equals(code, state, StringComparison.Ordinal)
                 ? state

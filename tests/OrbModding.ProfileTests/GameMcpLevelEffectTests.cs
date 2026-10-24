@@ -198,7 +198,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
 
     private static JObject Row(string category, Guid uuid) =>
         (JObject)Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!["row"]!;
 

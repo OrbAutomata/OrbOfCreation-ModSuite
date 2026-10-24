@@ -540,7 +540,7 @@ public sealed class GameMcpDecisionReasonTests
 
         var source = File.ReadAllText(Path.Combine(
             RepositorySources.Root,
-            "src", "Automata", "Runtime", "GameMcp", "GameMcpEntityExplainer.cs"));
+            "src", "Automata", "Runtime", "GameMcp", "GameMcpRequirementProjection.cs"));
         var start = source.IndexOf(
             "var check = GameMcpNativeVocabulary.RequirementCheck(", StringComparison.Ordinal);
         Assert.True(start >= 0, "could not find the requirement phrase switch");

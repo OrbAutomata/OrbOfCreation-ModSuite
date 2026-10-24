@@ -68,7 +68,7 @@ public sealed class GameMcpWorldQueryTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world, generation: 1003),
             "resources",
             new[] { resourceId.ToString("D") }));
@@ -109,7 +109,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal(214, System.Text.Encoding.UTF8.GetByteCount(
             response.ToString(Newtonsoft.Json.Formatting.None)));
 
-        var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var list = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 1003),
             "resources",
             0,
@@ -167,7 +167,7 @@ public sealed class GameMcpWorldQueryTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world, generation: 1004),
             "resources",
             new[] { resourceId.ToString("D") }));
@@ -289,7 +289,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(
             overview.ToString(Newtonsoft.Json.Formatting.None)) < 1_650);
 
-        var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var exact = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "spell-recipes",
             GameMcpAcceptanceFixture.SpellId.ToString("D")));
@@ -304,7 +304,7 @@ public sealed class GameMcpWorldQueryTests
         var state = GameMcpAcceptanceFixture.SpellSnapshot(4);
 
         var list = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "spell-recipes", 0, 10));
+            GameMcpWorldList.ListRows(state, "spell-recipes", 0, 10));
         var scan = Assert.Single(list["rows"]!.Values<JObject>())!;
         Assert.Equal(GameMcpTestHarness.Handle(GameMcpAcceptanceFixture.SpellId), (string?)scan["uuid"]);
         Assert.Null(scan["nameEvidence"]);
@@ -337,7 +337,7 @@ public sealed class GameMcpWorldQueryTests
         Assert.Equal("id", (string?)match["matchedOn"]);
         Assert.Equal(5, match.Properties().Count());
 
-        var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var exact = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "spell-recipes",
             GameMcpAcceptanceFixture.SpellId.ToString("D")));

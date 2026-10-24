@@ -64,7 +64,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
                 "bb3cd4 | Cost | Statistic | The amount of resources a component costs to cast, " +
                     "use or purchase.",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "statistics", 0, 50, limitFromCaller: false), Catalog)));
     }
@@ -111,7 +111,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
     public void A_statistic_the_game_authors_no_sentence_for_is_a_row_with_no_sentence()
     {
         var context = GameMcpTestHarness.Context(World());
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "statistics", 0, 50), Catalog)["rows"]!
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "statistics", 0, 50), Catalog)["rows"]!
             .Values<JObject>()
             .Single(row => (string?)row!["name"] == "Artifact Experience")!;
 
@@ -119,7 +119,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
         Assert.Equal("Statistic", (string?)listed["displayType"]);
 
         var block = Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 context, string.Empty, new[] { ArtifactExperience.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 
@@ -150,7 +150,7 @@ public sealed class GameMcpStatisticGlossaryTests : IDisposable
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

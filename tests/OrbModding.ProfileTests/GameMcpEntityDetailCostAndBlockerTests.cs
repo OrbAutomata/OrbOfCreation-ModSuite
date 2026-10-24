@@ -323,7 +323,8 @@ public sealed class GameMcpEntityDetailCostAndBlockerTests : IDisposable
         var bandwidthRow = Assert.Single(
             craftingResult["blockers"]!["bandwidth"]!["rows"]!.Values<JObject>())!;
         Assert.Equal("25", (string?)bandwidthRow["cost"]);
-        Assert.Equal("10", (string?)bandwidthRow["amount"]);
+        Assert.Equal("10", (string?)bandwidthRow["spendableAmount"]);
+        Assert.Null(bandwidthRow["amount"]);
         Assert.True((bool)bandwidthRow["bandwidth"]!);
         Assert.Null(bandwidthRow["headroom"]);
         Assert.True((bool)craftingResult["blockers"]!["drain"]!["blocked"]!);
