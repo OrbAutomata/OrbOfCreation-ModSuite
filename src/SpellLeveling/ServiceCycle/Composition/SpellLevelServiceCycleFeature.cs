@@ -132,6 +132,9 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
     }
 
 #if SERVICE_CYCLE_PROFILE
+    public OrbAutomata.GameMcp.IGameMcpServiceCommand GameMcpCommand =>
+        new OrbAutomata.GameMcp.GameMcpSpellLevelCommand(this);
+
     internal ServiceActionResult TryExecuteGameMcp(
         in SpellLevelCycleAction action,
         in SuiteRuntimeConfiguration config,

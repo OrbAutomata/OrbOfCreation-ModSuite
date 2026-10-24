@@ -1,6 +1,10 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+#endif
 using OrbModding.TestSupport;
 using System;
 using OrbAutomata;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Common.Runtime.ServiceCycle.Tracing.Emission;
@@ -11,8 +15,14 @@ using Xunit;
 
 namespace OrbModding.Tests.Runtime.ServiceCycle;
 
-public sealed class AutomataServiceCycleHostTests
+[Collection(GameActionFaultLogCollection.Name)]
+public sealed class AutomataServiceCycleHostTests : IDisposable
 {
+    private readonly System.Collections.Generic.List<string> _faults = new();
+
+    public AutomataServiceCycleHostTests() => GameActionFaultLog.ConfigureLog(_faults.Add);
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
+
     [Fact]
     public void OneHostPumpsDifferentlyTypedServicesAndOwnsSuiteLifecycle()
     {
@@ -37,7 +47,11 @@ public sealed class AutomataServiceCycleHostTests
             registry,
             () => frame,
             pumpTiming: null,
-            semanticTrace: null);
+            semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         TestWorldCollector.CollectedAtActivation(registry);
 
         var first = host.Tick();
@@ -78,7 +92,11 @@ public sealed class AutomataServiceCycleHostTests
             registry,
             () => frame,
             pumpTiming: null,
-            semanticTrace: semantic);
+            semanticTrace: semantic
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
 
         Assert.Equal(2, host.Pump.ServiceCapacity);
         Assert.True(host.Tick().Accepted);
@@ -107,7 +125,11 @@ public sealed class AutomataServiceCycleHostTests
             registry,
             () => 1L,
             pumpTiming: null,
-            semanticTrace: undersized));
+            semanticTrace: undersized
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            ));
         Assert.Equal("semanticRecorder", error.ParamName);
     }
 
@@ -133,7 +155,11 @@ public sealed class AutomataServiceCycleHostTests
             () => frame,
             pumpTiming: null,
             semanticTrace: null,
-            serviceFailureLog: messages.Add);
+            serviceFailureLog: messages.Add
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         TestWorldCollector.CollectedAtActivation(registry);
 
         TickUntil(host, clock, ref frame, () => definition.CaptureCount == 2);
@@ -141,9 +167,16 @@ public sealed class AutomataServiceCycleHostTests
         var logged = Assert.Single(messages);
         Assert.StartsWith(
             $"ServiceCycle capture for service {definition.ServiceId.Value} threw, so it published " +
-            "nothing and retries with backoff: System.NullReferenceException: ",
+            "nothing and retries with backoff: The world capture failed. Reference MCP-",
             logged);
-        Assert.Contains(nameof(ReadAMissingGameObject), logged);
+        Assert.DoesNotContain("NullReferenceException", logged);
+        Assert.Equal(2, _faults.Count);
+        Assert.All(_faults, entry =>
+        {
+            Assert.Contains("System.NullReferenceException", entry);
+            Assert.Contains(nameof(ReadAMissingGameObject), entry);
+        });
+        Assert.Contains(_faults[0].Split(' ')[3], logged);
 
         definition.CaptureCallback = null;
         TickUntil(host, clock, ref frame, () => definition.CaptureCount == 3);
@@ -151,8 +184,9 @@ public sealed class AutomataServiceCycleHostTests
         TickUntil(host, clock, ref frame, () => definition.CaptureCount == 4);
 
         Assert.Equal(2, messages.Count);
-        Assert.Equal(messages[0][..messages[0].IndexOf(" at ", StringComparison.Ordinal)],
-            messages[1][..messages[1].IndexOf(" at ", StringComparison.Ordinal)]);
+        Assert.Equal(3, _faults.Count);
+        Assert.Contains(_faults[2].Split(' ')[3], messages[1]);
+        Assert.NotEqual(messages[0], messages[1]);
     }
 
     private static void TickUntil(
@@ -190,15 +224,23 @@ public sealed class AutomataServiceCycleHostTests
             () => 1,
             pumpTiming: null,
             semanticTrace: null,
-            serviceFailureLog: messages.Add);
+            serviceFailureLog: messages.Add
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         TestWorldCollector.CollectedAtActivation(registry);
 
         host.Tick();
 
         Assert.StartsWith(
             $"ServiceCycle start decision for service {definition.ServiceId.Value} threw, so no " +
-            "cycle opened and it retries with backoff: System.InvalidOperationException: start exploded",
+            "cycle opened and it retries with backoff: The service could not decide whether to start. Reference MCP-",
             Assert.Single(messages));
+        var fault = Assert.Single(_faults);
+        Assert.Contains("System.InvalidOperationException: start exploded", fault);
+        Assert.Contains(fault.Split(' ')[3], messages[0]);
+        Assert.DoesNotContain("start exploded", messages[0]);
     }
 
     /// <summary>
@@ -222,7 +264,11 @@ public sealed class AutomataServiceCycleHostTests
             registry,
             () => 1,
             pumpTiming: null,
-            semanticTrace: null);
+            semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         TestWorldCollector.CollectedAtActivation(registry);
 
         Assert.Throws<OutOfMemoryException>(() => host.Tick());
@@ -250,7 +296,11 @@ public sealed class AutomataServiceCycleHostTests
             registry,
             () => 1,
             pumpTiming: null,
-            semanticTrace: null);
+            semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         host.ClaimPumpShutdown(() =>
         {
             calls++;

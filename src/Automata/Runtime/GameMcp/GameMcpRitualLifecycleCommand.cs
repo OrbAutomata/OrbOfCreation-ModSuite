@@ -12,7 +12,7 @@ internal static class GameMcpRitualLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectRitualLifecycleDelta(state, command)),
+                GameMcpRitualLifecycleProjection.ProjectRitualLifecycleDelta(state, command)),
         nativeType: "RitualSO");
 
     private static GameMcpCommandResult ExecuteRitualLifecycle(

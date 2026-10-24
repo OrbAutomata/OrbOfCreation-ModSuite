@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.Runtime.ServiceCycle.Profile;
+using OrbAutomata.GameMcp;
+#endif
 using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
@@ -240,6 +245,10 @@ public sealed class AutoBuyRefusalRetryTests
 
         internal Harness(Purchases purchases)
         {
+            var gameActions = new LifecycleGameActions();
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             purchases.Clock = () => _clock.Now;
             Status = new AutomataFeatureStatusReporter(
                 _statuses,
@@ -257,6 +266,9 @@ public sealed class AutoBuyRefusalRetryTests
                 new RoomyQueue(),
                 () => _epoch,
                 () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+                new AutomataProfileOperations(profileProbe),
+#endif
                 responder);
             _registry = new ServiceCycleRegistry(
                 1,
@@ -280,13 +292,24 @@ public sealed class AutoBuyRefusalRetryTests
                 new ConfigGeneration(1),
                 actions,
                 Latch);
+            var host = new AutomataServiceCycleHost(
+                _registry, () => _frame++, pumpTiming: null, semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+                , profileProbe: profileProbe
+#endif
+                );
             _runtime = new AutomataServiceCycleRuntime(
                 () => _epoch,
                 _registry.Configuration,
-                new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null),
+                host,
                 new IAutomataServiceCycleFeatureRuntime[] { feature },
                 new ConfigGeneration(1),
-                new LifecycleGameActions());
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+            , new GameMcpCommandDispatcher(host, _registry.Configuration, gameActions,
+                new IAutomataServiceCycleFeatureRuntime[] { feature })
+#endif
+            );
             feature.ActivateDiagnostics();
         }
 
@@ -360,7 +383,11 @@ public sealed class AutoBuyRefusalRetryTests
             AutoBuyCandidateKind kind,
             Guid uuid,
             int count,
-            long lifecycleEpoch)
+            long lifecycleEpoch
+#if SERVICE_CYCLE_PROFILE
+            , in ServiceActionContext context
+#endif
+            )
         {
             TotalSubmissions++;
             WhileSubmitting?.Invoke(uuid);
@@ -382,7 +409,7 @@ public sealed class AutoBuyRefusalRetryTests
 
     private sealed class RoomyQueue : IAutoBuyQueueRoomPort
     {
-        public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
+        public bool TryReadRemainingRoom(out int remainingRoom, out GameActionReason reason)
         {
             remainingRoom = 64;
             reason = string.Empty;

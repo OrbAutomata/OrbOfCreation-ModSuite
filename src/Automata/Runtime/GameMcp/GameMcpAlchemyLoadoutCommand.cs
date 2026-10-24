@@ -12,7 +12,7 @@ internal static class GameMcpAlchemyLoadoutCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectAlchemyLoadoutDelta(state, command)),
+                GameMcpAlchemyLoadoutProjection.ProjectAlchemyLoadoutDelta(state, command)),
         nativeType: "AlchemyRecipeSO",
         prepare: Prepare);
 

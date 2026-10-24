@@ -26,6 +26,11 @@ backs off through the shared
 and is tried again once due. The scan ends an item's backoff when it stops considering the item at
 all: not approved, not visible, out of stock, or no longer of a usable shape.
 
+A failed ownership read, live Scroll-target check, or temporary-item catalog read writes its full
+original exception to the suite fault log on every attempt. Its visible reason is an authored
+sentence plus that entry's reference. Repeated ownership failures keep the same health revision
+while updating the displayed reference; another publication or attempt still performs the read.
+
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
 Exactly one usage must engage before disappearing. A queued usage that vanishes before it engaged is
 cancelled: the worker reports it to the retry gate, so the item backs off with doubling until one of

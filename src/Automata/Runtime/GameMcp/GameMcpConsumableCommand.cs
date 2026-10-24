@@ -12,7 +12,7 @@ internal static class GameMcpConsumableCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectConsumableDelta(state, command)),
+                GameMcpConsumableProjection.ProjectConsumableDelta(state, command)),
         nativeType: "ConsumableSO",
         prepare: Prepare);
 

@@ -120,6 +120,9 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
     }
 
 #if SERVICE_CYCLE_PROFILE
+    public OrbAutomata.GameMcp.IGameMcpServiceCommand GameMcpCommand =>
+        new OrbAutomata.GameMcp.GameMcpCastCommand(this);
+
     internal ServiceActionResult TryExecuteGameMcp(
         in AutoCastCycleAction action,
         in SuiteRuntimeConfiguration config,

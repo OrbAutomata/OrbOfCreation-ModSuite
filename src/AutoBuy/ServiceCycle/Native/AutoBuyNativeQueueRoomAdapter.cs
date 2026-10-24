@@ -21,7 +21,7 @@ namespace OrbAutomata;
 /// </remarks>
 internal interface IAutoBuyQueueRoomPort
 {
-    bool TryReadRemainingRoom(out int remainingRoom, out string reason);
+    bool TryReadRemainingRoom(out int remainingRoom, out GameActionReason reason);
 }
 
 internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
@@ -52,7 +52,7 @@ internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
     /// leaving a game it is destroyed and the call answers the abandoned scene's number. Neither is a
     /// reading, so both answer that no game is loaded.
     /// </remarks>
-    public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
+    public bool TryReadRemainingRoom(out int remainingRoom, out GameActionReason reason)
     {
         remainingRoom = 0;
         reason = _bindingFailure;
@@ -71,7 +71,7 @@ internal sealed class AutoBuyNativeQueueRoomAdapter : IAutoBuyQueueRoomPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            reason = ex.Message;
+            reason = GameActionFaultLog.Reason("The remaining queue room could not be read.", ex, "Auto Buy queue room");
             return false;
         }
     }

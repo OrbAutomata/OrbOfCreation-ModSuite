@@ -167,7 +167,7 @@ internal readonly struct AutoBuyPurchaseSubmission
                 "The candidate could not be resolved."),
             default);
 
-    public static AutoBuyPurchaseSubmission ContractUnavailable(string reason) =>
+    public static AutoBuyPurchaseSubmission ContractUnavailable(GameActionReason reason) =>
         Refused(
             NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason),
             default);

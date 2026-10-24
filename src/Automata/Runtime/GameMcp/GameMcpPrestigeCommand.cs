@@ -10,7 +10,7 @@ internal static class GameMcpPrestigeCommand
         static (command, scope) => ExecutePrestige(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, _, _) => GameMcpWorldQuery.ProjectPrestigePostState(state),
+            static (state, _, _) => GameMcpPrestigeProjection.ProjectPrestigePostState(state),
             timedOut: TimedOut,
             waitSeconds: GameMcpPostStateSettlement.LifecycleWaitSeconds,
             data: GameMcpFrameData.World | GameMcpFrameData.Scene),
@@ -36,7 +36,7 @@ internal static class GameMcpPrestigeCommand
     }
 
     private static GameMcpValue TimedOut(GameMcpCommand command, GameMcpFrameContext? latest) =>
-        GameMcpWorldQuery.PrestigeSettlementPending(
+        GameMcpPrestigeProjection.PrestigeSettlementPending(
             command.ExpectedLifecycleGeneration,
             latest?.LifecycleGeneration,
             latest?.SceneName);

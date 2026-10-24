@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OrbMentor;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
 using Xunit;
 
@@ -16,10 +17,13 @@ public sealed class MentorMasteryHookCollection
 }
 
 [Collection(MentorMasteryHookCollection.Name)]
-public sealed class MentorMasteryPatchBridgeTests
+public sealed class MentorMasteryPatchBridgeTests : IDisposable
 {
+    public void Dispose() => GameActionFaultLog.ConfigureLog(null);
+
     private readonly MentorMasteryEventJournal _journal = new();
     private readonly List<string> _failures = new();
+    private readonly List<string> _faults = new();
 
     [Fact]
     public void AnEarnedSpellGainIsJournaledWithTheSourcesStableIdentityAndMastery()
@@ -76,34 +80,48 @@ public sealed class MentorMasteryPatchBridgeTests
     }
 
     [Fact]
-    public void AnUnexpectedThrowInsideAMasteryHookIsLoggedOnceAndNeverReachesTheGame()
+    public void EveryUnexpectedThrowInsideAMasteryHookIsLoggedAndNeverReachesTheGame()
     {
         Install();
         var spell = Spell();
         spell.DiscoveredReadFailure = new NullReferenceException("injected discovery read failure");
 
         MentorSpellMasteryPatch.Postfix(spell, new BigDouble(5));
+        var firstCause = spell.DiscoveredReadFailure!.ToString();
         MentorSpellMasteryPatch.Postfix(spell, new BigDouble(5));
 
-        Assert.Contains("injected discovery read failure", Assert.Single(_failures), StringComparison.Ordinal);
+        Assert.Equal(2, _faults.Count);
+        Assert.Contains(firstCause, _faults[0]);
+        Assert.Contains(spell.DiscoveredReadFailure!.ToString(), _faults[1]);
+        Assert.Equal(2, _failures.Count);
+        Assert.All(_failures, entry => Assert.Contains("Reference MCP-", entry));
         Assert.Equal(0, _journal.Count);
     }
 
     [Fact]
-    public void AnExpectedNativeFailureInsideAMasteryHookDropsThatObservationQuietly()
+    public void EveryExpectedNativeFailureInsideAMasteryHookDropsThatObservationLoudly()
     {
         Install();
         var spell = Spell();
         spell.DiscoveredReadFailure = new InvalidOperationException("injected discovery read failure");
 
         MentorSpellMasteryPatch.Postfix(spell, new BigDouble(5));
+        var firstCause = spell.DiscoveredReadFailure!.ToString();
+        MentorSpellMasteryPatch.Postfix(spell, new BigDouble(5));
 
-        Assert.Empty(_failures);
+        Assert.Equal(2, _faults.Count);
+        Assert.Contains(firstCause, _faults[0]);
+        Assert.Contains(spell.DiscoveredReadFailure!.ToString(), _faults[1]);
+        Assert.Equal(2, _failures.Count);
+        Assert.All(_failures, entry => Assert.Contains("Reference MCP-", entry));
         Assert.Equal(0, _journal.Count);
     }
 
-    private void Install(Func<string, bool>? includeContract = null) =>
+    private void Install(Func<string, bool>? includeContract = null)
+    {
+        GameActionFaultLog.ConfigureLog(_faults.Add);
         MentorMasteryPatchBridge.Install(_journal, static () => 7, _failures.Add, includeContract: includeContract);
+    }
 
     private static SpellRecipeSO Spell() =>
         new() { uuid = Guid.NewGuid().ToString("D"), discovered = true, masteryLevel = 3 };

@@ -13,7 +13,7 @@ internal static class GameMcpStructureLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectStructureLifecycleDelta(state, command),
+                GameMcpStructureLifecycleProjection.ProjectStructureLifecycleDelta(state, command),
             RequestedOutcome,
             TimedOut),
         nativeType: "StructureSO");
@@ -54,7 +54,7 @@ internal static class GameMcpStructureLifecycleCommand
                 string.Equals(command.Mode, "disable", System.StringComparison.Ordinal);
 
     private static GameMcpValue TimedOut(GameMcpCommand command, GameMcpFrameContext? latest) =>
-        GameMcpWorldQuery.PostStateUnavailable(
+        GameMcpRowKit.PostStateUnavailable(
             "requested_state_not_reached",
             "the settled attribute did not show the requested enabled state");
 }

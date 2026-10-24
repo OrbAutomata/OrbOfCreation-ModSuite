@@ -13,15 +13,18 @@ internal static class AutoItemsScrollTargetPreflight
         object consumable,
         int plannedLevel,
         AutoItemsNativeBindings native,
-        out string reason)
+        out GameActionReason reason)
     {
         if (plannedLevel <= 0)
         {
             reason = "The planned Scroll level was unavailable.";
             return false;
         }
-        if (!TryGetTargeting(consumable, native, out var targeting, out reason))
+        if (!TryGetTargeting(consumable, native, out var targeting, out var targetingFailure))
+        {
+            reason = targetingFailure;
             return false;
+        }
 
         try
         {
@@ -66,8 +69,8 @@ internal static class AutoItemsScrollTargetPreflight
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             reason =
-                "The scoped live Scroll target revalidation failed: " +
-                ex.GetBaseException().Message;
+                GameActionFaultLog.Reason(
+                    "The live Scroll target could not be checked.", ex, "Auto Items Scroll target");
             return false;
         }
     }

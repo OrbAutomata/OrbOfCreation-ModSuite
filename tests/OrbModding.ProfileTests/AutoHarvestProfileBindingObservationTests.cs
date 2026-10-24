@@ -28,7 +28,6 @@ public sealed class AutoHarvestProfileBindingObservationTests
         var operations = new AutomataProfileOperations(probe);
         var resolver = new AutoHarvestBindingResolver(
             nativeResolver,
-            new ContractCircuit(),
             operations);
         var shared = SharedBinding(nativeResolver, registry, identities);
         var fruit = PairBinding(
@@ -112,15 +111,4 @@ public sealed class AutoHarvestProfileBindingObservationTests
         target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(target, value);
 
-    private sealed class ContractCircuit : IAutoHarvestContractCircuit
-    {
-        public AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair) => default;
-        public void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope)
-        {
-        }
-
-        public void InvalidateLifecycle()
-        {
-        }
-    }
 }

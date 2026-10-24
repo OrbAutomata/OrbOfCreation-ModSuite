@@ -48,10 +48,3 @@ internal interface IAutoHarvestMutationPort
 #endif
         );
 }
-
-internal interface IAutoHarvestContractCircuit
-{
-    AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair);
-    void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope);
-    void InvalidateLifecycle();
-}

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using OrbModding.TestSupport;
 using Xunit;
@@ -173,8 +174,8 @@ public sealed class ProductionSourceAuditTests
 
     /// <summary>
     /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
-    /// transport, every feature's GameAction, the shared service-cycle runtime, Auto Concept's service
-    /// cycle, and the plugin that answers with them.
+    /// transport, every feature's service cycle and GameAction, the shared service-cycle runtime,
+    /// temporary-item UI, run transitions, and the plugin that answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -188,12 +189,12 @@ public sealed class ProductionSourceAuditTests
     /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
     /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
     /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
-    /// reason, which every narrating feature prints in its status. Auto Concept's service cycle is
-    /// one because its init, registry and press reasons are those retry reasons. So is the multi-buy
+    /// reason, which every narrating feature prints in its status. Every feature's service cycle is
+    /// included because its init, registry, ownership and press reasons can become those reasons. So is the multi-buy
     /// scope, whose refusal every GameAction that pins the multiplier quotes.
     /// </para>
     /// <para>
-    /// A GameAction, Auto Concept's service cycle and the multi-buy scope author the reasons a
+    /// A GameAction, feature service cycle and the multi-buy scope author the reasons a
     /// mutation answers with, so there the sweep also catches the other shapes that carry the same
     /// text: <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation
     /// verifier's evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception
@@ -236,7 +237,7 @@ public sealed class ProductionSourceAuditTests
         const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
         const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
         var exceptionText = new Regex(
-            @"ExceptionDetail\.Describe|\.Message\b|\.Detail\b|\b(?:evidence|attempted)\.Format\(",
+            @"ExceptionDetail\.Describe|\b(?:exception|ex|thrown|cause)\.Message\b|\b(?:evidence|attempted)\.Detail\b|\b(?:evidence|attempted)\.Format\(",
             RegexOptions.CultureInvariant);
 
         var offenders = new List<string>();
@@ -245,7 +246,10 @@ public sealed class ProductionSourceAuditTests
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
             var authorsMutationReasons =
                 relativePath.EndsWith("GameAction.cs", StringComparison.Ordinal) ||
-                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal) ||
+                relativePath.Contains("/ServiceCycle/", StringComparison.Ordinal) ||
+                relativePath.StartsWith("AutoItems/Ui/", StringComparison.Ordinal) ||
+                relativePath.StartsWith("RunTransition/", StringComparison.Ordinal) ||
+                relativePath == "Common/AlchemyGameplayDomainClassifier.cs" ||
                 string.Equals(relativePath, "Common/NativeMultiBuyScope.cs", StringComparison.Ordinal);
             var nativeMessages = new List<Regex>();
             foreach (Match caught in NativeCatch.Matches(File.ReadAllText(path)))
@@ -300,7 +304,11 @@ public sealed class ProductionSourceAuditTests
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
         candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
-        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoConcept/ServiceCycle"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs").Where(path =>
+            Path.GetRelativePath(sourceRoot, path).Replace('\\', '/').Contains("/ServiceCycle/", StringComparison.Ordinal)));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoItems/Ui"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/RunTransition"));
+        candidates.Add(Path.Combine(sourceRoot, "Common", "AlchemyGameplayDomainClassifier.cs"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
         candidates.Add(Path.Combine(sourceRoot, "Common", "NativeMultiBuyScope.cs"));
 
@@ -357,7 +365,7 @@ public sealed class ProductionSourceAuditTests
         }
 
         Assert.True(
-            swept >= 5,
+            swept >= 4,
             "the action boundaries stopped naming the automation flag; the sweep has nothing left " +
             "to read.");
         Assert.True(

@@ -150,7 +150,7 @@ internal sealed class AutomataFullTraceController : IDisposable
 
     private static string Describe(Exception exception)
     {
-        var message = exception.GetBaseException().Message?.Trim();
-        return string.IsNullOrWhiteSpace(message) ? exception.GetType().Name : message;
+        // This detail is consumed only by the suite's full-trace log entries.
+        return exception.ToString();
     }
 }

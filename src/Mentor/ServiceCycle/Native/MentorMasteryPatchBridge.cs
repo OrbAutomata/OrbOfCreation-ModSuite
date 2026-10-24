@@ -11,8 +11,8 @@ namespace OrbMentor;
 /// </summary>
 /// <remarks>
 /// A hook runs inside the game's own call, so nothing it reads may throw back into the game. An
-/// expected native failure drops that one observation; anything else drops it too and goes to the
-/// failure log, once per install, because every later one has the same cause.
+/// failed read drops that one observation and reports that attempt. The original exception goes to
+/// the fault log; the hook reports its authored sentence and reference without leaking into the game.
 /// </remarks>
 internal static class MentorMasteryPatchBridge
 {
@@ -20,7 +20,6 @@ internal static class MentorMasteryPatchBridge
     private static Func<long>? _readLifecycleEpoch;
     private static MentorMasteryObservationBindings? _bindings;
     private static Action<string>? _failureLog;
-    private static bool _failureReported;
     private static int _suppressionDepth;
     private static object? _artifact;
     private static object? _artifactContainer;
@@ -37,7 +36,6 @@ internal static class MentorMasteryPatchBridge
         _readLifecycleEpoch = readLifecycleEpoch ??
                               throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _failureLog = failureLog ?? throw new ArgumentNullException(nameof(failureLog));
-        _failureReported = false;
         if (!MentorMasteryObservationBindings.TryCreate(out _bindings, out var reason, resolveType, includeContract))
             failureLog("Mentor records no earned mastery XP: " + reason);
         _journal.Reset(Math.Max(0, _readLifecycleEpoch()));
@@ -182,11 +180,10 @@ internal static class MentorMasteryPatchBridge
 
     private static void Contain(Exception exception, string what)
     {
-        if (NativeFailureClassifier.IsExpected(exception) ||
-            _failureReported || _failureLog is not { } log) return;
-        _failureReported = true;
-        log("Mentor's mastery hook could not read " + what + ", so that XP is not shared: " +
-            ExceptionDetail.Describe(exception));
+        var reason = GameActionFaultLog.Reason(
+            "Mentor's mastery hook could not read " + what + ", so that XP is not shared.",
+            exception, "Mentor mastery hook");
+        _failureLog?.Invoke(reason.Text);
     }
 
     private static bool IsGameplayScene() => MentorGameplayScene.IsActive();

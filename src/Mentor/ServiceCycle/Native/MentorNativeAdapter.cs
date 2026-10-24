@@ -146,7 +146,10 @@ internal sealed class MentorNativeAdapter : IMentorNativePort, IDisposable
                 CommonActionResultCodes.AdapterFault,
                 evidence.Outcome,
                 call,
-                evidence.Format(static state => state?.ToString() ?? "<null>"));
+                new GameActionReason(
+                    "Mentor could not verify the mastery XP grant.",
+                    GameActionFaultLog.RecordReference(
+                        evidence.Exception, "Mentor mastery XP grant", evidence.PutBackException)));
     }
 
     private static bool IsAvailable(MentorNativeBindings native, object recipient, MasteryExperienceDomain domain) =>

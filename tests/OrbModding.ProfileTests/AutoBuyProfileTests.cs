@@ -1,10 +1,12 @@
 using System;
 using OrbAutomata;
+using OrbAutomata.GameMcp;
+using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common;
 using OrbAutomata.Runtime.ServiceCycle.Profile;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
-using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.World;
@@ -21,6 +23,58 @@ public sealed class AutoBuyProfileTests : IDisposable
     public AutoBuyProfileTests() => ResetNativeState();
 
     public void Dispose() => ResetNativeState();
+
+    [Fact]
+    public void AManualPurchasePreservesTheQueueReadFaultAndItsLogReference()
+    {
+        var faults = new System.Collections.Generic.List<string>();
+        GameActionFaultLog.ConfigureLog(faults.Add);
+        var failure = new InvalidOperationException("private manual queue failure");
+        global::ActionManager.RemainingRoomFault = failure;
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration((ulong)PlannedEpoch));
+        var world = GameWorldFrameDeriver.Build(new GameWorldCycleFrame { CollectedAtEpoch = PlannedEpoch });
+        registry.WorldPublication.Publish(world, new WorldGeneration(2));
+        var probe = new ServiceCycleProfileProbe();
+        var gameActions = new LifecycleGameActions();
+        using var configuration = new ServiceConfigurationPublisher(Configuration());
+        using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                "Auto Buy", true, FeatureStatusState.NotReady,
+                new FeatureStatusReason(FeatureStatusReasonCode.RegistryNotReady, "waiting"), PlannedEpoch));
+        var feature = new AutoBuyServiceCycleFeature(new AutoBuyFeatureDependencies(
+            () => PlannedEpoch, () => AutoBuyCandidateKinds.All, null, status,
+            new AutoBuyRefusalBundleWriter(() => throw new InvalidOperationException("unused")),
+            _ => { }, _ => { }, gameMcpOwnership: _ => true));
+        var context = new AutomataServiceCycleFeatureContext(
+            registry, new ConfigGeneration(1), PlannedEpoch, gameActions, probe);
+        var runtime = feature.Register(in context);
+        using var host = new AutomataServiceCycleHost(registry, () => 1, null, null, probe);
+        try
+        {
+            var dispatcher = new GameMcpCommandDispatcher(
+                host, configuration, gameActions, new[] { runtime });
+            var command = new GameMcpCommand(
+                1, GameMcpCommandKind.Purchase, PlannedEpoch, 1, "structure", Guid.NewGuid(), Guid.Empty,
+                "StructureSO", 1, string.Empty, string.Empty, false);
+
+            var result = dispatcher.ExecuteGameMcp(command);
+
+            Assert.Equal("faulted", result.Status);
+            Assert.Equal("adapter_fault", result.Code);
+            Assert.StartsWith("The remaining queue room could not be read. Reference MCP-", result.Reason);
+            Assert.DoesNotContain("private manual queue failure", result.Reason);
+            var logged = Assert.Single(faults);
+            Assert.Contains(failure.ToString(), logged);
+            Assert.Contains(logged.Split(' ')[3], result.Reason);
+        }
+        finally
+        {
+            runtime.DisposeRegistration();
+            GameActionFaultLog.ConfigureLog(null);
+            global::ActionManager.RemainingRoomFault = null;
+        }
+    }
 
     [Fact]
     public void CommittedStructurePurchaseRoutesAllFourActionStages()

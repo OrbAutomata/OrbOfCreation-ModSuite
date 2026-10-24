@@ -86,8 +86,11 @@ The grant path binds every native member once, as one complete set; a missing
 member disables all three domains and names that contract. The four patches
 read their sources through their own set bound at install. If that set is
 incomplete, Mentor logs the missing contract and records no earned XP. A hook
-never throws back into the game: an unexpected exception drops that one
-observation and is logged once per install.
+never throws back into the game: every failed read drops that observation and reports the
+attempt, including expected native failures. Each attempt writes the full original exception to
+the suite fault log under a fresh reference; the hook's report carries only the authored reason
+and reference. A failed grant likewise keeps verifier exception detail in the log, rather than in
+its action reason.
 
 Mastery plus the relevant spellbook, artifact-workshop, or alchemy view must be
 available before that domain plans work. Scene, save-load, reset, NG+, and

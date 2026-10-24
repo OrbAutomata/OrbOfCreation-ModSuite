@@ -16,7 +16,7 @@ internal static class GameMcpResearchCommand
             scope.Lifecycle,
             scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectResearchDelta(state, command),
+            static (state, command, _) => GameMcpResearchProjection.ProjectResearchDelta(state, command),
             RequestedOutcome,
             TimedOut),
         nativeType: "ResearchSO");
@@ -54,9 +54,9 @@ internal static class GameMcpResearchCommand
         var reason =
             submission.Outcome.Code == ResearchActionResultCodes.Unaffordable &&
             WorldLookup.TryFind(world.Research, command.TargetId, out var research)
-                ? GameMcpWorldQuery.ShortfallReason(world, research.Decision.DevelopmentCosts)
+                ? GameMcpDecisionReason.ShortfallReason(world, research.Decision.DevelopmentCosts)
                 : submission.Outcome.Code == ResearchActionResultCodes.Locked
-                    ? GameMcpEntityExplainer.LockedResearchReason(world, command.TargetId)
+                    ? GameMcpRequirementProjection.LockedResearchReason(world, command.TargetId)
                     : submission.Outcome.Reason;
         return GameMcpCommandResult.FromAction(result.WithReason(reason), lifecycle,
             configurationGeneration,
@@ -99,13 +99,13 @@ internal static class GameMcpResearchCommand
                 var observed = hasAfter ? PendingResearchLevels(after).ToString() : "not published";
                 if (!hasBefore)
                 {
-                    return GameMcpWorldQuery.PostStateUnavailable(
+                    return GameMcpRowKit.PostStateUnavailable(
                         "requested_state_not_reached",
                         "the research queue before state was not published; the settled queue has " +
                         observed + " pending levels, so the requested increase cannot be verified");
                 }
                 var expected = checked(PendingResearchLevels(before) + command.Amount);
-                return GameMcpWorldQuery.PostStateUnavailable(
+                return GameMcpRowKit.PostStateUnavailable(
                     "requested_state_not_reached",
                     "the settled research queue has " + observed +
                     " pending levels, not the requested " + expected);
@@ -116,7 +116,7 @@ internal static class GameMcpResearchCommand
             var afterState = hasAfter
                 ? after.IsDeveloping ? "developing" : "idle"
                 : "not published";
-            return GameMcpWorldQuery.PostStateUnavailable(
+            return GameMcpRowKit.PostStateUnavailable(
                 "requested_state_not_reached",
                 "The develop press did not start this research: it was " + beforeState +
                 " before and it is " + afterState + " now. Check its price and its caps on the " +

@@ -222,7 +222,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             : 0;
         bool queueRoomReadable;
         int remainingRoom;
-        string queueRoomFailure;
+        GameActionReason queueRoomFailure;
 #if SERVICE_CYCLE_PROFILE
         var queueRoomStage = _profileOperations.Begin(
             ServiceCycleProfileSpan.AutoBuyActionQueueRoomRead,
@@ -238,9 +238,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 #endif
         if (!queueRoomReadable)
         {
-            Plugin.Log?.LogAutomataWarning(
-                AutoBuyPurchaseNarration.QueueRoomUnavailable(action.Kind, action.Uuid, queueRoomFailure));
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            LastSubmission = AutoBuyPurchaseSubmission.ContractUnavailable(queueRoomFailure);
+            var outcome = LastSubmission.Outcome;
+            return _guard.Finish(in outcome, in action);
         }
 
         // A reading below zero is a queue the game's own upgrade button stacked past its maximum,

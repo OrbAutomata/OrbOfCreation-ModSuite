@@ -67,6 +67,11 @@ internal interface IAutomataServiceCycleFeature
 /// </summary>
 internal interface IAutomataServiceCycleFeatureRuntime
 {
+#if SERVICE_CYCLE_PROFILE
+    /// <summary>The feature's optional player command; runtimes without one contribute none.</summary>
+    OrbAutomata.GameMcp.IGameMcpServiceCommand? GameMcpCommand => null;
+#endif
+
     /// <summary>
     /// Stands up the feature's diagnostics once the shared host and its observability
     /// are live. Kept separate from <see cref="IAutomataServiceCycleFeature.Register"/>

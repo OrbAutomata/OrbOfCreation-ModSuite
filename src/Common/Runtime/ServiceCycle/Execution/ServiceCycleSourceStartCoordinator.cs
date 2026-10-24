@@ -89,7 +89,7 @@ internal sealed class ServiceCycleSourceStartCoordinator<TState, TAction> :
         {
             return CaptureFaulted(
                 in captureContext, captureStartedAt, in startFact, in startInvocation, opening.Batch,
-                ExceptionDetail.Describe(exception));
+                GameActionFaultLog.Reason("The world capture failed.", exception, ServiceIdentity.Value + " capture").Text);
         }
         finally
         {

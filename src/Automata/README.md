@@ -16,6 +16,20 @@ performance profile — so no feature owns them and gameplay is independent of a
 through fail-closed family adapters, normalized admission facts, lifecycle isolation, and
 capture-execute-capture postconditions.
 
+In profiling builds, a feature runtime may contribute one typed player-command hook. The MCP
+dispatcher indexes those hooks by command kind during construction and refuses duplicate claims;
+it does not select a concrete feature runtime at execution. Purchase, Cast, Concept and Spell Level
+wire adapters live beside the MCP commands. Harvest's player command uses the shared plot lifecycle
+GameAction directly; the automation runtime has no parallel manual Harvest route.
+
+Native exceptions in action, ownership, queue-room and run-setting reasons go whole to the shared
+fault log on each failed attempt. Callers receive an authored sentence and its log reference.
+Service start/capture, recent-event diagnostics, profile failure and journal health follow that
+same boundary. A retained journal cause keeps the same fault reference while its writer drains and after it
+becomes terminal; a different cause gets its own entry. Queue-room failures keep their reference in
+the service result and manual purchase reply; repeated warnings compare the target, code and
+authored sentence. Full-trace detail consumed only by log entries keeps the complete exception.
+
 Automation claims Structure, Upgrade plus native multi-buy override, Spell Cast, Concept Assignment,
 Spell Level Purchase, Harvest Action, Consumable Use, and Scribe queue submission independently.
 The exact AutobuyOrb GUID blocks only Structure and Upgrade automation. Claims are released on

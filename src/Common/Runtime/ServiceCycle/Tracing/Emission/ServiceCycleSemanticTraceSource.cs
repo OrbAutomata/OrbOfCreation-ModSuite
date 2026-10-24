@@ -42,6 +42,8 @@ public sealed class ServiceCycleSemanticTraceSource
 
     internal void RecordEmissionFault(Exception exception)
     {
-        if (_emissionFaultCause.Length == 0) _emissionFaultCause = ExceptionDetail.Describe(exception);
+        var cause = GameActionFaultLog.Reason(
+            "The recent-event buffer could not record an event.", exception, "ServiceCycle event trace");
+        if (_emissionFaultCause.Length == 0) _emissionFaultCause = cause.Text;
     }
 }

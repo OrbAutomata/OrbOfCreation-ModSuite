@@ -543,7 +543,7 @@ internal sealed class GameMcpScreenReader
                 if (!queue.TryReadRemainingRoom(out var remaining, out var queueFailure))
                     return _gadgetResults.Rejected(
                         "native_probe_unavailable",
-                        "The action queue's free room could not be read: " + queueFailure);
+                        "The action queue's free room could not be read: " + queueFailure.Text);
                 // The game's own upgrade button queues past the maximum, so the reading goes
                 // negative. Nought free slots is the answer either way; the overshoot rides beside
                 // it as the fact it is, and is absent when there is none.

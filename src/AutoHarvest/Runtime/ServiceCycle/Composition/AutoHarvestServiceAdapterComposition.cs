@@ -45,21 +45,18 @@ internal sealed class AutoHarvestServiceAdapterComposition
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
 
-        var contractCircuit = new AutoHarvestContractCircuit();
 #if SERVICE_CYCLE_PROFILE
         var profileOperations = new AutomataProfileOperations(
             profileProbe ?? throw new ArgumentNullException(nameof(profileProbe)));
         var bindings = new AutoHarvestBindingResolver(
             dependencies.RegistryResolver,
-            contractCircuit,
             profileOperations);
         var reader = new AutoHarvestNativeStateReader(
             dependencies.RegistryResolver,
             profileOperations);
 #else
         var bindings = new AutoHarvestBindingResolver(
-            dependencies.RegistryResolver,
-            contractCircuit);
+            dependencies.RegistryResolver);
         var reader = new AutoHarvestNativeStateReader(dependencies.RegistryResolver);
 #endif
         var actions = new AutoHarvestCycleActionAdapter(

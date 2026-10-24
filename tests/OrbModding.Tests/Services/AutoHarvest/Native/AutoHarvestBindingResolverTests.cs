@@ -110,27 +110,6 @@ public sealed class AutoHarvestBindingResolverTests
         Assert.Equal(7, sharedSeven.LifecycleGeneration);
     }
 
-    [Fact]
-    public void PairCircuitAdmissionRunsOnceBeforeSharedResolution()
-    {
-        var circuit = new BlockingCircuit();
-        var resolver = new AutoHarvestBindingResolver(
-            TestRegistryResolver.For(
-                () => throw new InvalidOperationException("shared resolution was not admitted"),
-                () => throw new InvalidOperationException("shared resolution was not admitted"),
-                _ => throw new InvalidOperationException("shared resolution was not admitted")),
-            circuit);
-
-        var pairs = resolver.ResolvePairSet();
-
-        Assert.False(pairs.Fruit.Succeeded);
-        Assert.False(pairs.Treasure.Succeeded);
-        Assert.Equal(AutoHarvestRuntimeFailureScope.Pair, pairs.Fruit.Failure.Scope);
-        Assert.Equal(AutoHarvestRuntimeFailureScope.Pair, pairs.Treasure.Failure.Scope);
-        Assert.Equal(1, circuit.FruitReads);
-        Assert.Equal(1, circuit.TreasureReads);
-    }
-
     private static AutoHarvestPairBinding PairBinding(AutoHarvestPair pair) =>
         new(
             pair,
@@ -185,23 +164,4 @@ public sealed class AutoHarvestBindingResolverTests
         return resolver.Resolve(uuid, typeof(object));
     }
 
-    private sealed class BlockingCircuit : IAutoHarvestContractCircuit
-    {
-        public void InvalidateLifecycle() { }
-
-        public int FruitReads { get; private set; }
-        public int TreasureReads { get; private set; }
-
-        public AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair)
-        {
-            if (pair == AutoHarvestPair.FruitTree) FruitReads++;
-            else if (pair == AutoHarvestPair.TreasureTree) TreasureReads++;
-            return AutoHarvestNativeFailure.Create(
-                AutoHarvestRuntimeFailureKind.Contract,
-                AutoHarvestRuntimeFailureScope.Pair);
-        }
-
-        public void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope) =>
-            throw new NotSupportedException();
-    }
 }

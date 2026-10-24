@@ -95,6 +95,19 @@ public sealed class TypedRegistryResolution
     public bool IsCurrent(long lifecycleGeneration) =>
         lifecycleGeneration == LifecycleGeneration;
 
+    internal delegate bool FailureHandler(GameActionReason cause, out GameActionReason reason);
+
+    /// <summary>Preserves one registry verdict and its structured cause through the caller's policy.</summary>
+    internal bool HandleFailure(
+        string label,
+        FailureHandler retry,
+        FailureHandler contractMismatch,
+        out GameActionReason reason)
+    {
+        var cause = FormatCause().Around(label + " resolution failed. ");
+        return IsRetryable ? retry(cause, out reason) : contractMismatch(cause, out reason);
+    }
+
     /// <summary>The full diagnosis, its reference kept apart so a repeat compares the sentence alone.</summary>
     public GameActionReason FormatCause() => Cause.Around(
         $"Identity={EntityIdentityFormatter.Format(Uuid)}, ExpectedType={ExpectedTypeName}, Status={Status}, " +

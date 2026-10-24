@@ -1,3 +1,6 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+#endif
 using System;
 using System.Threading;
 using OrbAutomata;
@@ -120,6 +123,9 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
         public Fixture(bool enabled = true)
         {
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             _registry = new ServiceCycleRegistry(1, new LifecycleGeneration(NativeEpoch));
             Configure(enabled, emergencyDisable: false);
             _status = new AutomataFeatureStatusReporter(
@@ -140,10 +146,18 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
                 _status));
             Runtime = (AutoCastFeatureRuntime)feature.Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), NativeEpoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), NativeEpoch, new LifecycleGameActions()
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             PublishWorld(2);
             _registry.Seal();
-            Pump = new SuiteFramePump(_registry);
+            Pump = new SuiteFramePump(_registry
+#if SERVICE_CYCLE_PROFILE
+                , semanticRecorder: null, actionTimeline: null, profileProbe: profileProbe
+#endif
+                );
         }
 
         public bool Owned { get; set; } = true;

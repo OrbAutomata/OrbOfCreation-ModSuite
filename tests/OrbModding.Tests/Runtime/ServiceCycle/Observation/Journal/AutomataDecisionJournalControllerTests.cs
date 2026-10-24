@@ -145,11 +145,12 @@ public sealed class AutomataDecisionJournalControllerTests
         using var storage = new DecisionJournalRuntimeTestStorage(failCommit: true);
         var status = new DecisionJournalStatusRegistry();
         var options = Options(status, new Source(storage));
+        var log = new ManualLogSource();
         var controller = Assert.IsType<AutomataDecisionJournalController>(
             AutomataDecisionJournalController.TryCreate(
                 pump,
                 in options,
-                new ManualLogSource()));
+                log));
         using var teardown = new JournalTeardown(controller);
         AdvanceTo(controller, status, DecisionJournalStatusState.Recording);
 
@@ -157,7 +158,10 @@ public sealed class AutomataDecisionJournalControllerTests
         AdvanceTo(controller, status, DecisionJournalStatusState.Faulted);
 
         Assert.Equal("DecisionJournalWriter", status.Status.FaultSite);
-        Assert.Equal("Injected journal commit failure.", status.Status.FaultMessage);
+        Assert.StartsWith("The decision journal stopped after a fault. Reference MCP-", status.Status.FaultMessage);
+        Assert.DoesNotContain("Injected journal commit failure.", status.Status.FaultMessage);
+        Assert.Contains(log.Entries, entry => entry is string text &&
+            text.Contains("System.InvalidOperationException: Injected journal commit failure.", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -168,6 +172,80 @@ public sealed class AutomataDecisionJournalControllerTests
     /// contained producer failure says. Without the site and the guard message the desync that
     /// killed it cannot be found from the log the player can actually send.
     /// </remarks>
+    [Fact]
+    public void AProducerCauseKeepsOneReferenceWhileItsDrainIsHeldThenFaults()
+    {
+        var clock = new ThreadSafeTestClock();
+        using var registry = Registry(clock);
+        using var pump = new SuiteFramePump(registry);
+        using var storage = new DecisionJournalRuntimeTestStorage(blockCommit: true);
+        var status = new DecisionJournalStatusRegistry();
+        var options = Options(status, new Source(storage));
+        var log = new ManualLogSource();
+        var controller = Assert.IsType<AutomataDecisionJournalController>(
+            AutomataDecisionJournalController.TryCreate(pump, in options, log));
+        using var teardown = new JournalTeardown(controller);
+        try
+        {
+            AdvanceTo(controller, status, DecisionJournalStatusState.Recording);
+            // Deliver contradictory typed facts through the actual observer owned by this runtime.
+            // The private fields are read only; containment, stopping, logging and projection all
+            // run through the shipping observer/runtime/controller.
+            var runtime = Assert.IsType<ServiceCycleDecisionJournalRuntime>(
+                typeof(AutomataDecisionJournalController).GetField("_runtime",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .GetValue(controller));
+            var observer = Assert.IsType<ServiceCycleDecisionJournalObserver>(
+                typeof(ServiceCycleDecisionJournalRuntime).GetField("_observer",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .GetValue(runtime));
+            var completedStart = DecisionJournalObserverTestData.CapturedAttempt(1);
+            var completedResponse = DecisionJournalObserverTestData.SuccessfulResponse(1, actionCount: 0);
+            observer.StartAttemptObserved(0, in completedStart, new MonotonicTimestamp(20));
+            observer.ResponseAcquired(0, in completedResponse, new MonotonicTimestamp(32));
+            observer.Flush(new MonotonicTimestamp(40));
+            Assert.False(observer.IsFaulted);
+            var start = DecisionJournalObserverTestData.CapturedAttempt(2);
+            var mismatched = DecisionJournalObserverTestData.SuccessfulResponse(3, actionCount: 0);
+            observer.StartAttemptObserved(0, in start, new MonotonicTimestamp(50));
+            observer.ResponseAcquired(0, in mismatched, new MonotonicTimestamp(62));
+            Assert.True(observer.IsFaulted);
+            clock.AdvanceTo(new MonotonicTimestamp(100));
+            controller.Tick();
+            ServiceCycleTestDeadline.ForSignal(storage.CommitEntered, "the held journal drain");
+            controller.Tick();
+            Assert.Equal(DecisionJournalStatusState.Stopping, status.Status.State);
+            var reference = status.Status.FaultMessage;
+            var revision = status.Revision;
+
+            controller.Tick();
+            controller.Tick();
+
+            Assert.Equal(reference, status.Status.FaultMessage);
+            Assert.Equal(revision, status.Revision);
+            storage.CommitRelease.Set();
+            AdvanceTo(controller, status, DecisionJournalStatusState.Faulted);
+            Assert.Equal(reference, status.Status.FaultMessage);
+            var completeRevision = status.Revision;
+            controller.Tick();
+            Assert.Equal(completeRevision, status.Revision);
+            var retainedReference = System.Text.RegularExpressions.Regex.Match(
+                reference, "MCP-[0-9A-F]{8}").Value;
+            Assert.Matches("^MCP-[0-9A-F]{8}$", retainedReference);
+            var cause = Assert.IsType<string>(Assert.Single(log.Entries,
+                entry => entry is string text && text.Contains("Game action fault ", StringComparison.Ordinal)));
+            Assert.Contains(
+                "Game action fault " + retainedReference + " on ServiceCycle decision journal: " +
+                observer.FaultException!.ToString(),
+                cause);
+            Assert.Contains("Journal facts do not match", cause);
+        }
+        finally
+        {
+            storage.CommitRelease.Set();
+        }
+    }
+
     [Fact]
     public void AProducerFaultIsLoggedWithTheObservationAndTheGuardItViolated()
     {
@@ -202,13 +280,13 @@ public sealed class AutomataDecisionJournalControllerTests
             faulted.FaultSite));
 
         Assert.Equal("ResponseAcquired", status.Status.FaultSite);
-        Assert.Equal(
-            "Journal facts do not match the pending service cycle.",
-            status.Status.FaultMessage);
-        Assert.Contains(
-            "stopped after ProducerFailed at ResponseAcquired: " +
-            "Journal facts do not match the pending service cycle.",
-            Assert.IsType<string>(Assert.Single(log.Entries)));
+        Assert.StartsWith("The decision journal stopped after a fault. Reference MCP-", status.Status.FaultMessage);
+        Assert.DoesNotContain("Journal facts do not match the pending service cycle.", status.Status.FaultMessage);
+        Assert.Contains(log.Entries, entry => entry is string text &&
+            text.Contains(faulted.FaultException!.ToString(), StringComparison.Ordinal));
+        Assert.Contains(log.Entries, entry => entry is string text &&
+            text.Contains("stopped after ProducerFailed at ResponseAcquired: " + status.Status.FaultMessage,
+                StringComparison.Ordinal));
         Assert.True(controller.DisposeWithPump());
     }
 

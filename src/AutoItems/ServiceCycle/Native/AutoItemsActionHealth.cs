@@ -12,6 +12,7 @@ namespace OrbAutomata;
 /// </summary>
 internal sealed class AutoItemsActionHealth
 {
+    private string _ownershipSentence = string.Empty;
     internal bool HasFailure { get; private set; }
     internal ServiceActionResultCode Code { get; private set; }
     internal string Reason { get; private set; } = string.Empty;
@@ -34,19 +35,24 @@ internal sealed class AutoItemsActionHealth
         Revision = checked(Revision + 1);
     }
 
-    internal void ObserveOwnership(string reason)
+    internal void ObserveOwnership(GameActionReason reason)
     {
+        var sentence = string.IsNullOrWhiteSpace(reason.Sentence)
+            ? "Auto Items does not own the complete consumable-use transaction."
+            : reason.Sentence;
+        var changed = !HasFailure || Code != AutoItemsActionResultCodes.MutationPermitUnavailable ||
+            !string.Equals(_ownershipSentence, sentence, StringComparison.Ordinal);
         HasFailure = true;
         Code = AutoItemsActionResultCodes.MutationPermitUnavailable;
-        Reason = string.IsNullOrWhiteSpace(reason)
-            ? "Auto Items does not own the complete consumable-use transaction."
-            : reason;
-        Revision = checked(Revision + 1);
+        _ownershipSentence = sentence;
+        Reason = new GameActionReason(sentence, reason.Reference).Text;
+        if (changed) Revision = checked(Revision + 1);
     }
 
     internal void Clear()
     {
         if (!HasFailure && Reason.Length == 0) return;
+        _ownershipSentence = string.Empty;
         HasFailure = false;
         Code = CommonActionResultCodes.Committed;
         Reason = string.Empty;

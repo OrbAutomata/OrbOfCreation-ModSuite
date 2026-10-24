@@ -17,7 +17,7 @@ internal static class GameMcpCraftingCommand
             scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, committed) =>
-                GameMcpWorldQuery.ProjectCraftingDelta(state, command, committed)),
+                GameMcpCraftingProjection.ProjectCraftingDelta(state, command, committed)),
         nativeType: "CraftingRecipeSO",
         prepare: Prepare);
 
@@ -68,7 +68,7 @@ internal static class GameMcpCraftingCommand
             lifecycle,
             configurationGeneration,
             max,
-            () => GameMcpWorldQuery.CraftShortfallReason(world, command.TargetId),
+            () => GameMcpCraftingProjection.CraftShortfallReason(world, command.TargetId),
             remaining =>
             {
                 var action = new CraftingPlayerAction(

@@ -12,7 +12,7 @@ internal static class GameMcpPlotLifecycleCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, committed) =>
-                GameMcpWorldQuery.ProjectHarvestDelta(state, command, committed)),
+                GameMcpPlotLifecycleProjection.ProjectHarvestDelta(state, command, committed)),
         nativeType: "PlotNodeSO");
 
     private static GameMcpCommandResult ExecutePlotLifecycle(

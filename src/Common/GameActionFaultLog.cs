@@ -56,6 +56,11 @@ internal static class GameActionFaultLog
     internal static GameActionReason Reason(string sentence, Exception? exception, string screen) =>
         new(sentence, RecordReference(exception, screen));
 
+    /// <summary>The same reason, written through an explicit host log when one is supplied.</summary>
+    internal static GameActionReason Reason(
+        string sentence, Exception? exception, string screen, Action<string>? log) =>
+        new(sentence, Write(exception?.ToString() ?? string.Empty, screen, log));
+
     /// <summary>
     /// Writes the exception and answers the bare reference, such as <c>MCP-1A2B3C4D</c>.
     /// <paramref name="putBack"/> is what undoing the press threw after <paramref name="exception"/>,
@@ -91,12 +96,11 @@ internal static class GameActionFaultLog
     internal static string Sentence(string reference) =>
         reference.Length == 0 ? string.Empty : " Reference " + reference + " is in the suite log.";
 
-    private static string Write(string detail, string screen)
+    private static string Write(string detail, string screen, Action<string>? log = null)
     {
-        Action<string>? log;
-        lock (Sync)
+        if (log is null)
         {
-            log = _log;
+            lock (Sync) log = _log;
         }
         if (detail.Length == 0 || log is null) return string.Empty;
         var reference = "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
