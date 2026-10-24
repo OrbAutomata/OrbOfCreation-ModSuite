@@ -51,7 +51,7 @@ internal static class GameMcpRequirementProjection
             containerIndex: 0,
             checkLevel,
             new HashSet<RequirementKey>(),
-            depth: 0,
+            referenceDepth: 0,
             unmet);
         // The verdict is the screen's, not one container's. The rows below are the *next level's*
         // container; the game's own lock is `UpgradeSO.prerequisites` / `StructureSO.prerequisites`
@@ -163,7 +163,7 @@ internal static class GameMcpRequirementProjection
         var root = ProjectRequirementContainer(
             world, ownerId, containerIndex: 0,
             WorldRequirementEvaluator.UnlockCheckLevel,
-            new HashSet<RequirementKey>(), depth: 0, new JArray(),
+            new HashSet<RequirementKey>(), referenceDepth: 0, new JArray(),
             WorldRequirementProgramKind.Unlock);
         var children = (JArray)root["children"]!;
 
@@ -192,38 +192,67 @@ internal static class GameMcpRequirementProjection
                 "with " + needs + ".";
     }
 
-    internal static string UnmetNeeds(IReadOnlyList<GameMcpValue> children, string separator)
+    internal static string UnmetNeeds(IReadOnlyList<GameMcpValue> children, string separator) =>
+        FormatNeeds(children, separator, unmetOnly: true);
+
+    // These are display summaries of already projected leaves, not a second requirement evaluator.
+    // Keep their traversal iterative too: a tier can contain arbitrarily nested authored groups.
+    private static string FormatNeeds(
+        IReadOnlyList<GameMcpValue> children, string separator, bool unmetOnly)
+    {
+        var summaries = new Dictionary<GameMcpObject, string?>();
+        var pending = new Stack<(GameMcpObject Node, bool Complete)>();
+        foreach (var child in children)
+            if (child is GameMcpObject node) pending.Push((node, false));
+        while (pending.Count > 0)
+        {
+            var (node, complete) = pending.Pop();
+            if (summaries.ContainsKey(node)) continue;
+            if (node["children"] is not GameMcpArray arms)
+            {
+                summaries[node] = unmetOnly && node["met"] is GameMcpScalar { Value: true }
+                    ? null
+                    : Text(node["needs"]) ?? "a condition the suite cannot read";
+                continue;
+            }
+            if (!complete)
+            {
+                pending.Push((node, true));
+                foreach (var arm in arms.Items)
+                    if (arm is GameMcpObject armNode) pending.Push((armNode, false));
+                continue;
+            }
+            var any = Text(node["operator"]) == "OR";
+            var met = !any;
+            if (unmetOnly)
+            {
+                foreach (var arm in arms.Items)
+                {
+                    var armMet = arm is GameMcpObject armNode && summaries[armNode] is null;
+                    met = any ? met || armMet : met && armMet;
+                }
+            }
+            summaries[node] = unmetOnly && met
+                ? null
+                : JoinNeeds(arms.Items, any ? " or " : " and ", summaries);
+        }
+        return JoinNeeds(children, separator, summaries);
+    }
+
+    private static string JoinNeeds(
+        IReadOnlyList<GameMcpValue> children,
+        string separator,
+        Dictionary<GameMcpObject, string?> summaries)
     {
         var parts = new List<string>(children.Count);
         foreach (var child in children)
         {
-            if (child is not GameMcpObject node || IsMet(node)) continue;
-            if (node["children"] is GameMcpArray arms)
-            {
-                var joined = UnmetNeeds(
-                    arms.Items, Text(node["operator"]) == "OR" ? " or " : " and ");
-                parts.Add(children.Count > 1 && arms.Items.Count > 1 ? "(" + joined + ")" : joined);
-            }
-            else
-            {
-                parts.Add(Text(node["needs"]) ?? "a condition the suite cannot read");
-            }
+            if (child is not GameMcpObject node || summaries[node] is not { } text) continue;
+            parts.Add(children.Count > 1 && node["children"] is GameMcpArray { Items.Count: > 1 }
+                ? "(" + text + ")"
+                : text);
         }
         return string.Join(separator, parts);
-    }
-
-    internal static bool IsMet(GameMcpObject node)
-    {
-        if (node["children"] is not GameMcpArray arms)
-            return node["met"] is GameMcpScalar { Value: true };
-        var any = Text(node["operator"]) == "OR";
-        foreach (var arm in arms.Items)
-        {
-            var met = arm is GameMcpObject armNode && IsMet(armNode);
-            if (any && met) return true;
-            if (!any && !met) return false;
-        }
-        return !any;
     }
 
     internal static JObject ProjectRequirementContainer(
@@ -232,12 +261,12 @@ internal static class GameMcpRequirementProjection
         int containerIndex,
         long checkLevel,
         HashSet<RequirementKey> trail,
-        int depth,
+        int referenceDepth,
         JArray unmet,
         WorldRequirementProgramKind program = WorldRequirementProgramKind.NextLevel)
     {
         var key = new RequirementKey(ownerId, containerIndex, program);
-        if (depth > MaximumRequirementExpansionDepth)
+        if (referenceDepth > MaximumRequirementExpansionDepth)
             return Refusal("requirement_depth_exceeded", ownerId, containerIndex);
         if (!trail.Add(key)) return Refusal("requirement_cycle", ownerId, containerIndex);
         try
@@ -246,27 +275,64 @@ internal static class GameMcpRequirementProjection
             if (WorldEntityRequirementLookup.TryFindContainerRange(
                     world.EntityRequirements, ownerId, containerIndex, out var start, out var count))
             {
+                // Group nesting is authored structure, not another reference expansion. Walk it
+                // with a heap stack; only following a link tier increments referenceDepth.
                 var rows = world.EntityRequirements.AsSpan();
+                var childIndices = new Dictionary<int, List<int>>();
                 for (var offset = 0; offset < count; offset++)
                 {
                     ref readonly var row = ref rows[start + offset];
-                    if (row.Program != program || row.ParentOrdinal >= 0) continue;
-                    children.Add(ProjectRequirementNode(
-                        world, rows, start, count, in row, checkLevel, trail, depth + 1, unmet));
+                    if (row.Program != program) continue;
+                    var parent = row.ParentOrdinal < 0 ? -1 : row.ParentOrdinal;
+                    if (!childIndices.TryGetValue(parent, out var siblings))
+                        childIndices.Add(parent, siblings = new List<int>());
+                    siblings.Add(offset);
+                }
+                if (childIndices.TryGetValue(-1, out var roots))
+                {
+                    var projected = new GameMcpValue[count];
+                    var pending = new Stack<(int Offset, bool Complete)>();
+                    for (var index = roots.Count - 1; index >= 0; index--)
+                        pending.Push((roots[index], false));
+                    while (pending.Count > 0)
+                    {
+                        var (offset, complete) = pending.Pop();
+                        ref readonly var row = ref rows[start + offset];
+                        if (row.NodeKind != WorldRequirementNodeKind.Group)
+                        {
+                            projected[offset] = ProjectRequirementLeaf(
+                                world, in row, checkLevel, trail, referenceDepth, unmet).Freeze();
+                            continue;
+                        }
+                        childIndices.TryGetValue(row.Ordinal, out var arms);
+                        if (!complete)
+                        {
+                            pending.Push((offset, true));
+                            if (arms is not null)
+                                for (var index = arms.Count - 1; index >= 0; index--)
+                                    pending.Push((arms[index], false));
+                            continue;
+                        }
+                        var groupChildren = new JArray();
+                        if (arms is not null)
+                            foreach (var arm in arms) groupChildren.Add(projected[arm]);
+                        projected[offset] = new JObject
+                        {
+                            ["operator"] = row.Operator.ToString().ToUpperInvariant(),
+                            ["children"] = groupChildren,
+                        }.Freeze();
+                    }
+                    foreach (var root in roots) children.Add(projected[root]);
                 }
             }
-            var result = new JObject
+            return new JObject
             {
                 ["status"] = "available",
                 ["ownerUuid"] = ownerId.ToString("D"),
                 ["tierIndex"] = containerIndex,
                 ["operator"] = "AND",
-
-                // An operator node always carries its list. Dropping an empty one left a node
-                // asserting a structure it did not have, and read the same as one nobody expanded.
                 ["children"] = children,
             };
-            return result;
         }
         finally
         {
@@ -274,37 +340,14 @@ internal static class GameMcpRequirementProjection
         }
     }
 
-    internal static JObject ProjectRequirementNode(
+    private static JObject ProjectRequirementLeaf(
         GameWorldState world,
-        ReadOnlySpan<WorldEntityRequirement> rows,
-        int start,
-        int count,
         in WorldEntityRequirement row,
         long checkLevel,
         HashSet<RequirementKey> trail,
-        int depth,
+        int referenceDepth,
         JArray unmet)
     {
-        if (row.NodeKind == WorldRequirementNodeKind.Group)
-        {
-            var children = new JArray();
-            for (var offset = 0; offset < count; offset++)
-            {
-                ref readonly var child = ref rows[start + offset];
-                if (child.Program != row.Program || child.ParentOrdinal != row.Ordinal) continue;
-                children.Add(ProjectRequirementNode(
-                    world, rows, start, count, in child, checkLevel, trail, depth + 1, unmet));
-            }
-            // The node is its operator and its arms. `nodeKind`, `ordinal`, `parentOrdinal` and
-            // `depth` said where it sat in a tree the reader is already holding: the nesting is the
-            // nesting, and the order is the authored order.
-            return new JObject
-            {
-                ["operator"] = row.Operator.ToString().ToUpperInvariant(),
-                ["children"] = children,
-            };
-        }
-
         // A condition class this build does not model has nothing to word and no target to name, so
         // it says exactly that, in one sentence, and points at the screen that does draw it. It used
         // to answer `unsupported_requirement_value` — the sentence for a *comparison* nobody
@@ -328,7 +371,7 @@ internal static class GameMcpRequirementProjection
         // one usable line in column ten of twenty and wrote down that it was buried.
         var tierUnmet = new JArray();
         var tier = row.Kind == WorldRequirementConditionKind.PrerequisiteLink
-            ? LinkTierConditions(world, in row, in evaluated, checkLevel, trail, depth + 1, tierUnmet)
+            ? LinkTierConditions(world, in row, in evaluated, checkLevel, trail, referenceDepth + 1, tierUnmet)
             : null;
         var sole = tier is { Count: 1 } ? SoleLeaf(tier.Items[0]) : null;
         var needs = tier is null
@@ -413,12 +456,12 @@ internal static class GameMcpRequirementProjection
         in WorldRequirementLeafEvaluation evaluation,
         long checkLevel,
         HashSet<RequirementKey> trail,
-        int depth,
+        int referenceDepth,
         JArray unmet)
     {
         if (TierPublished(world, in row, in evaluation) is not true) return null;
         var container = ProjectRequirementContainer(
-            world, row.TargetId, (int)SelectedTier(in row, in evaluation), checkLevel, trail, depth,
+            world, row.TargetId, (int)SelectedTier(in row, in evaluation), checkLevel, trail, referenceDepth,
             unmet);
         return container["children"] is JArray { Count: > 0 } children ? children : null;
     }
@@ -463,24 +506,8 @@ internal static class GameMcpRequirementProjection
         return node is GameMcpObject leaf && leaf["needs"] is not null ? leaf : null;
     }
 
-    internal static string TierNeeds(IReadOnlyList<GameMcpValue> children, string separator)
-    {
-        var parts = new List<string>(children.Count);
-        foreach (var child in children)
-        {
-            if (child is not GameMcpObject node) continue;
-            if (node["children"] is GameMcpArray arms)
-            {
-                var joined = TierNeeds(arms.Items, Text(node["operator"]) == "OR" ? " or " : " and ");
-                parts.Add(arms.Items.Count > 1 && children.Count > 1 ? "(" + joined + ")" : joined);
-            }
-            else
-            {
-                parts.Add(Text(node["needs"]) ?? "a condition the suite cannot read");
-            }
-        }
-        return string.Join(separator, parts);
-    }
+    internal static string TierNeeds(IReadOnlyList<GameMcpValue> children, string separator) =>
+        FormatNeeds(children, separator, unmetOnly: false);
 
     internal static string? Text(GameMcpValue? value) =>
         value is GameMcpScalar { Value: string text } ? text : null;

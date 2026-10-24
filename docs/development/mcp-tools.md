@@ -2720,7 +2720,10 @@ explicit native `AND`/`OR` nodes, authored order, and recursively expanded prere
 Every operator node carries its `children` list, so an entity with no requirements reads as an
 empty list rather than as an operator over an unstated set. A native group nested inside a group
 is an operator node of its own: Scholarism's unlock reads as `OR` over Magic Points capacity and an
-`AND` of World Resets and maxed Novice Spells. No authored container nests a third level.
+`AND` of World Resets and maxed Novice Spells. Finite group nesting is traversed iteratively
+and does not consume the separate 32-step budget for expanding references to other containers.
+Reference cycles still refuse evaluation; deeply nested groups retain the same concrete tier
+conditions and verdict as their shallow equivalents.
 
 **A gate reads as what its tier needs.** A prerequisite link is machinery no screen draws, so a
 gate row words its `needs` from the conditions of the one tier it asks about — the tier its own
