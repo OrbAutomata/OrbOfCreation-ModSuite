@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -76,6 +77,8 @@ internal sealed class ExecutionWorkerControl
         state = null!;
     }
 
+    // Logging regressions assert these injected throw sites, including in optimized CI builds.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal WakePolicy Evaluate(
         in SuiteRuntimeConfiguration config,
         GameWorldState world,
@@ -124,6 +127,7 @@ internal sealed class ExecutionWorkerControl
         return EvaluationWake;
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal void Project(in ExecutionState state, ServiceStateProjectionBuilder output)
     {
         output.Add(new ServiceProjectionKey(1), ServiceProjectionValue.FromInteger(state.Evaluations));
