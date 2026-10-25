@@ -17,6 +17,8 @@ public enum ServiceActionNativeTypeId : ushort
     ConsumableSO = 6,
     CraftingRecipeSO = 7,
     EquipmentSO = 8,
+    PassiveAbilitySO = 9,
+    IntVariable = 10,
 }
 
 /// <summary>Whether list/view routing applies to an action target and, when it does, was resolved.</summary>
@@ -41,7 +43,7 @@ public readonly struct ServiceActionJournalAttribution
         ServiceActionRouteStatus routeStatus,
         byte actionKind = 0)
     {
-        if (nativeType is < ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.EquipmentSO)
+        if (nativeType is < ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.IntVariable)
             throw new ArgumentOutOfRangeException(nameof(nativeType));
         if (routeStatus is < ServiceActionRouteStatus.NotApplicable or > ServiceActionRouteStatus.AttributionFailed)
             throw new ArgumentOutOfRangeException(nameof(routeStatus));
@@ -87,7 +89,7 @@ public readonly struct ServiceActionJournalAttribution
     public byte ActionKind { get; }
 
     public bool IsValid =>
-        NativeType is >= ServiceActionNativeTypeId.NotApplicable and <= ServiceActionNativeTypeId.EquipmentSO &&
+        NativeType is >= ServiceActionNativeTypeId.NotApplicable and <= ServiceActionNativeTypeId.IntVariable &&
         RouteStatus is >= ServiceActionRouteStatus.NotApplicable and <= ServiceActionRouteStatus.AttributionFailed &&
         (NativeType == ServiceActionNativeTypeId.NotApplicable) == (CandidateId == Guid.Empty) &&
         (RouteStatus == ServiceActionRouteStatus.Resolved

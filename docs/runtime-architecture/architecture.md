@@ -97,15 +97,20 @@ C# 10 cannot enforce deep immutability; structural tests and narrow ownership AP
 Composition is explicit and ordered. The [feature catalog](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomataFeatureCatalog.cs)
 composes the automation contributions between world collection and strategy. Each contribution lives
 beside its feature and supplies its service, presentation metadata, configured intent, controls and
-action-family demand. Status, controls, configuration page labels and trace names derive from those
-contributions. The ownership host combines demand for shared families and owns generic claim/retry/release
-mechanics; feature eligibility stays with the contribution.
+action-family demand. Status, controls, configuration page labels, icon identity and trace names derive
+from those contributions. Feature-owned setting declarations pair typed binding with immutable
+configuration projection; the same declarations supply Mods metadata and MCP setting metadata. The
+feature's Mode appears as an immediate command, while tuning retains staged Apply/Revert semantics.
+The ownership host combines demand for shared families and owns generic claim/retry/release mechanics;
+feature eligibility stays with the contribution.
 
-Ten services are registered:
+The production service roster is:
 
 ```text
 SuiteFramePump
   -> orbautomata.world-collection    (source)
+  -> orbautomata.auto-levels         (ordinary)
+  -> orbautomata.quality-of-life     (ordinary)
   -> orbautomata.auto-items          (ordinary)
   -> orbautomata.auto-scribe         (ordinary)
   -> orbautomata.auto-harvest        (ordinary)
@@ -119,8 +124,7 @@ SuiteFramePump
 
 World collection registers first so the world is published before the services that read it evaluate.
 That ordering is a convenience, not a guarantee: nothing enforces order between services, and a consumer
-whose first cycle beat the first collection would simply wait a frame. These ten registrations are the
-complete production runtime roster.
+whose first cycle beat the first collection would simply wait a frame.
 
 Registration rejects duplicate service IDs and capacity overflow; records stable immutable ordinals and
 seals composition before pumping; creates the typed runner, sleeping worker, and reusable

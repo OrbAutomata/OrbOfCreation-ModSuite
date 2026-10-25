@@ -58,7 +58,7 @@ public readonly struct ServiceProjectionValue
 
 internal sealed class ServiceStateProjectionWriteBuffer
 {
-    internal const int MaximumCapacity = 16;
+    internal const int MaximumCapacity = 64;
     private readonly ServiceProjectionKey[] _keys;
     private readonly ServiceProjectionValue[] _values;
 
@@ -149,6 +149,54 @@ public readonly struct ServiceStateProjectionSnapshot
     private readonly ServiceProjectionEntry _e13;
     private readonly ServiceProjectionEntry _e14;
     private readonly ServiceProjectionEntry _e15;
+    private readonly ServiceProjectionEntry _e16;
+    private readonly ServiceProjectionEntry _e17;
+    private readonly ServiceProjectionEntry _e18;
+    private readonly ServiceProjectionEntry _e19;
+    private readonly ServiceProjectionEntry _e20;
+    private readonly ServiceProjectionEntry _e21;
+    private readonly ServiceProjectionEntry _e22;
+    private readonly ServiceProjectionEntry _e23;
+    private readonly ServiceProjectionEntry _e24;
+    private readonly ServiceProjectionEntry _e25;
+    private readonly ServiceProjectionEntry _e26;
+    private readonly ServiceProjectionEntry _e27;
+    private readonly ServiceProjectionEntry _e28;
+    private readonly ServiceProjectionEntry _e29;
+    private readonly ServiceProjectionEntry _e30;
+    private readonly ServiceProjectionEntry _e31;
+    private readonly ServiceProjectionEntry _e32;
+    private readonly ServiceProjectionEntry _e33;
+    private readonly ServiceProjectionEntry _e34;
+    private readonly ServiceProjectionEntry _e35;
+    private readonly ServiceProjectionEntry _e36;
+    private readonly ServiceProjectionEntry _e37;
+    private readonly ServiceProjectionEntry _e38;
+    private readonly ServiceProjectionEntry _e39;
+    private readonly ServiceProjectionEntry _e40;
+    private readonly ServiceProjectionEntry _e41;
+    private readonly ServiceProjectionEntry _e42;
+    private readonly ServiceProjectionEntry _e43;
+    private readonly ServiceProjectionEntry _e44;
+    private readonly ServiceProjectionEntry _e45;
+    private readonly ServiceProjectionEntry _e46;
+    private readonly ServiceProjectionEntry _e47;
+    private readonly ServiceProjectionEntry _e48;
+    private readonly ServiceProjectionEntry _e49;
+    private readonly ServiceProjectionEntry _e50;
+    private readonly ServiceProjectionEntry _e51;
+    private readonly ServiceProjectionEntry _e52;
+    private readonly ServiceProjectionEntry _e53;
+    private readonly ServiceProjectionEntry _e54;
+    private readonly ServiceProjectionEntry _e55;
+    private readonly ServiceProjectionEntry _e56;
+    private readonly ServiceProjectionEntry _e57;
+    private readonly ServiceProjectionEntry _e58;
+    private readonly ServiceProjectionEntry _e59;
+    private readonly ServiceProjectionEntry _e60;
+    private readonly ServiceProjectionEntry _e61;
+    private readonly ServiceProjectionEntry _e62;
+    private readonly ServiceProjectionEntry _e63;
 
     private ServiceStateProjectionSnapshot(
         ServiceProjectionKey[] keys,
@@ -172,6 +220,54 @@ public readonly struct ServiceStateProjectionSnapshot
         _e13 = EntryAt(keys, values, count, 13);
         _e14 = EntryAt(keys, values, count, 14);
         _e15 = EntryAt(keys, values, count, 15);
+        _e16 = EntryAt(keys, values, count, 16);
+        _e17 = EntryAt(keys, values, count, 17);
+        _e18 = EntryAt(keys, values, count, 18);
+        _e19 = EntryAt(keys, values, count, 19);
+        _e20 = EntryAt(keys, values, count, 20);
+        _e21 = EntryAt(keys, values, count, 21);
+        _e22 = EntryAt(keys, values, count, 22);
+        _e23 = EntryAt(keys, values, count, 23);
+        _e24 = EntryAt(keys, values, count, 24);
+        _e25 = EntryAt(keys, values, count, 25);
+        _e26 = EntryAt(keys, values, count, 26);
+        _e27 = EntryAt(keys, values, count, 27);
+        _e28 = EntryAt(keys, values, count, 28);
+        _e29 = EntryAt(keys, values, count, 29);
+        _e30 = EntryAt(keys, values, count, 30);
+        _e31 = EntryAt(keys, values, count, 31);
+        _e32 = EntryAt(keys, values, count, 32);
+        _e33 = EntryAt(keys, values, count, 33);
+        _e34 = EntryAt(keys, values, count, 34);
+        _e35 = EntryAt(keys, values, count, 35);
+        _e36 = EntryAt(keys, values, count, 36);
+        _e37 = EntryAt(keys, values, count, 37);
+        _e38 = EntryAt(keys, values, count, 38);
+        _e39 = EntryAt(keys, values, count, 39);
+        _e40 = EntryAt(keys, values, count, 40);
+        _e41 = EntryAt(keys, values, count, 41);
+        _e42 = EntryAt(keys, values, count, 42);
+        _e43 = EntryAt(keys, values, count, 43);
+        _e44 = EntryAt(keys, values, count, 44);
+        _e45 = EntryAt(keys, values, count, 45);
+        _e46 = EntryAt(keys, values, count, 46);
+        _e47 = EntryAt(keys, values, count, 47);
+        _e48 = EntryAt(keys, values, count, 48);
+        _e49 = EntryAt(keys, values, count, 49);
+        _e50 = EntryAt(keys, values, count, 50);
+        _e51 = EntryAt(keys, values, count, 51);
+        _e52 = EntryAt(keys, values, count, 52);
+        _e53 = EntryAt(keys, values, count, 53);
+        _e54 = EntryAt(keys, values, count, 54);
+        _e55 = EntryAt(keys, values, count, 55);
+        _e56 = EntryAt(keys, values, count, 56);
+        _e57 = EntryAt(keys, values, count, 57);
+        _e58 = EntryAt(keys, values, count, 58);
+        _e59 = EntryAt(keys, values, count, 59);
+        _e60 = EntryAt(keys, values, count, 60);
+        _e61 = EntryAt(keys, values, count, 61);
+        _e62 = EntryAt(keys, values, count, 62);
+        _e63 = EntryAt(keys, values, count, 63);
     }
 
     public int Count { get; }
@@ -194,6 +290,54 @@ public readonly struct ServiceStateProjectionSnapshot
         13 when index < Count => _e13,
         14 when index < Count => _e14,
         15 when index < Count => _e15,
+        16 when index < Count => _e16,
+        17 when index < Count => _e17,
+        18 when index < Count => _e18,
+        19 when index < Count => _e19,
+        20 when index < Count => _e20,
+        21 when index < Count => _e21,
+        22 when index < Count => _e22,
+        23 when index < Count => _e23,
+        24 when index < Count => _e24,
+        25 when index < Count => _e25,
+        26 when index < Count => _e26,
+        27 when index < Count => _e27,
+        28 when index < Count => _e28,
+        29 when index < Count => _e29,
+        30 when index < Count => _e30,
+        31 when index < Count => _e31,
+        32 when index < Count => _e32,
+        33 when index < Count => _e33,
+        34 when index < Count => _e34,
+        35 when index < Count => _e35,
+        36 when index < Count => _e36,
+        37 when index < Count => _e37,
+        38 when index < Count => _e38,
+        39 when index < Count => _e39,
+        40 when index < Count => _e40,
+        41 when index < Count => _e41,
+        42 when index < Count => _e42,
+        43 when index < Count => _e43,
+        44 when index < Count => _e44,
+        45 when index < Count => _e45,
+        46 when index < Count => _e46,
+        47 when index < Count => _e47,
+        48 when index < Count => _e48,
+        49 when index < Count => _e49,
+        50 when index < Count => _e50,
+        51 when index < Count => _e51,
+        52 when index < Count => _e52,
+        53 when index < Count => _e53,
+        54 when index < Count => _e54,
+        55 when index < Count => _e55,
+        56 when index < Count => _e56,
+        57 when index < Count => _e57,
+        58 when index < Count => _e58,
+        59 when index < Count => _e59,
+        60 when index < Count => _e60,
+        61 when index < Count => _e61,
+        62 when index < Count => _e62,
+        63 when index < Count => _e63,
         _ => throw new ArgumentOutOfRangeException(nameof(index)),
     };
 

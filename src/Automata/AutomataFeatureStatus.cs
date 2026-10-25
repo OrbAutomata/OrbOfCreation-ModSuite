@@ -34,51 +34,58 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
     public FeatureStatusSnapshot Current { get; private set; }
     internal ConfigGeneration ConfigurationGeneration { get; private set; }
 
-    public bool ObserveOperational() => Observe(
+    public bool ObserveOperational(string detail = "") => Observe(
         true,
         FeatureStatusState.Operational,
         FeatureStatusReasonCode.None,
-        string.Empty);
+        string.Empty,
+        detail);
 
     public bool Observe(
         bool configuredEnabled,
         FeatureStatusState state,
         FeatureStatusReasonCode reasonCode,
-        string summary) =>
+        string summary,
+        string detail = "") =>
         Observe(
             configuredEnabled,
             state,
             reasonCode,
             summary,
-            ConfigurationGeneration);
+            ConfigurationGeneration,
+            detail);
 
     internal bool Observe(
         bool configuredEnabled,
         FeatureStatusState state,
         FeatureStatusReasonCode reasonCode,
         string summary,
-        ConfigGeneration configurationGeneration) =>
+        ConfigGeneration configurationGeneration,
+        string detail = "") =>
         ObserveLifecycle(
             configuredEnabled,
             state,
             reasonCode,
             summary,
             Current.LifecycleGeneration,
-            configurationGeneration);
+            configurationGeneration,
+            detail);
 
     public bool ObserveLifecycle(
         bool configuredEnabled,
         FeatureStatusState state,
         FeatureStatusReasonCode reasonCode,
         string summary,
-        long lifecycleGeneration) =>
+        long lifecycleGeneration,
+        string detail = "") =>
         ObserveLifecycle(
             configuredEnabled,
             state,
             reasonCode,
             summary,
             lifecycleGeneration,
-            ConfigurationGeneration);
+            ConfigurationGeneration,
+            detail);
 
     internal bool ObserveLifecycle(
         bool configuredEnabled,
@@ -86,7 +93,8 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
         FeatureStatusReasonCode reasonCode,
         string summary,
         long lifecycleGeneration,
-        ConfigGeneration configurationGeneration)
+        ConfigGeneration configurationGeneration,
+        string detail = "")
     {
         if (configurationGeneration.Value < ConfigurationGeneration.Value) return false;
         ConfigurationGeneration = configurationGeneration;
@@ -99,7 +107,8 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
             reasonCode == FeatureStatusReasonCode.None
                 ? default
                 : new FeatureStatusReason(reasonCode, summary),
-            lifecycleGeneration);
+            lifecycleGeneration,
+            configuredEnabled && !_emergencyStopActive ? detail : string.Empty);
         Current = status;
         return _registration.Update(status);
     }
@@ -109,7 +118,8 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
         FeatureStatusReasonCode reasonCode,
         string summary,
         long lifecycleGeneration,
-        ConfigGeneration configurationGeneration)
+        ConfigGeneration configurationGeneration,
+        string detail = "")
     {
         if (!RuntimeHealthMayReplaceCurrent(state))
             return false;
@@ -119,7 +129,8 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
             reasonCode,
             summary,
             lifecycleGeneration,
-            configurationGeneration);
+            configurationGeneration,
+            detail);
     }
 
     private bool RuntimeHealthMayReplaceCurrent(FeatureStatusState state) =>
@@ -319,7 +330,8 @@ internal sealed class AutomataFeatureStatuses : IDisposable
                 reporter.Current.Reason.Code,
                 reporter.Current.Reason.Summary,
                 reporter.Current.LifecycleGeneration,
-                configurationGeneration);
+                configurationGeneration,
+                reporter.Current.Detail);
     }
 
     private static AutomataFeatureContribution Contribution(string featureId) =>

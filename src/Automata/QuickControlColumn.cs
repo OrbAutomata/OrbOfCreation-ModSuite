@@ -776,7 +776,7 @@ internal sealed class QuickControlColumn : IDisposable
         out Sprite? icon,
         out string reason) =>
         NativeFeatureIconResolver.TryResolve(
-            registration.PageLabel,
+            registration.IconIdentity,
             capturedRail: null,
             out icon,
             out reason);

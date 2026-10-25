@@ -114,6 +114,7 @@ public class SpellRecipeSO : StringIdScriptableObject, IDiscoverable, ILevelable
             throw new InvalidOperationException("injected failure after discovery");
     }
     public bool IsReadyToLevelMastery() => readyToLevel;
+    public ValueModifierList GetCostModPerLevel() => GlobalValues.instance.spellCostStandard.value;
     public ResourceCostList GetLevelCost() => levelCost;
     public void PurchaseLevel()
     {

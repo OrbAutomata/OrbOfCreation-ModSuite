@@ -57,7 +57,13 @@ internal sealed class SpellCompositionGameAction : NativeGameAction<SpellComposi
             return SpellCompositionSubmission.Reject(
                 SpellCompositionActionResultCodes.ContractUnavailable,
                 "The game has not set up " + Name(action.Dial) + " yet.");
+        if (action.ExpectedIdentity is { } identity && native.ReadVariableIdentity(variable) != identity)
+            return SpellCompositionSubmission.Reject(SpellCompositionActionResultCodes.StateChanged,
+                GameActionAnswer.Replaced(Name(action.Dial)));
         var current = native.ReadInt(variable);
+        if (action.ExpectedCurrentLevel is { } expected && current != expected)
+            return SpellCompositionSubmission.Reject(SpellCompositionActionResultCodes.StateChanged,
+                Name(action.Dial) + " changed since the automation reading; waiting for a fresh world.");
         var maximum = native.ReadInt(ReadMaximumVariable(native, player, action.Dial));
         var minimum = WorldSpellWorkbench.MinimumDialLevel;
         if (action.Value < minimum || action.Value > maximum)

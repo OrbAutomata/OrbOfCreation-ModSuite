@@ -492,6 +492,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     private const BindingFlags Static =
         BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
+    private readonly WorldOutputLevelCapture _outputEconomy;
+    private bool _captureLevelEconomy;
     private readonly Type? _registryType;
     private readonly RuntimeIdentityRegistryBinding _registryBinding;
     private readonly Type? _listType;
@@ -545,6 +547,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
+        _outputEconomy = new WorldOutputLevelCapture(resolveType);
         _registryType = registryType;
         _registryBinding = new RuntimeIdentityRegistryBinding(
             () => registryType, requireStableIdentityContract: false);
@@ -677,6 +680,12 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         var slots = frame.SpellSlots;
         var costs = frame.SpellCosts;
         var slotTypes = frame.SpellSlotTypes;
+        _captureLevelEconomy = frame.CaptureLevelEconomy;
+        if (_captureLevelEconomy)
+        {
+            _outputEconomy.Begin();
+            frame.LevelEconomy.SetOutputInputs(WorldOutputLevelInputs.Missing("The equipped spell snapshot was unavailable."));
+        }
         slots.Reset();
         costs.Reset();
         slotTypes.Reset();
@@ -747,6 +756,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
             }
         }
 
+        if (_captureLevelEconomy) frame.LevelEconomy.SetOutputInputs(_outputEconomy.Finish(skipped == 0));
         return new WorldCategoryReport(
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
@@ -770,6 +780,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         }
 
         var glyphs = ReadAugmentGlyphs(spell);
+        if (_captureLevelEconomy) _outputEconomy.Capture(spell, index, _spellInstanceId!(spell), _usageRequirementsMet!(spell));
         slots.Append(new WorldSpellSlot(
             index,
             _spellInstanceId!(spell),

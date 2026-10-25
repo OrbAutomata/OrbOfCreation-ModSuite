@@ -237,14 +237,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     private readonly Func<object, object?>? _bandwidthCost;
     private readonly Func<object, int>? _advancementLevel;
     private readonly Func<object, object?>? _instanceScalingRef;
-    private readonly Func<object, object?>? _instanceScaling;
-    private readonly Func<object, Guid>? _instanceScalingId;
-    private readonly Func<object, bool>? _useRarity;
-    private readonly Func<object, IList?>? _rarityBlacklist;
-    private readonly Func<object, object?>? _scalingConversion;
-    private readonly Func<object, object?>? _scalingValues;
-    private readonly Func<object, object?>? _listReferenceVariable;
-    private readonly Func<object, object?>? _listVariableValue;
+    private readonly Func<object, object?>? _resolveList;
     private readonly Func<object, object?>? _drainCostMod;
     private readonly Func<object, object?>? _speed;
     private readonly Func<object, object?>? _freeUsageSlots;
@@ -258,6 +251,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     private readonly Func<object, int>? _modifierOrder;
     private readonly Func<object, BigDouble>? _modifierAmount;
     private readonly NativeModifierProgramReader? _programReader;
+    private readonly NativeInstanceScalingProgramReader _scalingPrograms;
     private readonly Func<object, bool>? _instanceIsEmpty;
     private readonly Func<object, Guid>? _instanceRecipeId;
     private readonly Func<object, int>? _quantity;
@@ -278,6 +272,7 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         Func<string, Type?> resolveType)
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
+        _scalingPrograms = new NativeInstanceScalingProgramReader(resolveType);
         _registryType = registryType;
         _registryBinding = new RuntimeIdentityRegistryBinding(
             () => registryType, requireStableIdentityContract: false);
@@ -306,21 +301,9 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         _advancementLevel = NativeAccessorBinder.Field<int>(_recipeType, "advancementLevel");
 
         _instanceScalingRef = NativeAccessorBinder.Reference(_recipeType, "instanceScaling");
-        var scalingRefType = _recipeType.GetField("instanceScaling", Instance)?.FieldType;
-        _instanceScaling = NativeAccessorBinder.Reference(scalingRefType, "scaling");
-        var scalingType = resolveType("InstanceScalingSO");
-        _instanceScalingId = NativeAccessorBinder.StableUuid(scalingType);
-        _useRarity = NativeAccessorBinder.Field<bool>(scalingType, "useRarity");
-        _rarityBlacklist = NativeAccessorBinder.CollectionField(scalingType, "rarityAttributeBlacklist");
-        _scalingConversion = NativeAccessorBinder.Reference(scalingType, "instanceScaling");
-        var conversionType = scalingType?.GetField("instanceScaling", Instance)?.FieldType;
-        _scalingValues = NativeAccessorBinder.ReadValue(FindInstanceField(conversionType, "values"));
-
         var listRefType = resolveType("ModifierListRef");
-        var listVariableType = resolveType("ModifierListVariable");
         var listType = resolveType("ValueModifierList");
-        _listReferenceVariable = NativeAccessorBinder.Reference(listRefType, "variable");
-        _listVariableValue = NativeAccessorBinder.Reference(listVariableType, "value");
+        _resolveList = NativeAccessorBinder.CallObject(listRefType, "GetValue", listType);
         _drainCostMod = NativeAccessorBinder.Reference(_recipeType, "drainCostMod");
         _speed = NativeAccessorBinder.Reference(_recipeType, "speed");
         _freeUsageSlots = NativeAccessorBinder.Reference(_recipeType, "freeUsageSlots");
@@ -500,31 +483,6 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
         HashSet<Guid> capturedScalings,
         GameWorldCycleFrame frame)
     {
-        var scalingReference = _instanceScalingRef!(recipe) ??
-            throw new InvalidOperationException("instanceScaling was null");
-        var scaling = _instanceScaling!(scalingReference) ??
-            throw new InvalidOperationException("instanceScaling.scaling was null");
-        var scalingId = _instanceScalingId!(scaling);
-        if (scalingId == Guid.Empty)
-            throw new InvalidOperationException("instanceScaling carried no identity");
-
-        var useRarity = _useRarity!(scaling);
-        var blacklist = _rarityBlacklist!(scaling);
-        var costUsesRarity = useRarity && !ContainsScalingKind(blacklist, 4);
-        var speedUsesRarity = useRarity && !ContainsScalingKind(blacklist, 6);
-
-        var reqCost = ReadModifier(_requirementCostPenalty!(core));
-        var reqSpeed = ReadModifier(_requirementSpeedPenalty!(core));
-        frame.ConceptDrainBasis.Append(new RawConceptDrainBasis(
-            recipeId,
-            coreId,
-            scalingId,
-            _advancementLevel!(recipe),
-            in reqCost,
-            in reqSpeed,
-            costUsesRarity,
-            speedUsesRarity));
-
         CaptureRecord(recipeId, WorldModifierProgramRole.ConceptDrain, _drainCostMod!(recipe), frame);
         CaptureRecord(recipeId, WorldModifierProgramRole.ConceptSpeed, _speed!(recipe), frame);
         CaptureRecord(
@@ -540,16 +498,22 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             recipeId, WorldModifierProgramRole.ConceptDrainLevel,
             _drainCostLevel!(recipe), frame);
 
-        if (!capturedScalings.Add(scalingId)) return;
-        var conversion = _scalingConversion!(scaling) ??
-            throw new InvalidOperationException("instanceScaling.instanceScaling was null");
-        var values = _scalingValues!(conversion) as IDictionary;
-        CaptureList(
-            scalingId, WorldModifierProgramRole.InstanceScalingCost,
-            FindScalingList(values, 4), frame, resolved: true);
-        CaptureList(
-            scalingId, WorldModifierProgramRole.InstanceScalingSpeed,
-            FindScalingList(values, 6), frame, resolved: true);
+        var scalingReference = _instanceScalingRef!(recipe) ??
+            throw new InvalidOperationException("instanceScaling was null");
+        var scaling = _scalingPrograms.Capture(scalingReference, capturedScalings,
+            frame.ModifierPrograms, frame.ModifierProgramEntries);
+
+        var reqCost = ReadModifier(_requirementCostPenalty!(core));
+        var reqSpeed = ReadModifier(_requirementSpeedPenalty!(core));
+        frame.ConceptDrainBasis.Append(new RawConceptDrainBasis(
+            recipeId,
+            coreId,
+            scaling.ScalingId,
+            _advancementLevel!(recipe),
+            in reqCost,
+            in reqSpeed,
+            scaling.CostUsesRarity,
+            scaling.SpeedUsesRarity));
     }
 
     private void CaptureRecord(
@@ -566,16 +530,11 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
     private void CaptureList(
         Guid owner,
         WorldModifierProgramRole role,
-        object? referenceOrList,
-        GameWorldCycleFrame frame,
-        bool resolved = false)
+        object? reference,
+        GameWorldCycleFrame frame)
     {
-        object? list = referenceOrList;
-        if (!resolved)
-        {
-            var variable = referenceOrList is null ? null : _listReferenceVariable!(referenceOrList);
-            list = variable is null ? null : _listVariableValue!(variable);
-        }
+        if (reference is null) throw new InvalidOperationException("an Alchemy modifier-list reference was null");
+        var list = _resolveList!(reference) ?? throw new InvalidOperationException("ModifierListRef.GetValue returned null");
         _programReader!.CaptureList(
             owner, role, list, frame.ModifierPrograms, frame.ModifierProgramEntries);
     }
@@ -589,41 +548,13 @@ internal sealed class WorldAlchemyInstanceReader : IWorldCategoryReader
             _modifierOrder!(modifier));
     }
 
-    private static bool ContainsScalingKind(IList? source, int kind)
-    {
-        for (var index = 0; index < (source?.Count ?? 0); index++)
-            if (source![index] is not null && Convert.ToInt32(source[index]) == kind) return true;
-        return false;
-    }
-
-    private static object? FindScalingList(IDictionary? source, int kind)
-    {
-        if (source is null) return null;
-        foreach (DictionaryEntry pair in source)
-            if (pair.Key is not null && Convert.ToInt32(pair.Key) == kind) return pair.Value;
-        return null;
-    }
-
-    private static FieldInfo? FindInstanceField(Type? type, string name)
-    {
-        while (type is not null)
-        {
-            var field = type.GetField(name, Instance | BindingFlags.DeclaredOnly);
-            if (field is not null) return field;
-            type = type.BaseType;
-        }
-        return null;
-    }
-
     private bool IsBound() =>
         _activeValues is not null && _recipeValues is not null && _canAddInstance is not null &&
         _instanceType is not null &&
         _recipeId is not null && _coreType is not null && _coreTypeId is not null &&
         _recipeDrain is not null && _bandwidthCost is not null && _advancementLevel is not null &&
-        _instanceScalingRef is not null && _instanceScaling is not null &&
-        _instanceScalingId is not null && _useRarity is not null && _rarityBlacklist is not null &&
-        _scalingConversion is not null && _scalingValues is not null &&
-        _listReferenceVariable is not null && _listVariableValue is not null &&
+        _instanceScalingRef is not null && _scalingPrograms.IsAvailable &&
+        _resolveList is not null &&
         _drainCostMod is not null && _speed is not null && _freeUsageSlots is not null &&
         _overdriveSpeed is not null && _overdriveDrain is not null &&
         _completionCostAdvance is not null && _drainCostLevel is not null &&

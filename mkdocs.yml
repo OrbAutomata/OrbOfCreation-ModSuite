@@ -38,6 +38,7 @@ nav:
       - user-guide/README.md
       - user-guide/installation.md
       - user-guide/configuration.md
+      - user-guide/automatic-levels.md
       - user-guide/troubleshooting.md
       - user-guide/uninstalling.md
   - Game systems:

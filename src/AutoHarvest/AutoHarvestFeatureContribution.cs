@@ -13,7 +13,7 @@ internal sealed class AutoHarvestFeatureContribution : AutomataFeatureContributi
     internal const string FeatureId = "AutoHarvest";
 
     internal AutoHarvestFeatureContribution() : base(FeatureId, "Auto Harvest", AutoHarvestServicePolicies.ServiceId.Value,
-        "AutoHarvest", "Auto Harvest", 17, 3) { }
+        "AutoHarvest", "Auto Harvest", 17, 3, iconIdentity: NativeFeatureIcon.AutoHarvest) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoHarvest.Mode == AutoHarvestOperationMode.Active;

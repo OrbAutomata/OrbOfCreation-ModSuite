@@ -204,6 +204,8 @@ internal sealed class GameWorldCycleFrame
     internal WorldSampleBuffer<WorldAlchemyType, WorldAlchemyType> AlchemyTypes { get; } = new();
     internal WorldSampleBuffer<RawSpellRecipeSample, WorldSpellRecipe> SpellRecipes { get; } = new();
     internal WorldSpellWorkbenchBuffer SpellWorkbench { get; } = new();
+    internal WorldLevelEconomyBuffer LevelEconomy { get; } = new();
+    internal bool CaptureLevelEconomy { get; set; } = true;
     internal WorldTargetingBuffer Targeting { get; } = new();
     internal WorldSampleBuffer<WorldSpellType, WorldSpellType> SpellTypes { get; } = new();
     internal WorldSampleBuffer<WorldEquipment, WorldEquipment> Equipment { get; } = new();
@@ -415,6 +417,7 @@ internal static class GameWorldFrameDeriver
         var spellSlotTypes = WorldRelationTable.Build(
             frame.SpellSlotTypes, WorldSpellSlotTypeLookup.Order);
         var spellSlots = WorldRelationTable.Build(frame.SpellSlots, WorldSpellSlotLookup.Order);
+        var spellCosts = WorldRelationTable.Build(frame.SpellCosts, WorldSpellCostLookup.Order);
         var spellTypes = frame.SpellTypes.Build(WorldIdentityDeriver<WorldSpellType>.Shared);
         var research = frame.Research.Build(WorldIdentityDeriver<WorldResearch>.Shared);
         var consumableTypes = WorldRelationTable.Build(frame.ConsumableTypes, WorldConsumableTypeLookup.Order);
@@ -430,7 +433,7 @@ internal static class GameWorldFrameDeriver
         // reaches the wire.
         var statistics = frame.Statistics.Build(WorldIdentityDeriver<WorldStatistic>.Shared);
 
-        return new GameWorldState
+        var world = new GameWorldState
         {
             EntityIdentities = frame.EntityIdentities,
             CollectionCategories = WorldCollectionCategoryStatus.Build(frame.Report),
@@ -599,7 +602,7 @@ internal static class GameWorldFrameDeriver
             ActionQueueSlots = WorldRelationTable.Build(
                 frame.ActionQueueSlots, WorldActionQueueSlotLookup.Order),
             SpellSlots = spellSlots,
-            SpellCosts = WorldRelationTable.Build(frame.SpellCosts, WorldSpellCostLookup.Order),
+            SpellCosts = spellCosts,
             MasteryExperience = WorldRelationTable.Build(frame.MasteryExperience,
                 static (left, right) => left.Sequence.CompareTo(right.Sequence)),
             ConceptRecipes = WorldRelationTable.Build(frame.ConceptRecipes, WorldConceptRecipeLookup.Order),
@@ -618,6 +621,12 @@ internal static class GameWorldFrameDeriver
             PrerequisiteLinkTiers = WorldRelationTable.Build(
                 frame.PrerequisiteLinkTiers, WorldPrerequisiteLinkTierLookup.Order),
             TreasurePools = frame.TreasurePools.Build(WorldIdentityDeriver<WorldTreasurePool>.Shared),
+        };
+        if (!frame.CaptureLevelEconomy) return world;
+        return world with
+        {
+            LevelEconomy = frame.LevelEconomy.Build(resources, world.SpellWorkbench, spellTypeResonance,
+                spellCosts, world),
         };
     }
 }

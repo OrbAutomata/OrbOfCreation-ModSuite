@@ -10,9 +10,14 @@ using System.Reflection;
 /// </summary>
 public class NumberVariable
 {
+    public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
+    public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(0));
+    public bool isPercentVariable;
+    public bool isTimeVariable;
+    public bool isTimeAccurateVariable;
     public Guid uuid = Guid.NewGuid();
 
-    public Guid GetGuid() => uuid;
+    public virtual Guid GetGuid() => uuid;
 
     /// <summary>One effect's standing modification of one variable.</summary>
     public sealed class PersistentEffect : IPersistentEffectScript

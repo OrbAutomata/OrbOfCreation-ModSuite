@@ -10,7 +10,7 @@ internal sealed class AutoConceptFeatureContribution : AutomataFeatureContributi
     internal const string FeatureId = "AutoConcept";
 
     internal AutoConceptFeatureContribution() : base(FeatureId, "Auto Concept", AutoConceptServicePolicies.ServiceId.Value,
-        "AutoConcept", "Auto Concept", 15, 2) { }
+        "AutoConcept", "Auto Concept", 15, 2, iconIdentity: NativeFeatureIcon.AutoConcept) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoConcept.Mode == AutoConceptOperationMode.Active;

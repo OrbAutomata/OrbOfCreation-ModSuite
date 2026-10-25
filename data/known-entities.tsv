@@ -9,6 +9,7 @@ ActiveSpells	1614158d-6485-4995-90d0-79cc6b4dced4	ActiveSpells	SpellListVariable
 AlchAlchemyDiscover	70aabd3c-7790-4771-a863-5e5c41bff493	AlchAlchemyDiscover	ViewSO
 AlchAlchemyLevel	34624830-d04e-44f6-9410-6098bd349399	AlchAlchemyLevel	ViewSO
 Alchemy	f9c93e42-e9e8-4fe3-a1f3-5aec5430b5c2	Alchemy	AlchemyTypeSO
+AlchemyOutputLevel	8198fc5b-30a8-4f98-b853-c15cdb2fd7fe	AlchemyOutputLevel	IntVariable
 AlchemyScreen	3ae45ec0-4449-4903-b3d0-b5182e03dca3	ScreenAlchemy	ViewSO
 AllSpellTypeXpMod	d2b10420-aa5b-479d-945b-de82a00a5647	AllSpellTypeXpMod	DoubleVariable
 AutoScribeInstances	f6cb65a8-a959-477c-9293-ff66f646c95d	AutoScribeInstances	CraftingInstanceListVariable
@@ -17,7 +18,6 @@ BulkDevelopment	0ed119bf-0449-4d64-9989-1a3f68c7b8a2	BulkDevelopment	IntVariable
 CompletionScalingWeight	be446180-242f-40d2-910e-91e735fc20ad	SpecialScaling	ScalingWeightSO
 ConceptRecipes	c8ff8e01-c042-49c2-86a2-e374f82c280c	ConceptRecipes	AlchemyRecipeListVariable
 Conceptualization	69842862-dfce-4a9e-a73b-f757c72e49dc	Conceptualization	AlchemyTypeSO
-CreatedWorldAspects	74ec1f90-e94c-4cd7-a1d0-7b35016b57ff	CreatedWorldAspects	ViewListVariable
 ConsumableFruitType	46e0ab83-df7c-4f35-8012-3d9a3c97b753	Fruit	ConsumableTypeSO
 ConsumablePotionType	8103dae4-6945-4d18-b562-d2ffcd7ef49e	Potion	ConsumableTypeSO
 ConsumableRelicType	5d27b76e-eed3-49cc-a069-b9106000ede4	Relic	ConsumableTypeSO
@@ -29,7 +29,9 @@ CraftScrollEcho	008ccaa9-da26-4b55-95a5-5bc5df9c62f0	CraftScrollEcho	CraftingRec
 CraftScrollExcellence	6c5c36ea-4736-46d2-b961-6227d4cce5d3	CraftScrollExcellence	CraftingRecipeSO
 CraftScrollLearning	49da8d21-0f6a-492e-bd9a-15531b1737d5	CraftScrollLearning	CraftingRecipeSO
 CraftScrollPower	9c0a2b96-45fa-4aca-83ba-8efad8895608	CraftScrollPower	CraftingRecipeSO
+CreatedWorldAspects	74ec1f90-e94c-4cd7-a1d0-7b35016b57ff	CreatedWorldAspects	ViewListVariable
 Dismantle	7b89d22c-75ae-4945-9356-833382c9a167	Dismantle	AlchemyTypeSO
+DruidryLevel	97047076-396f-444b-9fdb-9da136740134	DruidryLevel	IntVariable
 EnchantAdvancement	0796ee25-e1f6-4c5c-abba-aad46e02318b	EnchantAdvancement	EnchantmentSO
 EnchantDevelopment	cb354ece-fd8c-4ffc-a67e-b24cc3fe5fa5	EnchantDevelopment	EnchantmentSO
 EnchantEcho	d854b177-865f-45ee-97a3-23d904df1ba1	EnchantEcho	EnchantmentSO
@@ -50,10 +52,21 @@ MagicSpellbookLoadout	accf9abb-d916-4fdf-96d7-1b1d5fdd548c	MagicSpellbookLoadout
 Mana	b11072bf-7980-4e23-bc6c-8034ba09b925	Mana	ResourceSO
 MasteriesEnabled	07dfae7e-76b9-4b38-bf81-38abc40b9ed7	MasteriesEnabled	ViewSO
 MultiBuy	37a84399-98b5-463c-b858-c1ecf2f9bf34	MultiBuy	IntVariable
+PassiveReflectiveBloomingLearning	4ffba2a1-09b4-479f-8772-7aaa228cf157	ReflectiveBloomingLearning	PassiveAbilitySO
+PassiveReflectiveBuildingLearning	6e1727bd-2bbf-47f9-b39c-1301f191b287	ReflectiveBuildingLearning	PassiveAbilitySO
+PassiveReflectiveChargedLearning	187d11e0-83e7-4af2-acc2-75c6c7b54fef	ReflectiveChargedLearning	PassiveAbilitySO
+PassiveReflectiveEnergizedLearning	ff521c14-ee3e-489b-9fb0-8b228516bb20	ReflectiveEnergizedLearning	PassiveAbilitySO
+PassiveReflectiveEssenceLearning	1d231459-552c-41f9-a03d-8a2d0e720352	ReflectiveEssenceLearning	PassiveAbilitySO
+PassiveReflectiveMagicLearning	5fb36dfb-7e34-47d5-b79b-82a627bb6b4e	ReflectiveMagicLearning	PassiveAbilitySO
+PassiveReflectiveMentalLearning	125d5d0e-b085-4c45-88ba-1afea0d7d9fa	ReflectiveMentalLearning	PassiveAbilitySO
+PassiveReflectiveNaturalLearning	6b795087-756c-44d3-a2bf-76ae415714b9	ReflectiveNaturalLearning	PassiveAbilitySO
+PassiveReflectiveRestorativeLearning	d059582a-ec2e-4be9-93eb-e86b63256568	ReflectiveRestorativeLearning	PassiveAbilitySO
+PassiveReflectiveSpacialLearning	f98d5f5a-9e04-47d5-b14e-3a6c1f03b751	ReflectiveSpacialLearning	PassiveAbilitySO
 PotionToxicity	4dd4e062-2015-4809-a50f-f37647bda339	PotionToxicity	ResourceSO
 Reductive	47b787b9-d4cd-43c8-a7e3-63a1e4e0ae94	Reductive	AlchemyTypeSO
 Refinement	32b6b099-19f2-4470-b47b-6c2a8b0388e1	Refinement	AlchemyTypeSO
 Reflective	8f258dcc-c39a-4d64-b915-4239e746c49d	Reflective	AlchemyTypeSO
+ReserveLevel	e45029bb-e26a-4fb7-8001-aee279e44d85	ReserveLevel	IntVariable
 ResourceBarCore	0ed546af-dec8-42ff-8e89-e53a5f86e1de	NonManaCoreResources	ResourceListVariable
 ResourceBarMaterials	b6079b18-b962-4cc1-a3e5-62eafaacf4b8	MaterialResources	ResourceListVariable
 Restoration	14b35ebc-f284-4d53-bd3f-f57a885cf2b1	Restoration	UpgradeSO
@@ -75,6 +88,7 @@ ScrollInvestment	da5eab6d-ab4c-4b32-aca1-2e83b6d3a64b	ScrollInvestment	Consumabl
 ScrollLearning	ec14ee5d-66a3-4b28-a271-25dca2414387	ScrollLearning	ConsumableSO
 ScrollPower	4bb8af50-fc7d-44a7-b1fc-937c390f8aec	ScrollPower	ConsumableSO
 ScrollSpeed	b2232a7d-5c97-44c9-9520-686e99fa8293	ScrollSpeed	ConsumableSO
+SpellOutputLevel	2dc187bd-87ab-4c4a-b611-687cdef32614	SpellOutputLevel	IntVariable
 TimePlayed	02eac15e-9c92-4d06-b8a2-1275faf7df89	TimePlayed	DoubleVariable
 TimePlayedThisReset	9ea78fb7-5fbc-4022-8025-f0b413684761	TimePlayedThisReset	DoubleVariable
 TimeTimeRuneCreate	82047a67-9d57-438c-b5b1-99377e242e32	TimeTimeRuneCreate	ViewSO

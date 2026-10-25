@@ -30,11 +30,7 @@ internal sealed class ModSettingListView : IDisposable
     private readonly AutoItemsTemporaryItemPickerView _temporaryItemPicker;
     private readonly List<GameObject> _rows = new();
     private readonly Dictionary<ConfigEditValue, TextMeshProUGUI> _settingTitles = new();
-    private ModConfigFeatureCommand? _featureCommand;
-    private ModConfigFeatureCommandPresentation? _featurePresentation;
-    private TextMeshProUGUI? _featureStatus;
-    private TextMeshProUGUI? _featureButtonLabel;
-    private Button? _featureButton;
+    private ModConfigFeatureHeaderView? _featureHeader;
 
     public ModSettingListView(
         ConfigEditSession session,
@@ -82,23 +78,23 @@ internal sealed class ModSettingListView : IDisposable
     {
         ModConfigUiFactory.ClearObjects(_rows);
         _settingTitles.Clear();
-        _featureCommand = null;
-        _featurePresentation = null;
-        _featureStatus = null;
-        _featureButtonLabel = null;
-        _featureButton = null;
+        _featureHeader?.Dispose();
+        _featureHeader = null;
         MeasuredDescriptionWidth = 0f;
     }
 
-    public void RefreshFeaturePresentation()
+    public bool RefreshFeaturePresentation()
     {
-        if (_featureCommand is null) return;
-        var presentation = _featureCommand.Presentation;
-        if (_featurePresentation == presentation) return;
-        _featureStatus!.text = presentation.StatusText;
-        _featureButtonLabel!.text = presentation.ButtonLabel;
-        ModConfigUiFactory.SetButtonActive(_featureButton!, presentation.IsActive);
-        _featurePresentation = presentation;
+        if (_featureHeader is null) return false;
+        var delta = _featureHeader.Refresh(_content.rect.width);
+        if (Math.Abs(delta) < 0.01f) return false;
+        foreach (var row in _rows)
+        {
+            var rect = (RectTransform)row.transform;
+            rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, rect.anchoredPosition.y - delta);
+        }
+        _content.sizeDelta = new Vector2(_content.sizeDelta.x, Math.Max(1f, _content.sizeDelta.y + delta));
+        return true;
     }
 
     private void RefreshEditFeedback()
@@ -121,65 +117,12 @@ internal sealed class ModSettingListView : IDisposable
 
     private float CreateFeatureHeader(ModConfigFeatureCommand command, float topOffset)
     {
-        const float headerHeight = 112f;
-        var presentation = command.Presentation;
-        var row = ModConfigUiFactory.CreateRectObject(
-            "Feature." + command.DisplayName,
-            _content,
-            new Vector2(0.01f, 1f),
-            new Vector2(0.99f, 1f),
-            ModConfigPalette.Row);
-        var rect = (RectTransform)row.transform;
-        rect.pivot = new Vector2(0.5f, 1f);
-        rect.anchoredPosition = new Vector2(0f, -topOffset - SettingRowTopInset);
-        rect.sizeDelta = new Vector2(0f, headerHeight - SettingRowGap);
-        _rows.Add(row);
-
-        ModConfigUiFactory.CreateText(
-            "Title",
-            row.transform,
-            new Vector2(0.025f, 0.64f),
-            new Vector2(0.74f, 0.95f),
-            _labelTemplate,
-            command.DisplayName,
-            TextAlignmentOptions.MidlineLeft,
-            0.88f);
-        _featureStatus = ModConfigUiFactory.CreateText(
-            "Status",
-            row.transform,
-            new Vector2(0.025f, 0.26f),
-            new Vector2(0.74f, 0.62f),
-            _labelTemplate,
-            presentation.StatusText,
-            TextAlignmentOptions.MidlineLeft,
-            0.56f);
-        _featureButton = ModConfigUiFactory.CreateButton(
-            "ImmediateMode",
-            row.transform,
-            new Vector2(0.77f, 0.35f),
-            new Vector2(0.975f, 0.88f),
-            _labelTemplate,
-            presentation.ButtonLabel,
-            () =>
-            {
-                command.Toggle();
-                _session.RefreshExternalValues();
-                _rebuildRequested();
-            },
-            active: presentation.IsActive);
-        _featureButtonLabel = _featureButton.GetComponentInChildren<TextMeshProUGUI>();
-        _featureCommand = command;
-        _featurePresentation = presentation;
-        ModConfigUiFactory.CreateText(
-            "StagingHint",
-            row.transform,
-            new Vector2(0.025f, 0.025f),
-            new Vector2(0.975f, 0.24f),
-            _labelTemplate,
-            "This control applies immediately. Settings below require Apply.",
-            TextAlignmentOptions.MidlineLeft,
-            0.52f);
-        return headerHeight;
+        _featureHeader = new ModConfigFeatureHeaderView(_content, _labelTemplate, command, topOffset, () =>
+        {
+            _session.RefreshExternalValues();
+            _rebuildRequested();
+        });
+        return _featureHeader.Height;
     }
 
     private float CreateRow(

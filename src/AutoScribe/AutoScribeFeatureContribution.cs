@@ -13,7 +13,7 @@ internal sealed class AutoScribeFeatureContribution : AutomataFeatureContributio
     internal const string FeatureId = "AutoScribe";
 
     internal AutoScribeFeatureContribution() : base(FeatureId, "Auto Scribe", AutoScribeServicePolicies.ServiceId.Value,
-        "AutoScribe", "Auto Scribe", 19, 6) { }
+        "AutoScribe", "Auto Scribe", 19, 6, iconIdentity: NativeFeatureIcon.AutoScribe) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoScribe.Mode == AutoScribeOperationMode.Active;

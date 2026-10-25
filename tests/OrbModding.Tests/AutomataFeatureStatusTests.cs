@@ -1,5 +1,6 @@
 using OrbMentor;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -38,7 +39,9 @@ public sealed class AutomataFeatureStatusTests
         Assert.Equal(FeatureStatusState.ConfigurationDisabled, statuses.Get(AutoScribeFeatureContribution.FeatureId).Current.State);
         Assert.Equal(FeatureStatusState.ConfigurationDisabled, statuses.Get(MentorFeatureContribution.FeatureId).Current.State);
         Assert.All(registry.GetSnapshot(), status => Assert.Equal(7, status.LifecycleGeneration));
-        Assert.Equal(8, added);
+        Assert.Equal(AutomataFeatureCatalog.All.Count, added);
+        Assert.All(AutomataFeatureCatalog.All, feature =>
+            Assert.Equal(feature.IsConfigured(config.Current), statuses.Get(feature.Id).Current.ConfiguredEnabled));
         Assert.Equal(0, changed);
     }
 
@@ -303,7 +306,7 @@ public sealed class AutomataFeatureStatusTests
             statuses.Get(AutoBuyFeatureContribution.FeatureId).ConfigurationGeneration);
 
         Assert.All(registry.GetSnapshot(), status => Assert.Equal(9, status.LifecycleGeneration));
-        Assert.Equal(8, changes);
+        Assert.Equal(AutomataFeatureCatalog.All.Count, changes);
 
         for (var index = 0; index < 10_000; index++)
             statuses.ObserveLifecycleNotReady(
@@ -311,7 +314,7 @@ public sealed class AutomataFeatureStatusTests
                 9,
                 statuses.Get(AutoBuyFeatureContribution.FeatureId).ConfigurationGeneration);
 
-        Assert.Equal(8, changes);
+        Assert.Equal(AutomataFeatureCatalog.All.Count, changes);
         Assert.Equal(FeatureStatusReasonCode.ParentFeatureDisabled, statuses.Get(AutoBuyFeatureContribution.FeatureId).Current.Reason.Code);
         Assert.Equal(FeatureStatusState.ConfigurationDisabled, statuses.Get(AutoCastFeatureContribution.FeatureId).Current.State);
         Assert.Equal(FeatureStatusState.ConfigurationDisabled, statuses.Get(AutoConceptFeatureContribution.FeatureId).Current.State);
@@ -542,15 +545,7 @@ public sealed class AutomataFeatureStatusTests
 
         statuses.ObserveConfiguration(config.Current, currentGeneration);
 
-        var reporters = new[]
-        {
-            statuses.Get(AutoBuyFeatureContribution.FeatureId),
-            statuses.Get(AutoCastFeatureContribution.FeatureId),
-            statuses.Get(AutoConceptFeatureContribution.FeatureId),
-            statuses.Get(SpellLevelFeatureContribution.FeatureId),
-            statuses.Get(AutoHarvestFeatureContribution.FeatureId),
-            statuses.Get(MentorFeatureContribution.FeatureId),
-        };
+        var reporters = AutomataFeatureCatalog.All.Select(feature => statuses.Get(feature.Id)).ToArray();
         Assert.All(reporters, reporter => Assert.False(reporter.Current.ConfiguredEnabled));
 
         foreach (var reporter in reporters)

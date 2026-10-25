@@ -19,6 +19,7 @@ public struct ValueModifier
         Exponent,
     }
 
+    public GuidContainer gc;
     public BigDouble adjustReal;
     public ValueModifierType type;
     public int order;
@@ -28,6 +29,7 @@ public struct ValueModifier
 
     public ValueModifier(ValueModifierType type, BigDouble amount, int order = 0, IdScriptableObject? reference = null)
     {
+        gc = new GuidContainer(Guid.NewGuid());
         this.type = type;
         adjustReal = amount;
         this.order = order;

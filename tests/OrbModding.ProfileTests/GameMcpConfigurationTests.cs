@@ -49,17 +49,15 @@ public sealed class GameMcpConfigurationTests
     [Fact]
     public void WritableSchemaIsStaticAndValuesComeFromThePinnedPublication()
     {
-        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var file = new ConfigFile();
+        var configuration = BepInExAutomataConfiguration.Bind(file);
         var schema = configuration.CreateGameMcpWritableSchema();
-        var entries = typeof(BepInExAutomataConfiguration)
-            .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .Select(property => property.GetValue(configuration))
-            .OfType<ConfigEntryBase>()
+        var entries = file.Select(pair => pair.Value)
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(31, schema.Length);
-        Assert.Equal(31, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(36, schema.Length);
+        Assert.Equal(36, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -99,16 +97,16 @@ public sealed class GameMcpConfigurationTests
     }
 
     /// <summary>
-    /// Closing the second write door onto the seven breakers takes nothing away from the read:
+    /// Closing the second write door onto the registered breakers takes nothing away from the read:
     /// their values stay in the one catalog <c>suite_configuration</c> pages, beside every other
     /// setting, so a caller can still see what a breaker is set to without pressing anything.
     /// </summary>
     [Fact]
-    public void TheSevenBreakerSettingsStayReadableAlongsideEveryOtherSetting()
+    public void TheBreakerSettingsStayReadableAlongsideEveryOtherSetting()
     {
         var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
 
-        // The mentor's breaker rides on its own binding, so the seventh reaches this catalog only
+        // The mentor's breaker rides on its own binding and reaches this catalog only
         // once that binding is attached — exactly as it does in a composed process.
         configuration.AttachMentor(MentorConfig.Bind(new ConfigFile()));
         var schema = configuration.CreateGameMcpWritableSchema();
@@ -290,12 +288,12 @@ public sealed class GameMcpConfigurationTests
 
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves, Mentor",
+            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
             GameMcpAcceptanceFixture.CallText("suite_configuration", context: context)
                 .Split('\n')[0]);
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves, Mentor",
+            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
             GameMcpAcceptanceFixture.CallText(
                     "suite_configuration", new JObject { ["mode"] = "describe" }, context)
                 .Split('\n')[0]);
@@ -342,7 +340,7 @@ public sealed class GameMcpConfigurationTests
         Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
         Assert.Equal(
             "unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, " +
-            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor",
+            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
             (string?)refusal["reason"]);
         Assert.Null(refusal["sections"]);
 
@@ -637,6 +635,11 @@ public sealed class GameMcpConfigurationTests
                 "Reserves/AbsoluteReserve: string",
                 "Reserves/RelativeReserveMultiplier: float",
                 "Mentor/Mode: MentorOperationMode",
+                "AutoLevels/Mode: AutoLevelsOperationMode",
+                "AutoLevels/SpellCostSeconds: double",
+                "AutoLevels/DrainBufferSeconds: double",
+                "QualityOfLife/Mode: QualityOfLifeOperationMode",
+                "QualityOfLife/MutePassiveNotifications: bool",
             },
             described["settings"]!.Values<JObject>()
                 .Select(setting =>
@@ -682,10 +685,10 @@ public sealed class GameMcpConfigurationTests
     public void A_type_the_wire_has_no_word_for_is_refused_rather_than_leaked()
     {
         var failure = Assert.Throws<InvalidOperationException>(
-            () => GameMcpConfigurationValuePolicy.SettingTypeWord(typeof(double)));
+            () => GameMcpConfigurationValuePolicy.SettingTypeWord(typeof(decimal)));
 
         Assert.Equal(
-            "no wire word is declared for writable setting type 'System.Double'; declare one in " +
+            "no wire word is declared for writable setting type 'System.Decimal'; declare one in " +
             "GameMcpConfigurationValuePolicy.SettingTypeWord before making a setting of that " +
             "type writable",
             failure.Message);

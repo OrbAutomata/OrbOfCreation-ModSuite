@@ -29,6 +29,7 @@ public class Spell : ITooltipable
     public GuidContainer guidContainer = new GuidContainer(Guid.NewGuid());
     public Stacked.StackedIdRecord<GlyphSO> augmentGlyphRefs = new Stacked.StackedIdRecord<GlyphSO>();
     private List<GlyphSO> augmentGlyphs = new List<GlyphSO>();
+    public ValueModifierRecord costMod = new ValueModifierRecord(new BigDouble(100));
     public int BaseEffectLevel { get; set; } = 1;
     public bool DurationSpell { get; set; }
     public bool ToggledSpell { get; set; }
@@ -125,6 +126,7 @@ public class Spell : ITooltipable
     public bool ThrowOnDrainCost { get; set; }
     public ResourceCostList GetDrainCost() =>
         ThrowOnDrainCost ? throw new InvalidOperationException("GetDrainCost failed") : DrainCost;
+    public int GetBaseEffectLevel() => BaseEffectLevel;
     public int GetOutputLevel() => Player.GetSpellOutputLevel().AsInt();
     public int GetLevel() => Math.Max(GetOutputLevel(), BaseEffectLevel);
     public int GetRequiredLevel() => GlyphSO.GetMasterReqOfList(augmentGlyphs);

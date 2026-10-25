@@ -50,6 +50,11 @@ public static class ServiceCycleDiagnostics
     {
         if (service is not { } available) return false;
         var latest = available.LatestFault;
+        return RefreshFault(in latest, ref fault);
+    }
+
+    internal static bool RefreshFault(in ServiceFault latest, ref ServiceFault fault)
+    {
         var changed = fault.Category != latest.Category || fault.Code != latest.Code ||
             fault.OccurrenceCount != latest.OccurrenceCount || fault.Reason != latest.Reason;
         fault = latest;

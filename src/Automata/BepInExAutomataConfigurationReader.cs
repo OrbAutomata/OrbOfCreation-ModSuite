@@ -10,7 +10,7 @@ internal static class BepInExAutomataConfigurationReader
     {
         if (source is null) throw new ArgumentNullException(nameof(source));
 
-        return new SuiteRuntimeConfiguration
+        var snapshot = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration
             {
@@ -77,5 +77,6 @@ internal static class BepInExAutomataConfigurationReader
                 RelativeReserveMultiplier = source.RelativeReserveMultiplier.Value,
             },
         };
+        return source.ReadFeatureSettings(snapshot);
     }
 }

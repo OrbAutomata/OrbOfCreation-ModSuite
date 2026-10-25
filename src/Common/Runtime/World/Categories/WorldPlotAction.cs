@@ -456,6 +456,8 @@ internal sealed class WorldPlotActionDeriver
 /// </remarks>
 internal sealed class WorldPlotActionReader : IWorldCategoryReader
 {
+    private readonly WorldDruidryLevelCapture _levelEconomy;
+    private bool _captureLevelEconomy;
     private readonly Type? _plotType;
     private readonly Func<IList?>? _plots;
     private readonly string _unavailable;
@@ -482,6 +484,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
 
+        _levelEconomy = new WorldDruidryLevelCapture(resolveType);
         _plotType = plotType;
         _plots = NativeAccessorBinder.StaticListAccessor(plotType, "All");
         if (plotType is null)
@@ -531,17 +534,30 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
+        _captureLevelEconomy = frame.CaptureLevelEconomy;
+        if (_captureLevelEconomy)
+        {
+            _levelEconomy.Begin();
+            frame.LevelEconomy.SetDruidryInputs(new WorldDruidryLevelInputs("The plot action snapshot is unavailable."));
+        }
         var buffer = frame.PlotActions;
         var instances = frame.PlotActionInstances;
         var drains = frame.PlotActionDrains;
         buffer.Reset();
         instances.Reset();
         drains.Reset();
-        if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
+        if (!IsAvailable)
+        {
+            frame.LevelEconomy.SetDruidryInputs(_levelEconomy.Finish(false));
+            return WorldCategoryReport.Missing(Category, _unavailable);
+        }
 
         var plots = _plots?.Invoke();
         if (plots is null)
+        {
+            frame.LevelEconomy.SetDruidryInputs(_levelEconomy.Finish(false));
             return WorldCategoryReport.Missing(Category, "the PlotNodeSO registry was unreadable");
+        }
 
         var sampled = 0;
         var skipped = 0;
@@ -566,6 +582,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
             }
         }
 
+        if (_captureLevelEconomy) frame.LevelEconomy.SetDruidryInputs(_levelEconomy.Finish(skipped == 0));
         return new WorldCategoryReport(
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
@@ -653,6 +670,7 @@ internal sealed class WorldPlotActionReader : IWorldCategoryReader
             var instance = instances[index];
             if (instance is null) continue;
 
+            if (_captureLevelEconomy) _levelEconomy.Capture(plot, instance);
             var actionId = ReferencedAction(instance);
             rows.Append(new WorldPlotActionInstance(
                 plotId,

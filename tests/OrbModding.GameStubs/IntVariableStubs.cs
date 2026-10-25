@@ -4,21 +4,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-public sealed class IntVariable
+public sealed class IntVariable : NumberVariable
 {
-    public List<PersistentEffectBlock> persistentEffectBlocks = new List<PersistentEffectBlock>();
+    public IntVariable() => value = new ValueModifierRecord(new BigDouble(1));
     // The game keeps every global integer in one static registry, and world collection walks it
     // rather than naming the hundred-odd accessors that read out of it.
     public static List<IntVariable> All = new List<IntVariable>();
-    public Guid uuid = Guid.NewGuid();
-    public ValueModifierRecord value = new ValueModifierRecord(new BigDouble(1.0, 0));
-    public bool isPercentVariable;
 
     // The two flags that decide the value is a count of seconds, and how finely the game draws it.
-    public bool isTimeVariable;
-    public bool isTimeAccurateVariable;
 
-    public Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : uuid;
+    public override Guid GetGuid() => GetGuidFailure is { } failure ? throw failure : uuid;
 
     // The game's AsInt() reads out of `value`; storing the answer separately let a fixture set a
     // count the collector could never see. Setting either keeps both in step.
@@ -85,7 +80,6 @@ public sealed class IntVariable
         All.Add(replacement);
         return replacement;
     }
-    public Guid Identity { get => GetGuid(); set => uuid = value; }
     public int Maximum { get => Value; set => Value = value; }
     public Exception? GetGuidFailure { get; set; }
 }

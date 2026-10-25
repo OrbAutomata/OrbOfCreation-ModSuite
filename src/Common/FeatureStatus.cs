@@ -119,7 +119,8 @@ public readonly struct FeatureStatusSnapshot : IEquatable<FeatureStatusSnapshot>
         bool configuredEnabled,
         FeatureStatusState state,
         FeatureStatusReason reason = default,
-        long lifecycleGeneration = 0)
+        long lifecycleGeneration = 0,
+        string detail = "")
     {
         if (string.IsNullOrWhiteSpace(key.PluginId) || string.IsNullOrWhiteSpace(key.FeatureId))
             throw new ArgumentException("An initialized feature key is required.", nameof(key));
@@ -143,6 +144,7 @@ public readonly struct FeatureStatusSnapshot : IEquatable<FeatureStatusSnapshot>
         State = state;
         Reason = reason;
         LifecycleGeneration = lifecycleGeneration;
+        Detail = (detail ?? string.Empty).Trim();
     }
 
     public FeatureStatusKey Key { get; }
@@ -151,13 +153,16 @@ public readonly struct FeatureStatusSnapshot : IEquatable<FeatureStatusSnapshot>
     public FeatureStatusState State { get; }
     public FeatureStatusReason Reason { get; }
     public long LifecycleGeneration { get; }
+    /// <summary>Current explanatory context, independent of whether the feature is healthy or blocked.</summary>
+    public string Detail { get; }
     public FeatureStatusConditionKey ConditionKey => new(this);
 
     public bool Equals(FeatureStatusSnapshot other) =>
         Key.Equals(other.Key) &&
         string.Equals(DisplayName, other.DisplayName, StringComparison.Ordinal) &&
         ConfiguredEnabled == other.ConfiguredEnabled && State == other.State &&
-        Reason.Equals(other.Reason) && LifecycleGeneration == other.LifecycleGeneration;
+        Reason.Equals(other.Reason) && LifecycleGeneration == other.LifecycleGeneration &&
+        string.Equals(Detail, other.Detail, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is FeatureStatusSnapshot other && Equals(other);
     public override int GetHashCode()
     {
@@ -169,6 +174,7 @@ public readonly struct FeatureStatusSnapshot : IEquatable<FeatureStatusSnapshot>
             hash = (hash * 397) ^ (int)State;
             hash = (hash * 397) ^ Reason.GetHashCode();
             hash = (hash * 397) ^ LifecycleGeneration.GetHashCode();
+            hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(Detail ?? string.Empty);
             return hash;
         }
     }
@@ -434,6 +440,7 @@ public static class FeatureStatusPresenter
         };
         if (!status.Reason.IsEmpty)
             AppendWrappedLines(lines, "Reason: ", status.Reason.Summary, lineWidth, 320);
+        AppendDetailLines(lines, "Details: ", status.Detail, lineWidth);
         return lines;
     }
 
@@ -452,6 +459,7 @@ public static class FeatureStatusPresenter
         };
         if (!status.Reason.IsEmpty)
             AppendWrappedLines(lines, $"{label} reason: ", status.Reason.Summary, lineWidth, 320);
+        AppendDetailLines(lines, $"{label} details: ", status.Detail, lineWidth);
         return lines;
     }
 
@@ -537,6 +545,19 @@ public static class FeatureStatusPresenter
             lineLength += word.Length;
         }
         return builder.ToString();
+    }
+
+    private static void AppendDetailLines(List<string> lines, string prefix, string? detail, int lineWidth)
+    {
+        if (string.IsNullOrWhiteSpace(detail)) return;
+        // Each authored row is one explanation (for example, one dial). Preserve that structure
+        // while still giving the native tooltip one physical line per node.
+        foreach (var row in detail!.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            if (string.IsNullOrWhiteSpace(row)) continue;
+            AppendWrappedLines(lines, prefix, row, lineWidth, int.MaxValue);
+            prefix = new string(' ', prefix.Length);
+        }
     }
 
     private static void AppendWrappedLines(

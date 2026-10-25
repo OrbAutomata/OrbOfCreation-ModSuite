@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
@@ -9,13 +10,13 @@ using OrbModding.Common.Runtime.Configuration;
 namespace OrbAutomata.GameMcp;
 
 /// <summary>
-/// The seven breakers the player sees, and the exact BepInEx setting behind each.
+/// The registered breakers the player sees, and the exact BepInEx setting behind each.
 /// </summary>
 /// <remarks>
 /// Every one of these is an <c>{Disabled, Active}</c> enum with no third state, which is why the
 /// MCP surface for them is a boolean rather than a serialized-value write: the player concept is a
 /// breaker that is green or gray. Everything else a feature can be configured with — thresholds,
-/// roles, allowlists — stays on <c>suite_config_set</c>; these seven entries are the breakers' own
+/// roles, allowlists — stays on <c>suite_config_set</c>; these entries are the breakers' own
 /// and that verb refuses them, so a feature has one door and not two.
 /// </remarks>
 internal sealed class GameMcpAutomationFeature
@@ -56,7 +57,7 @@ internal sealed class GameMcpAutomationFeature
 
 internal static class GameMcpAutomationFeatures
 {
-    internal static readonly GameMcpAutomationFeature[] All =
+    internal static readonly GameMcpAutomationFeature[] All = new GameMcpAutomationFeature[]
     {
         new(
             "auto_buy",
@@ -117,7 +118,22 @@ internal static class GameMcpAutomationFeatures
             "Shares mastery experience from advanced spells, artifacts, and recipes with lagging ones.",
             config => config.Mentor.Mode == MentorOperationMode.Active,
             GameMcpAutomationPolicy.Mentor),
-    };
+    }.Concat(AutomataFeatureCatalog.All.Where(feature => feature.Settings is not null)
+        .Select(RegisteredFeature)).ToArray();
+
+    private static GameMcpAutomationFeature RegisteredFeature(AutomataFeatureContribution feature)
+    {
+        var settings = feature.Settings!;
+        var wireName = string.Concat(feature.Id.Select((letter, index) =>
+            (index > 0 && char.IsUpper(letter) ? "_" : string.Empty) + char.ToLowerInvariant(letter)));
+        return new GameMcpAutomationFeature(wireName, feature.DisplayName, feature.ConfigurationSection!, "Mode",
+            settings.Description, feature.IsConfigured, config => settings.Description + " " +
+                string.Join(", ", settings.Settings.Where(setting => setting.Key != "Mode").Select(setting =>
+                    setting.Label + ": " + GameMcpConfigurationSchema.SerializePublishedValue(config,
+                        feature.ConfigurationSection!, setting.Key))) + ".");
+    }
+
+    internal static string Descriptions() => string.Join(" ", All.Select(feature => feature.Name + ": " + feature.Summary));
 
     internal static string[] Names()
     {

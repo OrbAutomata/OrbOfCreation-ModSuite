@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbMentor;
@@ -52,6 +53,19 @@ internal sealed class AutomataConfigurationStore
         Current = snapshot;
         _publish(snapshot, CurrentGeneration);
         return true;
+    }
+
+    internal void ToggleFeature(string featureId)
+    {
+        var feature = AutomataFeatureCatalog.All.SingleOrDefault(candidate => candidate.Id == featureId) ??
+            throw new ArgumentException("No registered feature " + featureId, nameof(featureId));
+        SetFeatureMode(featureId, !feature.IsConfigured(Current));
+    }
+
+    internal void SetFeatureMode(string featureId, bool active)
+    {
+        _configuration.SetFeatureMode(featureId, active);
+        PublishPending();
     }
 
     internal void ToggleAutoBuy()

@@ -67,6 +67,19 @@ suite waits at all is its own teardown, where each writer gets a single bounded 
 it is already holding (see **Artifacts**). Orb Mod Config only invokes each mode's neutral control port
 and renders status — it never owns a pump, worker, exporter, or filesystem path.
 
+## Feature health and policy details
+
+Configured intent, health condition and operational detail are separate facts. A healthy feature can
+report why individual candidates or level dials hold without making the whole feature blocked.
+[FeatureStatus](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/FeatureStatus.cs)
+owns those fields and their shared text presentation. Details appear in Mods feature headers, gameplay
+control tooltips and Runtime detail cards, and the MCP health surface includes them as separate details.
+
+A detail-only change updates the snapshot without emitting a condition transition or warning. Disabled,
+emergency and lifecycle states clear obsolete details. The shared header measures multiline text and
+reflows existing setting rows in place, retaining their editor widgets and drafts; shrinking content
+clamps scroll only if its old offset exceeds the new bounds.
+
 ## Mode 1: bug-report bundle
 
 The Runtime page provides one **Create bug report** action. On the next main-thread tick it flushes

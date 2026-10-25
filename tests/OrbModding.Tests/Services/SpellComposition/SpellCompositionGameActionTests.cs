@@ -1,3 +1,4 @@
+using OrbModding.Common.Runtime.World;
 using System;
 using System.Linq;
 using OrbAutomata;
@@ -200,7 +201,7 @@ public sealed class SpellCompositionGameActionTests : IDisposable
     [Fact]
     public void EveryMissingLifecycleBindingFailsClosed()
     {
-        Assert.Equal(15, SpellCompositionNativeBindings.ContractIds.Length);
+        Assert.Equal(16, SpellCompositionNativeBindings.ContractIds.Length);
         Assert.DoesNotContain(
             SpellCompositionNativeBindings.ContractIds,
             id => id.Contains("augment", StringComparison.OrdinalIgnoreCase));
@@ -226,6 +227,122 @@ public sealed class SpellCompositionGameActionTests : IDisposable
             SpellCompositionActionResultCodes.MutationPermitUnavailable,
             unowned.Submit(Output(4)).Outcome.Code);
         Assert.Equal(2, Player.GetSpellOutputLevel().AsInt());
+    }
+
+    [Theory]
+    [InlineData((int)LevelDial.Output)]
+    [InlineData((int)LevelDial.Reserve)]
+    [InlineData((int)LevelDial.Druidry)]
+    [InlineData((int)LevelDial.Alchemy)]
+    public void AutomationRefusesAPlayerChangedDialBeforeConsideringItsRequestedValue(int dialValue)
+    {
+        var dial = (LevelDial)dialValue;
+        var variable = PrepareAutomationDial(dial);
+        var captured = variable.AsInt();
+        variable.Value = captured - 1;
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(dial, captured - 1, Epoch,
+            captured, AutoLevelsService.Target(dial)));
+
+        Assert.Equal(SpellCompositionActionResultCodes.StateChanged, result.Outcome.Code);
+        Assert.Contains("changed since the automation reading", result.Outcome.Reason);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, variable.SetCalls);
+        Assert.Equal(captured - 1, variable.AsInt());
+    }
+
+    [Theory]
+    [InlineData((int)LevelDial.Output)]
+    [InlineData((int)LevelDial.Reserve)]
+    [InlineData((int)LevelDial.Druidry)]
+    [InlineData((int)LevelDial.Alchemy)]
+    public void AutomationCommitsWhenTheCapturedIdentityAndCurrentLevelStillMatch(int dialValue)
+    {
+        var dial = (LevelDial)dialValue;
+        var variable = PrepareAutomationDial(dial);
+        var captured = variable.AsInt();
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(dial, captured - 1, Epoch,
+            captured, AutoLevelsService.Target(dial)));
+
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+        Assert.Equal(1, variable.SetCalls);
+        Assert.Equal(captured - 1, variable.AsInt());
+    }
+
+    [Theory]
+    [InlineData((int)LevelDial.Output)]
+    [InlineData((int)LevelDial.Reserve)]
+    [InlineData((int)LevelDial.Druidry)]
+    [InlineData((int)LevelDial.Alchemy)]
+    public void AutomationRefusesAReplacementVariableEvenWhenItsLevelMatches(int dialValue)
+    {
+        var dial = (LevelDial)dialValue;
+        var variable = PrepareAutomationDial(dial);
+        var captured = variable.AsInt();
+        variable.uuid = Guid.Parse("3df842ae-d6be-45c1-a281-d2bfd5d77691");
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(dial, captured - 1, Epoch,
+            captured, AutoLevelsService.Target(dial)));
+
+        Assert.Equal(SpellCompositionActionResultCodes.StateChanged, result.Outcome.Code);
+        Assert.Contains("The game replaced this", result.Outcome.Reason);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, variable.SetCalls);
+        Assert.Equal(captured, variable.AsInt());
+    }
+
+    [Fact]
+    public void AnUnreadableAutomationIdentityRefusesBeforeTheNativeSetter()
+    {
+        var variable = PrepareAutomationDial(LevelDial.Output);
+        variable.GetGuidFailure = new InvalidOperationException("dial identity unreadable");
+        var faults = new System.Collections.Generic.List<string>();
+        GameActionFaultLog.ConfigureLog(faults.Add);
+        using var action = Action();
+
+        var result = action.Submit(new SpellCompositionAction(LevelDial.Output, 1, Epoch,
+            variable.AsInt(), AutoLevelsService.Target(LevelDial.Output)));
+
+        Assert.Equal(SpellCompositionActionResultCodes.ContractUnavailable, result.Outcome.Code);
+        Assert.Contains("Nothing was sent to the game", result.Outcome.Reason);
+        Assert.Contains(faults, detail => detail.Contains("dial identity unreadable", StringComparison.Ordinal));
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
+        Assert.Equal(0, variable.SetCalls);
+    }
+
+    [Fact]
+    public void PlayerDrivenDialUsesTheLiveControlWithoutAnAutomationSnapshot()
+    {
+        var variable = Player.GetSpellOutputLevel();
+        variable.Value = 3;
+        variable.GetGuidFailure = new InvalidOperationException("No automation identity was requested.");
+        using var action = Action();
+
+        var result = action.Submit(Output(4));
+
+        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+        Assert.Equal(4, variable.AsInt());
+        Assert.Equal(1, variable.SetCalls);
+    }
+
+    private static IntVariable PrepareAutomationDial(LevelDial dial)
+    {
+        AdjusterView(KnownEntities.WorldAgromancyDruidryLvs.Uuid, unlocked: true);
+        AdjusterView(KnownEntities.AlchAlchemyLevel.Uuid, unlocked: true);
+        var variable = dial switch
+        {
+            LevelDial.Output => Player.GetSpellOutputLevel(),
+            LevelDial.Reserve => Player.GetReserveLevel(),
+            LevelDial.Druidry => Player.Current.druidryOutputLevel,
+            LevelDial.Alchemy => Player.Current.alchemyOutputLevel,
+            _ => throw new ArgumentOutOfRangeException(nameof(dial)),
+        };
+        variable.uuid = AutoLevelsService.Target(dial);
+        return variable;
     }
 
     private static SpellCompositionAction Output(int level) =>

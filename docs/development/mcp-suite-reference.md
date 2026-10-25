@@ -47,6 +47,14 @@ remain readable through configuration. Setting an already-held mode refuses as u
 a feature returns a policy sentence derived from committed configuration, including when that
 configuration leaves it no eligible work. Configured ON and runtime readiness remain distinct.
 
+Feature-owned declarations supply registered settings, published-value readers and breaker metadata
+through [the settings seam](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/Configuration/AutomationFeatureSettings.cs).
+For example, describe `AutoLevels` or `QualityOfLife` with `suite_configuration` before changing a
+budget or convenience option. Their modes use the registered breakers; tuning uses `suite_config_set`.
+Policy explanation appears separately in health details, so a holding level dial does not imply that
+the entire service is unavailable. [Operational details](../runtime-architecture/observability.md#feature-health-and-policy-details)
+owns that distinction.
+
 STOP uses `suite_emergency_stop` with `mode="engage"` or `"resume"`. It is immediate and separate
 from staged tuning or feature mode. Resume still requires the host's lifecycle and native contracts.
 [Configuration](../user-guide/configuration.md) owns the player's control semantics.

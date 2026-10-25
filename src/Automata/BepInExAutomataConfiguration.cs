@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using BepInEx.Configuration;
 using OrbModding.Common;
@@ -15,6 +16,7 @@ internal sealed class BepInExAutomataConfiguration
 {
     private SuiteRuntimeConfiguration _current = null!;
     private MentorConfig? _mentor;
+    private readonly BoundAutomationFeatureSettings[] _featureSettings;
     private int _unpublishedChange;
     private int _emergencyClearRequested;
     private static readonly IReadOnlyList<ModConfigDependency> AutoBuyActiveDependencies = new[]
@@ -129,6 +131,8 @@ internal sealed class BepInExAutomataConfiguration
         EmergencyDisable = emergencyDisable;
         AbsoluteReserve = absoluteReserve;
         RelativeReserveMultiplier = relativeReserveMultiplier;
+        _featureSettings = AutomataFeatureCatalog.All.Where(feature => feature.Settings is not null)
+            .Select(feature => feature.Settings!.Bind(config, feature)).ToArray();
         RefreshCurrent();
         config.SettingChanged += (_, _) =>
         {
@@ -216,6 +220,19 @@ internal sealed class BepInExAutomataConfiguration
     {
         if (_mentor is null) throw new InvalidOperationException("Mentor configuration is not attached.");
         _mentor.Mode.Value = mode;
+    }
+
+    internal void SetFeatureMode(string featureId, bool active)
+    {
+        var settings = _featureSettings.SingleOrDefault(candidate => candidate.FeatureId == featureId) ??
+            throw new ArgumentException("No registered feature settings for " + featureId, nameof(featureId));
+        settings.SetMode(active);
+    }
+
+    internal SuiteRuntimeConfiguration ReadFeatureSettings(SuiteRuntimeConfiguration configuration)
+    {
+        foreach (var settings in _featureSettings) configuration = settings.Read(configuration);
+        return configuration;
     }
 
     internal void SetEmergencyStop(bool stopped) => EmergencyDisable.Value = stopped;
@@ -314,9 +331,10 @@ internal sealed class BepInExAutomataConfiguration
     private ConfigEntryBase[] GameMcpWritableEntries()
     {
         var entries = new System.Collections.Generic.List<ConfigEntryBase>(SuiteWritableEntries());
-        // Orb Mentor is one of the same seven on/off buttons and belongs on the same writable
+        // Orb Mentor belongs on the same registered on/off and writable
         // surface; it lives on the attached mentor binding rather than on this one.
         if (_mentor is not null) entries.Add(_mentor.Mode);
+        foreach (var settings in _featureSettings) entries.AddRange(settings.Entries);
         return entries.ToArray();
     }
 

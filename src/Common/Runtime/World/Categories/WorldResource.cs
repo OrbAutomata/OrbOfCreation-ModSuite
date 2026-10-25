@@ -460,7 +460,8 @@ internal readonly struct WorldResource : IWorldEntity
         double fillFraction,
         bool isAtCapacity,
         BigDouble trueQuantity,
-        BigDouble trueRate)
+        BigDouble trueRate,
+        BigDouble? unclampedNetRate = null)
     {
         Reading = reading;
         IsCapped = isCapped;
@@ -469,6 +470,7 @@ internal readonly struct WorldResource : IWorldEntity
         IsAtCapacity = isAtCapacity;
         TrueQuantity = trueQuantity;
         TrueRate = trueRate;
+        UnclampedNetRate = unclampedNetRate ?? trueRate;
         Equilibrium = BigDouble.Zero;
     }
 
@@ -523,6 +525,9 @@ internal readonly struct WorldResource : IWorldEntity
     /// computation per resource per cycle, off the Unity thread, and no write at all.
     /// </remarks>
     internal BigDouble TrueRate { get; }
+
+    /// <summary>Net stock/s before overflow damping, after all captured current drains and losses.</summary>
+    internal BigDouble UnclampedNetRate { get; }
 
     /// <summary>
     /// The stock this resource settles at, matching the game's <c>GetEquilibrium()</c> — the number

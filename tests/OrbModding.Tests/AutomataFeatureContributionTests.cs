@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
 using OrbAutomata;
@@ -6,6 +7,7 @@ using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using Xunit;
 
 namespace OrbModding.Tests;
@@ -81,14 +83,25 @@ public sealed class AutomataFeatureContributionTests
 
         Assert.Same(world, services.First());
         Assert.Same(strategist, services.Last());
-        Assert.Collection(services.Skip(1).Take(services.Length - 2),
-            service => Assert.IsType<AutoItemsServiceCycleFeature>(service),
-            service => Assert.IsType<AutoScribeServiceCycleFeature>(service),
-            service => Assert.IsType<AutoHarvestServiceCycleFeature>(service),
-            service => Assert.IsType<AutoBuyServiceCycleFeature>(service),
-            service => Assert.IsType<SpellLevelServiceCycleFeature>(service),
-            service => Assert.IsType<AutoCastServiceCycleFeature>(service),
-            service => Assert.IsType<AutoConceptServiceCycleFeature>(service),
-            service => Assert.IsType<MentorServiceCycleFeature>(service));
+        Assert.Equal(AutomataFeatureCatalog.All.Count + 2, services.Length);
+        using var registry = new ServiceCycleRegistry(AutomataFeatureCatalog.All.Count,
+            config.Current, new ConfigGeneration(1), new LifecycleGeneration(1));
+        using var actions = new LifecycleGameActions();
+        var featureContext = new AutomataServiceCycleFeatureContext(registry,
+            new ConfigGeneration(1), 1, actions);
+        var runtimes = new List<IAutomataServiceCycleFeatureRuntime>();
+        try
+        {
+            foreach (var service in services.Skip(1).Take(services.Length - 2))
+                runtimes.Add(service.Register(in featureContext));
+
+            Assert.Equal(AutomataFeatureCatalog.All.Select(feature => feature.ServiceId),
+                Enumerable.Range(0, registry.OrdinalCount).Select(ordinal => registry.GetServiceId(ordinal).Value));
+        }
+        finally
+        {
+            for (var index = runtimes.Count - 1; index >= 0; index--)
+                runtimes[index].DisposeRegistration();
+        }
     }
 }

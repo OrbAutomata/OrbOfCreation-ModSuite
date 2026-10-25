@@ -97,6 +97,7 @@ public sealed class AlchemyRecipeSO : StringIdScriptableObject, IDiscoverable
         return maximum < BigDouble.Zero ? int.MaxValue : BigDouble.Floor(maximum).ToInt();
     }
     public AlchemyTypeSO GetCoreType() => coreType;
+
     public string GetName() => name;
     public void Discover()
     {

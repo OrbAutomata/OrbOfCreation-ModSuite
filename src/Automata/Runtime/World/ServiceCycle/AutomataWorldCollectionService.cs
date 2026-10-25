@@ -120,6 +120,7 @@ internal static class AutomataWorldCollectionService
 
             frame.CollectedAt = context.CapturedAt;
             frame.CollectedAtUtcTicks = DateTime.UtcNow.Ticks;
+            frame.CaptureLevelEconomy = AutoLevelsService.IsOperational(config);
             capture.Collect(frame);
             return ServiceCaptureResult.Captured(CommonServiceDecisionCodes.Captured);
         }

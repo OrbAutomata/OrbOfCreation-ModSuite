@@ -31,6 +31,7 @@ public enum AutomationActionFamily
     HarvestLifecycle = 516,
     StructureLifecycle = 517,
     RunTransition = 518,
+    PassiveNotificationMute = 519,
     SpellMasteryExperienceGrant = 600,
     ArtifactMasteryExperienceGrant = 601,
     AlchemyMasteryExperienceGrant = 602,
