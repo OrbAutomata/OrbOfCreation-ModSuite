@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
@@ -76,7 +77,10 @@ public sealed class StrategistFixtureTests
         registry.Seal();
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(11)));
         StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(Derive(Fixture)));
-        Assert.NotNull(registry.Strategy.ReadStrategistBulletin());
+        var source = (IStrategistBulletinSource)registry.Strategy;
+        Assert.NotNull(source.ReadStrategistBulletin());
+        Assert.Equal(string.Empty, source.UnavailableReason);
+        Assert.Equal(Guid.Parse(Keystone), registry.Strategy.ReadLatest().Bulletin.ActiveGoalId);
 
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(12)));
 
@@ -87,12 +91,11 @@ public sealed class StrategistFixtureTests
     }
 
     /// <summary>
-    /// Every bulletin differs from the last — the world generation and the clock move — but nothing
-    /// evaluates against it, so publishing one is not a strategy change. A strategy change is a
-    /// suite-wide journal record that closes every service's open span; a lifecycle still makes one.
+    /// New world facts replace the judgment while the same active goal keeps the policy unchanged.
+    /// Only selecting the goal and clearing it for a lifecycle close the journal's strategy span.
     /// </summary>
     [Fact]
-    public void ManyBulletinsWithUnchangedStancesJournalNoStrategyChange()
+    public void ManyBulletinsWithTheSameGoalJournalOneStrategyChange()
     {
         using var registry = new ServiceCycleRegistry(1);
         registry.Seal();
@@ -111,11 +114,50 @@ public sealed class StrategistFixtureTests
             StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(Derive(facts)));
             scanner.ObservePublications(null, observer, new MonotonicTimestamp(world), includeJournal: true);
         }
-        Assert.DoesNotContain(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
+        Assert.Single(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
 
         Assert.True(registry.RequestLifecycle(new LifecycleGeneration(12)));
         scanner.ObservePublications(null, observer, new MonotonicTimestamp(300), includeJournal: true);
-        Assert.Single(sink.Records, record => record.Kind == DecisionJournalRecordKind.StrategyChanged);
+        Assert.Equal(2, sink.Records.FindAll(record => record.Kind == DecisionJournalRecordKind.StrategyChanged).Count);
+    }
+
+    [Fact]
+    public void ANewGoalReplacesPolicyWithoutChangingThePreviouslyPinnedGoal()
+    {
+        using var registry = new ServiceCycleRegistry(1);
+        registry.Seal();
+        Assert.True(registry.RequestLifecycle(new LifecycleGeneration(11)));
+        var bulletin = Derive(Fixture);
+        StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(bulletin));
+        var pinned = registry.Strategy.ReadLatest();
+
+        var next = Derive(Fixture.Replace(
+            $"node {Keystone} upgrade offered gate", $"node {Keystone} upgrade owned gate"));
+        StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(next));
+
+        Assert.Equal(Guid.Parse(Keystone), pinned.Bulletin.ActiveGoalId);
+        Assert.Equal(Guid.Parse(Bauble), registry.Strategy.ReadLatest().Bulletin.ActiveGoalId);
+        Assert.Equal(SuiteStrategyProvenance.Goal, registry.Strategy.ReadLatest().Bulletin.Provenance);
+        Assert.Equal(pinned.Generation.Value + 1, registry.Strategy.ReadLatest().Generation.Value);
+        Assert.Equal(0, registry.Strategy.ReadLatest().Bulletin.Resources.Count);
+        Assert.Same(next, registry.Strategy.ReadStrategistBulletin());
+    }
+
+    [Fact]
+    public void AJudgmentWithoutAnOfferedGoalClearsAdvisoryPolicy()
+    {
+        using var registry = new ServiceCycleRegistry(1);
+        registry.Seal();
+        Assert.True(registry.RequestLifecycle(new LifecycleGeneration(11)));
+        StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(Derive(Fixture)));
+        var previous = registry.Strategy.ReadLatest().Generation;
+
+        var noGoal = Derive(Fixture.Replace(" offered gate", " gate"));
+        StrategistService.Publish(registry.StrategistBulletinPublication, new StrategistCycleAction(noGoal));
+
+        Assert.Same(SuiteStrategyDefaults.Neutral, registry.Strategy.ReadLatest().Bulletin);
+        Assert.Equal(previous.Value + 1, registry.Strategy.ReadLatest().Generation.Value);
+        Assert.Same(noGoal, registry.Strategy.ReadStrategistBulletin());
     }
 
     /// <summary>
@@ -297,6 +339,101 @@ public sealed class StrategistFixtureTests
         var keystone = Goal(Derive(shortWindow), Keystone).Costs[0];
 
         Assert.Equal(StrategistCostTier.Measuring, keystone.Tier);
+    }
+
+    [Fact]
+    public void TheSummaryNamesTheActiveGoalsNextStepAndExactShortfall()
+    {
+        var bulletin = Derive(Fixture);
+
+        var summary = StrategistBulletinText.Summary(bulletin);
+
+        Assert.Contains("Next    save Mana", summary, StringComparison.Ordinal);
+        Assert.Contains("missing", summary, StringComparison.Ordinal);
+        Assert.Contains("before other spending", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdviceNamesTheFirstRankedGoalAndItsMissingCost()
+    {
+        var advice = Derive(Fixture).Advice;
+
+        Assert.Equal(Guid.Parse(Keystone), advice.GoalId);
+        Assert.Equal(StrategistAdviceKind.SaveResources, advice.Kind);
+        Assert.Equal(Guid.Parse(Mana), advice.BottleneckResourceId);
+        var cost = Assert.Single(advice.Costs.AsSpan().ToArray());
+        Assert.Equal(StrategistAdviceKind.SaveResources, cost.Kind);
+        Assert.Equal(new BigDouble(44800), cost.Missing);
+    }
+
+    [Fact]
+    public void HeldGoalFundsAreReadyWhileIncomeIsStillMeasuring()
+    {
+        var facts = Fixture
+            .Replace($"resource {Mana} held=2e2 cap=1e5", $"resource {Mana} held=5e4 cap=1e5")
+            .Replace("span=130", "span=0");
+
+        var advice = Derive(facts).Advice;
+
+        Assert.Equal(StrategistAdviceKind.Ready, advice.Kind);
+        Assert.Equal(Guid.Empty, advice.BottleneckResourceId);
+        Assert.Equal(BigDouble.Zero, Assert.Single(advice.Costs.AsSpan().ToArray()).Missing);
+    }
+
+    [Theory]
+    [InlineData("cap", (int)StrategistAdviceKind.IncreaseCapacity)]
+    [InlineData("income", (int)StrategistAdviceKind.ObtainIncome)]
+    [InlineData("measuring", (int)StrategistAdviceKind.MeasureIncome)]
+    [InlineData("allocation", (int)StrategistAdviceKind.AllocatePoints)]
+    public void AdviceDistinguishesWhatMustChangeBeforeTheGoalCanBeBought(
+        string reason, int expectedValue)
+    {
+        var expected = (StrategistAdviceKind)expectedValue;
+        var facts = reason switch
+        {
+            "cap" => Fixture.Replace($"resource {Mana} held=2e2 cap=1e5", $"resource {Mana} held=2e2 cap=1e3"),
+            "income" => Fixture.Replace($"gain {Mana} gained=1.3e3 span=130", $"gain {Mana} gained=0e0 span=130"),
+            "measuring" => Fixture.Replace("span=130", "span=0"),
+            "allocation" => Fixture.Replace($"resource {Mana} held=2e2 cap=1e5", $"resource {Mana} held=2e2 points"),
+            _ => throw new ArgumentOutOfRangeException(nameof(reason)),
+        };
+
+        var advice = Derive(facts).Advice;
+
+        Assert.Equal(expected, advice.Kind);
+        Assert.Equal(Guid.Parse(Keystone), advice.GoalId);
+        Assert.Equal(Guid.Parse(Mana), advice.BottleneckResourceId);
+        var cost = Assert.Single(advice.Costs.AsSpan().ToArray());
+        Assert.Equal(expected, cost.Kind);
+        Assert.Equal(new BigDouble(44800), cost.Missing);
+        if (expected == StrategistAdviceKind.IncreaseCapacity)
+            Assert.Equal(new BigDouble(1000), cost.Capacity);
+    }
+
+    [Fact]
+    public void AdviceIncludesEveryGoalCostAndNamesTheSlowestShortfall()
+    {
+        var facts = Fixture.Replace(
+            $"price {Keystone} {Mana} amount=4.5e4",
+            $"price {Keystone} {Mana} amount=4.5e4\nprice {Keystone} {Wood} amount=6e4");
+
+        var advice = Derive(facts).Advice;
+
+        Assert.Equal(StrategistAdviceKind.SaveResources, advice.Kind);
+        Assert.Equal(Guid.Parse(Wood), advice.BottleneckResourceId);
+        Assert.Equal(2, advice.Costs.Count);
+        Assert.Equal(new BigDouble(59990), advice.Costs[1].Missing);
+    }
+
+    [Fact]
+    public void AWorldWithoutOfferedGatesHasNoGoalAdvice()
+    {
+        var advice = Derive(Fixture.Replace("upgrade offered gate", "upgrade gate")).Advice;
+
+        Assert.Equal(StrategistAdviceKind.NoGoal, advice.Kind);
+        Assert.Equal(Guid.Empty, advice.GoalId);
+        Assert.Equal(Guid.Empty, advice.BottleneckResourceId);
+        Assert.Empty(advice.Costs.AsSpan().ToArray());
     }
 
     private static StrategistIncomeWindow.Sample Sample(Guid id, double lifetime) =>

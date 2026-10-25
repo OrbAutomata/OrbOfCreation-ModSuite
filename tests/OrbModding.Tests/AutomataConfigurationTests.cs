@@ -123,6 +123,7 @@ public sealed class AutomataConfigurationTests
         var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
         config.Enabled.Value = false;
         config.AutoBuyStructures.Value = false;
+        config.FollowStrategistGoal.Value = true;
         config.AutoCastStartResourcePercent.Value = 37;
         config.AutoConceptTrainingPeriodSeconds.Value = 19;
         config.AutoHarvestTreasureTrees.Value = false;
@@ -137,6 +138,7 @@ public sealed class AutomataConfigurationTests
 
         Assert.False(snapshot.General.Enabled);
         Assert.False(snapshot.AutoBuy.IncludeStructures);
+        Assert.True(snapshot.AutoBuy.FollowStrategistGoal);
         Assert.Equal(37, snapshot.AutoCast.StartResourcePercent);
         Assert.Equal(19, snapshot.AutoConcept.TrainingPeriodSeconds);
         Assert.False(snapshot.AutoHarvest.CollectTreasureTrees);

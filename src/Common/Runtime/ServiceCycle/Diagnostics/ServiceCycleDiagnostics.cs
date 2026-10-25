@@ -66,7 +66,10 @@ public static class ServiceCycleDiagnostics
         if (!fault.IsValid || fault.Category == ServiceFaultCategory.ActionExecution ||
             state is not (FeatureStatusState.Operational or FeatureStatusState.NotReady or FeatureStatusState.Locked))
             return (state, reason, summary);
-        return (FeatureStatusState.NotReady, FeatureStatusReasonCode.RuntimeFailure,
-            $"The service is retrying {fault.Category} after {fault.OccurrenceCount} failed attempt(s). {fault.Reason}".TrimEnd());
+        return (FeatureStatusState.NotReady, FeatureStatusReasonCode.RuntimeFailure, DescribeFault(in fault));
     }
+
+    internal static string DescribeFault(in ServiceFault fault) => fault.IsValid
+        ? $"The service is retrying {fault.Category} after {fault.OccurrenceCount} failed attempt(s). {fault.Reason}".TrimEnd()
+        : string.Empty;
 }

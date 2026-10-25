@@ -6,11 +6,17 @@ namespace OrbModConfig;
 internal readonly record struct ModConfigNavigationBookmark(
     string PluginGuid,
     string SectionName,
-    float ScrollOffset)
+    float ScrollOffset,
+    ModConfigTopPageKind Kind = ModConfigTopPageKind.PluginSettings,
+    float RailScrollOffset = 0f)
 {
-    public bool IsRuntime => string.IsNullOrEmpty(PluginGuid);
+    public bool IsRuntime => Kind == ModConfigTopPageKind.Runtime ||
+        Kind == ModConfigTopPageKind.PluginSettings && string.IsNullOrEmpty(PluginGuid);
+    public bool IsStrategist => Kind == ModConfigTopPageKind.Strategist;
 
-    public static ModConfigNavigationBookmark Runtime => new(string.Empty, string.Empty, 0f);
+    public static ModConfigNavigationBookmark Runtime => new(string.Empty, string.Empty, 0f, ModConfigTopPageKind.Runtime);
+    public static ModConfigNavigationBookmark Strategist =>
+        new(string.Empty, string.Empty, 0f, ModConfigTopPageKind.Strategist);
 }
 
 internal static class ModConfigNavigationBookmarkPolicy
@@ -25,6 +31,8 @@ internal static class ModConfigNavigationBookmarkPolicy
         for (var index = 1; index < pages.Count; index++)
         {
             var page = pages[index];
+            if (bookmark.IsStrategist && page.Kind == ModConfigTopPageKind.Strategist) return index;
+            if (page.Kind != ModConfigTopPageKind.PluginSettings || bookmark.IsStrategist) continue;
             var mod = catalog.Mods[page.PluginIndex];
             if (string.Equals(mod.Guid, bookmark.PluginGuid, StringComparison.Ordinal) &&
                 (page.SectionIndex < 0 && string.IsNullOrEmpty(bookmark.SectionName) ||

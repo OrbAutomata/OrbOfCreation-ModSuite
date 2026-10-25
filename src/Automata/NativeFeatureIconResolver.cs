@@ -9,6 +9,12 @@ namespace OrbAutomata;
 /// One icon vocabulary for feature quick controls and the Mods rail. Every borrowed sprite comes
 /// from a declared native accessor or an exact audited top-bar capture.
 /// </summary>
+internal enum NativeFeatureIcon
+{
+    Runtime, Strategist, General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, Mentor,
+    AutoItems, AutoScribe, Advanced, Settings, Unknown,
+}
+
 internal static class NativeFeatureIconResolver
 {
     internal static bool TryResolve(
@@ -17,31 +23,52 @@ internal static class NativeFeatureIconResolver
         out Sprite? icon,
         out string reason)
     {
-        if (pageLabel.StartsWith("Runtime", StringComparison.Ordinal))
-            return FromCaptured(capturedRail?.RuntimeIcon, "ScreenTime", out icon, out reason);
-        return pageLabel switch
-        {
-            "General" => FromCaptured(
-                capturedRail?.GeneralIcon, "ScreenMagic", out icon, out reason),
-            "Auto Buy" => TryGetTooltipableIcon(
-                "GetGlobalStructureType", "StructureTypeSO", out icon, out reason),
-            "Auto Cast" => TryGetTooltipableIcon(
-                "GetCastingSpeedAttr", "AttributeSO", out icon, out reason),
-            "Auto Concept" => FromCaptured(
-                capturedRail?.ConceptIcon, "ScreenScholar", out icon, out reason),
-            "Auto Harvest" => TryGetTooltipableIcon(
-                "GetHarvestSpeedAttr", "AttributeSO", out icon, out reason),
-            "Mentor" => TryGetTooltipableIcon(
-                "GetMasteryExpAttr", "AttributeSO", out icon, out reason),
-            "Auto Items" => FromCaptured(
-                capturedRail?.WorldIcon, "ScreenWorld", out icon, out reason),
-            "Auto Scribe" => FromCaptured(
-                capturedRail?.WorkshopIcon, "ScreenWorkshop", out icon, out reason),
-            "Advanced" => FromCaptured(
-                capturedRail?.AdvancedIcon, "ScreenAlchemy", out icon, out reason),
-            _ => Unknown(pageLabel, out icon, out reason),
-        };
+        var identity = ForFeature(pageLabel);
+        return identity == NativeFeatureIcon.Unknown
+            ? Unknown(pageLabel, out icon, out reason)
+            : TryResolve(identity, capturedRail, out icon, out reason);
     }
+
+    internal static NativeFeatureIcon ForFeature(string feature) => feature switch
+    {
+        "Runtime" => NativeFeatureIcon.Runtime,
+        "Strategist" => NativeFeatureIcon.Strategist,
+        "General" => NativeFeatureIcon.General,
+        "Auto Buy" => NativeFeatureIcon.AutoBuy,
+        "Auto Cast" => NativeFeatureIcon.AutoCast,
+        "Auto Concept" => NativeFeatureIcon.AutoConcept,
+        "Auto Harvest" => NativeFeatureIcon.AutoHarvest,
+        "Mentor" => NativeFeatureIcon.Mentor,
+        "Auto Items" => NativeFeatureIcon.AutoItems,
+        "Auto Scribe" => NativeFeatureIcon.AutoScribe,
+        "Advanced" => NativeFeatureIcon.Advanced,
+        _ => NativeFeatureIcon.Unknown,
+    };
+
+    internal static bool TryResolve(
+        NativeFeatureIcon identity,
+        NativeFeatureRailVisualPrimitives? capturedRail,
+        out Sprite? icon,
+        out string reason) => identity switch
+    {
+        NativeFeatureIcon.Runtime => FromCaptured(capturedRail?.RuntimeIcon, "ScreenTime", out icon, out reason),
+        NativeFeatureIcon.General or NativeFeatureIcon.Settings => FromCaptured(
+            capturedRail?.GeneralIcon, "ScreenMagic", out icon, out reason),
+        NativeFeatureIcon.AutoBuy => TryGetTooltipableIcon(
+            "GetGlobalStructureType", "StructureTypeSO", out icon, out reason),
+        NativeFeatureIcon.AutoCast => TryGetTooltipableIcon(
+            "GetCastingSpeedAttr", "AttributeSO", out icon, out reason),
+        NativeFeatureIcon.AutoConcept or NativeFeatureIcon.Strategist => FromCaptured(
+            capturedRail?.ConceptIcon, "ScreenScholar", out icon, out reason),
+        NativeFeatureIcon.AutoHarvest => TryGetTooltipableIcon(
+            "GetHarvestSpeedAttr", "AttributeSO", out icon, out reason),
+        NativeFeatureIcon.Mentor => TryGetTooltipableIcon(
+            "GetMasteryExpAttr", "AttributeSO", out icon, out reason),
+        NativeFeatureIcon.AutoItems => FromCaptured(capturedRail?.WorldIcon, "ScreenWorld", out icon, out reason),
+        NativeFeatureIcon.AutoScribe => FromCaptured(capturedRail?.WorkshopIcon, "ScreenWorkshop", out icon, out reason),
+        NativeFeatureIcon.Advanced => FromCaptured(capturedRail?.AdvancedIcon, "ScreenAlchemy", out icon, out reason),
+        _ => Unknown(identity.ToString(), out icon, out reason),
+    };
 
     private static bool FromCaptured(
         Sprite? captured,

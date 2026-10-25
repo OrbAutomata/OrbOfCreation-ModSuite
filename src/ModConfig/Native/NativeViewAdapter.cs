@@ -54,7 +54,6 @@ internal static class NativeViewAdapter
                 .ToArray();
             if (!TryReadFeatureRailFrames(
                     railCandidates,
-                    out _,
                     out var inactiveFrame,
                     out var activeFrame,
                     out var frameReason))
@@ -101,7 +100,6 @@ internal static class NativeViewAdapter
                 .ToArray();
             if (!TryReadFeatureRailFrames(
                     railCandidates,
-                    out var railPrototype,
                     out var railBaseFrame,
                     out var railActiveFrame,
                     out var frameReason))
@@ -146,7 +144,6 @@ internal static class NativeViewAdapter
             }
 
             primitives = new NativeFeatureRailVisualPrimitives(
-                railPrototype!,
                 railBaseFrame!,
                 railActiveFrame!,
                 runtimeIcon!,
@@ -388,12 +385,10 @@ internal static class NativeViewAdapter
 
     internal static bool TryReadFeatureRailFrames(
         IReadOnlyList<Component> candidates,
-        out Component? prototype,
         out Sprite? baseFrame,
         out Sprite? activeFrame,
         out string reason)
     {
-        prototype = null;
         baseFrame = null;
         activeFrame = null;
         if (candidates.Count == 0)
@@ -418,9 +413,8 @@ internal static class NativeViewAdapter
                     $"candidate '{NativeObjectPath.Build(candidate)}' does not own its button Image";
                 return false;
             }
-            if (prototype is null)
+            if (baseFrame is null)
             {
-                prototype = candidate;
                 baseFrame = candidateBase;
                 activeFrame = candidateActive;
                 continue;
@@ -432,9 +426,6 @@ internal static class NativeViewAdapter
                 return false;
             }
         }
-        prototype = candidates
-            .OrderBy(candidate => ReadNativeItemName(candidate), StringComparer.Ordinal)
-            .First();
         reason = string.Empty;
         return true;
     }

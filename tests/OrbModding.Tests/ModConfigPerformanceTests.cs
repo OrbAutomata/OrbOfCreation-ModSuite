@@ -431,12 +431,10 @@ public sealed class ModConfigPerformanceTests
         Assert.True(
             NativeViewAdapter.TryReadFeatureRailFrames(
                 new Component[] { candidate },
-                out var prototype,
                 out var baseFrame,
                 out var activeFrame,
                 out var reason),
             reason);
-        Assert.Same(candidate, prototype);
         Assert.Same(candidate.baseImage, baseFrame);
         Assert.Same(candidate.activeImage, activeFrame);
     }

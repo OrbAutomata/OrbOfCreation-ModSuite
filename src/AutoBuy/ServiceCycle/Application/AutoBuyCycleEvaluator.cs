@@ -42,7 +42,9 @@ internal static class AutoBuyCycleEvaluator
 {
     private static readonly IComparer<Eligible> RankOrder = Comparer<Eligible>.Create(static (left, right) =>
     {
-        // CostRatio ascending, then UUID ascending (OrdinalIgnoreCase).
+        // An opted-in eligible goal goes first; ordinary candidates retain ratio/UUID ordering.
+        var goal = right.IsPreferredGoal.CompareTo(left.IsPreferredGoal);
+        if (goal != 0) return goal;
         var ratio = left.CostRatio.CompareTo(right.CostRatio);
         if (ratio != 0) return ratio;
         return string.Compare(left.UuidText, right.UuidText, StringComparison.OrdinalIgnoreCase);
@@ -54,7 +56,8 @@ internal static class AutoBuyCycleEvaluator
         ServiceRetryGateSnapshot retryGate,
         MonotonicTimestamp decisionAt,
         ServiceActionWriter<AutoBuyCycleAction> actions,
-        out AutoBuyDecisionMetrics metrics)
+        out AutoBuyDecisionMetrics metrics,
+        Guid activeGoalId = default)
     {
         if (retryGate is null) throw new ArgumentNullException(nameof(retryGate));
         var wake = WakePolicy.OnPublication;
@@ -130,6 +133,8 @@ internal static class AutoBuyCycleEvaluator
                 candidate.Uuid,
                 candidate.Uuid.ToString("D", CultureInfo.InvariantCulture),
                 costRatio,
+                config.AutoBuy.FollowStrategistGoal &&
+                    candidate.Kind == AutoBuyCandidateKind.Upgrade && candidate.Uuid == activeGoalId,
                 in admissionBelief));
         }
 
@@ -660,6 +665,7 @@ internal static class AutoBuyCycleEvaluator
             Guid uuid,
             string uuidText,
             double costRatio,
+            bool isPreferredGoal,
             in AutoBuyPlanBelief belief)
         {
             CandidateIndex = candidateIndex;
@@ -667,6 +673,7 @@ internal static class AutoBuyCycleEvaluator
             Uuid = uuid;
             UuidText = uuidText;
             CostRatio = costRatio;
+            IsPreferredGoal = isPreferredGoal;
             Belief = belief;
         }
 
@@ -676,6 +683,7 @@ internal static class AutoBuyCycleEvaluator
         public Guid Uuid { get; }
         public string UuidText { get; }
         public double CostRatio { get; }
+        public bool IsPreferredGoal { get; }
 
         /// <summary>The one-level admission belief preserved for exact single-level parity.</summary>
         public AutoBuyPlanBelief Belief { get; }

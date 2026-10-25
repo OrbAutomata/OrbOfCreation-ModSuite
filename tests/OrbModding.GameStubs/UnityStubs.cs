@@ -7,6 +7,7 @@ namespace UnityEngine
 {
     public class Object
     {
+        private static readonly List<Object> PendingDestruction = new List<Object>();
         public string name { get; set; } = string.Empty;
 
         /// <summary>
@@ -44,6 +45,28 @@ namespace UnityEngine
 
         public static void Destroy(Object obj)
         {
+            if (obj is null || obj.destroyed || PendingDestruction.Contains(obj)) return;
+            PendingDestruction.Add(obj);
+        }
+
+        /// <summary>Advances the portable model past Unity's deferred destruction boundary.</summary>
+        public static void FlushDestroyQueue()
+        {
+            var pending = PendingDestruction.ToArray();
+            PendingDestruction.Clear();
+            foreach (var obj in pending) DestroyNow(obj);
+        }
+
+        internal static void DestroyNow(Object obj)
+        {
+            if (obj.destroyed) return;
+            if (obj is GameObject gameObject) gameObject.DestroyOwnedObjects();
+            else if (obj is Component component)
+            {
+                if (component is Transform) return; // Unity does not remove a Transform alone.
+                component.gameObject.RemoveComponent(component);
+            }
+            obj.destroyed = true;
         }
     }
 
@@ -157,6 +180,25 @@ namespace UnityEngine
 
         public T[] GetComponents<T>() where T : Component => _components.OfType<T>().ToArray();
 
+        internal void DestroyOwnedObjects()
+        {
+            while (transform.childCount > 0)
+            {
+                var child = transform.GetChild(transform.childCount - 1);
+                child.SetParent(null, false);
+                Object.DestroyNow(child.gameObject);
+            }
+            transform.SetParent(null, false);
+            SetActive(false);
+            foreach (var component in _components) component.destroyed = true;
+            _components.Clear();
+        }
+
+        internal void RemoveComponent(Component component)
+        {
+            _components.Remove(component);
+        }
+
         public T AddComponent<T>() where T : Component, new()
         {
             var component = new T { gameObject = this, transform = transform, name = name };
@@ -173,12 +215,12 @@ namespace UnityEngine
 
         public int childCount => _children.Count;
 
-        public void SetParent(Transform parent, bool worldPositionStays)
+        public void SetParent(Transform? parent, bool worldPositionStays)
         {
             if (ReferenceEquals(this.parent, parent)) return;
             this.parent?._children.Remove(this);
             this.parent = parent;
-            parent._children.Add(this);
+            parent?._children.Add(this);
         }
 
         public int GetSiblingIndex() => parent?._children.IndexOf(this) ?? 0;
@@ -668,6 +710,11 @@ namespace TMPro
             private readonly List<Action<string>> _listeners = new List<Action<string>>();
 
             public void AddListener(Action<string> listener) => _listeners.Add(listener);
+
+            public void Invoke(string value)
+            {
+                foreach (var listener in _listeners.ToArray()) listener(value);
+            }
         }
     }
 }

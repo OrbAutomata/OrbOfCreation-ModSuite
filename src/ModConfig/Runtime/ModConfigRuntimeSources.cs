@@ -1,6 +1,7 @@
 using System;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Status;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
@@ -21,7 +22,8 @@ internal sealed class ModConfigRuntimeSources
         IServiceCyclePumpTimingSource pumpTiming,
         IDiagnosticsBundleControl diagnosticsBundle,
         IDifferentialVerificationControl differentialVerification,
-        IDecisionJournalStatusSource decisionJournal
+        IDecisionJournalStatusSource decisionJournal,
+        IStrategistBulletinSource strategistBulletin
 #if SERVICE_CYCLE_PROFILE
         , IPerformanceProfileControl performanceProfile
 #endif
@@ -36,11 +38,13 @@ internal sealed class ModConfigRuntimeSources
         DifferentialVerification = differentialVerification ??
                                    throw new ArgumentNullException(nameof(differentialVerification));
         DecisionJournal = decisionJournal ?? throw new ArgumentNullException(nameof(decisionJournal));
+        StrategistBulletin = strategistBulletin ?? throw new ArgumentNullException(nameof(strategistBulletin));
 #if SERVICE_CYCLE_PROFILE
         PerformanceProfile = performanceProfile ?? throw new ArgumentNullException(nameof(performanceProfile));
 #endif
     }
 
+    public IStrategistBulletinSource StrategistBulletin { get; }
     public IConfigurationSchemaStatusSource SchemaStatuses { get; }
     public IFeatureStatusSource FeatureStatuses { get; }
     public IRuntimeDiagnosticsSource Diagnostics { get; }

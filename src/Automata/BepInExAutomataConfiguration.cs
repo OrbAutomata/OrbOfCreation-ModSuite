@@ -62,6 +62,7 @@ internal sealed class BepInExAutomataConfiguration
         ConfigEntry<bool> autoBuyStructures,
         ConfigEntry<bool> autoBuyUpgrades,
         ConfigEntry<bool> autoLevelSpells,
+        ConfigEntry<bool> followStrategistGoal,
         ConfigEntry<int> leaveQueueSlots,
         ConfigEntry<AutoCastOperationMode> autoCastMode,
         ConfigEntry<KeyboardShortcut> autoCastToggleShortcut,
@@ -99,6 +100,7 @@ internal sealed class BepInExAutomataConfiguration
         AutoBuyStructures = autoBuyStructures;
         AutoBuyUpgrades = autoBuyUpgrades;
         AutoLevelSpells = autoLevelSpells;
+        FollowStrategistGoal = followStrategistGoal;
         LeaveQueueSlots = leaveQueueSlots;
         AutoCastMode = autoCastMode;
         AutoCastToggleShortcut = autoCastToggleShortcut;
@@ -174,6 +176,7 @@ internal sealed class BepInExAutomataConfiguration
     public ConfigEntry<AutoConceptSlotManagementMode> AutoConceptSlotManagement { get; }
     public ConfigEntry<bool> AutoConceptShowToggleButton { get; }
     public ConfigEntry<bool> AutoLevelSpells { get; }
+    public ConfigEntry<bool> FollowStrategistGoal { get; }
     public ConfigEntry<int> AutoConceptTrainingPeriodSeconds { get; }
     public ConfigEntry<float> AutoConceptRateReservePercent { get; }
     public ConfigEntry<float> AutoConceptMinimumDrainRatio { get; }
@@ -328,6 +331,7 @@ internal sealed class BepInExAutomataConfiguration
             AutoBuyStructures,
             AutoBuyUpgrades,
             AutoLevelSpells,
+            FollowStrategistGoal,
             LeaveQueueSlots,
             AutoCastMode,
             AutoCastStartResourcePercent,
@@ -464,6 +468,7 @@ internal sealed class BepInExAutomataConfiguration
                 Bind(config, "AutoBuy", "IncludeStructures", true, "Include native StructureSO attributes and levels.", 10, 10, dependencies: AutoBuyActiveDependencies),
                 Bind(config, "AutoBuy", "IncludeUpgrades", true, "Include native UpgradeSO purchases.", 10, 20, dependencies: AutoBuyActiveDependencies),
                 Bind(config, "AutoBuy", "AutoLevelSpells", true, "Automatically level ready spells while Auto Buy is active. Capability follows native progression automatically: locked, one spell per action, then the native level-all action after its upgrade completes.", 10, 25, dependencies: AutoBuyActiveDependencies),
+                Bind(config, "AutoBuy", "FollowStrategistGoal", false, "Buy the strategist's current upgrade goal before other eligible purchases. Your affordability and reserve rules still apply. An unaffordable or unavailable goal does not stop other purchases; this does not save or reserve money for it.", 10, 26, dependencies: AutoBuyUpgradesActiveDependencies),
                 Bind(config, "AutoBuy", "LeaveQueueSlots", 1, "Minimum native action-queue slots Automata leaves free for manual actions.", 10, 70, dependencies: AutoBuyActiveDependencies),
                 autoCastMode,
                 Bind(config, "AutoCast", "ToggleShortcut", new KeyboardShortcut(UnityEngine.KeyCode.F8), "Toggle Auto Cast between Disabled and Active. Default: F8.", 15, 5),
@@ -546,6 +551,7 @@ internal sealed class BepInExAutomataConfiguration
             "SlotManagementMode" => "Slot management",
             "TrainingPeriodSeconds" => "Training period (seconds)",
             "AutoLevelSpells" => "Auto-level spells",
+            "FollowStrategistGoal" => "Prioritize strategist goal",
             "AllowUnverifiedGameBuild" => "Allow this unverified game build",
             "AffordabilityMode" => "Structure affordability",
             "UpgradeAffordabilityMode" => "Upgrade affordability",

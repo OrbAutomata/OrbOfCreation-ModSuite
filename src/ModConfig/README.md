@@ -1,14 +1,16 @@
 # Mod Config UI
 
-This folder is the in-game configuration and runtime-diagnostics surface of the suite. It is not a separate plugin and carries no version of its own; everything here compiles into `OrbModSuite.dll` and loads under the suite's single plugin GUID.
+This folder owns the in-game settings, strategist advice and runtime-diagnostics surfaces. It is not a separate plugin and carries no version of its own; everything here compiles into `OrbModSuite.dll` and loads under the suite's single plugin GUID.
 
 The page edits the suite's own settings and, because it discovers loaded plugins generically, the typed settings of other BepInEx plugins installed beside it. The registered plugin title is displayed verbatim; the UI does not shorten or rewrite it.
 
 ## Settings editor
 
 - Discovers loaded plugins and typed BepInEx configuration entries.
-- Groups settings into Runtime, General, seven automation feature pages, and Advanced while preserving the original section/key contract.
+- Provides built-in Runtime and Strategist pages beside grouped settings while preserving the original section/key contract.
 - Renders feature mode once in the page header as an immediate committed-store command; mode is not repeated in the staged setting list.
+- Refreshes feature status and mode presentation in place, preserving the selected page's inputs,
+  drafts and scroll position when only health changes.
 - Supports booleans, enums, bounded and unbounded numbers, strings, and keyboard shortcuts.
 - Replaces the Auto Items temporary allowlist's generic string editor with a whitelist-only picker
   of discovered native items while retaining the same staged string setting and Apply/Revert path.
@@ -16,6 +18,10 @@ The page edits the suite's own settings and, because it discovers loaded plugins
 - Honors optional presentation metadata for labels, dependencies, restart guidance, and hidden compatibility keys.
 - Keeps unstaged fields synchronized with external changes.
 - Detects a staged/live conflict and requires **Keep mine** or **Take live** before Apply.
+- Marks setting titles with textual `[Unsaved]`, `[Invalid]` or `[Conflict]` state, with conflict
+  taking precedence over invalid input and invalid input over an unsaved edit. The footer retains
+  the selected mod's validation error across page rebuilds; header and footer hints distinguish
+  immediate commands from settings that require Apply.
 - Generation-stamps catalog definitions, preserving navigation across one rebuild when plugins or entries change.
 - Preserves same-page scroll position and remeasures variable-height rows when the available width changes.
 - Removes its owned Unity objects and listeners on scene exit or plugin unload.
@@ -55,8 +61,12 @@ retry, and type failures name the member plus expected and actual managed types.
 
 The Mods shell uses the subview-radio sample for a left-hand navigation rail,
 active and inactive page frames, the outer detail frame, settings controls, and footer controls.
-The cloned native behavior is removed from Mods navigation, and suite buttons have no
+The rail creates suite-owned buttons from the captured assets, and suite buttons have no
 `Selectable.targetGraphic`; suite rendering remains the only pixel writer.
+Its masked viewport scrolls independently of the detail pane, with overflow controls for reaching
+pages above and below the visible range. Narrow layouts use icons and tooltips; selection and resize
+keep the active page visible. Stable page identities restore navigation across catalog rebuilds,
+and rail offsets are bounded to the available content.
 Native-skinned suite panel frames remain raycast targets: the settings viewport therefore routes
 wheel input to its own `ScrollRect` across rows, text, gutters, and padding, while the quick-control
 drawer frame owns its complete rectangle so input cannot pass through its grid gaps to native UI.
@@ -78,6 +88,21 @@ A terminal failure replaces the corresponding success line with
 `Quick controls: native state frames or icons failed: <reason>` or
 `Mods rail: native visuals failed: <reason>`. Both surfaces are also registered as Suite UI
 capabilities on Runtime.
+
+## Strategist page
+
+Strategist is read-only advice from the latest published judgment. It shows the active goal and its
+resource shortfalls, the next step, alternative gates, Restoration relevance, measured income and
+run position. It labels loading and retained-snapshot status explicitly. An income estimate assumes
+other spending stops; a prerequisite relationship indicates relevance rather than guaranteeing an
+unlock. [Strategist advice](../../docs/runtime-architecture/strategist.md) owns these semantics and
+the optional Auto Buy consumer.
+
+The page receives a neutral publication-read port. It reads no native game state and dispatches no
+gameplay actions. Open-page maintenance refreshes changed publications and remeasures cards when
+width changes; unchanged inputs do not rebuild the page. Its cards share the same native-framed,
+measured text primitive as Runtime. Page switches hide the prior surface, and lifecycle replacement
+clears advice through the publication owner.
 
 ## Runtime page
 

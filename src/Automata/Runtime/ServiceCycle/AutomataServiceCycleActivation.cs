@@ -1,5 +1,7 @@
 using System;
 using OrbModding.Common.Runtime.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
+using OrbModding.Common.Runtime.Strategy;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.GameMcp;
@@ -12,7 +14,7 @@ namespace OrbAutomata;
 /// saved-configuration publication. Kept as an interface so deferred activation can be
 /// exercised without standing up a real host.
 /// </summary>
-internal interface IAutomataServiceCycleRuntime : IDisposable
+internal interface IAutomataServiceCycleRuntime : IDisposable, IStrategistBulletinSource
 {
     void Tick(float unscaledDeltaTime);
     void PublishSavedConfiguration(
@@ -33,7 +35,7 @@ internal interface IAutomataServiceCycleRuntime : IDisposable
 /// to it. Creation receives the latest configuration directly, so activation never
 /// constructs from one snapshot and then replays another publication.
 /// </summary>
-internal sealed class AutomataServiceCycleActivation : IDisposable
+internal sealed class AutomataServiceCycleActivation : IDisposable, IStrategistBulletinSource
 {
     private const int MaximumActivationAttempts = 2;
 
@@ -109,6 +111,17 @@ internal sealed class AutomataServiceCycleActivation : IDisposable
         if (_disposed) return;
         _runtime?.InvalidateLifecycle();
     }
+
+    public string UnavailableReason => _disposed
+        ? "The automation runtime has shut down."
+        : _runtime is not null
+            ? _runtime.UnavailableReason
+            : _activationAttempts == 0
+                ? "Waiting for the automation runtime to start."
+                : "The automation runtime could not start.";
+
+    public StrategistBulletin? ReadStrategistBulletin() =>
+        _disposed ? null : _runtime?.ReadStrategistBulletin();
 
     internal bool TryCaptureDiagnostics(out AutomataDiagnosticsRuntimeEvidence evidence)
     {

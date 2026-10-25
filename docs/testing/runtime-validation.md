@@ -55,6 +55,19 @@ fail the gate.
   path instead of rendering substitute controls.
 - Confirm the Mods rail, staged Apply/Revert/Default behavior, scroll position,
   external-edit conflicts, Runtime actions, tooltips, and keyboard navigation.
+- While editing a setting, change feature health and verify that the header updates without losing
+  input focus, staged text or scroll position. Exercise `[Unsaved]`, `[Invalid]` and `[Conflict]`
+  markers, their precedence and clearing through Apply/Revert/conflict resolution. A validation
+  error must remain visible after switching away and back; immediate mode controls remain distinct
+  from staged settings.
+- With enough navigation entries to overflow, reach the first and last page at the smallest
+  supported window and largest supported UI scale. Wheel input over navigation text, row gaps and
+  padding scrolls only the rail; input over page content scrolls only that page. Resize while scrolled
+  and reopen Mods to verify bounded offsets, selected-page visibility and bookmark restoration.
+- Open Strategist during loading and after a bulletin arrives. Verify next-step advice, resource
+  shortfalls, capacity blockers and income-measurement states against the displayed game. Switch
+  pages and reload a disposable save to verify that previous controls and advice do not persist.
+  A gross-income estimate is not a promise of wall-clock affordability while other activities spend.
 - Verify native frames remain pointer targets across row gaps and padding, while
   child decoration does not steal input.
 - Verify a contained fault has both structural and color cues, and all genuine
@@ -83,7 +96,10 @@ retries.
   quantity, sibling isolation, and no planting or destructive plot behavior.
 - **Auto Buy and Spell Leveling:** Structure/Upgrade separation, reserves, queue
   room, Bulk Development count, rising costs, Single/All capability, and
-  queued-versus-completed unlock state.
+  queued-versus-completed unlock state. With **Prioritize strategist goal** off, verify ordinary
+  ordering. With it on, verify an eligible affordable preferred Upgrade leads; insufficient resources,
+  configured reserves, an unavailable goal, or unsupported advice preserve ordinary admission and
+  fallback purchasing. Confirm that no resource reservation is implied by the preference.
 - **Auto Cast:** resource deduction, charge hold/release, targets, manual pause,
   audited fire evidence, and a faulted cast backing off only that spell while
   the rest of the loadout keeps casting.

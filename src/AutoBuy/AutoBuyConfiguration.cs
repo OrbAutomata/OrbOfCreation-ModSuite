@@ -8,5 +8,6 @@ internal sealed record AutoBuyConfiguration
     internal bool IncludeStructures { get; init; }
     internal bool IncludeUpgrades { get; init; }
     internal bool AutoLevelSpells { get; init; }
+    internal bool FollowStrategistGoal { get; init; }
     internal int LeaveQueueSlots { get; init; }
 }

@@ -27,8 +27,9 @@ internal sealed class AutoBuyWorkerDefinition :
     /// projection or act on it — the split existed only because the runtime handed the projection a
     /// buffer of its own.
     /// <para>
-    /// The bulletin is taken and not read. Every service is handed all three publications; what Auto
-    /// Buy would do with a stance is a strategist question, and there is no strategist.
+    /// The cycle-pinned goal is only an ordering preference when the player opts in. All ordinary
+    /// admission and spending rules still apply; an unaffordable goal does not reserve money or
+    /// prevent other purchases.
     /// </para>
     /// </remarks>
     public WakePolicy Evaluate(
@@ -46,7 +47,8 @@ internal sealed class AutoBuyWorkerDefinition :
 
         AutoBuyFrameProjector.Project(ref state.Scratch, in config, world);
         var wake = AutoBuyCycleEvaluator.Evaluate(
-            in state.Scratch, in config, context.RetryGate, context.DecisionAt, actions, out var decision);
+            in state.Scratch, in config, context.RetryGate, context.DecisionAt, actions, out var decision,
+            strategy.ActiveGoalId);
         state.RecordDecision(decision);
         return wake;
     }

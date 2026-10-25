@@ -3,7 +3,7 @@ using UnityEngine;
 namespace OrbModConfig;
 
 /// <summary>
-/// Scene-bound prototypes and frame sprites sampled from exact native UI contracts.
+/// Scene-bound static frame sprites sampled from exact native UI contracts.
 /// </summary>
 /// <remarks>
 /// The sampler does not synthesize substitutes. A caller that cannot obtain this complete snapshot
@@ -14,7 +14,6 @@ internal sealed record NativeButtonStateVisualPrimitives(
     Sprite ActiveFrame);
 
 internal sealed record NativeFeatureRailVisualPrimitives(
-    Component FeatureRailButtonPrototype,
     Sprite FeatureRailBaseFrame,
     Sprite FeatureRailActiveFrame,
     Sprite RuntimeIcon,

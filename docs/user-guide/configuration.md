@@ -3,9 +3,9 @@
 [Back to documentation](../README.md) · [Installation](installation.md) ·
 [Troubleshooting](troubleshooting.md)
 
-Open the in-game **Mods** tab and select **Orb Of Creation ModSuite**. The left rail contains
-Runtime, General, Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto Scribe, Mentor,
-and Advanced.
+Open the in-game **Mods** tab. Its left rail scrolls independently of the selected page,
+so every page remains reachable in a small window. **Strategist**
+shows progression advice; **Runtime** shows automation health; the feature pages contain settings.
 
 The suite stores all settings in
 `BepInEx/config/dev.vojow.orbofcreation.modsuite.cfg`. You can edit that file while the game is
@@ -17,9 +17,15 @@ Most settings are staged until you press **Apply**. **Revert** discards staged c
 selected mod. If a hotkey, quick control, or external file edit changes a value you are editing,
 the row asks you to choose **Keep mine** or **Take live** before applying.
 
+Setting names show **[Unsaved]** while an edit is staged, **[Invalid]** when its value needs fixing,
+or **[Conflict]** when an outside edit needs a decision. The footer explains the validation error or
+reminds you to apply unsaved edits. A conflict takes precedence over the other row markers.
+
 Each feature page has an immediate **Turn on** or **Turn off** command. The matching gameplay quick
 control changes the same saved value immediately. A feature that is configured On can still show a
-separate waiting, blocked, or failed status; its tooltip and the Runtime page explain why.
+separate waiting, blocked, or failed status; its tooltip and the Runtime page explain why. The page
+labels the immediate control separately from staged settings. Its status updates while the page is
+open without discarding your input or moving the scroll position.
 
 ## Start safely
 
@@ -41,7 +47,9 @@ given game action.
 
 - **Auto Buy** controls Structure and Upgrade spending separately. Absolute and relative reserves
   protect chosen resources, and `LeaveQueueSlots` keeps room for manual actions. Spell Leveling is
-  enabled by default while Auto Buy is active and can be turned off separately.
+  enabled by default while Auto Buy is active and can be turned off separately. **Prioritize strategist
+  goal** starts off. With Auto Buy and Upgrade spending enabled, it puts the strategist's eligible,
+  affordable goal first. It does not reserve resources or save toward an unaffordable goal.
 - **Auto Cast** starts Disabled, uses `F8` by default, and fully charges charge-capable spells by
   default. Turn off **Full charge** to cast them immediately. **Ritual aware** is on by default:
   attack spells wait for a ritual battle, and during one no channel starts while an attack spell is
@@ -64,6 +72,22 @@ given game action.
 - **Mentor** starts Disabled and uses `Left Alt + M` by default. Choose which mastery domains may
   receive shared XP, the source policy, sharing percentages, and whether the percentage is divided
   across recipients or granted to each recipient.
+
+## Strategist advice
+
+The **Strategist** page shows a suggested next step, the active goal's costs and shortfalls, and
+alternative progression gates. An uncovered cost above storage capacity asks you to raise the relevant
+cap; one with no measured income asks you to find a source. **Referenced by prerequisite rules** names
+content related to that goal. Those rules can include alternatives, and other requirements can still
+block the content. Allocation advice asks for more points without promising when they will arrive.
+
+Advice updates about once a minute and shows the run time of its snapshot. Income estimates use
+sustained gross gains, including bursts, and assume other spending stops. They are guidance rather
+than promises of when a purchase becomes affordable. Loading and retained-snapshot messages explain
+when advice is unavailable or waiting for a fresh reading. A retry failure shows its recorded reason;
+any retained advice keeps its original capture time until a fresh bulletin arrives. Auto Buy returns
+to ordinary ordering after a strategist failure and resumes goal priority only when a fresh bulletin
+arrives. The page itself performs no purchases.
 
 ## Runtime and problem reports
 

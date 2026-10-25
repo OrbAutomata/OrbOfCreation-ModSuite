@@ -103,12 +103,7 @@ internal static class ModConfigUiFactory
             anchorMax,
             active ? ModConfigPalette.ActiveButton : ModConfigPalette.Button);
         var button = gameObject.AddComponent<Button>();
-        var image = gameObject.GetComponent<Image>()!;
-        var native = NativeVisuals;
-        image.sprite = active
-            ? native.FeatureRailActiveFrame
-            : native.FeatureRailBaseFrame;
-        image.color = Color.white;
+        SetButtonActive(button, active);
         ConfiguredIntentButtonVisualOwnership.Claim(button);
         CreateText(
             "Label",
@@ -121,6 +116,16 @@ internal static class ModConfigUiFactory
             0.68f);
         button.onClick.AddListener(action);
         return button;
+    }
+
+    public static void SetButtonActive(Button button, bool active)
+    {
+        var image = button.GetComponent<Image>()!;
+        var native = NativeVisuals;
+        image.sprite = active
+            ? native.FeatureRailActiveFrame
+            : native.FeatureRailBaseFrame;
+        image.color = Color.white;
     }
 
     public static void SetTopAnchoredHeight(RectTransform rect, float topInset, float height)

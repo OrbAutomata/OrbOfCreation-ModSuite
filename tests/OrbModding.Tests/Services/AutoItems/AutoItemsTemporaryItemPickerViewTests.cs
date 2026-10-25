@@ -20,9 +20,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
     public AutoItemsTemporaryItemPickerViewTests()
     {
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
-        var prototype = new GameObject("prototype").AddComponent<MonoBehaviour>();
         ModConfigUiFactory.UseNativeVisuals(new NativeFeatureRailVisualPrimitives(
-            prototype,
             new Sprite(),
             new Sprite(),
             new Sprite(),

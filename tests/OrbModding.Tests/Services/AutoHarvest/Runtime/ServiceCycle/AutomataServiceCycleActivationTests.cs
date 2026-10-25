@@ -39,6 +39,9 @@ public sealed class AutomataServiceCycleActivationTests
         activation.CancelPreparedWork();
 
         Assert.Equal(0, attempts);
+        Assert.Null(activation.ReadStrategistBulletin());
+        Assert.Equal("Waiting for the automation runtime to start.", activation.UnavailableReason);
+        Assert.Equal(0, runtime.BulletinReads);
         Assert.Empty(runtime.TickDurations);
         Assert.Equal(0, runtime.Publications);
         Assert.Equal(0, runtime.Invalidations);
@@ -57,12 +60,18 @@ public sealed class AutomataServiceCycleActivationTests
         Assert.Equal(1, runtime.Publications);
         Assert.Equal(1, runtime.Invalidations);
         Assert.Equal(1, runtime.Cancellations);
+        Assert.Null(activation.ReadStrategistBulletin());
+        Assert.Equal(string.Empty, activation.UnavailableReason);
+        Assert.Equal(1, runtime.BulletinReads);
 
         activation.Dispose();
         activation.Tick(1f);
         activation.PublishSavedConfiguration(snapshot, new ConfigGeneration(3));
 
         Assert.Equal(1, runtime.Disposals);
+        Assert.Null(activation.ReadStrategistBulletin());
+        Assert.Equal("The automation runtime has shut down.", activation.UnavailableReason);
+        Assert.Equal(1, runtime.BulletinReads);
         Assert.Equal(2, runtime.TickDurations.Count);
         Assert.Equal(1, runtime.Publications);
     }
@@ -120,6 +129,8 @@ public sealed class AutomataServiceCycleActivationTests
 
         Assert.Equal(2, attempts);
         Assert.Equal(4, observations);
+        Assert.Null(activation.ReadStrategistBulletin());
+        Assert.Equal("The automation runtime could not start.", activation.UnavailableReason);
     }
 
     [Fact]
@@ -189,6 +200,13 @@ public sealed class AutomataServiceCycleActivationTests
             Publications++;
         public void InvalidateLifecycle() => Invalidations++;
         public void CancelPreparedWork() => Cancellations++;
+        public int BulletinReads { get; private set; }
+        public string UnavailableReason => string.Empty;
+        public OrbModding.Common.Runtime.Strategy.StrategistBulletin? ReadStrategistBulletin()
+        {
+            BulletinReads++;
+            return null;
+        }
         public AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics() =>
             AutomataDiagnosticsRuntimeEvidence.Unavailable("test runtime");
 #if SERVICE_CYCLE_PROFILE

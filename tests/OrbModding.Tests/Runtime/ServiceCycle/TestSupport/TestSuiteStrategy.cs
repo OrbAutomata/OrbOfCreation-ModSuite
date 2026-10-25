@@ -26,7 +26,7 @@ internal static class TestSuiteStrategy
     /// </remarks>
     internal static SuiteStrategy WithSetting(int setting) => new SuiteStrategyBuilder()
         .With(SuiteResourceStance.FloorOf(MarkerResource, new BigDouble(setting)))
-        .Build(SuiteStrategyProvenance.Milestone, Guid.Empty);
+        .Build(SuiteStrategyProvenance.Goal, Guid.Empty);
 
     /// <summary>Reads back what <see cref="WithSetting"/> put in.</summary>
     internal static int SettingOf(SuiteStrategy bulletin) =>

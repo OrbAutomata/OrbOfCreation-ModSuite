@@ -24,12 +24,14 @@ public sealed class RuntimeDiagnosticsProjectionTests
         Assert.Equal(ModConfigTopPageKind.Runtime, pages[0].Kind);
         Assert.Equal("Runtime (2)", pages[0].Label);
         Assert.Equal(-1, pages[0].PluginIndex);
-        Assert.Equal("Orb Automata · Main", pages[1].Label);
-        Assert.Equal(0, pages[1].PluginIndex);
-        Assert.Equal(0, pages[1].SectionIndex);
-        Assert.Equal("Orb Mentor · Main", pages[2].Label);
-        Assert.Equal(1, pages[2].PluginIndex);
+        Assert.Equal(ModConfigTopPageKind.Strategist, pages[1].Kind);
+        Assert.Equal(-1, pages[1].PluginIndex);
+        Assert.Equal("Orb Automata · Main", pages[2].Label);
+        Assert.Equal(0, pages[2].PluginIndex);
         Assert.Equal(0, pages[2].SectionIndex);
+        Assert.Equal("Orb Mentor · Main", pages[3].Label);
+        Assert.Equal(1, pages[3].PluginIndex);
+        Assert.Equal(0, pages[3].SectionIndex);
     }
 
     [Fact]

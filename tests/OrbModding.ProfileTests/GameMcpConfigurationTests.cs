@@ -58,8 +58,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(30, schema.Length);
-        Assert.Equal(30, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(31, schema.Length);
+        Assert.Equal(31, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -257,6 +257,7 @@ public sealed class GameMcpConfigurationTests
             "AutoBuy/IncludeStructures: yes\n" +
             "AutoBuy/IncludeUpgrades: yes\n" +
             "AutoBuy/AutoLevelSpells: yes\n" +
+            "AutoBuy/FollowStrategistGoal: no\n" +
             "AutoBuy/LeaveQueueSlots: 1",
             narrowed);
     }
@@ -612,6 +613,7 @@ public sealed class GameMcpConfigurationTests
                 "AutoBuy/IncludeStructures: bool",
                 "AutoBuy/IncludeUpgrades: bool",
                 "AutoBuy/AutoLevelSpells: bool",
+                "AutoBuy/FollowStrategistGoal: bool",
                 "AutoBuy/LeaveQueueSlots: int",
                 "AutoCast/Mode: AutoCastOperationMode",
                 "AutoCast/StartResourcePercent: float",

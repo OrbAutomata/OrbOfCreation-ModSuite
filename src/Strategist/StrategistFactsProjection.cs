@@ -218,8 +218,9 @@ internal static class StrategistFactsProjection
     }
 
     /// <summary>
-    /// Restoration's own requirements, every unmet requirement behind them, and every requirement that
-    /// names an offered gate.
+    /// Supported prerequisite leaves behind Restoration and leaves naming an offered gate. These
+    /// flattened links establish possible relevance only: group alternatives and unevaluable verdicts
+    /// are not represented as proof that a target must be bought.
     /// </summary>
     private static List<StrategistEdgeFact> CollectEdges(
         GameWorldState world,

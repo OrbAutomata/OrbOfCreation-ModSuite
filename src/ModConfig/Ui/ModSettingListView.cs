@@ -29,6 +29,12 @@ internal sealed class ModSettingListView : IDisposable
     private readonly Action<ConfigEditValue?> _statusChanged;
     private readonly AutoItemsTemporaryItemPickerView _temporaryItemPicker;
     private readonly List<GameObject> _rows = new();
+    private readonly Dictionary<ConfigEditValue, TextMeshProUGUI> _settingTitles = new();
+    private ModConfigFeatureCommand? _featureCommand;
+    private ModConfigFeatureCommandPresentation? _featurePresentation;
+    private TextMeshProUGUI? _featureStatus;
+    private TextMeshProUGUI? _featureButtonLabel;
+    private Button? _featureButton;
 
     public ModSettingListView(
         ConfigEditSession session,
@@ -66,6 +72,7 @@ internal sealed class ModSettingListView : IDisposable
                 contentHeight,
                 MeasuredDescriptionWidth,
                 _content.rect.width);
+        RefreshEditFeedback();
         contentHeight = Math.Max(1f, contentHeight);
         _content.sizeDelta = new Vector2(0f, contentHeight);
         return contentHeight;
@@ -74,14 +81,47 @@ internal sealed class ModSettingListView : IDisposable
     public void Clear()
     {
         ModConfigUiFactory.ClearObjects(_rows);
+        _settingTitles.Clear();
+        _featureCommand = null;
+        _featurePresentation = null;
+        _featureStatus = null;
+        _featureButtonLabel = null;
+        _featureButton = null;
         MeasuredDescriptionWidth = 0f;
+    }
+
+    public void RefreshFeaturePresentation()
+    {
+        if (_featureCommand is null) return;
+        var presentation = _featureCommand.Presentation;
+        if (_featurePresentation == presentation) return;
+        _featureStatus!.text = presentation.StatusText;
+        _featureButtonLabel!.text = presentation.ButtonLabel;
+        ModConfigUiFactory.SetButtonActive(_featureButton!, presentation.IsActive);
+        _featurePresentation = presentation;
+    }
+
+    private void RefreshEditFeedback()
+    {
+        foreach (var pair in _settingTitles)
+        {
+            var edit = pair.Key;
+            var marker = edit.HasExternalConflict
+                ? "[Conflict] "
+                : !edit.IsValid
+                    ? "[Invalid] "
+                    : edit.IsDirty ? "[Unsaved] " : string.Empty;
+            var title = marker + edit.Setting.DisplayName;
+            if (!string.Equals(pair.Value.text, title, StringComparison.Ordinal))
+                pair.Value.text = title;
+        }
     }
 
     public void Dispose() => Clear();
 
     private float CreateFeatureHeader(ModConfigFeatureCommand command, float topOffset)
     {
-        const float headerHeight = 82f;
+        const float headerHeight = 112f;
         var presentation = command.Presentation;
         var row = ModConfigUiFactory.CreateRectObject(
             "Feature." + command.DisplayName,
@@ -98,26 +138,26 @@ internal sealed class ModSettingListView : IDisposable
         ModConfigUiFactory.CreateText(
             "Title",
             row.transform,
-            new Vector2(0.025f, 0.52f),
-            new Vector2(0.56f, 0.94f),
+            new Vector2(0.025f, 0.64f),
+            new Vector2(0.74f, 0.95f),
             _labelTemplate,
             command.DisplayName,
             TextAlignmentOptions.MidlineLeft,
             0.88f);
-        ModConfigUiFactory.CreateText(
+        _featureStatus = ModConfigUiFactory.CreateText(
             "Status",
             row.transform,
-            new Vector2(0.025f, 0.08f),
-            new Vector2(0.74f, 0.5f),
+            new Vector2(0.025f, 0.26f),
+            new Vector2(0.74f, 0.62f),
             _labelTemplate,
             presentation.StatusText,
             TextAlignmentOptions.MidlineLeft,
             0.56f);
-        ModConfigUiFactory.CreateButton(
+        _featureButton = ModConfigUiFactory.CreateButton(
             "ImmediateMode",
             row.transform,
-            new Vector2(0.77f, 0.18f),
-            new Vector2(0.975f, 0.82f),
+            new Vector2(0.77f, 0.35f),
+            new Vector2(0.975f, 0.88f),
             _labelTemplate,
             presentation.ButtonLabel,
             () =>
@@ -127,6 +167,18 @@ internal sealed class ModSettingListView : IDisposable
                 _rebuildRequested();
             },
             active: presentation.IsActive);
+        _featureButtonLabel = _featureButton.GetComponentInChildren<TextMeshProUGUI>();
+        _featureCommand = command;
+        _featurePresentation = presentation;
+        ModConfigUiFactory.CreateText(
+            "StagingHint",
+            row.transform,
+            new Vector2(0.025f, 0.025f),
+            new Vector2(0.975f, 0.24f),
+            _labelTemplate,
+            "This control applies immediately. Settings below require Apply.",
+            TextAlignmentOptions.MidlineLeft,
+            0.52f);
         return headerHeight;
     }
 
@@ -161,6 +213,7 @@ internal sealed class ModSettingListView : IDisposable
             setting.DisplayName,
             TextAlignmentOptions.MidlineLeft,
             0.78f);
+        _settingTitles.Add(edit, keyText);
         ModConfigUiFactory.SetTopAnchoredHeight(
             (RectTransform)keyText.transform,
             SettingTitleTopInset,
@@ -385,6 +438,7 @@ internal sealed class ModSettingListView : IDisposable
         input.onValueChanged.AddListener(value =>
         {
             edit.Stage(value);
+            RefreshEditFeedback();
             _statusChanged(edit);
         });
         input.onEndEdit.AddListener(_ => _rebuildRequested());

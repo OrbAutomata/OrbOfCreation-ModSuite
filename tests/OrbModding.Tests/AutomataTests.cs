@@ -35,6 +35,8 @@ public sealed class AutomataTests
         Assert.Equal(AutoConceptSlotManagementMode.TimedCycle, config.AutoConceptSlotManagement.Value);
         Assert.True(config.AutoConceptShowToggleButton.Value);
         Assert.True(config.AutoLevelSpells.Value);
+        Assert.False(config.FollowStrategistGoal.Value);
+        Assert.False(config.Current.AutoBuy.FollowStrategistGoal);
         Assert.Equal(30, config.AutoConceptTrainingPeriodSeconds.Value);
         Assert.True(config.Current.CanStartAutoBuyActively);
         Assert.False(config.Current.CanStartAutoCastActively);

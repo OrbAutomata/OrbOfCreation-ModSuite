@@ -49,7 +49,7 @@ public sealed class ModConfigTests
 
         var pages = ModConfigTopNavigation.Build(catalog, attentionCount: 0);
 
-        Assert.Equal("Orb Of Creation ModSuite · Auto Buy", ModConfigTopNavigation.DetailTitle(catalog, pages[1]));
+        Assert.Equal("Orb Of Creation ModSuite · Auto Buy", ModConfigTopNavigation.DetailTitle(catalog, pages[2]));
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class ModConfigTests
                 Array.Empty<ConfigSectionDescriptor>()),
         });
 
-        var page = ModConfigTopNavigation.Build(catalog, attentionCount: 0)[1];
+        var page = ModConfigTopNavigation.Build(catalog, attentionCount: 0)[2];
 
         Assert.Equal(-1, page.SectionIndex);
         Assert.Equal("Orb Of Creation ModSuite", page.Label);
@@ -180,8 +180,8 @@ public sealed class ModConfigTests
             mod.Sections.Select(section => section.Name));
         Assert.DoesNotContain(mod.Sections, section => section.Name == "Research" || section.Name == "ActiveMode");
         Assert.Equal(
-            new[] { "Mode", "IncludeStructures", "IncludeUpgrades", "AutoLevelSpells", "AffordabilityMode", "UpgradeAffordabilityMode", "LeaveQueueSlots" },
-            mod.Sections.Single(section => section.Name == "Auto Buy").Settings.Take(7).Select(setting => setting.Key));
+            new[] { "Mode", "IncludeStructures", "IncludeUpgrades", "AutoLevelSpells", "FollowStrategistGoal", "AffordabilityMode", "UpgradeAffordabilityMode", "LeaveQueueSlots" },
+            mod.Sections.Single(section => section.Name == "Auto Buy").Settings.Take(8).Select(setting => setting.Key));
         Assert.Equal(
             new[] { "Mode", "FullCharge", "RitualAware", "ToggleShortcut", "StartResourcePercent", "ManualPauseSeconds" },
             mod.Sections.Single(section => section.Name == "Auto Cast").Settings.Select(setting => setting.Key));
@@ -259,8 +259,13 @@ public sealed class ModConfigTests
         Assert.True(session.DependencySatisfied(settings["AutoCast.Mode"]));
         Assert.True(session.DependencySatisfied(settings["AutoCast.ToggleShortcut"]));
         Assert.True(session.DependencySatisfied(settings["AutoBuy.AutoLevelSpells"]));
+        Assert.True(session.DependencySatisfied(settings["AutoBuy.FollowStrategistGoal"]));
+        session.Get(settings["AutoBuy.IncludeUpgrades"]).Stage("false");
+        Assert.False(session.DependencySatisfied(settings["AutoBuy.FollowStrategistGoal"]));
+        session.Get(settings["AutoBuy.IncludeUpgrades"]).Stage("true");
         session.Get(settings["AutoBuy.Mode"]).Stage("Disabled");
         Assert.False(session.DependencySatisfied(settings["AutoBuy.AutoLevelSpells"]));
+        Assert.False(session.DependencySatisfied(settings["AutoBuy.FollowStrategistGoal"]));
         session.Get(settings["AutoBuy.Mode"]).Stage("Active");
         Assert.False(session.DependencySatisfied(settings["AutoCast.FullCharge"]));
         Assert.False(session.DependencySatisfied(settings["AutoConcept.SlotManagementMode"]));
@@ -287,7 +292,7 @@ public sealed class ModConfigTests
         Assert.Equal(
             new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Scribe", "Mentor", "Advanced" },
             mod.Sections.Select(section => section.Name));
-        Assert.Equal(10, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
+        Assert.Equal(11, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
         Assert.All(
             mod.Sections.Where(section => section.Name is "Auto Buy" or "Auto Cast" or "Auto Concept" or "Auto Harvest" or "Auto Items" or "Auto Scribe" or "Mentor"),
             section => Assert.True(ModSettingsPage.IsImmediateCommandSetting(
@@ -330,7 +335,7 @@ public sealed class ModConfigTests
     }
 
     [Fact]
-    public void ModsRailBuildsEveryRegisteredConsolidatedPageWithDistinctAuditedIconsWithoutAnEquippedSpell()
+    public void ModsRailBuildsEveryRegisteredPageWithoutAnEquippedSpell()
     {
         var config = new ConfigFile();
         BepInExAutomataConfiguration.Bind(config);
@@ -340,14 +345,9 @@ public sealed class ModConfigTests
             new ConfigPluginSource("suite", "Orb Of Creation ModSuite", "test", config),
         });
         var pages = ModConfigTopNavigation.Build(catalog, attentionCount: 0);
-        var prototypeObject = new GameObject(
-            "NativeRailPrototype",
-            typeof(RectTransform));
-        var prototype = prototypeObject.AddComponent<Behaviour>();
         var inactive = new Sprite();
         var active = new Sprite();
         var primitives = new NativeFeatureRailVisualPrimitives(
-            prototype,
             inactive,
             active,
             new Sprite(),
@@ -369,7 +369,7 @@ public sealed class ModConfigTests
             Assert.True(
                 ModConfigNativeRailFactory.TryBuild(
                     parent,
-                    pages.Select(page => page.Label).ToArray(),
+                    pages,
                     selected: 0,
                     owned,
                     template,
@@ -384,47 +384,22 @@ public sealed class ModConfigTests
             global::SpellManager.instance = previousSpellManager;
             foreach (var item in owned) UnityEngine.Object.Destroy(item);
             UnityEngine.Object.Destroy(template.gameObject);
-            UnityEngine.Object.Destroy(prototypeObject);
             UnityEngine.Object.Destroy(parent.gameObject);
         }
     }
 
     [Fact]
-    public void ModsRailRejectsAnyDuplicateRegisteredPageGlyph()
+    public void ThirdPartyPagesUseExplicitSettingsIconsEvenWhenLabelsMatchSuiteFeatures()
     {
-        var prototypeObject = new GameObject(
-            "NativeRailPrototype",
-            typeof(RectTransform));
-        var prototype = prototypeObject.AddComponent<Behaviour>();
-        var duplicate = new Sprite();
-        var primitives = new NativeFeatureRailVisualPrimitives(
-            prototype,
-            new Sprite(),
-            new Sprite(),
-            duplicate,
-            duplicate,
-            new Sprite(),
-            new Sprite(),
-            new Sprite(),
-            new Sprite());
-        var parent = (RectTransform)new GameObject(
-            "RailParent",
-            typeof(RectTransform)).transform;
-        var template = new GameObject("LabelTemplate").AddComponent<TextMeshProUGUI>();
-        var owned = new List<GameObject>();
-
-        Assert.False(
-            ModConfigNativeRailFactory.TryBuild(
-                parent,
-                new[] { "Runtime", "General" },
-                selected: 0,
-                owned,
-                template,
-                primitives,
-                _ => { },
-                out var reason));
-        Assert.Empty(owned);
-        Assert.Contains("resolve the same sprite", reason);
+        var catalog = new ConfigCatalogSnapshot(new[]
+        {
+            new ModConfigDescriptor("third.party", "External", "1",
+                new[] { new ConfigSectionDescriptor("Auto Buy", Array.Empty<ConfigSettingDescriptor>()) }),
+        });
+        var page = ModConfigTopNavigation.Build(catalog, 0).Single(page => page.Kind == ModConfigTopPageKind.PluginSettings);
+        Assert.Equal(NativeFeatureIcon.Settings, page.Icon);
+        Assert.False(NativeFeatureIconResolver.TryResolve("Unregistered feature", null, out _, out var reason));
+        Assert.Contains("unrecognized", reason);
     }
 
     [Fact]

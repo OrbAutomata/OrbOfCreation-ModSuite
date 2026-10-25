@@ -27,7 +27,42 @@ internal static class StrategistDerivation
             PublicationTable<StrategistIncome>.Create(context.IncomeRows),
             restoration,
             PublicationTable<StrategistGoal>.Create(goals),
-            PublicationTable<StrategistDemand>.Create(Demand(context, goals)));
+            PublicationTable<StrategistDemand>.Create(Demand(context, goals)),
+            Advice(context, goals));
+    }
+
+    /// <summary>
+    /// Explains the first ranked goal's costs. A held price is ready even while income is measuring;
+    /// only a short price needs an accumulation, capacity, source, measurement or allocation step.
+    /// </summary>
+    private static StrategistAdvice Advice(Context context, StrategistGoal[] goals)
+    {
+        if (goals.Length == 0)
+            return new StrategistAdvice(
+                Guid.Empty, StrategistAdviceKind.NoGoal, Guid.Empty, PublicationTable<StrategistAdviceCost>.Empty);
+        var goal = goals[0];
+        var costs = new StrategistAdviceCost[goal.Costs.Count];
+        for (var index = 0; index < costs.Length; index++)
+        {
+            var price = goal.Costs[index];
+            var kind = !price.IsShort ? StrategistAdviceKind.Ready : price.Tier switch
+            {
+                StrategistCostTier.OutOfReach => price.OutOfReach == StrategistOutOfReach.AboveCap
+                    ? StrategistAdviceKind.IncreaseCapacity
+                    : StrategistAdviceKind.ObtainIncome,
+                StrategistCostTier.Measuring => StrategistAdviceKind.MeasureIncome,
+                StrategistCostTier.Allocation => StrategistAdviceKind.AllocatePoints,
+                _ => StrategistAdviceKind.SaveResources,
+            };
+            costs[index] = new StrategistAdviceCost(price, kind, context.CapacityFor(price.ResourceId));
+        }
+        var bottleneck = goal.Binder >= 0 ? costs[goal.Binder] : default;
+        var next = goal.Binder >= 0 ? bottleneck.Kind : StrategistAdviceKind.Ready;
+        return new StrategistAdvice(
+            goal.GateId,
+            next,
+            next == StrategistAdviceKind.Ready ? Guid.Empty : bottleneck.ResourceId,
+            PublicationTable<StrategistAdviceCost>.Create(costs));
     }
 
     /// <summary>
@@ -132,8 +167,8 @@ internal static class StrategistDerivation
     }
 
     /// <summary>
-    /// Walks back from Restoration through every unmet requirement: what is on that walk is what still
-    /// stands between the run and finishing the world.
+    /// Walks supported prerequisite leaves back from Restoration. The flattened edges express
+    /// relevance, not mandatory steps: alternative grouping and unevaluable conditions are not kept.
     /// </summary>
     private static StrategistRestoration Restoration(Context context, out HashSet<Guid> chain)
     {
@@ -179,7 +214,7 @@ internal static class StrategistDerivation
     }
 
     /// <summary>
-    /// Every reachable gate, ranked by what it serves: the Restoration chain first, then everything
+    /// Every offered gate, ranked by captured relevance: Restoration-related first, then everything
     /// else; sooner first within a rank.
     /// </summary>
     private static StrategistGoal[] Goals(Context context, HashSet<Guid> chain)
@@ -300,6 +335,8 @@ internal static class StrategistDerivation
         internal StrategistFacts Facts { get; }
         internal Dictionary<Guid, StrategistNodeFact> Nodes { get; } = new();
         internal StrategistIncome[] IncomeRows { get; }
+
+        internal BigDouble CapacityFor(Guid resourceId) => _resources[resourceId].Cap;
 
         internal StrategistPrice Judge(in StrategistPriceFact price)
         {
