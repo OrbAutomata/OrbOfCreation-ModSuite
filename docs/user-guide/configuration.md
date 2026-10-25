@@ -25,13 +25,13 @@ Each feature page has an immediate **Turn on** or **Turn off** command. The matc
 control changes the same saved value immediately. A feature that is configured On can still show a
 separate waiting, blocked, or failed status; its tooltip and the Runtime page explain why. The page
 labels the immediate control separately from staged settings. Its status updates while the page is
-open without discarding your input or moving the scroll position.
+open without discarding your input. Longer policy details expand the header and reflow following
+rows while retaining editor widgets and drafts; a shorter page clamps the scroll only when needed.
 
 ## Start safely
 
-Auto Buy starts Active. Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto Scribe, and Mentor
-start Disabled. Review Auto Buy's reserves and queue settings before playing, then enable other
-features one at a time.
+Auto Buy starts Active. Review its reserves and queue settings before playing, then review each
+feature's mode and enable additional automation one feature at a time.
 
 The top-left **STOP ALL** control is always available during gameplay. It immediately stops new
 suite actions and discards prepared automation work. Press it again to resume. The **General** page
@@ -45,6 +45,13 @@ given game action.
 
 ## Feature settings
 
+- **Auto Levels** starts Disabled and adjusts global level dials within regeneration and drain
+  budgets. [Automatic levels](automatic-levels.md) explains its choices and per-dial status.
+- **Quality of Life** starts Disabled. **Mute passive notifications** is selected behind that switch
+  and silences encountered reflective Learning mutagen popups while their resource effects continue.
+  The game saves these mute choices. While enabled, the feature reapplies them if you unmute a
+  supported passive. Turn the feature or the option off before unmuting through the game's own
+  control; disabling automation does not unmute anything.
 - **Auto Buy** controls Structure and Upgrade spending separately. Absolute and relative reserves
   protect chosen resources, and `LeaveQueueSlots` keeps room for manual actions. Spell Leveling is
   enabled by default while Auto Buy is active and can be turned off separately. **Prioritize strategist

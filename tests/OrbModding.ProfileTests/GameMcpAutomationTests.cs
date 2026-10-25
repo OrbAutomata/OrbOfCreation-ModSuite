@@ -13,7 +13,7 @@ namespace OrbModding.ProfileTests;
 public sealed class GameMcpAutomationTests
 {
     [Fact]
-    public void The_tool_offers_exactly_the_seven_on_off_buttons_the_player_sees()
+    public void The_tool_offers_every_registered_on_off_button_the_player_sees()
     {
         var tool = Assert.Single(
             GameMcpAcceptanceFixture.Tools(),
@@ -26,7 +26,7 @@ public sealed class GameMcpAutomationTests
             new[]
             {
                 "auto_buy", "auto_cast", "auto_concept", "auto_harvest",
-                "auto_items", "auto_scribe", "mentor",
+                "auto_items", "auto_scribe", "mentor", "auto_levels", "quality_of_life",
             },
             tool["inputSchema"]!["properties"]!["feature"]!["enum"]!.Values<string>().ToArray());
     }
@@ -57,7 +57,7 @@ public sealed class GameMcpAutomationTests
             name => Assert.Contains(name, description, StringComparison.Ordinal));
         Assert.Contains("suite_emergency_stop", description, StringComparison.Ordinal);
         Assert.Contains("suite_config_set", description, StringComparison.Ordinal);
-        Assert.Contains("seven green/gray breakers", description, StringComparison.Ordinal);
+        Assert.Contains("green/gray breakers", description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -66,7 +66,7 @@ public sealed class GameMcpAutomationTests
     /// doors.
     /// </summary>
     [Fact]
-    public void The_seven_settings_behind_the_breakers_are_the_breakers_own()
+    public void The_settings_behind_the_breakers_are_the_breakers_own()
     {
         Assert.All(
             GameMcpAutomationFeatures.All,
@@ -97,14 +97,14 @@ public sealed class GameMcpAutomationTests
             GameMcpDecisionReason.ClassInput,
             GameMcpDecisionReason.Class("wrong_configuration_surface"));
         Assert.Equal(
-            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
+            "This setting is one of the breakers, and suite_breakers is the one door that " +
             "flips it; suite_configuration still reads its value.",
             GameMcpDecisionReason.For("wrong_configuration_surface"));
 
         // A caller reading the settings verb learns where the seven went before spending a call.
         Assert.Equal(
             "Write one allowlisted setting through the single committed configuration-store " +
-            "publication path. The seven Mode settings behind the breakers are refused here and " +
+            "publication path. The Mode settings behind the breakers are refused here and " +
             "flipped with suite_breakers; suite_configuration still reads their values alongside " +
             "every other setting's.",
             (string)Assert.Single(
@@ -117,7 +117,7 @@ public sealed class GameMcpAutomationTests
     {
         var rows = Rows(Configuration(autoBuy: true, mentor: true));
 
-        Assert.Equal(7, rows.Count);
+        Assert.Equal(9, rows.Count);
         Assert.Equal("auto_buy", (string?)rows[0]["feature"]);
         // Every row names its feature the way the Mods rail names it.
         Assert.Equal("Auto Buy", (string?)rows[0]["name"]);

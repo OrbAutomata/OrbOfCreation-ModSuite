@@ -21,6 +21,32 @@ public sealed class AutomataWorldCollectionServiceTests : GameWorldCollectorTest
     private static readonly Guid Mana = Guid.NewGuid();
     private static readonly Guid Water = Guid.NewGuid();
 
+    [Theory]
+    [InlineData(true, true, false, true)]
+    [InlineData(false, true, false, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, true, false)]
+    public void ForecastCaptureRunsOnlyWhileAutoLevelsIsOperational(bool active, bool enabled, bool stopped, bool expected)
+    {
+        var inspected = false;
+        var capture = new ReportedCapture((frame, _) =>
+        {
+            inspected = true;
+            Assert.Equal(expected, frame.CaptureLevelEconomy);
+        });
+        var definition = AutomataWorldCollectionService.Define(capture, new FakePublish(), new AutomataWorldDemand());
+        var frame = new GameWorldCycleFrame { CaptureLevelEconomy = !expected };
+        var config = new SuiteRuntimeConfiguration
+        {
+            General = new SuiteGeneralConfiguration { Enabled = enabled },
+            Safety = new SuiteSafetyConfiguration { EmergencyDisable = stopped },
+            AutoLevels = new AutoLevelsConfiguration { Mode = active ? AutoLevelsOperationMode.Active : AutoLevelsOperationMode.Disabled },
+        };
+        var result = definition.Capture(frame, in config, CaptureContext());
+        Assert.Equal(ServiceCaptureDisposition.Captured, result.Disposition);
+        Assert.True(inspected);
+    }
+
     [Fact]
     public void CaptureThenEvaluatePublishesWhatWasCollected()
     {

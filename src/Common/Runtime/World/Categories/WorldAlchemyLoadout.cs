@@ -109,10 +109,12 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
     private readonly Func<object, Guid>? _costResourceId;
     private readonly Func<object, BigDouble>? _costAmount;
     private readonly string _unavailable;
+    private readonly WorldAlchemyLevelCapture _levels;
 
     internal WorldAlchemyLoadoutReader(Func<string, Type?> resolveType)
     {
         if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
+        _levels = new WorldAlchemyLevelCapture(resolveType);
         _managerType = resolveType("AlchemyManager");
         var listType = resolveType("AlchemyInstanceListVariable");
         var recipeListType = resolveType("AlchemyRecipeListVariable");
@@ -162,6 +164,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         if (frame is null) throw new ArgumentNullException(nameof(frame));
         ResetRows(frame);
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
+        if (frame.CaptureLevelEconomy) _levels.Begin();
         var readOwnerId = Guid.Empty;
         try
         {
@@ -174,6 +177,11 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
                 return WorldCategoryReport.Missing(Category, "the ordinary alchemy lists are unavailable");
             var active = _activeValues!(activeList);
             var recipes = _recipeValues!(recipeList);
+            if (frame.CaptureLevelEconomy)
+            {
+                _levels.CaptureActive(active);
+                frame.LevelEconomy.SetAlchemyInputs(_levels.Finish());
+            }
             var sampled = 0;
             var skipped = 0;
             var firstFailure = default(WorldCollectionFailure);
@@ -232,6 +240,8 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
     {
         frame.AlchemyLoadout.Reset();
         frame.AlchemyUsageCosts.Reset();
+        if (frame.CaptureLevelEconomy) frame.LevelEconomy.SetAlchemyInputs(WorldAlchemyLevelInputs.Unavailable(
+            "The ordinary Alchemy loadout has not been collected successfully."));
     }
 
     private void AppendCosts(Guid recipeId, object cost,
@@ -258,7 +268,7 @@ internal sealed class WorldAlchemyLoadoutReader : IWorldCategoryReader
         _maximumCostTimes is not null && _costIsEmpty is not null && _costEntries is not null &&
         _costResourceId is not null && _costAmount is not null;
 
-    private static bool IsOrdinaryCore(Guid id) => id == KnownEntities.Alchemy.Uuid ||
+    internal static bool IsOrdinaryCore(Guid id) => id == KnownEntities.Alchemy.Uuid ||
         id == KnownEntities.Brewing.Uuid || id == KnownEntities.Dismantle.Uuid ||
         id == KnownEntities.Enchantment.Uuid || id == KnownEntities.Refinement.Uuid ||
         id == KnownEntities.Transmutation.Uuid;

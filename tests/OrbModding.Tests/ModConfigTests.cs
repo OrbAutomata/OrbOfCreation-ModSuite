@@ -171,12 +171,12 @@ public sealed class ModConfigTests
 
         var mod = ConfigCatalog.Build(new[]
             {
-                new ConfigPluginSource("automata", "Automata", "test", config),
+                new ConfigPluginSource(PluginIds.SuiteGuid, "Automata", "test", config),
             })
             .Mods.Single();
 
         Assert.Equal(
-            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Scribe", "Advanced" },
+            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Quality of Life", "Advanced" },
             mod.Sections.Select(section => section.Name));
         Assert.DoesNotContain(mod.Sections, section => section.Name == "Research" || section.Name == "ActiveMode");
         Assert.Equal(
@@ -277,7 +277,7 @@ public sealed class ModConfigTests
     }
 
     [Fact]
-    public void SuiteCatalogConsolidatesLegacyTabsIntoNineFeaturePages()
+    public void SuiteCatalogExposesTheRegisteredFeaturePages()
     {
         var config = new ConfigFile();
         BepInExAutomataConfiguration.Bind(config);
@@ -285,16 +285,16 @@ public sealed class ModConfigTests
 
         var mod = ConfigCatalog.Build(new[]
             {
-                new ConfigPluginSource("suite", "Orb Of Creation ModSuite", "test", config),
+                new ConfigPluginSource(PluginIds.SuiteGuid, "Orb Of Creation ModSuite", "test", config),
             })
             .Mods.Single();
 
         Assert.Equal(
-            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Scribe", "Mentor", "Advanced" },
+            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Mentor", "Quality of Life", "Advanced" },
             mod.Sections.Select(section => section.Name));
-        Assert.Equal(11, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
+        Assert.Equal(13, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
         Assert.All(
-            mod.Sections.Where(section => section.Name is "Auto Buy" or "Auto Cast" or "Auto Concept" or "Auto Harvest" or "Auto Items" or "Auto Scribe" or "Mentor"),
+            mod.Sections.Where(section => AutomataFeatureCatalog.All.Any(feature => feature.PageLabel == section.Name)),
             section => Assert.True(ModSettingsPage.IsImmediateCommandSetting(
                 section.Settings.Single(setting => setting.Key == "Mode"))));
     }
@@ -342,7 +342,7 @@ public sealed class ModConfigTests
         MentorConfig.Bind(config);
         var catalog = ConfigCatalog.Build(new[]
         {
-            new ConfigPluginSource("suite", "Orb Of Creation ModSuite", "test", config),
+            new ConfigPluginSource(PluginIds.SuiteGuid, "Orb Of Creation ModSuite", "test", config),
         });
         var pages = ModConfigTopNavigation.Build(catalog, attentionCount: 0);
         var inactive = new Sprite();

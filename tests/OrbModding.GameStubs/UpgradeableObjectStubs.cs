@@ -25,8 +25,52 @@ public abstract class UpgradeableObject : TooltipableObject
         public string propertyType = string.Empty;
         public ValueModifier modifier;
         public bool useTargetRef;
+        public ModifierRecord? GetRecord() => PropertyRecord(upgradeableObject, propertyType);
     }
 
 
+
+    private static ModifierRecord? PropertyRecord(UpgradeableObject? target, string property) => target switch
+    {
+        HarvestActionTypeSO type => property switch
+        {
+            "Speed" => type.speed, "Cost" => type.costMod, "GrowthSizeMod" => type.growthSizeMod,
+            "Power" => type.power, "RefundRating" => type.refundRating, _ => null,
+        },
+        PlotNodeActionSO action => property switch
+        {
+            "Speed" => action.speed, "Cost" => action.costMod, "GrowthSizeMod" => action.growthSizeMod,
+            "Power" => action.power, "RefundRating" => action.refundRating, _ => null,
+        },
+        PlotNodeSO plot => property switch
+        {
+            "ActionSpeed" => plot.actionSpeed, "ActionCost" => plot.actionCostMod,
+            "Yield" => plot.yieldMod, "Special" => plot.specialMod, "Size" => plot.sizeMod,
+            "Quality" => plot.qualityMod, _ => null,
+        },
+        _ => null,
+    };
+
+    public class ValueExtractor
+    {
+        public UpgradeableObject? upgradeableObject;
+        public string propertyType = string.Empty;
+        public BigDouble plainValue = new BigDouble(100);
+        public ModifierRecord? GetRecord() => PropertyRecord(upgradeableObject, propertyType);
+        public BigDouble GetValue() => plainValue;
+    }
+    public sealed class ValueTransmuter : ValueExtractor
+    {
+        public enum ExtractionType { Percentage, PercentModifier, PercentList, Raw, RawModifier, RawList }
+        public ExtractionType extractionType;
+        public bool invertExtraction;
+        public ValueModifier extractionMod;
+        public ModifierListRef extractionModList = new ModifierListRef();
+    }
+    public sealed class ValueTransmuterList
+    {
+        public List<ValueTransmuter> transmuters = new List<ValueTransmuter>();
+    }
+    public sealed class ValueTransmuterMap : ScalingMap<ValueTransmuterList> { }
 
 }

@@ -334,6 +334,7 @@ internal static class GameMcpConfigurationValuePolicy
         if (type == typeof(bool)) return "bool";
         if (type == typeof(int)) return "int";
         if (type == typeof(float)) return "float";
+        if (type == typeof(double)) return "double";
         if (type == typeof(string)) return "string";
         throw new InvalidOperationException(
             "no wire word is declared for writable setting type '" +

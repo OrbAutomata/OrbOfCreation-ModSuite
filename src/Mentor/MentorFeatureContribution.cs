@@ -13,7 +13,8 @@ internal sealed class MentorFeatureContribution : AutomataFeatureContribution
     internal const int ConfigurationPageOrder = 19;
 
     internal MentorFeatureContribution() : base(FeatureId, "Orb Mentor", MentorServicePolicies.ServiceId.Value,
-        null, PageName, ConfigurationPageOrder, 4, traceName: PageName) { }
+        null, PageName, ConfigurationPageOrder, 4, traceName: PageName,
+        iconIdentity: NativeFeatureIcon.Mentor, modeConfigurationSection: "General") { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.Mentor.Mode == MentorOperationMode.Active;

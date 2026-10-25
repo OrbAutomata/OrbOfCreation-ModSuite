@@ -12,7 +12,7 @@ public readonly struct ServiceRetryTarget : IEquatable<ServiceRetryTarget>
     public ServiceRetryTarget(Guid id, ServiceActionNativeTypeId nativeType, byte actionKind = 0)
     {
         if (id == Guid.Empty) throw new ArgumentException("A retry target needs its stable UUID.", nameof(id));
-        if (nativeType is <= ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.EquipmentSO)
+        if (nativeType is <= ServiceActionNativeTypeId.NotApplicable or > ServiceActionNativeTypeId.IntVariable)
             throw new ArgumentOutOfRangeException(nameof(nativeType));
         Id = id;
         NativeType = nativeType;

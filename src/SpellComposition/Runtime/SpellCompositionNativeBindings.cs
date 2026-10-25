@@ -21,6 +21,7 @@ internal sealed class SpellCompositionNativeBindings
         "spell-composition.player-alchemy-level-action",
         "spell-composition.player-maximum-alchemy-level-action",
         "spell-composition.dial-view-availability-action",
+        "id-scriptable-object.get-guid-action",
         "int-variable.as-int",
         "int-variable.set-value",
     };
@@ -37,6 +38,7 @@ internal sealed class SpellCompositionNativeBindings
         Func<object, object> maximumAlchemyVariable,
         Type viewType,
         Func<object, bool> viewAvailable,
+        Func<object, Guid> variableIdentity,
         Func<object, int> asInt,
         Action<object, int> setInt)
     {
@@ -51,6 +53,7 @@ internal sealed class SpellCompositionNativeBindings
         ReadMaximumAlchemyVariable = maximumAlchemyVariable;
         ViewType = viewType;
         IsViewAvailable = viewAvailable;
+        ReadVariableIdentity = variableIdentity;
         ReadInt = asInt;
         SetInt = setInt;
     }
@@ -67,6 +70,7 @@ internal sealed class SpellCompositionNativeBindings
     internal Type ViewType { get; }
 
     internal Func<object, bool> IsViewAvailable { get; }
+    internal Func<object, Guid> ReadVariableIdentity { get; }
     internal Func<object, int> ReadInt { get; }
     internal Action<object, int> SetInt { get; }
 
@@ -106,6 +110,7 @@ internal sealed class SpellCompositionNativeBindings
                 view,
                 set.Call<Func<object, bool>>(
                     "spell-composition.dial-view-availability-action", view, "IsAvailable", typeof(bool)),
+                set.StableUuid("id-scriptable-object.get-guid-action", integer),
                 set.Call<Func<object, int>>("int-variable.as-int", integer, "AsInt", typeof(int)),
                 set.Call<Action<object, int>>(
                     "int-variable.set-value", integer, "SetValue", typeof(void), typeof(int)));

@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Linq;
 using OrbModConfig;
 using UnityEngine;
 
@@ -34,15 +35,10 @@ internal static class NativeFeatureIconResolver
         "Runtime" => NativeFeatureIcon.Runtime,
         "Strategist" => NativeFeatureIcon.Strategist,
         "General" => NativeFeatureIcon.General,
-        "Auto Buy" => NativeFeatureIcon.AutoBuy,
-        "Auto Cast" => NativeFeatureIcon.AutoCast,
-        "Auto Concept" => NativeFeatureIcon.AutoConcept,
-        "Auto Harvest" => NativeFeatureIcon.AutoHarvest,
-        "Mentor" => NativeFeatureIcon.Mentor,
-        "Auto Items" => NativeFeatureIcon.AutoItems,
-        "Auto Scribe" => NativeFeatureIcon.AutoScribe,
         "Advanced" => NativeFeatureIcon.Advanced,
-        _ => NativeFeatureIcon.Unknown,
+        _ => AutomataFeatureCatalog.All.FirstOrDefault(contribution =>
+            string.Equals(contribution.PageLabel, feature, StringComparison.Ordinal))?.IconIdentity
+            ?? NativeFeatureIcon.Unknown,
     };
 
     internal static bool TryResolve(

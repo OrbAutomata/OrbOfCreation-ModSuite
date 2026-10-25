@@ -516,6 +516,7 @@ internal static class DiagnosticsBundleBuilder
                 .Append(" | code=").Append(feature.Reason.Code)
                 .Append(" | generation=").Append(feature.LifecycleGeneration);
             if (!feature.Reason.IsEmpty) text.Append(" | reason=").Append(feature.Reason.Summary);
+            if (!string.IsNullOrWhiteSpace(feature.Detail)) text.Append(" | detail=").Append(feature.Detail);
             text.AppendLine();
         }
         text.AppendLine();

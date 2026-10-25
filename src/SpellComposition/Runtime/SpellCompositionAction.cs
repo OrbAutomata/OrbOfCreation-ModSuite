@@ -1,30 +1,30 @@
+using OrbModding.Common.Runtime.World;
 using System;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 
 namespace OrbAutomata;
 
-internal enum LevelDial
-{
-    Output = 0,
-    Reserve = 1,
-    Druidry = 2,
-    Alchemy = 3,
-}
-
 /// <summary>One level-dial change: a −/+ adjuster that moves a level inside its raised cap.</summary>
 internal readonly struct SpellCompositionAction
 {
-    internal SpellCompositionAction(LevelDial dial, int value, long lifecycleEpoch)
+    internal SpellCompositionAction(LevelDial dial, int value, long lifecycleEpoch, int? expectedCurrentLevel = null,
+        Guid? expectedIdentity = null)
     {
         if (!Enum.IsDefined(typeof(LevelDial), dial))
             throw new ArgumentOutOfRangeException(nameof(dial));
         if (value <= 0) throw new ArgumentOutOfRangeException(nameof(value));
+        if (expectedCurrentLevel is <= 0) throw new ArgumentOutOfRangeException(nameof(expectedCurrentLevel));
+        if (expectedIdentity == Guid.Empty) throw new ArgumentOutOfRangeException(nameof(expectedIdentity));
+        ExpectedIdentity = expectedIdentity;
+        ExpectedCurrentLevel = expectedCurrentLevel;
         Dial = dial;
         Value = value;
         LifecycleEpoch = lifecycleEpoch;
     }
 
+    internal Guid? ExpectedIdentity { get; }
+    internal int? ExpectedCurrentLevel { get; }
     internal LevelDial Dial { get; }
     internal int Value { get; }
     internal long LifecycleEpoch { get; }
@@ -75,5 +75,6 @@ internal static class SpellCompositionActionResultCodes
     internal static readonly ServiceActionResultCode MutationPermitUnavailable = new(7314, "action_family_unavailable");
     internal static readonly ServiceActionResultCode PostCommitFault = new(7315, "post_commit_fault");
     internal static readonly ServiceActionResultCode VerificationFailed = new(7316, "verification_failed");
+    internal static readonly ServiceActionResultCode StateChanged = new(7318, "dial_changed");
     internal static readonly ServiceActionResultCode ControlLocked = new(7317, "screen_locked");
 }

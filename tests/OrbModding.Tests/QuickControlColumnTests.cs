@@ -209,11 +209,6 @@ public sealed class QuickControlColumnTests
                 1,
                 (context.Registry.Features.Count + QuickControlColumn.DrawerColumnCount - 1) /
                 QuickControlColumn.DrawerColumnCount);
-            Assert.Equal(2, rowCount);
-            Assert.Equal(
-                1,
-                (QuickControlColumn.DrawerColumnCount * rowCount) -
-                context.Registry.Features.Count);
             Assert.Equal(
                 (2f * QuickControlColumn.DrawerPadding) +
                 (QuickControlColumn.DrawerColumnCount *
@@ -244,11 +239,20 @@ public sealed class QuickControlColumnTests
             Assert.Equal(-QuickControlColumn.DrawerBorderInset, fillRect.offsetMax.x);
             Assert.Equal(-QuickControlColumn.DrawerBorderInset, fillRect.offsetMax.y);
 
+            var renderedRowTops = new HashSet<float>();
             for (var index = 0; index < context.Registry.Features.Count; index++)
             {
                 var registration = context.Registry.Features[index];
                 Assert.True(liveColumn.TryGetButton(registration.FeatureId, out var feature));
                 var featureRect = Assert.IsType<RectTransform>(feature.transform);
+                renderedRowTops.Add(featureRect.anchoredPosition.y);
+                Assert.True(feature.gameObject.activeInHierarchy);
+                Assert.Equal(QuickControlColumn.FeatureControlSize, featureRect.sizeDelta.x);
+                Assert.Equal(QuickControlColumn.FeatureControlSize, featureRect.sizeDelta.y);
+                Assert.True(featureRect.anchoredPosition.x + featureRect.sizeDelta.x <=
+                    drawer.sizeDelta.x - QuickControlColumn.DrawerPadding);
+                Assert.True(-featureRect.anchoredPosition.y + featureRect.sizeDelta.y <=
+                    drawer.sizeDelta.y - QuickControlColumn.DrawerPadding);
                 Assert.Same(drawer, featureRect.parent);
                 Assert.Equal(
                     QuickControlColumn.DrawerPadding +
@@ -263,6 +267,9 @@ public sealed class QuickControlColumnTests
                         QuickControlColumn.DrawerGridGap))),
                     featureRect.anchoredPosition.y);
             }
+            Assert.Equal(rowCount, renderedRowTops.Count);
+            Assert.InRange(QuickControlColumn.DrawerColumnCount * renderedRowTops.Count - context.Registry.Features.Count,
+                0, QuickControlColumn.DrawerColumnCount - 1);
             Assert.Equal(2 + context.Registry.Features.Count, CountLiveButtons(root));
             Assert.False(DirectChild(disclosure.transform, "ClosedGlyph").gameObject.activeSelf);
             Assert.True(DirectChild(disclosure.transform, "OpenGlyph").gameObject.activeSelf);

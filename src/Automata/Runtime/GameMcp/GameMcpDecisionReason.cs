@@ -260,6 +260,7 @@ internal static class GameMcpDecisionReason
         ["keyword_not_worn"] = new(ClassInput),
         ["keyword_unknown"] = new(ClassInput),
         ["unsupported_type"] = new(ClassInput),
+        ["unsupported_passive"] = new(ClassInput, "Only audited Learning reward notifications can be muted by this feature."),
         ["composition_unsupported"] = new(ClassInput),
         ["wrong_mode"] = new(ClassInput),
         ["wrong_alchemy_surface"] = new(ClassInput),
@@ -270,7 +271,7 @@ internal static class GameMcpDecisionReason
         // it, so what is readable does not shrink and what is writable is one.
         ["wrong_configuration_surface"] = new(
             ClassInput,
-            "This setting is one of the seven breakers, and suite_breakers is the one door that " +
+            "This setting is one of the breakers, and suite_breakers is the one door that " +
             "flips it; suite_configuration still reads its value."),
         ["ambiguous_offer"] = new(
             ClassInput,
@@ -374,6 +375,10 @@ internal static class GameMcpDecisionReason
             "No duration reward from this ritual is running."),
         // Progress and state
         ["already_active"] = new(ClassState, "This is already running."),
+        ["mutation_permit_unavailable"] = new(ClassState, "Another owner currently controls this action family."),
+        ["passive_not_eligible"] = new(ClassState, "This passive is not an encountered, visible notification source."),
+        ["already_muted"] = new(ClassState, "This passive notification is already muted."),
+        ["dial_changed"] = new(ClassState, "The level dial changed after the world reading; a fresh reading is required."),
         ["already_stopped"] = new(ClassState, "This is already stopped."),
         ["already_developing"] = new(
             ClassState,

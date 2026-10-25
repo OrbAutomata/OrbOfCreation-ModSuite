@@ -32,6 +32,13 @@ internal static class RuntimeDiagnosticsCardText
             }
         }
 
+        foreach (var feature in card.FeatureStatuses)
+        {
+            if (string.IsNullOrWhiteSpace(feature.Detail)) continue;
+            text.AppendLine();
+            text.Append(feature.DisplayName).Append(" details:").AppendLine().Append(feature.Detail);
+        }
+
         text.AppendLine();
         if (card.RuntimeServices.Count == 0)
         {

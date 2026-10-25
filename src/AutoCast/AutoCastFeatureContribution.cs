@@ -10,7 +10,7 @@ internal sealed class AutoCastFeatureContribution : AutomataFeatureContribution
     internal const string FeatureId = "AutoCast";
 
     internal AutoCastFeatureContribution() : base(FeatureId, "Auto Cast", AutoCastServicePolicies.ServiceId.Value,
-        "AutoCast", "Auto Cast", 10, 1) { }
+        "AutoCast", "Auto Cast", 10, 1, iconIdentity: NativeFeatureIcon.AutoCast) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoCast.Mode == AutoCastOperationMode.Active;

@@ -35,7 +35,7 @@ incompatibly.
 Restyled suite controls sample the audited native `UIViewRadioButton` subview frame pair. OFF uses
 `baseImage`; configured ON uses `activeImage`, so intent differs structurally before the
 suite-owned gray/green/red/orange icon color is applied. Quick controls close to an emergency-stop
-button and one disclosure under `Canvas/HelpButtons`. The disclosure opens the seven registered
+button and one disclosure under `Canvas/HelpButtons`. The disclosure opens the registered
 feature controls to the right; when closed, faults and blocks add an exclamation marker as well as
 red color. General invokes the same immediate STOP/resume command instead of staging
 `EmergencyDisable`. The anchor is resolved through the declared scene-bound `UIContentArea.canvas`

@@ -48,6 +48,8 @@ public sealed record GameWorldState
     internal PublicationTable<WorldCollectionCategoryStatus> CollectionCategories { get; init; } =
         PublicationTable<WorldCollectionCategoryStatus>.Empty;
 
+    internal WorldLevelEconomy LevelEconomy { get; init; } = WorldLevelEconomyDefaults.Empty;
+
     internal PublicationTable<WorldResource> Resources { get; init; } =
         PublicationTable<WorldResource>.Empty;
 

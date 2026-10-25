@@ -786,6 +786,13 @@ public sealed class GlyphSO : IdScriptableObject, ITooltipable, IDiscoverable, I
     public ResourceCostList usageCost = new ResourceCostList();
     public ResourceCostList GetUsageCost() => usageCost;
     public int GetFreeUsages() => (int)freeUsages.GetValue().ToDouble();
+    /// <summary>Empty-glyph native branch; augmented fixture pricing must supply the real contract.</summary>
+    public static ResourceCostList AugmentCost(ResourceCostList baseCost, List<GlyphSO> glyphs,
+        ValueModifierList perLevel, int baseEffectLevel)
+    {
+        if (glyphs.Count != 0) throw new InvalidOperationException("Augmented spell base-cost fixture is not modeled.");
+        return baseCost;
+    }
     public static ResourceCostList GetCreationCostOfList(
         ResourceCostList startingCost,
         IEnumerable<GlyphSO> glyphs)
@@ -1613,11 +1620,11 @@ public sealed class AttributeGroupSO : UpgradeableObject
 
 public sealed class HarvestActionTypeSO : UpgradeableObject
 {
-    public ModifierRecord costMod = new ModifierRecord();
-    public ModifierRecord growthSizeMod = new ModifierRecord();
-    public ModifierRecord power = new ModifierRecord();
-    public ModifierRecord refundRating = new ModifierRecord();
-    public ModifierRecord speed = new ModifierRecord();
+    public OrderedMultiplierRecord costMod = new OrderedMultiplierRecord();
+    public OrderedMultiplierRecord growthSizeMod = new OrderedMultiplierRecord();
+    public OrderedMultiplierRecord power = new OrderedMultiplierRecord();
+    public OrderedMultiplierRecord refundRating = new OrderedMultiplierRecord();
+    public OrderedMultiplierRecord speed = new OrderedMultiplierRecord();
     public static List<HarvestActionTypeSO> All = new List<HarvestActionTypeSO>();
 }
 
@@ -1776,6 +1783,15 @@ public sealed class TutorialSO : IdScriptableObject
 /// </remarks>
 public sealed class PlotNodeActionSO : UpgradeableObject
 {
+    public List<PlotNodeSO> qualityModNodes = new List<PlotNodeSO>();
+    public List<SizeConverter> sizeConverters = new List<SizeConverter>();
+    public UpgradeableObject.ValueTransmuterMap valueTransmuterMap = new UpgradeableObject.ValueTransmuterMap();
+    public sealed class SizeConverter
+    {
+        public ScalingType scalingType;
+        public double magRatio = 10d;
+        public ValueModifier modifier;
+    }
     public List<HarvestActionTypeSO> actionTypes = new List<HarvestActionTypeSO>();
 
     /// <summary>How an action charges its element cost. The game nests this here.</summary>
@@ -1858,6 +1874,7 @@ public class PersistentEffectBlock : EffectBlock
 /// <summary>The weight a completion effect scales its payout by.</summary>
 public sealed class ScalingWeightSO : IdScriptableObject
 {
+    public ScalingConversion scalingEntries = new ScalingConversion();
     public static List<ScalingWeightSO> All = new List<ScalingWeightSO>();
 }
 
@@ -2212,8 +2229,12 @@ public sealed class RecipeBookListVariable : GenericListVariable<RecipeBookSO>
 {
 }
 
-public sealed class PlotNodeSO : IdScriptableObject
+public sealed class PlotNodeSO : UpgradeableObject
 {
+    public List<BigDouble> sizeMods = new List<BigDouble>();
+    // Preserve the fixture-facing Guid spelling while the native base chain remains exact.
+    public new Guid uuid { get => GetGuid(); set => SetGuid(value); }
+    public ResourceCostList spaceUsageCost = new ResourceCostList();
     public List<PersistentEffectBlock> passiveEffects = new List<PersistentEffectBlock>();
     public static List<PlotNodeSO> All = new List<PlotNodeSO>();
     public List<PlotNodeTypeSO> nodeTypes = new List<PlotNodeTypeSO>();
@@ -2321,6 +2342,7 @@ public sealed class PlotNodeSO : IdScriptableObject
 /// </summary>
 public class PlotNodeActionInstance : ITooltipable
 {
+    public ResourceDrain resourceDrain = new ResourceDrain();
     public IdObjectRef refObj;
     public int quantity;
     public PlotNodeSO? plotNodeRefObj;

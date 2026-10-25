@@ -208,6 +208,30 @@ internal static class GameModifierStack
         GameValueModifierType.Exponent,
     };
 
+    /// <summary>Scales both lists before the shared merge-and-adjust operation.</summary>
+    internal static BigDouble AdjustScaledList(BigDouble value,
+        ReadOnlySpan<GameValueModifier> modifiers, ReadOnlySpan<GameValueModifier> exponents, BigDouble scalar)
+    {
+        var scaledModifiers = new GameValueModifier[modifiers.Length];
+        var scaledExponents = new GameValueModifier[exponents.Length];
+        modifiers.CopyTo(scaledModifiers);
+        exponents.CopyTo(scaledExponents);
+        return AdjustScaledListInPlace(value, scaledModifiers, scaledExponents, scalar,
+            new GameValueModifier[modifiers.Length]);
+    }
+
+    /// <summary>Uses caller-owned list copies where a projection has already assembled them.</summary>
+    internal static BigDouble AdjustScaledListInPlace(BigDouble value,
+        Span<GameValueModifier> modifiers, Span<GameValueModifier> exponents,
+        BigDouble scalar, Span<GameValueModifier> scratch)
+    {
+        for (var index = 0; index < modifiers.Length; index++)
+            modifiers[index] = modifiers[index].MultiplyScalar(scalar);
+        for (var index = 0; index < exponents.Length; index++)
+            exponents[index] = exponents[index].MultiplyScalar(scalar);
+        return AdjustWith(value, modifiers, exponents, scratch);
+    }
+
     /// <summary>
     /// Ported from <c>ValueModifier.AdjustWith(BigDouble, IEnumerable&lt;ValueModifier&gt;)</c>.
     /// An empty stack returns the base value untouched, as the original short-circuits.

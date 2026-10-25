@@ -11,6 +11,8 @@ internal static class AutomataFeatureCatalog
     internal static IReadOnlyList<AutomataFeatureContribution> All { get; } =
         Array.AsReadOnly(new AutomataFeatureContribution[]
         {
+            new AutoLevelsFeatureContribution(),
+            new QualityOfLifeFeatureContribution(),
             new AutoItemsFeatureContribution(),
             new AutoScribeFeatureContribution(),
             new AutoHarvestFeatureContribution(),

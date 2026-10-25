@@ -51,7 +51,7 @@ public sealed class GameMcpProtocolSurfaceTests
         Assert.Equal("List the screen's hoverable elements", Title(tools, "game_screen_elements"));
         Assert.Equal("Read one element's tooltip text", Title(tools, "game_tooltip"));
 
-        Assert.Equal("Read or flip the suite's seven breakers", Title(tools, "suite_breakers"));
+        Assert.Equal("Read or flip the suite's breakers", Title(tools, "suite_breakers"));
     }
 
     /// <summary>

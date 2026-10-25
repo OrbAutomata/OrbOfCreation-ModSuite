@@ -38,8 +38,11 @@ public class Player
         set => _instance = value;
     }
 
+    public DoubleVariable spellCost = new DoubleVariable { value = new ValueModifierRecord(new BigDouble(100)) };
+    public static DoubleVariable GetSpellCost() => _instance.spellCost;
     public static IntVariable GetSpellOutputLevel() => _instance.spellOutputLevel;
     public static IntVariable GetReserveLevel() => _instance.reserveLevel;
+    public static IntVariable GetAlchemyOutputLevel() => _instance.alchemyOutputLevel;
 
     // The four variables a glyph's critical and echo slots print against. They are serialized
     // fields on the singleton rather than assets in a registry, so the accessor is the only way

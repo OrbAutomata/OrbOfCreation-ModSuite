@@ -479,11 +479,6 @@ public sealed class Plugin : BaseUnityPlugin
                             readLifecycleEpoch,
                             spellWorkbenchFamily.TryCapture,
                             spellWorkbenchFamily.Failure));
-                        var spellCompositionFamily = ownership.Family(GameMcpCommandKind.SpellComposition);
-                        actions.Add("game_casting_dial", new SpellCompositionGameAction(
-                            readLifecycleEpoch,
-                            spellCompositionFamily.TryCapture,
-                            spellCompositionFamily.Failure));
                         var spellLoadoutFamily = ownership.Family(GameMcpCommandKind.SpellLoadout);
                         actions.Add("game_spell_loadout", new SpellLoadoutGameAction(
                             readLifecycleEpoch,

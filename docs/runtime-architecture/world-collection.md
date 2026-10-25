@@ -53,6 +53,19 @@ ServiceCaptureContext.World  and  IServiceCycleWorkerDefinition.Evaluate(…, wo
 
 Frame-wide inputs belong to [WorldFrameGlobals](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/WorldFrameGlobals.cs) and are stamped onto the captured frame. The model owns the input inventory; resource derivation receives the values captured for that frame.
 
+## Prospective level economy
+
+The [level economy publication](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/Categories/WorldLevelEconomy.cs)
+carries current and next-level quotes, availability of each quote and exact incompleteness reasons.
+Capture reads native-free operands without changing a live dial; shared worker derivation applies the
+owned spell-cost, alchemy-drain and plot-scaling math to them. A guessed level multiplier never fills
+a missing quote. Resource publication retains the unclamped net-regeneration coordinate needed to
+compare immediate spell costs independently of a full resource bar.
+
+[Auto Levels](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoLevels/README.md) consumes this publication; its policy and current-level
+mutation guard stay outside collection. [The native boundary](game-boundary-doctrine.md) continues to
+own lifecycle, current control availability and final mutation authority.
+
 ## Reading rules
 
 **Reproduce the accessor, never call it.** `ValueModifierRecord.GetValue()` calls `Calculate()` when
@@ -522,3 +535,7 @@ Per-owner capture faults retain the stable UUID already obtained by that read, i
 plot, relation, member, cost and dynamic reader paths. Helpers return that same identity to their
 catch scope; no extra native identity read is made for diagnostics. Before identity is established,
 or for a global read with no entity identity, the failure target remains empty.
+
+The source service requests level-economy capture only while Auto Levels is operational. Disabling
+that feature clears its previous inputs and skips the additional forecast capture and derivation;
+the shared world remains available to every other consumer.

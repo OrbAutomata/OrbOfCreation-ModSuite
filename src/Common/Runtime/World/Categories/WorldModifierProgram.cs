@@ -20,6 +20,7 @@ internal enum WorldModifierProgramRole
     InstanceScalingCost = 7,
     InstanceScalingSpeed = 8,
     SpellLevelingStandard = 9,
+    PlotActionForecast = 20,
 }
 
 internal enum WorldModifierProgramEntrySet
@@ -173,15 +174,14 @@ internal static class WorldModifierProgramMath
         for (var index = 0; index < count; index++)
         {
             var entry = entries[start + index];
-            var scaled = entry.Modifier.MultiplyScalar(scalar);
             if (entry.Set == WorldModifierProgramEntrySet.Exponent)
-                exponents[exponentIndex++] = scaled;
+                exponents[exponentIndex++] = entry.Modifier;
             else
-                modifiers[modifierIndex++] = scaled;
+                modifiers[modifierIndex++] = entry.Modifier;
         }
 
-        var scratch = new GameValueModifier[modifierCount];
-        value = GameModifierStack.AdjustWith(baseValue, modifiers, exponents, scratch);
+        value = GameModifierStack.AdjustScaledListInPlace(baseValue, modifiers, exponents, scalar,
+            new GameValueModifier[modifierCount]);
         return true;
     }
 
@@ -251,6 +251,9 @@ internal sealed class NativeModifierProgramReader
         _amount = NativeAccessorBinder.Field<BigDouble>(modifierType, "adjustReal");
     }
 
+    internal bool CanCaptureEntries => _passive is not null && _active is not null &&
+        _type is not null && _order is not null && _amount is not null;
+
     internal bool IsAvailable =>
         _memo is not null && _dirty is not null && _base is not null &&
         _passive is not null && _active is not null && _modifiers is not null &&
@@ -265,6 +268,12 @@ internal sealed class NativeModifierProgramReader
     {
         programs.Append(new WorldModifierProgram(
             ownerId, role, isRecord: true, _base!(record), _dirty!(record), _memo!(record)));
+        CaptureEntries(ownerId, role, record, entries);
+    }
+
+    internal void CaptureEntries(Guid ownerId, WorldModifierProgramRole role, object record,
+        WorldRelationBuffer<WorldModifierProgramEntry> entries)
+    {
         AppendDictionary(ownerId, role, WorldModifierProgramEntrySet.Passive, _passive!(record), entries);
         AppendDictionary(ownerId, role, WorldModifierProgramEntrySet.Active, _active!(record), entries);
     }

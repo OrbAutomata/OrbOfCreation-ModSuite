@@ -68,9 +68,8 @@ internal static class GameMcpHealthProjection
                     context.World!.Generation.Value.ToString(CultureInfo.InvariantCulture)
                 : "not published").Append('\n')
             .Append("emergency stop: ").Append(stopped ? "engaged" : "clear").Append('\n');
-        // Health is exception-shaped, the way it already is for features and services: a capability
-        // that works says nothing, so every line on the page is a thing the caller has to act on.
-        // The page leads with "available", which is the standing answer for everything unlisted.
+        // Capability availability is exception-shaped: the leading "available" answers for every
+        // unlisted capability. Feature explanations below are independent of their health state.
         if (!context.RuntimeAvailable) result.Append("runtime: unavailable").Append('\n');
         if (!context.NativeContractsAvailable) result.Append("native contracts: unavailable").Append('\n');
         var unavailableVerbs = (context.Runtime?.UnavailableGameActions ??
@@ -128,9 +127,12 @@ internal static class GameMcpHealthProjection
                     FeatureStatusState.Faulted) &&
                 feature.Reason.Code != FeatureStatusReasonCode.EmergencyDisabled &&
                 feature.Reason.Summary.Length > 0;
-            if (!held) continue;
-            result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
-                .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
+            if (held)
+                result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" reason: ")
+                    .Append(GameMcpTextFormatter.Plain(feature.Reason.Summary)).Append('\n');
+            if (!string.IsNullOrWhiteSpace(feature.Detail))
+                result.Append(CanonicalGameMcpFeatureName(feature.DisplayName)).Append(" details:").Append('\n')
+                    .Append(GameMcpTextFormatter.Plain(feature.Detail)).Append('\n');
         }
 
         var runtimeServices = context.Runtime?.Services ?? Array.Empty<AutomataServiceFrameFacts>();

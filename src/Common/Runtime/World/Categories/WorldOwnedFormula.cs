@@ -163,12 +163,10 @@ internal static class OwnedConceptDrainMath
         var requirementCost = usageRequirementsMet
             ? BigDouble.One
             : basis.RequirementCostPenalty.Adjust(BigDouble.One);
-        var baseModifier = drain * OrbGameMath.AsPercent(completion) *
-            OrbGameMath.AsPercent(speed * requirementSpeed) * requirementCost * level;
 
         var q = new BigDouble(quantity);
-        var costQuantity = AdjustedQuantity(q, basis.RarityMultiplier, basis.CostUsesRarity);
-        var speedQuantity = AdjustedQuantity(q, basis.RarityMultiplier, basis.SpeedUsesRarity);
+        var costQuantity = GameAlchemyDrainMath.AdjustedQuantity(q, basis.RarityMultiplier, basis.CostUsesRarity);
+        var speedQuantity = GameAlchemyDrainMath.AdjustedQuantity(q, basis.RarityMultiplier, basis.SpeedUsesRarity);
         if (!TryList(world, basis.ScalingId, WorldModifierProgramRole.InstanceScalingCost,
                 BigDouble.Max(costQuantity - BigDouble.One, BigDouble.Zero), BigDouble.One,
                 out var costPercent) ||
@@ -177,19 +175,8 @@ internal static class OwnedConceptDrainMath
                 out var speedPercent))
             return false;
 
-        var overdriveQuantity = Math.Max(0, quantity - free.ToInt());
-        var overdriveSpeed = new GameValueModifier(
-                GameValueModifierType.MultiDiminishing,
-                OrbGameMath.AsPercent(overSpeed) - BigDouble.One)
-            .MultiplyScalar(new BigDouble(overdriveQuantity))
-            .Adjust(BigDouble.One);
-        var overdriveDrain = new GameValueModifier(
-                GameValueModifierType.Reduction,
-                BigDouble.One / OrbGameMath.AsPercent(overDrain) - BigDouble.One)
-            .MultiplyScalar(new BigDouble(overdriveQuantity))
-            .Adjust(BigDouble.One);
-
-        modifier = baseModifier * costPercent * speedPercent * overdriveSpeed * overdriveDrain;
+        modifier = GameAlchemyDrainMath.ComputeModifier(drain, completion, speed * requirementSpeed, requirementCost,
+            level, costPercent, speedPercent, quantity, free.ToInt(), overSpeed, overDrain);
         return true;
     }
 
@@ -206,14 +193,6 @@ internal static class OwnedConceptDrainMath
         amount = authoredAmount * OrbGameMath.AsPercent(modifier);
         return true;
     }
-
-    private static BigDouble AdjustedQuantity(
-        BigDouble quantity,
-        BigDouble rarityMultiplier,
-        bool useRarity) =>
-        !useRarity || quantity <= 0
-            ? quantity
-            : quantity + rarityMultiplier * (quantity - BigDouble.One);
 
     private static bool TryRecord(
         GameWorldState world,

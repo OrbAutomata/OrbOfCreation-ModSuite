@@ -35,6 +35,7 @@ internal static class GameWorldStateDeriver
         var capacity = sample.Capacity;
         var rateInputs = RateInputs(in sample, in globals);
         var trueRate = GameResourceRateMath.GetTrueRate(in rateInputs);
+        var unclampedNetRate = GameResourceRateMath.GetUnclampedNetRate(in rateInputs);
         var equilibrium = GameResourceRateMath.GetEquilibrium(in rateInputs);
 
         // Matches the game's GetTrueQuantity(): quantity * quality.AsPercent().
@@ -54,7 +55,7 @@ internal static class GameWorldStateDeriver
                 fillFraction: 0d,
                 isAtCapacity: false,
                 trueQuantity,
-                trueRate) { Equilibrium = equilibrium };
+                trueRate, unclampedNetRate) { Equilibrium = equilibrium };
         }
 
         var remaining = capacity - quantity;
@@ -70,7 +71,7 @@ internal static class GameWorldStateDeriver
         var isAtCapacity = displayed.CompareTo(capacity) >= 0;
 
         return new WorldResource(
-            in sample, isCapped: true, headroom, fillFraction, isAtCapacity, trueQuantity, trueRate)
+            in sample, isCapped: true, headroom, fillFraction, isAtCapacity, trueQuantity, trueRate, unclampedNetRate)
         {
             Equilibrium = equilibrium,
         };

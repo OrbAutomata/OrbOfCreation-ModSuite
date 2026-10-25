@@ -73,15 +73,15 @@ emergency-stop control and native lifecycle replacement, composes the three obse
 around each accepted pump, owns an optional exclusive pump-shutdown lease, and contains no feature,
 native adapter, or configuration type.
 
-Ten services are composed: world collection as the source, and Auto Items, Auto Scribe, Auto Harvest,
-Auto Buy, Spell Leveling, Auto Cast, Auto Concept, Mentor and the Strategist as ordinary services. Each is an explicit
-typed registration; none introduces another registry abstraction, pump, or service locator.
+The [production roster](architecture.md#registration-and-composition) has one world source and ordinary
+feature services. Each is an explicit typed registration; none introduces another registry abstraction,
+pump, or service locator.
 
-Feature runtimes publish only health facts — operational, waiting, blocked, faulted — carrying no
-configured mode, emergency flag, or second configuration generation. `AutomataFeatureStatuses` joins
-the latest committed configuration intent with the latest health for the eight player-facing feature
-rows (Auto Buy, Auto Cast, Auto Concept, Spell Level, Auto Harvest, Auto Items, Auto Scribe, Mentor);
-world collection and the Strategist have no row, so a delayed cycle can update health but cannot repaint configured intent.
+Feature runtimes publish health facts and policy details, carrying no configured mode, emergency flag,
+or second configuration generation. `AutomataFeatureStatuses` joins the latest committed configuration
+intent with health from registered feature contributions, so a delayed cycle cannot repaint configured
+intent. [Observability](observability.md#feature-health-and-policy-details) distinguishes a blocking
+reason from operational detail.
 
 Profile builds carry the pump's exact service ordinal and frame identity through `ServiceActionContext`
 so feature adapters may report native substages; ordinary builds compile that path out. Stage results

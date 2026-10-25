@@ -551,6 +551,7 @@ internal sealed class GameWorldCollector
     internal WorldCollectionReport Collect(GameWorldCycleFrame frame)
     {
         if (frame is null) throw new ArgumentNullException(nameof(frame));
+        frame.LevelEconomy.ResetForCapture();
 
         _claimed.Clear();
         var structuralIsCurrent = IsStructuralReadingCurrent(frame);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Logging;
 using OrbModding.Common;
+using OrbAutomata;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -101,6 +102,9 @@ internal sealed class ModSettingsPage : IDisposable
     {
         ThrowIfDisposed();
         CaptureNavigation();
+        // A quick control or external writer may have changed mode while this page was hidden.
+        // Reconcile the same edit session before deciding which dependent editors to render.
+        _session.RefreshExternalValues();
         _visible = true;
         _selectedModIndex = Math.Max(0, Math.Min(pluginIndex, _catalog.Mods.Count - 1));
         var mod = _catalog.Mods[_selectedModIndex];
@@ -136,7 +140,12 @@ internal sealed class ModSettingsPage : IDisposable
 
     public void RefreshFeaturePresentation()
     {
-        if (!_disposed && _visible) _settingList.RefreshFeaturePresentation();
+        if (_disposed || !_visible || !_settingList.RefreshFeaturePresentation()) return;
+        var requestedOffset = _content.anchoredPosition.y;
+        var clampedOffset = ModSettingsLayout.ClampScrollOffset(requestedOffset, _content.sizeDelta.y,
+            _scroll.viewport?.rect.height ?? 0f);
+        if (Math.Abs(clampedOffset - requestedOffset) > 0.01f)
+            RestoreScrollOffset(clampedOffset, _content.sizeDelta.y);
     }
 
     public void RefreshResponsiveLayout()
@@ -307,8 +316,9 @@ internal sealed class ModSettingsPage : IDisposable
     }
 
     internal static bool IsImmediateCommandSetting(ConfigSettingDescriptor setting) =>
-        (string.Equals(setting.Key, "Mode", StringComparison.Ordinal) &&
-         setting.SourceSection is "AutoBuy" or "AutoCast" or "AutoConcept" or "AutoHarvest" or "AutoItems" or "AutoScribe" or "General") ||
-        (string.Equals(setting.Key, "EmergencyDisable", StringComparison.Ordinal) &&
-         string.Equals(setting.SourceSection, "Safety", StringComparison.Ordinal));
+        string.Equals(setting.PluginGuid, PluginIds.SuiteGuid, StringComparison.Ordinal) &&
+        (setting.SourceSection == "Safety" && setting.Key == "EmergencyDisable" ||
+         setting.Key == "Mode" && AutomataFeatureCatalog.All.Any(feature =>
+             string.Equals(feature.PageLabel, setting.Section, StringComparison.Ordinal) &&
+             string.Equals(feature.ModeConfigurationSection, setting.SourceSection, StringComparison.Ordinal)));
 }

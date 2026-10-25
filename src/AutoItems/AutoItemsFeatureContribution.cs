@@ -14,7 +14,7 @@ internal sealed class AutoItemsFeatureContribution : AutomataFeatureContribution
     internal const string FeatureId = "AutoItems";
 
     internal AutoItemsFeatureContribution() : base(FeatureId, "Auto Items", AutoItemsServicePolicies.ServiceId.Value,
-        "AutoItems", "Auto Items", 18, 5) { }
+        "AutoItems", "Auto Items", 18, 5, iconIdentity: NativeFeatureIcon.AutoItems) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoItems.Mode == AutoItemsOperationMode.Active;

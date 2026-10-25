@@ -12,7 +12,8 @@ internal abstract class AutomataFeatureContribution
 {
     protected AutomataFeatureContribution(string id, string displayName, string serviceId,
         string? configurationSection, string? pageLabel, int pageOrder, int controlOrder,
-        string? traceName = null)
+        string? traceName = null, NativeFeatureIcon iconIdentity = NativeFeatureIcon.Unknown,
+        string? modeConfigurationSection = null)
     {
         Id = id;
         DisplayName = displayName;
@@ -22,6 +23,8 @@ internal abstract class AutomataFeatureContribution
         PageOrder = pageOrder;
         ControlOrder = controlOrder;
         TraceName = traceName ?? displayName;
+        IconIdentity = iconIdentity;
+        ModeConfigurationSection = modeConfigurationSection ?? configurationSection;
     }
 
     internal string Id { get; }
@@ -32,6 +35,9 @@ internal abstract class AutomataFeatureContribution
     internal int PageOrder { get; }
     internal int ControlOrder { get; }
     internal string TraceName { get; }
+    internal NativeFeatureIcon IconIdentity { get; }
+    internal string? ModeConfigurationSection { get; }
+    internal virtual AutomationFeatureSettings? Settings => null;
     internal abstract bool IsConfigured(SuiteRuntimeConfiguration configuration);
     internal virtual string? BlockedBy(SuiteRuntimeConfiguration configuration) => null;
     internal virtual string? ConfiguredConstraint(SuiteRuntimeConfiguration configuration) => null;
@@ -40,11 +46,13 @@ internal abstract class AutomataFeatureContribution
     internal abstract IAutomataServiceCycleFeature CreateService(AutomataFeatureComposition context);
     internal virtual AutomationFeatureControlRegistration? CreateControl(
         AutomataConfigurationStore configuration, AutomataFeatureStatuses statuses,
-        SpellLevelCapabilityState capability, MentorConfig mentor) => null;
+        SpellLevelCapabilityState capability, MentorConfig mentor) => Settings is null ? null :
+        Control(new AutomationFeatureSettingsTooltip(this, () => configuration.Current,
+            () => statuses.Get(Id).Current), statuses, () => configuration.ToggleFeature(Id));
 
     protected AutomationFeatureControlRegistration Control(ITooltipable tooltip,
         AutomataFeatureStatuses statuses, Action toggle) =>
-        new(Id, PageLabel!, DisplayName, tooltip, () => statuses.Get(Id).Current, toggle);
+        new(Id, PageLabel!, DisplayName, tooltip, () => statuses.Get(Id).Current, toggle, IconIdentity);
 }
 
 /// <summary>The root's existing application dependencies, passed once to feature construction.</summary>

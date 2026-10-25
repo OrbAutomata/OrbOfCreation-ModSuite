@@ -10,7 +10,7 @@ internal sealed class AutoBuyFeatureContribution : AutomataFeatureContribution
     internal const string FeatureId = "AutoBuy";
 
     internal AutoBuyFeatureContribution() : base(FeatureId, "Auto Buy", AutoBuyServicePolicies.ServiceId.Value,
-        "AutoBuy", "Auto Buy", 0, 0) { }
+        "AutoBuy", "Auto Buy", 0, 0, iconIdentity: NativeFeatureIcon.AutoBuy) { }
 
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.AutoBuy.Mode == AutoBuyOperationMode.Active;

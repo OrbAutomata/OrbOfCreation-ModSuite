@@ -68,7 +68,7 @@ internal static class GameMcpSuiteTools
             new GameMcpToolListing(
                 "Commit one suite setting",
                 "Write one allowlisted setting through the single committed configuration-store "
-                    + "publication path. The seven Mode settings behind the breakers are refused "
+                    + "publication path. The Mode settings behind the breakers are refused "
                     + "here and flipped with suite_breakers; suite_configuration still reads their "
                     + "values alongside every other setting's.",
                 ObjectSchema(
@@ -99,18 +99,11 @@ internal static class GameMcpSuiteTools
         new GameMcpToolDescriptor(
             "suite_breakers",
             new GameMcpToolListing(
-                "Read or flip the suite's seven breakers",
-                "The suite's seven green/gray breakers as booleans, one per automation feature. "
+                "Read or flip the suite's breakers",
+                "The suite's green/gray breakers as booleans, one per registered feature. "
                     + "list returns every breaker and whether it is on; set flips exactly one and "
-                    + "returns its on before/after. auto_buy buys affordable structures and "
-                    + "upgrades. auto_cast "
-                    + "fires equipped spells. auto_concept trains the lowest-mastery Scholar "
-                    + "concepts. auto_harvest collects ready fruit and treasure trees. auto_items "
-                    + "uses eligible Scrolls, Relics, and approved temporary items. auto_scribe "
-                    + "writes Scrolls at the Scribe. mentor shares mastery experience with lagging "
-                    + "spells, artifacts, and recipes. Everything else a feature can be configured "
-                    + "with — thresholds, roles, allowlists — is suite_config_set, which no longer "
-                    + "flips these seven; suite_emergency_stop still overrides all seven at once.",
+                    + "returns its on before/after. " + GameMcpAutomationFeatures.Descriptions() + " "
+                    + "Other feature settings use suite_config_set. suite_emergency_stop overrides every breaker.",
                 ModeSchema(ObjectSchema(
                     new JObject
                     {

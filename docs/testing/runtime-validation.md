@@ -46,7 +46,7 @@ fail the gate.
 - Confirm lifecycle state settles across Start, load, scene, reset, and NG+.
 - Confirm disabled features do not perform gameplay scans or mutations.
 - Confirm exactly two closed suite buttons appear below the native help buttons:
-  immediate STOP and disclosure. Opening disclosure creates the seven feature
+  immediate STOP and disclosure. Opening disclosure creates the registered feature
   controls; closing it removes them.
 - From Main's first playable boundary, both suite surfaces remain in loading
   while the six native icon sources appear, then become available together
@@ -60,6 +60,10 @@ fail the gate.
   markers, their precedence and clearing through Apply/Revert/conflict resolution. A validation
   error must remain visible after switching away and back; immediate mode controls remain distinct
   from staged settings.
+- With long Auto Levels explanations visible, verify all dial decisions remain readable and the
+  measured feature header reflows rows without replacing editor widgets. Healthy holds appear as
+  policy details rather than whole-feature faults. Confirm the same details in quick tooltips,
+  Runtime cards and the MCP decision surface; disabled, emergency and lifecycle states clear them.
 - With enough navigation entries to overflow, reach the first and last page at the smallest
   supported window and largest supported UI scale. Wheel input over navigation text, row gaps and
   padding scrolls only the rail; input over page content scrolls only that page. Resize while scrolled
@@ -92,6 +96,19 @@ interference, and lifecycle replacement. Verify the visible game effect, exact
 postcondition, truthful waiting/refusal state, bounded log, and absence of stale
 retries.
 
+- **Auto Levels:** validate the configured per-spell net-regeneration budget independently for
+  every loaded spell, Reserve progression to its native ceiling, and Druidry/Alchemy drain buffers.
+  Exercise domain drain below, at and above half the resource's total drain, current danger requiring
+  a reduction, an unaffordable next level, allocation shortage, locked controls, no loaded work and
+  unavailable current or next quotes. Observe one total one-level adjustment per fresh world, fair
+  raises and reductions first. Change a dial manually after collection and verify that the prepared
+  action refuses the stale expected level; later evaluation uses the new level. Disabling automation
+  leaves the chosen values in place.
+- **Quality of Life:** on a disposable save, encounter a supported reflective Learning passive,
+  verify the native mute preference and continuing resource effects, and verify exclusion of hidden,
+  silent, unrelated and already-muted passives. Unmute while enabled to verify reapplication; disable
+  the feature or option and verify no further writes and no automatic unmute. Save and reload to
+  verify native mute persistence, then unmute with the game's own control while automation is off.
 - **Auto Harvest:** fruit and treasure independently; exact one-action insertion,
   quantity, sibling isolation, and no planting or destructive plot behavior.
 - **Auto Buy and Spell Leveling:** Structure/Upgrade separation, reserves, queue

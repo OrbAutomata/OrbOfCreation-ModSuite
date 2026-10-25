@@ -17,7 +17,7 @@ these rows illustrate the caller's next step and are checked against that shippi
 | --- | --- |
 | `ERR_INPUT` | `slot_out_of_range` |
 | `ERR_NOT_FOUND` | `unknown_uuid` |
-| `ERR_STATE` | `already_developing` |
+| `ERR_STATE` | `already_developing`, `dial_changed`, `already_muted`, `passive_not_eligible`, `mutation_permit_unavailable` |
 | `ERR_LIMIT` | `glyph_usages_exceeded` |
 | `ERR_UNAFFORDABLE` | `unaffordable` |
 | `ERR_LOCKED` | `research_leeway_exhausted` |

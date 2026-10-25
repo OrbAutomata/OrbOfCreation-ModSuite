@@ -17,7 +17,8 @@ internal sealed class AutomationFeatureControlRegistration
         string displayName,
         ITooltipable tooltip,
         Func<FeatureStatusSnapshot> readStatus,
-        Action toggle)
+        Action toggle,
+        NativeFeatureIcon iconIdentity = NativeFeatureIcon.Unknown)
     {
         FeatureId = RequireText(featureId, nameof(featureId));
         PageLabel = RequireText(pageLabel, nameof(pageLabel));
@@ -25,9 +26,11 @@ internal sealed class AutomationFeatureControlRegistration
         Tooltip = tooltip ?? throw new ArgumentNullException(nameof(tooltip));
         _readStatus = readStatus ?? throw new ArgumentNullException(nameof(readStatus));
         _toggle = toggle ?? throw new ArgumentNullException(nameof(toggle));
+        IconIdentity = iconIdentity;
     }
 
     internal string FeatureId { get; }
+    internal NativeFeatureIcon IconIdentity { get; }
     internal string PageLabel { get; }
     internal string DisplayName { get; }
     internal ITooltipable Tooltip { get; }

@@ -65,9 +65,7 @@ internal static class GameMcpConfigurationSchema
             ("AutoScribe", "Roles") => configuration.AutoScribe.Roles,
             ("Reserves", "AbsoluteReserve") => configuration.Reserves.AbsoluteReserve,
             ("Reserves", "RelativeReserveMultiplier") => configuration.Reserves.RelativeReserveMultiplier,
-            _ => throw new InvalidOperationException(
-                "the static MCP writable schema has no published value mapping for " +
-                section + "/" + key),
+            _ => ReadRegisteredValue(configuration, section, key),
         };
         return value switch
         {
@@ -77,6 +75,14 @@ internal static class GameMcpConfigurationSchema
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? string.Empty,
         };
+    }
+
+    private static object ReadRegisteredValue(SuiteRuntimeConfiguration configuration, string section, string key)
+    {
+        var settings = AutomataFeatureCatalog.ForConfigurationSection(section)?.Settings;
+        if (settings is not null && settings.TryReadPublishedValue(configuration, key, out var value)) return value;
+        throw new InvalidOperationException("the static MCP writable schema has no published value mapping for " +
+            section + "/" + key);
     }
 }
 #endif

@@ -2190,7 +2190,8 @@
       "valueType": "ResourceCostList",
       "owners": [
         "Automata Auto Harvest preservation audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -2528,7 +2529,8 @@
       "valueType": "System.Collections.Generic.List`1<IEffectMod>",
       "owners": [
         "Automata Auto Harvest completion audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -2548,7 +2550,8 @@
       "valueType": "Prerequisites+Container",
       "owners": [
         "Automata Auto Harvest completion audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -2753,7 +2756,10 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
-      "id": "auto-harvest.instance.is-empty-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEmpty", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata Auto Harvest slots"], "usages": ["reflection"], "place": "action"
+      "id": "auto-harvest.instance.is-empty-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEmpty", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": [
+        "Automata Auto Harvest slots",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.instance.is-engaged",
@@ -2776,7 +2782,10 @@
       "capture": {"class": "computes", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game runs a formula the suite has not transcribed, so the reading is taken rather than derived.", "evidence": "kind:method returning System.Boolean; classified from its signature, no IL body audit"}
     },
     {
-      "id": "auto-harvest.instance.is-engaged-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEngaged", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": ["Automata Auto Harvest verification"], "usages": ["reflection"], "place": "action"
+      "id": "auto-harvest.instance.is-engaged-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "IsEngaged", "visibility": "public", "static": false, "returnType": "System.Boolean", "parameters": [], "owners": [
+        "Automata Auto Harvest verification",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-harvest.instance.is-visible",
@@ -3156,7 +3165,8 @@
       "valueType": "System.Collections.Generic.List`1<Requirements.IRequirementCondition>",
       "owners": [
         "Automata Auto Harvest preservation audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -3197,7 +3207,8 @@
       "valueType": "ScalingWeightRef",
       "owners": [
         "Automata Auto Harvest completion audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -3233,7 +3244,8 @@
       "valueType": "ScalingWeightSO",
       "owners": [
         "Automata Auto Harvest completion audit",
-        "Common world collection"
+        "Common world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -7478,7 +7490,8 @@
       "static": false,
       "valueType": "System.Guid",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -8327,7 +8340,8 @@
       "static": false,
       "valueType": "ModifierListVariable",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -8346,7 +8360,8 @@
       "static": false,
       "valueType": "ValueModifierList",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -8509,7 +8524,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<PersistentEffectBlock>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9116,7 +9132,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<HarvestActionTypeSO>",
       "owners": [
-        "Common keyword world collection"
+        "Common keyword world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9135,7 +9152,8 @@
       "static": false,
       "valueType": "System.Double",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9154,7 +9172,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9192,7 +9211,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9230,7 +9250,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9268,7 +9289,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9287,7 +9309,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9344,7 +9367,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<PlotNodeSO>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9363,7 +9387,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9401,7 +9426,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9420,7 +9446,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9458,7 +9485,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9515,7 +9543,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9591,7 +9620,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -9973,7 +10003,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -10049,7 +10080,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -10068,7 +10100,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -10125,7 +10158,8 @@
       "static": false,
       "valueType": "ValueModifierRecord",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -11725,7 +11759,10 @@
       "capture": {"class": "composite", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "The game builds an aggregate the reader then walks; the walk is what the suite wants, and the aggregate is how the game hands it over.", "evidence": "kind:method returning ResourceCostList; classified from its signature, no IL body audit"}
     },
     {
-      "id": "auto-concept.drain-current-action", "assembly": "assembly-csharp", "type": "ResourceDrain", "typeVisibility": "public", "kind": "method", "member": "GetCurrentDrain", "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [], "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
+      "id": "auto-concept.drain-current-action", "assembly": "assembly-csharp", "type": "ResourceDrain", "typeVisibility": "public", "kind": "method", "member": "GetCurrentDrain", "visibility": "public", "static": false, "returnType": "ResourceCostList", "parameters": [], "owners": [
+        "Automata Auto Concept action boundary",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "auto-concept.resource-drain.type-action", "assembly": "assembly-csharp", "type": "ResourceDrain", "typeVisibility": "public", "kind": "type", "owners": ["Automata Auto Concept action boundary"], "usages": ["reflection"], "place": "action"
@@ -11741,7 +11778,8 @@
       "static": false,
       "valueType": "System.Boolean",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -11779,7 +11817,8 @@
       "static": false,
       "valueType": "BigDouble",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -13612,7 +13651,8 @@
       "static": false,
       "valueType": "System.Double",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -15050,7 +15090,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.Dictionary`2<ScalingType,!0>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -19255,7 +19296,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<ValueModifier>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -19274,7 +19316,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<ValueModifier>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -19494,7 +19537,8 @@
         "Common world collection",
         "Automata cost-math verification",
         "Automata world collection",
-        "Common type-modifier world collection"
+        "Common type-modifier world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -19516,7 +19560,8 @@
         "Common world collection",
         "Automata cost-math verification",
         "Automata world collection",
-        "Common type-modifier world collection"
+        "Common type-modifier world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -19715,7 +19760,13 @@
     },
     {
       "id": "game-mcp-tooltip-panel.costs-action", "assembly": "assembly-csharp", "type": "ResourceCostList", "typeVisibility": "public", "kind": "field", "member": "costs",
-      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<ResourceTuple>", "owners": ["Game MCP tooltip explorer"], "usages": ["direct"], "place": "action"
+      "visibility": "public", "static": false, "valueType": "System.Collections.Generic.List`1<ResourceTuple>", "owners": [
+        "Game MCP tooltip explorer",
+        "Automata Auto Levels world collection"
+      ], "usages": [
+        "direct",
+        "reflection"
+      ], "place": "action"
     },
     {
       "id": "game-mcp-tooltip-panel.cost-resource-action", "assembly": "assembly-csharp", "type": "ResourceTuple", "typeVisibility": "public", "kind": "field", "member": "resource",
@@ -19849,7 +19900,8 @@
         "Common world collection",
         "Automata cost-math verification",
         "Automata world collection",
-        "Common type-modifier world collection"
+        "Common type-modifier world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -24627,7 +24679,8 @@
       "static": true,
       "valueType": "Player",
       "owners": [
-        "Automata spell composition GameAction"
+        "Automata spell composition GameAction",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -24719,7 +24772,8 @@
       "static": false,
       "valueType": "IntVariable",
       "owners": [
-        "Automata spell composition GameAction"
+        "Automata spell composition GameAction",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -28993,13 +29047,25 @@
       "id": "generic-level.tuple-resource-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "field", "member": "resource",
       "visibility": "public", "static": false, "valueType": "ResourceSO",
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
+      "owners": [
+        "Automata unified level GameAction",
+        "Common level decision world collection",
+        "Automata spell leveling",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.tuple-value-action", "assembly": "assembly-csharp",
       "type": "ResourceTuple", "typeVisibility": "public", "kind": "method", "member": "GetValue",
       "visibility": "public", "static": false, "returnType": "BigDouble", "parameters": [],
-      "owners": ["Automata unified level GameAction", "Common level decision world collection", "Automata spell leveling", "Automata Auto Scribe action boundary"], "usages": ["reflection"], "place": "action"
+      "owners": [
+        "Automata unified level GameAction",
+        "Common level decision world collection",
+        "Automata spell leveling",
+        "Automata Auto Scribe action boundary",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "generic-level.resource-guid-action", "assembly": "assembly-csharp",
@@ -29888,7 +29954,12 @@
     },
     {
       "id": "plot-lifecycle.instance-action-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetAction",
-      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": ["Automata plot lifecycle GameAction", "Game MCP tooltip explorer", "Automata Auto Harvest identity"], "usages": ["reflection"], "place": "action"
+      "visibility": "public", "static": false, "returnType": "PlotNodeActionSO", "parameters": [], "owners": [
+        "Automata plot lifecycle GameAction",
+        "Game MCP tooltip explorer",
+        "Automata Auto Harvest identity",
+        "Automata Auto Levels world collection"
+      ], "usages": ["reflection"], "place": "action"
     },
     {
       "id": "plot-lifecycle.instance-plot-action", "assembly": "assembly-csharp", "type": "PlotNodeActionInstance", "typeVisibility": "public", "kind": "method", "member": "GetElement",
@@ -32186,7 +32257,8 @@
       "static": false,
       "valueType": "System.Collections.Generic.List`1<IPersistentEffectScript>",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -32580,7 +32652,8 @@
       "static": false,
       "valueType": "System.String",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -32599,7 +32672,8 @@
       "static": false,
       "valueType": "UpgradeableObject",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
@@ -32618,13 +32692,1820 @@
       "static": false,
       "valueType": "ValueModifier",
       "owners": [
-        "Automata world collection"
+        "Automata world collection",
+        "Automata Auto Levels world collection"
       ],
       "usages": [
         "reflection"
       ],
       "place": "capture",
       "capture": {"class": "grab", "cadence": "per-pass", "derivable": false, "sideEffects": [], "justification": "Reads one stored value; nothing is computed on the game's side.", "evidence": "kind:field ValueModifier"}
+    },
+    {
+      "id": "alchemy-level.instance-speed-cost-percent",
+      "assembly": "assembly-csharp",
+      "type": "InstanceScalingRef",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpeedCostPercent",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [
+        "BigDouble",
+        "BigDouble"
+      ],
+      "owners": [
+        "Shared Alchemy drain math"
+      ],
+      "usages": [
+        "mirrored"
+      ],
+      "place": "mirrored"
+    },
+    {
+      "id": "alchemy-level.player-output-level",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetAlchemyOutputLevel",
+      "visibility": "public",
+      "static": true,
+      "returnType": "IntVariable",
+      "parameters": [],
+      "owners": [
+        "Automata world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "composite",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures the native level-variable identity or current stored value used by the immutable level-economy inputs.",
+        "evidence": "IL: returns Player._instance.alchemyOutputLevel"
+      }
+    },
+    {
+      "id": "level-economy.augment-cost",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "AugmentCost",
+      "visibility": "public",
+      "static": true,
+      "returnType": "ResourceCostList",
+      "parameters": [
+        "ResourceCostList",
+        "System.Collections.Generic.List`1<GlyphSO>",
+        "ValueModifierList",
+        "System.Int32"
+      ],
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "composite",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Reads the native structural cost operands without changing a live level dial; prospective arithmetic runs off-thread.",
+        "evidence": "IL audited on Assembly-CSharp SHA256 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc. This accessor reads only native operands; no live output level is assigned."
+      }
+    },
+    {
+      "id": "level-economy.base-effect-level",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetBaseEffectLevel",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Int32",
+      "parameters": [],
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Reads the native structural cost operands without changing a live level dial; prospective arithmetic runs off-thread.",
+        "evidence": "IL audited on Assembly-CSharp SHA256 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc. This accessor reads only native operands; no live output level is assigned."
+      }
+    },
+    {
+      "id": "level-economy.cost-level-list",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetCostModPerLevel",
+      "visibility": "public",
+      "static": false,
+      "returnType": "ValueModifierList",
+      "parameters": [],
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Reads the native structural cost operands without changing a live level dial; prospective arithmetic runs off-thread.",
+        "evidence": "IL audited on Assembly-CSharp SHA256 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc. This accessor reads only native operands; no live output level is assigned."
+      }
+    },
+    {
+      "id": "level-economy.cost.type",
+      "assembly": "assembly-csharp",
+      "type": "ResourceCostList",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.global-instance",
+      "assembly": "assembly-csharp",
+      "type": "GlobalValues",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "instance",
+      "visibility": "public",
+      "static": true,
+      "valueType": "GlobalValues",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.global.type",
+      "assembly": "assembly-csharp",
+      "type": "GlobalValues",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.glyph.type",
+      "assembly": "assembly-csharp",
+      "type": "GlyphSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.list.type",
+      "assembly": "assembly-csharp",
+      "type": "ValueModifierList",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.modifier.type",
+      "assembly": "assembly-csharp",
+      "type": "ValueModifier",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.player-cost",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetSpellCost",
+      "visibility": "public",
+      "static": true,
+      "returnType": "DoubleVariable",
+      "parameters": [],
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Reads the native structural cost operands without changing a live level dial; prospective arithmetic runs off-thread.",
+        "evidence": "IL audited on Assembly-CSharp SHA256 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc. This accessor reads only native operands; no live output level is assigned."
+      }
+    },
+    {
+      "id": "level-economy.player.type",
+      "assembly": "assembly-csharp",
+      "type": "Player",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.recipe-base-cost",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "baseResourceCost",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ResourceCostList",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.recipe-cost",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spellCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.recipe.type",
+      "assembly": "assembly-csharp",
+      "type": "SpellRecipeSO",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.record.type",
+      "assembly": "assembly-csharp",
+      "type": "ValueModifierRecord",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.requirement-penalty",
+      "assembly": "assembly-csharp",
+      "type": "GlobalValues",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "insufficientReqCostMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifier",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.spell-glyphs",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "augmentGlyphs",
+      "visibility": "private",
+      "static": false,
+      "valueType": "System.Collections.Generic.List`1<GlyphSO>",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.spell-instance-cost",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "costMod",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.spell-reference",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "get_reference",
+      "visibility": "public",
+      "static": false,
+      "returnType": "SpellRecipeSO",
+      "parameters": [],
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Reads the native structural cost operands without changing a live level dial; prospective arithmetic runs off-thread.",
+        "evidence": "IL audited on Assembly-CSharp SHA256 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc. This accessor reads only native operands; no live output level is assigned."
+      }
+    },
+    {
+      "id": "level-economy.spell.type",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "level-economy.variable-value",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "value",
+      "visibility": "public",
+      "static": false,
+      "valueType": "ValueModifierRecord",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Copies one exact native operand into the immutable world capture.",
+        "evidence": "Direct field read; no native setter or evaluator is invoked."
+      }
+    },
+    {
+      "id": "level-economy.variable.type",
+      "assembly": "assembly-csharp",
+      "type": "DoubleVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata shared world level economy"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the expected native type before copying its stored level-economy operands.",
+        "evidence": "Type metadata binding only; no native evaluator or mutation."
+      }
+    },
+    {
+      "id": "quality-of-life.passive-guid-action",
+      "type": "IdScriptableObject",
+      "kind": "method",
+      "member": "GetGuid",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Guid",
+      "parameters": [],
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "quality-of-life.passive-hidden-action",
+      "type": "PassiveAbilitySO",
+      "kind": "field",
+      "member": "hidden",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "quality-of-life.passive-muted-action",
+      "type": "PassiveAbilitySO",
+      "kind": "field",
+      "member": "muted",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "quality-of-life.passive-silent-action",
+      "type": "PassiveAbilitySO",
+      "kind": "field",
+      "member": "silent",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "quality-of-life.passive-touched-action",
+      "type": "PassiveAbilitySO",
+      "kind": "field",
+      "member": "touched",
+      "visibility": "public",
+      "static": false,
+      "valueType": "System.Boolean",
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "quality-of-life.passive.type-action",
+      "type": "PassiveAbilitySO",
+      "kind": "type",
+      "assembly": "assembly-csharp",
+      "typeVisibility": "public",
+      "owners": [
+        "Automata Quality Of Life notification-mute GameAction"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "action"
+    },
+    {
+      "id": "resource-drain.necessary-ratio",
+      "assembly": "assembly-csharp",
+      "type": "ResourceDrain",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "necessaryRatio",
+      "visibility": "private",
+      "static": false,
+      "valueType": "BigDouble",
+      "owners": [
+        "Automata world collection",
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures the native level-variable identity or current stored value used by the immutable level-economy inputs.",
+        "evidence": "IL: ReapplyResourceDrain multiplies drainCostMult by min(necessaryRatio, usageRatio)."
+      }
+    },
+    {
+      "id": "druidry-level.scalingweightso.scalingentries",
+      "assembly": "assembly-csharp",
+      "type": "ScalingWeightSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "scalingEntries",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ScalingConversion",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field ScalingWeightSO.scalingEntries; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.valuemodifier.gc",
+      "assembly": "assembly-csharp",
+      "type": "ValueModifier",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "gc",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "GuidContainer",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field ValueModifier.gc; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-upgradeeffectmodifier.usetargetref",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "useTargetRef",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Boolean",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+UpgradeEffectModifier.useTargetRef; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-upgradeeffectmodifier.getrecord",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRecord",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "returnType": "ModifierRecord",
+      "parameters": [],
+      "capture": {
+        "class": "composite",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Read-only IL audit 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc: UpgradeableObject+UpgradeEffectModifier.GetRecord resolves a stored record or plain accessor branch; capture validates initialized property and folds ValueModifierRecord itself."
+      }
+    },
+    {
+      "id": "druidry-level.orderedmultiplierrecord.orderguid",
+      "assembly": "assembly-csharp",
+      "type": "OrderedMultiplierRecord",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "orderGuid",
+      "visibility": "family",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.Dictionary`2<System.Int32,System.Guid>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field OrderedMultiplierRecord.orderGuid; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.orderedmultiplierrecord.records",
+      "assembly": "assembly-csharp",
+      "type": "OrderedMultiplierRecord",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "records",
+      "visibility": "family",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<ModifierRecord>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field OrderedMultiplierRecord.records; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactioninstance.quantity",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionInstance",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "quantity",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Int32",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionInstance.quantity; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactioninstance.resourcedrain",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionInstance",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resourceDrain",
+      "visibility": "private",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ResourceDrain",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionInstance.resourceDrain; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso.qualitymodnodes",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "qualityModNodes",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<PlotNodeSO>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO.qualityModNodes; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeso.sizemods",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "sizeMods",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<BigDouble>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeSO.sizeMods; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeso.spaceusagecost",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "spaceUsageCost",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ResourceCostList",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeSO.spaceUsageCost; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso.valuetransmutermap",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "valueTransmuterMap",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "UpgradeableObject+ValueTransmuterMap",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO.valueTransmuterMap; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.scalingmap-2.valuelist",
+      "assembly": "assembly-csharp",
+      "type": "ScalingMap`2",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "valueList",
+      "visibility": "family",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<ScalingMap`2+ScalingEntry<!0,!1>>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field ScalingMap`2.valueList; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.scalingmap-2-scalingentry.t",
+      "assembly": "assembly-csharp",
+      "type": "ScalingMap`2+ScalingEntry",
+      "typeVisibility": "family",
+      "kind": "field",
+      "member": "t",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ScalingType",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field ScalingMap`2+ScalingEntry.t; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.scalingmap-2-scalingentry.v",
+      "assembly": "assembly-csharp",
+      "type": "ScalingMap`2+ScalingEntry",
+      "typeVisibility": "family",
+      "kind": "field",
+      "member": "v",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "!0",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field ScalingMap`2+ScalingEntry.v; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuterlist.transmuters",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuterList",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "transmuters",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<UpgradeableObject+ValueTransmuter>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueTransmuterList.transmuters; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valueextractor.upgradeableobject",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueExtractor",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "upgradeableObject",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "UpgradeableObject",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueExtractor.upgradeableObject; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valueextractor.propertytype",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueExtractor",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "propertyType",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.String",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueExtractor.propertyType; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valueextractor.getrecord",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueExtractor",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetRecord",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "returnType": "ModifierRecord",
+      "parameters": [],
+      "capture": {
+        "class": "composite",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Read-only IL audit 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc: UpgradeableObject+ValueExtractor.GetRecord resolves a stored record or plain accessor branch; capture validates initialized property and folds ValueModifierRecord itself."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valueextractor.getvalue",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueExtractor",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetValue",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "returnType": "BigDouble",
+      "parameters": [],
+      "capture": {
+        "class": "composite",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Read-only IL audit 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc: UpgradeableObject+ValueExtractor.GetValue resolves a stored record or plain accessor branch; capture validates initialized property and folds ValueModifierRecord itself."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuter.extractiontype",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "extractionType",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "UpgradeableObject+ValueTransmuter+ExtractionType",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueTransmuter.extractionType; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuter.invertextraction",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "invertExtraction",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Boolean",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueTransmuter.invertExtraction; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuter.extractionmod",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "extractionMod",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ValueModifier",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueTransmuter.extractionMod; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuter.extractionmodlist",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "extractionModList",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ModifierListRef",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field UpgradeableObject+ValueTransmuter.extractionModList; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso.sizeconverters",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "sizeConverters",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Collections.Generic.List`1<PlotNodeActionSO+SizeConverter>",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO.sizeConverters; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso-sizeconverter.scalingtype",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO+SizeConverter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "scalingType",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ScalingType",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO+SizeConverter.scalingType; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso-sizeconverter.magratio",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO+SizeConverter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "magRatio",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "System.Double",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO+SizeConverter.magRatio; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso-sizeconverter.modifier",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO+SizeConverter",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "modifier",
+      "visibility": "public",
+      "static": false,
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "valueType": "ValueModifier",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-pass",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Captures stored operands for native-free current and prospective Druidry drain calculation.",
+        "evidence": "Installed metadata exact stored field PlotNodeActionSO+SizeConverter.modifier; no native mutation."
+      }
+    },
+    {
+      "id": "druidry-level.numbervariable.type",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.persistenteffectblock.type",
+      "assembly": "assembly-csharp",
+      "type": "PersistentEffectBlock",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.effectblock.type",
+      "assembly": "assembly-csharp",
+      "type": "EffectBlock",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-upgradeeffectmodifier.type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+UpgradeEffectModifier",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.scalingweightref.type",
+      "assembly": "assembly-csharp",
+      "type": "ScalingWeightRef",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.scalingconversion.type",
+      "assembly": "assembly-csharp",
+      "type": "ScalingConversion",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.scalingmap-2.type",
+      "assembly": "assembly-csharp",
+      "type": "ScalingMap`2",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.scalingmap-2-scalingentry.type",
+      "assembly": "assembly-csharp",
+      "type": "ScalingMap`2+ScalingEntry",
+      "typeVisibility": "family",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.orderedmultiplierrecord.type",
+      "assembly": "assembly-csharp",
+      "type": "OrderedMultiplierRecord",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valueextractor.type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueExtractor",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuter.type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuter",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmuterlist.type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuterList",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.upgradeableobject-valuetransmutermap.type",
+      "assembly": "assembly-csharp",
+      "type": "UpgradeableObject+ValueTransmuterMap",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.modifierlistref.type",
+      "assembly": "assembly-csharp",
+      "type": "ModifierListRef",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.modifierlistvariable.type",
+      "assembly": "assembly-csharp",
+      "type": "ModifierListVariable",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
+    },
+    {
+      "id": "druidry-level.plotnodeactionso-sizeconverter.type",
+      "assembly": "assembly-csharp",
+      "type": "PlotNodeActionSO+SizeConverter",
+      "typeVisibility": "public",
+      "kind": "type",
+      "owners": [
+        "Automata Auto Levels world collection"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "capture",
+      "capture": {
+        "class": "grab",
+        "cadence": "per-epoch",
+        "derivable": false,
+        "sideEffects": [],
+        "justification": "Binds the exact native type used by prospective Druidry capture.",
+        "evidence": "Exact installed assembly metadata 46b723ad8e3df5adf7186ec32b220c338e26c1cc79369e01213c091155073bdc."
+      }
     }
   ],
   "captureRoots": [
@@ -32654,6 +34535,7 @@
       "src/AutoConcept",
       "src/AutoHarvest",
       "src/AutoItems",
+      "src/AutoLevels",
       "src/AutoScribe",
       "src/AlchemyLoadout",
       "src/RitualLifecycle",
@@ -32670,6 +34552,7 @@
       "src/EquipmentLoadout",
       "src/Challenge",
       "src/Prestige",
+      "src/QualityOfLife",
       "src/Research",
       "src/Mentor",
       "src/ModConfig",

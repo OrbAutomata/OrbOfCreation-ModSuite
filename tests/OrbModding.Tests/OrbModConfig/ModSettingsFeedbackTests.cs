@@ -56,6 +56,70 @@ public sealed class ModSettingsFeedbackTests
         Assert.Equal(0, rebuilds);
     }
 
+    [Theory]
+    [InlineData(640f)]
+    [InlineData(1000f)]
+    public void LongLiveReasonsGrowAndShrinkTheHeaderWithoutReplacingFollowingEditors(float width)
+    {
+        using var fixture = new SettingsFixture();
+        fixture.Page.Hide();
+        fixture.Content.rect = new Rect(0f, 0f, width, 600f);
+        var session = new ConfigEditSession(fixture.Catalog);
+        var presentation = new ModConfigFeatureCommandPresentation("Ready.", true, "Turn off");
+        var rebuilds = 0;
+        using var list = new ModSettingListView(session, fixture.Content, fixture.Template,
+            () => rebuilds++, _ => { });
+        list.Render(fixture.Catalog.Mods[0].Sections[0].Settings,
+            new ModConfigFeatureCommand("Feature", () => presentation, () => { }));
+        var header = (RectTransform)Child(fixture.Content, "Feature.Feature");
+        var status = Child(header, "Status").GetComponent<TextMeshProUGUI>()!;
+        var hint = (RectTransform)Child(header, "StagingHint");
+        var button = Child(header, "ImmediateMode").GetComponent<Button>()!;
+        var row = (RectTransform)Child(fixture.Content, "Setting.Count");
+        var input = Child(row, "Input").GetComponent<TMP_InputField>()!;
+        Type(input, "7");
+        fixture.Content.anchoredPosition = new Vector2(0f, 41f);
+        var originalHeaderHeight = header.sizeDelta.y;
+        var originalContentHeight = fixture.Content.sizeDelta.y;
+        var originalRowTop = row.anchoredPosition.y;
+        presentation = presentation with
+        {
+            StatusText = "Casting Output: waiting for Magic; next cost 250, budget 100 (1 second of income).\n" +
+                "Casting Reserve: waiting for capacity; next drain 12/s, 300 seconds of resource buffer required.\n" +
+                "Concept speed: waiting for Knowledge; next cost 800, sustained income budget 450.\n" +
+                "Alchemy speed: waiting for mana; next drain 20/s exceeds the configured resource buffer.",
+        };
+
+        Assert.True(list.RefreshFeaturePresentation());
+
+        var growth = header.sizeDelta.y - originalHeaderHeight;
+        Assert.True(growth > 0f);
+        Assert.Equal(originalContentHeight + growth, fixture.Content.sizeDelta.y, 3);
+        Assert.Equal(originalRowTop - growth, row.anchoredPosition.y, 3);
+        var statusRect = (RectTransform)status.transform;
+        var preferredHeight = status.GetPreferredValues(status.text, width * 0.98f * 0.95f, 0f).y;
+        Assert.True(statusRect.sizeDelta.y >= preferredHeight);
+        Assert.Equal(TextOverflowModes.Overflow, status.overflowMode);
+        Assert.True(-hint.anchoredPosition.y >= -statusRect.anchoredPosition.y + statusRect.sizeDelta.y);
+        Assert.True(-row.anchoredPosition.y >= -header.anchoredPosition.y + header.sizeDelta.y);
+        Assert.Same(input, Child(row, "Input").GetComponent<TMP_InputField>());
+        Assert.Same(button, Child(header, "ImmediateMode").GetComponent<Button>());
+        Assert.Equal("7", input.text);
+        Assert.Equal(41f, fixture.Content.anchoredPosition.y);
+        Assert.False(list.RefreshFeaturePresentation());
+
+        presentation = presentation with { StatusText = "Ready." };
+        Assert.True(list.RefreshFeaturePresentation());
+        Assert.Equal(originalHeaderHeight, header.sizeDelta.y, 3);
+        Assert.Equal(originalContentHeight, fixture.Content.sizeDelta.y, 3);
+        Assert.Equal(originalRowTop, row.anchoredPosition.y, 3);
+        Assert.Same(row, Child(fixture.Content, "Setting.Count"));
+        Assert.Same(input, Child(row, "Input").GetComponent<TMP_InputField>());
+        Assert.Equal("7", session.Get(fixture.Catalog.Mods[0].Sections[0].Settings.Single()).StagedSerialized);
+        Assert.Equal(41f, fixture.Content.anchoredPosition.y);
+        Assert.Equal(0, rebuilds);
+    }
+
     [Fact]
     public void TextEditsShowInvalidAndUnsavedMarkersUntilAppliedOrReverted()
     {

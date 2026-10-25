@@ -261,6 +261,10 @@ internal static class GameResourceRateMath
         return (OrbGameMath.SumGeometricSequence(r.MaxQuantity, ratio, terms) - r.Quantity) / fraction;
     }
 
+    /// <summary>Net stock change before the native overflow branch, after current drain and loss.</summary>
+    internal static BigDouble GetUnclampedNetRate(in GameResourceRateInputs r) =>
+        GetModdedFlatRate(in r) + GetDisplayRate(in r) - GetQuantityNegRate(in r);
+
     /// <summary>Ported from <c>ResourceSO.GetTrueRate()</c>: the net per-second change a player sees.</summary>
     /// <remarks>
     /// Three branches. Below or at the cap — including within one part in a thousand of it — the rate
@@ -273,13 +277,13 @@ internal static class GameResourceRateMath
         if (!HasMaxQuantity(in r) || r.Quantity <= r.MaxQuantity ||
             OrbGameMath.ApproxError(r.Quantity, r.MaxQuantity))
         {
-            return GetModdedFlatRate(in r) + GetDisplayRate(in r) - GetQuantityNegRate(in r);
+            return GetUnclampedNetRate(in r);
         }
 
         if (!HasActiveRate(in r))
         {
             return BigDouble.Min(
-                GetModdedFlatRate(in r) + GetDisplayRate(in r) - GetQuantityNegRate(in r), 0);
+                GetUnclampedNetRate(in r), 0);
         }
 
         return GetOverflowGain(in r, GetModdedFlatRate(in r) + GetDisplayRate(in r), r.FixedDeltaTime) -

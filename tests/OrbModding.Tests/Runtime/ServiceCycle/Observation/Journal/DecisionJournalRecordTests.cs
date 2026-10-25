@@ -86,7 +86,7 @@ public sealed class DecisionJournalRecordTests
     [Fact]
     public void TheNativeTypeRosterIsAppendOnlyAndPinned()
     {
-        Assert.Equal(9, Enum.GetValues(typeof(ServiceActionNativeTypeId)).Length);
+        Assert.Equal(11, Enum.GetValues(typeof(ServiceActionNativeTypeId)).Length);
         Assert.Equal(0, (ushort)ServiceActionNativeTypeId.NotApplicable);
         Assert.Equal(1, (ushort)ServiceActionNativeTypeId.StructureSO);
         Assert.Equal(2, (ushort)ServiceActionNativeTypeId.UpgradeSO);
@@ -96,6 +96,8 @@ public sealed class DecisionJournalRecordTests
         Assert.Equal(6, (ushort)ServiceActionNativeTypeId.ConsumableSO);
         Assert.Equal(7, (ushort)ServiceActionNativeTypeId.CraftingRecipeSO);
         Assert.Equal(8, (ushort)ServiceActionNativeTypeId.EquipmentSO);
+        Assert.Equal(9, (ushort)ServiceActionNativeTypeId.PassiveAbilitySO);
+        Assert.Equal(10, (ushort)ServiceActionNativeTypeId.IntVariable);
     }
 
     [Fact]
