@@ -1,6 +1,5 @@
 using System;
 using OrbAutomata;
-using OrbModding;
 
 namespace OrbMentor;
 
@@ -26,7 +25,7 @@ internal sealed class MentorServiceAdapterComposition
             natives,
             dependencies.ReadLifecycleEpoch,
             dependencies.CaptureMutationPermit,
-            message => Plugin.Log?.LogAutomataWarning(message));
+            dependencies.Warn);
         return new MentorServiceAdapterComposition(MentorService.Define(actions), natives);
     }
 }

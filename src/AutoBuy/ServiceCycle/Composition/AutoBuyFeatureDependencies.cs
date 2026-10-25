@@ -24,7 +24,7 @@ internal sealed class AutoBuyFeatureDependencies
 #if SERVICE_CYCLE_PROFILE
         , Func<AutoBuyCandidateKind, bool>? gameMcpOwnership = null
 #endif
-        )
+        , Action<string>? info = null)
     {
         ReadLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         OwnershipMask = ownershipMask ?? throw new ArgumentNullException(nameof(ownershipMask));
@@ -33,6 +33,7 @@ internal sealed class AutoBuyFeatureDependencies
         RefusalBundles = refusalBundles ?? throw new ArgumentNullException(nameof(refusalBundles));
         ReportInvariant = reportInvariant ?? throw new ArgumentNullException(nameof(reportInvariant));
         Warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        Info = info ?? (static _ => { });
 #if SERVICE_CYCLE_PROFILE
         GameMcpOwnership = gameMcpOwnership ?? (_ => false);
 #endif
@@ -50,6 +51,9 @@ internal sealed class AutoBuyFeatureDependencies
 
     /// <summary>Where the feature's warnings are said: retry episodes and purchase-view blocks.</summary>
     public Action<string> Warn { get; }
+
+    /// <summary>Where topology publications and recovery messages go; omitted by silent hosts.</summary>
+    public Action<string> Info { get; }
 #if SERVICE_CYCLE_PROFILE
     internal Func<AutoBuyCandidateKind, bool> GameMcpOwnership { get; }
 #endif

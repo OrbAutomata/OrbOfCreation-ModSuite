@@ -12,7 +12,7 @@ namespace OrbAutomata;
 /// <remarks>
 /// <para>
 /// The runtime identifies a service by the string it registered and the trace identifies it by a
-/// number; neither is a name a reader recognises. This is the one place the suite says that
+/// number; neither is a name a reader recognises. The feature contribution says that
 /// <c>orbautomata.auto-harvest</c>, trace identity 2, is the thing the rest of the UI calls Auto
 /// Harvest, and it is read once per recording rather than per event.
 /// </para>
@@ -25,17 +25,6 @@ namespace OrbAutomata;
 /// </remarks>
 internal static class AutomataServiceCycleTraceRoster
 {
-    private const string WorldCollectionId = "orbautomata.world-collection";
-    private const string AutoHarvestId = "orbautomata.auto-harvest";
-    private const string AutoBuyId = "orbautomata.auto-buy";
-    private const string SpellLevelId = "orbautomata.spell-level";
-    private const string AutoCastId = "orbautomata.auto-cast";
-    private const string AutoConceptId = "orbautomata.auto-concept";
-    private const string AutoItemsId = "orbautomata.auto-items";
-    private const string AutoScribeId = "orbautomata.auto-scribe";
-    private const string MentorId = "orbmentor.mastery-sharing";
-    private const string StrategistId = "orbautomata.strategist";
-
     /// <summary>
     /// The roster for a registry whose registrations are complete. Trace identity is the registration
     /// ordinal plus one, the same derivation the semantic emitters use, because the roster has to name
@@ -81,18 +70,15 @@ internal static class AutomataServiceCycleTraceRoster
     }
 
     /// <summary>The suite's own name for a registered service, or empty when it has none.</summary>
-    internal static string DisplayName(ServiceId service) => service.Value switch
+    internal static string DisplayName(ServiceId service)
     {
-        WorldCollectionId => "World collection",
-        AutoHarvestId => "Auto Harvest",
-        AutoBuyId => "Auto Buy",
-        SpellLevelId => "Spell Leveling",
-        AutoCastId => "Auto Cast",
-        AutoConceptId => "Auto Concept",
-        AutoItemsId => "Auto Items",
-        AutoScribeId => "Auto Scribe",
-        MentorId => "Mentor",
-        StrategistId => "Strategist",
-        _ => string.Empty,
-    };
+        foreach (var feature in AutomataFeatureCatalog.All)
+            if (feature.ServiceId == service.Value) return feature.TraceName;
+        return service.Value switch
+        {
+            "orbautomata.world-collection" => "World collection",
+            "orbautomata.strategist" => "Strategist",
+            _ => string.Empty,
+        };
+    }
 }

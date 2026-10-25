@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
@@ -12,6 +13,7 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 internal sealed class ExecutionWorkerControl
 {
     private int _stateFactoryFailures;
+    private int _stateReleaseFailures;
     private int _evaluationFaults;
     private int _projectionFaults;
     private int _stateCreateCount;
@@ -58,6 +60,7 @@ internal sealed class ExecutionWorkerControl
 
     internal void FailNextEvaluations(int count) => Volatile.Write(ref _evaluationFaults, count);
     internal void FailNextProjections(int count) => Volatile.Write(ref _projectionFaults, count);
+    internal void FailNextStateReleases(int count) => Volatile.Write(ref _stateReleaseFailures, count);
     internal void FailNextStateFactories(int count) => Volatile.Write(ref _stateFactoryFailures, count);
 
     internal ExecutionState CreateState()
@@ -70,9 +73,12 @@ internal sealed class ExecutionWorkerControl
     internal void ReleaseState(ref ExecutionState state)
     {
         Interlocked.Increment(ref _stateReleaseCount);
+        if (ConsumeOne(ref _stateReleaseFailures)) throw new InvalidOperationException("synthetic state release fault");
         state = null!;
     }
 
+    // Logging regressions assert these injected throw sites, including in optimized CI builds.
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal WakePolicy Evaluate(
         in SuiteRuntimeConfiguration config,
         GameWorldState world,
@@ -121,6 +127,7 @@ internal sealed class ExecutionWorkerControl
         return EvaluationWake;
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
     internal void Project(in ExecutionState state, ServiceStateProjectionBuilder output)
     {
         output.Add(new ServiceProjectionKey(1), ServiceProjectionValue.FromInteger(state.Evaluations));

@@ -25,7 +25,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         var health = new AutoItemsActionHealth();
         using var gameAction = GameAction();
         var adapter = new AutoItemsCycleActionAdapter(
-            gameAction, static () => 7, static () => false, () => throw failure, health);
+            gameAction, static () => false, () => throw failure, health, static _ => { });
         var config = Configuration(AutoItemsOperationMode.Active);
         var action = new AutoItemsCycleAction(Guid.NewGuid(), AutoItemsConsumableFamily.Relic, 7, 0);
         var context = Context();
@@ -50,10 +50,10 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         using var gameAction = GameAction();
         var adapter = new AutoItemsCycleActionAdapter(
             gameAction,
-            static () => 7,
             static () => true,
             static () => string.Empty,
-            health);
+            health,
+            static _ => { });
         var config = Configuration(AutoItemsOperationMode.Disabled);
         var action = new AutoItemsCycleAction(
             Guid.NewGuid(),
@@ -78,10 +78,10 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         using var gameAction = GameAction();
         var adapter = new AutoItemsCycleActionAdapter(
             gameAction,
-            static () => 7,
             static () => false,
             static () => reason,
-            health);
+            health,
+            static _ => { });
         var config = Configuration(AutoItemsOperationMode.Active);
         var action = new AutoItemsCycleAction(
             Guid.NewGuid(),
@@ -102,13 +102,14 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
     public void AnUnreadableLifecycleEpochFaults()
     {
         var health = new AutoItemsActionHealth();
-        using var gameAction = GameAction();
+        using var gameAction = GameAction(
+            static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."));
         var adapter = new AutoItemsCycleActionAdapter(
             gameAction,
-            static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."),
             static () => true,
             static () => string.Empty,
-            health);
+            health,
+            static _ => { });
         var config = Configuration(AutoItemsOperationMode.Active);
         var action = new AutoItemsCycleAction(
             Guid.NewGuid(),
@@ -120,7 +121,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         var result = adapter.TryExecute(in action, in config, in context);
 
         Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
-        Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
+        Assert.Equal(AutoItemsActionResultCodes.ContractUnavailable, result.Code);
     }
 
     [Fact]
@@ -132,10 +133,10 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         using var gameAction = GameAction();
         var adapter = new AutoItemsCycleActionAdapter(
             gameAction,
-            static () => 7,
             static () => true,
             static () => string.Empty,
-            health);
+            health,
+            static _ => { });
         var config = Configuration(AutoItemsOperationMode.Active);
         var action = new AutoItemsCycleAction(
             Guid.NewGuid(),
@@ -171,10 +172,10 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         using var gameAction = GameAction();
         var adapter = new AutoItemsCycleActionAdapter(
             gameAction,
-            static () => 7,
             static () => true,
             static () => string.Empty,
-            health);
+            health,
+            static _ => { });
         var config = Configuration(AutoItemsOperationMode.Active);
         var action = new AutoItemsCycleAction(
             Guid.NewGuid(),
@@ -194,7 +195,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
         }
     }
 
-    private static AutoItemsConsumableUseGameAction GameAction()
+    private static AutoItemsConsumableUseGameAction GameAction(Func<long>? readLifecycleEpoch = null)
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();
         return new AutoItemsConsumableUseGameAction(
@@ -202,6 +203,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
                 static () => 7,
                 () => TypedRegistrySourceSnapshot.Ready(registry),
                 static _ => Guid.Empty),
+            readLifecycleEpoch ?? (static () => 7),
             static () => true,
             static () => string.Empty);
     }

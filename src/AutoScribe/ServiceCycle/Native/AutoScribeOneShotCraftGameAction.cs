@@ -11,16 +11,16 @@ namespace OrbAutomata;
 /// Doctrine-shaped re-drive of the native Scribe UI composite. All fallible suite-owned reads and
 /// decisions finish before payment; the exact work admission is the one postcondition sentinel.
 /// </summary>
-internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
+internal sealed class AutoScribeOneShotCraftGameAction : NativeGameAction<AutoScribeNativeBindings>
 {
     private readonly TypedRegistryResolver _registry;
     private readonly AutoScribeIdentityProfile _profile;
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readOwnershipFailure;
-    private readonly int _mainThreadId;
-    private AutoScribeNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
+    private static readonly GameActionCodes Codes = new(
+        AutoScribeActionResultCodes.WrongThread,
+        AutoScribeActionResultCodes.ContractUnavailable,
+        AutoScribeActionResultCodes.MutationPermitUnavailable,
+        AutoScribeActionResultCodes.PostPaymentFault,
+        AutoScribeActionResultCodes.VerificationFailed);
 
     internal AutoScribeOneShotCraftGameAction(
         TypedRegistryResolver registry,
@@ -28,47 +28,24 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         Func<long> readLifecycleEpoch,
         Func<bool> tryCaptureMutationPermit,
         Func<string> readOwnershipFailure)
+        : base("Auto Scribe", "Scholar > Scribe", Codes, readLifecycleEpoch,
+            tryCaptureMutationPermit, readOwnershipFailure,
+            (out AutoScribeNativeBindings? bindings, out string reason) =>
+                AutoScribeNativeBindings.TryCreate(out bindings, out reason))
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
         _profile = profile ?? throw new ArgumentNullException(nameof(profile));
-        _readLifecycleEpoch = readLifecycleEpoch ??
-            throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ??
-            throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readOwnershipFailure = readOwnershipFailure ??
-            throw new ArgumentNullException(nameof(readOwnershipFailure));
-        _mainThreadId = Environment.CurrentManagedThreadId;
-        BindLifecycle();
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal AutoScribeSubmission Submit(in AutoScribeCycleAction action)
     {
-        if (Environment.CurrentManagedThreadId != _mainThreadId)
-            return AutoScribeSubmission.Fault(
-                AutoScribeActionResultCodes.WrongThread,
-                GameActionAnswer.SuiteStopped());
-        long liveLifecycle;
-        try
-        {
-            liveLifecycle = _readLifecycleEpoch();
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return AutoScribeSubmission.Fault(
-                AutoScribeActionResultCodes.ContractUnavailable,
-                GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
-        }
-        if (liveLifecycle <= 0 || liveLifecycle != action.CollectedAtEpoch)
+        if (!TryEnter(action.CollectedAtEpoch, out var native, out var refusal))
+            return refusal.Code == CommonActionResultCodes.LifecycleReplaced
+                ? new AutoScribeSubmission(refusal)
+                : AutoScribeSubmission.Fault(refusal.Code, refusal.Cause);
+        if (action.CollectedAtEpoch <= 0)
             return AutoScribeSubmission.Reject(
-                CommonActionResultCodes.LifecycleReplaced,
-                GameActionAnswer.RunChanged());
-        if (_bindings is not { } native)
-            return AutoScribeSubmission.Fault(
-                AutoScribeActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Scholar > Scribe", _bindingFailure));
+                CommonActionResultCodes.LifecycleReplaced, GameActionAnswer.RunChanged());
 
         try
         {
@@ -85,11 +62,11 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 return retryable
                     ? AutoScribeSubmission.Reject(rejection, reason, retryable: true)
                     : AutoScribeSubmission.Fault(rejection, reason);
-            if (!native.RecipeVisible(recipe))
+            if (!native.Crafting.RecipeVisible(recipe))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.RecipeUnavailable,
                     $"The game is not showing {EntityIdentityFormatter.PlayerName(action.RecipeId)} yet.");
-            if (!native.QueueHasRoom(activeQueue))
+            if (!native.Crafting.QueueHasRoom(activeQueue))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.QueueFull,
                     "ActiveScribeInstances.HasEmptySpot() refused before payment.");
@@ -115,23 +92,27 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
 
             var level = new BigDouble(craftLevel, 0);
             var zero = BigDouble.Zero;
-            var totalCost = Returned(
-                native.RecipeTotalCost(recipe, zero, level),
-                "CraftingRecipeSO.GetTotalCost");
-            if (totalCost.GetType() != native.ResourceCostType)
-                return AutoScribeSubmission.Fault(
-                    AutoScribeActionResultCodes.ContractUnavailable,
-                    "The game did not publish a price for this recipe, so nothing could be " +
-                    "paid. Open Scholar > Scribe and read again.");
-            if (!native.CostHasEnough(totalCost))
+            var totalCost = native.Crafting.RecipeTotalCost(recipe, zero, level);
+            if (!native.Crafting.CostHasEnough(totalCost))
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.Unaffordable,
                     $"GetTotalCost(0,{craftLevel}).HasEnough() refused recipe {EntityIdentityFormatter.PlayerName(action.RecipeId)}.");
 
-            if (!TryCaptureMutationPermit(out var permitRefusal))
+            try
+            {
+                if (!TryPermit(out var permitRefusal))
+                    return AutoScribeSubmission.Reject(
+                        AutoScribeActionResultCodes.MutationPermitUnavailable,
+                        string.IsNullOrWhiteSpace(permitRefusal.Reason)
+                            ? "Auto Scribe no longer owns CraftingQueueSubmission."
+                            : permitRefusal.Reason);
+            }
+            catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
+            {
                 return AutoScribeSubmission.Reject(
                     AutoScribeActionResultCodes.MutationPermitUnavailable,
-                    permitRefusal);
+                    GameActionAnswer.CouldNotRead("Scholar > Scribe", ex));
+            }
 
             // Payment is deliberately the final pre-native risk. From here onward no metadata is
             // discovered and no policy/configuration decision is made.
@@ -141,7 +122,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 recipe,
                 activeQueue,
                 totalCost,
-                craftLevel,
                 level);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -152,26 +132,12 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         }
     }
 
-    internal void InvalidateLifecycle()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-    }
-
     private AutoScribeSubmission Execute(
         in AutoScribeCycleAction action,
         AutoScribeNativeBindings native,
         object recipe,
         object activeQueue,
         object totalCost,
-        int craftLevel,
         BigDouble level)
     {
         var stage = "Payment";
@@ -179,70 +145,53 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         object? instance = null;
         var instant = false;
         var admissionKnown = false;
-        try
-        {
-            native.RecipePurchase(recipe, level, BigDouble.Zero);
+        var evidence = NativeMutationVerifier.ExecuteAfterCapture(
+            "Auto Scribe",
+            EntityIdentityFormatter.PlayerName(action.RecipeId),
+            "The exact crafted work reached its native destination.",
+            false,
+            () => admissionKnown && native.Crafting.WorkObserved(activeQueue, instance, instant),
+            () =>
+            {
+                native.Crafting.RecipePurchase(recipe, level, BigDouble.Zero);
 
-            stage = "Construction";
-            nativeCalls = 2;
-            instance = native.ConstructInstance(recipe, level);
-            if (instance.GetType() != native.InstanceType)
-                throw new InvalidOperationException(
-                    "CraftingInstance construction returned the wrong native type.");
+                stage = "Construction";
+                nativeCalls = 2;
+                instance = native.Crafting.ConstructInstance(recipe, level);
 
-            stage = "Initiation";
-            nativeCalls = 3;
-            native.InstanceInitiate(instance);
+                stage = "Initiation";
+                nativeCalls = 3;
+                native.Crafting.InstanceInitiate(instance);
 
-            stage = "Admission";
-            instant = native.InstanceInstantCheck(instance);
-            admissionKnown = true;
-            nativeCalls = 4;
-            if (instant)
-                native.InstanceInstant(instance);
-            else
-                native.QueueAdd(activeQueue, instance);
-
-            stage = "Verification";
-            var verified = instant
-                ? native.InstanceExpired(instance)
-                : ContainsExactInstance(RequireList(
-                    native.InstanceListValue(activeQueue),
-                    "ActiveScribeInstances.value"), instance);
-            if (!verified)
-                return PaidWithoutWork(
-                    in action,
-                    native,
-                    totalCost,
-                    AutoScribeActionResultCodes.VerificationFailed,
-                    stage,
-                    NativeMutationOutcome.PostconditionFailed,
-                    nativeCalls,
-                    thrown: null);
+                stage = "Admission";
+                instant = native.Crafting.InstanceInstantCheck(instance);
+                admissionKnown = true;
+                nativeCalls = 4;
+                if (instant)
+                    native.Crafting.InstanceInstant(instance);
+                else
+                    native.Crafting.QueueAdd(activeQueue, instance);
+                stage = "Verification";
+            },
+            static (_, landed) => landed,
+            rethrowUnexpected: false);
+        if (evidence.IsVerified)
             return new AutoScribeSubmission(NativeActionOutcome.Commit(
                 new NativeMutationCallOutcome(nativeCalls, 1, 1),
                 "The exact crafted work reached its native destination."));
-        }
-        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
-        {
-            var expected = NativeFailureClassifier.IsExpected(ex);
-            if (WorkObservedBestEffort(native, activeQueue, instance, admissionKnown, instant))
-                return new AutoScribeSubmission(NativeActionOutcome.Commit(
-                    new NativeMutationCallOutcome(nativeCalls, 1, 1),
-                    GameActionFaultLog.Reason(
-                        "The exact crafted work was observable after native code threw.",
-                        expected ? null : ex,
-                        "Scholar > Scribe")));
-            return PaidWithoutWork(
-                in action,
-                native,
-                totalCost,
-                AutoScribeActionResultCodes.PostPaymentFault,
-                stage,
-                NativeMutationOutcome.ExecutionThrew,
-                nativeCalls,
-                ex);
-        }
+        return PaidWithoutWork(
+            in action,
+            native,
+            totalCost,
+            evidence.Outcome == NativeMutationOutcome.PostconditionFailed
+                ? AutoScribeActionResultCodes.VerificationFailed
+                : AutoScribeActionResultCodes.PostPaymentFault,
+            stage,
+            evidence.Outcome == NativeMutationOutcome.PostconditionFailed
+                ? NativeMutationOutcome.PostconditionFailed
+                : NativeMutationOutcome.ExecutionThrew,
+            nativeCalls,
+            evidence.Exception);
     }
 
     /// <summary>
@@ -465,7 +414,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
             !native.UseQuantityAsLevel(recipe) ||
             !native.IsLevelType(recipeType) ||
             !ReferenceEquals(
-                Returned(native.RecipeMainType(recipe), "CraftingRecipeSO.GetMainType"),
+                native.Crafting.RecipeMainType(recipe),
                 recipeType))
         {
             reason =
@@ -568,7 +517,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                 reason = resolution.FormatCause();
                 return true;
             }
-            if (native.InstanceListValue(resolution.Value!) is not { } work)
+            if (native.Crafting.InstanceListValue(resolution.Value!) is not { } work)
             {
                 reason = $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} did not expose its exact CraftingInstance list.";
                 return true;
@@ -581,9 +530,9 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
                     reason = $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} contained a non-CraftingInstance value.";
                     return true;
                 }
-                if (native.InstanceRecipe(value) == recipeId &&
-                    Level(native.InstanceQuantity(value)) >= level &&
-                    !native.InstanceExpired(value))
+                if (native.Crafting.InstanceRecipe(value) == recipeId &&
+                    Level(native.Crafting.InstanceQuantity(value)) >= level &&
+                    !native.Crafting.InstanceExpired(value))
                 {
                     reason =
                         $"{EntityIdentityFormatter.PlayerName(queueIdentity.Uuid)} already supplies recipe {EntityIdentityFormatter.PlayerName(recipeId)} at level " +
@@ -722,71 +671,7 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         AutoScribeNativeBindings native,
         object recipe,
         int level) =>
-        native.RecipeCanBuyAt(recipe, new BigDouble(level, 0));
-
-    private static bool ContainsExactInstance(IList work, object instance)
-    {
-        foreach (var value in work)
-            if (ReferenceEquals(value, instance)) return true;
-        return false;
-    }
-
-    private static bool WorkObservedBestEffort(
-        AutoScribeNativeBindings native,
-        object activeQueue,
-        object? instance,
-        bool admissionKnown,
-        bool instant)
-    {
-        try
-        {
-            if (instance is null || !admissionKnown) return false;
-            if (instant) return native.InstanceExpired(instance);
-            return ContainsExactInstance(RequireList(
-                native.InstanceListValue(activeQueue),
-                "ActiveScribeInstances.value"), instance);
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            return false;
-        }
-    }
-
-    private bool TryCaptureMutationPermit(out GameActionReason reason)
-    {
-        try
-        {
-            if (_tryCaptureMutationPermit())
-            {
-                reason = string.Empty;
-                return true;
-            }
-            var failure = _readOwnershipFailure();
-            reason = string.IsNullOrWhiteSpace(failure)
-                ? "Auto Scribe no longer owns CraftingQueueSubmission."
-                : failure;
-            return false;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            reason = GameActionAnswer.CouldNotRead("Scholar > Scribe", ex);
-            return false;
-        }
-    }
-
-    private void BindLifecycle()
-    {
-        if (AutoScribeNativeBindings.TryCreate(out var bindings, out var reason))
-        {
-            _bindings = bindings;
-            _bindingFailure = string.Empty;
-        }
-        else
-        {
-            _bindings = null;
-            _bindingFailure = reason;
-        }
-    }
+        native.Crafting.RecipeCanBuyAt(recipe, new BigDouble(level, 0));
 
     private static GameActionReason FirstFailure(
         out bool retryable,
@@ -812,10 +697,6 @@ internal sealed class AutoScribeOneShotCraftGameAction : IDisposable
         retryable = false;
         return "An Auto Scribe live identity was unavailable.";
     }
-
-    private static IList RequireList(object? value, string contract) =>
-        value as IList ??
-        throw new InvalidOperationException(contract + " was not a native list.");
 
     private static IEnumerable RequireEnumerable(object? value, string contract) =>
         value as IEnumerable ??

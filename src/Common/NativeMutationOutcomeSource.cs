@@ -21,9 +21,11 @@ public readonly struct NativeMutationCallOutcome
     public int MutationAttempts { get; }
     public int MutationsCommitted { get; }
 
-    public static NativeMutationCallOutcome FromEvidence<TState>(NativeMutationEvidence<TState> evidence) =>
+    public static NativeMutationCallOutcome FromEvidence<TState>(
+        NativeMutationEvidence<TState> evidence,
+        int nativeCallsAttempted = 1) =>
         evidence.MutationWasAttempted
-            ? new NativeMutationCallOutcome(1, 1, evidence.IsVerified ? 1 : 0)
+            ? new NativeMutationCallOutcome(nativeCallsAttempted, 1, evidence.IsVerified ? 1 : 0)
             : default;
 
     public NativeMutationCallOutcome Add(NativeMutationCallOutcome other) =>

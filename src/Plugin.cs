@@ -45,7 +45,6 @@ public sealed class Plugin : BaseUnityPlugin
 #else
     private const bool AutoStartServiceCycleDiagnostics = false;
 #endif
-    private const float UiRetryIntervalSeconds = 5.0f;
     private const float UiIntegrityIntervalSeconds = 5.0f;
 
     /// <summary>
@@ -99,12 +98,9 @@ public sealed class Plugin : BaseUnityPlugin
     private AutomataServiceCycleActivation? _serviceCycleActivation;
     private readonly AutomataWorldDemand _worldDemand = new();
     private AutomationFeatureControlRegistry? _automationFeatureControls;
-    private QuickControlColumn? _quickControls;
+    private QuickControlsHost? _quickControlsHost;
     private EmergencyStopControl? _emergencyStopControl;
     private AutomataDifferentialVerificationControl? _mathVerification;
-    private float _quickControlsUiRetrySeconds;
-    private string _quickControlsUiFailureReason = string.Empty;
-    private readonly UiInstallationRetryState _quickControlsRetry = new();
     private bool _knownOwnershipWarningLogged;
     private bool _nativeContractsAvailable = true;
     private bool _auditedBuild;
@@ -115,7 +111,6 @@ public sealed class Plugin : BaseUnityPlugin
     private bool _runtimeCompositionAttempted;
 
     private MentorConfig? _mentorConfig;
-    private MentorActionFamilyOwnership? _mentorActionFamilyOwnership;
 
     private ModConfigSettings? _modConfigSettings;
     private float _uiRetrySeconds;
@@ -243,6 +238,13 @@ public sealed class Plugin : BaseUnityPlugin
             _featureStatuses,
             _spellLevelCapability,
             _mentorConfig);
+        _quickControlsHost = new QuickControlsHost(
+            _automationFeatureControls,
+            _emergencyStopControl,
+            message => Logger.LogInfo(message),
+            () => _uiSurfaceDiagnostics?.ReportSuccess(SuiteUiSurface.QuickControls),
+            reason => _uiSurfaceDiagnostics?.ReportWaiting(SuiteUiSurface.QuickControls, reason),
+            reason => _uiSurfaceDiagnostics?.ReportFailure(SuiteUiSurface.QuickControls, reason));
         ValidateSuiteShortcuts();
 
         if (_auditedBuild)
@@ -392,10 +394,10 @@ public sealed class Plugin : BaseUnityPlugin
         var featureStatuses = _featureStatuses!;
 
         var ownership = _automataActionFamilyOwnership = new AutomataActionFamilyOwnership();
-        var harvestFamily = ownership.Family(AutomataActionFamilyOwnership.Harvest);
-        var itemsFamily = ownership.Family(AutomataActionFamilyOwnership.Items);
-        var scribeFamily = ownership.Family(AutomataActionFamilyOwnership.Scribe);
-        _mentorActionFamilyOwnership = new MentorActionFamilyOwnership();
+#if SERVICE_CYCLE_PROFILE
+        var harvestFamily = ownership.Family(AutoHarvestFeatureContribution.ActionFamily);
+        var scribeFamily = ownership.Family(AutoScribeFeatureContribution.ActionFamily);
+#endif
         Log.LogAutomataWarning(
             "Action-family ownership is best-effort: exact known conflicts and cooperative suite owners are isolated, but unknown plugins that invoke native actions without registering cannot be proven absent and are not disabled.");
         _automataActionFamilyOwnership.RefreshLoadedPluginInventory(
@@ -413,21 +415,23 @@ public sealed class Plugin : BaseUnityPlugin
                 // that compiles and looks like a quiet game. The world publication is not
                 // here at all: the registry owns it, because there is one game.
                 Func<long> readFrameIdentity = static () => Time.frameCount;
-                var scribeCatalog = new AutoScribeIdentityCatalog();
-                IAutomataServiceCycleFeature autoScribeFeature =
-                    scribeCatalog.TryGetProfile(_auditedBaselineId, out var scribeProfile)
-                        ? new AutoScribeServiceCycleFeature(
-                            new AutoScribeFeatureDependencies(
-                                registryResolver,
-                                scribeProfile,
-                                readLifecycleEpoch,
-                                ownsActionFamily: () =>
-                                    _automataActionFamilyOwnership!.OwnsScribe,
-                                tryCaptureMutationPermit: scribeFamily.TryCapture,
-                                readOwnershipFailure: scribeFamily.Failure,
-                                featureStatus: featureStatuses.AutoScribe))
-                        : new AutoScribeUnavailableServiceCycleFeature(
-                            featureStatuses.AutoScribe);
+                var features = new AutomataFeatureComposition
+                {
+                    ReadLifecycleEpoch = readLifecycleEpoch,
+                    RegistryResolver = registryResolver,
+                    Ownership = ownership,
+                    Configuration = _configurationStore!,
+                    Statuses = featureStatuses,
+                    SpellLevelCapability = _spellLevelCapability,
+                    ManualCastPause = _autoCastManualPause,
+                    AuditedBaselineId = _auditedBaselineId,
+                    RuntimeDiagnostics = RuntimeDiagnosticsRegistry.Shared,
+                    RefusalBundles = new AutoBuyRefusalBundleWriter(
+                        () => AutomataTraceRunRoot.Stable("diagnostics")),
+                    ReportInvariant = message => Log.LogAutomataError(message),
+                    Warn = message => Log.LogAutomataWarning(message),
+                    Info = message => Log.LogAutomataInfo(message),
+                };
                 return AutomataServiceCycleComposition.TryCreate(
                     configuration,
                     configurationGeneration,
@@ -445,12 +449,8 @@ public sealed class Plugin : BaseUnityPlugin
                             AutomataDecisionJournalPathPolicy.Create(
                                 DecisionJournalStatusRegistry.Shared),
                             AutoStartServiceCycleDiagnostics)),
-                    new IAutomataServiceCycleFeature[]
-                    {
-                        // Registered first so the world is collected before the services that
-                        // read it evaluate. Ordering between services is not enforced and this
-                        // does not make it so — it only avoids every consumer's first cycle
-                        // reading the empty snapshot for no reason.
+                    AutomataFeatureCatalog.CreateServices(features,
+                        // The collector registers first so consumers start with its publication.
                         new AutomataWorldCollectionFeature(
                             readFrameIdentity,
                             readLifecycleEpoch,
@@ -463,73 +463,7 @@ public sealed class Plugin : BaseUnityPlugin
                             },
                             createCollector: () =>
                                 GameWorldCollector.ForSession(_mentorMasteryJournal)),
-                        new AutoItemsServiceCycleFeature(
-                            new AutoItemsFeatureDependencies(
-                                registryResolver,
-                                readLifecycleEpoch,
-                                ownsActionFamily: () =>
-                                    _automataActionFamilyOwnership!.OwnsItems,
-                                tryCaptureMutationPermit: itemsFamily.TryCapture,
-                                readOwnershipFailure: itemsFamily.Failure,
-                                featureStatus: featureStatuses.AutoItems,
-                                warn: message => Log.LogAutomataWarning(message))),
-                        autoScribeFeature,
-                        new AutoHarvestServiceCycleFeature(
-                            new AutoHarvestFeatureDependencies(
-                                registryResolver,
-                                ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsHarvest,
-                                tryCaptureMutationPermit: harvestFamily.TryCapture,
-                                runtimeDiagnostics: RuntimeDiagnosticsRegistry.Shared,
-                                featureStatus: featureStatuses.AutoHarvest)),
-                        new AutoBuyServiceCycleFeature(
-                            new AutoBuyFeatureDependencies(
-                                readLifecycleEpoch,
-                                ownershipMask: () =>
-                                    _automataActionFamilyOwnership!.EffectiveAutoBuyOwnership(
-                                        _configurationStore!.Current.AutoBuy),
-                                runtimeDiagnostics: RuntimeDiagnosticsRegistry.Shared,
-                                featureStatus: featureStatuses.AutoBuy,
-                                refusalBundles: new AutoBuyRefusalBundleWriter(
-                                    () => AutomataTraceRunRoot.Stable("diagnostics")),
-                                reportInvariant: message => Log.LogAutomataError(message),
-                                warn: message => Log.LogAutomataWarning(message)
-#if SERVICE_CYCLE_PROFILE
-                                , gameMcpOwnership: kind =>
-                                    _automataActionFamilyOwnership!.OwnsAutoBuy(kind)
-#endif
-                                )),
-                        new SpellLevelServiceCycleFeature(
-                            new SpellLevelFeatureDependencies(
-                                readLifecycleEpoch,
-                                ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsSpellLevel,
-                                capability: _spellLevelCapability,
-                                featureStatus: featureStatuses.SpellLevel)),
-                        new AutoCastServiceCycleFeature(
-                            new AutoCastFeatureDependencies(
-                                readLifecycleEpoch,
-                                ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsCast,
-                                _autoCastManualPause,
-                                featureStatus: featureStatuses.AutoCast)),
-                        new AutoConceptServiceCycleFeature(
-                            new AutoConceptFeatureDependencies(
-                                readLifecycleEpoch,
-                                ownsActionFamily: () => _automataActionFamilyOwnership!.OwnsConcept,
-                                featureStatus: featureStatuses.AutoConcept,
-                                warn: message => Log.LogAutomataWarning(message))),
-                        new MentorServiceCycleFeature(
-                            new MentorFeatureDependencies(
-                                readLifecycleEpoch,
-                                captureMutationPermit: domain =>
-                                    _mentorActionFamilyOwnership!.TryCaptureMutationPermit(
-                                        domain switch
-                                        {
-                                            MasteryExperienceDomain.Spell => MentorDomain.Spells,
-                                            MasteryExperienceDomain.Artifact => MentorDomain.Artifacts,
-                                            _ => MentorDomain.Alchemy,
-                                        }) == true,
-                                featureStatus: featureStatuses.Mentor)),
-                        new StrategistServiceCycleFeature(),
-                    },
+                        new StrategistServiceCycleFeature()),
                     Log
 #if SERVICE_CYCLE_PROFILE
                     , composeGameActions: actions =>
@@ -790,7 +724,11 @@ public sealed class Plugin : BaseUnityPlugin
 #endif
         UpdateMentor();
         UpdateUiStartupReadiness(Time.unscaledDeltaTime);
-        UpdateQuickControls(Time.unscaledDeltaTime);
+        _quickControlsHost?.Update(
+            Time.unscaledDeltaTime,
+            SceneManager.GetActiveScene().name == "Main",
+            _uiStartupReadiness.Admission.QuickControls,
+            _nativeContractsAvailable);
         UpdateModConfig();
         _uiShell?.ShowStuckGameNotice(_stuckGame?.Notice);
     }
@@ -993,7 +931,6 @@ public sealed class Plugin : BaseUnityPlugin
     private void UpdateMentor()
     {
         if (_mentorConfig is null) return;
-        _mentorActionFamilyOwnership?.Refresh(_mentorConfig, IsGameplayScene(), Time.frameCount);
         if (SceneManager.GetActiveScene().name == "Main" && _mentorConfig.ToggleShortcut.Value.IsDown())
         {
             if (_automationFeatureControls!.TryGet("Mentor", out var mentor))
@@ -1063,7 +1000,6 @@ public sealed class Plugin : BaseUnityPlugin
     {
         CancelPreparedAutomationForOwnershipRelease();
         _automataActionFamilyOwnership?.ReleaseLifecycleClaims();
-        _mentorActionFamilyOwnership?.ReleaseLifecycleClaims();
     }
 
     private void OnDestroy()
@@ -1074,8 +1010,8 @@ public sealed class Plugin : BaseUnityPlugin
 #endif
         _startStatusView?.Dispose();
         _startStatusView = null;
-        _quickControls?.Dispose();
-        _quickControls = null;
+        _quickControlsHost?.Dispose();
+        _quickControlsHost = null;
         _emergencyStopControl = null;
         _automationFeatureControls = null;
         _uiShell?.Dispose();
@@ -1092,9 +1028,6 @@ public sealed class Plugin : BaseUnityPlugin
         _automaticSaveBackupHealth?.Dispose();
         _automaticSaveBackupHealth = null;
         _configurationStore = null;
-
-        _mentorActionFamilyOwnership?.Dispose();
-        _mentorActionFamilyOwnership = null;
 
         GameLifecycleMonitor.Shared.Transitioned -= OnLifecycleTransition;
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
@@ -1128,106 +1061,6 @@ public sealed class Plugin : BaseUnityPlugin
         _serviceCycleActivation?.CancelPreparedWork();
     }
 
-    private void UpdateQuickControls(float unscaledDeltaTime)
-    {
-        if (_automationFeatureControls is null || _emergencyStopControl is null) return;
-        if (SceneManager.GetActiveScene().name != "Main")
-        {
-            _quickControls?.Dispose();
-            _quickControls = null;
-            _quickControlsUiRetrySeconds = 0f;
-            ResetQuickControlsFailure();
-            return;
-        }
-        if (_quickControls is not null && !_quickControls.IsAlive)
-        {
-            _quickControls.Dispose();
-            _quickControls = null;
-        }
-        if (_quickControls is not null &&
-            _quickControls.AllowsFeatureControls != _nativeContractsAvailable)
-        {
-            _quickControls.Dispose();
-            _quickControls = null;
-            ResetQuickControlsFailure();
-        }
-        _quickControls?.Render();
-        if (_quickControls is not null && _quickControls.Failures.Count == 0)
-        {
-            ResetQuickControlsFailure();
-            _uiSurfaceDiagnostics?.ReportSuccess(SuiteUiSurface.QuickControls);
-            return;
-        }
-
-        if (!_uiStartupReadiness.Admission.QuickControls) return;
-
-        _quickControlsUiRetrySeconds -= Math.Max(0f, unscaledDeltaTime);
-        if (_quickControlsUiRetrySeconds > 0f) return;
-        _quickControlsUiRetrySeconds = UiRetryIntervalSeconds;
-        if (!QuickControlNativeAdapter.TryCapture(out var native, out var captureReason))
-        {
-            ReportQuickControlsRetry(captureReason);
-            return;
-        }
-        if (!QuickControlColumn.TryCreate(
-                _automationFeatureControls,
-                _emergencyStopControl,
-                native,
-                allowFeatureControls: _nativeContractsAvailable,
-                out var candidate,
-                out var constructionReason))
-        {
-            ReportQuickControlsRetry(constructionReason);
-            return;
-        }
-
-        if (_quickControls is null ||
-            candidate!.Failures.Count < _quickControls.Failures.Count)
-        {
-            _quickControls?.Dispose();
-            _quickControls = candidate;
-        }
-        else
-        {
-            candidate!.Dispose();
-        }
-        if (_quickControls is not null && _quickControls.Failures.Count == 0)
-        {
-            ResetQuickControlsFailure();
-            _uiSurfaceDiagnostics?.ReportSuccess(SuiteUiSurface.QuickControls);
-            return;
-        }
-        ReportQuickControlsRetry(constructionReason);
-    }
-
-    private void ReportQuickControlsRetry(string reason)
-    {
-        _quickControlsUiFailureReason = string.IsNullOrWhiteSpace(reason)
-            ? "audited native objects are not ready"
-            : reason;
-        var observation = _quickControlsRetry.ObserveFailure();
-        if (observation.ShouldLogRetry)
-        {
-            Logger.LogInfo(
-                "Quick controls are not ready; installation will retry: " +
-                _quickControlsUiFailureReason);
-        }
-        if (observation.IsTerminal)
-            _uiSurfaceDiagnostics?.ReportFailure(
-                SuiteUiSurface.QuickControls,
-                _quickControlsUiFailureReason);
-        else
-            _uiSurfaceDiagnostics?.ReportWaiting(
-                SuiteUiSurface.QuickControls,
-                _quickControlsUiFailureReason);
-    }
-
-    private void ResetQuickControlsFailure()
-    {
-        _quickControlsUiFailureReason = string.Empty;
-        _quickControlsRetry.Reset();
-    }
-
     private void UpdateUiStartupReadiness(float unscaledDeltaTime)
     {
         if (SceneManager.GetActiveScene().name != "Main" ||
@@ -1240,7 +1073,7 @@ public sealed class Plugin : BaseUnityPlugin
         // One gate releases both suite surfaces in the same Update. Ready means the six shared
         // icon candidates exist; slow-failure admission means the startup grace ended or a real
         // structural mismatch must enter the ordinary five-second/terminal discipline now.
-        _quickControlsUiRetrySeconds = 0f;
+        _quickControlsHost?.RetryNow();
         _uiRetrySeconds = 0f;
         _uiMaintenanceDue = true;
     }
@@ -1249,7 +1082,6 @@ public sealed class Plugin : BaseUnityPlugin
     {
         CancelPreparedAutomationForOwnershipRelease();
         if (stopped)
-            _mentorActionFamilyOwnership?.ReleaseLifecycleClaims();
         _uiMaintenanceDue = true;
         Logger.LogWarning(stopped
             ? "Suite emergency stop engaged; prepared automation work was discarded."
@@ -1307,16 +1139,12 @@ public sealed class Plugin : BaseUnityPlugin
                 _lifecycleGeneration,
                 _configurationStore.CurrentGeneration);
         MentorMasteryPatchBridge.ResetLifecycle(_lifecycleGeneration);
-        _mentorActionFamilyOwnership?.ReleaseLifecycleClaims();
         _lifecycleLease = GameLifecycleMonitor.Shared.CaptureLease();
 
         // The quick-controls anchor and every borrowed sprite are scene-object references. Save
         // load, reset, and NG+ can replace them without changing the active scene name, so no
         // lifecycle generation may retain the previous column.
-        _quickControls?.Dispose();
-        _quickControls = null;
-        _quickControlsUiRetrySeconds = 0f;
-        ResetQuickControlsFailure();
+        _quickControlsHost?.ResetLifecycle();
 
         // Mod Config rebuilds its shell only when the game entered a scene; every other transition
         // leaves the installed UI alone.
@@ -1445,7 +1273,7 @@ public sealed class Plugin : BaseUnityPlugin
             return;
         }
 
-        _uiRetrySeconds = UiRetryIntervalSeconds;
+        _uiRetrySeconds = UiInstallationRetryState.RetryIntervalSeconds;
         var runtimeSources = _runtimeSources ??
                              throw new InvalidOperationException("Mod Config runtime sources were not composed.");
         var featureCommands = _modConfigFeatureCommands ??
@@ -1526,10 +1354,7 @@ public sealed class Plugin : BaseUnityPlugin
         _uiRetrySeconds = 0f;
         _uiIntegritySeconds = 0f;
         _modsUiRetry.Reset();
-        _quickControls?.Dispose();
-        _quickControls = null;
-        _quickControlsUiRetrySeconds = 0f;
-        ResetQuickControlsFailure();
+        _quickControlsHost?.ResetLifecycle();
         _uiMaintenanceDue = false;
         _uiIntegrityDue = false;
         _deferInstallUntilFrame = 0;

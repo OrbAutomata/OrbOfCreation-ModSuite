@@ -19,10 +19,15 @@ OOC_GAME_DIR=/path/to/audited/game dotnet test \
   --configuration Release
 ```
 
-`./script/test` is the complete portable gate: the ordinary suite, the IL inspector tests, the
-compile-time profile suite, and the profiled trace-tool build. It runs once under a 600-second
-deadline that only catches a hung suite, and a red run is a real failure; `ORB_TEST_TIMEOUT_SECONDS`
-overrides the deadline. Native-boundary changes also run the installed-game contracts, which read
+`./script/test` is the complete portable gate: the ordinary suite, portable GameContractTests,
+the IL inspector tests, the compile-time profile suite, and the profiled trace-tool build.
+Commands run sequentially and stop at the first failure. Portable contract results are written to
+`artifacts/test-results/contracts/portable-contracts.trx` alongside the other gate results.
+The gate runs once under a 600-second deadline that only catches a hung suite, and a red run is
+a real failure; `ORB_TEST_TIMEOUT_SECONDS`
+overrides the deadline. The portable contract pass builds with game stubs and audits source
+declarations and committed reference metadata; it does not replace the installed-game pass.
+Native-boundary changes also run the installed-game contracts, which read
 PE metadata from the audited game copy without launching Unity. Without `OOC_GAME_DIR` they skip;
 with an `OOC_GAME_DIR` that holds no game copy, every one fails. Compiler warnings are counted by
 `tools/build-release-assets.sh`, which builds `src` against the committed references with warnings
@@ -66,6 +71,16 @@ run, so preserve enough provenance to reproduce it.
 The tests themselves show ownership and available scopes. While iterating, use
 one generic selector and replace the token with the behavior or contract at
 issue: `dotnet test tests/OrbModding.Tests/OrbModding.Tests.csproj -p:UseGameStubs=true --filter "FullyQualifiedName~<scope>"`.
+
+Architecture checks read production signatures and IL with the shared test-time dependency scanner.
+Source declarations map types to their owning folders because features share namespaces. Common
+infrastructure and feature ServiceCycle code outside Composition cannot depend on another
+feature's implementation. The explicit suite configuration aggregate and its section contracts
+remain composition seams. Root/Automata composition, feature contributions and UI controls can
+wire features. Ordinary workers and feature Application/Domain code also reject game, Unity,
+BepInEx and Harmony dependencies, including static calls and type tokens.
+Negative fixtures exercise both rules. These checks cover direct compiled dependencies in those
+surfaces; they are not a transitive call-graph proof or a runtime admission mechanism.
 
 ## Design scenarios around authority
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using OrbModding.Common;
 
 namespace OrbAutomata;
@@ -9,16 +10,12 @@ namespace OrbAutomata;
 /// The complete reflected consumable-use transaction schema. Only compiled accessors are retained,
 /// and one instance is validated for each game lifecycle before any item is resolved or mutated.
 /// </summary>
-internal sealed class AutoItemsNativeBindings
+internal sealed class AutoItemsNativeBindings : ConsumableUseNativeBindings
 {
-    internal static readonly string[] ContractIds =
+    internal new static readonly string[] ContractIds = ConsumableUseNativeBindings.ContractIds.Concat(new[]
     {
-        "consumable.type",
         "consumable-type.type",
         "generic-level.resource.type-action",
-        "inventory.type",
-        "targeting.manager.type-action",
-        "consumable-usage.type",
         "auto-items.consumable-count.type",
         "auto-items.scaling-info.type",
         "auto-items.instant-effect-block.type",
@@ -32,8 +29,6 @@ internal sealed class AutoItemsNativeBindings
         "generic-level.tuple.type-action",
         "consumable.consumable-types",
         "consumable.all",
-        "consumable.consumable-usages",
-        "consumable.can-be-randomized",
         "consumable.has-duration",
         "consumable.duration-base",
         "consumable.consume-cost",
@@ -45,23 +40,15 @@ internal sealed class AutoItemsNativeBindings
         "auto-harvest.effect-scripts",
         "target-request.options",
         "id-scriptable-object.get-guid-action",
-        "consumable.can-fire",
-        "consumable.is-visible",
-        "consumable.select-and-fire",
-        "consumable.set-randomization",
-        "consumable.is-randomized",
-        "consumable.get-queued",
-        "inventory.can-use-consumable",
-        "targeting-manager.is-targeting",
         "auto-items.consumable.strongest",
         "auto-items.consumable.strongest-level",
         "auto-items.consumable.count-scaling",
         "auto-items.target-options.get-targeting",
         "auto-items.target-structure.get-random-list",
-    };
+    }).ToArray();
 
     private AutoItemsNativeBindings(
-        Type consumableType,
+        NativeBindingSet set,
         Type familyType,
         Type resourceType,
         Type costEntryType,
@@ -75,8 +62,6 @@ internal sealed class AutoItemsNativeBindings
         Type targetStructureType,
         Func<object, IList?> families,
         Func<IEnumerable?> allConsumables,
-        Func<object, ICollection?> usages,
-        Func<object, bool> canBeRandomized,
         Func<object, bool> hasDuration,
         Func<object, double> durationBase,
         Func<object, object?> consumeCost,
@@ -89,21 +74,13 @@ internal sealed class AutoItemsNativeBindings
         Func<object, object?> targetOptions,
         Func<object, Guid> familyGuid,
         Func<object, Guid> resourceGuid,
-        Func<object, bool> canFire,
-        Func<object, bool> isVisible,
-        Action<object> selectAndFire,
-        Action<object, bool> setRandomization,
-        Func<object, bool> isRandomized,
-        Func<object, int> getQueued,
-        Func<bool> canUseConsumable,
-        Func<bool> isTargeting,
         Func<object, object?> strongest,
         Func<object, int> strongestLevel,
         Func<object, object, object?> countScaling,
         Func<object, object?> getTargeting,
         Func<object, object, ICollection?> getRandomList)
+        : base(set)
     {
-        ConsumableType = consumableType;
         FamilyType = familyType;
         ResourceType = resourceType;
         CostEntryType = costEntryType;
@@ -117,8 +94,6 @@ internal sealed class AutoItemsNativeBindings
         TargetStructureType = targetStructureType;
         Families = families;
         AllConsumables = allConsumables;
-        Usages = usages;
-        CanBeRandomized = canBeRandomized;
         HasDuration = hasDuration;
         DurationBase = durationBase;
         ConsumeCost = consumeCost;
@@ -131,14 +106,6 @@ internal sealed class AutoItemsNativeBindings
         TargetOptions = targetOptions;
         FamilyGuid = familyGuid;
         ResourceGuid = resourceGuid;
-        CanFire = canFire;
-        IsVisible = isVisible;
-        SelectAndFire = selectAndFire;
-        SetRandomization = setRandomization;
-        IsRandomized = isRandomized;
-        GetQueued = getQueued;
-        CanUseConsumable = canUseConsumable;
-        IsTargeting = isTargeting;
         Strongest = strongest;
         StrongestLevel = strongestLevel;
         CountScaling = countScaling;
@@ -146,7 +113,6 @@ internal sealed class AutoItemsNativeBindings
         GetRandomList = getRandomList;
     }
 
-    internal Type ConsumableType { get; }
     internal Type FamilyType { get; }
     internal Type ResourceType { get; }
     internal Type CostEntryType { get; }
@@ -160,8 +126,6 @@ internal sealed class AutoItemsNativeBindings
     internal Type TargetStructureType { get; }
     internal Func<object, IList?> Families { get; }
     internal Func<IEnumerable?> AllConsumables { get; }
-    internal Func<object, ICollection?> Usages { get; }
-    internal Func<object, bool> CanBeRandomized { get; }
     internal Func<object, bool> HasDuration { get; }
     internal Func<object, double> DurationBase { get; }
     internal Func<object, object?> ConsumeCost { get; }
@@ -174,14 +138,6 @@ internal sealed class AutoItemsNativeBindings
     internal Func<object, object?> TargetOptions { get; }
     internal Func<object, Guid> FamilyGuid { get; }
     internal Func<object, Guid> ResourceGuid { get; }
-    internal Func<object, bool> CanFire { get; }
-    internal Func<object, bool> IsVisible { get; }
-    internal Action<object> SelectAndFire { get; }
-    internal Action<object, bool> SetRandomization { get; }
-    internal Func<object, bool> IsRandomized { get; }
-    internal Func<object, int> GetQueued { get; }
-    internal Func<bool> CanUseConsumable { get; }
-    internal Func<bool> IsTargeting { get; }
     internal Func<object, object?> Strongest { get; }
     internal Func<object, int> StrongestLevel { get; }
     internal Func<object, object, object?> CountScaling { get; }
@@ -194,9 +150,6 @@ internal sealed class AutoItemsNativeBindings
             var consumable = set.Type("consumable.type", "ConsumableSO");
             var family = set.Type("consumable-type.type", "ConsumableTypeSO");
             var resource = set.Type("generic-level.resource.type-action", "ResourceSO");
-            var inventory = set.Type("inventory.type", "Inventory");
-            var targetingManager = set.Type("targeting.manager.type-action", "TargetingManager");
-            var usage = set.Type("consumable-usage.type", "ConsumableUsage");
             var count = set.Type("auto-items.consumable-count.type", "ConsumableCount");
             var scaling = set.Type("auto-items.scaling-info.type", "ScalingInfo");
             var block = set.Type("auto-items.instant-effect-block.type", "InstantEffectBlock");
@@ -213,7 +166,7 @@ internal sealed class AutoItemsNativeBindings
                     "auto-items.request-target-effect-script.type: RequestTargetEffectScript is not an IInstantEffectScript.");
 
             return new AutoItemsNativeBindings(
-                consumable,
+                set,
                 family,
                 resource,
                 costEntry,
@@ -228,10 +181,6 @@ internal sealed class AutoItemsNativeBindings
                 set.Field<Func<object, IList?>>(
                     "consumable.consumable-types", consumable, "consumableTypes", ListOf(family)),
                 set.StaticField<Func<IEnumerable?>>("consumable.all", consumable, "All", ListOf(consumable)),
-                set.Field<Func<object, ICollection?>>(
-                    "consumable.consumable-usages", consumable, "consumableUsages", ListOf(usage)),
-                set.Field<Func<object, bool>>(
-                    "consumable.can-be-randomized", consumable, "canBeRandomized", typeof(bool)),
                 set.Field<Func<object, bool>>("consumable.has-duration", consumable, "hasDuration", typeof(bool)),
                 set.Field<Func<object, double>>(
                     "consumable.duration-base", consumable, "durationBase", typeof(double)),
@@ -249,19 +198,6 @@ internal sealed class AutoItemsNativeBindings
                 set.Field<Func<object, object?>>("target-request.options", request, "targetOptions", options),
                 set.StableUuid("id-scriptable-object.get-guid-action", family),
                 set.StableUuid("id-scriptable-object.get-guid-action", resource),
-                set.Call<Func<object, bool>>("consumable.can-fire", consumable, "CanFire", typeof(bool)),
-                set.Call<Func<object, bool>>("consumable.is-visible", consumable, "IsVisible", typeof(bool)),
-                set.Call<Action<object>>(
-                    "consumable.select-and-fire", consumable, "SelectAndFire", typeof(void)),
-                set.Call<Action<object, bool>>(
-                    "consumable.set-randomization", consumable, "SetRandomization", typeof(void), typeof(bool)),
-                set.Call<Func<object, bool>>(
-                    "consumable.is-randomized", consumable, "IsRandomized", typeof(bool)),
-                set.Call<Func<object, int>>("consumable.get-queued", consumable, "GetQueued", typeof(int)),
-                set.StaticCall<Func<bool>>(
-                    "inventory.can-use-consumable", inventory, "CanUseConsumable", typeof(bool)),
-                set.StaticCall<Func<bool>>(
-                    "targeting-manager.is-targeting", targetingManager, "IsTargeting", typeof(bool)),
                 set.Call<Func<object, object?>>(
                     "auto-items.consumable.strongest", consumable, "GetStrongest", count),
                 set.Call<Func<object, int>>(

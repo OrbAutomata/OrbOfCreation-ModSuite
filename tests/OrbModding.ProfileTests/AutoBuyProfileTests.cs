@@ -40,7 +40,7 @@ public sealed class AutoBuyProfileTests : IDisposable
         using var configuration = new ServiceConfigurationPublisher(Configuration());
         using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoBuyFeatureContribution.FeatureId),
                 "Auto Buy", true, FeatureStatusState.NotReady,
                 new FeatureStatusReason(FeatureStatusReasonCode.RegistryNotReady, "waiting"), PlannedEpoch));
         var feature = new AutoBuyServiceCycleFeature(new AutoBuyFeatureDependencies(
@@ -167,6 +167,14 @@ public sealed class AutoBuyProfileTests : IDisposable
         Assert.Contains(global::ViewSO.All[0].GetGuid().ToString("D"), line);
         Assert.Contains(global::ViewSO.All[0].relevantLists[0].GetGuid().ToString("D"), line);
         Assert.Contains("view-available=true", line);
+        var messages = new System.Collections.Generic.List<string>();
+        var adapter = new AutoBuyNativePurchaseAdapter(
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+            topology, info: messages.Add);
+
+        Assert.True(adapter.EmitRouteDiagnostic(PlannedEpoch, out var silence));
+        Assert.Null(silence);
+        Assert.Equal("Auto Buy route topology: " + line, Assert.Single(messages));
 
         global::ViewSO.All[0].available = false;
 

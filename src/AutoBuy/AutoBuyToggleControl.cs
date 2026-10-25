@@ -27,10 +27,8 @@ internal sealed class AutoBuyToggleControl
     internal FeatureStatusSnapshot Status => _readStatus();
     internal FeatureStatusSnapshot SpellLevelStatus => _readSpellLevelStatus();
 
-    public AutoCastToggleVisualState State =>
-        _configuration.Current.AutoBuy.Mode == AutoBuyOperationMode.Active
-            ? AutoCastToggleVisualState.On
-            : AutoCastToggleVisualState.Off;
+    public bool IsOn =>
+        _configuration.Current.AutoBuy.Mode == AutoBuyOperationMode.Active;
 
     public void Toggle() => _configuration.ToggleAutoBuy();
 }

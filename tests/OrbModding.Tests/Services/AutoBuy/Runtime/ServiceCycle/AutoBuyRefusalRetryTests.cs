@@ -253,7 +253,7 @@ public sealed class AutoBuyRefusalRetryTests
             Status = new AutomataFeatureStatusReporter(
                 _statuses,
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoBuyFeatureContribution.FeatureId),
                     "Auto Buy",
                     true,
                     FeatureStatusState.NotReady,

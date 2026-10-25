@@ -131,7 +131,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
             _status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoCastFeatureContribution.FeatureId),
                     "Auto Cast",
                     true,
                     FeatureStatusState.NotReady,

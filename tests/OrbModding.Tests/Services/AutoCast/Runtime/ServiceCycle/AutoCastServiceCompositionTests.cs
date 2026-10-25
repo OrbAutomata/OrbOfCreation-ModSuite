@@ -32,6 +32,28 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(1));
 
     [Fact]
+    public void CompositionForwardsNativeWarningsAndKeepsRepeatSuppression()
+    {
+        var warnings = new System.Collections.Generic.List<string>();
+        using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoCastFeatureContribution.FeatureId),
+                "Auto Cast", true, FeatureStatusState.NotReady,
+                new FeatureStatusReason(FeatureStatusReasonCode.GameplayNotReady, "waiting"), 7));
+        var adapters = AutoCastServiceAdapterComposition.Create(new AutoCastFeatureDependencies(
+            static () => throw new InvalidOperationException("cast epoch unavailable"),
+            static () => true, new AutoCastManualPauseState(), status, warnings.Add));
+        var action = new AutoCastCycleAction(AutoCastActionKind.Fire, 0, Ember, 7);
+
+        var first = adapters.Definition.TryExecute(action, Configuration(), default);
+        var second = adapters.Definition.TryExecute(action, Configuration(), default);
+
+        Assert.Equal(CommonActionResultCodes.AdapterFault, first.Code);
+        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
+        Assert.Contains("cast epoch unavailable", Assert.Single(warnings));
+    }
+
+    [Fact]
     public void CommonPumpExecutesThePlainServiceThroughMainThreadPorts()
     {
         var actions = new ActionPort(Thread.CurrentThread.ManagedThreadId);
@@ -108,7 +130,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
         using var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoCastFeatureContribution.FeatureId),
                 "Auto Cast",
                 true,
                 FeatureStatusState.NotReady,
@@ -160,7 +182,7 @@ public sealed class AutoCastServiceCompositionTests : IDisposable
         using var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoCastFeatureContribution.FeatureId),
                 "Auto Cast",
                 true,
                 FeatureStatusState.NotReady,

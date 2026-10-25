@@ -1,10 +1,11 @@
 using System;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 
-/// <summary>Owner-thread, allocation-free diagnostics projection over Common-owned service-cycle state.</summary>
+/// <summary>Owner-thread diagnostics projection over Common-owned service-cycle state.</summary>
 public static class ServiceCycleDiagnostics
 {
     /// <summary>
@@ -32,5 +33,40 @@ public static class ServiceCycleDiagnostics
                 : null;
         }
         return null;
+    }
+
+    /// <summary>A retained projection is useful history, but cannot establish a later configuration's first evaluation.</summary>
+    internal static bool HasCurrentProjection(
+        in ServiceCycleServiceDiagnosticsSnapshot service,
+        long lifecycle,
+        ConfigGeneration configuration) =>
+        service.LatestProjection.IsPresent &&
+        service.LatestProjection.Context.Cycle.Lifecycle.Value == (ulong)lifecycle &&
+        service.LatestProjection.Context.Cycle.Config.Value >= configuration.Value;
+
+    internal static bool RefreshFault(
+        ServiceCycleServiceDiagnosticsSnapshot? service,
+        ref ServiceFault fault)
+    {
+        if (service is not { } available) return false;
+        var latest = available.LatestFault;
+        var changed = fault.Category != latest.Category || fault.Code != latest.Code ||
+            fault.OccurrenceCount != latest.OccurrenceCount || fault.Reason != latest.Reason;
+        fault = latest;
+        return changed;
+    }
+
+    /// <summary>Runtime retries are neutral waiting, and never hide a more specific feature block.</summary>
+    internal static (FeatureStatusState State, FeatureStatusReasonCode Reason, string Summary) ProjectHealth(
+        FeatureStatusState state,
+        FeatureStatusReasonCode reason,
+        string summary,
+        in ServiceFault fault)
+    {
+        if (!fault.IsValid || fault.Category == ServiceFaultCategory.ActionExecution ||
+            state is not (FeatureStatusState.Operational or FeatureStatusState.NotReady or FeatureStatusState.Locked))
+            return (state, reason, summary);
+        return (FeatureStatusState.NotReady, FeatureStatusReasonCode.RuntimeFailure,
+            $"The service is retrying {fault.Category} after {fault.OccurrenceCount} failed attempt(s). {fault.Reason}".TrimEnd());
     }
 }

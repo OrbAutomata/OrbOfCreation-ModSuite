@@ -56,7 +56,7 @@ public sealed class AutomataTests
                 return new FeatureStatusSnapshot(
                     new FeatureStatusKey(
                         PluginIds.SuiteGuid,
-                        AutomataFeatureStatuses.AutoConceptFeatureId),
+                        AutoConceptFeatureContribution.FeatureId),
                     "Auto Concept",
                     enabled,
                     enabled
@@ -64,15 +64,15 @@ public sealed class AutomataTests
                         : FeatureStatusState.ConfigurationDisabled);
             });
 
-        Assert.Equal(AutoCastToggleVisualState.Off, toggle.State);
+        Assert.False(toggle.IsOn);
         toggle.Toggle();
         Assert.Equal(AutoConceptOperationMode.Active, config.AutoConceptMode.Value);
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
         config.EmergencyDisable.Value = true;
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
         toggle.Toggle();
         Assert.Equal(AutoConceptOperationMode.Disabled, config.AutoConceptMode.Value);
-        Assert.Equal(AutoCastToggleVisualState.Off, toggle.State);
+        Assert.False(toggle.IsOn);
     }
 
     [Fact]

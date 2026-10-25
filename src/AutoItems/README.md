@@ -13,8 +13,14 @@ target is passed over for the next eligible Scroll; once every eligible Scroll h
 rotation starts over. All evaluator paths wait for another world or configuration publication;
 the engine prevents a second attempt against the same world reading.
 
-`AutoItemsConsumableUseGameAction` owns the native boundary. It validates its complete reflection
-schema at lifecycle scope, re-resolves stable UUID plus exact type, rechecks family, visibility,
+`AutoItemsConsumableUseGameAction` owns automation admission on the shared `NativeGameAction`
+shell. Its complete binding set extends the same consumable-use bindings the explicit player/MCP
+action uses, while keeping family, target, duration and cost policy in automation. Both callers use
+one native transaction and queue sentinel; explicit player use preserves the player's randomization
+choice and does not acquire automation's family or target-selection rules. Composition registers
+every action once in `LifecycleGameActions`, which owns rebinding and disposal.
+
+Automation re-resolves stable UUID plus exact type and rechecks family, visibility,
 global live targeting idleness, native inventory idleness, `CanFire()`, Scroll randomization/live
 targeting, and temporary
 duration/toxicity-only cost vectors. It captures ownership permits, submits through
@@ -32,7 +38,12 @@ sentence plus that entry's reference. Repeated ownership failures keep the same 
 while updating the displayed reference; another publication or attempt still performs the read.
 
 One lifecycle-scoped follow-up observes the committed temporary item through later publications.
-Exactly one usage must engage before disappearing. A queued usage that vanishes before it engaged is
+Receipt reconciliation records a committed use even when the next capture fails. Pending and
+player-paused tracking survive missing, unavailable or skipped consumables readings unchanged;
+only a clean `CollectionCategories` result permits usage inference or another candidate scan.
+The service waits for the next publication, and capture failures keep their existing collector log
+cause without adding a feature fault. Exactly one usage must engage before disappearing. A queued
+usage that vanishes before it engaged is
 cancelled: the worker reports it to the retry gate, so the item backs off with doubling until one of
 its usages engages. A second usage of the item belongs to the player and pauses that exact item until
 no usage of it remains, then the item resumes; that pause logs one warning each way, ends any backoff

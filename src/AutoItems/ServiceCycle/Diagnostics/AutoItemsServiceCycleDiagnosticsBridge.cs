@@ -12,6 +12,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
     private readonly AutoItemsConsumableUseGameAction _gameAction;
     private readonly AutoItemsActionHealth _health;
     private readonly ServiceRetryEpisodeNarrator _retries;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -49,8 +50,10 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         }
         var service = ServiceCycleDiagnostics.ReadAvailableService(pump, AutoItemsServicePolicies.ServiceId);
         changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        changed |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
         if (report.ResponsesAcquired != 0 &&
             service.HasValue &&
+            ServiceCycleDiagnostics.HasCurrentProjection(service.Value, _lifecycle, _configurationGeneration) &&
             TryReadLatestDecision(
                 service.Value,
                 out var decisionKind,
@@ -86,6 +89,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
+        _runtimeFault = default;
         _decisionKind = AutoItemsDecisionKind.Disabled;
     }
 
@@ -97,6 +101,7 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
+        _runtimeFault = default;
         _decisionKind = AutoItemsDecisionKind.Disabled;
         _pausedTemporaryItem = Guid.Empty;
         _temporaryPauseCause = AutoItemsTemporaryPauseCause.None;
@@ -119,10 +124,11 @@ internal sealed class AutoItemsServiceCycleDiagnosticsBridge
             _health,
             _retries.Current,
             _retries.ObservedAt);
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(status.State, status.Reason, status.Summary, in _runtimeFault);
         _dependencies.FeatureStatus.ObserveRuntimeLifecycle(
-            status.State,
-            status.Reason,
-            status.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
     }

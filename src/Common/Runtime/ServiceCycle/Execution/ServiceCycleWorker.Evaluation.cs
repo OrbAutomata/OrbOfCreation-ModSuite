@@ -23,11 +23,12 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
                 evaluationStartedAt,
                 out var continueRunning))
             return continueRunning;
-        if (_pendingRecoveryFaultCategory is { } pendingRecoveryFault)
+        if (_pendingRecoveryFault is { } pendingRecoveryFault)
         {
-            _pendingRecoveryFaultCategory = null;
+            _pendingRecoveryFault = null;
             var observedAt = _clock.Now;
-            var record = _faults.Record(pendingRecoveryFault, observedAt);
+            var record = _faults.Record(
+                pendingRecoveryFault.Category, CommonActionResultCodes.AdapterFault, observedAt, pendingRecoveryFault.Reason);
             var pendingResponse = ServiceWorkerResponse.Failure(
                 request.Sequence,
                 request.Context.Identity,
@@ -129,26 +130,27 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
             _actions.AbortWorkerWrite();
             return false;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
-            if (ex is OverflowException or OutOfMemoryException)
+            if (ex is OverflowException)
                 stage = ServiceFaultCategory.Storage;
+            var reason = _faults.DescribeException(stage, ex, _serviceId.Value);
             _actions.AbortWorkerWrite();
             var recovered = _workerState.Recreate(_lifecycle);
             if (recovered == ServiceCycleWorkerStateCreationResult.Contended)
             {
-                _pendingRecoveryFaultCategory = stage;
+                _pendingRecoveryFault = (stage, reason);
                 return PublishStateFactoryContention(
                     in request,
                     evaluationStartedAt);
             }
             if (recovered != ServiceCycleWorkerStateCreationResult.Created)
             {
-                _pendingRecoveryFaultCategory = null;
+                _pendingRecoveryFault = null;
                 stage = ServiceFaultCategory.StateFactory;
             }
             var observedAt = _clock.Now;
-            var record = _faults.Record(stage, observedAt);
+            var record = _faults.Record(stage, CommonActionResultCodes.AdapterFault, observedAt, reason);
             var response = ServiceWorkerResponse.Failure(
                 request.Sequence,
                 request.Context.Identity,

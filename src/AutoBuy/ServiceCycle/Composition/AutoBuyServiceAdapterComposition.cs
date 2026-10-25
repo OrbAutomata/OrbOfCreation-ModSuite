@@ -50,20 +50,24 @@ internal sealed class AutoBuyServiceAdapterComposition
         var profileOperations = new AutomataProfileOperations(
             profileProbe ?? throw new ArgumentNullException(nameof(profileProbe)));
         var actions = new AutoBuyCycleActionAdapter(
-            new AutoBuyNativePurchaseAdapter(profileOperations),
+            new AutoBuyNativePurchaseAdapter(profileOperations, dependencies.Info),
             new AutoBuyNativeQueueRoomAdapter(),
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnershipMask,
             profileOperations,
             refusals,
-            dependencies.GameMcpOwnership);
+            dependencies.GameMcpOwnership,
+            dependencies.Info,
+            dependencies.Warn);
 #else
         var actions = new AutoBuyCycleActionAdapter(
             new AutoBuyNativePurchaseAdapter(),
             new AutoBuyNativeQueueRoomAdapter(),
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnershipMask,
-            refusals);
+            refusals,
+            dependencies.Info,
+            dependencies.Warn);
 #endif
         return new AutoBuyServiceAdapterComposition(AutoBuyService.Define(actions, latch), actions, latch);
     }

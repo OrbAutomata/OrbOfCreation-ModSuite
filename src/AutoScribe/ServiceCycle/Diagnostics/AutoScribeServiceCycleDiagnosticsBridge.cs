@@ -1,5 +1,4 @@
 using System;
-using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
@@ -13,8 +12,8 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     private readonly AutoScribeFeatureDependencies _dependencies;
     private readonly AutoScribeOneShotCraftGameAction _gameAction;
     private readonly AutoScribeActionHealth _health;
-    private readonly ServiceRetryEpisodeNarrator _retries =
-        new("Auto Scribe", static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly ServiceRetryEpisodeNarrator _retries;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configuration;
     private bool _emergencyDisabled;
@@ -32,6 +31,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         ConfigGeneration configuration)
     {
         _dependencies = dependencies;
+        _retries = new ServiceRetryEpisodeNarrator("Auto Scribe", dependencies.Warn);
         _gameAction = gameAction;
         _health = health;
         _lifecycle = lifecycle;
@@ -47,9 +47,10 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoScribeServicePolicies.ServiceId)
             : null;
         changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        changed |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
         if (report.ResponsesAcquired != 0 &&
             service is { } observed &&
-            observed.LatestProjection.IsPresent &&
+            ServiceCycleDiagnostics.HasCurrentProjection(in observed, _lifecycle, _configuration) &&
             TryReadProjection(
                 observed,
                 out var kind,
@@ -79,6 +80,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         if (generation.Value < _configuration.Value) return;
         _configuration = generation;
         _cycleObserved = false;
+        _runtimeFault = default;
         _decisionKind = AutoScribeDecisionKind.Disabled;
         _blockedRole = -1;
         _blockedReason = AutoScribeEvidenceReason.None;
@@ -90,6 +92,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         _lifecycle = lifecycle;
         _configuration = generation;
         _cycleObserved = false;
+        _runtimeFault = default;
         _decisionKind = AutoScribeDecisionKind.Disabled;
         _blockedRole = -1;
         _blockedReason = AutoScribeEvidenceReason.None;
@@ -102,10 +105,11 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
     private void Publish()
     {
         var status = Project();
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(status.State, status.Reason, status.Summary, in _runtimeFault);
         _dependencies.FeatureStatus.ObserveRuntimeLifecycle(
-            status.State,
-            status.Reason,
-            status.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configuration);
     }
@@ -253,7 +257,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return GameActionFaultLog.Reason("Auto Scribe ownership evidence could not be read.", ex, "Auto Scribe ownership").Text;
+            return GameActionFaultLog.Reason("Auto Scribe ownership evidence could not be read.", ex, "Auto Scribe ownership", _dependencies.Warn).Text;
         }
     }
 

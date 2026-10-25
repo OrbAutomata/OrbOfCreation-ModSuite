@@ -11,8 +11,8 @@ using Xunit;
 namespace OrbModding.Tests.Services.SpellLeveling.Runtime.ServiceCycle;
 
 /// <summary>
-/// End-to-end tests for the Spell Leveling boundary: the real action adapter over the real native
-/// adapter over the game stubs. The boundary decides the unpublished leveling prerequisite and
+/// End-to-end tests for the Spell Leveling boundary: the real action adapter over the native
+/// GameAction over the game stubs. The boundary decides the unpublished leveling prerequisite and
 /// revalidates the published readiness and affordability facts immediately before spending.
 /// </summary>
 [Collection(GameActionFaultLogCollection.Name)]
@@ -128,7 +128,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.levelCost.affordable = false;
         UnlockLevelAll(level: 1);
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
         var capability = new SpellLevelCapabilityState();
         capability.Observe(AutoSpellLevelCapability.All);
         var boundaryStatus = new SpellLevelBoundaryStatusState();
@@ -266,7 +266,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.SuppressLevelMutation = true;
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         spell.SuppressLevelMutation = false;
@@ -286,7 +286,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.ThrowAfterLevelMutation = new InvalidOperationException("injected failure after the level landed");
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         Assert.Equal(ServiceActionDisposition.Committed, first.Disposition);
@@ -310,7 +310,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         GameActionFaultLog.ConfigureLog(logged.Add);
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.ThrowAfterLevelMutation = new NullReferenceException("injected defect after the level landed");
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var first = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
 
@@ -341,7 +341,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.SuppressLevelMutation = true;
         spell.ThrowAfterLevelMutation = new NullReferenceException("injected failure before the level landed");
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var faulted = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         spell.SuppressLevelMutation = false;
@@ -369,7 +369,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         spell.SuppressLevelMutation = true;
         spell.ThrowAfterLevelMutation = new NullReferenceException("injected failure before the level landed");
         var adapter = new SpellLevelCycleActionAdapter(
-            new SpellLevelNativeAdapter(), () => PlannedEpoch, () => true, warnings.Add);
+            Levels(), warnings.Add);
 
         var first = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
         var repeated = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
@@ -395,7 +395,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
             () => throw new InvalidOperationException(cause),
             _ => Guid.Empty);
         var adapter = new SpellLevelCycleActionAdapter(
-            new SpellLevelNativeAdapter(registry), () => PlannedEpoch, () => true, warnings.Add);
+            Levels(registry), warnings.Add);
 
         var first = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
         var repeated = Execute(adapter, SpellLevelActionKind.Single, Id(spell));
@@ -459,7 +459,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         spell.SuppressLevelMutation = true;
         spell.levelCost.AffordableLevels = 1;
         UnlockLevelAll(level: 1);
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var first = Execute(SpellLevelActionKind.All, Id(spell), levels: levels);
         spell.SuppressLevelMutation = false;
@@ -474,12 +474,12 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AnInitialisationThrowFaultsAndTheNextPressBindsAgain()
+    public void AnUnreadableRecipeListFaultsAndTheNextPressReadsAgain()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         var recipes = global::SpellManager.instance!.availableSpellRecipes.value;
         global::SpellManager.instance.availableSpellRecipes.value = null!;
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var faulted = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         global::SpellManager.instance.availableSpellRecipes.value = recipes;
@@ -491,23 +491,19 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     }
 
     [Fact]
-    public void AProvenContractMismatchStaysBlockedUntilTheLifecycleIsReplaced()
+    public void ARegistryTypeMismatchCanRecoverOnTheNextAttempt()
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         var levelAll = global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid];
         global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid] =
             new global::StructureSO { uuid = KnownEntities.UnlockLevelAllSpells.Uuid.ToString("D") };
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
         var mismatched = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
         global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid] = levelAll;
-        var blocked = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
-        levels.InvalidateLifecycle();
         var rebound = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
 
         Assert.Equal(ServiceActionDisposition.Faulted, mismatched.Disposition);
-        Assert.Equal(ServiceActionDisposition.Faulted, blocked.Disposition);
-        Assert.Equal(mismatched.Reason, blocked.Reason);
         Assert.Equal(ServiceActionDisposition.Committed, rebound.Disposition);
         Assert.Equal(1, spell.levelCost.PerformCalls);
     }
@@ -530,7 +526,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     [Fact]
     public void TheCapabilityProbeReadsTheGameRatherThanTheSnapshot()
     {
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
         var spell = Spell(masteryLevel: 1, ready: false, unlocked: false);
 
         Assert.True(levels.TryReadCapability(out var locked, out _, out _));
@@ -553,14 +549,14 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         {
             ResetNativeState();
             var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
-            var levels = new SpellLevelNativeAdapter(null, null, id => id != missing);
+            var levels = Levels(null, null, id => id != missing);
 
             var result = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
 
             Assert.True(
                 result.Disposition == ServiceActionDisposition.Faulted &&
                 result.Code == CommonActionResultCodes.AdapterFault &&
-                result.Reason.Contains(missing, StringComparison.Ordinal),
+                levels.BindingFailure.Contains(missing, StringComparison.Ordinal),
                 missing + " did not disable the set: " + result.Reason);
             Assert.Equal(1, spell.masteryLevel);
             Assert.Equal(0, spell.GetLevelCost().PerformCalls);
@@ -585,7 +581,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
             "generic-level.resource-guid-action",
         };
         var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
-        var levels = new SpellLevelNativeAdapter(null, null, id => !chargeOnly.Contains(id));
+        var levels = Levels(null, null, id => !chargeOnly.Contains(id));
 
         var result = Execute(SpellLevelActionKind.Single, Id(spell), levels: levels);
 
@@ -598,9 +594,10 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
     {
         var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
         spell.DiscoveredReadFailure = new NullReferenceException("injected discovery read failure");
-        var levels = new SpellLevelNativeAdapter();
+        var levels = Levels();
 
-        Assert.Throws<NullReferenceException>(() => levels.Submit(SpellLevelActionKind.Single, Id(spell)));
+        var action = new SpellLevelCycleAction(SpellLevelActionKind.Single, Id(spell), PlannedEpoch);
+        Assert.Throws<NullReferenceException>(() => levels.Submit(in action));
         Assert.Equal(1, spell.masteryLevel);
         Assert.Equal(0, spell.GetLevelCost().PerformCalls);
     }
@@ -615,7 +612,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         const string cause = "injected registry outage";
         var outage = true;
         var spell = Spell(masteryLevel: 3, ready: true, unlocked: true);
-        var levels = new SpellLevelNativeAdapter(TestRegistryResolver.For(
+        var levels = Levels(TestRegistryResolver.For(
             () => 1,
             () => outage
                 ? throw new InvalidOperationException(cause)
@@ -632,7 +629,92 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         Assert.DoesNotContain(cause, failed.Reason);
     }
 
+    [Fact]
+    public void TheComposedServiceUsesTheRegisteredActionAcrossLifecycleReplacementAndDisposal()
+    {
+        var first = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        var epoch = PlannedEpoch;
+        using var registry = new LifecycleGameActions();
+        var composition = Compose(registry, () => epoch, static _ => { });
+        var config = Configuration();
+        var firstAction = new SpellLevelCycleAction(SpellLevelActionKind.Single, Id(first), epoch);
+
+        Assert.Same(composition.Natives, registry.Find<SpellLevelGameAction>());
+        Assert.Equal(ServiceActionDisposition.Committed,
+            composition.Definition.TryExecute(in firstAction, in config, default).Disposition);
+
+        // A new save has new native instances even when it reuses the stable spell identity.
+        var replacement = new global::SpellRecipeSO
+        {
+            uuid = first.uuid,
+            masteryLevel = 8,
+            discovered = true,
+            readyToLevel = true,
+        };
+        replacement.levelingPrerequisites.available = true;
+        global::SpellManager.instance = new global::SpellManager();
+        global::SpellManager.instance.availableSpellRecipes.value.Add(replacement);
+        epoch++;
+        registry.InvalidateLifecycle();
+        var nextAction = new SpellLevelCycleAction(SpellLevelActionKind.Single, Id(replacement), epoch);
+
+        Assert.True(composition.Natives.TryReadCapability(out var capability, out _, out _));
+        Assert.Equal(AutoSpellLevelCapability.Single, capability);
+        Assert.Equal(ServiceActionDisposition.Committed,
+            composition.Definition.TryExecute(in nextAction, in config, default).Disposition);
+        Assert.Equal(2, first.masteryLevel);
+        Assert.Equal(9, replacement.masteryLevel);
+
+        registry.Dispose();
+        replacement.readyToLevel = true;
+        var disposed = composition.Definition.TryExecute(in nextAction, in config, default);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, disposed.Disposition);
+        Assert.Equal(1, replacement.levelCost.PerformCalls);
+        Assert.False(composition.Natives.TryReadCapability(out _, out _, out _));
+    }
+
+    [Fact]
+    public void AComposedPaidFailureUsesTheInjectedWarningCallback()
+    {
+        var spell = Spell(masteryLevel: 1, ready: true, unlocked: true);
+        spell.SuppressLevelMutation = true;
+        var warnings = new List<string>();
+        using var registry = new LifecycleGameActions();
+        var composition = Compose(registry, () => PlannedEpoch, warnings.Add);
+        var config = Configuration();
+        var action = new SpellLevelCycleAction(SpellLevelActionKind.Single, Id(spell), PlannedEpoch);
+
+        var result = composition.Definition.TryExecute(in action, in config, default);
+
+        Assert.Equal(ServiceActionDisposition.Faulted, result.Disposition);
+        Assert.True(result.BacksOffTarget);
+        Assert.EndsWith(result.Reason, Assert.Single(warnings));
+        Assert.Equal(1, spell.levelCost.PerformCalls);
+    }
+
     // ---- Helpers -----------------------------------------------------------------------------
+
+    private static SpellLevelServiceAdapterComposition Compose(
+        LifecycleGameActions registry, Func<long> epoch, Action<string> warn)
+    {
+        var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(), new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, SpellLevelFeatureContribution.FeatureId),
+            "Spell Leveling", true, FeatureStatusState.NotReady,
+            new FeatureStatusReason(FeatureStatusReasonCode.GameplayNotReady, "not ready"), PlannedEpoch));
+        return SpellLevelServiceAdapterComposition.Create(
+            new SpellLevelFeatureDependencies(epoch, static () => true,
+                new SpellLevelCapabilityState(), status, warn), registry);
+    }
+
+    private static SpellLevelGameAction Levels(
+        TypedRegistryResolver? registry = null,
+        Func<string, Type?>? resolveType = null,
+        Func<string, bool>? includeContract = null,
+        Func<long>? readEpoch = null,
+        bool ownsActionFamily = true) =>
+        new(readEpoch ?? (() => PlannedEpoch), () => ownsActionFamily,
+            static () => "the spell-level action family is unavailable", registry, resolveType, includeContract);
 
     private static Guid Id(global::SpellRecipeSO spell) => Guid.Parse(spell.uuid);
 
@@ -653,7 +735,7 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
 
     /// <summary>
     /// Sets the committed level of the level-all upgrade. The upgrade itself always exists: the native
-    /// port resolves it during binding, so a build without it has no spell-level contract at all —
+    /// action resolves it before admission, so a build without it has no spell-level contract at all —
     /// which is a different failure from "the player has not bought it yet".
     /// </summary>
     private static void UnlockLevelAll(int level) => LevelAllUpgrade().level = level;
@@ -667,15 +749,13 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         long nativeEpoch = PlannedEpoch,
         bool ownsActionFamily = true,
         bool autoLevelSpells = true,
-        SpellLevelNativeAdapter? levels = null,
+        SpellLevelGameAction? levels = null,
         Action<AutoSpellLevelCapability>? observeCapability = null,
         Action<SpellLevelSubmission>? observeBoundaryStatus = null,
         Func<long>? readEpoch = null)
     {
         var adapter = new SpellLevelCycleActionAdapter(
-            levels ?? new SpellLevelNativeAdapter(),
-            readEpoch ?? (() => nativeEpoch),
-            () => ownsActionFamily,
+            levels ?? Levels(readEpoch: readEpoch ?? (() => nativeEpoch), ownsActionFamily: ownsActionFamily),
             static _ => { },
             observeCapability,
             observeBoundaryStatus);
@@ -689,18 +769,20 @@ public sealed class SpellLevelCycleActionAdapterTests : IDisposable
         bool autoLevelSpells = true)
     {
         var action = new SpellLevelCycleAction(kind, uuid, PlannedEpoch);
-        var config = new SuiteRuntimeConfiguration
-        {
-            General = new SuiteGeneralConfiguration { Enabled = true },
-            Safety = new SuiteSafetyConfiguration { EmergencyDisable = false },
-            AutoBuy = new AutoBuyConfiguration
-            {
-                Mode = AutoBuyOperationMode.Active,
-                AutoLevelSpells = autoLevelSpells,
-            },
-        };
+        var config = Configuration(autoLevelSpells);
         return adapter.TryExecute(in action, in config, default);
     }
+
+    private static SuiteRuntimeConfiguration Configuration(bool autoLevelSpells = true) => new()
+    {
+        General = new SuiteGeneralConfiguration { Enabled = true },
+        Safety = new SuiteSafetyConfiguration { EmergencyDisable = false },
+        AutoBuy = new AutoBuyConfiguration
+        {
+            Mode = AutoBuyOperationMode.Active,
+            AutoLevelSpells = autoLevelSpells,
+        },
+    };
 
     private static void ResetNativeState()
     {

@@ -32,7 +32,8 @@ internal sealed class AutoCastServiceAdapterComposition
             new AutoCastNativeAdapter(),
             dependencies.ReadLifecycleEpoch,
             dependencies.OwnsActionFamily,
-            dependencies.ManualPause);
+            dependencies.ManualPause,
+            dependencies.Warn);
         return new AutoCastServiceAdapterComposition(
             AutoCastService.Define(actions, dependencies.ManualPause), actions);
     }

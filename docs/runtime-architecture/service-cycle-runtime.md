@@ -311,9 +311,14 @@ resets the episode and backoff.
 Ten fault categories are stable wire values: `Capture`, `Evaluation`, `StateProjection`,
 `ResponseValidation`, `StateFactory`, `ActionExecution`, `NativeContract`, `Storage`,
 `LifecycleConstruction`, `Start`. Capture and action-adapter faults use the same episode and debounce
-principles but never retry an already rejected action. The first start or capture fault of a streak
-writes its cause (exception type, message and top frames) to the suite log; the retries behind it back
-off without logging until the service recovers. A process-fatal exception is never contained.
+principles but never retry an already rejected action. Worker, state-factory and lifecycle failures
+write their original cause to the suite log through the shared failure logger; repeated identical
+causes collapse until recovery. Start and capture failures use their existing repeat-collapsed log
+path. Public status carries an authored retry reason and log reference rather than exception text.
+A recoverable worker failure is a neutral waiting condition, clears on successful evaluation, and
+adds no latch or global stop. A feature establishes its first evaluation only from a successful
+projection for its lifecycle and at least its observed configuration; an acquired failed response or
+an older retained projection cannot establish it. A process-fatal exception is never contained.
 
 ### Per-target retry gate
 

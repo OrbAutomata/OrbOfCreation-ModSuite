@@ -67,20 +67,20 @@ public sealed class EmergencyStopControlTests
             store,
             _ => { });
 
-        statuses.AutoCast.ObserveOperational();
+        statuses.Get(AutoCastFeatureContribution.FeatureId).ObserveOperational();
         control.Activate();
-        AssertStopped(statuses.AutoCast.Current);
+        AssertStopped(statuses.Get(AutoCastFeatureContribution.FeatureId).Current);
 
         statuses.ObserveLifecycleNotReady(
             store.Current,
             4,
-            statuses.AutoBuy.ConfigurationGeneration);
-        AssertStopped(statuses.AutoCast.Current);
+            statuses.Get(AutoBuyFeatureContribution.FeatureId).ConfigurationGeneration);
+        AssertStopped(statuses.Get(AutoCastFeatureContribution.FeatureId).Current);
 
         statuses.ObserveServiceCycleUnavailable(
             store.Current,
-            statuses.AutoBuy.ConfigurationGeneration);
-        AssertStopped(statuses.AutoCast.Current);
+            statuses.Get(AutoBuyFeatureContribution.FeatureId).ConfigurationGeneration);
+        AssertStopped(statuses.Get(AutoCastFeatureContribution.FeatureId).Current);
     }
 
     private static void AssertStopped(FeatureStatusSnapshot status)

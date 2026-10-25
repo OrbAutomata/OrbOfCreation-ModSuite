@@ -1,5 +1,4 @@
 using System;
-using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -27,10 +26,8 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly AutoCastManualPauseState _manualPause;
-    private readonly ServiceRetryEpisodeNarrator _retries = new(
-        AutoCastNativeAdapter.Feature,
-        static message => Plugin.Log?.LogAutomataWarning(message),
-        AutoCastServicePolicies.Describe);
+    private readonly ServiceRetryEpisodeNarrator _retries;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -45,10 +42,13 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         ConfigGeneration configurationGeneration,
         bool owned,
         AutoCastManualPauseState manualPause,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string>? warn = null)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
         _manualPause = manualPause;
+        _retries = new ServiceRetryEpisodeNarrator(
+            AutoCastNativeAdapter.Feature, warn ?? (static _ => { }), AutoCastServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
         _owned = owned;
@@ -69,7 +69,9 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoCastServicePolicies.ServiceId)
             : null;
         conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
-        if (report.ResponsesAcquired != 0 && service is { } available)
+        conditionsChanged |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
+        if (report.ResponsesAcquired != 0 && service is { } available &&
+            ServiceCycleDiagnostics.HasCurrentProjection(in available, _lifecycle, _configurationGeneration))
         {
             ReadLatestHold(in available, out var heldFor, out var heldSpellId);
             conditionsChanged = conditionsChanged || !_cycleObserved ||
@@ -87,6 +89,7 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
+        _runtimeFault = default;
         _heldFor = AutoCastExclusion.None;
         _heldSpellId = Guid.Empty;
     }
@@ -106,6 +109,7 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
         _manualPaused = false;
         _retries.InvalidateLifecycle();
         _cycleObserved = false;
+        _runtimeFault = default;
         _heldFor = AutoCastExclusion.None;
         _heldSpellId = Guid.Empty;
         PublishFeatureStatus();
@@ -121,10 +125,11 @@ internal sealed class AutoCastServiceCycleDiagnosticsBridge
             _heldFor,
             _heldSpellId,
             _retries.TryGetBackingOff(out var retry) ? retry : null);
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(health.State, health.Reason, health.Summary, in _runtimeFault);
         _featureStatus.ObserveRuntimeLifecycle(
-            health.State,
-            health.Reason,
-            health.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
     }

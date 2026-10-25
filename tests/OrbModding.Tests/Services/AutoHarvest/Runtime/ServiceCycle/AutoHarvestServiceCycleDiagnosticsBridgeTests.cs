@@ -91,7 +91,7 @@ public sealed class AutoHarvestServiceCycleDiagnosticsBridgeTests
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(
                     PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,
@@ -131,7 +131,7 @@ public sealed class AutoHarvestServiceCycleDiagnosticsBridgeTests
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(
                     PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,
@@ -180,7 +180,7 @@ public sealed class AutoHarvestServiceCycleDiagnosticsBridgeTests
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(
                     PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,

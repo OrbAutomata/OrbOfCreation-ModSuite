@@ -12,14 +12,11 @@ namespace OrbAutomata;
 /// submits it.
 /// </summary>
 /// <remarks>
-/// Three guards run before the native port is asked for anything. The configuration is re-checked, so
-/// a feature switched off between planning and execution rejects without a penalty. The action-family
-/// lease is re-read, because another plugin can take it mid-cycle and a level bought without it is
-/// this suite acting on content it has stood down from. Then the native world epoch is compared with
-/// the epoch the snapshot this plan came from was collected under, which the action carries by value —
-/// a plan made against another run of the game is refused, penalty-free.
+/// Configuration is re-checked here so a feature switched off between planning and execution
+/// rejects without a penalty. The shared GameAction owns main-thread, lifecycle and action-family
+/// admission before reading the live game.
 /// <para>
-/// After that the port owns the verdict. Spell Leveling's planner sees less than Auto Buy's does by
+/// After that the GameAction owns the verdict. Spell Leveling's planner sees less than Auto Buy's does by
 /// design (W59), so a refusal here is the ordinary case rather than the alarming one, and the result
 /// codes distinguish the refusal that means "not unlocked yet" from the one that means "cannot afford
 /// it right now" — the first is what the feature status reads as <c>Locked</c>.
@@ -27,24 +24,18 @@ namespace OrbAutomata;
 /// </remarks>
 internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
 {
-    private readonly ISpellLevelNativePort _levels;
-    private readonly Func<long> _readLifecycleEpoch;
-    private readonly Func<bool> _ownsActionFamily;
+    private readonly SpellLevelGameAction _levels;
     private readonly Action<AutoSpellLevelCapability>? _observeCapability;
     private readonly Action<SpellLevelSubmission>? _observeBoundaryStatus;
     private readonly AutomationCycleGuard<SpellLevelCycleAction> _guard;
 
     public SpellLevelCycleActionAdapter(
-        ISpellLevelNativePort levels,
-        Func<long> readLifecycleEpoch,
-        Func<bool> ownsActionFamily,
+        SpellLevelGameAction levels,
         Action<string> warn,
         Action<AutoSpellLevelCapability>? observeCapability = null,
         Action<SpellLevelSubmission>? observeBoundaryStatus = null)
     {
         _levels = levels ?? throw new ArgumentNullException(nameof(levels));
-        _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
-        _ownsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
         _observeCapability = observeCapability;
         _observeBoundaryStatus = observeBoundaryStatus;
         _guard = new AutomationCycleGuard<SpellLevelCycleAction>(
@@ -84,16 +75,10 @@ internal sealed class SpellLevelCycleActionAdapter : ISpellLevelCycleActionPort
         if (requireAutomationPolicy && !SpellLevelConfigurationPolicy.IsOperational(config))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
-        if (!_guard.Owns(_ownsActionFamily))
-            return ServiceActionResult.Rejected(SpellLevelActionResultCodes.ActionFamilyUnavailable);
-
-        if (!_guard.TryAdmitEpoch(_readLifecycleEpoch, action.CollectedAtEpoch, in action, out var refusal))
-            return refusal;
-
         SpellLevelSubmission submission;
         try
         {
-            submission = _levels.Submit(action.Kind, action.Uuid);
+            submission = _levels.Submit(in action);
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {

@@ -25,10 +25,11 @@ internal sealed class AutoItemsServiceAdapterComposition
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
         var health = new AutoItemsActionHealth();
-        var gameAction = new AutoItemsConsumableUseGameAction(
+        var gameAction = gameActions.Add("game_consumable", new AutoItemsConsumableUseGameAction(
             dependencies.RegistryResolver,
+            dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
-            dependencies.ReadOwnershipFailure);
+            dependencies.ReadOwnershipFailure));
 #if SERVICE_CYCLE_PROFILE
         gameActions.Add("game_consumable", new AutoItemsConsumablePlayerGameAction(
             dependencies.RegistryResolver,
@@ -38,10 +39,10 @@ internal sealed class AutoItemsServiceAdapterComposition
 #endif
         var actions = new AutoItemsCycleActionAdapter(
             gameAction,
-            dependencies.ReadLifecycleEpoch,
             dependencies.OwnsActionFamily,
             dependencies.ReadOwnershipFailure,
-            health);
+            health,
+            dependencies.Warn);
         return new AutoItemsServiceAdapterComposition(
             AutoItemsService.Define(actions),
             gameAction,

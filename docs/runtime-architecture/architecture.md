@@ -94,7 +94,14 @@ C# 10 cannot enforce deep immutability; structural tests and narrow ownership AP
 
 ## Registration and composition
 
-Composition is explicit and ordered. Ten services are registered:
+Composition is explicit and ordered. The [feature catalog](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomataFeatureCatalog.cs)
+composes the automation contributions between world collection and strategy. Each contribution lives
+beside its feature and supplies its service, presentation metadata, configured intent, controls and
+action-family demand. Status, controls, configuration page labels and trace names derive from those
+contributions. The ownership host combines demand for shared families and owns generic claim/retry/release
+mechanics; feature eligibility stays with the contribution.
+
+Ten services are registered:
 
 ```text
 SuiteFramePump

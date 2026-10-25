@@ -39,7 +39,7 @@ public sealed class AutoHarvestRuntimeDiagnosticsPublisherTests
 
         var snapshot = Assert.Single(registry.GetSnapshot());
         Assert.Equal(PluginIds.SuiteGuid, snapshot.Key.PluginId);
-        Assert.Equal(AutomataFeatureStatuses.AutoHarvestFeatureId, snapshot.Key.FeatureId);
+        Assert.Equal(AutoHarvestFeatureContribution.FeatureId, snapshot.Key.FeatureId);
         Assert.Equal(AutoHarvestServiceCycleDiagnosticsBridge.ImplementationName, snapshot.Implementation);
         Assert.Equal(7, snapshot.LifecycleGeneration);
         Assert.Equal(FeatureStatusState.TemporarilyBlocked, snapshot.Capabilities[0].State);

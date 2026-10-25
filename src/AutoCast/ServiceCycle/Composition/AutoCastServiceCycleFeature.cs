@@ -83,7 +83,8 @@ internal sealed class AutoCastFeatureRuntime : IAutomataServiceCycleFeatureRunti
             _initialConfigurationGeneration,
             _dependencies.OwnsActionFamily(),
             _dependencies.ManualPause,
-            _dependencies.FeatureStatus);
+            _dependencies.FeatureStatus,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)

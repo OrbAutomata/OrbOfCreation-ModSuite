@@ -37,15 +37,8 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
     private readonly Func<long> _readLifecycleEpoch;
     private readonly Func<bool> _ownsActionFamily;
     private readonly AutoCastManualPauseState _manualPause;
-    private readonly AutomationCycleGuard<AutoCastCycleAction> _guard = new(
-        "Auto Cast",
-        static action => "Auto Cast failed to " + action.Kind switch
-        {
-            AutoCastActionKind.ReleaseCharge => $"release the charged spell in slot {action.SlotIndex + 1}",
-            AutoCastActionKind.ToggleOff => $"turn off the toggled spell in slot {action.SlotIndex + 1}",
-            _ => $"cast the spell in slot {action.SlotIndex + 1}",
-        },
-        static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly AutomationCycleGuard<AutoCastCycleAction> _guard;
+    private readonly Action<string> _warn;
     private HeldCharge? _serviceHold;
 
     /// <summary>
@@ -59,12 +52,23 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         IAutoCastNativePort casts,
         Func<long> readLifecycleEpoch,
         Func<bool> ownsActionFamily,
-        AutoCastManualPauseState manualPause)
+        AutoCastManualPauseState manualPause,
+        Action<string>? warn = null)
     {
         _casts = casts ?? throw new ArgumentNullException(nameof(casts));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _ownsActionFamily = ownsActionFamily ?? throw new ArgumentNullException(nameof(ownsActionFamily));
         _manualPause = manualPause ?? throw new ArgumentNullException(nameof(manualPause));
+        _warn = warn ?? (static _ => { });
+        _guard = new AutomationCycleGuard<AutoCastCycleAction>(
+            "Auto Cast",
+            static action => "Auto Cast failed to " + action.Kind switch
+            {
+                AutoCastActionKind.ReleaseCharge => $"release the charged spell in slot {action.SlotIndex + 1}",
+                AutoCastActionKind.ToggleOff => $"turn off the toggled spell in slot {action.SlotIndex + 1}",
+                _ => $"cast the spell in slot {action.SlotIndex + 1}",
+            },
+            _warn);
     }
 
     public ServiceActionResult TryExecute(
@@ -174,8 +178,9 @@ internal sealed class AutoCastCycleActionAdapter : IAutoCastCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            Plugin.Log?.LogAutomataWarning(
-                $"Auto Cast failed to release the charged spell in slot {held.SlotIndex + 1}: adapter fault ({ex.GetBaseException().Message}).");
+            _warn(GameActionFaultLog.Reason(
+                $"Auto Cast could not release the charged spell in slot {held.SlotIndex + 1}; it will try again.",
+                ex, "Auto Cast charge release").Text);
             return;
         }
 

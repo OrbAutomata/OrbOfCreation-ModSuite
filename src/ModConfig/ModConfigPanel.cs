@@ -114,7 +114,7 @@ internal sealed class ModConfigPanel : IDisposable
             _runtimePage = runtimePage;
             _settingsPage = settingsPage;
             _runtimeSources.SchemaStatuses.Transitioned += OnSchemaStatusTransitioned;
-            _runtimeSources.FeatureStatuses.Transitioned += OnFeatureStatusTransitioned;
+            _runtimeSources.FeatureStatuses.SnapshotChanged += OnFeatureStatusSnapshotChanged;
             _runtimeSources.Diagnostics.Transitioned += OnRuntimeDiagnosticsTransitioned;
             subscribed = true;
             _dashboard = RuntimeDiagnosticsProjection.Build(
@@ -131,7 +131,7 @@ internal sealed class ModConfigPanel : IDisposable
             if (subscribed)
             {
                 _runtimeSources.SchemaStatuses.Transitioned -= OnSchemaStatusTransitioned;
-                _runtimeSources.FeatureStatuses.Transitioned -= OnFeatureStatusTransitioned;
+                _runtimeSources.FeatureStatuses.SnapshotChanged -= OnFeatureStatusSnapshotChanged;
                 _runtimeSources.Diagnostics.Transitioned -= OnRuntimeDiagnosticsTransitioned;
             }
             try { settingsPage?.Dispose(); } catch { }
@@ -404,7 +404,7 @@ internal sealed class ModConfigPanel : IDisposable
         if (_disposed) return;
         _disposed = true;
         _runtimeSources.SchemaStatuses.Transitioned -= OnSchemaStatusTransitioned;
-        _runtimeSources.FeatureStatuses.Transitioned -= OnFeatureStatusTransitioned;
+        _runtimeSources.FeatureStatuses.SnapshotChanged -= OnFeatureStatusSnapshotChanged;
         _runtimeSources.Diagnostics.Transitioned -= OnRuntimeDiagnosticsTransitioned;
         _settingsPage.Dispose();
         _runtimePage.Dispose();
@@ -475,7 +475,7 @@ internal sealed class ModConfigPanel : IDisposable
         ShowSelectedPage();
     }
 
-    private void OnFeatureStatusTransitioned(FeatureStatusTransition transition)
+    private void OnFeatureStatusSnapshotChanged()
     {
         if (!_disposed) _fullDashboardDirty.MarkDirty();
     }

@@ -214,6 +214,8 @@ public readonly struct FeatureStatusTransition
 public interface IFeatureStatusSource
 {
     event Action<FeatureStatusTransition>? Transitioned;
+    /// <summary>Signals additions, removals and changed details; identical snapshots stay quiet.</summary>
+    event Action? SnapshotChanged;
     IReadOnlyList<FeatureStatusSnapshot> GetSnapshot();
 }
 
@@ -228,6 +230,7 @@ public sealed class FeatureStatusRegistry : IFeatureStatusSource
     public static FeatureStatusRegistry Shared { get; } = new();
 
     public event Action<FeatureStatusTransition>? Transitioned;
+    public event Action? SnapshotChanged;
 
     public FeatureStatusRegistration Register(FeatureStatusSnapshot initialStatus)
     {
@@ -263,8 +266,14 @@ public sealed class FeatureStatusRegistry : IFeatureStatusSource
         if (!key.Equals(status.Key)) throw new ArgumentException("A registration cannot change its feature key.", nameof(status));
         if (!_statuses.TryGetValue(key, out var previous))
             throw new ObjectDisposedException(nameof(FeatureStatusRegistration));
-        if (previous.ConditionKey.Equals(status.ConditionKey)) return false;
+        if (previous.Equals(status)) return false;
         _statuses[key] = status;
+        // Detail text stays current even when the canonical condition has not transitioned.
+        if (previous.ConditionKey.Equals(status.ConditionKey))
+        {
+            PublishSnapshotChanged();
+            return false;
+        }
         Publish(new FeatureStatusTransition(
             FeatureStatusTransitionKind.Changed,
             previous,
@@ -287,10 +296,24 @@ public sealed class FeatureStatusRegistry : IFeatureStatusSource
     private void Publish(FeatureStatusTransition transition)
     {
         var handlers = Transitioned;
-        if (handlers is null) return;
-        foreach (Action<FeatureStatusTransition> handler in handlers.GetInvocationList())
+        if (handlers is not null)
         {
-            try { handler(transition); }
+            foreach (Action<FeatureStatusTransition> handler in handlers.GetInvocationList())
+            {
+                try { handler(transition); }
+                catch { }
+            }
+        }
+        PublishSnapshotChanged();
+    }
+
+    private void PublishSnapshotChanged()
+    {
+        var handlers = SnapshotChanged;
+        if (handlers is null) return;
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try { handler(); }
             catch { }
         }
     }

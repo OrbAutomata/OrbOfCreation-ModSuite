@@ -96,7 +96,7 @@ It presents:
 - one 30-minute automation timeline of committed work, followed by one quiet average/worst
   processing-time line.
 
-The page receives neutral status and command ports only. It has no pump, trace buffer, writer, storage adapter, or filesystem authority. The health grid is a presentation over the same joined feature snapshots used elsewhere; detailed plugin cards remain sorted by severity. Cards update through the existing open-page cadence. Pending refresh work has a hard 30-frame admission bound and the Runtime footer exposes pending and last-refresh age.
+The page receives neutral status and command ports only. It has no pump, trace buffer, writer, storage adapter, or filesystem authority. The health grid is a presentation over the same joined feature snapshots used elsewhere; detailed plugin cards remain sorted by severity. Cards update through the existing open-page cadence. Changed feature details schedule a refresh even when the condition stays the same; identical snapshots schedule no refresh and detail-only changes emit no condition transition. Pending refresh work has a hard 30-frame admission bound and the Runtime footer exposes pending and last-refresh age.
 The action timeline excludes `Source`-shaped infrastructure such as World collection. It also excludes
 Mentor by its exact registered service identity: Mentor's per-recipient mastery grants remain available
 to health and trace consumers, but that steady fan-out is not a discrete player-facing automation event

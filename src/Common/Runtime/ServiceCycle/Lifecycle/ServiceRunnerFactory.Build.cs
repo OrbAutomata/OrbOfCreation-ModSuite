@@ -178,8 +178,9 @@ internal abstract partial class ServiceRunnerFactory<TState, TAction>
             {
                 actualHandoff?.DisposeNeverStarted();
             }
-            catch
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
+                GameActionFaultLog.Record(exception, _serviceId.Value + " runner construction cleanup");
             }
             claims.Release(workerDefinitionClaim);
             throw;

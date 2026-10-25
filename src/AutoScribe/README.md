@@ -47,8 +47,12 @@ never requests equal-level stock churn: frontier crafts are needed for uncovered
 replace dead weaker stock for free when capacity is full. Auto Scribe never calls `Discard()` and
 owns no cleanup action.
 
-`AutoScribeOneShotCraftGameAction` owns Auto Scribe's mutation boundary. It resolves one complete
-lifecycle-scoped binding set before use, re-resolves the action's recipe, Scroll, enchantment,
+`AutoScribeOneShotCraftGameAction` owns Auto Scribe's mutation boundary through the shared
+`NativeGameAction` shell. The composition registers it in `LifecycleGameActions`, which owns
+rebinding and disposal alongside the player crafting action. Both binding sets use
+`CraftingNativeOperations` for the same exact recipe payment, construction, instance and queue
+operations; each caller retains its own policy and native ordering. The automation boundary
+resolves one complete lifecycle-scoped binding set before use, re-resolves the action's recipe, Scroll, enchantment,
 registry, and queue identities live, proves the complete role relationship, then preflights
 visibility, queue room, competing supply, a valid native target, affordability, exact cost, and
 ownership. `PurchaseQuantity` is the last risk taken before the native construction, initiation,
@@ -59,10 +63,12 @@ and exact cost before payment.
 The action verifies one outcome: either the newly constructed exact instance entered the native
 queue or that exact instance reached native completion on the instant path. It does not read
 resource balances, Scroll ledgers, reconstruct payment deltas, or assemble a receipt. After a native
-exception it rereads that same sentinel; an observable outcome commits, while an absent transition
-is a post-payment fault. An unexpected exception after payment gets the same reread and is written
-whole to the suite log; without an observable outcome it is the same fault, under the log reference
-its reason ends with. One before payment still escapes. A post-payment fault or failed verification
+exception the shared mutation verifier reads that same sentinel once; an observable outcome
+commits, and the original exception is written whole to the suite log even when it is an expected
+native failure. The successful craft stays successful, without a warning status or retry episode;
+perf-debug health retains the log reference. Without an observable outcome, a post-payment
+exception is a fault under the log reference its reason ends with. Unexpected exceptions before
+payment still escape. A post-payment fault or failed verification
 names the recipe, the stage and what was paid; a price that will not read back is written into the
 same log entry. It warns from the first failure, and keeps the feature Degraded, naming the recipe
 and its attempts, while that recipe is backing off. Ordinary pre-payment refusals and
@@ -74,17 +80,21 @@ game-owned irreversible effects.
 
 Live identity resolution preserves the registry's retryability verdict. `RegistryNotReady`,
 `NotFound`, and `StaleGeneration` wait quietly for another publication; `WrongType`,
-`AmbiguousEvidence`, and `ContractUnavailable` are persistent contract failures that enter action
+`AmbiguousEvidence`, and unavailable compiled bindings are persistent contract failures that enter action
 health, warn once per failure state, and remain visible until verified recovery or lifecycle
 replacement.
 Ownership diagnostics follow the same reason boundary: a failed read logs the original exception
 under a fresh reference and displays an authored sentence with that reference. Diagnostic service
-reads use the shared available-service reader.
+reads use the shared available-service reader. Live read failures with usable bindings use the target retry gate without retaining a
+contract failure in feature health; a later ordinary refusal can proceed without a successful craft
+first clearing a transient error.
 
 `AutoScribeOneShotCraftPlayerGameAction` owns the manual one-shot player capability exposed as
 `game_craft`, beside the Auto Scribe boundary and under the same crafting permit. It revalidates
 every concrete `CraftingRecipeSO` live: native direct `Execute`, or the authored page's
-stack/new/instant queue route. MCP success returns the named recipe plus the
+stack/new/instant queue route. The player route checks instant completion before initiation;
+automation initiates its one-shot work before that check. Stacking and player quantities remain
+player choices. MCP success returns the named recipe plus the
 smallest observable delta: queue length before and after, or direct completion. Payment accounting
 is not a player-action success gate. Direct execution verifies the recipe's monotonic native
 `craft` publication; stacking verifies a quantity increase; new work verifies exact-instance queue

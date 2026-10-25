@@ -9,10 +9,8 @@ namespace OrbAutomata;
 /// gates on Unity's main thread and verifies one outcome.
 /// </summary>
 internal sealed class AutoItemsConsumablePlayerGameAction
-    : NativeGameAction<ConsumablePlayerNativeBindings>
+    : ConsumableUseGameAction<ConsumablePlayerNativeBindings>
 {
-    private const string Screen = "Inventory";
-
     private static readonly GameActionCodes Codes = new(
         ConsumablePlayerActionResultCodes.WrongThread,
         ConsumablePlayerActionResultCodes.ContractUnavailable,
@@ -29,7 +27,7 @@ internal sealed class AutoItemsConsumablePlayerGameAction
         Func<string> readOwnershipFailure,
         Func<string, Type?>? resolveType = null,
         Func<string, bool>? includeContract = null)
-        : base("Consumable", Screen, Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+        : base("Consumable", Codes, readLifecycleEpoch, tryCaptureMutationPermit,
             readOwnershipFailure,
             (out ConsumablePlayerNativeBindings? bindings, out string reason) =>
                 ConsumablePlayerNativeBindings.TryCreate(resolveType ?? ReflectionUtil.FindLoadedType,
@@ -83,20 +81,8 @@ internal sealed class AutoItemsConsumablePlayerGameAction
                 ConsumablePlayerActionResultCodes.CanFireRefused,
                 EntityIdentityFormatter.PlayerName(action.ConsumableId) +
                 " cannot be used right now.");
-        var before = native.GetQueued(item);
-        if (!TryPermit(out var refusal)) return refusal;
-        if (!NativeMultiBuyScope.TryEnterOne(out var scope, out var reason))
-            return NativeActionOutcome.Reject(
-                ConsumablePlayerActionResultCodes.MultiBuyUnavailable, reason);
-
-        return Execute(EntityIdentityFormatter.PlayerName(action.ConsumableId),
-            "The exact consumable entered the native preparation queue.", before,
-            () => native.GetQueued(item),
-            () =>
-            {
-                using (scope) native.SelectAndFire(item);
-            },
-            static (queued, after) => after == checked(queued + 1));
+        return UseConsumable(action.ConsumableId, item, native,
+            ConsumablePlayerActionResultCodes.MultiBuyUnavailable);
     }
 
     private NativeActionOutcome Cancel(

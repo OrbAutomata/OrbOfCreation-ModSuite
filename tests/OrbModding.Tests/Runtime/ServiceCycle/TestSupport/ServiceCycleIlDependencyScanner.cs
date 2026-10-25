@@ -50,14 +50,15 @@ internal static class ServiceCycleIlDependencyScanner
             body,
             location,
             violations,
-            new NamespaceBoundary(forbiddenNamespacePrefixes, allowedNamespacePrefixes));
+            candidate => new NamespaceBoundary(forbiddenNamespacePrefixes, allowedNamespacePrefixes)
+                .IsForbidden(candidate.Namespace ?? string.Empty));
 
-    private static void Audit(
+    internal static void Audit(
         MethodBase callable,
         MethodBody body,
         string location,
         ICollection<string> violations,
-        NamespaceBoundary boundary)
+        Func<Type, bool> isForbidden)
     {
         var il = body.GetILAsByteArray();
         if (il is null) return;
@@ -122,7 +123,7 @@ internal static class ServiceCycleIlDependencyScanner
                         token,
                         location + " IL " + opCode.Name,
                         violations,
-                        boundary);
+                        isForbidden);
                     break;
                 case OperandType.InlineI8:
                 case OperandType.InlineR:
@@ -190,7 +191,7 @@ internal static class ServiceCycleIlDependencyScanner
         int token,
         string location,
         ICollection<string> violations,
-        NamespaceBoundary boundary)
+        Func<Type, bool> isForbidden)
     {
         MemberInfo? member;
         try
@@ -209,24 +210,24 @@ internal static class ServiceCycleIlDependencyScanner
         switch (member)
         {
             case Type referencedType:
-                AuditType(referencedType, location + " type", violations, boundary);
+                AuditType(referencedType, location + " type", violations, isForbidden);
                 break;
             case FieldInfo field:
                 if (field.DeclaringType is not null)
-                    AuditType(field.DeclaringType, location + " field owner", violations, boundary);
-                AuditType(field.FieldType, location + " field type", violations, boundary);
+                    AuditType(field.DeclaringType, location + " field owner", violations, isForbidden);
+                AuditType(field.FieldType, location + " field type", violations, isForbidden);
                 break;
             case MethodBase method:
                 if (method.DeclaringType is not null)
-                    AuditType(method.DeclaringType, location + " method owner", violations, boundary);
+                    AuditType(method.DeclaringType, location + " method owner", violations, isForbidden);
                 if (method is MethodInfo methodInfo)
-                    AuditType(methodInfo.ReturnType, location + " method return", violations, boundary);
+                    AuditType(methodInfo.ReturnType, location + " method return", violations, isForbidden);
                 foreach (var parameter in method.GetParameters())
-                    AuditType(parameter.ParameterType, location + " method parameter", violations, boundary);
+                    AuditType(parameter.ParameterType, location + " method parameter", violations, isForbidden);
                 if (method.IsGenericMethod)
                 {
                     foreach (var argument in method.GetGenericArguments())
-                        AuditType(argument, location + " method generic argument", violations, boundary);
+                        AuditType(argument, location + " method generic argument", violations, isForbidden);
                 }
                 break;
             case null:
@@ -235,23 +236,22 @@ internal static class ServiceCycleIlDependencyScanner
         }
     }
 
-    private static void AuditType(
+    internal static void AuditType(
         Type candidate,
         string location,
         ICollection<string> violations,
-        NamespaceBoundary boundary)
+        Func<Type, bool> isForbidden)
     {
-        if (candidate.IsArray || candidate.IsByRef || candidate.IsPointer)
+        while (candidate.IsArray || candidate.IsByRef || candidate.IsPointer)
             candidate = candidate.GetElementType()!;
         if (candidate.IsGenericParameter) return;
-        var candidateNamespace = candidate.Namespace ?? string.Empty;
-        if (boundary.IsForbidden(candidateNamespace))
+        if (isForbidden(candidate))
         {
             violations.Add(location + " references forbidden dependency type " + candidate.FullName);
         }
         if (!candidate.IsGenericType) return;
         foreach (var argument in candidate.GetGenericArguments())
-            AuditType(argument, location, violations, boundary);
+            AuditType(argument, location, violations, isForbidden);
     }
 
     private static bool IsNamespaceOrChild(string candidate, string expected) =>

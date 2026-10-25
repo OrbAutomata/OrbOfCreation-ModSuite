@@ -525,28 +525,18 @@ internal sealed class BepInExAutomataConfiguration
         bool restartRequired = false,
         bool hidden = false)
     {
-        var displaySection = section switch
+        var feature = AutomataFeatureCatalog.ForConfigurationSection(section);
+        var displaySection = feature?.PageLabel ?? (section switch
         {
             "General" when key is "Enabled" or "Pace" => "General",
             "Safety" when key == "EmergencyDisable" => "General",
-            "AutoBuy" => "Auto Buy",
-            "AutoCast" => "Auto Cast",
-            "AutoConcept" => "Auto Concept",
-            "AutoHarvest" => "Auto Harvest",
-            "AutoItems" => "Auto Items",
-            "AutoScribe" => "Auto Scribe",
             _ => "Advanced",
-        };
+        });
         var displayName = key switch
         {
             "Enabled" when section == "General" => "Automation enabled",
             "Pace" when section == "General" => "Automation pace",
-            "Mode" when section == "AutoBuy" => "Auto Buy",
-            "Mode" when section == "AutoCast" => "Auto Cast",
-            "Mode" when section == "AutoConcept" => "Auto Concept",
-            "Mode" when section == "AutoHarvest" => "Auto Harvest",
-            "Mode" when section == "AutoItems" => "Auto Items",
-            "Mode" when section == "AutoScribe" => "Auto Scribe",
+            "Mode" => feature?.DisplayName,
             "Roles" => "Roles",
             "UseScrolls" => "Use Scrolls",
             "UseRelics" => "Use Relics",
@@ -564,7 +554,7 @@ internal sealed class BepInExAutomataConfiguration
             "StartResourcePercent" => "Minimum resource percent",
             _ => null,
         };
-        var presentationOrder = displaySection == "General" ? -10 : displaySection == "Auto Buy" ? 0 : displaySection == "Auto Cast" ? 10 : displaySection == "Auto Concept" ? 15 : displaySection == "Auto Harvest" ? 17 : displaySection == "Auto Items" ? 18 : displaySection == "Auto Scribe" ? 19 : 20;
+        var presentationOrder = feature?.PageOrder ?? (displaySection == "General" ? -10 : 20);
         var metadata = dependencies is null
             ? new ModConfigMetadata(presentationOrder, settingOrder, hidden, displaySection, displayName, restartRequired)
             : new ModConfigMetadata(presentationOrder, settingOrder, dependencies, hidden, displaySection, displayName, restartRequired);

@@ -4,6 +4,7 @@ namespace OrbAutomata;
 
 internal static class AutoItemsActionResultCodes
 {
+    internal static ServiceActionResultCode WrongThread => new(4112, "wrong_thread");
     internal static ServiceActionResultCode ActionFamilyUnavailable => new(4096, "action_family_unavailable");
     internal static ServiceActionResultCode ItemUnavailable => new(4097, "item_unavailable");
     internal static ServiceActionResultCode FamilyChanged => new(4098, "family_changed");

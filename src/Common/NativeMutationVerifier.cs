@@ -126,7 +126,7 @@ public static class NativeMutationVerifier
     /// </summary>
     /// <remarks>
     /// Every throw after the call is classified first: the after-state is read and the outcome is
-    /// decided. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape, so a
+    /// decided. Only then does an exception outside <see cref="NativeFailureClassifier"/> escape by default, so a
     /// suite defect stays loud. A change that landed before such a throw commits instead, the throw is
     /// logged with a reference, and in a perf-debug build that reference becomes the feature's latest
     /// on <c>suite_health</c>.
@@ -136,6 +136,10 @@ public static class NativeMutationVerifier
     /// beside it and classified the same way as an after-state read that throws.
     /// </para>
     /// </remarks>
+    /// <param name="rethrowUnexpected">
+    /// False when the caller must classify any nonfatal post-payment failure from the returned
+    /// evidence. The caller owns fault reporting; successful mutations still log a native throw.
+    /// </param>
     public static NativeMutationEvidence<TState> ExecuteAfterCapture<TState>(
         string feature,
         string identity,
@@ -144,7 +148,8 @@ public static class NativeMutationVerifier
         Func<TState> captureAfter,
         Action execute,
         Func<TState, TState, bool> verify,
-        Action? putBackOnThrow = null)
+        Action? putBackOnThrow = null,
+        bool rethrowUnexpected = true)
     {
         if (string.IsNullOrWhiteSpace(feature)) throw new ArgumentException("A feature name is required.", nameof(feature));
         if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("A mutation identity is required.", nameof(identity));
@@ -156,7 +161,7 @@ public static class NativeMutationVerifier
         var evidence = Classify(
             feature, identity, expectedChange, before, captureAfter, execute, verify, putBackOnThrow,
             out var unexpected);
-        if (unexpected is not null && !evidence.IsVerified)
+        if (rethrowUnexpected && unexpected is not null && !evidence.IsVerified)
         {
             if (evidence.PutBackException is { } putBackException)
                 GameActionFaultLog.RecordReference(evidence.Exception, feature + " for " + identity, putBackException);
@@ -201,7 +206,7 @@ public static class NativeMutationVerifier
         {
             execute();
         }
-        catch (Exception executionException)
+        catch (Exception executionException) when (!ExceptionDetail.IsProcessFatal(executionException))
         {
             unexpected = Unexpected(executionException);
             var putBackException = PutBack(putBackOnThrow);
@@ -211,7 +216,7 @@ public static class NativeMutationVerifier
             {
                 afterException = captureAfter();
             }
-            catch (Exception captureException)
+            catch (Exception captureException) when (!ExceptionDetail.IsProcessFatal(captureException))
             {
                 unexpected ??= Unexpected(captureException);
                 return Evidence<TState>(
@@ -233,7 +238,7 @@ public static class NativeMutationVerifier
             {
                 holds = verify(before, afterException);
             }
-            catch (Exception verifyException)
+            catch (Exception verifyException) when (!ExceptionDetail.IsProcessFatal(verifyException))
             {
                 unexpected ??= Unexpected(verifyException);
                 holds = false;
@@ -279,7 +284,7 @@ public static class NativeMutationVerifier
         {
             after = captureAfter();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
             unexpected = Unexpected(ex);
             return Evidence<TState>(
@@ -300,7 +305,7 @@ public static class NativeMutationVerifier
         {
             verified = verify(before, after);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ExceptionDetail.IsProcessFatal(ex))
         {
             unexpected = Unexpected(ex);
             return Evidence<TState>(
@@ -337,7 +342,7 @@ public static class NativeMutationVerifier
             putBack();
             return null;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             return exception;
         }

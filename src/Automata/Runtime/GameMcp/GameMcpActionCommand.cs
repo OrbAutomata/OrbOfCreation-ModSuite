@@ -48,7 +48,7 @@ internal enum GameMcpCommandKind
 internal static class GameMcpCommandKinds
 {
     internal static bool IsGameplayAction(GameMcpCommandKind kind) =>
-        AutomataActionFamilyOwnership.NamesGameMcpKind(kind);
+        AutomataGameMcpActionFamilies.NamesKind(kind);
 
     internal static bool IsEntityGameplayAction(GameMcpCommandKind kind) =>
         IsGameplayAction(kind) && kind != GameMcpCommandKind.ReturnToMenu;

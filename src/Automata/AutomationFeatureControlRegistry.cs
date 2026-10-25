@@ -88,78 +88,9 @@ internal sealed class AutomationFeatureControlRegistry
         if (spellLevelCapability is null) throw new ArgumentNullException(nameof(spellLevelCapability));
         if (mentor is null) throw new ArgumentNullException(nameof(mentor));
 
-        var autoBuy = new AutoBuyToggleControl(
-            configuration,
-            () => spellLevelCapability.Current,
-            () => statuses.AutoBuy.Current,
-            () => statuses.SpellLevel.Current);
-        var autoCast = new AutoCastToggleControl(
-            configuration,
-            () => statuses.AutoCast.Current);
-        var autoConcept = new AutoConceptToggleControl(
-            configuration,
-            () => statuses.AutoConcept.Current);
-        var autoHarvest = new AutoHarvestToggleControl(
-            configuration,
-            () => statuses.AutoHarvest.Current);
-        var autoItems = new AutoItemsToggleControl(
-            configuration,
-            () => statuses.AutoItems.Current);
-        var autoScribe = new AutoScribeToggleControl(
-            configuration,
-            () => statuses.AutoScribe.Current);
-
-        return new AutomationFeatureControlRegistry(new[]
-        {
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoBuyFeatureId,
-                "Auto Buy",
-                "Auto Buy",
-                new AutoBuyTooltip(autoBuy),
-                () => statuses.AutoBuy.Current,
-                autoBuy.Toggle),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoCastFeatureId,
-                "Auto Cast",
-                "Auto Cast",
-                new AutoCastTooltip(autoCast),
-                () => statuses.AutoCast.Current,
-                autoCast.Toggle),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoConceptFeatureId,
-                "Auto Concept",
-                "Auto Concept",
-                new AutoConceptTooltip(autoConcept),
-                () => statuses.AutoConcept.Current,
-                autoConcept.Toggle),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoHarvestFeatureId,
-                "Auto Harvest",
-                "Auto Harvest",
-                new AutoHarvestTooltip(autoHarvest),
-                () => statuses.AutoHarvest.Current,
-                autoHarvest.Toggle),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.MentorFeatureId,
-                "Mentor",
-                "Orb Mentor",
-                new MentorTooltip(mentor, () => statuses.Mentor.Current),
-                () => statuses.Mentor.Current,
-                configuration.ToggleMentor),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoItemsFeatureId,
-                "Auto Items",
-                "Auto Items",
-                new AutoItemsTooltip(autoItems),
-                () => statuses.AutoItems.Current,
-                autoItems.Toggle),
-            new AutomationFeatureControlRegistration(
-                AutomataFeatureStatuses.AutoScribeFeatureId,
-                "Auto Scribe",
-                "Auto Scribe",
-                new AutoScribeTooltip(autoScribe),
-                () => statuses.AutoScribe.Current,
-                autoScribe.Toggle),
-        });
+        return new AutomationFeatureControlRegistry(AutomataFeatureCatalog.All
+            .OrderBy(feature => feature.ControlOrder)
+            .Select(feature => feature.CreateControl(configuration, statuses, spellLevelCapability, mentor))
+            .OfType<AutomationFeatureControlRegistration>());
     }
 }

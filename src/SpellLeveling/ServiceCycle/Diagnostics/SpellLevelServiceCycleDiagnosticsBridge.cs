@@ -1,5 +1,4 @@
 using System;
-using OrbModding;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
@@ -33,8 +32,9 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
     private readonly SpellLevelCapabilityState _capability;
     private readonly SpellLevelBoundaryStatusState _boundaryStatus;
     private readonly ISpellLevelCapabilityPort _capabilityPort;
-    private readonly ServiceRetryEpisodeNarrator _retries =
-        new("Spell Leveling", static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly ServiceRetryEpisodeNarrator _retries;
+    private readonly Action<string> _warn;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -55,9 +55,12 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         SpellLevelCapabilityState capability,
         SpellLevelBoundaryStatusState boundaryStatus,
         ISpellLevelCapabilityPort capabilityPort,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string>? warn = null)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
+        _warn = warn ?? (static _ => { });
+        _retries = new ServiceRetryEpisodeNarrator("Spell Leveling", _warn);
         _capability = capability ?? throw new ArgumentNullException(nameof(capability));
         _boundaryStatus = boundaryStatus ?? throw new ArgumentNullException(nameof(boundaryStatus));
         _capabilityPort = capabilityPort ?? throw new ArgumentNullException(nameof(capabilityPort));
@@ -79,15 +82,22 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, SpellLevelServicePolicies.ServiceId)
             : null;
-        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0) _evaluationRefreshPending = true;
-        if (_evaluationRefreshPending && (!_cycleObserved || !_capabilitySeeded))
+        if (_evaluationRefreshPending)
+            service ??= ServiceCycleDiagnostics.ReadAvailableService(pump, SpellLevelServicePolicies.ServiceId);
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        conditionsChanged |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
+        if (_evaluationRefreshPending && service is { } observed &&
+            ServiceCycleDiagnostics.HasCurrentProjection(in observed, _lifecycle, _configurationGeneration))
         {
             _evaluationRefreshPending = false;
-            _cycleObserved = true;
-            SeedCapability();
-            PublishFeatureStatus();
-            return;
+            if (!_cycleObserved || !_capabilitySeeded)
+            {
+                _cycleObserved = true;
+                SeedCapability();
+                PublishFeatureStatus();
+                return;
+            }
         }
 
         if (conditionsChanged) PublishFeatureStatus();
@@ -99,6 +109,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _configurationGeneration = configurationGeneration;
         _boundaryStatus.Reset();
         _cycleObserved = false;
+        _runtimeFault = default;
         _capabilitySeeded = false;
         _evaluationRefreshPending = false;
     }
@@ -119,6 +130,7 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
         _retries.InvalidateLifecycle();
         _capabilityFailure.Clear();
         _cycleObserved = false;
+        _runtimeFault = default;
         _capabilitySeeded = false;
         _evaluationRefreshPending = false;
         PublishFeatureStatus();
@@ -139,11 +151,13 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
             _capabilityFailure.Clear();
             return;
         }
-        if (_capabilityFailure.IsRepeat(failure.Sentence)) return;
+        if (cause is null
+                ? _capabilityFailure.IsRepeat(failure.Sentence)
+                : _capabilityFailure.IsRepeat(cause, subject: failure.Sentence)) return;
         var reference = cause is null
             ? GameActionFaultLog.Sentence(failure.Reference)
-            : GameActionFaultLog.Record(cause, CapabilityScreen);
-        Plugin.Log?.LogAutomataWarning(
+            : GameActionFaultLog.Reason(string.Empty, cause, CapabilityScreen, _warn).Text;
+        _warn(
             "Spell Leveling could not read what the game lets it do: " + failure.Sentence + reference);
     }
 
@@ -158,10 +172,11 @@ internal sealed class SpellLevelServiceCycleDiagnosticsBridge
             _reportedCapability,
             _reportedWaitingReason,
             _retries.TryGetBackingOff(out var retry) ? retry : null);
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(health.State, health.Reason, health.Summary, in _runtimeFault);
         _featureStatus.ObserveRuntimeLifecycle(
-            health.State,
-            health.Reason,
-            health.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
     }

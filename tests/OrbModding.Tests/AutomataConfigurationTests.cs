@@ -90,7 +90,7 @@ public sealed class AutomataConfigurationTests
         var committed = Assert.Single(published);
         Assert.Same(committed, store.Current);
         Assert.Equal(AutoCastOperationMode.Active, committed.AutoCast.Mode);
-        Assert.Equal(AutoCastToggleVisualState.On, control.State);
+        Assert.True(control.IsOn);
         Assert.False(store.TryPublishPending());
     }
 

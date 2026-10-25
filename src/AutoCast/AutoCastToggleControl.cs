@@ -3,12 +3,6 @@ using OrbModding.Common.Runtime.Configuration;
 
 namespace OrbAutomata;
 
-internal enum AutoCastToggleVisualState
-{
-    Off,
-    On,
-}
-
 internal sealed class AutoCastToggleControl
 {
     private readonly AutomataConfigurationStore _configuration;
@@ -25,10 +19,8 @@ internal sealed class AutoCastToggleControl
     internal SuiteRuntimeConfiguration Config => _configuration.Current;
     internal FeatureStatusSnapshot Status => _readStatus();
 
-    public AutoCastToggleVisualState State =>
-        _configuration.Current.AutoCast.Mode == AutoCastOperationMode.Active
-            ? AutoCastToggleVisualState.On
-            : AutoCastToggleVisualState.Off;
+    public bool IsOn =>
+        _configuration.Current.AutoCast.Mode == AutoCastOperationMode.Active;
 
     public void Toggle() => _configuration.ToggleAutoCast();
 }

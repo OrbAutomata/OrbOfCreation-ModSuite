@@ -30,7 +30,7 @@ public sealed class GameMcpFeatureCommandHookTests
             () => 7, () => AutoBuyCandidateKinds.None, null,
             new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoBuyFeatureContribution.FeatureId),
                     "Auto Buy", true, FeatureStatusState.NotReady,
                     new FeatureStatusReason(FeatureStatusReasonCode.RegistryNotReady, "waiting"), 7)),
             new AutoBuyRefusalBundleWriter(() => throw new InvalidOperationException("unused")),

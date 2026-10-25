@@ -31,6 +31,19 @@ internal static class AutoItemsCycleEvaluator
             return WakePolicy.OnPublication;
         }
 
+        // A missing row is evidence of completion only in a clean consumables reading. The
+        // collector already publishes and logs capture failures; wait without losing follow-up
+        // state or interpreting partial rows as player cancellation.
+        if (!HasCleanConsumables(world))
+        {
+            metrics = EmptyMetrics(world, state.PendingTemporaryItem != Guid.Empty
+                ? AutoItemsDecisionKind.AwaitingTemporaryActivation
+                : state.PausedTemporaryItem != Guid.Empty
+                    ? AutoItemsDecisionKind.TemporaryEffectActive
+                    : AutoItemsDecisionKind.Idle);
+            return WakePolicy.OnPublication;
+        }
+
         var activation = AutoItemsTemporaryActivationPolicy.Observe(world, ref state);
         if (activation.State == AutoItemsTemporaryActivationState.AwaitingActivation)
         {
@@ -122,6 +135,16 @@ internal static class AutoItemsCycleEvaluator
 
         metrics = scan.ToMetrics(AutoItemsDecisionKind.Idle);
         return WakePolicy.OnPublication;
+    }
+
+    private static bool HasCleanConsumables(GameWorldState world)
+    {
+        foreach (var category in world.CollectionCategories.AsSpan())
+        {
+            if (string.Equals(category.Category, "consumables", StringComparison.Ordinal))
+                return category.IsClean;
+        }
+        return false;
     }
 
     private static AutoItemsDecisionMetrics EmptyMetrics(

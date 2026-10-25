@@ -156,7 +156,7 @@ internal static class AutoHarvestFeatureStatusProjector
             health = new AutoHarvestFeatureStatus(
                 FeatureStatusState.NotReady,
                 FeatureStatusReasonCode.RegistryNotReady,
-                "Auto Harvest is waiting for its audited native registry entries.");
+                "Auto Harvest is waiting for a readable plot capture; it will try again.");
             return true;
         }
 

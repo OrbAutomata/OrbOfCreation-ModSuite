@@ -255,6 +255,7 @@ public sealed class AutoItemsCycleEvaluatorTests
         }
         return new GameWorldState
         {
+            CollectionCategories = CleanConsumables(),
             Consumables = WorldTable.Create(consumables),
             ConsumableTypes = PublicationTable<WorldConsumableType>.Create(types),
             ConsumableCounts = PublicationTable<WorldConsumableCount>.Create(counts),
@@ -329,6 +330,12 @@ public sealed class AutoItemsCycleEvaluatorTests
             trueQuantity: new BigDouble(100),
             trueRate: BigDouble.Zero);
     }
+
+    private static PublicationTable<WorldCollectionCategoryStatus> CleanConsumables() =>
+        PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+        {
+            new WorldCollectionCategoryStatus("consumables", WorldCategoryOutcome.Collected, 1, 0, default),
+        });
 
     private static SuiteRuntimeConfiguration Configuration(
         AutoItemsOperationMode mode = AutoItemsOperationMode.Active,

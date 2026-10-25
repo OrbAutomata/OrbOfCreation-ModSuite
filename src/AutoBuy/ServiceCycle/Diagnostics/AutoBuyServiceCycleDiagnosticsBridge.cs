@@ -4,7 +4,6 @@ using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Execution;
-using OrbModding;
 
 namespace OrbAutomata;
 
@@ -22,8 +21,10 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly AutoBuyInvariantLatch _latch;
     private readonly Action<string> _warn;
+    private readonly Action<string> _info;
     private readonly ServiceRetryEpisodeNarrator _retries;
     private int _publishedLatchRevision;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -39,11 +40,13 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         AutoBuyCandidateKinds owned,
         AutomataFeatureStatusReporter featureStatus,
         AutoBuyInvariantLatch latch,
-        Action<string> warn)
+        Action<string> warn,
+        Action<string>? info = null)
     {
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
         _latch = latch ?? throw new ArgumentNullException(nameof(latch));
         _warn = warn ?? throw new ArgumentNullException(nameof(warn));
+        _info = info ?? (static _ => { });
         _retries = new ServiceRetryEpisodeNarrator("Auto Buy", warn);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
@@ -66,10 +69,12 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoBuyServicePolicies.ServiceId)
             : null;
-        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (_evaluationRefreshPending)
             service ??= ServiceCycleDiagnostics.ReadAvailableService(pump, AutoBuyServicePolicies.ServiceId);
-        if (_evaluationRefreshPending && service is { } observed && observed.LatestProjection.IsPresent)
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        conditionsChanged |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
+        if (_evaluationRefreshPending && service is { } observed &&
+            ServiceCycleDiagnostics.HasCurrentProjection(in observed, _lifecycle, _configurationGeneration))
         {
             var projection = observed.LatestProjection;
             _evaluationRefreshPending = false;
@@ -92,6 +97,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
+        _runtimeFault = default;
         _evaluationRefreshPending = false;
         _decisionBlock = AutoBuyDecisionBlockReason.None;
     }
@@ -108,6 +114,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         // A lifecycle boundary retires the worker state the previous generation evaluated against, so
         // the feature is waiting on a first evaluation again.
         _cycleObserved = false;
+        _runtimeFault = default;
         _evaluationRefreshPending = false;
         _decisionBlock = AutoBuyDecisionBlockReason.None;
         _narratedDecisionBlock = AutoBuyDecisionBlockReason.None;
@@ -126,10 +133,11 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
             _latch.Summary,
             _retries.Current,
             _retries.ObservedAt);
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(health.State, health.Reason, health.Summary, in _runtimeFault);
         _featureStatus.ObserveRuntimeLifecycle(
-            health.State,
-            health.Reason,
-            health.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
         NarrateDecisionBlock(health);
@@ -176,7 +184,7 @@ internal sealed class AutoBuyServiceCycleDiagnosticsBridge
         if (_decisionBlock == AutoBuyDecisionBlockReason.None)
         {
             if (_narratedDecisionBlock != AutoBuyDecisionBlockReason.None)
-                Plugin.Log?.LogAutomataInfo("Auto Buy recovered from its prior total purchase-view block.");
+                _info("Auto Buy recovered from its prior total purchase-view block.");
         }
         else
         {

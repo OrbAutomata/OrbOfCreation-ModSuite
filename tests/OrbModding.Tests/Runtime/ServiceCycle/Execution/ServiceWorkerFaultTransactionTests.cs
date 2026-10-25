@@ -62,6 +62,7 @@ public sealed class ServiceWorkerFaultTransactionTests
             projectionFault ? ServiceFaultCategory.StateProjection : ServiceFaultCategory.Evaluation,
             preserved.Fault.Category);
         Assert.Equal(1, preserved.Fault.OccurrenceCount);
+        Assert.Contains(projectionFault ? "StateProjection" : "Evaluation", preserved.Fault.Reason);
         Assert.Equal(1, preserved.WorkerStateConstructionContentionCount);
         Assert.Equal(2, definition.StateCreateCount);
 

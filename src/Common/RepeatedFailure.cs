@@ -25,6 +25,10 @@ internal sealed class RepeatedFailure
     internal bool IsRepeat(in NativeActionOutcome outcome, string subject = "") =>
         IsRepeat(outcome.Sentence, outcome.Code, subject);
 
+    /// <summary>Compares a private exception cause before its log entry is written.</summary>
+    internal bool IsRepeat(Exception exception, string subject = "") =>
+        IsRepeat(ExceptionDetail.Describe(exception), subject: subject);
+
     /// <summary>The same, for a failure with no result code, such as a probe of the game.</summary>
     internal bool IsRepeat(string sentence, ServiceActionResultCode? code = null, string subject = "")
     {
