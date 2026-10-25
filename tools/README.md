@@ -42,3 +42,15 @@ The full model is authored state, not live state. Runtime quantities, visibility
 membership, modifiers, and save progress belong to the running-game tooling.
 
 `OrbModding.IlInspect` queries installed managed assemblies as read-only, build-pinned IL evidence.
+
+## Dependency updates
+
+[Dependabot](../.github/dependabot.yml) checks version updates daily with a two-day release cooldown.
+Its NuGet root covers the repository's projects and [.NET tool manifest](../.config/dotnet-tools.json);
+the SDK pin lives in [global.json](../global.json). Python project dependencies and their lockfile
+remain managed through `uv`, whose resolution cutoff matches the cooldown. The CI bootstrap version
+of `uv` lives in [its requirements manifest](../.github/dependencies/requirements.txt). GitHub Actions
+use their own updater. Security updates are not delayed by version-update cooldowns.
+
+`make-game-refs.sh` reads Refasmer's version from the tool manifest. Changing that tool does not
+regenerate or admit game references: the script still verifies the audited input and output hashes.
