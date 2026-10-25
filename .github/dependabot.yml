@@ -4,34 +4,47 @@ updates:
   - package-ecosystem: "uv"
     directory: "/tools"
     schedule:
-      interval: "monthly"
+      interval: "daily"
     cooldown:
-      default-days: 7
+      default-days: 2
     groups:
       python-dependencies:
-        patterns:
-          - "*"
+        patterns: ["*"]
 
+  # Root discovery includes every project and the local .NET tool manifest.
   - package-ecosystem: "nuget"
-    directories:
-      - "/src"
-      - "/tests/OrbModding.GameContractTests"
-      - "/tests/OrbModding.GameStubs"
-      - "/tests/OrbModding.ProfileTests"
-      - "/tests/OrbModding.Tests"
-      - "/tools/OrbModding.ServiceCycleTrace"
+    directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "daily"
+    cooldown:
+      default-days: 2
     groups:
       nuget-dependencies:
-        patterns:
-          - "*"
+        patterns: ["*"]
+
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 2
+
+  - package-ecosystem: "pip"
+    directory: "/.github/dependencies"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 2
+    groups:
+      ci-tools:
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "daily"
+    cooldown:
+      default-days: 2
     groups:
       github-actions:
-        patterns:
-          - "*"
+        patterns: ["*"]

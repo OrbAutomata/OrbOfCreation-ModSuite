@@ -6,7 +6,7 @@ manifest_path="${repository_root}/lib/game-refs/v1.0.5/manifest.json"
 output_root="${repository_root}/lib/game-refs/v1.0.5"
 source_root="${1:-${repository_root}/artifacts/game-v105}"
 refasmer_package="JetBrains.Refasmer.CliTool"
-refasmer_version="2.0.3"
+refasmer_version="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["tools"]["jetbrains.refasmer.clitool"]["version"])' "${repository_root}/.config/dotnet-tools.json")"
 temporary_root=""
 
 fail() {
