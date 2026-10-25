@@ -16,7 +16,7 @@ namespace OrbModding.Tests.Runtime.World;
 /// tests are about the loop rather than about the readings: capture fills a frame, the worker derives
 /// and publishes, and a consumer sees a new generation.
 /// </summary>
-public sealed class AutomataWorldCollectionServiceTests
+public sealed class AutomataWorldCollectionServiceTests : GameWorldCollectorTestBase
 {
     private static readonly Guid Mana = Guid.NewGuid();
     private static readonly Guid Water = Guid.NewGuid();
@@ -24,11 +24,8 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void CaptureThenEvaluatePublishesWhatWasCollected()
     {
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, 10d);
-            frame.Resources.Append(in mana);
-        });
+        ResourceSO.All.Add(new ResourceSO { Identity = Mana, quantity = new BigDouble(10d) });
+        var capture = NativeCapture();
         var publish = new FakePublish();
 
         RunOneCycle(capture, publish);
@@ -42,7 +39,7 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void PublishedWorldCarriesTheCaptureTimestamp()
     {
-        var capture = new FakeCapture((_, _) => { });
+        var capture = NativeCapture();
         var publish = new FakePublish();
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
@@ -66,12 +63,9 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void ASecondCycleDoesNotDisturbTheFirstSnapshot()
     {
-        var quantity = 10d;
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, quantity);
-            frame.Resources.Append(in mana);
-        });
+        var mana = new ResourceSO { Identity = Mana, quantity = new BigDouble(10d) };
+        ResourceSO.All.Add(mana);
+        var capture = NativeCapture();
         var publish = new FakePublish();
 
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
@@ -80,7 +74,7 @@ public sealed class AutomataWorldCollectionServiceTests
         var state = worker.CreateState(new LifecycleGeneration(1));
 
         Cycle(definition, worker, frame, ref state);
-        quantity = 999d;
+        mana.quantity = new BigDouble(999d);
         Cycle(definition, worker, frame, ref state);
 
         Assert.Equal(2, publish.Published.Count);
@@ -97,15 +91,10 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void ACycleThatReadsFewerEntitiesPublishesFewer()
     {
-        var count = 2;
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, 1d);
-            frame.Resources.Append(in mana);
-            if (count <= 1) return;
-            var water = WorldSamples.Resource(Water, 2d);
-            frame.Resources.Append(in water);
-        });
+        ResourceSO.All.Add(new ResourceSO { Identity = Mana, quantity = BigDouble.One });
+        var water = new ResourceSO { Identity = Water, quantity = new BigDouble(2d) };
+        ResourceSO.All.Add(water);
+        var capture = NativeCapture();
         var publish = new FakePublish();
 
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
@@ -114,7 +103,7 @@ public sealed class AutomataWorldCollectionServiceTests
         var state = worker.CreateState(new LifecycleGeneration(1));
 
         Cycle(definition, worker, frame, ref state);
-        count = 1;
+        ResourceSO.All.Remove(water);
         Cycle(definition, worker, frame, ref state);
 
         Assert.Equal(2, publish.Published[0].Resources.Count);
@@ -129,11 +118,8 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void AnUnchangedWorldIsStillPublished()
     {
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, 10d);
-            frame.Resources.Append(in mana);
-        });
+        ResourceSO.All.Add(new ResourceSO { Identity = Mana, quantity = new BigDouble(10d) });
+        var capture = NativeCapture();
         var publish = new FakePublish();
 
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
@@ -156,7 +142,7 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void ACollectorThatResolvedNothingReportsUnavailableInsteadOfPublishingEmpty()
     {
-        var capture = new FakeCapture((_, _) => { }) { IsAvailable = false };
+        var capture = new AutomataWorldCapturePort(new GameWorldCollector(_ => null), () => 1, () => 1);
         var publish = new FakePublish();
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var frame = new GameWorldCycleFrame();
@@ -177,7 +163,7 @@ public sealed class AutomataWorldCollectionServiceTests
     public void ALifecycleThatHasReadNothingIsReadyToStartAtAnyPace()
     {
         var definition = AutomataWorldCollectionService.Define(
-            new FakeCapture((_, _) => { }), new FakePublish(), new AutomataWorldDemand());
+            NativeCapture(), new FakePublish(), new AutomataWorldDemand());
         var config = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Pace = AutomationPace.CpuSaver },
@@ -195,11 +181,8 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void TheWorkerEmitsOnePublishActionCarryingTheCollectedGeneration()
     {
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, 1d);
-            frame.Resources.Append(in mana);
-        });
+        ResourceSO.All.Add(new ResourceSO { Identity = Mana, quantity = BigDouble.One });
+        var capture = NativeCapture();
         var publish = new FakePublish();
         var definition = AutomataWorldCollectionService.Define(capture, publish, new AutomataWorldDemand());
         var worker = definition.CreateWorkerDefinition();
@@ -228,11 +211,8 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void DispatchingThatActionPublishesUnderTheCollectedGeneration()
     {
-        var capture = new FakeCapture((frame, _) =>
-        {
-            var mana = WorldSamples.Resource(Mana, 1d);
-            frame.Resources.Append(in mana);
-        });
+        ResourceSO.All.Add(new ResourceSO { Identity = Mana, quantity = BigDouble.One });
+        var capture = NativeCapture();
         var publish = new FakePublish();
 
         RunOneCycle(capture, publish);
@@ -245,7 +225,7 @@ public sealed class AutomataWorldCollectionServiceTests
     [Fact]
     public void TheProjectionReportsWhatTheLastPassManaged()
     {
-        var capture = new FakeCapture((frame, _) =>
+        var capture = new ReportedCapture((frame, _) =>
         {
             var mana = WorldSamples.Resource(Mana, 1d);
             frame.Resources.Append(in mana);
@@ -262,6 +242,12 @@ public sealed class AutomataWorldCollectionServiceTests
         Assert.Equal(1, state.LastEntities);
         Assert.False(state.LastPassComplete);
         Assert.Equal(1, state.LastCategoriesUnavailable);
+    }
+
+    private static AutomataWorldCapturePort NativeCapture()
+    {
+        long frame = 0;
+        return new AutomataWorldCapturePort(Collector(), () => ++frame, () => 1);
     }
 
     private static AutomataWorldCollectionState RunOneCycle(
@@ -335,13 +321,13 @@ public sealed class AutomataWorldCollectionServiceTests
             GameWorldStateDefaults.Empty,
             capturedAt);
 
-    private sealed class FakeCapture : IAutomataWorldCapturePort
+    private sealed class ReportedCapture : IAutomataWorldCapturePort
     {
         private readonly Action<GameWorldCycleFrame, int> _fill;
         private int _passes;
         private long _collectedAtFrame;
 
-        internal FakeCapture(Action<GameWorldCycleFrame, int> fill) => _fill = fill;
+        internal ReportedCapture(Action<GameWorldCycleFrame, int> fill) => _fill = fill;
 
         public bool IsAvailable { get; init; } = true;
 

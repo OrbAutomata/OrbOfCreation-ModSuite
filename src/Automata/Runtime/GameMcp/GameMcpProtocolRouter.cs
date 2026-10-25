@@ -1,5 +1,6 @@
 #if SERVICE_CYCLE_PROFILE
 using System;
+using OrbModding.Common;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
@@ -86,12 +87,10 @@ internal sealed class GameMcpProtocolRouter
             // The exception's own text names types and members from inside the suite and the game.
             // A caller can act on none of it, and it is the one thing whoever fixes this needs — so
             // it goes to the suite log under a reference the caller is given and can quote back.
-            var reference =
-                "MCP-" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
-            _logError?.Invoke(
-                "Game MCP internal error " + reference + " on " + method + ": " + exception);
+            var fault = GameActionFaultLog.Reason(
+                string.Empty, exception, "Game MCP " + method, _logError);
             return GameMcpProtocolResponse.Json(
-                Error(id, -32603, InternalErrorReason(method!, reference)));
+                Error(id, -32603, InternalErrorReason(method!, fault.Reference)));
         }
     }
 
@@ -101,9 +100,9 @@ internal sealed class GameMcpProtocolRouter
     /// whoever fixes this needs — so it goes to the suite log under a reference they are handed.
     /// </summary>
     internal static string InternalErrorReason(string method, string reference) =>
-        "The suite hit an internal error handling " + method + ", so nothing was applied. " +
-        "Reference " + reference + " is in the suite log; quoting it is what a report of this " +
-        "needs.";
+        new GameActionReason(
+            "The suite hit an internal error handling " + method + ", so nothing was applied.",
+            reference).Text;
 
     /// <summary>
     /// What a caller is told when Unity does not pick a call up. It named the wait in milliseconds

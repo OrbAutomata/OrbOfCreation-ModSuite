@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -282,7 +283,7 @@ public sealed class ResearchGameActionTests : IDisposable
         Func<string, bool>? includeContract = null, Func<long>? epoch = null)
     {
         var readEpoch = epoch ?? (() => Epoch);
-        var resolver = new TypedRegistryResolver(readEpoch,
+        var resolver = TestRegistryResolver.For(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is ResearchSO research ? research.GetGuid() : Guid.Empty);
         return new ResearchGameAction(readEpoch, permit ?? (() => true),

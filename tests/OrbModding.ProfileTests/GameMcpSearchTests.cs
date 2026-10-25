@@ -52,8 +52,7 @@ public sealed class GameMcpSearchTests
     /// it on. <c>AlchemyRecipeSO</c> backs two categories, split on the recipe's own core alchemy
     /// type, and a row whose type is not one of the three Scholar ones is on the Alchemy screen's
     /// page; this fixture's row carries no audited core type at all, which is the same side of the
-    /// split. The <c>concept-recipes</c> republication of all 125 rows this note used to explain
-    /// away is retired.
+    /// split.
     /// </remarks>
     [Fact]
     public void A_search_across_categories_says_the_same_five_things_about_every_hit()

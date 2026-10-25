@@ -239,24 +239,7 @@ internal static class WorldSpellTypeResonanceLookup
         int slotIndex,
         out WorldSpellTypeResonance resonance)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].SlotIndex.CompareTo(slotIndex);
-            if (comparison == 0)
-            {
-                resonance = rows[middle];
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        resonance = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), slotIndex,
+            static (row, key) => row.SlotIndex.CompareTo(key), out resonance);
     }
 }

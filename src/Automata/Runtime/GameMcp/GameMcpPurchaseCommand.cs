@@ -1,10 +1,43 @@
 #if SERVICE_CYCLE_PROFILE
+using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata.GameMcp;
 
-internal static class GameMcpPurchaseCommand
+internal sealed class GameMcpPurchaseCommand : IGameMcpServiceCommand
 {
+    private readonly AutoBuyFeatureRuntime _runtime;
+
+    internal GameMcpPurchaseCommand(AutoBuyFeatureRuntime runtime) =>
+        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+
+    public GameMcpCommandKind Kind => GameMcpCommandKind.Purchase;
+    public ServiceId Service => AutoBuyServicePolicies.ServiceId;
+
+    public GameMcpCommandResult Execute(
+        GameMcpCommand command, GameMcpCommandScope scope, in ServiceActionContext context)
+    {
+        GameMcpNativeActionAdmission.AssertNativeType(command, NativeTypeFor(command.Mode));
+        var action = new AutoBuyCycleAction(
+            command.Mode == "structure" ? AutoBuyCandidateKind.Structure : AutoBuyCandidateKind.Upgrade,
+            command.TargetId, scope.World.Snapshot.CollectedAtEpoch, command.Amount);
+        var config = scope.Configuration.Snapshot;
+        var result = _runtime.TryExecuteGameMcp(in action, in config, in context);
+        var submission = _runtime.LastGameMcpSubmission;
+        var refusal = GameMcpPurchaseRefusal.ProjectPurchaseRefusal(
+            command, scope.World.Snapshot, in result, scope.Lifecycle,
+            scope.ConfigurationGeneration, submission.Diagnosis);
+        if (refusal is not null) return refusal;
+        string? reason = GameMcpCastProjection.ExactGameMcpReason(command, scope.World.Snapshot, in result) ??
+            result.Reason;
+        GameMcpValue? details = null;
+        GameMcpPurchaseRefusal.ProjectPurchaseDetails(
+            command, scope.World.Snapshot, in submission, ref reason, ref details);
+        return GameMcpCommandResult.FromAction(
+            result.WithReason(reason), scope.Lifecycle, scope.ConfigurationGeneration, details);
+    }
+
     /// <remarks>
     /// A purchase answers from the queued-level delta its own native verifier observed, so there is
     /// nothing left for a settled world to add: it queues levels the game drains over the following

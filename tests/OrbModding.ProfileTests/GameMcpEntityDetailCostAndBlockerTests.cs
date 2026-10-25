@@ -11,19 +11,18 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailCostAndBlockerTests : IDisposable
 {
-    public GameMcpEntityDetailCostAndBlockerTests() => ClearRegistries();
+    public GameMcpEntityDetailCostAndBlockerTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     /// <summary>
     /// The game develops research on leeway **or** on being below both caps, so a spent leeway
-    /// under open caps blocks nothing. `blocked` was computed from the whole gate while the reason
-    /// was picked off the leeway term alone, and a live round read `blocked: no` sitting beside
-    /// "Native leeway exhausted." — the block contradicting itself in two adjacent fields. Three
-    /// states, three words, and the middle one passes — and a passing axis is not what `blockers`
-    /// is for: the block lists what blocks, so an axis with nothing to report is not listed.
+    /// under open caps blocks nothing. Three states, three words, and the middle one passes — and a
+    /// passing axis is not what `blockers` is for: the block lists what blocks, so an axis with
+    /// nothing to report is not listed.
     /// </summary>
     [Fact]
     public void A_spent_leeway_under_open_caps_is_not_among_what_blocks()
@@ -323,7 +322,8 @@ public sealed class GameMcpEntityDetailCostAndBlockerTests : IDisposable
         var bandwidthRow = Assert.Single(
             craftingResult["blockers"]!["bandwidth"]!["rows"]!.Values<JObject>())!;
         Assert.Equal("25", (string?)bandwidthRow["cost"]);
-        Assert.Equal("10", (string?)bandwidthRow["amount"]);
+        Assert.Equal("10", (string?)bandwidthRow["spendableAmount"]);
+        Assert.Null(bandwidthRow["amount"]);
         Assert.True((bool)bandwidthRow["bandwidth"]!);
         Assert.Null(bandwidthRow["headroom"]);
         Assert.True((bool)craftingResult["blockers"]!["drain"]!["blocked"]!);

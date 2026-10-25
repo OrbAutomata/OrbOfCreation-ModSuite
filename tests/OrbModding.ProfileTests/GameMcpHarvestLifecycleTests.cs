@@ -85,7 +85,7 @@ public sealed class GameMcpHarvestLifecycleTests
     public void Harvest_element_detail_joins_current_counts_costs_holdings_and_offered_actions()
     {
         var world = World(elementActive: 2, actionActive: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             "agromancy-elements", ElementId.ToString("D")).Freeze(), world);
 
@@ -106,7 +106,7 @@ public sealed class GameMcpHarvestLifecycleTests
 
         var blockedWorld = World(elementActive: 2, actionActive: 4,
             elementAddAvailable: false);
-        var blocked = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var blocked = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(blockedWorld, generation: 902),
             "agromancy-elements", ElementId.ToString("D")).Freeze(),
             blockedWorld)["row"]!;

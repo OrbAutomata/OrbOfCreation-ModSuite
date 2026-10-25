@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -129,35 +130,29 @@ public sealed class DecisionJournalSegmentConsumerTests
     [Fact]
     public void FileBackedRunsRetainNewestSegmentsAndRestartRecordSequence()
     {
-        var directory = Path.Combine(
-            Path.GetTempPath(),
-            "orb-decision-journal-" + Guid.NewGuid().ToString("N"));
-        try
-        {
-            WriteFileRun(directory, new DecisionJournalRunId(21), firstCycle: 1);
-            WriteFileRun(directory, new DecisionJournalRunId(22), firstCycle: 3);
+        using var temporary = new TempDirectory();
+        var directory = temporary.Path;
+        WriteFileRun(directory, new DecisionJournalRunId(21), firstCycle: 1);
+        WriteFileRun(directory, new DecisionJournalRunId(22), firstCycle: 3);
 
-            var paths = Directory.GetFiles(directory, "journal-*.osjd");
-            Array.Sort(paths, StringComparer.Ordinal);
-            Assert.Equal(3, paths.Length);
-            Assert.Equal("journal-000001.osjd", Path.GetFileName(paths[0]));
-            Assert.Equal("journal-000002.osjd", Path.GetFileName(paths[1]));
-            Assert.Equal("journal-000003.osjd", Path.GetFileName(paths[2]));
+        var paths = Directory.GetFiles(directory, "journal-*.osjd");
+        Array.Sort(paths, StringComparer.Ordinal);
+        Assert.Equal(3, paths.Length);
+        Assert.Equal("journal-000001.osjd", Path.GetFileName(paths[0]));
+        Assert.Equal("journal-000002.osjd", Path.GetFileName(paths[1]));
+        Assert.Equal("journal-000003.osjd", Path.GetFileName(paths[2]));
 
-            var prior = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[0]));
-            var restarted = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[1]));
-            var continued = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[2]));
-            Assert.Equal(new DecisionJournalRunId(21), prior.Run);
-            Assert.Equal((ulong)2, prior.FirstRecordSequence);
-            Assert.Equal(new DecisionJournalRunId(22), restarted.Run);
-            Assert.Equal((ulong)1, restarted.FirstRecordSequence);
-            Assert.Equal(new DecisionJournalRunId(22), continued.Run);
-            Assert.Equal((ulong)2, continued.FirstRecordSequence);
-        }
-        finally
-        {
-            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
-        }
+        var prior = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[0]));
+        var restarted = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[1]));
+        var continued = DecisionJournalSegmentCodec.Decode(File.ReadAllBytes(paths[2]));
+        Assert.Equal(new DecisionJournalRunId(21), prior.Run);
+        Assert.Equal((ulong)2, prior.FirstRecordSequence);
+        Assert.Equal(new DecisionJournalRunId(22), restarted.Run);
+        Assert.Equal((ulong)1, restarted.FirstRecordSequence);
+        Assert.Equal(new DecisionJournalRunId(22), continued.Run);
+        Assert.Equal((ulong)2, continued.FirstRecordSequence);
+
+
     }
 
     /// <summary>

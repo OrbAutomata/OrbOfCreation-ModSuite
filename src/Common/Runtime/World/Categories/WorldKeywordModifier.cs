@@ -141,24 +141,9 @@ internal static class WorldKeywordModifierLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, keywordId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].KeywordId == keywordId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), keywordId,
+            static (row, key) => row.KeywordId.CompareTo(key), out start, out count);
     }
 
-    private static int LowerBound(ReadOnlySpan<WorldKeywordModifier> rows, Guid keywordId)
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].KeywordId.CompareTo(keywordId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
 
-        return low;
-    }
 }

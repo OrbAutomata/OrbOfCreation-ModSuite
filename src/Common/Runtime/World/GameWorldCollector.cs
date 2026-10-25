@@ -91,7 +91,7 @@ internal sealed class GameWorldCollector
     private readonly WorldCategoryReader<WorldRuneStone, WorldRuneStone> _runeStones;
     private readonly WorldCategoryReader<WorldDisplayType, WorldDisplayType> _displayTypes;
     private readonly WorldPurchaseCostReader _purchaseCosts;
-    private readonly WorldUpgradeCostReader _upgradeCosts;
+    private readonly WorldPurchaseCostReader _upgradeCosts;
     private readonly WorldPlotActionReader _plotActions;
     private readonly WorldActionQueueReader _actionQueues;
     private readonly WorldSpellSlotReader _spellSlots;
@@ -217,10 +217,7 @@ internal sealed class GameWorldCollector
     /// <remarks>
     /// Production purchase topology is an explicit, named opt-in and nothing else selects it. A
     /// collector built any other way binds its own resolver, so a diagnostic, a verifier or a test
-    /// cannot restamp the live snapshot no matter how it is constructed. The inverse default cost a
-    /// live save twenty-seven minutes of refused purchases: a verification pass allocated four
-    /// throwaway <c>new GameWorldCollector()</c> collectors, each took the shared resolver, and each
-    /// stamped it at the epoch its own frame carried — zero.
+    /// cannot restamp the live snapshot no matter how it is constructed.
     /// </remarks>
     internal static GameWorldCollector ForSession() =>
         ForSession(EmptyWorldMasteryExperienceSource.Instance);
@@ -386,8 +383,11 @@ internal sealed class GameWorldCollector
         _recipeBooks = Reader(new WorldRecipeBookBinder(), resolveType, static frame => frame.RecipeBooks);
         _plotNodes = Reader(new WorldPlotNodeBinder(), resolveType, static frame => frame.PlotNodes);
         _treasurePools = Reader(new WorldTreasurePoolBinder(), resolveType, static frame => frame.TreasurePools);
-        _purchaseCosts = new WorldPurchaseCostReader(resolveType("StructureSO"), resolveType);
-        _upgradeCosts = new WorldUpgradeCostReader(resolveType("UpgradeSO"), resolveType);
+        _purchaseCosts = new WorldPurchaseCostReader(
+            resolveType("StructureSO"), "StructureSO", "baseCost", "structure costs");
+        _upgradeCosts = new WorldPurchaseCostReader(
+            resolveType("UpgradeSO"), "UpgradeSO", "resourceCost", "upgrade costs",
+            perLevelModifierField: "resourceCostModPerLevel");
         _plotActions = new WorldPlotActionReader(resolveType("PlotNodeSO"), resolveType);
         _actionQueues = new WorldActionQueueReader(
             resolveType("IdScriptableObject"),
@@ -580,6 +580,10 @@ internal sealed class GameWorldCollector
             reports[_readers.Length] = WorldCategoryReport.Missing(ModifierFoldingCategory, degradation);
         }
 
+        // Readers may depend on an earlier category's capture. This pass owns a fresh report array;
+        // expose its completed entries while capture is in progress, never the prior pass's causes.
+        var report = new WorldCollectionReport(reports);
+        frame.Report = report;
         var structuralWasRead = true;
         for (var index = 0; index < _readers.Length; index++)
         {
@@ -602,27 +606,23 @@ internal sealed class GameWorldCollector
             if (!_isStructural[index]) continue;
             _structuralReports[index] = reports[index];
             if (_readers[index].IsAvailable &&
-                reports[index].Outcome != WorldCategoryOutcome.Collected)
+                (reports[index].Outcome != WorldCategoryOutcome.Collected || reports[index].HasReadFault))
             {
                 structuralWasRead = false;
             }
         }
 
         // The gate says the structural rows in this frame describe this run of the game, so it may
-        // only close over rows a read actually delivered. A bound reader that hit an expected native
-        // failure left its buffer reset, and calling that "already read for this epoch" is how one
-        // transient native exception used to disable a whole lifecycle's worth of admissions —
-        // recovery needed a prestige. A reader that did not bind at all is a different fact: nothing
-        // on this build will ever make it deliver, and holding the gate open for it would re-walk
-        // every other structural category four times a second for an answer that cannot arrive.
+        // only close over rows a read actually delivered. A reader that did not bind at all is a
+        // different fact: nothing on this build will ever make it deliver, and holding the gate
+        // open for it would re-walk every other structural category four times a second for an
+        // answer that cannot arrive.
         if (!structuralIsCurrent && structuralWasRead)
         {
             _structuralFrame = frame;
             _structuralEpoch = frame.CollectedAtEpoch;
         }
 
-        var report = new WorldCollectionReport(reports);
-        frame.Report = report;
         return report;
     }
 
@@ -640,7 +640,8 @@ internal sealed class GameWorldCollector
     /// <para>
     /// Skipping means skipping the <em>native reads</em>. The buffers are left alone rather than
     /// reset, and every pass that does read them moves the frame's structural generation, which is
-    /// what tells <see cref="WorldAuthoredTables"/> to derive its tables again.
+    /// what invalidates the cross-table authored result; each structural buffer also invalidates
+    /// its own publication when reset or appended to.
     /// </para>
     /// <para>
     /// The frame is compared by identity as well as by epoch because a collector may be handed more

@@ -1,3 +1,7 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.GameMcp;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -251,6 +255,10 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
 
         internal Harness(bool treasure = false, Func<TypedRegistrySourceSnapshot>? readRegistry = null)
         {
+            var gameActions = new LifecycleGameActions();
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
@@ -271,7 +279,7 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
                 new ConfigGeneration(1),
                 new LifecycleGeneration((ulong)_epoch),
                 _clock);
-            var resolver = new TypedRegistryResolver(
+            var resolver = TestRegistryResolver.For(
                 () => _epoch,
                 readRegistry ?? (static () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup)),
                 static value => ((IdScriptableObject)value).GetGuid());
@@ -284,16 +292,29 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
                     Status,
                     Warn)).Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), _epoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), _epoch, gameActions
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             _registry.WorldPublication.Publish(TestWorlds.FromLoadedRegistries(), new WorldGeneration(_generation));
-            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null);
+            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: profileProbe
+#endif
+            );
             _runtime = new AutomataServiceCycleRuntime(
                 () => _epoch,
                 _registry.Configuration,
                 _host,
                 new IAutomataServiceCycleFeatureRuntime[] { feature },
                 new ConfigGeneration(1),
-                new LifecycleGameActions());
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+            , new GameMcpCommandDispatcher(_host, _registry.Configuration, gameActions,
+                new IAutomataServiceCycleFeatureRuntime[] { feature })
+#endif
+            );
             feature.ActivateDiagnostics();
         }
 

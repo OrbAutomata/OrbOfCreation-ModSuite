@@ -1,10 +1,12 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using BepInEx.Configuration;
 using OrbAutomata;
 using OrbModConfig;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
+using OrbModding.TestSupport;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,11 +14,11 @@ using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
 {
     public AutoItemsTemporaryItemPickerViewTests()
     {
-        ConsumableSO.All.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
         var prototype = new GameObject("prototype").AddComponent<MonoBehaviour>();
         ModConfigUiFactory.UseNativeVisuals(new NativeFeatureRailVisualPrimitives(
@@ -33,7 +35,6 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
 
     public void Dispose()
     {
-        ConsumableSO.All.Clear();
         EntityIdentityCatalogPublication.Publish(EntityIdentityCatalogSnapshot.Unbound(0));
     }
 
@@ -143,6 +144,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
     [InlineData(1440f)]
     public void FailureCompositionMeasuresDisjointStateAndPanelRects(float contentWidth)
     {
+        using var faults = new CapturedGameActionFaultLog();
         var file = new ConfigFile();
         var automata = BepInExAutomataConfiguration.Bind(file);
         automata.AutoItemsMode.Value = AutoItemsOperationMode.Active;
@@ -155,9 +157,11 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
             visible = true,
         };
         nativeItem.SetGuid(Guid.Parse("a1799c52-f9ff-4556-b052-f577ac3e7270"));
+        nativeItem.SetStock(5, 0, 0);
         nativeItem.consumableTypes.Add(family);
         ConsumableSO.All.Add(nativeItem);
-        EntityIdentityCatalogPublication.Publish(Catalog());
+        var identities = Catalog();
+        EntityIdentityCatalogPublication.Publish(identities);
         var catalog = ConfigCatalog.Build(new[]
         {
             new ConfigPluginSource(
@@ -195,6 +199,7 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         Assert.True(Bottom(panel) <= row.sizeDelta.y);
 
         var stateText = state.gameObject.GetComponent<TextMeshProUGUI>()!;
+        Assert.Equal("Approval count unavailable — discovery read failed", stateText.text);
         var statePreferred = stateText.GetPreferredValues(
             stateText.text,
             editorWidth * 0.7f,
@@ -202,12 +207,36 @@ public sealed class AutoItemsTemporaryItemPickerViewTests : IDisposable
         Assert.True(statePreferred <= state.sizeDelta.y);
 
         var reasonText = Child(panel, "Reason").gameObject.GetComponent<TextMeshProUGUI>()!;
-        Assert.Contains("has no live catalog name", reasonText.text);
+        var reference = Regex.Match(reasonText.text, "MCP-[0-9A-F]{8}");
+        Assert.True(reference.Success, reasonText.text);
+        var reason = new GameActionReason(
+            "Discovery read failed: The discovered temporary-item catalog could not be read.",
+            reference.Value);
+        Assert.Equal(
+            $"Discovery read failed: The discovered temporary-item catalog could not be read. Reference {reference.Value} is in the suite log.",
+            reasonText.text);
+        Assert.DoesNotContain("has no live catalog name", reasonText.text);
+        faults.AssertLogged(
+            reason,
+            "System.InvalidOperationException: Consumable family " +
+            EntityIdentityFormatter.Format(family.GetGuid(), identities) +
+            " has no live catalog name for " +
+            EntityIdentityFormatter.Format(nativeItem.GetGuid(), identities) + "." +
+            Environment.NewLine + "   at ");
         var reasonPreferred = reasonText.GetPreferredValues(
             reasonText.text,
             editorWidth * 0.93f,
             0f).y;
         Assert.True(reasonPreferred <= panel.sizeDelta.y * 0.84f + 0.01f);
+        Assert.DoesNotContain(
+            Children(row),
+            child => child.gameObject.name.StartsWith("PickerItem.", StringComparison.Ordinal));
+        Assert.DoesNotContain(Children(row), child => child.gameObject.name == "PickerEmptyState");
+        var allowlist = settings.Single(setting => setting.Key == "TemporaryItemAllowlist");
+        Assert.Equal(string.Empty, session.Get(allowlist).StagedSerialized);
+        Assert.Equal(string.Empty, automata.AutoItemsTemporaryItemAllowlist.Value);
+        Assert.Equal(5, nativeItem.Quantity);
+        Assert.Empty(nativeItem.SelectAndFireTimestamps);
     }
 
     [Fact]

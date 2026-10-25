@@ -203,8 +203,8 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            unavailable = "The recent-event buffer could not be captured: " +
-                exception.GetBaseException().Message;
+            unavailable = GameActionFaultLog.Reason(
+                "The recent-event buffer could not be captured.", exception, "recent-event capture").Text;
         }
 
         DecisionJournalStatus journal;
@@ -215,8 +215,8 @@ internal sealed class AutomataServiceCycleObservability : IDisposable
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             journal = _decisionJournal?.Snapshot ?? DecisionJournalStatus.Unavailable;
-            unavailable = Join(unavailable, "The decision journal could not be flushed: " +
-                exception.GetBaseException().Message);
+            unavailable = Join(unavailable, GameActionFaultLog.Reason(
+                "The decision journal could not be flushed.", exception, "decision-journal flush").Text);
         }
 
         return new AutomataDiagnosticsRuntimeEvidence(

@@ -10,7 +10,7 @@ internal static class GameMcpEquipmentLoadoutCommand
         static (command, scope) => ExecuteEquipmentLoadout(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectEquipmentDelta(state, command)),
+            static (state, command, _) => GameMcpEquipmentLoadoutProjection.ProjectEquipmentDelta(state, command)),
         nativeType: "EquipmentSO");
 
     private static GameMcpCommandResult ExecuteEquipmentLoadout(

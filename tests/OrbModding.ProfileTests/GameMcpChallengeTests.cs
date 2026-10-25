@@ -59,14 +59,13 @@ public sealed class GameMcpChallengeTests
     }
 
     /// <summary>
-    /// The screen state used to ride every page of a ninety-eight-row category, so a request for one
-    /// row came back nine tenths ambient state. It is one answer a caller asks for now.
+    /// It is one answer a caller asks for now.
     /// </summary>
     [Fact]
     public void Challenge_reads_carry_rows_only_and_the_screen_is_its_own_answer()
     {
         var world = World();
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 2501), "challenges", 0, 50).Freeze(), world);
 
         Assert.Null(response["challengeState"]);
@@ -75,12 +74,12 @@ public sealed class GameMcpChallengeTests
         Assert.Equal("Prismatic Trial", (string?)first["name"]);
 
         // Two questions on one row: how far the player has come with this challenge, and what its
-        // own run is doing. They used to share the name `state`, which is why the run word moved.
+        // own run is doing.
         Assert.Equal("available", (string?)first["state"]);
         Assert.Equal("queued", (string?)first["run"]);
         Assert.Equal("1", (string?)first["level"]);
         Assert.Null(first["select"]);
-        var exact = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var exact = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 2501),
             "challenges", First.ToString("D")).Freeze(), world)["row"]!;
         Assert.Null(exact["challengeState"]);
@@ -92,7 +91,7 @@ public sealed class GameMcpChallengeTests
         Assert.Null(first["receipt"]);
         Assert.Null(first["payment"]);
 
-        var state = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
+        var state = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(world), world);
         Assert.Equal(2, (int)state["rerollsLeft"]!);
         Assert.Equal(3, (int)state["selectionMaximum"]!);
         Assert.Equal("Prismatic Trial", (string?)state["selected"]![0]!["name"]);
@@ -109,9 +108,9 @@ public sealed class GameMcpChallengeTests
         var shared = World(prestigeOffers: new[] { First, Second });
         var parted = World();
 
-        Assert.Null(GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(shared), shared)["resetOffers"]);
+        Assert.Null(GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(shared), shared)["resetOffers"]);
         Assert.Equal("Temporal Trial", (string?)GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengeState(parted), parted)["resetOffers"]![0]!["name"]);
+            GameMcpChallengeProjection.ProjectChallengeState(parted), parted)["resetOffers"]![0]!["name"]);
     }
 
     [Fact]
@@ -129,8 +128,8 @@ public sealed class GameMcpChallengeTests
             "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
         var target = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengePostState(context, selectCommand), world);
-        var fetch = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengePostState(context, rerollCommand), world);
+            GameMcpChallengeProjection.ProjectChallengePostState(context, selectCommand), world);
+        var fetch = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengePostState(context, rerollCommand), world);
 
         Assert.Equal("Prismatic Trial", (string?)target["name"]);
         Assert.False((bool)target["selected"]!["before"]!);
@@ -177,9 +176,9 @@ public sealed class GameMcpChallengeTests
     [Fact]
     public void The_read_block_names_one_reroll_decision_and_whether_the_next_press_costs_one()
     {
-        var free = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(
+        var free = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(
             World(challengesFetched: false, rerollsLeft: 3)), World());
-        var paid = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(World()), World());
+        var paid = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(World()), World());
 
         Assert.False((bool)free["reroll"]!["costsReroll"]!);
         Assert.True((bool)paid["reroll"]!["costsReroll"]!);
@@ -233,7 +232,7 @@ public sealed class GameMcpChallengeTests
             "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
         return GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengePostState(
+            GameMcpChallengeProjection.ProjectChallengePostState(
                 GameMcpTestHarness.Context(after, generation: 2503), command),
             after);
     }
@@ -308,8 +307,8 @@ public sealed class GameMcpChallengeTests
         var unfetched = World(challengesFetched: false);
         var fetched = World();
 
-        var closed = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(unfetched), unfetched);
-        var open = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(fetched), fetched);
+        var closed = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(unfetched), unfetched);
+        var open = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(fetched), fetched);
 
         Assert.False((bool)closed["challengesFetched"]!);
         Assert.Null(closed["offers"]);
@@ -328,7 +327,7 @@ public sealed class GameMcpChallengeTests
     public void A_gate_states_its_verdict_without_restating_the_row_beside_it()
     {
         var world = World();
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 2504),
             "challenges", First.ToString("D")).Freeze(), world)["row"]!;
 
@@ -343,21 +342,19 @@ public sealed class GameMcpChallengeTests
     }
 
     /// <summary>
-    /// The selection budget is the game's own gate and the published world carries no reading of
-    /// it: a round read <c>select: no (ERR_LIMIT)</c> off a page and then watched the verb perform
-    /// the swap. The page refuses on what the world states outright and leaves the rest to the verb.
+    /// The page refuses on what the world states outright and leaves the rest to the verb.
     /// </summary>
     [Fact]
     public void The_page_never_predicts_a_selection_refusal_the_verb_performs()
     {
         var full = World(selectionMaximum: 1);
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(full, generation: 2505),
             "challenges", Second.ToString("D")).Freeze(), full)["row"]!;
 
         Assert.False((bool)row["selected"]!);
         Assert.Equal(1, (int)GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengeState(full), full)["selectionMaximum"]!);
+            GameMcpChallengeProjection.ProjectChallengeState(full), full)["selectionMaximum"]!);
         Assert.True((bool)row["select"]!["available"]!);
     }
 
@@ -369,7 +366,7 @@ public sealed class GameMcpChallengeTests
     public void A_challenge_that_has_already_run_is_refused_as_a_state()
     {
         var world = World(firstState: 3);
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 2506),
             "challenges", First.ToString("D")).Freeze(), world)["row"]!;
 
@@ -382,9 +379,8 @@ public sealed class GameMcpChallengeTests
 
     /// <summary>
     /// Selecting past a full list is two presses on the screen and the verb makes the first one
-    /// itself. Answering only <c>selected: no -&gt; yes</c> confessed half of that, and a live round
-    /// spent a follow-up <c>state</c> call learning which challenge had been given up. The swap
-    /// names the displaced one in the shape a displaced spell slot already answers in.
+    /// itself. The swap names the displaced one in the shape a displaced spell slot already answers
+    /// in.
     /// </summary>
     [Fact]
     public void A_select_that_swaps_names_the_challenge_it_displaced()
@@ -393,12 +389,12 @@ public sealed class GameMcpChallengeTests
         var after = World(selectionMaximum: 1, selectedIds: new[] { Second });
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Challenge, 9, 3, "select", Second,
-            GameMcpWorldQuery.ChallengeSelectionToReplace(before, Second),
+            GameMcpChallengeProjection.ChallengeSelectionToReplace(before, Second),
             "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
 
         var swap = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengePostState(
+            GameMcpChallengeProjection.ProjectChallengePostState(
                 GameMcpTestHarness.Context(after, generation: 2507), command),
             after);
 
@@ -421,12 +417,12 @@ public sealed class GameMcpChallengeTests
         var after = World();
         var command = new GameMcpCommand(
             1, GameMcpCommandKind.Challenge, 9, 3, "select", First,
-            GameMcpWorldQuery.ChallengeSelectionToReplace(before, First),
+            GameMcpChallengeProjection.ChallengeSelectionToReplace(before, First),
             "ChallengeSO", 1, string.Empty, string.Empty, false,
             frameContext: GameMcpTestHarness.Context(before));
 
         var straight = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectChallengePostState(
+            GameMcpChallengeProjection.ProjectChallengePostState(
                 GameMcpTestHarness.Context(after, generation: 2508), command),
             after);
 
@@ -442,7 +438,7 @@ public sealed class GameMcpChallengeTests
         // ultra-precise clock because that is what `GetTimeBeforeNodes` draws the limit with — the
         // coarse format would call the same 1830 seconds `31m`. A condition that races nothing
         // carries no key at all, rather than a zero that reads as no time left.
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(World(), generation: 2508),
             "challenges",
             new[] { First.ToString("D"), Second.ToString("D") }));

@@ -79,7 +79,7 @@ public sealed class GameMcpEquipmentLoadoutTests
     public void Equipment_row_is_a_named_complete_next_decision_with_live_usage_holdings()
     {
         var context = GameMcpTestHarness.Context(World(), generation: 2401);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "equipment", EquipmentId.ToString("D")), World().EntityIdentities);
 
         var row = response["row"]!;
@@ -148,7 +148,7 @@ public sealed class GameMcpEquipmentLoadoutTests
             generation: 2402);
 
         var listed = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.ListRows(context, "equipment", 0, 50).Freeze(),
+            GameMcpWorldList.ListRows(context, "equipment", 0, 50).Freeze(),
             world.EntityIdentities));
 
         var listedRows = Assert.IsType<JArray>(listed["rows"]);

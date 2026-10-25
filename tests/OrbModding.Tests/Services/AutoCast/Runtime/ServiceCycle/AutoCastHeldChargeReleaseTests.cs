@@ -1,3 +1,6 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+#endif
 using System;
 using System.Threading;
 using OrbAutomata;
@@ -105,9 +108,9 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
     private static void ResetNativeState()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         global::SpellManager.NativeCanCast = true;
-        global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         global::BattleManager.instance = null;
     }
@@ -120,6 +123,9 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
         public Fixture(bool enabled = true)
         {
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             _registry = new ServiceCycleRegistry(1, new LifecycleGeneration(NativeEpoch));
             Configure(enabled, emergencyDisable: false);
             _status = new AutomataFeatureStatusReporter(
@@ -140,10 +146,18 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
                 _status));
             Runtime = (AutoCastFeatureRuntime)feature.Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), NativeEpoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), NativeEpoch, new LifecycleGameActions()
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             PublishWorld(2);
             _registry.Seal();
-            Pump = new SuiteFramePump(_registry);
+            Pump = new SuiteFramePump(_registry
+#if SERVICE_CYCLE_PROFILE
+                , semanticRecorder: null, actionTimeline: null, profileProbe: profileProbe
+#endif
+                );
         }
 
         public bool Owned { get; set; } = true;
@@ -197,7 +211,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
 
         private static GameWorldState ChargingWorld()
         {
-            var slots = new WorldSpellSlotBuffer();
+            var slots = new WorldRelationBuffer<WorldSpellSlot>();
             var slot = new WorldSpellSlot(
                 0, Ember,
                 occupied: true,
@@ -217,7 +231,7 @@ public sealed class AutoCastHeldChargeReleaseTests : IDisposable
             return new GameWorldState
             {
                 CollectedAtEpoch = NativeEpoch,
-                SpellSlots = WorldSpellSlotDeriver.Build(slots),
+                SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
                 SpellCosts = PublicationTable<WorldSpellCost>.Empty,
             };
         }

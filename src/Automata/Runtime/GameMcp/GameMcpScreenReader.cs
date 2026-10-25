@@ -309,7 +309,7 @@ internal sealed class GameMcpScreenReader
         {
             return _gadgetResults.Rejected("not_on_screen", GameMcpTooltipPanelRow.HiddenEntity);
         }
-        if (!GameMcpEntityExplainer.TryResolveTooltip(
+        if (!GameMcpEntityIdentity.TryResolveTooltip(
                 command.TargetId, identity.RuntimeType, out var tooltip))
         {
             return _gadgetResults.Rejected(
@@ -505,8 +505,7 @@ internal sealed class GameMcpScreenReader
     /// hierarchy path.
     /// </summary>
     /// <remarks>
-    /// The ancestry is walked once per element. Sorting, the shared prefix, and each row's printed
-    /// path all read that one result, where they previously walked the same chain three times over.
+    /// The ancestry is walked once per element.
     /// </remarks>
     private static IReadOnlyList<TooltipElement> CaptureActiveHoverTooltips() =>
         Resources.FindObjectsOfTypeAll(typeof(HoverTooltip))
@@ -543,7 +542,7 @@ internal sealed class GameMcpScreenReader
                 if (!queue.TryReadRemainingRoom(out var remaining, out var queueFailure))
                     return _gadgetResults.Rejected(
                         "native_probe_unavailable",
-                        "The action queue's free room could not be read: " + queueFailure);
+                        "The action queue's free room could not be read: " + queueFailure.Text);
                 // The game's own upgrade button queues past the maximum, so the reading goes
                 // negative. Nought free slots is the answer either way; the overshoot rides beside
                 // it as the fact it is, and is absent when there is none.

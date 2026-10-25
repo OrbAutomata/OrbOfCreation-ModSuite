@@ -139,10 +139,8 @@ internal static class GameMcpAutomationFeatures
     }
 
     /// <summary>
-    /// Whether one configuration entry is the setting behind a breaker. A feature had two doors —
-    /// the breaker and its <c>Mode</c> line in the settings pen — and a live round called both in
-    /// one breath to be sure they were the same switch. The breaker is the door; this is what lets
-    /// the pen refuse the second one.
+    /// Whether one configuration entry is the setting behind a breaker. The breaker is the door;
+    /// this is what lets the pen refuse the second one.
     /// </summary>
     internal static bool IsBreakerSetting(string section, string key)
     {
@@ -231,8 +229,8 @@ internal static class GameMcpAutomationFeatures
             {
                 return null;
             }
-            var state = GameMcpEntityWireNormalizer.Snake(status.State.ToString());
-            var code = GameMcpEntityWireNormalizer.Snake(status.Reason.Code.ToString());
+            var state = GameMcpWireValues.Snake(status.State.ToString());
+            var code = GameMcpWireValues.Snake(status.Reason.Code.ToString());
             return code.Length == 0 || code == "none" ||
                 string.Equals(code, state, StringComparison.Ordinal)
                 ? state

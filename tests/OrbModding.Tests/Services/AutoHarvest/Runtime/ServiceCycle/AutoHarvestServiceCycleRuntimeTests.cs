@@ -69,7 +69,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
         var frame = 0L;
         var lifecycle = 7L;
         var nativeRegistryReads = 0;
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () =>
             {
@@ -126,7 +126,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             new MutableConfiguration().Snapshot(),
             () => 1,
             () => lifecycle,
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
                 _ => Guid.Empty));
@@ -153,7 +153,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                 new MutableConfiguration().Snapshot(),
                 () => 1,
                 () => lifecycle,
-                new TypedRegistryResolver(
+                TestRegistryResolver.For(
                     () => lifecycle,
                     () => TypedRegistrySourceSnapshot.NotReady("unused"),
                     _ => Guid.Empty)));
@@ -179,7 +179,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
                 configuration.Snapshot(),
                 () => 1,
                 () => lifecycle,
-                new TypedRegistryResolver(
+                TestRegistryResolver.For(
                     () => lifecycle,
                     () => TypedRegistrySourceSnapshot.NotReady("unused"),
                     _ => Guid.Empty),
@@ -208,7 +208,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             configuration.Snapshot(),
             () => ++frame,
             () => lifecycle,
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
                 _ => Guid.Empty),
@@ -248,7 +248,7 @@ public sealed class AutoHarvestServiceCycleRuntimeTests
             configuration.Snapshot(),
             () => ++frame,
             () => lifecycle,
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 () => lifecycle,
                 () => TypedRegistrySourceSnapshot.NotReady("disabled"),
                 _ => Guid.Empty),

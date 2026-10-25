@@ -223,11 +223,8 @@ internal static class GameMcpEntityCatalog
     /// <remarks>
     /// An id whose type no published category claims names none here and the rule cannot fire for
     /// it; where one is named it is the <c>world_get</c> block's own category line, right there.
-    /// Six of one round's eleven `internalName` lines were this: `StrengthRitual`,
-    /// `ArtistryResearch`, `MiningActionType`, `MiningHarvestAction`, `AlchemistStructures`,
-    /// `PlantHarvestAction` — the name, then the category, on a block that prints the category one
-    /// line down. Every word the id adds has to be one the category says, so an id that adds a fact
-    /// — `SpellOutputLevel`, `ReserveLevel` — still ships whole, and one that does not lead with the
+    /// Every word the id adds has to be one the category says, so an id that adds a fact —
+    /// `SpellOutputLevel`, `ReserveLevel` — still ships whole, and one that does not lead with the
     /// name at all, like `PNACraggySpireMine`, never reaches this test.
     /// </remarks>
     private static bool RestatesCategory(string name, string assetName, string category)

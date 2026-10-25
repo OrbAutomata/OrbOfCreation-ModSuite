@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -17,8 +18,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
     {
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
+        OrbModding.GameStubs.GameStubState.Reset();
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
@@ -30,8 +30,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
         TargetingManager.ThrowOnIsTargeting = false;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
+        OrbModding.GameStubs.GameStubState.Reset();
         EffectResultInfo.SuppressCancel = false;
         EffectResultInfo.ThrowAfterCancel = false;
         NativeMultiBuyScope.ResetForTests();
@@ -300,10 +299,7 @@ public sealed class ConsumablePlayerGameActionTests : IDisposable
         Func<long>? readGeneration = null)
     {
         IDictionary dictionary = _registry;
-        var resolver = new TypedRegistryResolver(
-            readGeneration ?? (static () => 1),
-            () => TypedRegistrySourceSnapshot.Ready(dictionary),
-            value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readGeneration ?? (static () => 1), dictionary);
         return new AutoItemsConsumablePlayerGameAction(
             resolver,
             readLifecycleEpoch ?? (static () => 1),

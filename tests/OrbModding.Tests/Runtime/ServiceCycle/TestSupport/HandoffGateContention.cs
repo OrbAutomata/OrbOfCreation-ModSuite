@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Reflection;
 using System.Threading;
@@ -38,14 +39,14 @@ internal sealed class HandoffGateContention : IDisposable
     internal void Acquire()
     {
         _request.Set();
-        if (!_entered.Wait(TimeSpan.FromSeconds(5)))
+        if (!_entered.Wait(ServiceCycleTestDeadline.Value))
             throw new TimeoutException("The contention thread did not acquire the handoff gate.");
     }
 
     internal void Release()
     {
         _release.Set();
-        if (!_thread.Join(TimeSpan.FromSeconds(5)))
+        if (!_thread.Join(ServiceCycleTestDeadline.Value))
             throw new TimeoutException("The contention thread did not release the handoff gate.");
     }
 
@@ -53,7 +54,7 @@ internal sealed class HandoffGateContention : IDisposable
     {
         _release.Set();
         _request.Set();
-        _thread.Join(TimeSpan.FromSeconds(5));
+        _thread.Join(ServiceCycleTestDeadline.Value);
         _request.Dispose();
         _entered.Dispose();
         _release.Dispose();

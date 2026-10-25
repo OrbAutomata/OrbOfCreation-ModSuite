@@ -15,7 +15,6 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
     public SpellCompositionGameActionTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         Player.Current = new Player();
         Player.GetSpellOutputLevel().Value = 2;
         Player.Current.maxSpellOutputLevel.Value = 12;
@@ -254,7 +253,6 @@ public sealed class SpellCompositionGameActionTests : IDisposable
 
     public void Dispose()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         Player.Current = new Player();
         GameActionFaultLog.ConfigureLog(null);
     }

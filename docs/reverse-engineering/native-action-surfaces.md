@@ -893,7 +893,7 @@ and in this build `StructureSO` is the only direct `Targeting.ITargetable` imple
 
 `SubmitTarget` assigns the supplied object **before** removing the queue head, so the settled shape
 is the link's private `target` (`0x04001A94`) holding that exact object, `HasTarget` (`0x06003265`)
-true, and the original link no longer current. Cancel marks the owning result cancelled and retires
+true, and the original link invalid. Cancel marks the owning result cancelled and retires
 its target links — one result can own several, and all of them go.
 
 The candidate list and `CheckTarget` are the only authority here, and a request is transient by

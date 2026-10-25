@@ -67,9 +67,6 @@ internal static class GameMcpConfigurationAddress
         return section + "/" + key;
     }
 
-    /// <summary>
-    /// Whether this is an address the wire used to answer to, and the sentence that says so.
-    /// </summary>
     /// <remarks>
     /// A moved setting's file address is exactly the name the wire published before it moved, so a
     /// caller holding the old spelling is told where the setting went rather than being told the

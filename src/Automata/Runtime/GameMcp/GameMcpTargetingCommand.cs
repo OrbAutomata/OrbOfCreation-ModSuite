@@ -11,7 +11,7 @@ internal static class GameMcpTargetingCommand
         static (command, scope) => ExecuteTargeting(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, _, committed) => GameMcpWorldQuery.ProjectTargetingPostState(
+            static (state, _, committed) => GameMcpTargetingProjection.ProjectTargetingPostState(
                 state,
                 GameMcpTargetingProjection.SubmittedTarget(committed.Details))),
         prepare: Prepare);

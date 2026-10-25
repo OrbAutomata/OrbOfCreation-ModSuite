@@ -12,7 +12,7 @@ internal static class GameMcpSpellLoadoutCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)),
+                GameMcpSpellLoadoutProjection.ProjectSpellLoadoutDelta(state, command)),
         nativeType: "Spell",
         prepare: Prepare);
 
@@ -68,7 +68,7 @@ internal static class GameMcpSpellLoadoutCommand
         if (context.World is null)
             draft.Failure = GameMcpCommandResult.Rejected(
                 "world_not_published", context.RuntimeNotAvailableReason);
-        else if (!GameMcpWorldQuery.TryEquippedSpellSlot(
+        else if (!GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(
                      context.World.Snapshot, request.Amount,
                      out draft.TargetId, out var spellSlotReason))
             draft.Failure = GameMcpCommandResult.Rejected(

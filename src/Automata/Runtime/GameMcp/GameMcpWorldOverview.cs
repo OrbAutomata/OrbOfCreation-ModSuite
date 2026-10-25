@@ -15,7 +15,7 @@ internal static class GameMcpWorldOverview
 {
     internal static JObject Overview(GameMcpFrameContext state)
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out var publication, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out var publication, out var unavailable))
             return unavailable;
 
         var world = publication.Snapshot;
@@ -28,14 +28,14 @@ internal static class GameMcpWorldOverview
         // The format is read off the variable's own two flags rather than assumed, so this line and
         // the same variable's row can never print one duration two ways.
         if (WorldLookup.TryFind(world.DoubleVariables, KnownEntities.TimePlayed.Uuid, out var played))
-            result["timePlayed"] = GameMcpWorldQuery.Clock(played.Value, played.IsTimeAccurate);
+            result["timePlayed"] = GameMcpRowKit.Clock(played.Value, played.IsTimeAccurate);
         // The game keeps a second clock — "Time Played this Reset" — and a run that has reset has
         // two different answers to "how long has this taken me". It is behind TimeResetUnlocked and
         // it does not survive a reset, so a save that has never reset publishes no such variable
         // and this key is simply absent; printing a zero there would claim a reset happened.
         if (WorldLookup.TryFind(
                 world.DoubleVariables, KnownEntities.TimePlayedThisReset.Uuid, out var thisReset))
-            result["timePlayedThisReset"] = GameMcpWorldQuery.Clock(thisReset.Value, thisReset.IsTimeAccurate);
+            result["timePlayedThisReset"] = GameMcpRowKit.Clock(thisReset.Value, thisReset.IsTimeAccurate);
         var resources = ResourceBarLines(world);
         if (resources.Count > 0) result["resources"] = resources;
         result["economy"] = new JObject
@@ -64,18 +64,15 @@ internal static class GameMcpWorldOverview
             // the field name promised the count and delivered the cap, and it delivered it in the
             // direction that matters, so a strategist sizing its loadout saw a full bar that was
             // five of eight.
-            ["equippedSpells"] = GameMcpWorldQuery.OccupiedSpellSlots(world),
+            ["equippedSpells"] = GameMcpSpellLoadoutProjection.OccupiedSpellSlots(world),
             ["maximumSpellSlots"] = world.SpellSlots.Count,
             ["activeConceptAssignments"] = world.AlchemyInstances.Count,
         };
         if (world.SpellWorkbench.MaximumOutputLevel > 0)
             // The two dials on Magic > Casting, under the words that screen prints beside them —
-            // Output Lv and Reserve Lv — and the ceiling each has been raised to. A bare `output`
-            // said neither what it counted nor where the player would see it, and a live round
-            // read `casting: output 1/1` beside a mana bar of 133/133 and left the two
-            // unreconciled. The floor is the same number on every dial in every save, so it
-            // belongs in the casting-dial tool's documentation, not in an answer a caller reads
-            // every few calls.
+            // Output Lv and Reserve Lv — and the ceiling each has been raised to. The floor is the
+            // same number on every dial in every save, so it belongs in the casting-dial tool's
+            // documentation, not in an answer a caller reads every few calls.
             result["castingDials"] = new JObject
             {
                 ["outputLevel"] = new JObject
@@ -89,13 +86,13 @@ internal static class GameMcpWorldOverview
                     ["maximum"] = world.SpellWorkbench.MaximumReserveLevel,
                 },
             };
-        if (GameMcpWorldQuery.IsScreenUnlocked(world, KnownEntities.WorldAgromancyDruidryLvs.Uuid))
+        if (GameMcpScreenState.IsScreenUnlocked(world, KnownEntities.WorldAgromancyDruidryLvs.Uuid))
             result["druidryLevel"] = new JObject
             {
                 ["current"] = world.SpellWorkbench.DruidryLevel,
                 ["maximum"] = world.SpellWorkbench.MaximumDruidryLevel,
             };
-        if (GameMcpWorldQuery.IsScreenUnlocked(world, KnownEntities.AlchAlchemyLevel.Uuid))
+        if (GameMcpScreenState.IsScreenUnlocked(world, KnownEntities.AlchAlchemyLevel.Uuid))
             result["alchemyLevel"] = new JObject
             {
                 ["current"] = world.SpellWorkbench.AlchemyLevel,
@@ -103,9 +100,7 @@ internal static class GameMcpWorldOverview
             };
         // Exception-shaped, like every other line that costs a caller a decision: absent while no
         // battle runs, and present with the ritual that is in it and the gate it holds shut while
-        // one does. A live round activated a ritual, read `activeBattle: no -> yes`, and twenty
-        // minutes later hedged its way into the round's one irreversible action because no surface
-        // aggregated "a battle is running" or said what that blocked.
+        // one does.
         for (var index = 0; index < world.Rituals.Count; index++)
         {
             if (!world.Rituals[index].InBattle) continue;
@@ -218,7 +213,7 @@ internal static class GameMcpWorldOverview
                 ["screen"] = GameScreenPath.For(view.ViewId),
             };
             if (tree.NextItemCosts.Count > 0)
-                row["costs"] = GameMcpWorldQuery.DiscoveryTreeCosts(world, in tree, shortfalls: null);
+                row["costs"] = GameMcpDiscoveryTreeOfferProjection.DiscoveryTreeCosts(world, in tree, shortfalls: null);
             rows.Add(row);
         }
         return rows;
@@ -252,11 +247,8 @@ internal static class GameMcpWorldOverview
     /// against beside it.
     /// </summary>
     /// <remarks>
-    /// This was one unnamed number, <c>occupiedActionQueueSlots</c>, printed beside a queue count of
-    /// two. It covered only the plot-action queue — the one whose slots are walked — and silently
-    /// omitted the attribute and upgrade queue every purchase's ceiling comes from, so a live round
-    /// read <c>0</c> from it five times while asking about the other queue entirely. A number that
-    /// answers for one queue and names none is worse than no number at all.
+    /// This was one unnamed number, <c>occupiedActionQueueSlots</c>, printed beside a queue count
+    /// of two. A number that answers for one queue and names none is worse than no number at all.
     /// </remarks>
     private static JArray ActionQueueOccupancy(GameWorldState world)
     {
@@ -313,7 +305,7 @@ internal static class GameMcpWorldOverview
 
     internal static JObject ListCategories(GameMcpFrameContext state)
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out var publication, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         var result = new JObject();
         result["status"] = "available";
@@ -390,13 +382,12 @@ internal static class GameMcpWorldOverview
                 ["count"] = report.Sampled,
 
                 // The word the sentence above this table is keyed under, not a class code. A bare
-                // `ERR_LOCKED` in this cell meant "this collector has no table", while the same code
-                // everywhere else on the surface means "progression has not unlocked this" — one
-                // code, two unrelated conditions, with the sentence that told them apart printed
-                // once at the top and detached from the fourteen cells that needed it. A live round
-                // could not sweep the cell by eye and certified the page clean of exactly this
-                // shape. The cell now speaks the reason vocabulary the rest of the column speaks,
-                // and the word it says is defined on the page that says it.
+                // `ERR_LOCKED` in this cell meant "this collector has no table", while the same
+                // code everywhere else on the surface means "progression has not unlocked this" —
+                // one code, two unrelated conditions, with the sentence that told them apart
+                // printed once at the top and detached from the fourteen cells that needed it. The
+                // cell speaks the reason vocabulary the rest of the column speaks, and the word
+                // it says is defined on the page that says it.
                 ["reason"] = detail.Length == 0 ? Unlistable : Unlistable + ". " + detail,
             }));
         }
@@ -454,16 +445,13 @@ internal static class GameMcpWorldOverview
             ["skipped"] = skippedRows,
         };
         if (unavailable.Count > 0) result["unavailableCategories"] = unavailable;
-        if (GameMcpWorldQuery.TryLocalizedRequirementFailures(world, out var implicated) &&
+        if (GameMcpWorldRead.TryLocalizedRequirementFailures(world, out var implicated) &&
             implicated.Length > 0)
         {
-            // The overview is read every few calls and this evidence is the same bytes every
-            // time. It used to name every owner, which on a mature save is a wall of two hundred
-            // and forty names on every single call, for a fact that is one fact: this build has a
-            // condition the suite does not model, and the entities carrying it cannot be planned.
+            // The overview is read every few calls and this evidence is the same bytes every time.
             // How many, on how many entities, which class, and the two reads that hold the rest.
-            // The class name stays: it is the suite saying what it does not model, which is the
-            // one thing nobody else can say, and it is not a column on an entity's row.
+            // The class name stays: it is the suite saying what it does not model, which is the one
+            // thing nobody else can say, and it is not a column on an entity's row.
             var seenOwners = new HashSet<Guid>();
             var nativeTypes = new List<string>();
             var seenTypes = new HashSet<string>(StringComparer.Ordinal);
@@ -506,7 +494,7 @@ internal static class GameMcpWorldOverview
         {
             var structure = world.Structures[index];
             if (structure.Reading.Unlocked &&
-                GameMcpWorldQuery.TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
+                GameMcpPurchaseProjection.TryPurchaseAffordability(world, structure.EntityId, out var affordable) &&
                 affordable)
                 count++;
         }
@@ -523,8 +511,8 @@ internal static class GameMcpWorldOverview
         for (var index = 0; index < world.Upgrades.Count; index++)
         {
             var upgrade = world.Upgrades[index];
-            if (GameMcpWorldQuery.IsUpgradeOffered(world, in upgrade) && !upgrade.IsExhausted &&
-                GameMcpWorldQuery.TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
+            if (GameMcpScreenState.IsUpgradeOffered(world, in upgrade) && !upgrade.IsExhausted &&
+                GameMcpPurchaseProjection.TryPurchaseAffordability(world, upgrade.EntityId, out var affordable) &&
                 affordable)
                 count++;
         }
@@ -588,7 +576,7 @@ internal static class GameMcpWorldOverview
         return true;
     }
 
-    private static JObject DescribeCategory(GameWorldState world, GameMcpWorldCategory category)
+    private static JObject DescribeCategory(GameWorldState world, GameMcpEntityCapabilityDescriptor category)
     {
         var availability = GameMcpWorldCategories.Availability(world, category);
 
@@ -615,13 +603,13 @@ internal static class GameMcpWorldOverview
     /// ring's 256 raw samples were advertised against a page that answers with 17 rows — two true
     /// numbers, one word, and nothing on either page saying they counted different things.
     /// </remarks>
-    private static int CategoryRowCount(GameWorldState world, GameMcpWorldCategory category)
+    private static int CategoryRowCount(GameWorldState world, GameMcpEntityCapabilityDescriptor category)
     {
         if (!string.Equals(category.Name, "mastery-experience", StringComparison.Ordinal))
             return category.Count(world);
         var keys = new List<(MasteryExperienceDomain Domain, Guid SourceId, int SourceMastery)>();
         var counts = new List<int>();
-        GameMcpWorldQuery.MasteryExperienceSources(world, keys, counts);
+        GameMcpSpellLevelProjection.MasteryExperienceSources(world, keys, counts);
         return keys.Count;
     }
 }

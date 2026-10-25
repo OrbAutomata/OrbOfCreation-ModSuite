@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -714,10 +715,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
     {
         IDictionary source = registry;
         var composed = new RegistryCapture(new AutoItemsServiceCycleFeature(new AutoItemsFeatureDependencies(
-            new TypedRegistryResolver(
-                static () => 1,
-                () => TypedRegistrySourceSnapshot.Ready(source),
-                value => value is IdScriptableObject entity ? entity.GetGuid() : Guid.Empty),
+            TestRegistryResolver.For(static () => 1, source),
             static () => 1,
             ownsActionFamily: static () => true,
             tryCaptureMutationPermit: static () => true,
@@ -738,10 +736,9 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
 
     private static void ResetNativeStubs()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         Inventory.Preparing = false;
         TargetingManager.OpenRequests = 0;
-        ConsumableSO.All.Clear();
-        Inventory.ResetLists();
         GlobalVariables.MultiBuy = new IntVariable { Value = 1 };
         NativeMultiBuyScope.ResetForTests();
     }

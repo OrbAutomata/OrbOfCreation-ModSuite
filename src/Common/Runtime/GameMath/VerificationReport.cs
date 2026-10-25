@@ -10,18 +10,16 @@ namespace OrbModding.Common.Runtime.GameMath;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The verdict is the first word of the first line. The check exists to answer one question, and it
-/// used to close on a duration instead — a reader had to count verdict words down ninety lines to
-/// learn whether the suite and the game agreed, and the difference between a clean run and a
-/// degraded one was one word buried sixty lines in.
+/// The verdict is the first word of the first line.
 /// </para>
 /// <para>
 /// Every check that did not simply agree renders its own line — its verdict word and its counts —
-/// and only a check that did not agree renders anything more. The checks that agreed and had nothing
-/// else to say share one line naming every one of them and the count each agreed on. Agreeing checks
-/// are not noise: a check that ran and agreed and a check that never ran are the same silence
-/// otherwise, and a reader who cannot tell them apart cannot tell what the top-line verdict is a
-/// verdict over. So none of them is dropped — only the sentence repeated around each of them.
+/// and only a check that did not agree renders anything more. The checks that agreed and had
+/// nothing else to say share one line naming every one of them and the count each agreed on.
+/// Agreeing checks are not noise: a check that ran and agreed and a check that never ran are the
+/// same silence otherwise, and a reader who cannot tell them apart cannot tell what the top-line
+/// verdict is a verdict over. So none of them is dropped — only the sentence repeated around each
+/// of them.
 /// </para>
 /// <para>
 /// Nothing that changes between two identical calls appears in the comparison body. Frame numbers,
@@ -127,8 +125,7 @@ internal sealed class VerificationReport
         }
 
         // The coverage roll-up sits directly under the verdict it is the evidence for, and the
-        // checks that need a reader are what follows it. A folded check's note follows the roll-up
-        // carrying the check's name, because the headline that used to carry it is gone.
+        // checks that need a reader are what follows it.
         if (agreeing.Count > 0) lines.Insert(1, AgreementLine(agreeing));
         for (var index = 0; index < foldedNotes.Count; index++) lines.Insert(2 + index, foldedNotes[index]);
 
@@ -141,9 +138,7 @@ internal sealed class VerificationReport
     /// </summary>
     /// <remarks>
     /// Not a summary: no check name and no compared count is lost, which is what makes this
-    /// compression rather than truncation. What goes is the <c>AGREE:</c>/<c>compared.</c> frame
-    /// repeated once per check — 864 bytes of one live round's answer — under a first line that
-    /// already states how many facts were compared and how many agreed.
+    /// compression rather than truncation.
     /// </remarks>
     private static string AgreementLine(List<string> agreeing) =>
         "AGREE (" + Count(agreeing.Count) + (agreeing.Count == 1 ? " check): " : " checks): ") +

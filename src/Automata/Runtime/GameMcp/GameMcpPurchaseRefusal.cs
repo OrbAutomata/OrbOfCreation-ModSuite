@@ -35,10 +35,8 @@ internal static class GameMcpPurchaseRefusal
             WorldLookup.TryFind(world.Upgrades, command.TargetId, out var upgrade) &&
             upgrade.IsExhausted)
         {
-            // The player's word for the thing, and only that. This sentence used to spell the
-            // target the way a log line does — display name, asset name in brackets, and the whole
-            // canonical UUID — inside prose a player reads. The id the caller acts on rides as the
-            // response's own `uuid` field, where it can be read without parsing a sentence.
+            // The player's word for the thing, and only that. The id the caller acts on rides as
+            // the response's own `uuid` field, where it can be read without parsing a sentence.
             return GameMcpCommandResult.Rejected(
                 "already_maxed",
                 EntityIdentityFormatter.PlayerName(command.TargetId, world.EntityIdentities) +
@@ -72,8 +70,8 @@ internal static class GameMcpPurchaseRefusal
                 cost.ResourceId, world.EntityIdentities);
             shortfalls.Add((
                 resource.HasName ? resource.Name : cost.ResourceId.ToString("D"),
-                GameMcpWorldQuery.AdmittedCost(world, in cost),
-                GameMcpWorldQuery.SpendableAmount(
+                GameMcpDecisionReason.AdmittedCost(world, in cost),
+                GameMcpDecisionReason.SpendableAmount(
                     world, cost.ResourceId, cost.AvailableAmount)));
         }
         if (shortfalls.Count == 0) return null;
@@ -100,8 +98,8 @@ internal static class GameMcpPurchaseRefusal
             // native cost into the player's units turns the quality-scaled holding back too.
             shortfalls.Add((
                 resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
-                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Cost),
-                GameMcpWorldQuery.PlayerFacingCost(world, row.ResourceId, row.Available)));
+                GameMcpDecisionReason.PlayerFacingCost(world, row.ResourceId, row.Cost),
+                GameMcpDecisionReason.PlayerFacingCost(world, row.ResourceId, row.Available)));
         }
         return GameMcpDecisionReason.Shortfall(shortfalls);
     }
@@ -118,7 +116,7 @@ internal static class GameMcpPurchaseRefusal
         in AutoBuyPurchaseSubmission submission)
     {
         if (submission.CommittedLevels >= submission.RequestedLevels) return null;
-        var watched = GameMcpWorldQuery.PurchaseStopClause(submission.GroupStop);
+        var watched = GameMcpPurchaseProjection.PurchaseStopClause(submission.GroupStop);
         if (watched is not null) return watched;
         if (!submission.NextLevelCosts.IsComplete) return null;
         var rows = new List<(string Resource, BigDouble Cost)>();
@@ -129,7 +127,7 @@ internal static class GameMcpPurchaseRefusal
                 resource.HasName ? resource.Name : row.ResourceId.ToString("D"),
                 row.Cost));
         }
-        return GameMcpWorldQuery.NextLevelPriceClause(rows);
+        return GameMcpPurchaseProjection.NextLevelPriceClause(rows);
     }
 
     internal static void ProjectPurchaseDetails(
@@ -145,7 +143,7 @@ internal static class GameMcpPurchaseRefusal
         // The full-queue refusal is written here rather than at the boundary, because the
         // queue's capacity is a published world fact and the boundary reads only the room.
         if (submission.Outcome.Code == AutoBuyActionResultCodes.ActionQueueFull)
-            exactReason = GameMcpWorldQuery.ActionQueueFullReason(world);
+            exactReason = GameMcpPurchaseProjection.ActionQueueFullReason(world);
 
         // A refusal whose sentence names a ceiling carries that ceiling as a number too,
         // read from the same live reading the sentence was written from.
@@ -163,11 +161,11 @@ internal static class GameMcpPurchaseRefusal
             // delta, and no later world can add to it without contradicting it. Every level
             // short of the ask is explained on that same line: the suite's own withholding
             // plainly, the game's half with only what the suite watched or can still read.
-            details = GameMcpWorldQuery.QueuedMutation(
+            details = GameMcpRowKit.QueuedMutation(
                 command.TargetId,
                 command.Amount,
                 submission.CommittedLevels,
-                GameMcpWorldQuery.PurchaseShortfallReason(
+                GameMcpPurchaseProjection.PurchaseShortfallReason(
                     world,
                     submission.WithheldBySuite,
                     submission.RequestedLevels,

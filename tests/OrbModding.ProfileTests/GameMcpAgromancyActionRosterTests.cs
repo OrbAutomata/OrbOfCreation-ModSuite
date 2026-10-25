@@ -58,7 +58,7 @@ public sealed class GameMcpAgromancyActionRosterTests
                 "b7033a | Woodcutting",
                 "f3f0d9 | Expand",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "agromancy-actions", 0, 50, limitFromCaller: false), Catalog)));
     }
@@ -87,7 +87,7 @@ public sealed class GameMcpAgromancyActionRosterTests
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

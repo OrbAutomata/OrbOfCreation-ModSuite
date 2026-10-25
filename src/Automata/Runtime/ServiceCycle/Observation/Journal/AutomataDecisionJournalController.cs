@@ -17,6 +17,8 @@ internal sealed class AutomataDecisionJournalController
     private readonly string _artifactName;
     private DecisionJournalStatus _lastPublished = DecisionJournalStatus.Unavailable;
     private bool _disposed;
+    private GameActionReason _faultReason;
+    private Exception? _recordedFault;
 
     private AutomataDecisionJournalController(
         ServiceCycleDecisionJournalRuntime? runtime,
@@ -70,7 +72,7 @@ internal sealed class AutomataDecisionJournalController
             controller.PublishInitializationFailure(exception);
             log.LogAutomataError(
                 "ServiceCycle decision-journal initialization failed; gameplay remains active: " +
-                exception.GetBaseException().Message);
+                exception);
             return controller;
         }
 
@@ -120,7 +122,15 @@ internal sealed class AutomataDecisionJournalController
 
     internal void Publish(DecisionJournalRuntimeSnapshot snapshot)
     {
-        var status = MapStatus(in snapshot, _artifactName);
+        if (snapshot.FaultException is { } exception &&
+            !ReferenceEquals(exception, _recordedFault))
+        {
+            _recordedFault = exception;
+            _faultReason = GameActionFaultLog.Reason(
+                "The decision journal stopped after a fault.", exception, "ServiceCycle decision journal",
+                message => _log.LogAutomataError(message));
+        }
+        var status = MapStatus(in snapshot, _artifactName, _faultReason);
         if (!_status.Publish(status)) return;
         var priorState = _lastPublished.State;
         _lastPublished = status;
@@ -150,10 +160,6 @@ internal sealed class AutomataDecisionJournalController
     /// <summary>
     /// Names the observation the journal died in, and what it threw.
     /// </summary>
-    /// <remarks>
-    /// A producer fault used to reach the log as "stopped after ProducerFailed" and nothing else,
-    /// which says only that the journal is gone — not what the runtime disagreed with itself about.
-    /// </remarks>
     private static string FormatFault(DecisionJournalStatus status)
     {
         if (status.FaultSite.Length == 0) return string.Empty;
@@ -163,6 +169,10 @@ internal sealed class AutomataDecisionJournalController
 
     private void PublishInitializationFailure(Exception exception)
     {
+        _recordedFault = exception;
+        _faultReason = GameActionFaultLog.Reason(
+            "The decision journal could not be initialized.", exception, "ServiceCycle decision journal",
+            message => _log.LogAutomataError(message));
         var status = new DecisionJournalStatus(
             DecisionJournalStatusState.Faulted,
             acceptedRecords: 0,
@@ -181,14 +191,15 @@ internal sealed class AutomataDecisionJournalController
             DecisionJournalStatusResult.InitializationFailed,
             _artifactName,
             nameof(TryCreate),
-            exception.GetBaseException().Message);
+            _faultReason.Text);
         _status.Publish(status);
         _lastPublished = status;
     }
 
     internal static DecisionJournalStatus MapStatus(
         in DecisionJournalRuntimeSnapshot snapshot,
-        string artifactName)
+        string artifactName,
+        GameActionReason? faultReason = null)
     {
         var transport = snapshot.Transport;
         var consumer = snapshot.Consumer;
@@ -210,11 +221,10 @@ internal sealed class AutomataDecisionJournalController
             MapResult(transport.FaultReason, consumer.FaultReason),
             artifactName,
             snapshot.FaultSite ?? string.Empty,
-            FaultMessage(snapshot.FaultException, snapshot.FaultSite));
+            snapshot.FaultException is null || snapshot.FaultSite is null
+                ? string.Empty
+                : (faultReason ?? new GameActionReason("The decision journal stopped after a fault.")).Text);
     }
-
-    private static string FaultMessage(Exception? exception, string? site) =>
-        exception is null || site is null ? string.Empty : exception.GetBaseException().Message;
 
     private static DecisionJournalStatusState MapState(DecisionJournalRuntimeState state) => state switch
     {

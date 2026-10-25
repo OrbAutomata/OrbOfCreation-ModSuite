@@ -72,7 +72,7 @@ public sealed class GameMcpConsumableTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context,
             "consumables",
             ConsumableId.ToString("D")), Identities());

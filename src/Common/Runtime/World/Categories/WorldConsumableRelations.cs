@@ -25,30 +25,20 @@ internal readonly struct WorldConsumableType
 
 internal static class WorldConsumableTypeLookup
 {
+    internal static readonly Comparison<WorldConsumableType> Order =
+        static (left, right) => {
+            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
+            return byConsumable != 0 ? byConsumable : left.TypeId.CompareTo(right.TypeId);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldConsumableType> table,
         Guid consumableId,
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].ConsumableId.CompareTo(consumableId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               rows[start + count].ConsumableId == consumableId)
-        {
-            count++;
-        }
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), consumableId,
+            static (row, key) => row.ConsumableId.CompareTo(key), out start, out count);
     }
 }
 
@@ -80,6 +70,14 @@ internal readonly struct WorldConsumableCost
 
 internal static class WorldConsumableCostLookup
 {
+    internal static readonly Comparison<WorldConsumableCost> Order =
+        static (left, right) => {
+            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
+            if (byConsumable != 0) return byConsumable;
+            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
+            return byKind != 0 ? byKind : left.ResourceId.CompareTo(right.ResourceId);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldConsumableCost> table,
         Guid consumableId,
@@ -87,30 +85,8 @@ internal static class WorldConsumableCostLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison =
-                Compare(rows[middle].ConsumableId, rows[middle].Kind, consumableId, kind);
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               Compare(
-                   rows[start + count].ConsumableId,
-                   rows[start + count].Kind,
-                   consumableId,
-                   kind) == 0)
-        {
-            count++;
-        }
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), (Id: consumableId, Kind: kind),
+            static (row, key) => Compare(row.ConsumableId, row.Kind, key.Id, key.Kind), out start, out count);
     }
 
     private static int Compare(
@@ -161,30 +137,20 @@ internal readonly struct WorldConsumableUsage
 
 internal static class WorldConsumableUsageLookup
 {
+    internal static readonly Comparison<WorldConsumableUsage> Order =
+        static (left, right) => {
+            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
+            return byConsumable != 0 ? byConsumable : left.UsageId.CompareTo(right.UsageId);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldConsumableUsage> table,
         Guid consumableId,
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].ConsumableId.CompareTo(consumableId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               rows[start + count].ConsumableId == consumableId)
-        {
-            count++;
-        }
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), consumableId,
+            static (row, key) => row.ConsumableId.CompareTo(key), out start, out count);
     }
 }
 
@@ -207,30 +173,20 @@ internal readonly struct WorldConsumableCount
 
 internal static class WorldConsumableCountLookup
 {
+    internal static readonly Comparison<WorldConsumableCount> Order =
+        static (left, right) => {
+            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
+            return byConsumable != 0 ? byConsumable : left.Level.CompareTo(right.Level);
+        };
+
     internal static bool TryFindRange(
         PublicationTable<WorldConsumableCount> table,
         Guid consumableId,
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].ConsumableId.CompareTo(consumableId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length &&
-               rows[start + count].ConsumableId == consumableId)
-        {
-            count++;
-        }
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), consumableId,
+            static (row, key) => row.ConsumableId.CompareTo(key), out start, out count);
     }
 
     internal static bool TryGetStrongestOwnedLevel(
@@ -262,163 +218,6 @@ internal static class WorldConsumableCountLookup
                 total = checked(total + row.Quantity);
         }
         return total;
-    }
-}
-
-internal sealed class WorldConsumableTypeBuffer
-{
-    private WorldConsumableType[] _samples = new WorldConsumableType[32];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldConsumableType this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldConsumableType sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal sealed class WorldConsumableCostBuffer
-{
-    private WorldConsumableCost[] _samples = new WorldConsumableCost[32];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldConsumableCost this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldConsumableCost sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal sealed class WorldConsumableUsageBuffer
-{
-    private WorldConsumableUsage[] _samples = new WorldConsumableUsage[16];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldConsumableUsage this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldConsumableUsage sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal sealed class WorldConsumableCountBuffer
-{
-    private WorldConsumableCount[] _samples = new WorldConsumableCount[32];
-    private int _count;
-
-    internal int Count => _count;
-    internal ref readonly WorldConsumableCount this[int index] => ref _samples[index];
-    internal void Reset() => _count = 0;
-
-    internal void Append(in WorldConsumableCount sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-internal static class WorldConsumableRelationDeriver
-{
-    internal static PublicationTable<WorldConsumableType> Build(WorldConsumableTypeBuffer buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldConsumableType>.Empty;
-        var rows = new WorldConsumableType[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, ConsumableTypeComparer.Instance);
-        return PublicationTable<WorldConsumableType>.Create(rows, rows.Length);
-    }
-
-    internal static PublicationTable<WorldConsumableCost> Build(WorldConsumableCostBuffer buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldConsumableCost>.Empty;
-        var rows = new WorldConsumableCost[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, ConsumableCostComparer.Instance);
-        return PublicationTable<WorldConsumableCost>.Create(rows, rows.Length);
-    }
-
-    internal static PublicationTable<WorldConsumableUsage> Build(WorldConsumableUsageBuffer buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldConsumableUsage>.Empty;
-        var rows = new WorldConsumableUsage[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) rows[index] = buffer[index];
-        Array.Sort(rows, ConsumableUsageComparer.Instance);
-        return PublicationTable<WorldConsumableUsage>.Create(rows, rows.Length);
-    }
-
-    internal static PublicationTable<WorldConsumableCount> Build(WorldConsumableCountBuffer buffer)
-    {
-        if (buffer.Count == 0) return PublicationTable<WorldConsumableCount>.Empty;
-        var rows = new WorldConsumableCount[buffer.Count];
-        var count = 0;
-        for (var index = 0; index < buffer.Count; index++)
-        {
-            var row = buffer[index];
-            if (row.ConsumableId == Guid.Empty || row.Level <= 0 ||
-                row.Quantity < 0 || row.FreeQuantity < 0)
-                continue;
-            rows[count++] = row;
-        }
-        Array.Sort(rows, 0, count, ConsumableCountComparer.Instance);
-        return PublicationTable<WorldConsumableCount>.Create(rows, count);
-    }
-
-    private sealed class ConsumableTypeComparer : IComparer<WorldConsumableType>
-    {
-        internal static readonly IComparer<WorldConsumableType> Instance =
-            new ConsumableTypeComparer();
-        public int Compare(WorldConsumableType left, WorldConsumableType right)
-        {
-            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
-            return byConsumable != 0 ? byConsumable : left.TypeId.CompareTo(right.TypeId);
-        }
-    }
-
-    private sealed class ConsumableCostComparer : IComparer<WorldConsumableCost>
-    {
-        internal static readonly IComparer<WorldConsumableCost> Instance =
-            new ConsumableCostComparer();
-        public int Compare(WorldConsumableCost left, WorldConsumableCost right)
-        {
-            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
-            if (byConsumable != 0) return byConsumable;
-            var byKind = ((int)left.Kind).CompareTo((int)right.Kind);
-            return byKind != 0 ? byKind : left.ResourceId.CompareTo(right.ResourceId);
-        }
-    }
-
-    private sealed class ConsumableUsageComparer : IComparer<WorldConsumableUsage>
-    {
-        internal static readonly IComparer<WorldConsumableUsage> Instance =
-            new ConsumableUsageComparer();
-        public int Compare(WorldConsumableUsage left, WorldConsumableUsage right)
-        {
-            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
-            return byConsumable != 0 ? byConsumable : left.UsageId.CompareTo(right.UsageId);
-        }
-    }
-
-    private sealed class ConsumableCountComparer : IComparer<WorldConsumableCount>
-    {
-        internal static readonly IComparer<WorldConsumableCount> Instance =
-            new ConsumableCountComparer();
-        public int Compare(WorldConsumableCount left, WorldConsumableCount right)
-        {
-            var byConsumable = left.ConsumableId.CompareTo(right.ConsumableId);
-            return byConsumable != 0 ? byConsumable : left.Level.CompareTo(right.Level);
-        }
     }
 }
 
@@ -551,7 +350,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         for (var index = 0; index < entities.Count; index++)
         {
             var entity = entities[index];
@@ -561,10 +360,11 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 continue;
             }
 
+            var id = Guid.Empty;
             try
             {
                 var sample = _binder.Read(entity);
-                var id = sample.EntityId;
+                id = sample.EntityId;
                 if (id == Guid.Empty)
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure, "a consumable carried an empty identity");
@@ -614,7 +414,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                     usageCosts!,
                     frame.ConsumableCosts);
                 AppendUsages(id, usages!, frame.ConsumableUsages);
-                AppendCounts(id, counts!, frame.ConsumableCounts);
+                AppendCounts(id, counts!, frame.ConsumableCounts, ref skipped, ref firstFailure);
                 sampled++;
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
@@ -622,7 +422,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading a ConsumableSO threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading a ConsumableSO threw", ex, id));
             }
         }
 
@@ -725,7 +525,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
     private void AppendTypes(
         Guid consumableId,
         IList entries,
-        WorldConsumableTypeBuffer destination)
+        WorldRelationBuffer<WorldConsumableType> destination)
     {
         for (var index = 0; index < entries.Count; index++)
             destination.Append(new WorldConsumableType(consumableId, _typeId!(entries[index]!)));
@@ -735,7 +535,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
         Guid consumableId,
         WorldConsumableCostKind kind,
         IList entries,
-        WorldConsumableCostBuffer destination)
+        WorldRelationBuffer<WorldConsumableCost> destination)
     {
         for (var index = 0; index < entries.Count; index++)
         {
@@ -751,7 +551,7 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
     private void AppendUsages(
         Guid consumableId,
         IList entries,
-        WorldConsumableUsageBuffer destination)
+        WorldRelationBuffer<WorldConsumableUsage> destination)
     {
         for (var index = 0; index < entries.Count; index++)
         {
@@ -769,16 +569,23 @@ internal sealed class WorldConsumableReader : IWorldCategoryReader
     private void AppendCounts(
         Guid consumableId,
         IList entries,
-        WorldConsumableCountBuffer destination)
+        WorldRelationBuffer<WorldConsumableCount> destination,
+        ref int skipped,
+        ref WorldCollectionFailure firstFailure)
     {
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index]!;
-            destination.Append(new WorldConsumableCount(
-                consumableId,
-                _countLevel!(entry),
-                _countQuantity!(entry),
-                _countFreeQuantity!(entry)));
+            var level = _countLevel!(entry);
+            var quantity = _countQuantity!(entry);
+            var freeQuantity = _countFreeQuantity!(entry);
+            if (level <= 0 || quantity < 0 || freeQuantity < 0)
+            {
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                    $"a consumable count at position {index} carried invalid values");
+                continue;
+            }
+            destination.Append(new WorldConsumableCount(consumableId, level, quantity, freeQuantity));
         }
     }
 

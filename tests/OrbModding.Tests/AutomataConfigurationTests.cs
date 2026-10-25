@@ -98,10 +98,8 @@ public sealed class AutomataConfigurationTests
     /// A change from any source is a change to publish, and it is taken exactly once.
     /// </summary>
     /// <remarks>
-    /// The suite used to publish off the invalidation its own settings panel raises, so a setting
-    /// changed through BepInEx's configuration manager or by editing the file never advanced a
-    /// generation and every service kept deciding against the previous reading. BepInEx raises one
-    /// event whatever moved the setting, so taking the change from here covers all of them.
+    /// BepInEx raises one event whatever moved the setting, so taking the change from here covers
+    /// all of them.
     /// </remarks>
     [Fact]
     public void EverySourceOfAChangeLeavesOneReadingToPublish()

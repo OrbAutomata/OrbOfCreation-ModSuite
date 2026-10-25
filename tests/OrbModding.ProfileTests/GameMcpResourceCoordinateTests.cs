@@ -118,7 +118,7 @@ public sealed class GameMcpResourceCoordinateTests
             meter: "held", atCapacity: true);
 
         var costs = Assert.IsType<JArray>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.ProjectEquippedSpellCosts(
+            GameMcpCastProjection.ProjectEquippedSpellCosts(
                 world, 0, WorldSpellCostKind.Immediate).Freeze(),
             world.EntityIdentities));
         var cost = Assert.Single(costs.Values<JObject>());
@@ -138,16 +138,16 @@ public sealed class GameMcpResourceCoordinateTests
         object atCapacity)
     {
         var row = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.ProjectResource(world, world.Resources[index]),
+            GameMcpResourceProjection.ProjectResource(world, world.Resources[index]),
             world.EntityIdentities));
         Assert.Equal(meter, (string?)row["meter"]);
         Assert.Equal(display, (string?)row["amount"]);
         Assert.Equal("10", (string?)row["capacity"]);
         Assert.Equal(atCapacity, ((JValue)row["atCapacity"]!).Value);
         Assert.Equal(new BigDouble(spendable),
-            GameMcpWorldQuery.SpendableAmount(world, resourceId, BigDouble.Zero));
+            GameMcpDecisionReason.SpendableAmount(world, resourceId, BigDouble.Zero));
         Assert.Equal(new BigDouble(cost),
-            GameMcpWorldQuery.PlayerFacingCost(world, resourceId, new BigDouble(100)));
+            GameMcpDecisionReason.PlayerFacingCost(world, resourceId, new BigDouble(100)));
     }
 
     private static string PlayerFacingCost(BigDouble nominal, BigDouble quality)
@@ -170,7 +170,7 @@ public sealed class GameMcpResourceCoordinateTests
             }),
         };
 
-        return GameMcpNumberFormatter.Format(GameMcpWorldQuery.PlayerFacingCost(
+        return GameMcpNumberFormatter.Format(GameMcpDecisionReason.PlayerFacingCost(
             world, resource, nominal));
     }
 

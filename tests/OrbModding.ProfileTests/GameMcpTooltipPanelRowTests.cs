@@ -23,9 +23,8 @@ public sealed class GameMcpTooltipPanelRowTests
     private static readonly Guid Ferocity = Guid.Parse("d0e00000-0000-4000-8000-000000000001");
 
     /// <summary>
-    /// The whole panel, line for line, against round eleven's <c>[path | name]</c>. Beam Burst sits
-    /// in slot 7 behind an empty slot 6, which is the pair that made the path's <c>(Clone)[6]</c>
-    /// read as a slot number and cost a refused cast.
+    /// Beam Burst sits in slot 7 behind an empty slot 6, which is the pair that made the path's
+    /// <c>(Clone)[6]</c> read as a slot number and cost a refused cast.
     /// </summary>
     [Fact]
     public void The_casting_bar_panel_names_the_spell_and_the_slot_the_cast_verb_takes()
@@ -241,11 +240,6 @@ public sealed class GameMcpTooltipPanelRowTests
             Render(Page(Row("SpellButtonBottomBar(Clone)[0]", "Ralochs's Cube", Cube))));
     }
 
-    /// <summary>
-    /// Every row is addressed by the shortest tail of its path no other live element answers to,
-    /// whether it carries a uuid or not: the address only has to name one element, and the
-    /// Canvas-rooted chain around it was 23% of one round's whole screen-elements wire.
-    /// </summary>
     [Fact]
     public void A_row_is_addressed_by_the_shortest_tail_that_names_one_element()
     {

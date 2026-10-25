@@ -15,6 +15,7 @@ namespace OrbModding.ProfileTests;
 /// once for the pair about to be mutated instead of once per cycle for both.
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class AutoHarvestActionBindingProfileTests
 {
     [Fact]

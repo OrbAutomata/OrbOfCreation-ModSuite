@@ -150,11 +150,7 @@ public sealed class BufferedSegmentSinkFailureTests
     }
 
     /// <summary>
-    /// The producer stopping is how a recording ends when the runtime shuts down. A 43-minute
-    /// capture whose every one of 486,377 accepted records was durable still published
-    /// <c>Incomplete</c> with a first-missing sequence of 486,378 — one past the last record it had
-    /// written — and the next reader has to disprove that by arithmetic before trusting anything in
-    /// the session.
+    /// The producer stopping is how a recording ends when the runtime shuts down.
     /// </summary>
     [Fact]
     public void AProducerStopThatLostNothingCompletesInsteadOfClaimingTruncation()

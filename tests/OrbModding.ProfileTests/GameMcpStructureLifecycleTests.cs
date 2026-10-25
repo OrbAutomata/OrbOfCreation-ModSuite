@@ -56,7 +56,7 @@ public sealed class GameMcpStructureLifecycleTests
     {
         var world = World(disabled: true, available: true);
         var detail = Row(world);
-        var list = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var list = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 902),
             "attributes", 0, 10).Freeze(), world);
         var listed = Assert.Single((JArray)list["rows"]!);
@@ -89,7 +89,7 @@ public sealed class GameMcpStructureLifecycleTests
     }
 
     private static JObject Block(GameWorldState world) =>
-        GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 901),
             "attributes", StructureId.ToString("D")).Freeze(), world);
 

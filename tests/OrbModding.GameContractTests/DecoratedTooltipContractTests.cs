@@ -22,10 +22,6 @@ public sealed class DecoratedTooltipContractTests
                 reference.MemberName == "tooltipable");
     }
 
-    /// <summary>
-    /// The glyph list is the case a live round caught: every icon on the loadout page is a glyph
-    /// the world publishes, and every one of them reached the wire with no id on it.
-    /// </summary>
     [GameAssemblyFact]
     public void TheGlyphListWrapsItsOwnGlyphToAddTheEquippedQuantity()
     {
@@ -77,9 +73,7 @@ public sealed class DecoratedTooltipContractTests
     }
 
     /// <summary>
-    /// The row a live round could not read past: a chance statistic's effect row hangs the
-    /// statistic and the "Rating Change" glossary word, filled with the next level's numbers, on
-    /// the row's sub-tooltips. Those numbers are built here and nowhere else.
+    /// Those numbers are built here and nowhere else.
     /// </summary>
     [GameAssemblyFact]
     public void AChanceRowHangsTheRatingChangeWordFilledWithItsNumbersBesideTheStatistic()

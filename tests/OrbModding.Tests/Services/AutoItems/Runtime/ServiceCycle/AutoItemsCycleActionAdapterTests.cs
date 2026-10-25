@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +15,33 @@ namespace OrbModding.Tests.Services.AutoItems.Runtime.ServiceCycle;
 public sealed class AutoItemsCycleActionAdapterTests : IDisposable
 {
     public void Dispose() => GameActionFaultLog.ConfigureLog(null);
+
+    [Fact]
+    public void EveryFailedOwnershipReadLogsItsCauseWithoutChangingTheFailureSentence()
+    {
+        var logged = new List<string>();
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        var failure = new InvalidOperationException("private ownership cause", new Exception("original inner cause"));
+        var health = new AutoItemsActionHealth();
+        using var gameAction = GameAction();
+        var adapter = new AutoItemsCycleActionAdapter(
+            gameAction, static () => 7, static () => false, () => throw failure, health);
+        var config = Configuration(AutoItemsOperationMode.Active);
+        var action = new AutoItemsCycleAction(Guid.NewGuid(), AutoItemsConsumableFamily.Relic, 7, 0);
+        var context = Context();
+
+        adapter.TryExecute(in action, in config, in context);
+        var revision = health.Revision;
+        var firstCause = failure.ToString();
+        adapter.TryExecute(in action, in config, in context);
+
+        Assert.Equal(2, logged.Count);
+        Assert.Contains(firstCause, logged[0]);
+        Assert.Contains(failure.ToString(), logged[1]);
+        Assert.DoesNotContain("private ownership cause", health.Reason);
+        Assert.Contains(logged[1].Split(' ')[3], health.Reason);
+        Assert.Equal(revision, health.Revision);
+    }
 
     [Fact]
     public void DirectAdapterUsesOnlyThePinnedConfigurationAndRejectsDisabledIntent()
@@ -170,7 +198,7 @@ public sealed class AutoItemsCycleActionAdapterTests : IDisposable
     {
         IDictionary registry = new System.Collections.Generic.Dictionary<Guid, object>();
         return new AutoItemsConsumableUseGameAction(
-            new TypedRegistryResolver(
+            TestRegistryResolver.For(
                 static () => 7,
                 () => TypedRegistrySourceSnapshot.Ready(registry),
                 static _ => Guid.Empty),

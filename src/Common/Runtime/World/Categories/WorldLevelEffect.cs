@@ -100,29 +100,16 @@ internal readonly struct WorldLevelEffect
     internal string When { get; }
 }
 
-/// <summary>Publishes the tuple readings, sorted by owner and then by authored position.</summary>
-internal static class WorldLevelEffectDeriver
-{
-    internal static PublicationTable<WorldLevelEffect> Build(
-        WorldRelationBuffer<WorldLevelEffect> buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldLevelEffect>.Empty;
-
-        var rows = new WorldLevelEffect[buffer.Count];
-        for (var index = 0; index < rows.Length; index++) rows[index] = buffer[index];
-        Array.Sort(rows, static (left, right) =>
-        {
-            var owner = left.OwnerId.CompareTo(right.OwnerId);
-            return owner != 0 ? owner : left.Ordinal.CompareTo(right.Ordinal);
-        });
-        return PublicationTable<WorldLevelEffect>.Create(rows, rows.Length);
-    }
-}
-
 /// <summary>Range lookup over the level-effect table, which is keyed by owner and then position.</summary>
 internal static class WorldLevelEffectLookup
 {
+    internal static readonly Comparison<WorldLevelEffect> Order =
+        static (left, right) =>
+        {
+            var owner = left.OwnerId.CompareTo(right.OwnerId);
+            return owner != 0 ? owner : left.Ordinal.CompareTo(right.Ordinal);
+        };
+
     /// <summary>One owner's tuples, as a contiguous range of the sorted table.</summary>
     internal static bool TryFindRange(
         PublicationTable<WorldLevelEffect> table,
@@ -130,33 +117,8 @@ internal static class WorldLevelEffectLookup
         out int start,
         out int count)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].OwnerId.CompareTo(ownerId);
-            if (comparison < 0) low = middle + 1;
-            else
-            {
-                if (comparison == 0) found = middle;
-                high = middle - 1;
-            }
-        }
-
-        if (found < 0)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-
-        start = found;
-        var end = found + 1;
-        while (end < table.Count && table[end].OwnerId == ownerId) end++;
-        count = end - found;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), ownerId,
+            static (row, key) => row.OwnerId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -414,22 +376,23 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < glyphs.Count; index++)
         {
             var glyph = glyphs[index];
             if (glyph is null) continue;
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += ReadGlyphSlots(glyph, variableIds, factors);
+                sampled += ReadGlyphSlots(glyph, variableIds, factors, out readOwnerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading a glyph's factors threw: " + ex.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading a glyph's factors threw", ex, readOwnerId));
             }
         }
 
@@ -441,17 +404,17 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         {
             var upgrade = upgrades[index];
             if (upgrade is null) continue;
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += ReadPermanentEffects(upgrade, levels);
+                sampled += ReadPermanentEffects(upgrade, levels, out readOwnerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading an upgrade's permanent effects threw: " +
-                        ex.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading an upgrade's permanent effects threw", ex, readOwnerId));
             }
         }
 
@@ -463,17 +426,17 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         {
             var structure = structures[index];
             if (structure is null) continue;
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += ReadStructureProperties(structure, levels);
+                sampled += ReadStructureProperties(structure, levels, out readOwnerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading an attribute's properties threw: " +
-                        ex.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading an attribute's properties threw", ex, readOwnerId));
             }
         }
 
@@ -490,9 +453,10 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
             {
                 var owner = owners[index];
                 if (owner is null) continue;
+                var readOwnerId = Guid.Empty;
                 try
                 {
-                    sampled += ReadBlocks(in _holders[holder], owner, levels);
+                    sampled += ReadBlocks(in _holders[holder], owner, levels, out readOwnerId);
                 }
                 catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
                 {
@@ -500,7 +464,7 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
                         ref skipped,
                         ref firstFailure,
                         "reading a " + _holders[holder].TypeName +
-                            "'s level effects threw: " + ex.GetBaseException().Message);
+                            WorldFailures.ReadFault("'s level effects threw", ex, readOwnerId));
                 }
             }
         }
@@ -512,9 +476,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
     private int ReadGlyphSlots(
         object glyph,
         Guid[] variableIds,
-        WorldRelationBuffer<WorldGlyphFactor> buffer)
+        WorldRelationBuffer<WorldGlyphFactor> buffer,
+        out Guid readOwnerId)
     {
-        var glyphId = _glyphId!(glyph);
+        readOwnerId = Guid.Empty;
+        var glyphId = readOwnerId = _glyphId!(glyph);
         if (glyphId == Guid.Empty) return 0;
 
         var slots = WorldGlyphFactorSlots.All;
@@ -541,9 +507,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
         return appended;
     }
 
-    private int ReadPermanentEffects(object upgrade, WorldRelationBuffer<WorldLevelEffect> buffer)
+    private int ReadPermanentEffects(object upgrade, WorldRelationBuffer<WorldLevelEffect> buffer,
+        out Guid readOwnerId)
     {
-        var upgradeId = _upgradeId!(upgrade);
+        readOwnerId = Guid.Empty;
+        var upgradeId = readOwnerId = _upgradeId!(upgrade);
         if (upgradeId == Guid.Empty) return 0;
 
         var ordinal = 0;
@@ -557,9 +525,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
 
     private int ReadStructureProperties(
         object structure,
-        WorldRelationBuffer<WorldLevelEffect> buffer)
+        WorldRelationBuffer<WorldLevelEffect> buffer,
+        out Guid readOwnerId)
     {
-        var structureId = _structureId!(structure);
+        readOwnerId = Guid.Empty;
+        var structureId = readOwnerId = _structureId!(structure);
         if (structureId == Guid.Empty) return 0;
 
         var properties = _structureProperties!(structure);
@@ -610,9 +580,11 @@ internal sealed class WorldEffectFactorReader : IWorldCategoryReader
     private int ReadBlocks(
         in WorldLevelEffectHolder holder,
         object owner,
-        WorldRelationBuffer<WorldLevelEffect> buffer)
+        WorldRelationBuffer<WorldLevelEffect> buffer,
+        out Guid readOwnerId)
     {
-        var ownerId = holder.OwnerId!(owner);
+        readOwnerId = Guid.Empty;
+        var ownerId = readOwnerId = holder.OwnerId!(owner);
         if (ownerId == Guid.Empty) return 0;
 
         var blocks = holder.Blocks!(owner);

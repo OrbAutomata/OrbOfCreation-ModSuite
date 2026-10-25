@@ -35,6 +35,7 @@ namespace OrbModding.ProfileTests;
 /// </para>
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpLevelEffectTests : IDisposable
 {
     private static readonly Guid Druidry = Guid.Parse("1c6da5b3-041b-40a8-a45a-feb174cde507");
@@ -198,7 +199,7 @@ public sealed class GameMcpLevelEffectTests : IDisposable
 
     private static JObject Row(string category, Guid uuid) =>
         (JObject)Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), category, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!["row"]!;
 

@@ -146,13 +146,10 @@ internal readonly struct VerificationFinding
     /// something of its own to say.
     /// </summary>
     /// <remarks>
-    /// A check that agreed and counted is a name and a number; the sentence around it — <c>AGREE:</c>
-    /// before and <c>compared.</c> after — is the same eighteen characters on every one of them, and
-    /// one live round spent 864 bytes on that scaffolding across forty-eight such lines while the
-    /// response's own first line already said how many facts agreed. A check that reported its own
-    /// count clause or listed anything keeps its full line: those are the checks where the words are
-    /// the finding. A note is not one of them — the note is the words, the headline around it is the
-    /// same restatement, and the note keeps its own line naming the check it belongs to.
+    /// A check that reported its own count clause or listed anything keeps its full line: those are
+    /// the checks where the words are the finding. A note is not one of them — the note is the
+    /// words, the headline around it is the same restatement, and the note keeps its own line
+    /// naming the check it belongs to.
     /// </remarks>
     internal bool TryFold(out string folded)
     {

@@ -18,9 +18,6 @@ public sealed class LoadoutGameActionTests : IDisposable
 
     public LoadoutGameActionTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
-        EquipmentSO.All.Clear();
-        SpellRecipeSO.All.Clear();
         SpellManager.instance = new SpellManager();
         EquipmentManager.instance = new EquipmentManager();
         AlchemyManager.instance = new AlchemyManager();
@@ -470,9 +467,6 @@ public sealed class LoadoutGameActionTests : IDisposable
 
     public void Dispose()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
-        EquipmentSO.All.Clear();
-        SpellRecipeSO.All.Clear();
         SpellManager.instance = null;
         EquipmentManager.instance = new EquipmentManager();
         AlchemyManager.instance = null;

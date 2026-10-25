@@ -50,11 +50,11 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
         Assert.Equal(2, report.Sampled);
 
         // Both scoped recipes, in the order the native recipe list holds them. The slot count is the
-        // whole Active Concepts list including the empty capacity slot, and only the second recipe's
-        // instance has already taken every usage slot its recipe allows.
+        // whole Active Concepts list including the empty capacity slot. Native admission accepts
+        // both held recipes, including the second whose instance has exhausted its usage slots.
         Assert.Equal(2, frame.ConceptRecipes.Count);
         AssertRecipe(frame.ConceptRecipes[0], FirstRecipeId, CoreTypeId, canAddNow: true, slotCount: 3);
-        AssertRecipe(frame.ConceptRecipes[1], SecondRecipeId, OtherCoreTypeId, canAddNow: false, slotCount: 3);
+        AssertRecipe(frame.ConceptRecipes[1], SecondRecipeId, OtherCoreTypeId, canAddNow: true, slotCount: 3);
 
         // The empty capacity slot publishes nothing, so two rows for three list positions, in the
         // order the Active Concepts list holds them rather than in recipe order.
@@ -145,6 +145,25 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
         Assert.Equal(GameValueModifierType.Exponent, entry.Type);
         Assert.Equal(4, entry.Order);
         Assert.Equal(6d, entry.Amount.ToDouble());
+
+        // Once the first recipe is unheld and the one remaining capacity slot is occupied by the
+        // second, admission refuses the first while still accepting the held second recipe.
+        var active = Registered<global::AlchemyInstanceListVariable>(KnownEntities.ActiveConcepts.Uuid);
+        active.value.RemoveAt(2);
+        active.value.RemoveAt(1);
+        active.TypelessSlots = 1;
+        active.RebuildCounts();
+        var fullFrame = new GameWorldCycleFrame();
+
+        var fullReport = Reader().Collect(new HashSet<Guid>(), fullFrame);
+
+        Assert.Equal(WorldCategoryOutcome.Collected, fullReport.Outcome);
+        Assert.Equal(0, fullReport.Skipped);
+        Assert.Equal(2, fullFrame.ConceptRecipes.Count);
+        AssertRecipe(fullFrame.ConceptRecipes[0], FirstRecipeId, CoreTypeId, canAddNow: false, slotCount: 1);
+        AssertRecipe(fullFrame.ConceptRecipes[1], SecondRecipeId, OtherCoreTypeId, canAddNow: true, slotCount: 1);
+        Assert.Equal(1, fullFrame.AlchemyInstances.Count);
+        Assert.Equal(SecondRecipeId, fullFrame.AlchemyInstances[0].RecipeId);
     }
 
     /// <summary>
@@ -205,21 +224,26 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
     }
 
     /// <summary>
-    /// A native refusal degrades the whole category with the game's own message, rather than being
+    /// A native refusal degrades the whole category with a named reason, rather than being
     /// published as a partial reading or escaping into the pass.
     /// </summary>
     [Fact]
-    public void ANativeThrowDegradesTheCategoryWithItsMessage()
+    public void ANativeThrowDegradesTheCategoryWithANamedReason()
     {
         Seed();
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         var active = Registered<global::AlchemyInstanceListVariable>(KnownEntities.ActiveConcepts.Uuid);
+        var failure = new InvalidOperationException("CanAddInstance failed");
+        active.CanAddFailure = failure;
         active.ThrowOnCanAdd = true;
 
         var frame = new GameWorldCycleFrame();
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Equal("reading Concept instances threw: CanAddInstance failed", report.FirstFailure);
+        Assert.Equal("reading Concept instances threw", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, failure);
+        Assert.Contains("Reference " + report.Failure.Reason.Reference, report.FirstFailure);
         Assert.Equal(0, frame.ConceptRecipes.Count);
         Assert.Equal(0, frame.AlchemyInstances.Count);
     }
@@ -383,11 +407,7 @@ public sealed class WorldConceptInstanceReaderTests : IDisposable
 
     private static void Clear()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::AlchemyTypeSO.All.Clear();
-        global::InstanceScalingSO.All.Clear();
-        global::UnityEngine.Resources.Objects.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
     }
 
     private static void Seed()

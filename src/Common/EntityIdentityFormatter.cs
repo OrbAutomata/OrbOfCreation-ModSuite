@@ -183,11 +183,9 @@ internal static class EntityIdentityFormatter
     /// occupying a slot, or the one that turned up where another was planned.
     /// </summary>
     /// <remarks>
-    /// A refusal naming a second entity used to spell it the way a log does: display name, asset
-    /// name in brackets, and the whole canonical UUID, inside prose a player reads. The handle is
-    /// the address a caller can act on and the one every other surface prints, so the sentence says
-    /// that and nothing else. Where the same entity also rides as a field, the field is what a
-    /// caller parses and this is what a person reads.
+    /// The handle is the address a caller can act on and the one every other surface prints, so the
+    /// sentence says that and nothing else. Where the same entity also rides as a field, the field
+    /// is what a caller parses and this is what a person reads.
     /// </remarks>
     internal static string PlayerHandle(
         Guid uuid,

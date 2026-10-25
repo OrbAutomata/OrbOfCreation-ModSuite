@@ -10,13 +10,11 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
 {
     public WorldCraftingDecisionReaderTests()
     {
-        CraftingRecipeSO.All.Clear();
         UnityEngine.Resources.Objects.Clear();
     }
 
     public void Dispose()
     {
-        CraftingRecipeSO.All.Clear();
         UnityEngine.Resources.Objects.Clear();
     }
 
@@ -206,6 +204,7 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
     [Fact]
     public void QueueRoleContradictionFailsTheQueueContentReadInsteadOfPublishingAGuess()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         var recipe = Recipe();
         CraftingRecipeSO.All.Add(recipe);
         var page = Page(recipe, mode: 0, maximum: 2);
@@ -218,13 +217,15 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(WorldCategoryOutcome.Unavailable, report.Outcome);
-        Assert.Contains("contradicted its manual or automatic list", report.FirstFailure);
+        Assert.Equal("reading the visible crafting queues failed", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, "contradicted its manual or automatic list");
         Assert.Equal(0, frame.CraftingQueueEntries.Count);
     }
 
     [Fact]
     public void DuplicatePageRelationSkipsOnlyImplicatedRecipe()
     {
+        using var faults = new OrbModding.TestSupport.CapturedGameActionFaultLog();
         var implicated = Recipe();
         var unaffected = Recipe();
         CraftingRecipeSO.All.Add(implicated);
@@ -238,7 +239,8 @@ public sealed class WorldCraftingDecisionReaderTests : IDisposable
 
         Assert.Equal(1, report.Sampled);
         Assert.Equal(1, report.Skipped);
-        Assert.Contains("more than one crafting page", report.FirstFailure);
+        Assert.Equal("crafting decision row 0 failed", report.Failure.Reason.Sentence);
+        faults.AssertLogged(report.Failure.Reason, "more than one crafting page");
         Assert.Equal(unaffected.GetGuid(), frame.CraftingDecisions[0].RecipeId);
     }
 

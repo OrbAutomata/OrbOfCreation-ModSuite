@@ -8,9 +8,7 @@ namespace OrbModding.ProfileTests;
 public sealed class ServiceCycleProfileSpanTests
 {
     /// <summary>
-    /// The whole enumeration, written out by hand. Three <c>const int</c> classes used to keep these
-    /// numbers apart by convention; this list is what replaces the convention, so changing a number
-    /// here is the deliberate act of breaking every artifact recorded before the change.
+    /// The whole enumeration, written out by hand.
     /// </summary>
     private static readonly (ServiceCycleProfileSpan Span, int Code)[] Expected =
     {
@@ -34,7 +32,6 @@ public sealed class ServiceCycleProfileSpanTests
         (ServiceCycleProfileSpan.AutoBuyActionNativeSubmission, 2007),
     };
 
-    /// <summary>Numbers a retired span used, which nothing may take over.</summary>
     private static readonly int[] Burned =
     {
         1, 2,

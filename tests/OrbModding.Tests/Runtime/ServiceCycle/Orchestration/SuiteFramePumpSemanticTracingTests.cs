@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -311,8 +312,7 @@ public sealed class SuiteFramePumpSemanticTracingTests
     /// The generation a cycle carries is the bound publisher's, not a number the service chose.
     /// </summary>
     /// <remarks>
-    /// Every service used to return a hardcoded one from its capture, which happened to be right only
-    /// because nothing published a bulletin yet. See W49.
+    /// See W49.
     /// </remarks>
     [Fact]
     public void ACycleIsStampedWithTheSuitesLatestStrategy()

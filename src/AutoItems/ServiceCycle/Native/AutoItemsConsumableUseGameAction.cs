@@ -67,9 +67,9 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 item,
                 action.PlannedLevel,
                 native,
-                out reason))
+                out var targetReason))
         {
-            return NativeActionOutcome.Reject(AutoItemsActionResultCodes.TargetUnavailable, reason);
+            return NativeActionOutcome.Reject(AutoItemsActionResultCodes.TargetUnavailable, targetReason);
         }
 
         var temporary = AutoItemsConsumableFamilies.IsTemporary(action.Family);

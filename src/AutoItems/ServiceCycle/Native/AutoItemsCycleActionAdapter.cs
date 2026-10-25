@@ -72,7 +72,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         return _guard.Finish(in submission, in action);
     }
 
-    private string ReadOwnershipFailure()
+    private GameActionReason ReadOwnershipFailure()
     {
         try
         {
@@ -83,7 +83,7 @@ internal sealed class AutoItemsCycleActionAdapter : IAutoItemsCycleActionPort
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return "Auto Items ownership evidence failed: " + ex.GetBaseException().Message;
+            return GameActionFaultLog.Reason("Auto Items ownership evidence could not be read.", ex, "Auto Items ownership");
         }
     }
 }

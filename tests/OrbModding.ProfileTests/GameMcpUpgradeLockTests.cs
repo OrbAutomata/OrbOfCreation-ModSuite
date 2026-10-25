@@ -32,7 +32,7 @@ public sealed class GameMcpUpgradeLockTests
 
         Assert.Equal(
             new[] { "available", "locked" },
-            Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50)))
+            Rows(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "upgrades", 0, 50)))
                 .Select(row => (string?)row["state"]).ToArray());
         Assert.Equal(
             new[] { GameMcpTestHarness.Handle(Capped) },
@@ -68,7 +68,7 @@ public sealed class GameMcpUpgradeLockTests
 
         Assert.Equal(
             "unreadable",
-            (string?)Rows(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50)))
+            (string?)Rows(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "upgrades", 0, 50)))
                 .Single()["state"]);
         Assert.Empty(GameMcpTestHarness
             .Json(GameMcpWorldSearch.Search(
@@ -132,8 +132,9 @@ public sealed class GameMcpUpgradeLockTests
                 // Capped needs Uncapped at level 9 or better, and Uncapped holds 3.
                 new WorldEntityRequirement(
                     Capped,
-                    WorldRequirementOwnerKind.Upgrade,
-                    ordinal: 0,
+                    WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+                    ordinal: 0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
                     WorldRequirementConditionKind.Upgrade,
                     "UpgradeRequirement",
                     Uncapped,
@@ -156,7 +157,7 @@ public sealed class GameMcpUpgradeLockTests
         // The page says which list it evaluated, so `state=available` beside a requirement verdict
         // is two different authored lists rather than a contradiction.
         var row = GameMcpTestHarness
-            .Json(GameMcpWorldQuery.ListRows(context, "upgrades", 0, 50))["rows"]!
+            .Json(GameMcpWorldList.ListRows(context, "upgrades", 0, 50))["rows"]!
             .Values<JObject>()
             .Single(candidate =>
                 (string?)candidate!["uuid"] == GameMcpTestHarness.Handle(Capped))!;

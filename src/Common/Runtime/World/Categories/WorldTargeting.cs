@@ -213,7 +213,7 @@ internal sealed class WorldTargetingReader : IWorldCategoryReader
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             buffer.Reset();
-            return WorldCategoryReport.Missing(Category, ex.GetBaseException().Message);
+            return WorldCategoryReport.Missing(Category, WorldFailures.ReadFault("reading targeting state failed", ex));
         }
     }
 

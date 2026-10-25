@@ -1,3 +1,7 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbAutomata.GameMcp;
+#endif
+using System;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common.Runtime.Configuration;
@@ -187,6 +191,12 @@ public sealed class AutomataServiceCycleActivationTests
         public void CancelPreparedWork() => Cancellations++;
         public AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics() =>
             AutomataDiagnosticsRuntimeEvidence.Unavailable("test runtime");
+#if SERVICE_CYCLE_PROFILE
+        public OrbAutomata.AutomataRuntimeFrameFacts CaptureFrameFacts(bool includeServices) =>
+            throw new InvalidOperationException("This activation fixture never reads frame facts.");
+        public OrbAutomata.GameMcp.GameMcpCommandDispatcher GameMcp =>
+            throw new InvalidOperationException("This activation fixture never dispatches MCP commands.");
+#endif
         public void Dispose() => Disposals++;
     }
 

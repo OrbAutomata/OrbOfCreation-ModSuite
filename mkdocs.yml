@@ -129,6 +129,14 @@ nav:
       - development/setup.md
       - development/engineering-doctrine.md
       - development/mcp-tools.md
+      - development/mcp-tool-reference.md
+      - development/mcp-world-reference.md
+      - development/mcp-gameplay-reference.md
+      - development/mcp-suite-reference.md
+      - development/mcp-screen-reference.md
+      - development/mcp-refusal-vocabulary.md
+      - development/mcp-response-format.md
+      - development/mcp-tooltip-explorer.md
       - development/releases.md
   - Reverse engineering:
       - reverse-engineering/README.md

@@ -5,42 +5,14 @@
 > gameplay scheduler, or permanent action authority.
 
 [Back to dossier](README.md) · [Game boundary doctrine](game-boundary-doctrine.md) ·
-[Shared world collection](world-collection.md) · [MCP tools](../development/mcp-tools.md)
+[Shared world collection](world-collection.md) · [MCP tools](../development/mcp-tool-reference.md)
 
-## Why this exists
+## Frame boundary
 
-The first MCP implementation periodically copied and projected world, configuration, health, scene,
-and trace state whether or not a client was connected. It also put mutations on a second bounded
-ordinary/priority scheduler. That made a debug transport a competing runtime and put authored graph
-walks, health arrays, reflection, and serialization pressure on Unity's frame budget.
+Each request asks the next Unity frame to perform exactly its declared operation. Shared world facts
+stay in their publication; request-specific native/UI facts are read only for that request.
 
-This document is the closed replacement contract. The MCP now receives a request, asks the next
-Unity frame to perform exactly that operation, and returns the typed answer. Data that belongs in the
-shared world stays in the shared world. Request-specific UI/native inspection happens only for the
-request that named it.
-
-## Retired architecture
-
-```mermaid
-flowchart LR
-    HTTP["HTTP worker"] --> FAST["Direct reads from MCP shadow"]
-    TIMER["Unity timer every 100 ms"] --> CAPTURE["Capture world + config + health + scene + trace"]
-    CAPTURE --> JSON["Pre-project / pre-serialize"]
-    JSON --> SHADOW["GameMcpStateStore / GameMcpStateSnapshot"]
-    SHADOW --> FAST
-    HTTP --> Q["GameMcpCommandBus"]
-    Q --> PQ["Priority queue"]
-    Q --> OQ["Ordinary queue"]
-    PQ --> FOUR["At most four commands per frame"]
-    OQ --> FOUR
-    FOUR --> UNITY["Unity/game actions"]
-```
-
-The two defects are structural: speculative capture paid for requests that did not exist, while the
-command bus invented capacity, priority, admission, and backlog behavior unrelated to either HTTP or
-ServiceCycle.
-
-## As-built replacement
+## Request flow
 
 ```mermaid
 flowchart LR
@@ -114,14 +86,9 @@ context observes the configuration and ServiceCycle publications accepted for th
 
 ## Finite off-frame exception set
 
-Only protocol mechanics and static schema discovery bypass the inbox:
-
-- `initialize`
-- `ping`
-- `notifications/initialized`
-- `tools/list`
-- `resources/list`
-- `resources/templates/list`
+Only protocol mechanics and static schema discovery bypass the inbox. The
+[protocol router](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/GameMcp/GameMcpProtocolRouter.cs) owns that finite exception
+set; it is not repeated as a method-name list here.
 
 Every advertised stateful tool, including read-only tools, uses the inbox. The HTTP router does not
 read `WorldPublication`, `ConfigurationPublication`, owner registries, Unity objects, or gameplay
@@ -143,48 +110,32 @@ state.
 | General JSON serialization/reflection projection | Owns, after completion | Executably forbidden |
 | MCP response/socket write | Owns | Never |
 
-`GameMcpFrameThreadBoundary` makes the JSON/protocol half executable: encoding, reflective object
+[GameMcpFrameThreadBoundary](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/GameMcp/GameMcpFrameOperation.cs) makes the JSON/protocol half executable: encoding, reflective object
 projection, or protocol routing attempted during frame execution throws and becomes an exact typed
 operation fault. Unity creates only native-free `GameMcpValue` documents.
 
 ## Data-lifetime and owner inventory
 
-Every datum exposed by the M2 read surface belongs to exactly one row below. “250-ms dynamic” means
-the existing shared `GameWorldState` publication, not an MCP cadence. “Request-time” means one
-claimed operation on Unity's main thread; it is never retained as an MCP snapshot.
+Each exposed datum has one declared owner and lifetime. Shared world data comes from the existing publication at the configured collection pace, not an MCP cadence. Request-time data belongs to one claimed Unity operation and is not retained as an MCP snapshot.
 
-| Surface and exact fields | Lifetime | Owner and collection rule |
-| --- | --- | --- |
-| Entity catalog: `uuid`, `name`, optional differing `internalName`, `nativeType`, and addressable `category` | Lifecycle-structural | Common enumerates `IdScriptableObject.RuntimeLookup` once on Unity at the first shared Playing capture after `RuntimeReady`, validates stable generation/count and `value.GetGuid() == key`, and attaches the one UUID-sorted immutable snapshot to every world in the lifecycle. MCP only filters the exact snapshot reference pinned by the answering world; hidden loaded entities remain searchable, while pre-bind/failed bind is explicitly unavailable. |
-| Tool/resource schemas, protocol versions, operation classification, entity category/native-type/capability descriptors | Build-time | One `GameMcpToolCatalog` descriptor per tool and resource (tools/list schema and prose, binder, classification, frame data, validation, route) and one `GameMcpCommandCatalog` descriptor per command kind (preparation, native type, executor, and a post-state rule for each gameplay kind), both checked when the listener starts; `GameMcpEntityCapabilityMap`. |
-| Writable configuration metadata: section, key, setting type, description, accepted constraint/domain | Lifecycle-structural | Created once from bound BepInEx entries at perf-debug startup. No request enumerates settings or properties. |
-| Configuration values | Request-time | One existing immutable `ConfigurationPublication` pinned in the frame context. Each writable value is selected by the static typed mapping; no mutable `ConfigEntry` value is read and no caller generation is required. |
-| Requirement authoring: owner UUID/type/level, container/group/condition order, `AND`/`OR`, condition kind, requirement UUID/type, comparison/value selector, base requirement, per-level scaling, modifier-per-level scaling, prerequisite-link target and expanded tier/link order | Lifecycle-structural | `WorldEntityRequirementReader` and prerequisite-link structural readers traverse once per lifecycle. |
-| Requirement evaluation: selected current value, required scaled/effective threshold, met/unmet, availability/visibility/discovery/mastery/quantity/level inputs | 250-ms dynamic | Structural graph is re-derived against current published entity rows. |
-| Research gates and adjustments: base/effective required level, leeway, visible/available/canDevelop, adjustment amount/order/passive state and source UUID/type | 250-ms dynamic | Research/challenge/modifier state in the shared world; explanation consumes the one generation and never re-queries from HTTP. |
-| Authored effects: glyph factor slots and every owner's effect tuples (owner UUID, ordinal, property, target UUID, modifier kind/amount/order, section word); the `modifiedBy` counts and `modifies` walk derived from them | Lifecycle-structural | `WorldEffectFactorReader` runs once per lifecycle; the reverse index is derived per request from the pinned world. |
-| Purchase cost authoring: owner UUID/type, cost resource UUID, base exact amount, group amount/level, structural modifier-source identity and authored coefficients | Lifecycle-structural | Structure and upgrade raw cost readers run once per lifecycle. |
-| Purchase effective cost: `effectiveExactAmount`, combined effective amount, active modifier-source values, resource available amount/headroom, per-resource affordability, whole-purchase affordability/reason | 250-ms dynamic | `WorldExactCostMath.TryCombinedExactCost` over structural cost inputs plus same-generation resources/modifiers. This is the sole exact-cost lineage. |
-| Crafting family/recipe authoring: recipe UUID, crafting type UUIDs, input/output resource UUID+amount edges, consumable output UUID/effect kind, engagement effect/block identities | Lifecycle-structural | `WorldCraftingRecipeTypeReader` and `WorldCraftingRecipeAuthoringReader` traverse once per lifecycle. |
-| Crafting live state: visible, starting quantity, `CanBuyAt`, output-capacity verdict, necessary drain ratio/block, time, ordered manual/automation queue contents and amounts, joined resource visibility/quantity/capacity/bandwidth/usage | 250-ms dynamic | `WorldCraftingRecipeReader` invokes compiled live evaluators; the lifecycle-bound crafting decision reader traverses each pinned page queue once; worker joins current resource rows. Authored lists are not traversed again. |
-| Staged Spellcraft core and augment stacks | Request-scoped | The workbench frame operation reads the existing lifecycle-bound manager/list delegates on Unity's main thread and returns native-free UUID/count rows. It acquires no mutation permit and creates no standing collector. |
-| Discovery decision state: tree UUID, visibility, mode, rerolls/used flag, remaining/immediate-required state, ordered current offer UUIDs, selected UUID, exact next-item cost components, resource true quantities, and native `HasEnough` | 250-ms dynamic | The lifecycle-bound `WorldDiscoveryTreeBinder` copies only native-free values during the ordinary world capture. MCP derives initiate/reroll verdicts and resolves offers against the same immutable generation; it performs no direct or speculative read. |
-| Detail-read predicates: visible, available, canDevelop, canPurchase, canDiscover, canUse; stable false reason codes; queue/cap/leeway/discovery/bandwidth/drain blockers | 250-ms dynamic | Pure typed evaluation over one pinned world, plus the structural tables retained in that world. One `world_get` call evaluates once per id it was handed. No snapshot token or generation crosses calls. |
-| World row/list/search/batch fields, resource quantities/rates/capacities, levels/quantities, queue/slot occupancy, discovery state, recipe state, affordability and collection-category status | 250-ms dynamic | Existing shared world collector and worker deriver. MCP only selects/projects requested rows. |
-| Feature and claimed action health: feature name/state/reason; service name/runner phase/fault; emergency state; scene; native-contract health; GameAction and modal binding availability; committed-after-throw references | Request-time | One requested `suite_health` operation reads `FeatureStatusRegistry`, the ServiceCycle frame facts already owned by the pump (which carry every registered GameAction's binding failure), the lifecycle-bound modal actions' binding status, and `CommittedAfterThrow`, then renders grouped compact text because it exposes no reusable handle. It checks the binding sets behind every registered verb and `game_modal`; it does not probe execution. Scene and native-contract facts are read only because this operation declares them. No MCP registry/revision exists. |
-| Trace health fields: writer state/result, accepted/written/discarded records, bytes, written/retained segments, pending/peak blocks, artifact, fault site/message, writer revision | Request-time | One `trace_health` operation reads `DecisionJournalStatusRegistry` and renders compact text; scope is writer health only. No event stream or gameplay trace is mirrored. |
-| Tooltip catalog paths, and the plain screen text of the one container the screen drew | Request-time | `game_screen_elements`/`game_tooltip` only, through lifecycle-bound tooltip accessors on Unity. Paths are explicitly volatile screen-state handles. The catalog is scoped to elements the player can point at: a closed `UIModal` keeps its subtree active in the hierarchy, so the walk asks the game's own `IsOpen` up each element's ancestry rather than trusting Unity liveness. It merges the hoverable elements with the chrome controls the suite offers — on screen, and in the named player-chrome set — which draw no tooltip and are the only rows carrying `opens` rather than an id. The text read is the core panel, its non-recursive sub-panel row, and one pointer line per tooltipable a row's hover names, except a glossary word the row filled with its own nodes, drawn one hover deep; computed delegates run inline. A uuid no element shows reads that entity's own panel, whose builders an installed-game call-graph contract pins as free of game side effects. Rich-text and node-tree ceremony are removed after the one requested read; unrelated operations make zero tooltip calls. |
-| Screen tab/subtab catalog, independent subtab-strip active states, navigation destination/candidates, exact probe value, Continue scene/runtime result, framebuffer PNG and optional generated save path | Request-time | Only the matching screen/navigation/probe/continue/screenshot operation. These are UI/diagnostic facts, never shared-world state. |
-| Response status, requested rows or mutation delta, and exact failure reason | Request-time | Typed terminal document on Unity; encoded once by the waiting HTTP worker. The frame pins one immutable world without exposing its generation. Success omits restating codes, reasons, payment stanzas, counters, null/default fields, timestamps, and mailbox fields. Failure adds a stable code and only the facts that explain its reason. |
+The [tool catalog](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/GameMcp/GameMcpToolCatalog.cs) owns build-time operation metadata;
+[capability descriptors](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/GameMcp/GameMcpEntityCapabilityMap.cs) own category/type/projection metadata.
+The [world collector](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/GameWorldCollector.cs) owns authored-versus-live
+classification, as explained by [world collection](world-collection.md#layout). These inventories
+are linked rather than mirrored in a second field table.
 
-### Why authored collection is no longer ordinary work
+A frame context pins existing immutable world/configuration publications by reference. Requested
+health/writer facts are copied from their typed owners only when requested. Parameterized tooltip,
+screen, navigation, probe and framebuffer operations perform their named read on Unity and return
+native-free results. UI changes retain their declared mutation classification. No request starts a
+periodic cache or creates another world publication.
 
-`GameWorldCollector` marks exactly these readers lifecycle-structural: plot authoring, effect blocks,
-entity requirement graphs, crafting recipe types, crafting recipe authoring, structure costs, and
-upgrade costs. It retains their buffers and reports for the lifecycle epoch. Ordinary captures still
-refresh the paired live readers: prerequisite-link/native requirement gates, crafting verdicts, and
-resource/modifier/affordability inputs. Two-capture tests destroy authored input objects and mutate
-live state between captures; authored rows survive and live verdicts change.
+Authored requirements use [the shared reader](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/Categories/WorldEntityRequirementReader.cs)
+and [iterative fold](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/WorldRequirementEvaluator.cs). Their live verdicts
+come from the pinned publication. A request does not re-traverse a structural graph from HTTP or
+interpret a missing required container as satisfied. Crafting authoring uses
+[its actual binder](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/Categories/WorldCraftingRecipeType.cs), alongside
+live crafting projections; no separate reader-type roster is maintained here.
 
 ## Gameplay ownership
 
@@ -221,24 +172,6 @@ entity-requirement leaf is owner-local when the published unknown rows exactly r
 collector's skipped count. Reads and searches over other owners remain authoritative; any result
 touching that owner carries the partial row plus its UUID, container, ordinal, runtime condition
 type, and collector reason. An unreconciled skipped count remains category-global and fail-closed.
-
-## Deletion inventory
-
-The replacement removed, rather than deprecated, the following old mechanisms:
-
-| Removed symbol/mechanism | Replacement |
-| --- | --- |
-| `GameMcpCaptureIntervalSeconds`, `_gameMcpCaptureElapsed`, `CaptureGameMcpState` | No timer. Empty frame is one inbox check; non-empty work is request-driven. |
-| `GameMcpStateStore`, `GameMcpStateSnapshot`, `GameMcpRuntimeState` | One non-retained `GameMcpFrameContext` referencing real publications. |
-| Pre-serialized writable configuration, feature/service health and trace JSON in the shadow | Typed requested owner facts, encoded once after completion. |
-| `GameMcpCommandBus` | `GameMcpFrameInbox`. |
-| `_pending`, `_priorityPending`, pending STOP slot | One FIFO pending list claimed atomically. |
-| `MaximumPending=64`, `MaximumPriorityPending=8`, `EmergencyStopPrioritySlots=1`, `MaximumTotalPending` | No arbitrary queue capacity or priority reservation. |
-| `maximumCommandsPerFrame=4`, `DrainGameMcpCommands`, `TryDequeue` | Claim and execute the complete boundary set. |
-| `ObserveEmergencyStop` command-bus admission and general priority scheduling | Emergency stop executes at submission position and synchronously closes later admission. |
-| `RefreshForGameMcp`, `allowManualMcpActions` | One exact per-operation family scope. |
-| Router `ReadLatest()`/shadow fast paths and state parse-back | Every stateful tool submits one typed operation. |
-| `worldGeneration`, `configurationGeneration`, `submittedAtUtc`, `processedAtUtc`, `respondedAtUtc`, `collectedAtUtc`, `structuralEpoch`, `collectedEpoch`, queue/capacity response fields | One pinned read context or a settled mutation delta plus one exact failure reason. |
 
 ## Hard boundary
 

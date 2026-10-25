@@ -18,10 +18,7 @@ public sealed class VerificationReportTests
         "recompute=4.44e-115 orders=116.4";
 
     /// <summary>
-    /// Every check that agreed is named with the count it agreed on, on one line. Nothing is
-    /// summarised away — what goes is the <c>AGREE:</c>/<c>compared.</c> frame repeated once per
-    /// check, 864 bytes of it across one live round, under a first line already stating how many
-    /// facts were compared and how many agreed.
+    /// Every check that agreed is named with the count it agreed on, on one line.
     /// </summary>
     [Fact]
     public void An_all_agree_run_names_every_check_and_its_count_on_one_line()
@@ -88,8 +85,7 @@ public sealed class VerificationReportTests
 
     /// <summary>
     /// A note is the only thing an agreeing check has to say, so the check folds like any other and
-    /// the note keeps its own line under the roll-up, naming the check it belongs to. The headline
-    /// it used to hang from restated the folded line four lines above it.
+    /// the note keeps its own line under the roll-up, naming the check it belongs to.
     /// </summary>
     [Fact]
     public void An_agreeing_check_with_only_a_note_folds_and_the_note_names_its_check()

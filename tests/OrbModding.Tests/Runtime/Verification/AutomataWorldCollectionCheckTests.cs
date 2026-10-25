@@ -8,9 +8,9 @@ namespace OrbModding.Tests.Runtime.Verification;
 
 public sealed class AutomataWorldCollectionCheckTests : IDisposable
 {
-    public AutomataWorldCollectionCheckTests() => ResetRegistries();
+    public AutomataWorldCollectionCheckTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ResetRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     /// <summary>
     /// The published-cost verdict is an exact comparison against the game's own price. An entity
@@ -58,11 +58,5 @@ public sealed class AutomataWorldCollectionCheckTests : IDisposable
         return structure;
     }
 
-    private static void ResetRegistries()
-    {
-        global::ResourceSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
-    }
+
 }

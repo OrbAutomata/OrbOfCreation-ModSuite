@@ -73,24 +73,21 @@ internal readonly struct AutoHarvestPairAuthoring
 /// <remarks>
 /// <para>
 /// This is a whole-graph structural audit of authored content: the plot's phases, the action's cost
-/// and its completion effects. It used to run against the live objects at binding time, once per
-/// lifecycle epoch, and produced a verdict cached on the binding. The facts it rests on are now
-/// collected like every other fact about the world, and the verdict drawn from them is this service's
-/// policy — computed on the worker, from the same snapshot the plan was made against, and carried to
-/// the boundary with the action. See W40 and W43.
+/// and its completion effects. The facts it rests on are now collected like every other fact about
+/// the world, and the verdict drawn from them is this service's policy — computed on the worker,
+/// from the same snapshot the plan was made against, and carried to the boundary with the action.
+/// See W40 and W43.
 /// </para>
 /// <para>
-/// Two comparisons are weaker than they were. The audit used to require that the modifier's scaling
-/// weight and the script's pool were the very objects the registry resolved; a published row carries
-/// identities rather than objects, so both are now uuid comparisons. An object replaced by another
-/// carrying the same uuid compares equal here where it did not before — which is what the lifecycle
-/// epoch exists to catch, and why R3 made that trade only while the lifecycle hooks stay.
+/// Two comparisons are weaker than they were. An object replaced by another carrying the same uuid
+/// compares equal here where it did not before — which is what the lifecycle epoch exists to catch,
+/// and why R3 made that trade only while the lifecycle hooks stay.
 /// </para>
 /// <para>
-/// Nothing here reflects, and nothing here is retained: the answer is a function of a snapshot and a
-/// pair, and a snapshot that does not describe the pair yields <see cref="AutoHarvestActionSafetyState.Unknown"/>
-/// rather than a guess. Unknown is a rejection at the boundary, so a degraded collection cannot
-/// produce a submission.
+/// Nothing here reflects, and nothing here is retained: the answer is a function of a snapshot and
+/// a pair, and a snapshot that does not describe the pair yields <see
+/// cref="AutoHarvestActionSafetyState.Unknown"/> rather than a guess. Unknown is a rejection at the
+/// boundary, so a degraded collection cannot produce a submission.
 /// </para>
 /// </remarks>
 internal static class AutoHarvestActionSafety

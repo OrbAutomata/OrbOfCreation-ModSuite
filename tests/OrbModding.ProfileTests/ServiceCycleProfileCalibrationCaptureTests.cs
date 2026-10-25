@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
@@ -48,7 +49,7 @@ public sealed class ServiceCycleProfileCalibrationCaptureTests
                 new ScriptedProfileAllocationCounter(new long[] { 0, 100, 100 }));
         });
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(2)), "The capability probe did not complete.");
+        Assert.True(thread.Join(ServiceCycleTestDeadline.Value), "The capability probe did not complete.");
 
         Assert.Throws<ArgumentException>(() => ServiceCycleProfileCalibrationPoint.Capture(
             rawClock,

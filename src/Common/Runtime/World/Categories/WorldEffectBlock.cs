@@ -136,33 +136,8 @@ internal static class WorldEffectBlockLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].OwnerId.CompareTo(ownerId);
-            if (comparison == 0)
-            {
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].OwnerId == ownerId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), ownerId,
+            static (row, key) => row.OwnerId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -258,23 +233,24 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         for (var index = 0; index < actions.Count; index++)
         {
             var action = actions[index];
             if (action is null) continue;
 
+            var readOwnerId = Guid.Empty;
             try
             {
-                sampled += Read(action, buffer);
+                sampled += Read(action, buffer, out readOwnerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading an action's effects threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading an action's effects threw", ex, readOwnerId));
             }
         }
 
@@ -282,9 +258,11 @@ internal sealed class WorldEffectBlockReader : IWorldCategoryReader
             Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
-    private int Read(object action, WorldRelationBuffer<WorldEffectBlock> buffer)
+    private int Read(object action, WorldRelationBuffer<WorldEffectBlock> buffer,
+        out Guid readOwnerId)
     {
-        var actionId = _actionId!(action);
+        readOwnerId = Guid.Empty;
+        var actionId = readOwnerId = _actionId!(action);
         if (actionId == Guid.Empty) return 0;
 
         var blocks = _blocks!(action);

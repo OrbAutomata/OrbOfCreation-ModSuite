@@ -135,7 +135,7 @@ public sealed class OwnedWorldFormulaTests
     [Fact]
     public void MissingSelectedLevelDefaultsToOne()
     {
-        var raw = new RawConceptDrainBasisBuffer();
+        var raw = new WorldRelationBuffer<RawConceptDrainBasis>();
         raw.Append(new RawConceptDrainBasis(
             Recipe, Guid.NewGuid(), Recipe, 0, default, default, false, false));
         var rows = WorldConceptDrainBasisDeriver.Build(
@@ -155,7 +155,7 @@ public sealed class OwnedWorldFormulaTests
         double perLevelRaw = 0,
         bool standardIsRecord = false)
     {
-        var costs = new RawMasteryCostBuffer();
+        var costs = new WorldRelationBuffer<RawMasteryCost>();
         if (first.ResourceId != Guid.Empty) costs.Append(in first);
         if (second.ResourceId != Guid.Empty) costs.Append(in second);
         var spells = new WorldSampleBuffer<RawSpellRecipeSample, WorldSpellRecipe>();
@@ -220,8 +220,9 @@ public sealed class OwnedWorldFormulaTests
             in penalty, in penalty, new BigDouble(rarity), costUsesRarity, false);
         var requirement = new WorldEntityRequirement(
             Recipe,
-            WorldRequirementOwnerKind.AlchemyRecipe,
-            0,
+            WorldRequirementOwnerKind.AlchemyRecipe, containerIndex: 0,
+            0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             requirementsMet.HasValue
                 ? WorldRequirementConditionKind.Literal
                 : WorldRequirementConditionKind.Unknown,

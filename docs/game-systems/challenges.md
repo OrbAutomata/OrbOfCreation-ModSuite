@@ -68,7 +68,7 @@ Two different states sit on the same page and are easy to conflate.
   once: five challenges have been seen running together, but how run slots scale is still
   unrecorded.
 - The selection **outlives the offer list**. Rerolling away the challenge you had selected leaves
-  it selected while it no longer appears among the offers — the All view still shows it, the
+  it selected while it is absent among the offers — the All view still shows it, the
   Active view does not.
 - With the slot full, **picking another offered challenge swaps it**: one press gives up the held
   one and takes the new one. That is also the only way out of a stale selection, since the

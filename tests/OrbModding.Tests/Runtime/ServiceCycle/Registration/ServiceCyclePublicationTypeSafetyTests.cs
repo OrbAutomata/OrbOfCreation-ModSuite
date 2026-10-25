@@ -28,11 +28,9 @@ public sealed class ServiceCyclePublicationTypeSafetyTests
     /// The snapshot every service actually reads passes the audit its role defines.
     /// </summary>
     /// <remarks>
-    /// The rule used to be enforced incidentally: each registration walked whatever configuration
-    /// type its service named, so the suite's own record was audited only because something happened
-    /// to register. There is one record now, and this is where it is proved — a setting added as a
-    /// mutable property, an array, or anything holding a Unity object fails here rather than
-    /// wherever the first service happens to be registered.
+    /// There is one record now, and this is where it is proved — a setting added as a mutable
+    /// property, an array, or anything holding a Unity object fails here rather than wherever the
+    /// first service happens to be registered.
     /// </remarks>
     [Fact]
     public void TheSuiteConfigurationPassesTheDeepImmutabilityAudit()
@@ -47,9 +45,7 @@ public sealed class ServiceCyclePublicationTypeSafetyTests
     /// </summary>
     /// <remarks>
     /// Proved here rather than at construction for the same reason the configuration is: the suite
-    /// names one bulletin type, so the audit belongs where the type is named. It also replaces what
-    /// the publisher's type parameter used to check per closure — the strategy role and the
-    /// configuration role admit exactly the same shapes, so the shape rules are proved once.
+    /// names one bulletin type, so the audit belongs where the type is named.
     /// </remarks>
     [Fact]
     public void TheSuiteStrategyPassesTheDeepImmutabilityAudit()

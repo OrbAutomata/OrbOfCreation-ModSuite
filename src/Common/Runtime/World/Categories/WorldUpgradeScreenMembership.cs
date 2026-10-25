@@ -140,30 +140,7 @@ internal static class WorldUpgradeListMembershipLookup
         out int start,
         out int count)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].UpgradeId.CompareTo(upgradeId);
-            if (comparison < 0) low = middle + 1;
-            else
-            {
-                if (comparison == 0) found = middle;
-                high = middle - 1;
-            }
-        }
-        if (found < 0)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-        start = found;
-        var end = found + 1;
-        while (end < table.Count && table[end].UpgradeId == upgradeId) end++;
-        count = end - found;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), upgradeId,
+            static (row, key) => row.UpgradeId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }

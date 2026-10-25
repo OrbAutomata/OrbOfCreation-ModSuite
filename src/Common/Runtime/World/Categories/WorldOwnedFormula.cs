@@ -44,20 +44,6 @@ internal readonly struct WorldConceptDrainBasis : IWorldEntity
     internal bool SpeedUsesRarity { get; }
 }
 
-internal sealed class WorldConceptDrainBasisBuffer
-{
-    private WorldConceptDrainBasis[] _rows = new WorldConceptDrainBasis[64];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly WorldConceptDrainBasis this[int index] => ref _rows[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in WorldConceptDrainBasis row)
-    {
-        if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[_count++] = row;
-    }
-}
-
 internal readonly struct RawConceptDrainBasis
 {
     internal RawConceptDrainBasis(
@@ -90,33 +76,17 @@ internal readonly struct RawConceptDrainBasis
     internal bool SpeedUsesRarity { get; }
 }
 
-internal sealed class RawConceptDrainBasisBuffer
-{
-    private RawConceptDrainBasis[] _rows = new RawConceptDrainBasis[64];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly RawConceptDrainBasis this[int index] => ref _rows[index];
-    internal void Reset() => _count = 0;
-    internal void Append(in RawConceptDrainBasis row)
-    {
-        if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[_count++] = row;
-    }
-}
-
 internal static class WorldConceptDrainBasisDeriver
 {
     internal static PublicationTable<WorldConceptDrainBasis> Build(
-        RawConceptDrainBasisBuffer buffer,
+        WorldRelationBuffer<RawConceptDrainBasis> buffer,
         PublicationTable<WorldAlchemyType> types,
         PublicationTable<WorldNumberVariable> intVariables,
         PublicationTable<WorldAlchemyCost> costs,
         PublicationTable<WorldResource> resources)
     {
-        var rows = new WorldConceptDrainBasis[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++)
+        return WorldRelationTable.Build(buffer, raw =>
         {
-            var raw = buffer[index];
             var selectedLevel = 1;
             if (WorldLookup.TryFind(types, raw.CoreTypeId, out var type) &&
                 type.SelectedLevelId != Guid.Empty &&
@@ -137,7 +107,7 @@ internal static class WorldConceptDrainBasisDeriver
 
             var requirementCostPenalty = raw.RequirementCostPenalty;
             var requirementSpeedPenalty = raw.RequirementSpeedPenalty;
-            rows[index] = new WorldConceptDrainBasis(
+            return new WorldConceptDrainBasis(
                 raw.RecipeId,
                 raw.CoreTypeId,
                 raw.ScalingId,
@@ -148,9 +118,7 @@ internal static class WorldConceptDrainBasisDeriver
                 rarity,
                 raw.CostUsesRarity,
                 raw.SpeedUsesRarity);
-        }
-        Array.Sort(rows, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
-        return PublicationTable<WorldConceptDrainBasis>.Create(rows, rows.Length);
+        }, static (left, right) => left.RecipeId.CompareTo(right.RecipeId));
     }
 
     internal static bool TryFind(
@@ -158,19 +126,8 @@ internal static class WorldConceptDrainBasisDeriver
         Guid recipeId,
         out WorldConceptDrainBasis row)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].RecipeId.CompareTo(recipeId);
-            if (comparison == 0) { row = rows[middle]; return true; }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        row = default;
-        return false;
+        return WorldLookup.TryFindFirst(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out row);
     }
 }
 
@@ -318,28 +275,13 @@ internal readonly struct WorldMasteryCost : IWorldEntity
     internal bool Affordable { get; }
 }
 
-internal sealed class RawMasteryCostBuffer
-{
-    private RawMasteryCost[] _rows = new RawMasteryCost[128];
-    private int _count;
-    internal int Count => _count;
-    internal ref readonly RawMasteryCost this[int index] => ref _rows[index];
-    internal void Reset() => _count = 0;
-    internal void Truncate(int count) => _count = count;
-    internal void Append(in RawMasteryCost row)
-    {
-        if (_count == _rows.Length) Array.Resize(ref _rows, _rows.Length * 2);
-        _rows[_count++] = row;
-    }
-}
-
 internal static class OwnedMasteryCostMath
 {
     internal static bool HasAmount(in WorldResource resource, BigDouble amount)
         => WorldResourceCoordinate.HasAmount(in resource, amount);
 
     internal static PublicationTable<WorldMasteryCost> Build(
-        RawMasteryCostBuffer buffer,
+        WorldRelationBuffer<RawMasteryCost> buffer,
         WorldSampleBuffer<RawSpellRecipeSample, WorldSpellRecipe> spells,
         Guid standardId,
         PublicationTable<WorldModifierProgram> programs,
@@ -383,7 +325,7 @@ internal static class OwnedMasteryCostMath
             }
         }
 
-        Array.Sort(rows, 0, written, SpellCostComparer.Instance);
+        Array.Sort(rows, 0, written, MasteryCostComparer.Instance);
         return PublicationTable<WorldMasteryCost>.Create(rows, written);
     }
 
@@ -415,24 +357,13 @@ internal static class OwnedMasteryCostMath
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].RecipeId.CompareTo(recipeId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        start = low;
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].RecipeId == recipeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), recipeId,
+            static (row, key) => row.RecipeId.CompareTo(key), out start, out count);
     }
 
-    private sealed class SpellCostComparer : IComparer<WorldMasteryCost>
+    private sealed class MasteryCostComparer : IComparer<WorldMasteryCost>
     {
-        internal static readonly IComparer<WorldMasteryCost> Instance = new SpellCostComparer();
+        internal static readonly IComparer<WorldMasteryCost> Instance = new MasteryCostComparer();
         public int Compare(WorldMasteryCost left, WorldMasteryCost right)
         {
             var recipe = left.RecipeId.CompareTo(right.RecipeId);

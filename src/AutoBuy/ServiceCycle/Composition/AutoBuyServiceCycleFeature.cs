@@ -133,6 +133,9 @@ internal sealed class AutoBuyFeatureRuntime : IAutomataServiceCycleFeatureRuntim
     }
 
 #if SERVICE_CYCLE_PROFILE
+    public OrbAutomata.GameMcp.IGameMcpServiceCommand GameMcpCommand =>
+        new OrbAutomata.GameMcp.GameMcpPurchaseCommand(this);
+
     internal ServiceActionResult TryExecuteGameMcp(
         in AutoBuyCycleAction action,
         in SuiteRuntimeConfiguration config,

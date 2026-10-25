@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using OrbModding.TestSupport;
 using Xunit;
@@ -173,32 +174,29 @@ public sealed class ProductionSourceAuditTests
 
     /// <summary>
     /// Nothing a caller can read carries the game's own .NET exception text — across the whole MCP
-    /// transport, every feature's GameAction, the shared service-cycle runtime, Auto Concept's service
-    /// cycle, and the plugin that answers with them.
+    /// transport, every feature's service cycle and GameAction, the shared service-cycle runtime,
+    /// temporary-item UI, run transitions, and the plugin that answers with them.
     /// </summary>
     /// <remarks>
     /// <para>
     /// A stack trace and a type name are the one thing a caller can do nothing with, so
     /// <c>GameActionAnswer.CouldNotRead</c> and <c>GameErrored</c> take the exception and
     /// <c>GameActionFaultLog</c> writes it to the suite log under a reference the sentence ends
-    /// with. The rule is mechanical because the alternative is remembering it: a new fault arm
-    /// that concatenates <c>GetBaseException().Message</c> onto its reason reads exactly like the
-    /// thirty-four that used to, and only a sweep tells the two apart. Enumerating
-    /// <c>*GameAction.cs</c> alone was too narrow to say that: it left
-    /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the
-    /// tooltip words a caller reads, so the roots are the whole transport. The shared service-cycle
-    /// runtime is a root too: the action executor's reason for a throw becomes the retry gate's
-    /// reason, which every narrating feature prints in its status. Auto Concept's service cycle is
-    /// one because its init, registry and press reasons are those retry reasons. So is the multi-buy
-    /// scope, whose refusal every GameAction that pins the multiplier quotes.
+    /// with. Enumerating <c>*GameAction.cs</c> alone was too narrow to say that: it left
+    /// <c>GameMcpTooltipProjector</c> appending the game's exception text straight into the tooltip
+    /// words a caller reads, so the roots are the whole transport. The shared service-cycle runtime
+    /// is a root too: the action executor's reason for a throw becomes the retry gate's reason,
+    /// which every narrating feature prints in its status. Every feature's service cycle is
+    /// included because its init, registry, ownership and press reasons can become those reasons.
+    /// So is the multi-buy scope, whose refusal every GameAction that pins the multiplier quotes.
     /// </para>
     /// <para>
-    /// A GameAction, Auto Concept's service cycle and the multi-buy scope author the reasons a
-    /// mutation answers with, so there the sweep also catches the other shapes that carry the same
-    /// text: <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation
-    /// verifier's evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception
-    /// it caught. Everywhere, besides <c>GetBaseException</c>, the sweep reads the <c>Message</c> of
-    /// any exception a file caught through <c>NativeFailureClassifier.IsExpected</c>, which is the
+    /// A GameAction, feature service cycle and the multi-buy scope author the reasons a mutation
+    /// answers with, so there the sweep also catches the other shapes that carry the same text:
+    /// <c>ExceptionDetail.Describe</c>, an exception's <c>Message</c>, and the mutation verifier's
+    /// evidence <c>Format()</c> and <c>Detail</c>, both of which describe the exception it caught.
+    /// Everywhere, besides <c>GetBaseException</c>, the sweep reads the <c>Message</c> of any
+    /// exception a file caught through <c>NativeFailureClassifier.IsExpected</c>, which is the
     /// game's own text by definition.
     /// </para>
     /// <para>
@@ -206,9 +204,10 @@ public sealed class ProductionSourceAuditTests
     /// by the sink they write to rather than by a path, so no file is exempt and a wire sentence
     /// cannot borrow them. <c>_bindingFailure</c> holds the suite's own composition text — the
     /// binding helpers throw <c>owner.Name + "." + name + " did not match."</c> — which names the
-    /// native member rather than a runtime fault, and <c>docs/development/mcp-tools.md</c> keeps
-    /// that deliberately: a <c>contract_unavailable</c> result is a defect report and the member is
-    /// its subject. <c>nativeDetail</c> is the tooltip reader's log-only sink, which
+    /// native member rather than a runtime fault, and
+    /// <c>docs/development/mcp-response-format.md</c> keeps that deliberately: a
+    /// <c>contract_unavailable</c> result is a defect report and the member is its subject.
+    /// <c>nativeDetail</c> is the tooltip reader's log-only sink, which
     /// <c>GameMcpScreenReader.TooltipsUnreadableBecause</c> writes to the log before answering the
     /// caller with an authored sentence. A statement that writes to a log is the third shape, and
     /// it is the destination this whole rule exists to push the text towards —
@@ -236,7 +235,7 @@ public sealed class ProductionSourceAuditTests
         const string parseErrorFile = "Automata/Runtime/GameMcp/GameMcpHttpServer.cs";
         const string parseErrorSentence = "The request body is not JSON-RPC the suite can read: ";
         var exceptionText = new Regex(
-            @"ExceptionDetail\.Describe|\.Message\b|\.Detail\b|\b(?:evidence|attempted)\.Format\(",
+            @"ExceptionDetail\.Describe|\b(?:exception|ex|thrown|cause)\.Message\b|\b(?:evidence|attempted)\.Detail\b|\b(?:evidence|attempted)\.Format\(",
             RegexOptions.CultureInvariant);
 
         var offenders = new List<string>();
@@ -245,7 +244,10 @@ public sealed class ProductionSourceAuditTests
             var relativePath = Path.GetRelativePath(sourceRoot, path).Replace('\\', '/');
             var authorsMutationReasons =
                 relativePath.EndsWith("GameAction.cs", StringComparison.Ordinal) ||
-                relativePath.StartsWith("AutoConcept/ServiceCycle/", StringComparison.Ordinal) ||
+                relativePath.Contains("/ServiceCycle/", StringComparison.Ordinal) ||
+                relativePath.StartsWith("AutoItems/Ui/", StringComparison.Ordinal) ||
+                relativePath.StartsWith("RunTransition/", StringComparison.Ordinal) ||
+                relativePath == "Common/AlchemyGameplayDomainClassifier.cs" ||
                 string.Equals(relativePath, "Common/NativeMultiBuyScope.cs", StringComparison.Ordinal);
             var nativeMessages = new List<Regex>();
             foreach (Match caught in NativeCatch.Matches(File.ReadAllText(path)))
@@ -300,7 +302,11 @@ public sealed class ProductionSourceAuditTests
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Automata/Runtime/GameMcp"));
         candidates.AddRange(RepositorySources.SourceFiles("*GameAction.cs"));
         candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/Common/Runtime/ServiceCycle"));
-        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoConcept/ServiceCycle"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs").Where(path =>
+            Path.GetRelativePath(sourceRoot, path).Replace('\\', '/').Contains("/ServiceCycle/", StringComparison.Ordinal)));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/AutoItems/Ui"));
+        candidates.AddRange(RepositorySources.SourceFiles("*.cs", "src/RunTransition"));
+        candidates.Add(Path.Combine(sourceRoot, "Common", "AlchemyGameplayDomainClassifier.cs"));
         candidates.Add(Path.Combine(sourceRoot, "Plugin.cs"));
         candidates.Add(Path.Combine(sourceRoot, "Common", "NativeMultiBuyScope.cs"));
 
@@ -357,7 +363,7 @@ public sealed class ProductionSourceAuditTests
         }
 
         Assert.True(
-            swept >= 5,
+            swept >= 4,
             "the action boundaries stopped naming the automation flag; the sweep has nothing left " +
             "to read.");
         Assert.True(

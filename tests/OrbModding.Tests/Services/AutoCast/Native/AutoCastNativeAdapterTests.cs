@@ -13,8 +13,8 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
 
     public AutoCastNativeAdapterTests()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         SpellManager.instance = new SpellManager();
-        TargetingManager.Reset();
         Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         DecoyTargetingManager.Reset();
     }
@@ -24,8 +24,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     /// </summary>
     /// <remarks>
     /// <c>SpellManager.CanCastASpell()</c> is false while any loaded spell is readying, the pressed
-    /// one included. A live round's second Psychic Blast fire, and a Beam Burst fire, answered
-    /// "another spell is still casting" while the only spell casting was the one pressed.
+    /// one included.
     /// </remarks>
     [Fact]
     public void A_fire_at_a_spell_still_starting_its_own_cast_says_so()
@@ -277,7 +276,7 @@ public sealed class AutoCastNativeAdapterTests : IDisposable
     {
         SpellManager.NativeCanCast = true;
         SpellManager.instance = null;
-        TargetingManager.Reset();
+        OrbModding.GameStubs.GameStubState.Reset();
         DecoyTargetingManager.Reset();
     }
 }

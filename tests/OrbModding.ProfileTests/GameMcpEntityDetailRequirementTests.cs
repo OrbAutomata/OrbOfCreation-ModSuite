@@ -9,11 +9,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 {
-    public GameMcpEntityDetailRequirementTests() => ClearRegistries();
+    public GameMcpEntityDetailRequirementTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void RequirementsExpandOrderedLinkTiersAndPreserveAndOrGroups()
@@ -32,10 +33,7 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         global::PrerequisiteLinkSO.All.Add(link);
         link.linkTiers.Add(Tier(Require(research, 1)));
         link.linkTiers.Add(Tier(Require(research, 2)));
-        // A third rung, and the row asks for the last of them. Round 15's two gates
-        // (Conceptualization and Innovation, both on the same named-tier link) asked for tier 0
-        // and read "at tier 1"; a fixture asking for tier 1 would have read right by accident,
-        // because the number printed was the met pair's hard-coded one.
+        // A third rung, and the row asks for the last of them.
         link.linkTiers.Add(Tier(Require(research, 3)));
         owner.prerequisitesPerLevel.prerequisites.Add(
             new Requirements.PrerequisiteLinkRequirement
@@ -47,9 +45,10 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 
         var result = Explain(Collect(), owner.GetGuid(), 920);
 
-        Assert.Equal("unavailable", (string?)result["status"]);
-        Assert.Equal("ERR_UNAVAILABLE", (string?)result["reasonCode"]);
+        Assert.Null(result["status"]);
+        Assert.Null(result["reasonCode"]);
         var requirements = Assert.IsType<JObject>(result["requirements"]);
+        Assert.Equal("Unmet", (string?)requirements["suiteVerdict"]);
         var root = Assert.IsType<JObject>(requirements["root"]);
         Assert.Equal("AND", (string?)root["operator"]);
         var top = root["children"]!.OfType<JObject>().ToArray();
@@ -60,16 +59,11 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         var andChildren = orChildren[1]["children"]!.OfType<JObject>().ToArray();
         Assert.Equal(2, andChildren.Length);
         Assert.EndsWith(" at level 6 (at 0)", (string?)andChildren[0]["needs"]);
-        // A group three levels deep is a shape no authored container has, so it says so in one
-        // authored sentence pointing at the screen that draws it.
-        var unread = andChildren[1];
-        Assert.False((bool)unread["met"]!);
-        Assert.Null(unread["reasonCode"]);
-        Assert.StartsWith(
-            "This requirement is one the suite cannot read yet; open ",
-            (string?)unread["reason"]);
-        Assert.Null(unread["diagnostics"]);
-        Assert.Null(unread["verdict"]);
+        var nestedOr = andChildren[1];
+        Assert.Equal("OR", (string?)nestedOr["operator"]);
+        Assert.Empty(Assert.IsType<JArray>(nestedOr["children"]));
+        Assert.Null(nestedOr["reasonCode"]);
+        Assert.Null(nestedOr["reason"]);
 
         // What it needs, in the screen's words, and whether it holds. Nothing else: the tree
         // position, the native class, the selected value's internal name and three thresholds of
@@ -104,6 +98,25 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         Assert.DoesNotContain("at level 1", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("at level 2", gate.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("evaluatedFrame", gate.ToString(), StringComparison.Ordinal);
+
+        // The same depth-three branch can be satisfied; a real unknown class remains unreadable.
+        research.level = 6;
+        ((Requirements.OrRequirement)all.andConditions[1]).orConditions.Add(Require(research, 6));
+        link.linkTiers[2].isPassiveEnabled = true;
+        var met = Explain(Collect(), owner.GetGuid(), 921);
+        Assert.Null(met["status"]);
+        Assert.Equal("Met", (string?)met["requirements"]!["suiteVerdict"]);
+        Assert.True((bool)met["requirements"]!["root"]!["children"]![0]!["children"]![1]!
+            ["children"]![1]!["children"]![0]!["met"]!);
+
+        owner.prerequisitesPerLevel.prerequisites.Add(new Requirements.OpaqueRequirement());
+        var unknown = Explain(Collect(), owner.GetGuid(), 922);
+        Assert.Equal("unavailable", (string?)unknown["status"]);
+        Assert.Equal("Unevaluable", (string?)unknown["requirements"]!["suiteVerdict"]);
+        var unread = unknown["requirements"]!["root"]!["children"]!.OfType<JObject>().Last();
+        Assert.False((bool)unread["met"]!);
+        Assert.StartsWith("This requirement is one the suite cannot read yet; open ",
+            (string?)unread["reason"]);
     }
 
     /// <summary>
@@ -120,8 +133,10 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
 
         var group = Assert.Single(
             Assert.IsType<JObject>(result["requirements"]!["root"])["children"]!.OfType<JObject>())!;
-        Assert.Equal("nothing — this group is empty", (string?)group["needs"]);
-        Assert.True((bool)group["met"]!);
+        Assert.Equal("AND", (string?)group["operator"]);
+        Assert.Empty(Assert.IsType<JArray>(group["children"]));
+        Assert.Equal("Met", (string?)result["requirements"]!["suiteVerdict"]);
+        Assert.Null(result["status"]);
         Assert.Null(group["reasonCode"]);
     }
 
@@ -203,9 +218,7 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
         Assert.Null(leaves[1]["current"]);
         Assert.Null(leaves[1]["required"]);
 
-        // Neither leaf carries a class or a sentence. A met row never did; an unmet one used to read
-        // `ERR_LOCKED` beside a paragraph restating that a requirement is unmet, which is the one
-        // thing `met: false` already says.
+        // Neither leaf carries a class or a sentence.
         Assert.Null(leaves[0]["reasonCode"]);
         Assert.Null(leaves[0]["reason"]);
         Assert.Null(leaves[1]["reasonCode"]);
@@ -241,14 +254,8 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// A locked entity never reads <c>Met</c>. The lock is <c>UpgradeSO.prerequisites</c> and the
-    /// rows are <c>prerequisitesPerLevel</c> — two different authored containers — so a block that
-    /// published the per-level answer alone said "requirements met" of a thing the screen draws
-    /// shut, three live rounds running. There is still no <c>authority</c> paragraph: it restated
-    /// the verdict in prose, and eight of its nine appearances in a live round sat under <c>root:
-    /// no conditions</c>, declaring a set of authored rows met that does not exist. This is the
-    /// post-prestige shape: levels reset to nought, no authored condition published, and the game's
-    /// own gate shut.
+    /// A locked entity never reads <c>Met</c>. This is the post-prestige shape: levels reset to
+    /// nought, no authored condition published, and the game's own gate shut.
     /// </summary>
     [Fact]
     public void RequirementsNeverReadMetWhileTheGameHoldsTheEntityShut()
@@ -295,10 +302,8 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     }
 
     /// <summary>
-    /// The shape the game actually has, and the one three live rounds hit: an authored per-level
-    /// requirement that is genuinely satisfied on an upgrade the game's own
-    /// <c>prerequisites</c> container holds shut. The rows read <c>prerequisitesPerLevel</c>, and
-    /// the lock is in a container they do not look at.
+    /// The rows read <c>prerequisitesPerLevel</c>, and the lock is in a container they do not look
+    /// at.
     /// </summary>
     [Fact]
     public void AnUpgradeWhoseNextLevelRowsAreMetStillReadsUnmetWhileItsOwnGateIsShut()
@@ -567,11 +572,6 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     /// A resource the game has not counted yet says what would add it, read off the container
     /// <c>ResourceSO.CheckVisibility()</c> consults.
     /// </summary>
-    /// <remarks>
-    /// The bit used to answer "The game is not showing this yet" — which the Scholar page
-    /// contradicted while drawing a Scholar Xp bar of its own — and nothing on the wire named the
-    /// gate, because <c>visiblePrerequisites</c> was captured nowhere.
-    /// </remarks>
     [Fact]
     public void AResourceTheGameHasNotCountedSaysWhatWouldAddIt()
     {
@@ -599,11 +599,6 @@ public sealed class GameMcpEntityDetailRequirementTests : IDisposable
     /// <summary>
     /// The ledger bit is not an availability verdict, and no longer answers as one.
     /// </summary>
-    /// <remarks>
-    /// One bit used to be published twice — as <c>visible</c> and as a copy of it under
-    /// <c>available</c> — so Scholar Xp, with a computed capacity and a bar on the open screen, read
-    /// as locked and unavailable, and Psi read the same on the line under the price quoted in it.
-    /// </remarks>
     [Fact]
     public void AResourcesLedgerBitIsNotCopiedOntoAnAvailabilityVerdict()
     {

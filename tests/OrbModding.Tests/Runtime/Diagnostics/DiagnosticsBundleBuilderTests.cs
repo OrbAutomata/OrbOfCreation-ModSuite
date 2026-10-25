@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,9 +19,8 @@ namespace OrbModding.Tests.Runtime.Diagnostics;
 public sealed class DiagnosticsBundleBuilderTests : IDisposable
 {
     private static readonly DateTime CreatedUtc = new(2026, 8, 3, 12, 34, 56, DateTimeKind.Utc);
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "orb-diagnostics-bundle-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TempDirectory _temporary = new();
+    private string _root => _temporary.Path;
 
     [Fact]
     public void EveryTextMemberIsRedactedAndTheBundleCapturesOnlyPastEvidence()
@@ -234,7 +234,7 @@ public sealed class DiagnosticsBundleBuilderTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temporary.Dispose();
     }
 
     private Fixture FixturePaths()

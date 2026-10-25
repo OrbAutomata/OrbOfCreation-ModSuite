@@ -22,6 +22,7 @@ namespace OrbModding.ProfileTests;
 /// <c>reqSpeedPenalty</c> ran it at a quarter speed. The row now says both.
 /// </remarks>
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
 {
     private static readonly Guid ExtractThaumicScrolls =
@@ -73,7 +74,7 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
 
     private static JObject Row(GameWorldState world)
     {
-        var page = GameMcpWorldQuery.GetRows(
+        var page = GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world),
             "alchemy-recipes",
             new[] { ExtractThaumicScrolls.ToString("D") });
@@ -110,8 +111,9 @@ public sealed class GameMcpAlchemyScaledEffectTests : IDisposable
             PublicationTable<WorldResearchRequirementAdjustment>.Empty, in modifiers);
         var usage = new WorldEntityRequirement(
             ExtractThaumicScrolls,
-            WorldRequirementOwnerKind.AlchemyRecipe,
-            0,
+            WorldRequirementOwnerKind.AlchemyRecipe, containerIndex: 0,
+            0, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Research,
             "ResearchRequirement",
             ExpertAlchemy,

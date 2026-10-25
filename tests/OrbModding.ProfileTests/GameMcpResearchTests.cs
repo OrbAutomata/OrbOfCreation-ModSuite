@@ -88,7 +88,7 @@ public sealed class GameMcpResearchTests
     public void Research_row_is_a_named_complete_queue_decision_with_cost_holdings_and_progress()
     {
         var world = World();
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2801),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2801),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var row = response["row"]!;
 
@@ -116,7 +116,7 @@ public sealed class GameMcpResearchTests
             developmentCostAffordable: false,
             spendableAmount: 1,
             investmentRemaining: 100);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2803),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2803),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
         var cost = Assert.Single(develop["costs"]!).Value<JObject>()!;
@@ -129,14 +129,13 @@ public sealed class GameMcpResearchTests
 
     /// <remarks>
     /// Greater Spell Capacity costs 1 Magical Advancement and then drains 20 Knowledge while it
-    /// develops. The drain was printed as <c>cost=20</c> beside no price at all, and a live round
-    /// read it as the node's price.
+    /// develops.
     /// </remarks>
     [Fact]
     public void The_drain_says_what_the_development_still_takes_and_is_not_a_price()
     {
         var world = World(investmentRemaining: 60, heldAmount: 90);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2804),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2804),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
@@ -152,7 +151,7 @@ public sealed class GameMcpResearchTests
     public void An_unpublished_drain_resource_omits_holdings_instead_of_reporting_none()
     {
         var world = World(investmentRemaining: 60);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2805),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2805),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var drain = Assert.Single(response["row"]!["drain"]!).Value<JObject>()!;
 
@@ -170,7 +169,7 @@ public sealed class GameMcpResearchTests
     {
         var world = World(price: 119.2, spendableAmount: 118.7, investmentRemaining: 119.2,
             heldAmount: 118.7);
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2809),
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2809),
             "research", ResearchId.ToString("D")).Freeze(), world)["row"]!;
         var cost = Assert.Single(row["develop"]!["costs"]!).Value<JObject>()!;
         var drain = Assert.Single(row["drain"]!).Value<JObject>()!;
@@ -185,7 +184,7 @@ public sealed class GameMcpResearchTests
     public void A_node_with_no_leeway_still_publishes_its_price()
     {
         var world = World(isDeveloping: false, queueMode: false, stillHasLeeway: false);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2808),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2808),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var cost = Assert.Single(response["row"]!["develop"]!["costs"]!).Value<JObject>()!;
 
@@ -209,7 +208,7 @@ public sealed class GameMcpResearchTests
             canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2807),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2807),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
@@ -239,7 +238,7 @@ public sealed class GameMcpResearchTests
             canDevelop: false,
             spendableAmount: 1,
             heldAmount: 1);
-        var entity = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var entity = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                     GameMcpTestHarness.Context(world, 2812),
                     "research", new[] { ResearchId.ToString("D") }).Freeze(),
                 world)["results"]!.Values<JObject>())!;
@@ -275,7 +274,7 @@ public sealed class GameMcpResearchTests
     {
         var world = World(complete: true, developmentCostAffordable: false,
             investmentRemaining: 100, heldAmount: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 2806),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 2806),
             "research", ResearchId.ToString("D")).Freeze(), world);
         var develop = response["row"]!["develop"]!;
 
@@ -304,7 +303,7 @@ public sealed class GameMcpResearchTests
     public void Committed_poststate_is_the_same_named_research_row_with_next_decisions()
     {
         var world = World();
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPostState(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.ProjectPostState(
             GameMcpTestHarness.Context(world, 2802), "research", ResearchId), world);
 
         Assert.Equal("Improved Casting", (string?)response["name"]);
@@ -528,9 +527,9 @@ public sealed class GameMcpResearchTests
     }
 
     /// <summary>
-    /// Choosing among 148 researches used to need a detail page per candidate. `state` is the same
-    /// lifecycle word every purchasable row on the surface says, so `visible`, `available` and
-    /// `complete` — the three facts it is derived from — do not each repeat a third of it.
+    /// `state` is the same lifecycle word every purchasable row on the surface says, so `visible`,
+    /// `available` and `complete` — the three facts it is derived from — do not each repeat a third
+    /// of it.
     /// </summary>
     /// <remarks>
     /// What the queue is doing this moment is not on the row. `development` said
@@ -542,7 +541,7 @@ public sealed class GameMcpResearchTests
     public void A_research_list_row_carries_what_a_caller_picks_the_next_research_by()
     {
         var world = World(developmentCostAffordable: false);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -573,7 +572,7 @@ public sealed class GameMcpResearchTests
         foreach (var developing in new[] { true, false })
         {
             var world = World(developmentCostAffordable: false, isActive: false, isDeveloping: developing);
-            var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(world, 2811), "research", 0, 50).Freeze(), world);
             var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -671,7 +670,7 @@ public sealed class GameMcpResearchTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         var result = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.GetRow(
+            GameMcpWorldDetail.GetRow(
                 GameMcpTestHarness.Context(world),
                 "research",
                 researchId.ToString("D")).Freeze(),
@@ -679,11 +678,8 @@ public sealed class GameMcpResearchTests
 
         var responseBytes = System.Text.Encoding.UTF8.GetByteCount(
             result.ToString(Newtonsoft.Json.Formatting.None));
-        // The budget is on the answer a caller really receives. It used to be measured against a
-        // singular read that carried the row and nothing else, while every caller of world_get was
-        // also sent the block's identity, its predicates, its requirement tree, its research
-        // thresholds and its blockers. Those are 1,327 bytes here, and the number a guard watches
-        // has to be the one that was always being paid.
+        // The budget is on the answer a caller really receives. Those are 1,327 bytes here, and the
+        // number a guard watches has to be the one that was always being paid.
         Assert.True(
             responseBytes < 1_328, "research world_get was " + responseBytes + " bytes");
 

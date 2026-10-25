@@ -7,8 +7,7 @@ internal static class ServiceCycleProfileNames
 {
     /// <summary>
     /// The reported name of a span id, from the suite's own enumeration rather than a second table
-    /// the tool keeps in step by hand. A retired span's number still decodes — as its number, not as
-    /// a name that would claim the measurement still exists.
+    /// the tool keeps in step by hand.
     /// </summary>
     internal static string Stage(int stage) => ServiceCycleProfileSpans.Name(stage);
 }

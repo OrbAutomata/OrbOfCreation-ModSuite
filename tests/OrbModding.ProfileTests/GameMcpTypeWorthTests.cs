@@ -150,9 +150,7 @@ public sealed class GameMcpTypeWorthTests
 
     /// <summary>
     /// A spell's keywords cell prints its spell types, so the word it prints is a word the filter
-    /// takes. Round 16 was refused for Cantrip and Charm because the guard asked the keyword table,
-    /// which indexes no spell type; the count on the type's page and the walk are now both the
-    /// spell-type relation the cell is joined from.
+    /// takes.
     /// </summary>
     [Fact]
     public void A_spell_type_word_walks_to_the_spells_its_page_counts()
@@ -250,7 +248,7 @@ public sealed class GameMcpTypeWorthTests
     [MemberData(nameof(LiveSpellTypeRecords))]
     public void Every_spell_type_record_the_game_authors_has_a_number_on_the_wire(string property)
     {
-        var results = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var results = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(World(SpellTypeRecords(property))),
             string.Empty,
             new[] { Ember.ToString("D") }), Catalog)["results"]!;
@@ -328,10 +326,8 @@ public sealed class GameMcpTypeWorthTests
     /// has no reason to carry.
     /// </summary>
     /// <remarks>
-    /// Two things left since. <c>canDiscover: yes</c> stood beside this row's
-    /// <c>discover: no</c> — two answers to one question, and the coarser one. And the classes
-    /// went: a read page prints a verdict word and a sentence, so every <c>reasonCode</c> this
-    /// payload used to carry is gone and every sentence it carried is still here.
+    /// Two things left since. <c>canDiscover: yes</c> stood beside this row's <c>discover: no</c> —
+    /// two answers to one question, and the coarser one.
     /// </remarks>
     [Fact]
     public void An_entity_that_is_no_type_is_answered_byte_for_byte_as_it_was()
@@ -356,15 +352,13 @@ public sealed class GameMcpTypeWorthTests
     }
 
     /// <summary>
-    /// One word per concept across the type taxonomies. The list column read <c>level</c> over the
-    /// number the type's own page spells <c>totalLevel</c>, and a round could not settle from the
-    /// list which of the page's four level fields it had been handed.
+    /// One word per concept across the type taxonomies.
     /// </summary>
     [Fact]
     public void An_equipment_type_list_row_names_the_level_it_carries_the_way_its_page_does()
     {
         var world = World();
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 6101), "equipment-types", 0, 50), Catalog);
         var row = Assert.Single(listed["rows"]!.Values<JObject>())!;
         var page = Detail(Focus);
@@ -399,7 +393,7 @@ public sealed class GameMcpTypeWorthTests
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

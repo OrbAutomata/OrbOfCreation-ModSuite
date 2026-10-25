@@ -12,11 +12,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailIdentityTests : IDisposable
 {
-    public GameMcpEntityDetailIdentityTests() => ClearRegistries();
+    public GameMcpEntityDetailIdentityTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void ExplanationSeparatesUnknownFromKnownButUnprojectedIdentity()
@@ -49,10 +50,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
         Assert.Equal("world_categories", (string?)unknownResult["readWith"]!["tool"]);
         Assert.DoesNotContain("entity_catalog", (string?)unknownResult["reason"]);
         Assert.DoesNotContain("entity_catalog", (string?)knownResult["reason"]);
-        // Nothing carries this id, so the block hands it back whole and names nothing. It used to
-        // shorten the id to a handle — an address into a published set this id is not in — and add
-        // `name: (unnamed 000000)`, which reads as a row whose name went missing rather than as an
-        // id with no row at all.
+        // Nothing carries this id, so the block hands it back whole and names nothing.
         Assert.Equal(unknown.ToString("D"), (string?)unknownResult["uuid"]);
         Assert.Null(unknownResult["name"]);
         Assert.Null(unknownResult["nameEvidence"]);
@@ -242,7 +240,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(world, 949),
             string.Empty,
             new[]
@@ -268,9 +266,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
         Assert.Equal("unavailable", (string?)blocks[1]!["status"]);
         Assert.Equal("ERR_NOT_FOUND", (string?)blocks[1]!["reasonCode"]);
         // The one block in the batch that answers "nothing carries this" echoes the whole id the
-        // caller sent and names nothing. A six-character stub of a thirty-six character argument is
-        // not something a caller can match against what they typed, and the `(unnamed …)` name it
-        // used to carry made an id with no row read as a row missing its name.
+        // caller sent and names nothing.
         Assert.Equal(missing.ToString("D"), (string?)blocks[1]!["uuid"]);
         Assert.Null(blocks[1]!["name"]);
         Assert.Equal("world_categories", (string?)blocks[1]!["readWith"]!["tool"]);
@@ -364,12 +360,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
     }
 
     /// <summary>
-    /// A detail page publishes the game's own words for the thing it describes. The description was
-    /// reachable only through the evaluated-detail resolver, whose thirteen kinds are the set this
-    /// build evaluates predicates for — a shared entry point, not a rule about descriptions — so a
-    /// live round walked the agromancy-action and plot-node-action graphs to a detail page and found
-    /// no description on either, though both native types carry one and the page already holds the
-    /// type name its category declares.
+    /// A detail page publishes the game's own words for the thing it describes.
     /// </summary>
     [Fact]
     public void AnActionDetailPageCarriesTheAuthoredDescriptionItsCategoryDeclaresTheTypeFor()
@@ -407,7 +398,7 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
         var page = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.GetRows(
+            GameMcpWorldDetail.GetRows(
                     GameMcpTestHarness.Context(world),
                     string.Empty,
                     new[] { mining.ToString("D") })
@@ -422,11 +413,11 @@ public sealed class GameMcpEntityDetailIdentityTests : IDisposable
         // declares the native type, and the type is what the authored text is read through.
         Assert.Equal(
             "Waters the node so it grows.",
-            GameMcpEntityExplainer.ReadDescription(
+            GameMcpEntityIdentity.ReadDescription(
                 watering, GameMcpEntityCapabilityMap.ExpectedNativeType("plot-node-actions")));
         Assert.Equal(
             "Digs the node for ore.",
-            GameMcpEntityExplainer.ReadDescription(
+            GameMcpEntityIdentity.ReadDescription(
                 mining, GameMcpEntityCapabilityMap.ExpectedNativeType("agromancy-actions")));
     }
 }

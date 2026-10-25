@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -17,7 +18,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
     public CraftingPlayerGameActionTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
         NativeMultiBuyScope.ResetForTests();
         GlobalVariables.MultiBuy = new IntVariable { Value = 25 };
@@ -25,7 +25,6 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
 
     public void Dispose()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         UnityEngine.Resources.Objects.Clear();
     }
 
@@ -375,10 +374,7 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
         Func<long>? readGeneration = null)
     {
         IDictionary registry = _registry;
-        var resolver = new TypedRegistryResolver(
-            readGeneration ?? (() => _lifecycle),
-            () => TypedRegistrySourceSnapshot.Ready(registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readGeneration ?? (() => _lifecycle), registry);
         return new AutoScribeOneShotCraftPlayerGameAction(
             resolver,
             readLifecycleEpoch ?? (() => _lifecycle),

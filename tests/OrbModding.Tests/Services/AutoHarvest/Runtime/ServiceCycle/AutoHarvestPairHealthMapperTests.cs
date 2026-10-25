@@ -16,9 +16,9 @@ public sealed class AutoHarvestPairHealthMapperTests
             .Kind;
 
     /// <summary>
-    /// The three refusals that used to share one bucket. The player's next move differs for each —
-    /// reach the plot, wait for it to bear again, wait for the game to evaluate the prerequisite — so
-    /// they cannot share a sentence, and they cannot share a sentence while they share a kind.
+    /// The player's next move differs for each — reach the plot, wait for it to bear again, wait
+    /// for the game to evaluate the prerequisite — so they cannot share a sentence, and they cannot
+    /// share a sentence while they share a kind.
     /// </summary>
     [Fact]
     public void TheThreeLocksAreThreeDifferentHealthKinds()

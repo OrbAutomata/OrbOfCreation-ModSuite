@@ -17,10 +17,7 @@ namespace OrbModding.ProfileTests;
 public sealed class GameMcpOverviewTests
 {
     /// <summary>
-    /// Every queue answers for itself, with the capacity it is measured against. The overview used
-    /// to print one unnamed occupancy beside a queue count of two: it covered the walked plot-action
-    /// queue only, and a live round read it five times while asking about the attribute queue a
-    /// purchase's ceiling comes from.
+    /// Every queue answers for itself, with the capacity it is measured against.
     /// </summary>
     [Fact]
     public void WorldOverviewPublishesEachActionQueuesOccupancyUnderItsOwnName()
@@ -62,8 +59,6 @@ public sealed class GameMcpOverviewTests
         Assert.Equal(2, queues!.Count);
         Assert.Equal(GameMcpTestHarness.Handle(plotQueue), (string?)queues[0]["uuid"]);
         Assert.Equal("Plot actions", (string?)queues[0]["name"]);
-        // The asset id the normalizer used to staple beside that authored word, on the one row in
-        // the suite that had to author one.
         Assert.Null(queues[0]["internalName"]);
         Assert.Equal(1, (int?)queues[0]["usedSlots"]);
         Assert.Equal(2, (int?)queues[0]["capacity"]);
@@ -212,11 +207,11 @@ public sealed class GameMcpOverviewTests
         var context = GameMcpTestHarness.Context(world);
 
         var listed = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "double-variables", 0, 10));
+            GameMcpWorldList.ListRows(context, "double-variables", 0, 10));
         Assert.Equal(expected, (string?)listed["rows"]![0]!["value"]);
 
         var block = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.GetRow(context, "double-variables", id.ToString("D")));
+            GameMcpWorldDetail.GetRow(context, "double-variables", id.ToString("D")));
         Assert.Equal(expected, (string?)block["row"]!["value"]);
     }
 

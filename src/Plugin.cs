@@ -67,12 +67,9 @@ public sealed class Plugin : BaseUnityPlugin
     /// The native transitions the whole suite watches: a save loading, the game initialising, a
     /// runtime reset, a New Game+. They are what moves <see cref="GameLifecycleMonitor"/>'s
     /// generation, and with it the collected epoch that the world collector's structural-fact skip
-    /// and Auto Buy's boundary check compare against — an unobserved save-load leaves both comparing
-    /// stale to stale. They are installed from <see cref="ComposeAutomata"/> rather than beside
-    /// Mentor's optional hooks, where they used to sit, for the reason W56 already gives for the
-    /// completion postfix: that composition returns early when Mentor's own mastery hook is
-    /// unavailable, and a blocked Mentor must not take the suite's lifecycle observation down with
-    /// it. Named here rather than written inline so losing one is a diff rather than an omission.
+    /// and Auto Buy's boundary check compare against — an unobserved save-load leaves both
+    /// comparing stale to stale. Named here rather than written inline so losing one is a diff
+    /// rather than an omission.
     /// </summary>
     internal static readonly (string Target, string Handler, bool Postfix)[] LifecycleObservationHooks =
     {

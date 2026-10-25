@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,7 +64,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
         GameMcpFrameOperation[] claimed = Array.Empty<GameMcpFrameOperation>();
         Assert.True(SpinWait.SpinUntil(
             () => (claimed = inbox.ClaimPending()).Length > 0 || pending.IsCompleted,
-            TimeSpan.FromSeconds(1)));
+            ServiceCycleTestDeadline.Value));
         Assert.False(pending.IsCompleted, "the mutating request bypassed the Unity-frame claim");
         var operation = Assert.Single(claimed);
 
@@ -224,19 +225,15 @@ public sealed class GameMcpStreamableHttpProtocolTests
         Assert.Equal("array", (string?)properties["uuids"]?["type"]);
         Assert.Equal(1, (int)properties["uuids"]!["minItems"]!);
         Assert.Equal(
-            GameMcpWorldQuery.MaximumBatchSize,
+            GameMcpWorldList.MaximumBatchSize,
             (int)properties["uuids"]!["maxItems"]!);
         Assert.Null(schema["oneOf"]);
     }
 
-    /// <summary>
-    /// A batch refused as a whole used to carry an empty results collection beside the refusal,
-    /// four rendered lines saying nothing the refusal sentence had not already said.
-    /// </summary>
     [Fact]
     public void A_world_get_refused_as_a_whole_answers_in_the_one_refusal_line()
     {
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             GameMcpTestHarness.Context(),
             "resources",
             new[] { Guid.NewGuid().ToString("D") }));
@@ -395,11 +392,10 @@ public sealed class GameMcpStreamableHttpProtocolTests
     /// page that answers <c>rows 0/0</c> for ever.
     /// </summary>
     /// <remarks>
-    /// The query is the one that used to prove the page was worth having. A combat action was the
-    /// clearest thing it was for — the game prints the word, no world category published a row for
-    /// it, and no other verb would say it — and that is exactly the gap the
-    /// <c>character-actions</c> category closed. The word is on <c>world_search</c> now, with the
-    /// facts the page could never hold beside it.
+    /// A combat action was the clearest thing it was for — the game prints the word, no world
+    /// category published a row for it, and no other verb would say it — and that is exactly the
+    /// gap the <c>character-actions</c> category closed. The word is on <c>world_search</c> now,
+    /// with the facts the page could never hold beside it.
     /// </remarks>
     [Fact]
     public void TheRetiredCatalogVerbIsNoLongerAToolThisServerHas()
@@ -448,9 +444,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// The all-zero UUID is perfectly well formed and names nothing. It used to collide with the
-    /// sentinel the id reader uses for "no id was sent", so a live round probing it was told its id
-    /// was malformed and went off to debug a string that was fine. What is wrong with it is that
+    /// The all-zero UUID is perfectly well formed and names nothing. What is wrong with it is that
     /// nothing carries it.
     /// </summary>
     [Fact]
@@ -476,9 +470,7 @@ public sealed class GameMcpStreamableHttpProtocolTests
     }
 
     /// <summary>
-    /// A handle valid ninety seconds earlier used to read as a typo the moment the run ended, so a
-    /// caller had reason to throw away good ids after any teardown. It now says the same lifecycle
-    /// fact the whole UUID for the same entity already answered with.
+    /// It says the same lifecycle fact the whole UUID for the same entity already answered with.
     /// </summary>
     [Fact]
     public void A_handle_after_teardown_says_the_lifecycle_fact_rather_than_calling_it_malformed()
@@ -670,7 +662,7 @@ public sealed class GameMcpWorldEnvelopeTests
             CollectedAtEpoch = 41,
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var result = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world), "purchase-costs", 0, 10));
 
         Assert.Null(result["status"]);
@@ -851,13 +843,13 @@ public sealed class GameMcpWorldEnvelopeTests
         var state = GameMcpTestHarness.Context(world);
 
         var unknown = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "does-not-exist", 0, 10));
+            GameMcpWorldList.ListRows(state, "does-not-exist", 0, 10));
         Assert.Equal("unavailable", (string?)unknown["status"]);
         Assert.Equal("ERR_INPUT", (string?)unknown["reasonCode"]);
         Assert.False(string.IsNullOrWhiteSpace((string?)unknown["reason"]));
 
         var unavailable = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
+            GameMcpWorldList.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)unavailable["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)unavailable["reasonCode"]);
         Assert.Contains("quantity was not bound", (string?)unavailable["reason"]);
@@ -894,7 +886,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Contains("quantity was unreadable", (string?)resources["reason"]);
 
         var rows = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "resources", 0, 10));
+            GameMcpWorldList.ListRows(state, "resources", 0, 10));
         Assert.Equal("unavailable", (string?)rows["status"]);
         Assert.Equal("ERR_UNAVAILABLE", (string?)rows["reasonCode"]);
 
@@ -923,8 +915,9 @@ public sealed class GameMcpWorldEnvelopeTests
         var noScaling = default(WorldRequirementScaling);
         var unknownLeaf = new WorldEntityRequirement(
             affectedId,
-            WorldRequirementOwnerKind.Upgrade,
-            ordinal: 4,
+            WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+            ordinal: 4, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Unknown,
             "ListRequirement",
             Guid.Empty,
@@ -979,7 +972,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(affectedSearch["status"]);
         Assert.Null(affectedSearch["reasonCode"]);
         // A hit is a row of a page, so it keeps its own columns and says the one thing that is
-        // missing. The refusal block it used to be swapped for lives on world_get.
+        // missing.
         var affectedMatch = Assert.Single(affectedSearch["rows"]!.Values<JObject>());
         Assert.Equal(GameMcpTestHarness.Handle(affectedId), (string?)affectedMatch["uuid"]);
         Assert.Equal("upgrades", (string?)affectedMatch["category"]);
@@ -992,7 +985,7 @@ public sealed class GameMcpWorldEnvelopeTests
             "model, so its graph is incomplete. world_get on this uuid names the requirement.",
             (string?)affectedMatch["incomplete"]);
 
-        var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unaffectedGet = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "upgrades",
             unaffectedId.ToString("D")));
@@ -1002,7 +995,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.NotNull(unaffectedGet["row"]);
         Assert.Null(unaffectedGet["implicatedSkippedRows"]);
 
-        var affectedGet = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var affectedGet = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "upgrades",
             affectedId.ToString("D")));
@@ -1020,7 +1013,7 @@ public sealed class GameMcpWorldEnvelopeTests
             "its graph is incomplete.",
             (string?)getFailure["reason"]);
 
-        var batch = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+        var batch = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
             state,
             "upgrades",
             new[] { unaffectedId.ToString("D"), affectedId.ToString("D") }));
@@ -1039,7 +1032,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Single(batchRows[1]["implicatedSkippedRows"]!.Values<JObject>());
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "upgrades", 0, 10));
+            GameMcpWorldList.ListRows(state, "upgrades", 0, 10));
         Assert.Null(page["status"]);
         Assert.Null(page["reasonCode"]);
         Assert.Equal(2, page["rows"]!.Count());
@@ -1059,7 +1052,7 @@ public sealed class GameMcpWorldEnvelopeTests
             (string?)pageRows[1]["incomplete"]);
 
         var requirements = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "entity-requirements", 0, 10));
+            GameMcpWorldList.ListRows(state, "entity-requirements", 0, 10));
         Assert.Null(requirements["status"]);
         Assert.Null(requirements["reasonCode"]);
         Assert.NotNull(requirements["rows"]);
@@ -1154,8 +1147,9 @@ public sealed class GameMcpWorldEnvelopeTests
         var scaling = default(WorldRequirementScaling);
         var unknownLeaf = new WorldEntityRequirement(
             ownerId,
-            WorldRequirementOwnerKind.Upgrade,
-            ordinal: 1,
+            WorldRequirementOwnerKind.Upgrade, containerIndex: 0,
+            ordinal: 1, parentOrdinal: -1, depth: 0,
+            nodeKind: WorldRequirementNodeKind.Leaf, @operator: WorldRequirementOperator.None,
             WorldRequirementConditionKind.Unknown,
             "ListRequirement",
             Guid.Empty,
@@ -1199,7 +1193,7 @@ public sealed class GameMcpWorldEnvelopeTests
         Assert.Null(search["implicatedSkippedRows"]);
 
         var page = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(state, "entity-requirements", 0, 10));
+            GameMcpWorldList.ListRows(state, "entity-requirements", 0, 10));
         Assert.Null(page["status"]);
         Assert.Null(page["reasonCode"]);
         var incompleteRow = Assert.Single(page["rows"]!.Values<JObject>());
@@ -1236,7 +1230,7 @@ public sealed class GameMcpWorldEnvelopeTests
         };
         var state = GameMcpTestHarness.Context(world);
 
-        var result = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var result = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             state,
             "purchase-costs",
             Guid.NewGuid().ToString("D")));

@@ -51,7 +51,9 @@ internal abstract partial class ServiceCycleStartCoordinator<TState, TAction>
         }
         catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            return StartFaulted(in startContext, startAttemptedAt, ExceptionDetail.Describe(exception));
+            return StartFaulted(in startContext, startAttemptedAt,
+                GameActionFaultLog.Reason(
+                    "The service could not decide whether to start.", exception, ServiceIdentity.Value + " start").Text);
         }
         finally
         {

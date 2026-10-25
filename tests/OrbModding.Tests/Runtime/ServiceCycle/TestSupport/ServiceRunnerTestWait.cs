@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime;
@@ -12,9 +13,6 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 
 internal static class ServiceRunnerTestWait
 {
-    /// <summary>
-    /// Waits until the worker has entered the production handoff wait used to receive a request.
-    /// </summary>
     internal static void ForWorkerReady<TState, TAction>(
         ServiceRegistration<TState, TAction> registration)
     {

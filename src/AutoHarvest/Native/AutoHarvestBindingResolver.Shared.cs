@@ -36,12 +36,6 @@ internal sealed partial class AutoHarvestBindingResolver
                 out var scalingResolution,
                 out failure))
         {
-            if (failure.Kind == AutoHarvestRuntimeFailureKind.Contract)
-            {
-                _contractCircuit.Block(
-                    AutoHarvestPair.FruitTree,
-                    AutoHarvestRuntimeFailureScope.Feature);
-            }
             return false;
         }
 

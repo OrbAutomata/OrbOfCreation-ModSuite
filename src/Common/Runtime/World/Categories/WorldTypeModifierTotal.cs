@@ -191,11 +191,8 @@ internal static class WorldTypeModifierTotalLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, typeId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].TypeId == typeId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), typeId,
+            static (row, key) => row.TypeId.CompareTo(key), out start, out count);
     }
 
     /// <summary>One type's total for one named record.</summary>
@@ -220,17 +217,5 @@ internal static class WorldTypeModifierTotalLookup
         return false;
     }
 
-    private static int LowerBound(ReadOnlySpan<WorldTypeModifierTotal> rows, Guid typeId)
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].TypeId.CompareTo(typeId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
 
-        return low;
-    }
 }

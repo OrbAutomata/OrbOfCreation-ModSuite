@@ -11,13 +11,12 @@ namespace OrbAutomata.GameMcp;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The line used to read <c>Game MCP operation 85 completed committed (committed):</c> — a sequence
-/// number, a disposition said twice, and an empty trailer. It named no verb, so thirteen of them
-/// across one session said nothing about what that session did; it carried no duration, so a command
-/// that spent several frames waiting for post-state settlement read like an instant lookup; and it
-/// had no timestamp of any kind, so nothing tied it to the trace recorded beside it. The frame is
-/// the join: pump and capture records carry the same counter, so a line here lands on an exact trace
-/// offset instead of being anchored by hand against wall-clock evidence.
+/// It named no verb, so thirteen of them across one session said nothing about what that session
+/// did; it carried no duration, so a command that spent several frames waiting for post-state
+/// settlement read like an instant lookup; and it had no timestamp of any kind, so nothing tied it
+/// to the trace recorded beside it. The frame is the join: pump and capture records carry the same
+/// counter, so a line here lands on an exact trace offset instead of being anchored by hand against
+/// wall-clock evidence.
 /// </para>
 /// <para>
 /// Reads write the same line. They always drew an operation number and never wrote a completion, so

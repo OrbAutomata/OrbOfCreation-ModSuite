@@ -90,7 +90,8 @@ internal sealed class AutomataUsagePrerequisiteVerifier
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
-            if (row.Program != WorldRequirementProgramKind.Usage) continue;
+            if (row.Program != WorldRequirementProgramKind.Usage ||
+                row.NodeKind != WorldRequirementNodeKind.Leaf) continue;
             if (WorldRequirementEvaluator.Evaluate(world, in row, 0) !=
                 WorldRequirementVerdict.Unevaluable) continue;
             return false;

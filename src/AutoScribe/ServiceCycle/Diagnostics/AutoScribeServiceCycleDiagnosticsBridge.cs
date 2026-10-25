@@ -253,7 +253,7 @@ internal sealed class AutoScribeServiceCycleDiagnosticsBridge
         }
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
-            return "Auto Scribe ownership evidence failed: " + ex.GetBaseException().Message;
+            return GameActionFaultLog.Reason("Auto Scribe ownership evidence could not be read.", ex, "Auto Scribe ownership").Text;
         }
     }
 

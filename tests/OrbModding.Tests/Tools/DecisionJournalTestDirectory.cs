@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Globalization;
 using System.IO;
@@ -8,11 +9,10 @@ namespace OrbModding.Tests.Tools;
 
 internal sealed class DecisionJournalTestDirectory : IDisposable
 {
+    private readonly TempDirectory _temporary = new(create: true);
     internal DecisionJournalTestDirectory()
     {
-        Root = Path.Combine(
-            Path.GetTempPath(),
-            "orb-decision-journal-report-" + Guid.NewGuid().ToString("N"));
+        Root = _temporary.Path;
         Directory.CreateDirectory(Root);
     }
 
@@ -42,6 +42,6 @@ internal sealed class DecisionJournalTestDirectory : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
+        _temporary.Dispose();
     }
 }

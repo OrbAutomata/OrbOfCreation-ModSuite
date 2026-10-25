@@ -494,7 +494,7 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
         Execute(Fire(0, Ember), natives: natives);
         var whileOpen = Execute(Fire(0, Ember), natives: natives);
-        global::TargetingManager.Reset();
+        global::TargetingManager.Current = null;
         spell.RequestsOnFire = 0;
         var afterClose = Execute(Fire(0, Ember), natives: natives);
 
@@ -672,10 +672,10 @@ public sealed class AutoCastCycleActionAdapterTests : IDisposable
 
     private static void ResetNativeState()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         global::SpellManager.NativeCanCast = true;
         global::SettingsManager.CancellableSpells = true;
-        global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         global::BattleManager.instance = null;
     }

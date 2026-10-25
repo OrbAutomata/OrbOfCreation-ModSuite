@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -266,7 +267,7 @@ public sealed class EquipmentLoadoutGameActionTests : IDisposable
         Func<bool>? permit = null, Func<string, bool>? includeContract = null)
     {
         var readEpoch = epoch ?? (() => Epoch);
-        var resolver = new TypedRegistryResolver(readEpoch,
+        var resolver = TestRegistryResolver.For(readEpoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is IHasGuid item ? item.GetGuid() : Guid.Empty);
         return new EquipmentLoadoutGameAction(readEpoch, permit ?? (() => true),

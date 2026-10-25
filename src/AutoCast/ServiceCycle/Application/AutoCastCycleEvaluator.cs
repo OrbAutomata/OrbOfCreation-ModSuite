@@ -301,10 +301,9 @@ internal static class AutoCastCycleEvaluator
     {
         if (!row.Occupied) return AutoCastExclusion.Empty;
 
-        // CanCastASpell is a manager-wide ordinary wait state. It was previously asked only at the
-        // boundary, which made every publication submit one cast solely to have the live gate bounce
-        // it. The published answer keeps that backpressure in planning; the boundary still repeats
-        // the same native question immediately before firing (M3).
+        // CanCastASpell is a manager-wide ordinary wait state. The published answer keeps that
+        // backpressure in planning; the boundary still repeats the same native question immediately
+        // before firing (M3).
         if (!row.CasterAvailable) return AutoCastExclusion.Busy;
 
         // An aura that is up and a spell mid-cast are the same refusal to the rotation: the slot is

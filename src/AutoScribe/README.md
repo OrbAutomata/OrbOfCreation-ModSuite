@@ -77,6 +77,9 @@ Live identity resolution preserves the registry's retryability verdict. `Registr
 `AmbiguousEvidence`, and `ContractUnavailable` are persistent contract failures that enter action
 health, warn once per failure state, and remain visible until verified recovery or lifecycle
 replacement.
+Ownership diagnostics follow the same reason boundary: a failed read logs the original exception
+under a fresh reference and displays an authored sentence with that reference. Diagnostic service
+reads use the shared available-service reader.
 
 `AutoScribeOneShotCraftPlayerGameAction` owns the manual one-shot player capability exposed as
 `game_craft`, beside the Auto Scribe boundary and under the same crafting permit. It revalidates

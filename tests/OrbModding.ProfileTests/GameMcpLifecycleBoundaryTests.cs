@@ -10,10 +10,7 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 /// <summary>
-/// One scene, one answer. Round 6 read the Start menu three ways after Back to Menu:
-/// <c>suite_health</c> reported a live runtime and world generation 72814, <c>world_overview</c>
-/// served the destroyed run's economy as <c>available</c>, and <c>game_probe</c> alone said
-/// <c>NoGame</c>. These pin the three onto the one lifecycle fact.
+/// One scene, one answer. These pin the three onto the one lifecycle fact.
 /// </summary>
 public sealed class GameMcpLifecycleBoundaryTests
 {
@@ -88,9 +85,9 @@ public sealed class GameMcpLifecycleBoundaryTests
         var readers = new[]
         {
             GameMcpTestHarness.Json(GameMcpWorldOverview.Overview(context)),
-            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "attributes", 0, 10)),
+            GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "attributes", 0, 10)),
             GameMcpTestHarness.Json(GameMcpWorldSearch.Search(context, "orb", 0, 10)),
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 context, "attributes", new[] { Guid.NewGuid().ToString("D") })),
         };
 
@@ -143,10 +140,9 @@ public sealed class GameMcpLifecycleBoundaryTests
     }
 
     /// <summary>
-    /// Round 15 read <c>generation 9</c> after one <c>game_continue</c> and took it for the save's
-    /// ninth world reset. It counted this process's lifecycle transitions. The two numbers now
-    /// stand side by side, each under the name of the thing it counts — the suite's under what it
-    /// counts, the game's under the word the Statistics screen prints over it.
+    /// It counted this process's lifecycle transitions. The two numbers stand side by side, each
+    /// under the name of the thing it counts — the suite's under what it counts, the game's under
+    /// the word the Statistics screen prints over it.
     /// </summary>
     [Fact]
     public void TheSuitesTransitionCountAndTheSavesResetCountNeverShareAWord()

@@ -78,25 +78,23 @@ public sealed class GameMcpCastTests
     }
 
     [Theory]
-    [InlineData(true, true, null, null)]
-    [InlineData(false, false, "ERR_STATE",
+    [InlineData(true, true, null)]
+    [InlineData(false, false,
         "Cancellable spells are switched off, so this cast cannot be toggled off.")]
     public void ActiveToggleRowsPublishWhetherThePlayersSettingAllowsTheNextPress(
         bool cancellationEnabled,
         bool available,
-        string? reasonCode,
         string? reason)
     {
         var world = World(casting: true, cancellationEnabled);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world,
-            "spell-slots",
-            world.SpellSlots[0]));
+        var row = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
 
-        Assert.Equal(available, (bool)row["toggleOff"]!["available"]!);
-        Assert.Equal(reasonCode, (string?)row["toggleOff"]!["reasonCode"]);
-        Assert.Equal(reason, (string?)row["toggleOff"]!["reason"]);
+        var toggle = Assert.IsType<JObject>(row["toggleOff"]);
+        Assert.Equal(available, (bool)toggle["available"]!);
+        Assert.Equal(reason, (string?)toggle["reason"]);
+        Assert.Equal(available ? new[] { "available" } : new[] { "available", "reason" },
+            toggle.Properties().Select(property => property.Name));
     }
 
     [Fact]
@@ -143,9 +141,7 @@ public sealed class GameMcpCastTests
 
     /// <summary>
     /// The price block on a committed fire is the next cast's, priced against the stock the settled
-    /// world holds now — both numbers from one instant. Named bare `costs` it read as a statement
-    /// about the press that just committed: a live round read `cost: 100 of 7.3 Mana affordable=no`
-    /// off a cast that had landed and took it for a failure.
+    /// world holds — both numbers from one instant.
     /// </summary>
     [Fact]
     public void Fire_returns_the_published_price_and_observed_slot_change()
@@ -176,10 +172,8 @@ public sealed class GameMcpCastTests
         Assert.True((bool)delta["active"]!);
         Assert.True((bool)delta["casting"]!);
 
-        // A charge count reached the wire on two of one round's 144 casts, because it was
-        // published only when the settlement window caught the number moving. The rule is now the
-        // state itself: short of full charges says so, in the game's own format, with its
-        // countdown beside it.
+        // The rule is the state itself: short of full charges says so, in the game's own
+        // format, with its countdown beside it.
         Assert.Equal("1 of 3", (string?)delta["charges"]);
         Assert.Equal("41.0s", (string?)delta["nextChargeIn"]);
     }
@@ -301,10 +295,7 @@ public sealed class GameMcpCastTests
     {
         var world = World(casting: false, cancellationEnabled: true, castCount: 4);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world,
-            "spell-slots",
-            world.SpellSlots[0]));
+        var row = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
 
         Assert.Equal(4, (int)row["casts"]!);
     }
@@ -347,9 +338,8 @@ public sealed class GameMcpCastTests
     }
 
     /// <summary>
-    /// An idle one-shot used to drop <c>active</c> and let the silence carry the answer, which is
-    /// the absence-as-value the surface bans everywhere else. The settled slot always knows whether
-    /// the spell is running, so the key is always there and says which.
+    /// The settled slot always knows whether the spell is running, so the key is always there and
+    /// says which.
     /// </summary>
     [Fact]
     public void An_idle_non_toggle_spell_says_it_is_not_running_rather_than_dropping_the_key()
@@ -371,11 +361,9 @@ public sealed class GameMcpCastTests
     }
 
     /// <summary>
-    /// One verb, one key set. A live round watched <c>release</c> drop both <c>casting</c> and
-    /// <c>charging</c> rather than say <c>no</c>, so the response that exists to end a hold was
-    /// silent about the hold — indistinguishable from a mode that does not speak about holds at
-    /// all. <c>active</c> and <c>charging</c> ride every mode; <c>casting</c> is fire's own verified
-    /// sentinel and no mode without a native delta behind it claims the fact either way.
+    /// One verb, one key set. <c>active</c> and <c>charging</c> ride every mode; <c>casting</c> is
+    /// fire's own verified sentinel and no mode without a native delta behind it claims the fact
+    /// either way.
     /// </summary>
     [Theory]
     [InlineData("fire")]
@@ -466,11 +454,11 @@ public sealed class GameMcpCastTests
         Assert.Equal(
             RecipeId.ToString("D") + " is still recharging: it holds 0 of 3 charges, " +
             "next in 41.0s.",
-            GameMcpWorldQuery.CastNotReadyReason(world, 0, RecipeId));
+            GameMcpCastProjection.CastNotReadyReason(world, 0, RecipeId));
 
         // At full charges the world holds no fact the sentence could carry, so it says nothing and
         // the boundary's own account stands.
-        Assert.Equal(string.Empty, GameMcpWorldQuery.CastNotReadyReason(
+        Assert.Equal(string.Empty, GameMcpCastProjection.CastNotReadyReason(
             World(casting: false, cancellationEnabled: true), 0, RecipeId));
     }
 
@@ -478,11 +466,7 @@ public sealed class GameMcpCastTests
     /// A cast the game refuses on readiness answers with the world's sentence, not the boundary's.
     /// </summary>
     /// <remarks>
-    /// The boundary's own string was taken unconditionally, so the charges-and-countdown sentence
-    /// the world had already composed was thrown away: a live round read the lowercase,
-    /// period-less "the game refused the cast on its own readiness terms" twenty-five times while
-    /// the next <c>world_get</c> on the same slot printed "0 of 1 charges, next in 5.66s". This
-    /// runs the one producer the live press runs, with the boundary's own live string.
+    /// This runs the one producer the live press runs, with the boundary's own live string.
     /// </remarks>
     [Fact]
     public void A_refused_cast_keeps_the_worlds_sentence_over_the_boundarys()
@@ -618,11 +602,6 @@ public sealed class GameMcpCastTests
     /// <summary>
     /// An instant cast that finished and recharged between two worlds settles on its cast count.
     /// </summary>
-    /// <remarks>
-    /// A live round's Beam Burst fire answered "no redrawn world showed this spell casting or a
-    /// charge spent" although the beam went off: the instant cantrip had cast, recharged in
-    /// 0.00s and was idle at full charges by the next world.
-    /// </remarks>
     [Fact]
     public void An_instant_cast_that_already_recharged_settles_on_its_cast_count()
     {
@@ -678,22 +657,18 @@ public sealed class GameMcpCastTests
     [Fact]
     public void An_equipped_spell_row_prints_its_charges_and_its_countdown()
     {
-        var recharging = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            World(
+        var recharging = GameMcpEntityDetailFixture.EquippedSpell(World(
                 casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
-                cooldownRemaining: new BigDouble(5.66d)),
-            "spell-slots",
-            World(
+                cooldownRemaining: new BigDouble(5.66d)), World(
                 casting: false, cancellationEnabled: true, charges: 0, maximumCharges: 1,
-                cooldownRemaining: new BigDouble(5.66d)).SpellSlots[0]));
+                cooldownRemaining: new BigDouble(5.66d)).SpellSlots[0]);
 
         Assert.Equal("0 of 1", (string?)recharging["charges"]);
         Assert.Equal("5.66s", (string?)recharging["nextChargeIn"]);
 
         // At full charges there is nothing to say, and the row says nothing.
         var full = World(casting: false, cancellationEnabled: true);
-        var ready = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            full, "spell-slots", full.SpellSlots[0]));
+        var ready = GameMcpEntityDetailFixture.EquippedSpell(full, full.SpellSlots[0]);
         Assert.Null(ready["charges"]);
         Assert.Null(ready["nextChargeIn"]);
     }

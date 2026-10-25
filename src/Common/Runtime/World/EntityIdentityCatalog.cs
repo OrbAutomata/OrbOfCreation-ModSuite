@@ -49,18 +49,19 @@ internal sealed class EntityIdentityCatalogSnapshot
         long generation,
         EntityIdentityCatalogState state,
         PublicationTable<EntityIdentityName> rows,
-        string failureReason)
+        WorldCollectionFailure failureReason)
     {
         Generation = generation;
         State = state;
         Rows = rows;
-        FailureReason = failureReason ?? string.Empty;
+        Failure = failureReason;
     }
 
     internal long Generation { get; }
     internal EntityIdentityCatalogState State { get; }
     internal PublicationTable<EntityIdentityName> Rows { get; }
-    internal string FailureReason { get; }
+    internal WorldCollectionFailure Failure { get; }
+    internal string FailureReason => Failure.Text;
     internal bool IsBound => State == EntityIdentityCatalogState.Bound;
 
     internal static EntityIdentityCatalogSnapshot Unbound(long generation) =>
@@ -75,29 +76,14 @@ internal sealed class EntityIdentityCatalogSnapshot
 
     internal static EntityIdentityCatalogSnapshot ContractUnavailable(
         long generation,
-        string reason) =>
+        WorldCollectionFailure reason) =>
         new(generation, EntityIdentityCatalogState.ContractUnavailable,
             PublicationTable<EntityIdentityName>.Empty, reason);
 
     internal bool TryGet(Guid uuid, out EntityIdentityName identity)
     {
-        var rows = Rows.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].EntityId.CompareTo(uuid);
-            if (comparison == 0)
-            {
-                identity = rows[middle];
-                return true;
-            }
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-        identity = default;
-        return false;
+        return WorldLookup.TryFindFirst(Rows.AsSpan(), uuid,
+            static (row, key) => row.EntityId.CompareTo(key), out identity);
     }
 }
 
@@ -194,8 +180,7 @@ internal sealed class EntityIdentityCatalog
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
             return Fail(expectedGeneration,
-                "runtime identity registry binding failed: " +
-                exception.GetBaseException().Message);
+                WorldFailures.ReadFault("runtime identity registry binding failed", exception));
         }
         if (source.Status == TypedRegistryResolutionStatus.ContractUnavailable)
             return Fail(expectedGeneration, source.Reason);
@@ -258,7 +243,7 @@ internal sealed class EntityIdentityCatalog
         return built;
     }
 
-    private EntityIdentityCatalogSnapshot Fail(long generation, string reason)
+    private EntityIdentityCatalogSnapshot Fail(long generation, WorldCollectionFailure reason)
     {
         var failed = EntityIdentityCatalogSnapshot.ContractUnavailable(generation, reason);
         _snapshot = failed;
@@ -267,7 +252,7 @@ internal sealed class EntityIdentityCatalog
         {
             _errorReported = true;
             _error("Live entity-name catalog unavailable for lifecycle " +
-                generation + ": " + reason);
+                generation + ": " + reason.Text);
         }
         return failed;
     }

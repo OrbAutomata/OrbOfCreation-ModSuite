@@ -194,10 +194,9 @@ internal sealed class ServiceCycleDecisionJournalRuntime : IDisposable
     /// Waits, bounded, for the writer to make the records it already accepted durable.
     /// </summary>
     /// <remarks>
-    /// The journal seals its open decisions into the transport as it stops, and those last segments
-    /// used to be left to a background thread the process could end at any point. A sink still
-    /// admitting records reports a drain that did not finish rather than waiting for a stop that a
-    /// contained observer failure swallowed — silence there would read exactly like a clean end.
+    /// A sink still admitting records reports a drain that did not finish rather than waiting for a
+    /// stop that a contained observer failure swallowed — silence there would read exactly like a
+    /// clean end.
     /// </remarks>
     private bool DrainAtShutdown() =>
         _sink.WaitForDrain(BufferedSegmentShutdown.DrainBound);

@@ -1,15 +1,55 @@
 #if SERVICE_CYCLE_PROFILE
+using System;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbAutomata.GameMcp;
 
-internal static class GameMcpCastCommand
+internal sealed class GameMcpCastCommand : IGameMcpServiceCommand
 {
+    private readonly AutoCastFeatureRuntime _runtime;
+
+    internal GameMcpCastCommand(AutoCastFeatureRuntime runtime) =>
+        _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+
+    public GameMcpCommandKind Kind => GameMcpCommandKind.Cast;
+    public ServiceId Service => AutoCastServicePolicies.ServiceId;
+
+    public GameMcpCommandResult Execute(
+        GameMcpCommand command, GameMcpCommandScope scope, in ServiceActionContext context)
+    {
+        GameMcpNativeActionAdmission.AssertNativeType(command, Descriptor.NativeType);
+        var kind = command.Mode switch
+        {
+            "release" => AutoCastActionKind.ReleaseCharge,
+            "toggle_off" => AutoCastActionKind.ToggleOff,
+            _ => AutoCastActionKind.Fire,
+        };
+        // Live slot identity and charged-cast capability are revalidated by the native boundary.
+        var action = new AutoCastCycleAction(
+            kind, checked(command.Amount - 1), command.TargetId, scope.World.Snapshot.CollectedAtEpoch,
+            chargeHold: string.Equals(command.PayloadValue, "charge", StringComparison.Ordinal));
+        var config = scope.Configuration.Snapshot;
+        var result = _runtime.TryExecuteGameMcp(in action, in config, in context);
+        var submission = _runtime.LastGameMcpSubmission;
+        var reason = GameMcpCastProjection.CastRefusalReason(
+            command, scope.World.Snapshot, in result,
+            submission.Outcome.Verified, submission.Outcome.Reason);
+        GameMcpValue? details = null;
+        if (submission.Occupant != Guid.Empty)
+            details = new GameMcpObjectBuilder
+            {
+                ["occupant"] = submission.Occupant.ToString("D"),
+            }.Freeze();
+        return GameMcpCommandResult.FromAction(
+            result.WithReason(reason), scope.Lifecycle, scope.ConfigurationGeneration, details);
+    }
+
     internal static GameMcpCommandDescriptor Descriptor { get; } = new(
         GameMcpCommandKind.Cast,
         GameMcpCommandDispatcher.FeatureExecutor,
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectCastDelta(state, command),
+            static (state, command, _) => GameMcpCastProjection.ProjectCastDelta(state, command),
             RequestedOutcome,
             TimedOut),
         nativeType: "SpellRecipeSO",
@@ -39,12 +79,9 @@ internal static class GameMcpCastCommand
     /// The cast this press started, seen in the settled world.
     /// </summary>
     /// <remarks>
-    /// A fire had no sentinel at all, so the first world one generation newer than the press was
-    /// accepted — and a live round's committed fire answered <c>active: no  castReady: yes</c> with
-    /// no recharge block, describing a world that had not yet seen the cast.
     /// <para>
-    /// The game spends the charge at the END of the cast, not at the press:
-    /// <c>Spell.Cast()</c> loads a cooldown and sets the prep state, and only
+    /// The game spends the charge at the END of the cast, not at the press: <c>Spell.Cast()</c>
+    /// loads a cooldown and sets the prep state, and only
     /// <c>Spell.EndCasting</c>/<c>Spell.ExecuteSpell</c> call <c>Spell.ConsumeCharge()</c>. So a
     /// spell slower than the world cadence is still readying when the next world lands and its
     /// charge has not moved, while a spell faster than it has already finished and dropped one.
@@ -79,13 +116,13 @@ internal static class GameMcpCastCommand
     {
         if (string.Equals(command.Mode, "toggle_off", System.StringComparison.Ordinal))
         {
-            return GameMcpWorldQuery.PostStateUnavailable(
+            return GameMcpRowKit.PostStateUnavailable(
                 "requested_state_not_reached",
                 "the settled spell slot did not show the requested toggle as off");
         }
         if (string.Equals(command.Mode, "fire", System.StringComparison.Ordinal))
         {
-            return GameMcpWorldQuery.FireWithoutSettledWorld(command);
+            return GameMcpCastProjection.FireWithoutSettledWorld(command);
         }
         return GameMcpPostStateSettlement.PostStateTimeout();
     }

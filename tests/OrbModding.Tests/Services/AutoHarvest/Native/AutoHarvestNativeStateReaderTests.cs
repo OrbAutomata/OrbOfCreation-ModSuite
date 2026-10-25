@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.Runtime.ServiceCycle.Profile;
+#endif
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,7 +24,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         var world = PrototypeWorld.Create();
         var instance = world.AddInstance(world.Plot, world.Action);
 
-        Assert.Same(instance, new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Same(instance, new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     /// <summary>
@@ -33,7 +42,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         var instance = world.AddInstance(world.Plot, world.Action);
         world.AddInstance(world.OtherPlot, world.OtherAction);
 
-        Assert.Same(instance, new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Same(instance, new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     /// <summary>
@@ -46,7 +59,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         world.AddInstance(world.Plot, world.Action);
         world.AddInstance(world.Plot, world.Action);
 
-        Assert.Null(new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Null(new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     [Fact]
@@ -55,7 +72,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         var world = PrototypeWorld.Create();
         world.AddInstance(world.OtherPlot, world.OtherAction);
 
-        Assert.Null(new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Null(new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     /// <summary>
@@ -69,7 +90,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         world.AddInstance(world.Plot, world.Action);
         world.AddInstance(world.OtherPlot, world.Action);
 
-        Assert.Null(new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Null(new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     [Fact]
@@ -79,7 +104,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         world.AddInstance(world.Plot, world.Action);
         world.Instances.Add(null!);
 
-        Assert.Null(new AutoHarvestNativeStateReader().ReadPrototype(world.Resolved));
+        Assert.Null(new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ReadPrototype(world.Resolved));
     }
 
     [Theory]
@@ -106,7 +135,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         else
             throw new InvalidOperationException("unexpected click gate fixture");
 
-        var actual = new AutoHarvestNativeStateReader().ValidateClickAdmission(
+        var actual = new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ValidateClickAdmission(
             world.Resolved,
             out _);
 
@@ -125,7 +158,11 @@ public sealed class AutoHarvestNativeStateReaderTests
         world.Plot.ActionInstancesFailure = new NullReferenceException("injected instance list read failure");
 
         Assert.Throws<NullReferenceException>(() =>
-            new AutoHarvestNativeStateReader().ValidateClickAdmission(world.Resolved, out _));
+            new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ValidateClickAdmission(world.Resolved, out _));
     }
 
     [Fact]
@@ -137,7 +174,11 @@ public sealed class AutoHarvestNativeStateReaderTests
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused,
-            new AutoHarvestNativeStateReader().ValidateClickAdmission(world.Resolved, out _));
+            new AutoHarvestNativeStateReader(
+#if SERVICE_CYCLE_PROFILE
+             new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ).ValidateClickAdmission(world.Resolved, out _));
     }
 
     [Fact]
@@ -153,11 +194,15 @@ public sealed class AutoHarvestNativeStateReaderTests
             [currentPlot.GetGuid()] = currentPlot,
             [currentAction.GetGuid()] = currentAction,
         };
-        var resolver = new OrbModding.Common.TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => 1,
             () => OrbModding.Common.TypedRegistrySourceSnapshot.Ready((IDictionary)registry),
             value => ((IdScriptableObject)value).GetGuid());
-        var reader = new AutoHarvestNativeStateReader(resolver);
+        var reader = new AutoHarvestNativeStateReader(resolver
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
         var succeeded = reader.TryResolveCurrentPair(world.Resolved, out var current);
 

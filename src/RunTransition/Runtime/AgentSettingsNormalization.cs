@@ -65,7 +65,7 @@ internal static class AgentSettingsNormalization
         }
         catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
         {
-            reason = "the game's settings write failed: " + exception.Message;
+            reason = GameActionFaultLog.Reason("The game settings could not be applied.", exception, "run settings").Text;
             return false;
         }
     }

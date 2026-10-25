@@ -119,7 +119,7 @@ internal static class GameMcpScreenTools
             {
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
-                    arguments, "limit", GameMcpWorldQuery.DefaultLimit);
+                    arguments, "limit", GameMcpWorldList.DefaultLimit);
             },
 
             // The tooltip catalog joins the spell a casting-bar button is about to the loadout slot the

@@ -1,27 +1,14 @@
 # Automation
 
-This folder is the automation feature area of the suite: Auto Buy, Auto Cast, Auto Concept, Spell
-Leveling, Auto Harvest, Auto Items, and Auto Scribe. It is not a separate plugin and carries no
-version of its own; everything here compiles into `OrbModSuite.dll` and loads under the suite's
-single plugin GUID.
+This folder owns the feature-neutral automation host, composition and shared MCP transport.
+Feature implementations live in sibling folders under `src/`; [source ownership](../AGENTS.md)
+defines the boundary. [Architecture](../../docs/runtime-architecture/architecture.md) owns the
+service roster; [Plugin](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Plugin.cs) owns typed composition and registration.
 
-Auto Buy, Auto Harvest, Auto Items, Auto Scribe, Spell Leveling, Auto Cast, and Auto Concept are
-registered ServiceCycle services and share the frame pump with world collection. Auto Buy receives
-a fixed 16-action turn per Unity frame; the other feature services retain a bounded one-action
-turn. Fruit and treasure capabilities cannot mask an eligible sibling. A feature-neutral host owns
-the ServiceCycle registry, frame pump, lifecycle, emergency control, timing publication, and
-pump-shutdown lease. That host also owns the observation products — the always-held recent-event ring,
-the normally-on compact decision journal, and the profiling build's correlated full trace and
-performance profile — so no feature owns them and gameplay is independent of all four. Every native operation passes
-through fail-closed family adapters, normalized admission facts, lifecycle isolation, and
-capture-execute-capture postconditions.
-
-Automation claims Structure, Upgrade plus native multi-buy override, Spell Cast, Concept Assignment,
-Spell Level Purchase, Harvest Action, Consumable Use, and Scribe queue submission independently.
-The exact AutobuyOrb GUID blocks only Structure and Upgrade automation. Claims are released on
-configuration/lifecycle teardown, prepared work is cancelled on loss, and ownership is rechecked
-after live native validation immediately before mutation. Unknown unregistered automation is not
-disabled and cannot be proven absent.
+The shared runtime owns scheduling, lifecycle, emergency control and observation. Every native
+mutation uses its canonical GameAction, stable identity, current native admission and a verified
+outcome. [The boundary doctrine](../../docs/runtime-architecture/game-boundary-doctrine.md) specifies
+failure and retry rules, and [testing](../../docs/testing/README.md) owns validation commands.
 
 ## Build
 
@@ -34,16 +21,18 @@ dotnet build .\src\OrbModSuite.csproj -c Release
 
 Do not commit the referenced BepInEx, Unity, Harmony, or game DLLs.
 
-## Release defaults
+## Configuration and controls
+
+[Configuration declarations](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/BepInExAutomataConfiguration.cs) own keys, domains and defaults; [the player guide](../../docs/user-guide/configuration.md) explains control use. The examples below are partial.
 
 - Auto Buy starts `Active` with separate `Excess100` thresholds for structures and upgrades; progression-aware spell leveling is enabled within Auto Buy and can be disabled separately.
 - Auto Cast starts `Disabled` and can be toggled with `F8` or its registered quick control.
-- Gameplay controls close to exactly two suite-owned buttons below the native top-left gear and character buttons: immediate STOP/resume and a disclosure. The disclosure opens the shared registry's Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Mentor, Auto Items, and Auto Scribe controls in one transient row to the right; its closed state shows a structural marker plus red color for contained faults or blocks.
+- Gameplay controls provide STOP/resume and disclosure below the native top-left controls. Disclosure opens the [registered controls](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomationFeatureControlRegistry.cs) in a panel below the compound control. [QuickControlColumn](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/QuickControlColumn.cs) owns the layout; the closed disclosure marks contained faults or blocks.
 - Auto Concept starts `Disabled`; `Active` fills compatible acquired Active Concept slots breadth-first, then batches safe quantity depth up to native mastery limits.
 - Auto Harvest starts `Disabled`; its fruit-tree and treasure-tree selectors default on behind that master switch, and its native harvest-speed quick icon toggles the mode.
 - Auto Items starts `Disabled`; `UseScrolls` and `UseRelics` default on behind it, exact temporary-item approval remains in `TemporaryItemAllowlist`, and one feature-wide quick control toggles the master mode.
 - Auto Scribe starts `Disabled`; an empty `Roles` value selects every audited producible semantic role, and one feature-wide quick control toggles its mode.
-- Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto Scribe, and Mentor expose only `Disabled` and `Active`.
+- Feature modes use the domain declared by the configuration owner; quick controls and Mods headers commit through the same store.
 - One native queue slot is reserved for manual actions.
 - Each ranked Structure prefers one live Bulk Development-sized group, reduced to the largest exactly priced positive count the remaining batch ledger can fund; each Upgrade receives one level. Every submitted level is independently revalidated.
 - Candidates rank by cost ratio and stable UUID; there is no UUID-list filter or structure-effect priority tier.
@@ -62,12 +51,11 @@ Do not commit the referenced BepInEx, Unity, Harmony, or game DLLs.
 - Each Mods feature header and its matching gameplay drawer button issue the same immediate mode command through the committed store. Mode is not repeated in the staged settings list, and General's emergency command is likewise immediate rather than staged. Toggle shortcuts, quick-control visibility, emergency control, and diagnostics remain editable while inactive feature tuning stays locked.
 
 At runtime, those persisted settings are mapped once per change into one composed immutable
-configuration record with General, Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto
-Scribe, Mentor, Safety, and Reserves sections. Engines and controls consume that record rather than
+configuration record whose [store](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/Runtime/Configuration/AutomataConfigurationStore.cs) owns the section composition. Engines and controls consume that record rather than
 BepInEx entries or feature-specific configuration mirrors. A ServiceCycle cycle pins the complete
 record it began with; later changes apply to a later cycle.
 
-The former runtime-probe, per-session purchase-limit, DryRun, expert-override, Auto Research, and Auto Harvest runtime-selector settings are not part of the release configuration or the configuration UI. Automation has no configuration schema of its own: it binds into the suite's single configuration file, which the shared pre-bind transaction marks at `ConfigurationSchemaVersion` 7. Migrations remove retired controls (schema 7 deletes the Auto Concept fill floor `MinimumResourcePercent`), preserve reviewed current values, and move the former default Auto Concept training period from 300 to 30 seconds. Malformed, negative, or future schema data fails closed without starting the suite.
+The [shared configuration owner](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/ModConfig) owns schema and migration behavior. Malformed, negative or unsupported schema data fails closed without starting the suite.
 
 ## Auto Harvest
 
@@ -114,7 +102,11 @@ Auto Harvest evaluates after each world or configuration publication. Disabled m
 
 ### ServiceCycle runtime
 
-The Common ServiceCycle engine is the only Auto Harvest driver. The suite registers a feature-owned activation service during plugin startup, but does not construct the lifecycle-bound runtime until the first playable `Main` frame. Generation zero remains invalid rather than being converted into a synthetic native lifecycle. Construction is attempted once; an ordinary failure disables Auto Harvest alone without selecting an alternate path or affecting sibling services. Fatal process failures are never relabeled as an isolated feature fault.
+The Common ServiceCycle engine drives Auto Harvest after a playable native lifecycle is admitted.
+[Composition](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Plugin.cs) owns activation; zero generation does not create a synthetic lifecycle.
+Feature construction and fault handling stay isolated through the shared runtime. The
+[boundary doctrine](../../docs/runtime-architecture/game-boundary-doctrine.md) owns retry and
+invariant-stop rules; no alternate runtime is selected after a failure.
 
 The neutral host seals an explicitly populated typed registry and admits each registered service at most once per Unity frame. World collection publishes at its hardcoded 250-millisecond cadence; every ordinary automation service evaluates after each world publication and configuration publication. Training-period deadlines, Auto Cast's manual pause, and fault backoffs remain explicit semantic waits. A mixed-type composition test registers unrelated frame/config/state/action graphs in the same host; no host type references Auto Harvest or Auto Buy. Production explicitly registers world collection, Auto Harvest, and Auto Buy rather than creating another pump. Main-thread capture copies only native-free facts; sleeping workers evaluate feature policy; and every advisory action returns to the Unity thread for fresh native validation.
 
@@ -126,7 +118,11 @@ The admission snapshot is captured once and supplies current policy and queue ad
 traverses only far enough to identify one matching engaged action. Ordinary assemblies compile out the
 profiler types and calls.
 
-Saved configuration publishes only after a successful Apply and affects the next cycle. Lifecycle replacement clears stale native bindings, emergency disable rejects unattempted work immediately, and action-family ownership is checked both in diagnostics and immediately before mutation. Capture preserves native failure evidence: an exception thrown inside a correctly bound native call is retryable, while reflected shape, access, owner, or return-contract drift latches until restart without invoking the broken path again. A failed shared active-action snapshot is feature-scoped; a failed pair-fact read remains pair-scoped. Process-lifetime contract failures remain closed until restart rather than being converted into ordinary lifecycle retries.
+Saved configuration publishes through the shared store and is pinned per cycle. Lifecycle replacement
+invalidates native references; emergency stop rejects unattempted work. The
+[shared boundary](../../docs/runtime-architecture/game-boundary-doctrine.md) defines failure scope,
+full-cause logging and retries. A feature does not convert an unreadable capture into empty data or
+install its own lifecycle latch for an ordinary failed attempt.
 
 The Runtime page projects pair health from immutable ServiceCycle state without inventing a legacy cycle identity. A worker response requests one full service projection; a zero-wait contended read remains pending until a later frame succeeds. Emergency-stop and action-family conditions remain immediate.
 
@@ -173,7 +169,12 @@ A value that could not be read is not evidence. A candidate whose every cost row
 
 Every active native mutation uses stable identity plus one observable outcome sentinel. Auto Buy checks the requested queued level, Auto Concept checks that the queued stacks moved the requested way, so a partial add commits and the next world settles how far it got, spell leveling checks native mastery advancement, Auto Cast checks the audited `Spell.Fire` hook for a new cast and native casting-state deactivation for a player-requested toggle-off, and Auto Harvest checks for exactly one engaged matching plot action. No boundary captures payment deltas or assembles a general before/after receipt. After a throw it rereads the same sentinel: an observable requested outcome commits; an absent or ambiguous transition faults the action, the retry gate backs that candidate off, and the retry revalidates against a fresh world. Every retry is backed off and logged, never silent. Only a proven contract mismatch or the emergency stop holds until the next scene, save-load, reset, or NG+ lifecycle invalidation.
 
-When the game refuses a purchase Auto Buy planned, the boundary first asks *which fact moved*. It reads `IsAvailable()`, `IsMaxLevel()`, `IsMaxQueuedLevel()`, the game's verdict on the price, and every live cost row and its spendable amount, and sets them beside what the plan believed. A price-only refusal is expected snapshot staleness: that candidate is skipped before any native mutation, a newer world collection is required before Auto Buy plans again, and nothing is logged. Every other refusal ends the batch. An availability refusal, or a level refusal (at the maximum or maximum queued level while the world said below, as when the player queued the last level by hand), backs the candidate off quietly: the first one is neither logged nor shown, and only a refusal again from a fresher world logs one warning and degrades the status, until the candidate's retry is due. Both double their wait from 250 ms up to a cap of one minute, carried on the refusal, so a candidate the game keeps refusing cannot hold back every purchase ranked after it; one more warning says when the episode ends. A refusal with every readable term passing is the invariant: Auto Buy writes one full bundle within the fixed eight-file/1 MiB diagnostic envelope, logs one error naming the candidate, the refusal and the bundle, and reports itself faulted with `invariant_violation`. It then holds off until the next save load, reset, scene change or NG+ checks the game again. It never changes the saved configuration. Bundle-capture failure stays in the error line.
+A refused planned purchase is diagnosed against the current native facts and the plan's belief by
+[Auto Buy admission](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Native/AutoBuyAdmissionDiagnosis.cs). The structured
+result distinguishes affordability, availability, limits and invariant contradictions. Failed
+attempts retain their own cause reference; warnings and health may coalesce the same condition
+without suppressing retry evidence. Retry ordering and invariant stops follow the shared runtime,
+not an additional feature lifecycle circuit.
 
 Feature health publishes Auto Buy, Auto Cast, Auto Concept, Spell Leveling, Auto Harvest, and Auto
 Items independently through Common. Controls and tooltips now separate saved configuration from
@@ -195,7 +196,7 @@ Reserves are an optional second policy. After each level, Auto Buy requires enou
 
 Auto Buy always plans the complete ranked candidate list and lets the native boundary continue until only `LeaveQueueSlots` remain. Structures prefer the live Bulk Development count and reduce it when the remaining batch ledger cannot fund that complete exact group; Upgrades always request one level. Exact rising grouped costs are reserved in the batch ledger, missing exact group sums are never approximated, and every emitted group is capped again to usable queue room.
 
-Upgrade submission temporarily forces the native global multi-buy value to one and verifies that the captured value is restored afterward, including when the setter or purchase throws. A setter or getter failure the game is expected to raise refuses the press after restoring; any other throw is restored first and then escapes as a fault. If restoration cannot be confirmed through the native getter, the restore stays outstanding: every Upgrade press is refused with that reason, and the first press after each doubling wait (one second up to one minute) reads the setting again and puts the player's value back. Each failed attempt writes a log line. A verified read-back ends the wait, and if the setting no longer reads as the suite left it, the player's new value stands. Structure purchases do not use that global and remain independently eligible.
+Upgrade submission temporarily forces the native global multi-buy value to one and verifies that the captured value is restored afterward, including when the setter or purchase throws. A setter or getter failure the game is expected to raise refuses the press after restoring; any other throw is restored first and then escapes as a fault. If restoration cannot be confirmed through the native getter, the restore stays outstanding: every Upgrade press is refused with that reason, and the first press after each doubling wait (one second up to one minute) reads the setting again and puts the player's value back. Each failed attempt writes a log line. A verified read-back ends the wait, and if the setting does not read as the suite left it, the player's new value stands. Structure purchases do not use that global and remain independently eligible.
 
 Continuation is always active: after each candidate's group, Auto Buy advances through the remaining prepared ranking while live queue room permits. The prepared next candidate does not require a catalog rescan. Native availability, current cost, affordability, reserves, maximum level, and queue admission are re-read before every level.
 
@@ -229,7 +230,7 @@ Native completion signals do not discard a safely prepared Fixed, Bulk Developme
 
 Rapid completion signals are generation-coalesced while a bounded lifecycle settlement is already running. They do not restart its cursor or an in-progress candidate scan; one follow-up generation retains eventual broad effect discovery. A recommendation produced across that window is advisory only and must still pass a fresh authoritative candidate and queue validation before its native mutation.
 
-Routine active and locked-content lifecycle probes run on a fixed 250 ms cadence rather than once per purchase evaluation. Each maintenance slice checks at most eight active and sixteen slow-reconciliation entries, so faster queue turnover cannot multiply background reflection work.
+[Lifecycle maintenance](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/AutoBuy) owns bounded probe work and wake policy. A faster evaluation rate does not create a second reflection scan loop.
 
 Structures must pass native availability before Auto Buy reads costs or calls the purchase contract. The supported native `UpgradeSO.CanPurchase()` contract combines affordability with lifecycle, requirements, and queue admission, so Auto Buy calls it first and then decodes the exact current cost before classifying a false result. A proven reserve or affordability failure remains subscribed to its resource dependencies; a cost-safe false result is parked outside high-frequency quantity updates for bounded lifecycle or completion retry. Native bandwidth costs are explicitly identified through `ResourceSO.IsBandwidthResource()` and remain tracked because their admission uses missing usage rather than ordinary quantity.
 
@@ -237,7 +238,11 @@ Repeated native mutation failures are rate-limited per candidate while aggregate
 
 During a prepared ranked pass, each candidate refreshes its own cost immediately before its level. Shared resource-dependent invalidation is coalesced while later candidates are still live-revalidated against current resources and native state. A failed admission skips that candidate for the current pass; an ambiguous native mutation failure ends the pass so dirty state can settle safely. If the queue fills, the next ranked candidate remains prepared across the wait and is live-revalidated when a slot reopens.
 
-Queue capacity is refreshed after that live candidate/cost/reserve validation and immediately before every queued mutation. The supported native adapter reads total capacity from `ActionManager.instance.actionableItems.maxQueuedItems.AsInt()` and live room from `ActionManager.GetRemainingRoom()`. Negative values, remaining room greater than capacity, missing native objects, or an invalid policy input reject the snapshot and submit no purchase. The snapshot derives occupancy and subtracts `LeaveQueueSlots` exactly once before applying the current batch usage limit.
+Immediately before queue admission, [the Auto Buy queue adapter](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Native/AutoBuyNativeQueueRoomAdapter.cs)
+reads live `GetRemainingRoom` after proving the manager is alive. [Admission](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Native/AutoBuyCycleActionAdapter.cs)
+clamps a negative room reading to no free slots and applies the manual reserve. It does not read
+queue capacity to reject room above capacity. Separately, [world queue occupancy](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Common/Runtime/World/Categories/WorldActionQueue.cs)
+reads `maxQueuedItems` for published queue capacity; that field's installed-game contract remains required.
 
 ## Auto Scribe
 
@@ -340,7 +345,7 @@ Enabling the feature initializes the scoped shared classifier and snapshots curr
 
 An add or remove whose queued stacks did not move, including one the game threw on, backs that Concept's add or remove off on the retry gate, a quarter second doubling to ten, and hands the turn to the next Concept, so every other Concept and the other action keep theirs. The status names the Concept and the action, the cause of a throw stays in the suite log under the reference the sentence ends with, and a commit or the Concept leaving the candidates ends the back-off. A `ConceptRecipes` list that is empty or unreadable during load, a failed contract initialisation, and a retryable registry status are retried the same way within the lifecycle. Only a proven concept-domain mismatch, such as a wrong type, contradictory ordinary-and-Scholar typing or ambiguous evidence, holds Auto Concept until the next scene or load, which probes it again: every action is refused with `contract_unavailable` without backing a Concept off, one warning names the mismatch, and the status is faulted with `invariant_violation`; `Unknown` evidence never falls back to ordinary names or broad alchemy membership.
 
-Warnings and errors are always emitted. After a problem, use **Create bug report** on Mods Runtime to flush and package the recent-event ring, decision journal, configuration, identifiable save files, and redacted log into one capped zip. When the game's own tick fails at the same element every tick, the suite logs that element once, shows a stuck-game banner, and writes the same bundle automatically with the tick faults in place of save files (see the [diagnostic observe-and-rethrow exception](../../docs/runtime-architecture/game-boundary-doctrine.md#diagnostic-observe-and-rethrow-exception); `[Diagnostics] ObserveGameTickFaults = false` turns it off). **Check game math** remains a separate read-only diagnostic. Schema 5 retires the old global logging switches, rejection cap, and detailed-logging preferences because ServiceCycle does not consume them.
+Warnings and errors are always emitted. After a problem, use **Create bug report** on Mods Runtime to flush and package the recent-event ring, decision journal, configuration, identifiable save files, and redacted log into one capped zip. When the game's own tick fails at the same element every tick, the suite logs that element once, shows a stuck-game banner, and writes the same bundle automatically with the tick faults in place of save files (see the [diagnostic observe-and-rethrow exception](../../docs/runtime-architecture/game-boundary-doctrine.md#diagnostic-observe-and-rethrow-exception); `[Diagnostics] ObserveGameTickFaults = false` turns it off). **Check game math** remains a separate read-only diagnostic.
 
 Auto Buy decisions use append-only Common codes rather than parsing diagnostic text. Candidate threshold parking, rejection telemetry, the latest tooltip status, and Runtime presentation all consume the same immutable decision. Observed quantities and wording can change without producing a new condition; stable thresholds, identities, policy, queue limits, and native states do produce a transition. Equivalent conditions are not republished to future Insights subscribers.
 

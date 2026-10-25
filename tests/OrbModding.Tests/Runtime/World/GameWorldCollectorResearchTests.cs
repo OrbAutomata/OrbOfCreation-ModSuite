@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
+using OrbModding.Common;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.World;
 
 namespace OrbModding.Tests.Runtime.World;
@@ -16,13 +19,13 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
         var challenge = new global::ChallengeSO();
         challenge.SetGuid(focusImprovedScribing);
 
-        var requirementsAdjust = new FakeModifierRecord(0d);
-        requirementsAdjust.passiveModifiers[authoredModifier] = new FakeValueModifier(
-            FakeModifierKind.Raw,
+        var requirementsAdjust = new ValueModifierRecord(0d);
+        requirementsAdjust.passiveModifiers[authoredModifier] = new ValueModifier(
+            ValueModifier.ValueModifierType.Raw,
             -5d,
             order: 0,
             reference: challenge);
-        FakeResearch.All.Add(new FakeResearch
+        ResearchSO.All.Add(new ResearchSO
         {
             Identity = improvedScribing,
             level = 10,
@@ -42,7 +45,7 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
         var adjustment = Assert.Single(research.RequirementAdjustments.AsSpan().ToArray());
         Assert.Equal(authoredModifier, adjustment.ModifierId);
         Assert.Equal(focusImprovedScribing, adjustment.SourceId);
-        Assert.Equal((int)FakeModifierKind.Raw, adjustment.ModifierType);
+        Assert.Equal((int)ValueModifier.ValueModifierType.Raw, adjustment.ModifierType);
         Assert.Equal(-5d, adjustment.Amount.ToDouble());
         Assert.Equal(0, adjustment.Order);
         Assert.True(adjustment.Passive);
@@ -51,30 +54,25 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void ResearchDecisionPublishesNativeCostHoldingsInvestmentAndBonusCapacityTogether()
     {
-        var resource = new FakeResource { Identity = Guid.NewGuid(), Quantity = new BigDouble(80) };
-        var type = new FakeResearchType
+        var resource = new ResourceSO { Identity = Guid.NewGuid(), Quantity = new BigDouble(80) };
+        var type = new ResearchTypeSO
         {
             Identity = Guid.NewGuid(),
-            RemainingFreeBonusLevels = 2,
+            FreeBonusLevels = 2,
             CurrentInvestmentLevel = 1,
-            MaxInvestmentLevel = 5,
+            MaximumInvestmentLevel = 5,
         };
-        var fill = new FakeResearchFillList.ResourceFillEntry
-        {
-            resource = resource,
-            Quantity = new BigDouble(40),
-            Capacity = new BigDouble(100),
-        };
-        var research = new FakeResearch
+        var fill = new ResourceFillList.ResourceFillEntry(resource, new BigDouble(40), new BigDouble(100));
+        var research = new ResearchSO
         {
             Identity = Guid.NewGuid(),
             maxLevel = 10,
-            researchCost = new FakeCraftingResourceCostList().With(resource, new BigDouble(20)),
+            researchCost = new ResourceCostList().With(resource, new BigDouble(20)),
         };
         research.researchTypes.Add(type);
         research.resourceFillList.entries.Add(fill);
-        FakeResource.All.Add(resource);
-        FakeResearch.All.Add(research);
+        ResourceSO.All.Add(resource);
+        ResearchSO.All.Add(research);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -98,20 +96,17 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void ResearchQueueDecisionReportsOnlyTheAffordableAcceptedCostPrefix()
     {
-        var resource = new FakeResource { Identity = Guid.NewGuid(), Quantity = new BigDouble(15) };
-        var research = new FakeResearch
+        var resource = new ResourceSO { Identity = Guid.NewGuid(), Quantity = new BigDouble(15) };
+        var research = new ResearchSO
         {
             Identity = Guid.NewGuid(),
             maxLevel = 10,
-            researchCost = new FakeCraftingResourceCostList
-            {
-                affordabilityUsesResourceAmounts = true,
-            }.With(resource, new BigDouble(10)),
+            researchCost = new ResourceCostList().With(resource, new BigDouble(10)),
         };
-        FakeSettingsManager.QueueMode = true;
-        FakeGlobalVariables.SetMultiBuy(3);
-        FakeResource.All.Add(resource);
-        FakeResearch.All.Add(research);
+        SettingsManager.ResearchQueueMode = true;
+        GlobalVariables.MultiBuy.SetValue(3);
+        ResourceSO.All.Add(resource);
+        ResearchSO.All.Add(research);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -136,26 +131,28 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
         // consumer would read as a run with no time left.
         var racing = Guid.NewGuid();
         var gated = Guid.NewGuid();
-        FakeChallenge.All.Add(new FakeChallenge
+        ChallengeSO.All.Add(new ChallengeSO
         {
             Identity = racing,
             level = 3,
             maxLevel = -1,
-            challengeCondition = new FakeChallengeCondition
+            challengeCondition = new ChallengeCondition
             {
-                beforeType = FakeBeforeType.Time,
+                beforeType = ChallengeCondition.BeforeType.Time,
                 timeLimitSeconds = 600d,
+                timeLimitScalingPerLevel = 2d / 3d,
             },
         });
-        FakeChallenge.All.Add(new FakeChallenge
+        ChallengeSO.All.Add(new ChallengeSO
         {
             Identity = gated,
             level = 3,
             maxLevel = -1,
-            challengeCondition = new FakeChallengeCondition
+            challengeCondition = new ChallengeCondition
             {
-                beforeType = FakeBeforeType.Prereq,
+                beforeType = ChallengeCondition.BeforeType.Prereq,
                 timeLimitSeconds = 600d,
+                timeLimitScalingPerLevel = 2d / 3d,
             },
         });
 
@@ -164,11 +161,11 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
         var world = collector.Build();
 
         Assert.True(WorldLookup.TryFind(world.Challenges, racing, out var timed));
-        Assert.Equal((int)FakeBeforeType.Time, timed.ConditionBeforeType);
+        Assert.Equal((int)ChallengeCondition.BeforeType.Time, timed.ConditionBeforeType);
         Assert.Equal(new BigDouble(1800), timed.TimeLimit);
 
         Assert.True(WorldLookup.TryFind(world.Challenges, gated, out var untimed));
-        Assert.Equal((int)FakeBeforeType.Prereq, untimed.ConditionBeforeType);
+        Assert.Equal((int)ChallengeCondition.BeforeType.Prereq, untimed.ConditionBeforeType);
         Assert.Equal(BigDouble.Zero, untimed.TimeLimit);
     }
 
@@ -179,7 +176,7 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void TheChallengeTypeFailureIsNamedFirstWhenPrestigeAlsoFails()
     {
-        FakePersistentResetManager.instance.persistentResource = null!;
+        PersistentResetManager.instance.persistentResource = null!;
 
         var report = Collector(("ChallengeTypeSO", null)).Collect().For("challenge decisions");
 
@@ -190,7 +187,7 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void APrestigeDecisionThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakePersistentResetManager.instance.persistValue = new FakeCount { value = null! };
+        PersistentResetManager.instance.persistValue = new IntVariable { value = null! };
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
@@ -198,7 +195,7 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void AChallengeDecisionThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakePersistentResetManager.instance.challengeRerollsLeft = new FakeCount { value = null! };
+        PersistentResetManager.instance.challengeRerollsLeft = new IntVariable { value = null! };
 
         Assert.Throws<NullReferenceException>(() => Collector().Collect());
     }
@@ -206,7 +203,7 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void AChallengeTypeThatThrowsUnexpectedlyFaultsTheWorldPass()
     {
-        FakeChallengeType.All.Add(new FakeChallengeType
+        ChallengeTypeSO.All.Add(new ChallengeTypeSO
         {
             GetGuidFailure = new NullReferenceException("challenge type"),
         });
@@ -225,13 +222,13 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
     [Fact]
     public void TheDraftPublishesItsWeightedBucketsAndTheBucketEachChallengeSitsIn()
     {
-        var focus = new FakeChallengeType { weight = 4d, restrictedInstances = true };
-        var handPlaced = new FakeChallengeType { weight = 0d, excludeFromRandomSelection = true };
-        FakeChallengeType.All.Add(focus);
-        FakeChallengeType.All.Add(handPlaced);
+        var focus = new ChallengeTypeSO { weight = 4d, restrictedInstances = true };
+        var handPlaced = new ChallengeTypeSO { weight = 0d, excludeFromRandomSelection = true };
+        ChallengeTypeSO.All.Add(focus);
+        ChallengeTypeSO.All.Add(handPlaced);
 
-        var challenge = new FakeChallenge { challengeTypes = { focus } };
-        FakeChallenge.All.Add(challenge);
+        var challenge = new ChallengeSO { challengeTypes = { focus } };
+        ChallengeSO.All.Add(challenge);
 
         var collector = Collector();
         var report = collector.Collect();
@@ -258,5 +255,33 @@ public sealed class GameWorldCollectorResearchTests : GameWorldCollectorTestBase
         Assert.Equal(challenge.Identity, membership.ChallengeId);
         Assert.Equal(0, membership.Ordinal);
         Assert.Equal(focus.Identity, membership.ChallengeTypeId);
+    }
+
+
+    [Fact]
+    public void AStateEnumTravelsAsItsUnderlyingInteger()
+    {
+        // The suite deliberately does not mirror the game's enums. A copied enum would keep compiling
+        // against a build that inserted a member in the middle, and every comparison against it would
+        // silently start meaning something else. The integer is what the game persists.
+        var challenge = Guid.NewGuid();
+        ChallengeSO.All.Add(new ChallengeSO
+        {
+            Identity = challenge,
+            level = 3,
+            state = ChallengeSO.ChallengeState.CurrentlyActive,
+            hasBeenSeen = true,
+            rewardQueued = true,
+        });
+
+        var collector = Collector();
+        collector.Collect();
+        var world = collector.Build();
+
+        Assert.True(WorldLookup.TryFind(world.Challenges, challenge, out var row));
+        Assert.Equal((int)ChallengeSO.ChallengeState.CurrentlyActive, row.State);
+        Assert.Equal(3, row.Level);
+        Assert.True(row.Seen);
+        Assert.True(row.RewardQueued);
     }
 }

@@ -37,7 +37,7 @@ contract. Missing required types, fields, sprites, or structural paths are
 suite defects on the matching audited baseline: installation retries bounded startup timing, then
 logs the exact terminal reason and a typed-candidate census at error level and publishes it to
 Runtime. There is no cloned native toggle, text quick-control, or alternate shell fallback. See the
-[live UI protocol](../../docs/testing/runtime-validation.md#v3--read-only-surfaces).
+[live UI protocol](../../docs/testing/runtime-validation.md#runtime-read-only-surfaces).
 
 Suite-owned UI objects request `RectTransform` explicitly from the native
 `GameObject(string, Type[])` constructor. Quick controls and Mods share one startup-readiness gate.

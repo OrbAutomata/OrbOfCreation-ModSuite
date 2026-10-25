@@ -8,19 +8,10 @@ namespace OrbAutomata;
 internal static class AutoBuyPurchaseNarration
 {
     /// <summary>
-    /// The live queue room could not be read, so the reserve cannot be honoured and no purchase is
-    /// submitted. A missing native surface is an actionable anomaly.
-    /// </summary>
-    public static string QueueRoomUnavailable(AutoBuyCandidateKind kind, Guid uuid, string reason) =>
-        $"Auto Buy failed to purchase {kind} {EntityIdentityFormatter.Format(uuid)}: queue room unavailable: {reason}";
-
-    /// <summary>
     /// The purchase-screen topology was published, for which run, and how much it admits.
     /// </summary>
     /// <remarks>
-    /// This is the one fact every purchase is admitted against, and it used to leave no trace: when
-    /// it was published under the wrong run the log showed only refusals, so which run it belonged
-    /// to had to be recovered from source. Announcing it costs one line per run.
+    /// Announcing it costs one line per run.
     /// </remarks>
     public static string TopologyPublished(long lifecycleEpoch, int rows) =>
         $"Auto Buy purchase-screen topology published for run {lifecycleEpoch}: {rows} " +

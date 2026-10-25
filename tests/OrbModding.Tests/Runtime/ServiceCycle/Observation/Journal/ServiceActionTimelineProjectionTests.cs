@@ -1,3 +1,6 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+#endif
 using System;
 using System.Linq;
 using OrbModding.Common;
@@ -187,7 +190,11 @@ public sealed class ServiceActionTimelineProjectionTests
         using var registration = registry.Register(new SyntheticServiceDefinition("live.service"));
         registry.Seal();
         var source = new ServiceActionTimelineRegistry();
-        using var pump = new SuiteFramePump(registry, null, source);
+        using var pump = new SuiteFramePump(registry, null, source
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
 
         Assert.Equal(1, source.TimelineServiceCount);
         Assert.Equal(ServiceActionTimelineProjection.TimelineBucketCount, source.TimelineCellCapacity);
@@ -201,7 +208,11 @@ public sealed class ServiceActionTimelineProjectionTests
         registry.Seal();
         var source = new ServiceActionTimelineRegistry();
         long whileRegistered;
-        using (var pump = new SuiteFramePump(registry, null, source))
+        using (var pump = new SuiteFramePump(registry, null, source
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            ))
         {
             for (var minute = 1; minute <= 3; minute++)
             {

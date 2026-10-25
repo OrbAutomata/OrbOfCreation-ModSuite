@@ -67,12 +67,9 @@ internal static class GameMcpTooltipPanelRow
     /// </summary>
     /// <remarks>
     /// The address a caller quotes back only has to name one element, and this is the computation
-    /// the ambiguous <c>game_tooltip</c> refusal already performs to decide that it does not. A
-    /// live round spent 23% of this verb on Canvas-rooted ancestry no caller ever quoted: the chain
-    /// was there so that a row plus its page's prefix would resolve, and a tail that resolves on
-    /// its own needs neither. It lengthens one segment at a time and only where uniqueness
-    /// requires it, so the address is always a valid <c>path</c> argument and never longer than the
-    /// whole chain.
+    /// the ambiguous <c>game_tooltip</c> refusal already performs to decide that it does not. It
+    /// lengthens one segment at a time and only where uniqueness requires it, so the address is
+    /// always a valid <c>path</c> argument and never longer than the whole chain.
     /// </remarks>
     internal static string ShortestUnique(string path, IReadOnlyList<string> livePaths)
     {
@@ -197,14 +194,6 @@ internal static class GameMcpTooltipPanelRow
     /// <summary>
     /// One panel of the screen-elements page, from its rows and the address each row printed.
     /// </summary>
-    /// <remarks>
-    /// A panel holding one element is that element: naming a group around it spent a line on a row
-    /// whose whole content was one name, and round ten's worst page was six such panels, two thirds
-    /// of it address. A panel of one component repeated says the component once as
-    /// <c>pathComponent</c> and each row keeps its own bracket index, brackets included, because a
-    /// bare number in a path column beside a slot column is the confusion that cost round eleven a
-    /// refused cast.
-    /// </remarks>
     internal static GameMcpObjectBuilder Panel(
         IReadOnlyList<GameMcpObjectBuilder> members,
         IReadOnlyList<string> segments)

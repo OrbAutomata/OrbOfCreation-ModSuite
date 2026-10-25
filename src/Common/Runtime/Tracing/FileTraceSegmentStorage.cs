@@ -111,11 +111,8 @@ public sealed class FileTraceSegmentStorage : IRestartAwareTraceSegmentStorage
     /// Abandons a store this writer cannot continue, and counts what it discarded.
     /// </summary>
     /// <remarks>
-    /// A store holding an artifact this writer cannot name, or segments in a format it cannot
-    /// continue, used to be a permanent startup failure: every launch met the same directory and
-    /// refused again, so the writer stayed dead until someone deleted files by hand. Evidence that
-    /// cannot be continued is worth less than a recording of the session in front of it, and the
-    /// count says plainly what was traded away.
+    /// Evidence that cannot be continued is worth less than a recording of the session in front of
+    /// it, and the count says plainly what was traded away.
     /// </remarks>
     private TraceSegmentStorageRecovery Quarantine(int staleTemporaryFilesRemoved)
     {

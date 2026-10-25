@@ -234,7 +234,7 @@ public sealed class GameMcpSpellLoadoutTests
     [Fact]
     public void SpellSlotListIsLeanAndPrintsNoIdNobodyCanResolve()
     {
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(World()),
             "spell-slots",
             0,
@@ -243,8 +243,7 @@ public sealed class GameMcpSpellLoadoutTests
         Assert.Equal(3, rows.Length);
 
         var firstSummary = Assert.IsType<JObject>(rows[0]);
-        // The number on the row is the number the verbs take. It used to be the internal index, so
-        // a caller reading slot 5 off the list unequipped what the same list called slot 4.
+        // The number on the row is the number the verbs take.
         Assert.Equal(1, (int)firstSummary["slot"]!);
         Assert.Null(firstSummary["slotIndex"]);
 
@@ -273,17 +272,14 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     /// <summary>
-    /// A slot's row says what is in it, and never what it is doing this instant. Whether a spell is
-    /// mid-cast turns over on its own between two reads — a live round caught the column on one page
-    /// of a scan and gone from the next with nothing about the request changed — so a page of it
-    /// plans nothing and is not a page. The whole row is the slot, its spell and that spell's
-    /// weight, asserted here in full.
+    /// A slot's row says what is in it, and never what it is doing this instant. The whole row is
+    /// the slot, its spell and that spell's weight, asserted here in full.
     /// </summary>
     [Fact]
     public void A_spell_slot_row_says_what_the_slot_holds_and_not_what_it_is_doing()
     {
         var world = World();
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world),
             "spell-slots",
             0,
@@ -296,8 +292,7 @@ public sealed class GameMcpSpellLoadoutTests
 
         // The fact itself is not deleted, only the column: the slot's own detail row still answers
         // for the instant, and so does every cast response. Slot two of this bar is mid-cast.
-        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[1]));
+        var detail = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[1]);
         Assert.True((bool)detail["casting"]!);
     }
 
@@ -325,17 +320,23 @@ public sealed class GameMcpSpellLoadoutTests
     {
         var world = World(uniqueFirst: true);
 
-        var unique = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[0]));
-        var ordinary = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[1]));
+        var unique = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
+        var ordinary = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[1]);
 
         Assert.True((bool)unique["isLoadoutUnique"]!);
         Assert.False((bool)ordinary["isLoadoutUnique"]!);
+        Assert.Equal(GameMcpTestHarness.Handle(FirstRecipeId), (string?)unique["uuid"]);
+        Assert.Equal(GameMcpTestHarness.Handle(SecondRecipeId), (string?)ordinary["uuid"]);
+        Assert.Equal(EntityIdentityFormatter.PlayerName(FirstRecipeId, GameMcpTestHarness.EntityCatalog),
+            (string?)unique["name"]);
+        Assert.Equal(1, (int)unique["slot"]!);
+        Assert.Equal(2, (int)ordinary["slot"]!);
 
         Assert.Equal(
             new[]
             {
+                "uuid",
+                "name",
                 "slot",
                 "effectiveLevel",
                 "requiredMasteryLevel",
@@ -350,8 +351,6 @@ public sealed class GameMcpSpellLoadoutTests
                 "move",
                 "glyphs",
                 "weight",
-                "occupied",
-                "spellRecipe",
             },
             unique.Children<JProperty>().Select(property => property.Name));
     }
@@ -371,17 +370,14 @@ public sealed class GameMcpSpellLoadoutTests
     {
         var world = World();
 
-        var rows = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var rows = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(world), "spell-slots", 0, 10))
             ["rows"]!.Values<JObject>().ToArray();
         Assert.Equal("4 Knowledge", (string?)rows[0]!["weight"]);
         Assert.Equal("1.50 Knowledge", (string?)rows[1]!["weight"]);
         Assert.Equal("-", (string?)rows[2]!["weight"]);
 
-        var detail = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world with { EntityIdentities = GameMcpTestHarness.EntityCatalog },
-            "spell-slots",
-            world.SpellSlots[0]));
+        var detail = GameMcpEntityDetailFixture.EquippedSpell(world with { EntityIdentities = GameMcpTestHarness.EntityCatalog }, world.SpellSlots[0]);
         Assert.Equal("4 Knowledge", (string?)detail["weight"]);
     }
 
@@ -402,12 +398,9 @@ public sealed class GameMcpSpellLoadoutTests
     {
         var world = World();
 
-        var timed = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[0]));
-        var counted = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[1]));
-        var empty = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectEntityState(
-            world, "spell-slots", world.SpellSlots[2]));
+        var timed = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[0]);
+        var counted = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[1]);
+        var empty = GameMcpEntityDetailFixture.EquippedSpell(world, world.SpellSlots[2]);
 
         Assert.Equal("18.7s", (string?)timed["recharge"]);
         Assert.Equal("5 spell-casts", (string?)counted["recharge"]);
@@ -420,9 +413,9 @@ public sealed class GameMcpSpellLoadoutTests
     /// of its own, and "not now" without a number plans nothing.
     /// </summary>
     /// <remarks>
-    /// <c>Spell.CanRemove()</c> used to answer this. It reads charge availability, which is false
-    /// the moment a charge is spent, and the removal path never calls it — so the page called slots
-    /// stuck that the game would have cleared on request.
+    /// It reads charge availability, which is false the moment a charge is spent, and the removal
+    /// path never calls it — so the page called slots stuck that the game would have cleared on
+    /// request.
     /// </remarks>
     [Fact]
     public void A_blocked_removal_names_the_games_own_gate_with_its_numbers()
@@ -452,19 +445,17 @@ public sealed class GameMcpSpellLoadoutTests
                 new[] { ready, midCast, recharging }),
         };
 
-        // One state, one word. The read side used to answer a cast with "mid-cast" while the verb
-        // answered the same moment with "still recharging", which is the game's own word for both:
-        // its popup is "Cannot remove a spell that is still recharging." whichever of the two it is.
+        // One state, one word.
         Assert.Equal("{\"available\":true}", Remove(world, ready));
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
-            SecondRecipeId.ToString("D") + " is still recharging: it is mid-cast, and the game " +
+            "{\"available\":false,\"reason\":\"" +
+            EntityIdentityFormatter.PlayerName(SecondRecipeId, GameMcpTestHarness.EntityCatalog) + " is still recharging: it is mid-cast, and the game " +
             "answers a removal now with \\\"Cannot remove a spell that is still recharging.\\\" " +
             "Wait for the cast to finish.\"}",
             Remove(world, midCast));
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_STATE\",\"reason\":\"" +
-            FirstRecipeId.ToString("D") + " is still recharging: it holds 2 of 3 charges, next " +
+            "{\"available\":false,\"reason\":\"" +
+            EntityIdentityFormatter.PlayerName(FirstRecipeId, GameMcpTestHarness.EntityCatalog) + " is still recharging: it holds 2 of 3 charges, next " +
             "in 4.50s. The game only removes a spell at full charges — \\\"Cannot remove a " +
             "spell that is still recharging.\\\" — so remove it once it reads 3 of 3.\"," +
             "\"charges\":\"2 of 3\",\"nextChargeIn\":\"4.50s\"}",
@@ -472,8 +463,7 @@ public sealed class GameMcpSpellLoadoutTests
     }
 
     private static string Remove(GameWorldState world, in WorldSpellSlot slot) =>
-        Assert.IsType<JObject>(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ProjectEntityState(world, "spell-slots", slot))["remove"])
+        Assert.IsType<JObject>(GameMcpEntityDetailFixture.EquippedSpell(world, slot)["remove"])
             .ToString(Newtonsoft.Json.Formatting.None);
 
     /// <summary>
@@ -493,7 +483,7 @@ public sealed class GameMcpSpellLoadoutTests
         };
 
         Assert.Equal(
-            "{\"available\":false,\"reasonCode\":\"ERR_LOCKED\"," +
+            "{\"available\":false," +
             "\"reason\":\"Magic > Spellbook > Loadout is not unlocked yet, so the game draws " +
             "no row for this.\"}",
             Remove(world, world.SpellSlots[0]));
@@ -675,29 +665,24 @@ public sealed class GameMcpSpellLoadoutTests
     {
         var world = World();
 
-        Assert.True(GameMcpWorldQuery.TryEquippedSpellSlot(world, 1, out var first, out _));
+        Assert.True(GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(world, 1, out var first, out _));
         Assert.Equal(FirstInstanceId, first);
-        Assert.True(GameMcpWorldQuery.TryEquippedSpellSlot(world, 2, out var second, out _));
+        Assert.True(GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(world, 2, out var second, out _));
         Assert.Equal(SecondInstanceId, second);
 
-        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 3, out _, out var empty));
+        Assert.False(GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(world, 3, out _, out var empty));
         Assert.Equal("Slot 3 is empty; the spells you have equipped are in slots 1, 2.", empty);
 
-        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 9, out _, out var absent));
+        Assert.False(GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(world, 9, out _, out var absent));
         Assert.Equal("There is no slot 9; the loadout bar has slots 1 to 3.", absent);
 
-        Assert.False(GameMcpWorldQuery.TryEquippedSpellSlot(world, 0, out _, out var zero));
+        Assert.False(GameMcpSpellLoadoutProjection.TryEquippedSpellSlot(world, 0, out _, out var zero));
         Assert.Equal("There is no slot 0; the loadout bar has slots 1 to 3.", zero);
     }
 
     /// <summary>
     /// A refused removal names the slot pressed, not the runtime instance behind it.
     /// </summary>
-    /// <remarks>
-    /// A live round's two remove refusals on Psychic Blast echoed
-    /// <c>uuid: 96a6b7 / name: (unnamed 96a6b7)</c>: the spell instance's id, which no catalog
-    /// names, in place of what the caller pressed.
-    /// </remarks>
     [Fact]
     public void A_refused_removal_names_the_slot_pressed_rather_than_the_spell_instance()
     {
@@ -745,7 +730,7 @@ public sealed class GameMcpSpellLoadoutTests
             }),
         };
 
-        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var row = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world), "spell-costs", 0, 10))
             ["rows"]!.Values<JObject>());
 

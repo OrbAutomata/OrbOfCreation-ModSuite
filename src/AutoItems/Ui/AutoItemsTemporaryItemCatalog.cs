@@ -141,8 +141,9 @@ internal static class AutoItemsTemporaryItemCatalog
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return AutoItemsTemporaryItemCatalogSnapshot.Failed(
-                "The discovered temporary-item catalog could not be read: " +
-                ex.GetBaseException().Message);
+                GameActionFaultLog.Reason(
+                    "The discovered temporary-item catalog could not be read.",
+                    ex, "Auto Items temporary-item catalog").Text);
         }
     }
 

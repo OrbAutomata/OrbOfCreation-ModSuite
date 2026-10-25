@@ -53,29 +53,29 @@ internal static class GameMcpWorldSearch
         bool? discoveredFilter = null,
         string modifiesFilter = "")
     {
-        if (!GameMcpWorldQuery.TryWorld(state, out var publication, out var unavailable))
+        if (!GameMcpWorldRead.TryWorld(state, out var publication, out var unavailable))
             return unavailable;
         var normalized = (query ?? string.Empty).Trim();
         if (offset < 0)
-            return GameMcpWorldQuery.NotAvailable(publication, "invalid_offset", "offset must be zero or greater");
-        if (limit <= 0 || limit > GameMcpWorldQuery.MaximumPageSize)
+            return GameMcpWorldRead.NotAvailable(publication, "invalid_offset", "offset must be zero or greater");
+        if (limit <= 0 || limit > GameMcpWorldList.MaximumPageSize)
         {
-            return GameMcpWorldQuery.NotAvailable(
+            return GameMcpWorldRead.NotAvailable(
                 publication,
                 "invalid_limit",
                 "limit must be between 1 and " +
-                GameMcpWorldQuery.MaximumPageSize.ToString(CultureInfo.InvariantCulture));
+                GameMcpWorldList.MaximumPageSize.ToString(CultureInfo.InvariantCulture));
         }
 
         var scope = (categoryName ?? string.Empty).Trim();
-        GameMcpWorldCategory? only = null;
+        GameMcpEntityCapabilityDescriptor? only = null;
         if (scope.Length > 0)
         {
             if (!GameMcpWorldCategories.TryCategory(scope, out var scoped, out var reason))
-                return GameMcpWorldQuery.NoSuchCategory(publication, scope, reason);
+                return GameMcpWorldRead.NoSuchCategory(publication, scope, reason);
             if (!IsSearchable(scoped))
             {
-                return GameMcpWorldQuery.NotAvailable(
+                return GameMcpWorldRead.NotAvailable(
                     publication,
                     "category_not_searchable",
                     "category " + scoped.Name + " has no stable entity identity of its own, so " +
@@ -89,20 +89,20 @@ internal static class GameMcpWorldSearch
             wanted is not (GameMcpListColumns.Locked or GameMcpListColumns.Available
                 or GameMcpListColumns.Completed))
         {
-            return GameMcpWorldQuery.NotAvailable(
+            return GameMcpWorldRead.NotAvailable(
                 publication,
                 "invalid_state_filter",
                 "state must be one of " + GameMcpListColumns.Locked + ", " +
                 GameMcpListColumns.Available + ", " + GameMcpListColumns.Completed);
         }
 
-        if (discoveredFilter is not null && only is not null && !GameMcpWorldQuery.SupportsDiscoveredFilter(only))
+        if (discoveredFilter is not null && only is not null && !GameMcpWorldList.SupportsDiscoveredFilter(only))
         {
-            return GameMcpWorldQuery.NotAvailable(
+            return GameMcpWorldRead.NotAvailable(
                 publication,
                 "discovered_filter_out_of_scope",
                 "the categories whose rows spell discovery in that word are " +
-                string.Join(", ", GameMcpWorldQuery.DiscoverableCategories) + ", so it cannot narrow " + only.Name +
+                string.Join(", ", GameMcpWorldList.DiscoverableCategories) + ", so it cannot narrow " + only.Name +
                 "; the rest spell it as their state, which the state filter narrows");
         }
 
@@ -111,7 +111,7 @@ internal static class GameMcpWorldSearch
         if (wantedRun.Length > 0 && only is not null &&
             !string.Equals(only.Name, "challenges", StringComparison.Ordinal))
         {
-            return GameMcpWorldQuery.NotAvailable(
+            return GameMcpWorldRead.NotAvailable(
                 publication,
                 "run_filter_out_of_scope",
                 "run is a challenges column and no other category publishes one, so it cannot " +
@@ -126,7 +126,7 @@ internal static class GameMcpWorldSearch
             wantedRun.Length == 0 && wantedKeyword.Length == 0 && discoveredFilter is null &&
             wantedTarget.Length == 0)
         {
-            return GameMcpWorldQuery.NotAvailable(
+            return GameMcpWorldRead.NotAvailable(
                 publication,
                 "query_required",
                 "name something to search for: a query, or a category, state, run, discovered, " +
@@ -148,7 +148,7 @@ internal static class GameMcpWorldSearch
             {
                 if (!keywords.TryResolveWord(wantedKeyword, out keywordId, out var matches))
                 {
-                    return GameMcpWorldQuery.NotAvailable(
+                    return GameMcpWorldRead.NotAvailable(
                         publication,
                         matches > 1 ? "ambiguous_handle" : "keyword_unknown",
                         matches > 1
@@ -175,7 +175,7 @@ internal static class GameMcpWorldSearch
                 : GameMcpKeywordIndex.SpellsOfType(world, keywordId);
             if (worn.Count == 0)
             {
-                return GameMcpWorldQuery.NotAvailable(
+                return GameMcpWorldRead.NotAvailable(
                     publication,
                     "keyword_not_worn",
                     GameMcpEntityHandle.Name(keywordId, world.EntityIdentities) + " " +
@@ -192,11 +192,11 @@ internal static class GameMcpWorldSearch
         if (wantedTarget.Length != 0)
         {
             if (!TryResolveModifiesTarget(world, wantedTarget, out var targetId, out var refusal))
-                return GameMcpWorldQuery.NotAvailable(publication, refusal.Key, refusal.Value);
+                return GameMcpWorldRead.NotAvailable(publication, refusal.Key, refusal.Value);
             sources = GameMcpEffectSourceIndex.Build(world).Sources(targetId);
             if (sources is null)
             {
-                return GameMcpWorldQuery.NotAvailable(
+                return GameMcpWorldRead.NotAvailable(
                     publication,
                     "modifies_nothing",
                     GameMcpEntityHandle.Name(targetId, world.EntityIdentities) + " " +
@@ -280,7 +280,7 @@ internal static class GameMcpWorldSearch
         });
 
         // A small result is the whole answer or it is not an answer, exactly as a small category is.
-        var whole = !limitFromCaller && hits.Count <= GameMcpWorldQuery.WholeCategoryRows;
+        var whole = !limitFromCaller && hits.Count <= GameMcpWorldList.WholeCategoryRows;
         var rows = new JArray();
         var estimatedBytes = 128;
         for (var index = offset; index < hits.Count; index++)
@@ -292,11 +292,11 @@ internal static class GameMcpWorldSearch
             var projected = ProjectSearchMatch(
                 category, hit.Identity, keywords.Line(hit.Identity), hit.MatchedOn,
                 sources is null ? null : sources[hit.Identity]);
-            var local = GameMcpWorldQuery.LocalizedRequirementImplications(
+            var local = GameMcpWorldRead.LocalizedRequirementImplications(
                 world, new HashSet<Guid> { hit.Identity });
-            var localOffers = GameMcpWorldQuery.LocalizedDiscoveryOfferImplications(
+            var localOffers = GameMcpWorldRead.LocalizedDiscoveryOfferImplications(
                 world, new HashSet<Guid> { hit.Identity });
-            var matchBytes = GameMcpWorldQuery.EstimateListRowBytes(world, category, row, projected);
+            var matchBytes = GameMcpWorldList.EstimateListRowBytes(world, category, row, projected);
             GameMcpValue match;
             // A search hit is a row of a page, so it wears what a list row wears.
             if (local.Count == 0 && localOffers.Count == 0)
@@ -305,11 +305,11 @@ internal static class GameMcpWorldSearch
             }
             else
             {
-                match = GameMcpWorldQuery.WithIncompleteNote(projected, GameMcpWorldQuery.IncompleteRowNote(local.Count > 0));
+                match = GameMcpRowKit.WithIncompleteNote(projected, GameMcpRowKit.IncompleteRowNote(local.Count > 0));
                 matchBytes = checked(matchBytes + 192);
             }
             if (rows.Count > 0 && !whole &&
-                estimatedBytes + matchBytes > GameMcpWorldQuery.MaximumListResponseBytes)
+                estimatedBytes + matchBytes > GameMcpWorldList.MaximumListResponseBytes)
             {
                 break;
             }
@@ -329,13 +329,8 @@ internal static class GameMcpWorldSearch
         // and found nothing has a second question — is it in the game at all — and no line on this
         // surface said the question had an answer. Said only on the empty page, and said whichever
         // way it comes out, because "nothing loaded is called that" closes the question where
-        // silence would send the caller off to ask it anyway.
-        //
-        // The line names no verb. It used to point at the page that listed the leftovers and count
-        // this query against it; the world publishes those rows now, so the pointer would name a
-        // verb this server no longer has and the count would be a number with nothing to spend it
-        // on. What is left is the answer itself, in one sentence, with no noun declined against a
-        // count.
+        // silence would send the caller off to ask it anyway. The line names no verb. What is left
+        // is the answer itself, in one sentence, with no noun declined against a count.
         if (hits.Count == 0 && normalized.Length > 0)
         {
             result["unprojected"] =
@@ -350,7 +345,7 @@ internal static class GameMcpWorldSearch
         }
         if (rows.Count == 0)
         {
-            result["columns"] = GameMcpEntityWireNormalizer.WireColumns(
+            result["columns"] = GameMcpWireColumns.WireColumns(
                 sources is null ? SearchColumns : SourceSearchColumns);
         }
         result["rows"] = rows;
@@ -368,7 +363,7 @@ internal static class GameMcpWorldSearch
     /// that is no type at all, and an id the world published no row for.
     /// </remarks>
     private static string KeywordScope(GameWorldState world, Guid uuid) =>
-        GameMcpWorldQuery.TryEntityCategory(world, uuid, out var category)
+        GameMcpWorldDetail.TryEntityCategory(world, uuid, out var category)
             ? "published under " + category.Name
             : "published under no category this world holds";
 
@@ -376,7 +371,7 @@ internal static class GameMcpWorldSearch
     /// Whether search can address this category's rows at all: it indexes entities, and a composite
     /// diagnostic row has no identity of its own to return.
     /// </summary>
-    internal static bool IsSearchable(GameMcpWorldCategory category) =>
+    internal static bool IsSearchable(GameMcpEntityCapabilityDescriptor category) =>
         string.Equals(category.IdentityMode, "stable_entity_uuid", StringComparison.Ordinal);
 
     /// <summary>
@@ -400,14 +395,14 @@ internal static class GameMcpWorldSearch
     /// </remarks>
     private static string SearchLifecycle(GameWorldState world, object row) => row switch
     {
-        WorldUpgrade upgrade => GameMcpWorldQuery.UpgradeState(world, in upgrade),
-        WorldResearch research => GameMcpWorldQuery.ResearchLifecycle(in research),
-        WorldStructure structure => GameMcpWorldQuery.StructureState(in structure),
-        WorldAlchemyRecipe recipe => GameMcpWorldQuery.AlchemyRecipeState(in recipe),
-        WorldGlyph glyph => GameMcpWorldQuery.GlyphState(in glyph),
-        WorldRitual ritual => GameMcpWorldQuery.RitualState(in ritual),
-        WorldPlotNode plot => GameMcpWorldQuery.PlotNodeState(in plot),
-        WorldChallenge challenge => GameMcpWorldQuery.ChallengeLifecycle(in challenge),
+        WorldUpgrade upgrade => GameMcpScreenState.UpgradeState(world, in upgrade),
+        WorldResearch research => GameMcpResearchProjection.ResearchLifecycle(in research),
+        WorldStructure structure => GameMcpStructureLifecycleProjection.StructureState(in structure),
+        WorldAlchemyRecipe recipe => GameMcpAlchemyLoadoutProjection.AlchemyRecipeState(in recipe),
+        WorldGlyph glyph => GameMcpGlyphProjection.GlyphState(in glyph),
+        WorldRitual ritual => GameMcpRitualLifecycleProjection.RitualState(in ritual),
+        WorldPlotNode plot => GameMcpHarvestLifecycleProjection.PlotNodeState(in plot),
+        WorldChallenge challenge => GameMcpChallengeProjection.ChallengeLifecycle(in challenge),
         _ => string.Empty,
     };
 
@@ -419,7 +414,7 @@ internal static class GameMcpWorldSearch
     /// </summary>
     private static bool TryTier(
         GameWorldState world,
-        GameMcpWorldCategory category,
+        GameMcpEntityCapabilityDescriptor category,
         Guid identity,
         GameMcpKeywordIndex keywords,
         GameMcpEffectWordIndex effects,
@@ -475,13 +470,12 @@ internal static class GameMcpWorldSearch
     /// What this row's own attempt is doing, or nothing where its category runs nothing.
     /// </summary>
     /// <remarks>
-    /// Challenges are the one category that publishes a second lifecycle column, and until now only
-    /// the first of the two could be filtered. A round that wanted the rows reading
-    /// <c>run: passed</c> had to page all 98 by hand — four calls with hand-computed offsets — to
-    /// prove a negative. This reads the word the challenge's own list row says and derives none.
+    /// Challenges are the one category that publishes a second lifecycle column, and until only the
+    /// first of the two could be filtered. This reads the word the challenge's own list row says
+    /// and derives none.
     /// </remarks>
     private static string SearchRun(object row) =>
-        row is WorldChallenge challenge ? GameMcpWorldQuery.ChallengeRun(challenge.State) : string.Empty;
+        row is WorldChallenge challenge ? GameMcpChallengeProjection.ChallengeRun(challenge.State) : string.Empty;
 
     private static void CountKeywordHits(
         IReadOnlyList<string> words,
@@ -537,7 +531,7 @@ internal static class GameMcpWorldSearch
     }
 
     private static GameMcpValue ProjectSearchMatch(
-        GameMcpWorldCategory category,
+        GameMcpEntityCapabilityDescriptor category,
         Guid identity,
         string keywords,
         string matchedOn,

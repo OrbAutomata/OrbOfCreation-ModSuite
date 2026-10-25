@@ -26,14 +26,14 @@ internal readonly struct WorldCategoryReport
         WorldCategoryOutcome outcome,
         int sampled,
         int skipped,
-        string firstFailure,
+        WorldCollectionFailure firstFailure,
         long elapsedTicks = 0)
     {
         Category = category;
         Outcome = outcome;
         Sampled = sampled;
         Skipped = skipped;
-        FirstFailure = firstFailure;
+        Failure = firstFailure;
         ElapsedTicks = elapsedTicks;
     }
 
@@ -50,7 +50,11 @@ internal readonly struct WorldCategoryReport
     /// Why the category was unavailable, or why the first skipped entity was skipped. Empty when
     /// nothing went wrong.
     /// </summary>
-    internal string FirstFailure { get; }
+    internal WorldCollectionFailure Failure { get; }
+
+    /// <summary>The human-facing rendering; repeat comparisons use Failure instead.</summary>
+    internal string FirstFailure => Failure.Text;
+    internal bool HasReadFault => Failure.HasReadFault;
 
     /// <summary>
     /// Raw <see cref="System.Diagnostics.Stopwatch"/> ticks this pass spent producing this report.
@@ -63,14 +67,14 @@ internal readonly struct WorldCategoryReport
     /// </remarks>
     internal long ElapsedTicks { get; }
 
-    internal bool IsClean => Outcome == WorldCategoryOutcome.Collected && Skipped == 0;
+    internal bool IsClean => Outcome == WorldCategoryOutcome.Collected && Skipped == 0 && !HasReadFault;
 
-    internal static WorldCategoryReport Missing(string category, string reason) =>
+    internal static WorldCategoryReport Missing(string category, WorldCollectionFailure reason) =>
         new(category, WorldCategoryOutcome.Unavailable, sampled: 0, skipped: 0, reason);
 
     /// <summary>The same report, charged with what a pass spent on it.</summary>
     internal WorldCategoryReport WithElapsedTicks(long elapsedTicks) =>
-        new(Category, Outcome, Sampled, Skipped, FirstFailure, elapsedTicks);
+        new(Category, Outcome, Sampled, Skipped, Failure, elapsedTicks);
 }
 
 /// <summary>
@@ -144,6 +148,21 @@ internal sealed class WorldCollectionReport
         }
 
         return WorldCategoryReport.Missing(category, "the category was not collected");
+    }
+
+    /// <summary>Stable warning identity, excluding each attempt's fresh log reference and timing.</summary>
+    internal bool HasSameAnnouncementAs(WorldCollectionReport other)
+    {
+        if (_categories.Length != other._categories.Length) return false;
+        for (var index = 0; index < _categories.Length; index++)
+        {
+            var left = _categories[index];
+            var right = other._categories[index];
+            if (!string.Equals(left.Category, right.Category, StringComparison.Ordinal) ||
+                left.Outcome != right.Outcome || left.Skipped != right.Skipped ||
+                left.HasReadFault != right.HasReadFault || !left.Failure.SameIdentityAs(right.Failure)) return false;
+        }
+        return true;
     }
 
     /// <summary>

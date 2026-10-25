@@ -61,7 +61,7 @@ internal sealed class GameMcpToolCatalog
         var builder = new GameMcpOperationRequestBuilder
         {
             ToolName = name,
-            Limit = GameMcpWorldQuery.DefaultLimit,
+            Limit = GameMcpWorldList.DefaultLimit,
             Amount = 1,
         };
         tool.Bind(arguments, builder);
@@ -198,11 +198,11 @@ internal sealed class GameMcpToolCatalog
             "Published world category",
             "First page of an exact category returned by world_categories.",
             World,
-            static (request, context) => GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
+            static (request, context) => GameMcpToolExecution.Read(GameMcpWorldList.ListRows(
                 context,
                 Uri.UnescapeDataString(request.ResourceUri.Substring(CategoryUriPrefix.Length)),
                 0,
-                GameMcpWorldQuery.DefaultLimit,
+                GameMcpWorldList.DefaultLimit,
                 limitFromCaller: false).Freeze())),
     };
 

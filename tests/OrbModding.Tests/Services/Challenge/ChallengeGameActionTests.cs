@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -26,7 +27,6 @@ public sealed class ChallengeGameActionTests : IDisposable
     {
         ChallengeManager.instance = new ChallengeManager();
         PersistentResetManager.instance = new PersistentResetManager();
-        IdScriptableObject.RuntimeLookup.Clear();
     }
 
     [Fact]
@@ -385,9 +385,7 @@ public sealed class ChallengeGameActionTests : IDisposable
         Func<string, bool>? includeContract = null,
         Func<long>? epoch = null)
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(() => Epoch, _registry);
         return new ChallengeGameAction(epoch ?? (() => Epoch), () => true,
             static () => "ChallengeLifecycle ownership was revoked.",
             includeContract: includeContract, registry: resolver);

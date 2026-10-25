@@ -6,16 +6,9 @@ internal sealed partial class AutoHarvestBindingResolver
 {
     private bool TryResolvePair(
         AutoHarvestPair pair,
-        in AutoHarvestNativeFailure blocked,
         out AutoHarvestNativeFailure failure)
     {
         var specification = AutoHarvestPairSpecification.For(pair);
-        if (blocked.IsValid)
-        {
-            failure = blocked;
-            return false;
-        }
-
         var current = pair == AutoHarvestPair.FruitTree ? _fruit : _treasure;
         if (current is not null &&
             AutoHarvestBindingCoherence.IsCurrent(_registryResolver, _shared!, current))
@@ -49,8 +42,6 @@ internal sealed partial class AutoHarvestBindingResolver
                 out var rewardResolution,
                 out failure))
         {
-            if (failure.Kind == AutoHarvestRuntimeFailureKind.Contract)
-                _contractCircuit.Block(pair, AutoHarvestRuntimeFailureScope.Pair);
             return false;
         }
 

@@ -430,10 +430,9 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
     /// planned off it is judged by at the boundary.
     /// </summary>
     /// <remarks>
-    /// It used to be the runner's own lifecycle generation, passed in beside the world and read by
-    /// nothing. The two answer different questions: a runner's generation is frozen when the runner is
-    /// built, while the snapshot's epoch says which run of the game was actually read. The projector is
-    /// handed no lifecycle at all now, so the two cannot be confused again.
+    /// The two answer different questions: a runner's generation is frozen when the runner is
+    /// built, while the snapshot's epoch says which run of the game was actually read. The
+    /// projector is handed no lifecycle at all now, so the two cannot be confused again.
     /// </remarks>
     [Fact]
     public void Project_TakesTheEpochFromTheWorldRatherThanTheRunner()
@@ -505,12 +504,9 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
     /// The candidates are the snapshot's population, not the game's registry.
     /// </summary>
     /// <remarks>
-    /// The projection used to walk <c>StructureSO.All</c> and look each entry's facts up in the snapshot
-    /// by the stable id it read off the live object, so a registry entry the snapshot never described
-    /// became a candidate that was then dropped, and a published entity the registry had forgotten was
-    /// invisible. One place decides now. Pinning that needs a snapshot that disagrees with the
-    /// registries, which is why this is the one projection test that publishes a hand-built world instead
-    /// of collecting the stubs.
+    /// One place decides now. Pinning that needs a snapshot that disagrees with the registries,
+    /// which is why this is the one projection test that publishes a hand-built world instead of
+    /// collecting the stubs.
     /// </remarks>
     [Fact]
     public void Project_TakesItsCandidatesFromTheSnapshotRatherThanTheRegistry()
@@ -701,20 +697,13 @@ public sealed class AutoBuyFrameProjectorTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         var structures = new global::StructureListVariable { value = global::StructureSO.All };
         var upgrades = new global::UpgradeListVariable { value = global::UpgradeSO.All };
         var owningView = new global::ViewSO { available = true };
         owningView.relevantLists.Add(structures);
         owningView.relevantLists.Add(upgrades);
         global::ViewSO.All.Add(owningView);
-        global::ResearchSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::ResourceSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
         global::ActionManager.instance = new global::ActionManager();
         global::ActionManager.RemainingRoom = 0;
         global::GlobalVariables.MultiBuy = new global::IntVariable();

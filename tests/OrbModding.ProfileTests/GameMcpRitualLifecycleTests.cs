@@ -103,7 +103,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void Selected_ritual_publishes_both_bounds_of_the_native_starting_level_control()
     {
         var world = World(selected: true, level: 4, activeInstances: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 803),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -116,7 +116,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void Selected_ritual_detail_carries_only_the_live_next_decisions_and_named_costs()
     {
         var world = World(selected: true, level: 4, activeInstances: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 801),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -154,7 +154,7 @@ public sealed class GameMcpRitualLifecycleTests
     {
         var world = World(selected: true, level: 55, activeInstances: 0, forcedLevel: 70);
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 807),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
         Assert.Equal(70, (int)row["selectedLevel"]!);
@@ -166,7 +166,7 @@ public sealed class GameMcpRitualLifecycleTests
             (string?)setLevel["reason"]);
         Assert.Null(setLevel["maximum"]);
 
-        var listed = Assert.IsType<JArray>(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = Assert.IsType<JArray>(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 808), "rituals", 0, 50).Freeze(),
             world)["rows"]).Values<JObject>().Single()!;
         Assert.Equal(70, (int)listed["selectedLevel"]!);
@@ -176,7 +176,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void The_starting_level_decision_does_not_wait_for_a_selection()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 804),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -197,7 +197,7 @@ public sealed class GameMcpRitualLifecycleTests
     public void An_unselected_ritual_carries_its_price_and_is_activatable()
     {
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 802),
             "rituals", RitualId.ToString("D")).Freeze(), world);
 
@@ -213,15 +213,14 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     /// <summary>
-    /// Comparing 32 rituals used to mean 32 detail pages, because the list row carried nothing the
-    /// screen is scanned by. Every column here is written unconditionally, so the header a caller
-    /// parses is the same one after a prestige.
+    /// Every column here is written unconditionally, so the header a caller parses is the same one
+    /// after a prestige.
     /// </summary>
     [Fact]
     public void A_ritual_list_row_carries_what_the_ritual_screen_is_scanned_by()
     {
         var world = World(selected: true, level: 3, activeInstances: 0);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var response = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 806), "rituals", 0, 50).Freeze(), world);
         var row = Assert.IsType<JArray>(response["rows"]).Values<JObject>().Single()!;
 
@@ -247,7 +246,7 @@ public sealed class GameMcpRitualLifecycleTests
         var world = World(
             selected: true, level: 4, activeInstances: 1, inBattle: false, wavesCompleted: 7,
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(12)) });
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 804),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -266,7 +265,7 @@ public sealed class GameMcpRitualLifecycleTests
         // IsFailedRun() is wavesCompleted < 5, so an unconditional verdict calls every untouched
         // ritual a failure. A cleared count with no spoils is exactly the never-run state.
         var world = World(selected: false, level: 0, activeInstances: 0);
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 805),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -281,7 +280,7 @@ public sealed class GameMcpRitualLifecycleTests
         var world = World(
             selected: true, level: 4, activeInstances: 0, inBattle: true, wavesCompleted: 3,
             spoils: new[] { new WorldRitualSpoil(ResourceId, new BigDouble(4)) });
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 806),
             "rituals", RitualId.ToString("D")).Freeze(), world)["row"]!;
 
@@ -315,10 +314,8 @@ public sealed class GameMcpRitualLifecycleTests
 
     /// <summary>
     /// "Activate a ritual" answers in battle vocabulary, so the answer says what the battle it just
-    /// started holds shut. A live round read <c>activeBattle: no -&gt; yes</c>, found nothing on the
-    /// wire naming a consequence, and twenty minutes later committed the round's one irreversible
-    /// action while still guessing whether a running battle blocked it. Ending a battle says
-    /// nothing about the gate, because there is none left to state.
+    /// started holds shut. Ending a battle says nothing about the gate, because there is none left
+    /// to state.
     /// </summary>
     [Fact]
     public void An_activate_names_what_the_battle_it_started_holds_shut()
@@ -447,10 +444,8 @@ public sealed class GameMcpRitualLifecycleTests
     }
 
     /// <summary>
-    /// Nothing on the surface aggregated "a battle is running", so a live round making a lifecycle
-    /// decision had no verb to ask and hedged into the round's one irreversible action. The overview
-    /// names the ritual that is in the battle and the gate it holds shut — and says nothing at all
-    /// while no battle runs, because a fact that costs no decision costs no line.
+    /// The overview names the ritual that is in the battle and the gate it holds shut — and says
+    /// nothing at all while no battle runs, because a fact that costs no decision costs no line.
     /// </summary>
     [Fact]
     public void The_overview_names_a_running_battle_and_what_it_gates()

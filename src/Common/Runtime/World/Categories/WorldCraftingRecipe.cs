@@ -312,7 +312,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         for (var index = 0; index < _sources.Count; index++)
         {
             var source = _sources[index];
@@ -341,8 +341,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading live CraftingRecipeSO state threw: " +
-                    exception.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading live CraftingRecipeSO state threw", exception, source.RecipeId));
             }
         }
 
@@ -372,7 +371,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         for (var index = 0; index < entities.Count; index++)
         {
             var entity = entities[index];
@@ -382,9 +381,10 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                 continue;
             }
 
+            var id = Guid.Empty;
             try
             {
-                var id = _id!(entity);
+                id = _id!(entity);
                 if (id == Guid.Empty || !claimed.Add(id))
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure, "a crafting recipe had an empty or duplicate identity");
@@ -431,7 +431,7 @@ internal sealed class WorldCraftingRecipeReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    "reading a CraftingRecipeSO threw: " + exception.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading a CraftingRecipeSO threw", exception, id));
             }
         }
 

@@ -37,6 +37,27 @@ unexplained delta stops the change.
 | Installed-game contracts | The admitted assembly pair and exact native types, members, signatures, visibility, inheritance, and source coverage | That a call has the intended runtime effect or that its postcondition is observable |
 | Live runtime evidence | Actual wiring, mutations, persistence, player control, UI behavior, and performance on the recorded build/save/configuration | Broad deterministic regression coverage or behavior outside the observed scenario |
 
+Collector fixtures use the shared game stubs through the shipping native-type resolver. A missing
+contract overrides only the deliberately malformed type; a second complete fake game is not a
+collector fixture. Stub identities keep their string setup form synchronized with the native GUID,
+and glyph availability follows the game's discovered-or-prerequisite rule. A native alchemy
+admission search is allowed to throw on a literal null list element; that is different from an
+`AlchemyInstance(null)` capacity placeholder or the collector rejecting an unexpected row type.
+Fixtures that author list rows rebuild the native count cache before testing admission; count
+getters read that cache, and rebuilding it does not settle queued quantities. Admission accepts an already
+held recipe before asking about free capacity; a zero maximum-add value is a separate usage limit.
+Reader fixtures also exercise an unheld recipe with no free slots to pin actual admission refusal.
+
+The ordinary suite resets the shared native model before its first fixture and after every case.
+The reset discovers static registries, including closed generic list registries, and restores the
+singleton and fault-switch defaults. It runs after each case because xUnit constructs the next
+fixture before invoking a method's `Before` hook; resetting there would erase constructor setup.
+Profile tests install the same cleanup only on the serial native-registry collection. Other serial
+collections retain their explicit setup, and no global reset runs beneath parallel profile tests.
+Fixture setup resets before constructing native objects and installing hooks. Within a case,
+closing a targeting prompt or scene transition changes that state directly, preserving the other
+native objects. A test that needs to remove an entity halfway through a scenario does so explicitly.
+
 A claim stops at the edge of its evidence. A self-consistent stub that disagrees
 with Unity is a defective model, not permission to weaken production behavior.
 Installed metadata proves shape, not semantics. Live observation proves one
@@ -75,6 +96,12 @@ emits semantic trace events into the fixture's 256-entry ring, so a spinning wai
 and a test asserting the *absence* of an event can no longer prove its drain was complete. Reproduce
 by running the single test in isolation under `nproc - 2` busy-loop processes; beside its neighbours
 it passes, because xunit's own thread churn supplies the yield the loop does not.
+
+The shared `ServiceCycleTestDeadline` allows 30 seconds for a thread to satisfy a condition and
+names the condition when it expires. Its polling waits sleep between checks; multi-step waits share
+one budget. Completion APIs still receive a positive timeout when their contract requires one.
+Temporary filesystem fixtures compose `TempDirectory`, which owns cleanup while allowing a test to
+reserve a path without creating it.
 
 A wall-clock deadline is a hang detector or it is a bug. Sized to how long the work takes today, it
 makes every future slowdown look like a broken feature: one test allowed a background writer 500 ms

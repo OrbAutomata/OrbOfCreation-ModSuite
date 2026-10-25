@@ -150,11 +150,9 @@ internal sealed class GameMcpFrameExecutor : IDisposable
         GameMcpFrameOperation operation,
         GameMcpFrameContext context)
     {
-        // Every operation the frame answers itself writes its own ledger line here, so the sequence
-        // has no holes in it: a read used to draw an operation number and never write a completion,
-        // and a command refused inside its claiming frame did the same. A command that leaves the
-        // frame — a gadget, or a mutation waiting for post-state settlement — returns null and is
-        // written when it completes instead, so nothing is written twice.
+        // A command that leaves the frame — a gadget, or a mutation waiting for post-state
+        // settlement — returns null and is written when it completes instead, so nothing is written
+        // twice.
         var startedAtRawTicks = System.Diagnostics.Stopwatch.GetTimestamp();
         if (!TryExecuteGameMcpFrameOperation(operation, context, out var result))
             return null;

@@ -104,6 +104,9 @@ internal sealed class AutoConceptFeatureRuntime : IAutomataServiceCycleFeatureRu
     }
 
 #if SERVICE_CYCLE_PROFILE
+    public OrbAutomata.GameMcp.IGameMcpServiceCommand GameMcpCommand =>
+        new OrbAutomata.GameMcp.GameMcpConceptCommand(this);
+
     internal ServiceActionResult TryExecuteGameMcp(
         in AutoConceptCycleAction action,
         in SuiteRuntimeConfiguration config,

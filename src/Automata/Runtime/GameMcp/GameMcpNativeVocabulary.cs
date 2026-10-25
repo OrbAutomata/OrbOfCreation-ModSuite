@@ -13,9 +13,7 @@ namespace OrbAutomata.GameMcp;
 /// <para>
 /// A native enum crosses the capture boundary as its underlying integer, because a copied enum
 /// would silently re-order the day the game re-orders. That is right for the world; it is wrong for
-/// the wire. A live round read <c>castType: 2</c> and <c>rechargeProcessorType: 0</c> in a block
-/// whose player word for the same spell sat three lines above it, and the number was the one thing
-/// in the block a reader could not use without a lookup table nobody has.
+/// the wire.
 /// </para>
 /// <para>
 /// Each map is closed and total over the values the pinned build defines, and an ordinal with no
@@ -58,11 +56,9 @@ internal static class GameMcpNativeVocabulary
     /// screen.
     /// </summary>
     /// <remarks>
-    /// The kind used to ride beside the number as <c>raw</c> / <c>diminishing</c> / <c>stacking</c>
-    /// / <c>reduction</c> / <c>exponent</c>: five tokens a reader had to look up before the number
-    /// beside them meant anything, and then had to combine for themselves. The game never separates
-    /// the two — the kind decides how the number is written — so <c>+1</c>, <c>+115%</c>,
-    /// <c>x1.02</c> and <c>^2</c> each carry both facts in the one string the tooltip prints.
+    /// The game never separates the two — the kind decides how the number is written — so
+    /// <c>+1</c>, <c>+115%</c>, <c>x1.02</c> and <c>^2</c> each carry both facts in the one string
+    /// the tooltip prints.
     /// </remarks>
     internal static string ModifierMagnitude(int modifierType, BigDouble amount) =>
         new GameValueModifier((GameValueModifierType)modifierType, amount).ToStringValue();
@@ -74,9 +70,7 @@ internal static class GameMcpNativeVocabulary
     /// <para>
     /// <c>reqType</c> is not one enum. Every condition class carries its own, and the same ordinal
     /// means a different check in each — <c>2</c> is "at least this level" on an upgrade, "at least
-    /// this mastery level" on a spell and "any available" on a list. A live round read
-    /// <c>reqType | 2</c> in a requirement table and had no way to turn it into a question about
-    /// the game.
+    /// this mastery level" on a spell and "any available" on a list.
     /// </para>
     /// <para>
     /// Every map below is pinned from that class's own <c>InternalIsValid</c> switch in the audited
@@ -85,8 +79,8 @@ internal static class GameMcpNativeVocabulary
     /// <c>ResearchRequirement</c> reuses <c>UpgradeRequirementType</c> outright.
     /// </para>
     /// <para>
-    /// Returns null for the two kinds whose <c>reqType</c> is not a native check ordinal at all:
-    /// an unmodelled class, whose row carries <c>-1</c> because nothing was read, and an authored
+    /// Returns null for the two kinds whose <c>reqType</c> is not a native check ordinal at all: an
+    /// unmodelled class, whose row carries <c>-1</c> because nothing was read, and an authored
     /// empty composite, where the suite stores the group's Any/All identity in the same slot. Those
     /// rows say nothing here rather than dressing a sentinel as a comparison.
     /// </para>

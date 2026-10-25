@@ -92,10 +92,7 @@ internal static class GameMcpTypeWorth
         if (properties.Count > 0) worth["properties"] = properties;
 
         // A distributor at a flat hundred percent with nothing sitting on it is the reading "this
-        // type publishes this record and nothing modifies it". Forty-one of them cost a live round
-        // a three-line stanza each to say that forty-one times over; the two facts a reader takes
-        // from them — which records exist, and that none is loaded — both fit on one line, and the
-        // moment anything does load one it leaves this line for a stanza of its own.
+        // type publishes this record and nothing modifies it".
         if (unmodified.Count > 0) worth["unmodified"] = unmodified;
         result["worth"] = worth;
     }

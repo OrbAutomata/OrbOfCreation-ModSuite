@@ -29,11 +29,8 @@ public sealed class GameMcpPrestigeTests
     }
 
     /// <summary>
-    /// The verb is commit-only and says so, and names the verb that answers the read. A live round
-    /// did not know where the prestige facts lived — "might be in the `time_prestige` response or
-    /// displayed on the Time screen, so I'll need to verify where that data lives" — and the only
-    /// call it made on this tool was the irreversible one. No second reader is published for the
-    /// block: the description is what closes the gap.
+    /// The verb is commit-only and says so, and names the verb that answers the read. No second
+    /// reader is published for the block: the description is what closes the gap.
     /// </summary>
     [Fact]
     public void The_commit_only_verb_names_the_verb_that_answers_the_read()
@@ -71,7 +68,7 @@ public sealed class GameMcpPrestigeTests
     public void The_challenge_screen_carries_complete_named_prestige_decision_and_current_holding()
     {
         var world = World();
-        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpPrestigeProjection.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
         Assert.Equal("7 (next reset's start)", (string?)advancements["starting"]);
         Assert.Equal("5 (this run's start)", (string?)advancements["previous"]);
@@ -87,16 +84,13 @@ public sealed class GameMcpPrestigeTests
     /// <summary>
     /// The fixture holds three figures the game holds separately — "New Time Advancements" 11,
     /// "Starting Time Advancements" 7, "Previous Time Advancements" 5 — so no pair of them can be
-    /// mistaken for the third. The gain the caller reads is the game's own variable rather than any
-    /// subtraction done here: an earlier shape subtracted the wrong pair and told a live round each
-    /// reset was worse than the last, and doing the right subtraction would still be a fourth
-    /// number to reconcile against a screen that prints the game's.
+    /// mistaken for the third.
     /// </summary>
     [Fact]
     public void The_reset_gain_is_the_games_own_figure_and_reads_as_one_line()
     {
         var world = World();
-        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpPrestigeProjection.ProjectPrestigeState(world), world);
         var advancements = prestige["timeAdvancements"]!;
 
         Assert.Null(prestige["currentTimeAdvancements"]);
@@ -113,17 +107,14 @@ public sealed class GameMcpPrestigeTests
     }
 
     /// <summary>
-    /// The three words are the screen's and each of them points at a different run, which is exactly
-    /// what a cold reader cannot tell: a live round read <c>starting</c> as this run's own start,
-    /// called the wire contradictory against a maintained doc, and only unpicked it a paragraph
-    /// later. Every figure names the run it belongs to on its own line, so no pair has to be held
-    /// side by side to disambiguate either one.
+    /// Every figure names the run it belongs to on its own line, so no pair has to be held side by
+    /// side to disambiguate either one.
     /// </summary>
     [Fact]
     public void Every_time_advancement_figure_names_the_run_it_belongs_to()
     {
         var world = World();
-        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpPrestigeProjection.ProjectPrestigeState(world), world);
         var line = Assert.Single(
             GameMcpTextPage.Render(prestige).Split('\n'),
             candidate => candidate.Contains("timeAdvancements", StringComparison.Ordinal));
@@ -154,14 +145,13 @@ public sealed class GameMcpPrestigeTests
 
     /// <summary>
     /// The reset's own identity is the lifecycle it replaced, so an unsettled world still says
-    /// whether the reset happened. It used to answer with a bare sentence and nothing to correlate
-    /// against, which cost a live round four calls rebuilding the picture by hand.
+    /// whether the reset happened.
     /// </summary>
     [Fact]
     public void An_unsettled_reset_still_says_which_lifecycle_it_replaced_and_where_to_read_it()
     {
-        var replaced = GameMcpTestHarness.Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 10, "Main"), World());
-        var nothing = GameMcpTestHarness.Json(GameMcpWorldQuery.PrestigeSettlementPending(9, 9, null), World());
+        var replaced = GameMcpTestHarness.Json(GameMcpPrestigeProjection.PrestigeSettlementPending(9, 10, "Main"), World());
+        var nothing = GameMcpTestHarness.Json(GameMcpPrestigeProjection.PrestigeSettlementPending(9, 9, null), World());
 
         Assert.Equal(9, (int)replaced["lifecycleGeneration"]!["before"]!);
         Assert.Equal(10, (int)replaced["lifecycleGeneration"]!["after"]!);
@@ -177,7 +167,7 @@ public sealed class GameMcpPrestigeTests
     public void Committed_poststate_returns_the_fresh_scene_prestige_and_challenge_decisions()
     {
         var world = World(worldComplete: false, fetched: false);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigePostState(
+        var response = GameMcpTestHarness.Json(GameMcpPrestigeProjection.ProjectPrestigePostState(
             GameMcpTestHarness.Context(world, 2602)), world);
 
         Assert.Equal("Main", (string?)response["scene"]);
@@ -200,8 +190,8 @@ public sealed class GameMcpPrestigeTests
                 context.RerollsLeft, context.RerollsMaximum, context.SelectionMaximum,
                 context.Selected, context.TimeOffers, context.PrestigeOffers),
         };
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectChallengeState(world), world);
-        var prestige = GameMcpTestHarness.Json(GameMcpWorldQuery.ProjectPrestigeState(world), world);
+        var response = GameMcpTestHarness.Json(GameMcpChallengeProjection.ProjectChallengeState(world), world);
+        var prestige = GameMcpTestHarness.Json(GameMcpPrestigeProjection.ProjectPrestigeState(world), world);
 
         Assert.Equal("Prismatic Trial", (string?)response["resetOffers"]![0]!["name"]);
         Assert.Null(response["prestige"]);

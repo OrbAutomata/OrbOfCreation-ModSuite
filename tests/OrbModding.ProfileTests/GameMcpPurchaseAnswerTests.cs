@@ -45,7 +45,7 @@ public sealed class GameMcpPurchaseAnswerTests
             frameContext: GameMcpTestHarness.Context(before));
 
         var delta = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: 1));
+            GameMcpRowKit.QueuedMutation(attributeId, asked: 1, queued: 1));
 
         Assert.Equal(GameMcpTestHarness.Handle(attributeId), (string?)delta["uuid"]);
         Assert.Equal(1, (int)delta["queued"]!);
@@ -67,7 +67,7 @@ public sealed class GameMcpPurchaseAnswerTests
 
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000d");
         var delta = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 3, queued: 3));
+            GameMcpRowKit.QueuedMutation(attributeId, asked: 3, queued: 3));
 
         Assert.Equal(3, (int)delta["queued"]!);
         Assert.Null(delta["level"]);
@@ -76,15 +76,14 @@ public sealed class GameMcpPurchaseAnswerTests
 
     /// <summary>
     /// The game's own purchase loop stops as soon as it cannot pay for the next level, so a caller
-    /// has to be able to tell a partial delivery from a satisfied ask. Round 9 could not: an
-    /// <c>amount=1000</c> that delivered one level was byte-identical to <c>amount=1</c>.
+    /// has to be able to tell a partial delivery from a satisfied ask.
     /// </summary>
     [Fact]
     public void APartialPurchaseSaysDeliveredAgainstAskedOnOneLine()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000e");
         var delta = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1000, queued: 1));
+            GameMcpRowKit.QueuedMutation(attributeId, asked: 1000, queued: 1));
 
         var queued = (string?)delta["queued"];
         Assert.NotNull(queued);
@@ -93,19 +92,17 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// The suite's own half of a shortfall is explained on the same line as the delivery. Round 13
-    /// asked for ten levels against nine of room and got a refusal that delivered nothing; the press
-    /// now fills and says, in the sentence it already had, how many it kept back and why.
+    /// The suite's own half of a shortfall is explained on the same line as the delivery.
     /// </summary>
     [Fact]
     public void AnOverAskTheQueueCannotHoldFillsAndNamesWhatTheSuiteWithheld()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000010");
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var delta = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             attributeId,
             asked: 10,
             queued: 9,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 1,
                 offeredToTheGame: 9,
@@ -127,16 +124,16 @@ public sealed class GameMcpPurchaseAnswerTests
     public void AShortfallBothSidesCausedKeepsTheTwoHalvesApart()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000011");
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var delta = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             attributeId,
             asked: 10,
             queued: 4,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 1,
                 offeredToTheGame: 9,
                 queued: 4,
-                GameMcpWorldQuery.PurchaseStopClause(
+                GameMcpPurchaseProjection.PurchaseStopClause(
                     AutoBuyGroupStop.NextLevelUnaffordable))));
 
         Assert.Equal(
@@ -153,32 +150,32 @@ public sealed class GameMcpPurchaseAnswerTests
     public void AnAttributeGroupNamesTheGameGateTheSuiteWatchedShut()
     {
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-000000000012");
-        var stopped = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var stopped = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             attributeId,
             asked: 5,
             queued: 3,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 0,
                 offeredToTheGame: 5,
                 queued: 3,
-                GameMcpWorldQuery.PurchaseStopClause(
+                GameMcpPurchaseProjection.PurchaseStopClause(
                     AutoBuyGroupStop.NextLevelUnaffordable))));
 
         Assert.Equal(
             "3 of 5 asked; the game took no more this press: the next level's cost is not met.",
             (string?)stopped["queued"]);
 
-        var shut = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var shut = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             attributeId,
             asked: 5,
             queued: 1,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 0,
                 offeredToTheGame: 5,
                 queued: 1,
-                GameMcpWorldQuery.PurchaseStopClause(AutoBuyGroupStop.NotAdmitted))));
+                GameMcpPurchaseProjection.PurchaseStopClause(AutoBuyGroupStop.NotAdmitted))));
 
         Assert.Equal(
             "1 of 5 asked; the game took no more this press: it no longer admits this purchase.",
@@ -192,19 +189,19 @@ public sealed class GameMcpPurchaseAnswerTests
     [Fact]
     public void AnUpgradeGroupOffersTheNextLevelsPriceInsteadOfAGuessedReason()
     {
-        Assert.Null(GameMcpWorldQuery.PurchaseStopClause(AutoBuyGroupStop.None));
+        Assert.Null(GameMcpPurchaseProjection.PurchaseStopClause(AutoBuyGroupStop.None));
 
         var upgradeId = Guid.Parse("f2000000-0000-0000-0000-000000000013");
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var delta = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             upgradeId,
             asked: 5,
             queued: 2,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 0,
                 offeredToTheGame: 5,
                 queued: 2,
-                GameMcpWorldQuery.NextLevelPriceClause(new[]
+                GameMcpPurchaseProjection.NextLevelPriceClause(new[]
                 {
                     ("Mana", new BigDouble(1200)),
                     ("Insight", new BigDouble(300)),
@@ -215,7 +212,7 @@ public sealed class GameMcpPurchaseAnswerTests
             "300 Insight.",
             (string?)delta["queued"]);
 
-        Assert.Null(GameMcpWorldQuery.NextLevelPriceClause(
+        Assert.Null(GameMcpPurchaseProjection.NextLevelPriceClause(
             Array.Empty<(string, BigDouble)>()));
     }
 
@@ -227,11 +224,11 @@ public sealed class GameMcpPurchaseAnswerTests
     public void AnUnreadableNextLevelPriceLeavesTheSentenceUnchanged()
     {
         var upgradeId = Guid.Parse("f2000000-0000-0000-0000-000000000014");
-        var delta = GameMcpTestHarness.Json(GameMcpWorldQuery.QueuedMutation(
+        var delta = GameMcpTestHarness.Json(GameMcpRowKit.QueuedMutation(
             upgradeId,
             asked: 5,
             queued: 2,
-            remainder: GameMcpWorldQuery.PurchaseShortfallReason(
+            remainder: GameMcpPurchaseProjection.PurchaseShortfallReason(
                 ActionQueueWorld(capacity: 10),
                 withheld: 0,
                 offeredToTheGame: 5,
@@ -244,9 +241,7 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// The one purchase refusal left. It used to answer "The game refused, and nothing it reports
-    /// explains why" — or worse, blame the caller's resources for a queue that had no room — which
-    /// was the worst answer in the verb.
+    /// The one purchase refusal left.
     /// </summary>
     [Fact]
     public void AFullActionQueueRefusesNamingTheQueueAndNotTheCallersPockets()
@@ -254,7 +249,7 @@ public sealed class GameMcpPurchaseAnswerTests
         Assert.Equal(
             "The game's action queue is full (10 of 10 slots used); nothing can be queued until " +
             "something in it settles.",
-            GameMcpWorldQuery.ActionQueueFullReason(ActionQueueWorld(capacity: 10)));
+            GameMcpPurchaseProjection.ActionQueueFullReason(ActionQueueWorld(capacity: 10)));
 
         var name = AutoBuyActionResultCodes.ActionQueueFull.Name;
         Assert.Equal("queue_full", name);
@@ -283,11 +278,8 @@ public sealed class GameMcpPurchaseAnswerTests
     }
 
     /// <summary>
-    /// These verbs promise "it queued and how many", and the commonest press of all — one level —
-    /// used to answer a bare <c>yes</c>: the observation the sentinel had already made was spent on
-    /// a word that says nothing, and a live round had to re-read the entity to learn what its own
-    /// commit did. An observed count is always the number. Only a count the evidence does not carry
-    /// stays a bare yes, because inventing one would be the worse defect.
+    /// An observed count is always the number. Only a count the evidence does not carry stays a
+    /// bare yes, because inventing one would be the worse defect.
     /// </summary>
     [Fact]
     public void AQueuedMutationSaysTheCountItObservedIncludingTheCountOfOne()
@@ -295,21 +287,18 @@ public sealed class GameMcpPurchaseAnswerTests
         var attributeId = Guid.Parse("f2000000-0000-0000-0000-00000000000f");
 
         var one = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: 1));
+            GameMcpRowKit.QueuedMutation(attributeId, asked: 1, queued: 1));
         Assert.Equal(1, (int)one["queued"]!);
 
         var unknown = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.QueuedMutation(attributeId, asked: 1, queued: null));
+            GameMcpRowKit.QueuedMutation(attributeId, asked: 1, queued: null));
         Assert.True((bool)unknown["queued"]!);
     }
 
     /// <summary>
-    /// A committed purchase answers with what moved. It used to answer with what it charged as
-    /// well, and on a multi-level call that figure priced one level of a rising ladder while
-    /// reading like the whole charge — always short, always in the direction of believing there is
-    /// more left to spend. The cost curves live in the world publication, where Auto Buy plans off
-    /// them; a caller that could not afford something still reads what it needs and what it holds
-    /// in the refusal's own sentence.
+    /// A committed purchase answers with what moved. The cost curves live in the world publication,
+    /// where Auto Buy plans off them; a caller that could not afford something still reads what it
+    /// needs and what it holds in the refusal's own sentence.
     /// </summary>
     [Fact]
     public void ACommittedPurchaseReportsTheLevelsItBoughtAndNoPaymentRows()
@@ -351,7 +340,7 @@ public sealed class GameMcpPurchaseAnswerTests
             saveCapture: false,
             frameContext: GameMcpTestHarness.Context(before));
         var delta = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.QueuedMutation(
+            GameMcpRowKit.QueuedMutation(
                 attributeId, asked: command.Amount, queued: 25),
             identities));
 
@@ -397,12 +386,12 @@ public sealed class GameMcpPurchaseAnswerTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, 2101),
             "attributes",
             attributeId.ToString("D")));
         var row = response["row"]!;
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, 2101), "attributes", 0, 10))["rows"]![0]!;
 
         Assert.Equal(2136, (int)row["level"]!);
@@ -432,11 +421,11 @@ public sealed class GameMcpPurchaseAnswerTests
             CollectedAtUtcTicks = DateTime.UtcNow.Ticks,
         };
 
-        var row = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, 2102),
             "attributes",
             attributeId.ToString("D")))["row"]!;
-        var listed = GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, 2102), "attributes", 0, 10))["rows"]![0]!;
 
         Assert.Equal(0, (int)row["queuedLevels"]!);
@@ -466,26 +455,25 @@ public sealed class GameMcpPurchaseAnswerTests
         };
         var context = GameMcpTestHarness.Context(world, 2102);
 
-        var unbounded = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var unbounded = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "upgrades", unboundedId.ToString("D")))["row"]!;
         Assert.Equal(7, (int)unbounded["level"]!);
         Assert.Equal("uncapped", (string?)unbounded["maximum"]);
         Assert.Equal("available", (string?)unbounded["state"]);
         Assert.Null(unbounded["reasonCode"]);
 
-        var exhausted = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var exhausted = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "upgrades", exhaustedId.ToString("D")))["row"]!;
         Assert.Equal(10, (int)exhausted["maximum"]!);
 
-        // One word, where a code, a boolean and a levels-left count used to divide the same fact
-        // between them. `get` says the lifecycle in the page's vocabulary, not a second one.
+        // `get` says the lifecycle in the page's vocabulary, not a second one.
         Assert.Equal("completed", (string?)exhausted["state"]);
         Assert.Null(exhausted["reasonCode"]);
         Assert.Null(exhausted["available"]);
         Assert.Null(exhausted["remainingLevels"]);
 
         var listed = GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(context, "upgrades", 0, 10));
+            GameMcpWorldList.ListRows(context, "upgrades", 0, 10));
         var rows = listed["rows"]!.Values<JObject>().ToArray();
         Assert.Equal("uncapped", (string?)rows[0]!["maximum"]);
         Assert.Equal("available", (string?)rows[0]!["state"]);

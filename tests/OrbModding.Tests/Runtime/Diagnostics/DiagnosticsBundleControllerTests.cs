@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -14,9 +15,8 @@ namespace OrbModding.Tests.Runtime.Diagnostics;
 
 public sealed class DiagnosticsBundleControllerTests : IDisposable
 {
-    private readonly string _root = Path.Combine(
-        Path.GetTempPath(),
-        "orb-diagnostics-controller-tests-" + Guid.NewGuid().ToString("N"));
+    private readonly TempDirectory _temporary = new();
+    private string _root => _temporary.Path;
 
     [Fact]
     public void RevealFailureKeepsTheBundleAndPublishesItsFullPath()
@@ -35,7 +35,7 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
         {
             controller.Tick();
             return registry.Status.State == DiagnosticsBundleState.WrittenRevealUnavailable;
-        }, TimeSpan.FromSeconds(10)));
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.True(Path.IsPathFullyQualified(registry.Status.Path));
         Assert.True(File.Exists(registry.Status.Path));
@@ -61,7 +61,7 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
         {
             controller.Tick();
             return registry.Status.State == DiagnosticsBundleState.Failed;
-        }, TimeSpan.FromSeconds(10)));
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.Empty(registry.Status.Path);
         Assert.Equal(0, registry.Status.BytesWritten);
@@ -84,7 +84,7 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
         {
             controller.Tick();
             return written is not null || failed is not null;
-        }, TimeSpan.FromSeconds(10)));
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.Null(failed);
         Assert.Equal(0, revealer.Calls);
@@ -115,7 +115,7 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
         {
             controller.Tick();
             return failed is not null;
-        }, TimeSpan.FromSeconds(10)));
+        }, ServiceCycleTestDeadline.Value));
 
         Assert.NotEmpty(failed!);
         Assert.Equal(DiagnosticsBundleState.Ready, registry.Status.State);
@@ -123,7 +123,7 @@ public sealed class DiagnosticsBundleControllerTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        _temporary.Dispose();
     }
 
     private FixturePaths Fixture()

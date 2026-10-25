@@ -19,12 +19,11 @@ public sealed class ServiceCycleStateSurfaceTypeSafetyTests
     /// A worker's state may hold the scratch its evaluation fills.
     /// </summary>
     /// <remarks>
-    /// This used to be rejected, on the reasoning that a state holding the frame could read one
-    /// cycle's projection in the next. It cannot: state and projection are both the worker's, filled
-    /// and read on the same thread inside one evaluation, and every cycle overwrites the scratch
-    /// before reading it. What the rule actually forbade was reusing the row arrays underneath — the
-    /// whole reason a buffer is worth keeping. Actions still may not retain a frame; those do cross a
-    /// thread, and that rule stands.
+    /// It cannot: state and projection are both the worker's, filled and read on the same thread
+    /// inside one evaluation, and every cycle overwrites the scratch before reading it. What the
+    /// rule actually forbade was reusing the row arrays underneath — the whole reason a buffer is
+    /// worth keeping. Actions still may not retain a frame; those do cross a thread, and that rule
+    /// stands.
     /// </remarks>
     [Fact]
     public void WorkerStateMayHoldTheScratchItsEvaluationFills()

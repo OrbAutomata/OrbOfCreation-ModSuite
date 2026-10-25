@@ -10,32 +10,32 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void Equipment_rows_publish_the_exact_native_loadout_decision_and_usage_holdings()
     {
-        var resource = new FakeResource
+        var resource = new ResourceSO
         {
             Identity = Guid.NewGuid(),
             Quantity = 80d,
-            quality = new FakeModifierRecord(100d),
+            quality = new ValueModifierRecord(100d),
         };
-        FakeResource.All.Add(resource);
-        var type = new FakeEquipmentType
+        ResourceSO.All.Add(resource);
+        var type = new EquipmentTypeSO
         {
             Identity = Guid.NewGuid(),
-            maxTypeSlots = new FakeModifierRecord(2d),
+            maxTypeSlots = new ValueModifierRecord(2d),
         };
-        FakeEquipmentType.All.Add(type);
-        var equipment = new FakeEquipment
+        EquipmentTypeSO.All.Add(type);
+        var equipment = new EquipmentSO
         {
             Identity = Guid.NewGuid(),
             isCreated = true,
             equipmentType = type,
-            maximumStacks = 4,
-            usageCost = new FakeCraftingResourceCostList
+            NativeMaximumStacks = 4,
+            usageCost = new ResourceCostList
             {
                 maximumCostTimes = new BigDouble(3),
             }.With(resource, new BigDouble(20)),
         };
-        FakeEquipment.All.Add(equipment);
-        FakeEquipmentManager.instance.equippedEquipment.maximum = 3;
+        EquipmentSO.All.Add(equipment);
+        EquipmentManager.instance.equippedEquipment.Maximum = 3;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -60,35 +60,35 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void Player_loadouts_and_snapshot_slots_are_collected_with_named_entry_identities()
     {
-        var spellRecipe = new FakeSpellRecipe { discovered = true };
-        var equipment = new FakeEquipment { isCreated = true };
-        var alchemy = new FakeAlchemyRecipe { discovered = true };
-        FakeSpellRecipe.All.Add(spellRecipe);
-        FakeEquipment.All.Add(equipment);
-        FakeAlchemyRecipe.All.Add(alchemy);
+        var spellRecipe = new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), discovered = true };
+        var equipment = new EquipmentSO { isCreated = true };
+        var alchemy = new AlchemyRecipeSO { discovered = true };
+        SpellRecipeSO.All.Add(spellRecipe);
+        EquipmentSO.All.Add(equipment);
+        AlchemyRecipeSO.All.Add(alchemy);
 
-        var player = new FakePlayerLoadout
+        var player = new PlayerLoadout
         {
             isSelected = true,
             saveEquipment = true,
             saveAlchemy = true,
         };
         player.GetLabel().SetName("Boss setup");
-        player.spells.Add(new FakeSpell
+        player.spells.Add(new Spell
         {
-            guidContainer = new FakeReferencedEntity { Identity = Guid.NewGuid() },
-            spellReference = spellRecipe,
+            guidContainer = new GuidContainer { Identity = Guid.NewGuid() },
+            Reference = spellRecipe,
         });
         player.equipment.Set(equipment, 2);
         player.alchemy.Set(alchemy, 3);
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(player);
+        LoadoutManager.instance.playerLoadouts.value.Add(player);
 
-        var equipmentSnapshot = new FakeEquipmentSnapshot();
-        var equipmentRecord = new FakeLoadoutRecord<FakeEquipment>();
+        var equipmentSnapshot = new EquipmentSnapshot();
+        var equipmentRecord = new Stacked.StackedIdRecord<EquipmentSO>();
         equipmentRecord.Set(equipment, 2);
         equipmentSnapshot.SaveSnapshot(equipmentRecord);
-        FakeLoadoutManager.instance.equipmentLoadouts.value.Add(equipmentSnapshot);
-        FakeLoadoutManager.instance.alchemyLoadouts.value.Add(new FakeAlchemySnapshot());
+        LoadoutManager.instance.equipmentLoadouts.value.Add(equipmentSnapshot);
+        LoadoutManager.instance.alchemyLoadouts.value.Add(new AlchemySnapshot());
 
         var collector = Collector();
         var report = collector.Collect();
@@ -104,7 +104,7 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
             row => row.Kind == WorldLoadoutEntryKind.Spell &&
                    row.ReferenceId == spellRecipe.Identity);
         Assert.Contains(world.SnapshotSlots.AsSpan().ToArray(),
-            row => row.OwnerId == FakeLoadoutManager.instance.equipmentLoadouts.Identity &&
+            row => row.OwnerId == LoadoutManager.instance.equipmentLoadouts.Identity &&
                    row.Slot == 0 && row.Populated);
         Assert.Contains(world.SnapshotEntries.AsSpan().ToArray(),
             row => row.EntryId == equipment.Identity && row.Quantity == 2);
@@ -117,11 +117,11 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void A_loadout_entry_without_an_identity_is_skipped_by_name()
     {
-        var unidentified = new FakeEquipment { isCreated = true, Identity = Guid.Empty };
-        var player = new FakePlayerLoadout { isSelected = true, saveEquipment = true };
-        player.spells.Add(new FakeSpell { empty = true });
+        var unidentified = new EquipmentSO { isCreated = true, Identity = Guid.Empty };
+        var player = new PlayerLoadout { isSelected = true, saveEquipment = true };
+        player.spells.Add(new Spell { NativeEmpty = true });
         player.equipment.Set(unidentified, 2);
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(player);
+        LoadoutManager.instance.playerLoadouts.value.Add(player);
 
         var collector = Collector();
         var report = collector.Collect().For("loadouts");
@@ -140,8 +140,8 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void A_loadout_read_that_throws_part_way_leaves_no_loadouts_behind()
     {
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { isSelected = true });
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { throwsOnSpells = true });
+        LoadoutManager.instance.playerLoadouts.value.Add(new PlayerLoadout { isSelected = true });
+        LoadoutManager.instance.playerLoadouts.value.Add(new PlayerLoadout { throwsOnSpells = true });
 
         var collector = Collector();
         var report = collector.Collect();
@@ -155,14 +155,14 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [InlineData(true, false)]
     [InlineData(false, true)]
     public void A_cast_in_progress_blocks_switching_without_sounding_the_games_refusal(
-        bool casting, bool readyingCast)
+        bool NativeCasting, bool NativeReadyingCast)
     {
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(new FakePlayerLoadout { isSelected = true });
-        var other = new FakePlayerLoadout();
-        FakeLoadoutManager.instance.playerLoadouts.value.Add(other);
-        FakeLoadoutManager.instance.activeSpells.value.Add(new FakeSpell { empty = true });
-        FakeLoadoutManager.instance.activeSpells.value.Add(
-            new FakeSpell { casting = casting, readyingCast = readyingCast });
+        LoadoutManager.instance.playerLoadouts.value.Add(new PlayerLoadout { isSelected = true });
+        var other = new PlayerLoadout();
+        LoadoutManager.instance.playerLoadouts.value.Add(other);
+        LoadoutManager.instance.activeSpells.value.Add(new Spell { NativeEmpty = true });
+        LoadoutManager.instance.activeSpells.value.Add(
+            new Spell { NativeCasting = NativeCasting, NativeReadyingCast = NativeReadyingCast });
 
         var collector = Collector();
         var report = collector.Collect();
@@ -171,7 +171,7 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
         Assert.True(report.IsComplete, report.Describe());
         Assert.True(WorldLoadoutLookup.TryFindPlayer(world.PlayerLoadouts, other.Identity, out var published));
         Assert.False(published.CanSwitchNow);
-        Assert.Equal(0, FakeLoadoutManager.instance.RefusalFeedbacks);
+        Assert.Equal(0, LoadoutManager.instance.RefusalFeedbacks);
     }
 
     /// <summary>
@@ -185,45 +185,46 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void TheEquippedLoadoutIsPublishedByThePositionACastIsAddressedBy()
     {
-        var fireball = new FakeSpellRecipe { discovered = true, masteryLevel = 5 };
-        FakeSpellRecipe.All.Add(fireball);
-        var echo = new FakeGlyph
+        var fireball = new SpellRecipeSO { baseLevelingCost = AuthoredSpellLevelCost(), discovered = true, masteryLevel = 5 };
+        SpellRecipeSO.All.Add(fireball);
+        var echo = new GlyphSO
         {
             Identity = Guid.NewGuid(),
             discovered = true,
             augmentsSpells = true,
-            maxUsages = new FakeModifierRecord(3d),
+            maxUsages = new ValueModifierRecord(3d),
         };
-        FakeGlyph.All.Add(echo);
+        GlyphSO.All.Add(echo);
 
         var water = Guid.NewGuid();
         var mana = Guid.NewGuid();
 
-        var equipped = new FakeSpell
+        var equipped = new Spell
         {
-            spellReference = fireball,
-            chargeable = true,
-            castReady = true,
-            currentCharges = 2,
-            maximumCharges = 3,
-            cooldownRemaining = new BigDouble(4d, 0),
-            outputLevel = 4,
-            effectiveLevel = 6,
-            requiredMasteryLevel = 3,
-            durationSpell = true,
-            usageRequirementsMet = false,
-            cost = new FakeSpellCostList().With(water, 50d),
-            drainCost = new FakeSpellCostList().With(mana, 7d),
-            weight = new FakeSpellCostList().With(mana, 3d),
+            Reference = fireball,
+            NativeCanCharge = true,
+            NativeCanCast = true,
+            CurrentCharges = 2,
+            MaximumCharges = 3,
+            CooldownRemaining = new BigDouble(4d, 0),
+            BaseEffectLevel = 6,
+            DurationSpell = true,
+            NativeUsageRequirementsMet = false,
+            Cost = new ResourceCostList().With(water, 50d),
+            DrainCost = new ResourceCostList().With(mana, 7d),
         };
-        equipped.augmentGlyphs.Add(echo);
-        equipped.augmentGlyphs.Add(echo);
+        Player.Current.spellOutputLevel.Value = 4;
+        echo.masteryReqCount = 3;
+        fireball.baseUsageCost = new ResourceCostList().With(mana, 3d);
+        var augments = new Stacked.StackedIdRecord<GlyphSO>();
+        augments.Set(echo, 2);
+        equipped.SetAugmentGlyphs(augments);
 
-        var loadout = new FakeSpellLoadout();
+        var loadout = new SpellListVariable();
         loadout.value.Add(equipped);
-        loadout.value.Add(null);
-        loadout.value.Add(new FakeSpell { empty = true });
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveSpells.Uuid] = loadout;
+        loadout.value.Add(null!);
+        loadout.value.Add(new Spell { NativeEmpty = true });
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActiveSpells.Uuid] = loadout;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -296,24 +297,24 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void EachSlotCarriesTheGamesOwnAnswerForEveryStateItDistinguishes()
     {
-        FakeSettingsManager.CancellableSpells = false;
-        FakeSpellManager.NativeCanCast = false;
-        var loadout = new FakeSpellLoadout();
-        loadout.value.Add(new FakeSpell
+        SettingsManager.CancellableSpells = false;
+        SpellManager.NativeCanCast = false;
+        var loadout = new SpellListVariable();
+        loadout.value.Add(new Spell
         {
-            spellReference = null,
-            casting = true,
-            readyingCast = true,
-            attuning = true,
-            channeled = true,
-            toggled = true,
-            chargeable = true,
-            castReady = false,
-            chargeAvailable = false,
-            resourcesCovered = false,
+            Reference = null,
+            NativeCasting = true,
+            NativeReadyingCast = true,
+            NativeAttuning = true,
+            Channeled = true,
+            ToggledSpell = true,
+            NativeCanCharge = true,
+            NativeCanCast = false,
+            NativeChargeAvailable = false,
+            NativeHasEnoughResources = false,
         });
-        loadout.value.Add(new FakeSpell());
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveSpells.Uuid] = loadout;
+        loadout.value.Add(new Spell());
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActiveSpells.Uuid] = loadout;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -365,10 +366,10 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void QueueOccupancyComesFromTheCapturedSlots()
     {
-        var queue = new FakeActionQueue { ReportedUsedSpots = 2 };
-        queue.value.Add(new FakeQueueSlot { quantity = 1 });
-        queue.value.Add(new FakeQueueSlot());
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+        var queue = new PlotNodeActionInstanceListVariable { ReportedUsedSpots = 2 };
+        queue.value.Add(new PlotNodeActionInstance { quantity = 1 });
+        queue.value.Add(new PlotNodeActionInstance());
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -392,10 +393,10 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void AQueueEntryOfAnotherTypeCostsTheWholeReading()
     {
-        var queue = new FakeActionQueue();
-        queue.value.Add(new FakeQueueSlot { quantity = 1 });
-        queue.value.Add(new FakeForeignQueueSlot { quantity = 1 });
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+        var queue = new PlotNodeActionInstanceListVariable();
+        queue.value.Add(new PlotNodeActionInstance { quantity = 1 });
+        queue.value.Add(new ForeignQueueSlot { quantity = 1 });
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -424,12 +425,12 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void ASlotNamingAPairNoTableHoldsIsStillPublished()
     {
-        var stranger = new FakePlotNodeAction();
-        var elsewhere = new FakePlotNode { Identity = Guid.NewGuid() };
+        var stranger = new PlotNodeActionSO();
+        var elsewhere = new PlotNodeSO { Identity = Guid.NewGuid() };
 
-        var queue = new FakeActionQueue();
-        queue.value.Add(new FakeQueueSlot { quantity = 1, plot = elsewhere, action = stranger });
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+        var queue = new PlotNodeActionInstanceListVariable();
+        queue.value.Add(new PlotNodeActionInstance { quantity = 1, plotNodeRefObj = elsewhere, Action = stranger });
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -451,10 +452,10 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void AHoleInTheQueueIsReadAsAnEmptySlot()
     {
-        var queue = new FakeActionQueue();
-        queue.value.Add(null);
-        queue.value.Add(new FakeQueueSlot { quantity = 2 });
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
+        var queue = new PlotNodeActionInstanceListVariable();
+        queue.value.Add(null!);
+        queue.value.Add(new PlotNodeActionInstance { quantity = 2 });
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActivePlotNodeActions.Uuid] = queue;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -482,14 +483,14 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     public void TheAttributeQueueCarriesOccupancyAndTheVariableItsMaximumLivesIn()
     {
         var maximum = Guid.NewGuid();
-        FakeCount.All.Add(new FakeCount { Identity = maximum, value = new FakeModifierRecord(6d) });
+        IntVariable.All.Add(new IntVariable { Identity = maximum, value = new ValueModifierRecord(6d) });
 
-        var queue = new FakeAttributeQueue
+        var queue = new ActionableListVariable
         {
-            maxQueuedItems = new FakeQueueCapacity { Identity = maximum, Maximum = 6 },
-            value = { new object(), new object() },
+            maxQueuedItems = new IntVariable { Identity = maximum, Maximum = 6 },
+            value = { new UpgradeSO(), new UpgradeSO() },
         };
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveActionables.Uuid] = queue;
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActiveActionables.Uuid] = queue;
 
         var collector = Collector();
         var report = collector.Collect();
@@ -518,10 +519,10 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     public void AnAttributeQueueWhoseReadThrowsUnexpectedlyFaultsThePass()
     {
         var failure = new NullReferenceException("capacity variable was destroyed");
-        FakeIdRegistry.RuntimeLookup[KnownEntities.ActiveActionables.Uuid] = new FakeAttributeQueue
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActiveActionables.Uuid] = new ActionableListVariable
         {
-            maxQueuedItems = new FakeQueueCapacity { GetGuidFailure = failure },
-            value = { new object() },
+            maxQueuedItems = new IntVariable { GetGuidFailure = failure },
+            value = { new UpgradeSO() },
         };
 
         var thrown = Assert.Throws<NullReferenceException>(() => Collector().Collect());
@@ -554,7 +555,7 @@ public sealed class GameWorldCollectorEquipmentTests : GameWorldCollectorTestBas
     [Fact]
     public void AnAbsentQueueTypeDegradesOnlyTheQueues()
     {
-        FakeResource.All.Add(new FakeResource { Identity = Guid.NewGuid() });
+        ResourceSO.All.Add(new ResourceSO { Identity = Guid.NewGuid() });
 
         var report = Collector(("ActionableListVariable", null)).Collect();
         var queues = report.For("action queues");

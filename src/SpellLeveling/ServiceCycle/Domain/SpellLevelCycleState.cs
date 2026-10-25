@@ -29,13 +29,12 @@ internal struct SpellLevelCycleState
 }
 
 /// <summary>
-/// Why a discovered spell did not reach the plan, one member per term the evaluator tests, in order.
+/// Why a discovered spell did not reach the plan, one member per term the evaluator tests, in
+/// order.
 /// </summary>
 /// <remarks>
-/// Spell Leveling's plan is one action or none, so "nothing happened" is its ordinary output and the
-/// interesting question is always which term produced it. Auto Buy learned this the expensive way —
-/// four hundred cycles of "0 eligible of 409" that took a decompile to attribute — and a service whose
-/// normal state is idle needs the same answer even more.
+/// Spell Leveling's plan is one action or none, so "nothing happened" is its ordinary output and
+/// the interesting question is always which term produced it.
 /// </remarks>
 internal enum SpellLevelExclusion
 {

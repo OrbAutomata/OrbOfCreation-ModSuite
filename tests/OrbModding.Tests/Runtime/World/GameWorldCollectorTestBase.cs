@@ -1,121 +1,226 @@
 using System;
 using System.Collections.Generic;
+using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
+using OrbModding.GameStubs;
 
 namespace OrbModding.Tests.Runtime.World;
 
-public abstract partial class GameWorldCollectorTestBase : IDisposable
+public abstract partial class GameWorldCollectorTestBase
 {
-    protected GameWorldCollectorTestBase() => ClearRegistries();
-
-    public void Dispose() => ClearRegistries();
-
-    private static void ClearRegistries()
+    protected GameWorldCollectorTestBase()
     {
-        FakeResource.All.Clear();
-        FakeStructure.All.Clear();
-        FakeUpgrade.All.Clear();
-        FakeResearch.All.Clear();
-        FakePrerequisiteLink.All.Clear();
-        FakeGameManager.currentFrame = 0;
-        FakeNumber.All.Clear();
-        FakeCount.All.Clear();
-        FakeFlag.All.Clear();
-        FakePlayerGlobals.Reset();
-        FakeTargetingManager.Reset();
-        FakeConsumableInventory.Reset();
-        FakeChallengeManager.instance = new FakeChallengeManager();
-        FakePersistentResetManager.instance = new FakePersistentResetManager();
-        FakeSettingsManager.QueueMode = false;
-        FakeSettingsManager.CancellableSpells = true;
-        FakeGlobalVariables.SetMultiBuy(1);
-        WorldCategoryFakes.Clear();
-        FakeStructureType.All.Clear();
-        FakeResearchType.All.Clear();
+        // Each test's assembly hook resets the native model. Seed only the authored identities this
+        // collector fixture needs; every valid type still resolves through the shipping resolver.
+        Player.ResourceOverflow = new DoubleVariable { value = new ValueModifierRecord(200d) };
+        Player.ResourceOverflowLoss = new DoubleVariable { value = new ValueModifierRecord(100d) };
+        Player.ResetTimePassed = new DoubleVariable { value = new ValueModifierRecord(60d) };
+        GlobalVariables.MultiBuy.Value = 1;
+        GlobalValues.instance.spellTypeXpPerMastery = 30d;
+        AlchemyManager.instance = new AlchemyManager();
+        RitualManager.instance = new RitualManager();
+        SeedScribeRelations();
+        SeedHarvestLifecycle();
+        SeedResourceBar();
     }
 
-    private protected static readonly Dictionary<string, Type?> Defaults = Build();
-
-    /// <summary>
-    /// Every category the collector walks, resolved to a stand-in. The categories these tests are
-    /// about get the purpose-built types in <c>WorldCollectorFakes.cs</c>; the rest come from
-    /// <see cref="WorldCategoryFakes"/>, so a complete pass really is complete.
-    /// </summary>
-    private static Dictionary<string, Type?> Build()
-    {
-        var byName = new Dictionary<string, Type?>(StringComparer.Ordinal)
-        {
-            ["ResourceSO"] = typeof(FakeResource),
-            ["StructureSO"] = typeof(FakeStructure),
-            ["UpgradeSO"] = typeof(FakeUpgrade),
-            ["ResearchSO"] = typeof(FakeResearch),
-            ["PrerequisiteLinkSO"] = typeof(FakePrerequisiteLink),
-            ["GameManager"] = typeof(FakeGameManager),
-            ["DoubleVariable"] = typeof(FakeNumber),
-            ["IntVariable"] = typeof(FakeCount),
-            ["BoolVariable"] = typeof(FakeFlag),
-            ["AbstractListVariable"] = typeof(FakeAbstractListVariable),
-            ["StructureTypeSO"] = typeof(FakeStructureType),
-            ["StructureListVariable"] = typeof(FakeStructureListVariable),
-            ["UpgradeListVariable"] = typeof(FakeUpgradeListVariable),
-
-            // Not categories: the frame-wide globals reader resolves these two by name, and a
-            // collector that cannot reach them silently prices every structure at parity.
-            ["Player"] = typeof(FakePlayerGlobals),
-            ["GlobalVariables"] = typeof(FakeGlobalVariables),
-            ["ValueModifierRecord"] = typeof(FakeModifierRecord),
-            ["TargetingManager"] = typeof(FakeTargetingManager),
-            ["TargetingManager+TargetLink"] = typeof(FakeTargetingManager.TargetLink),
-            ["ITooltipable"] = typeof(IFakeTooltipable),
-            ["EffectResultInfo"] = typeof(FakeTargetingResultInfo),
-            ["Inventory"] = typeof(FakeConsumableInventory),
-            ["ConsumableRefListVariable"] = typeof(FakeConsumableRefListVariable),
-            ["UICraftingPage"] = typeof(FakeCraftingPage),
-            ["ChallengeManager"] = typeof(FakeChallengeManager),
-            ["PersistentResetManager"] = typeof(FakePersistentResetManager),
-            ["ChallengeListVariable"] = typeof(FakeChallengeList),
-            ["SettingsManager"] = typeof(FakeSettingsManager),
-            ["ResearchTypeSO"] = typeof(FakeResearchType),
-            ["ResourceFillList"] = typeof(FakeResearchFillList),
-            ["ResourceFillList+ResourceFillEntry"] = typeof(FakeResearchFillList.ResourceFillEntry),
-        };
-
-        foreach (var pair in WorldCategoryFakes.ByTypeName) byName[pair.Key] = pair.Value;
-        return byName;
-    }
-
-    /// <summary>
-    /// A collector over the purpose-built types. Overrides are keyed by the game type name the binder
-    /// asks for, so a test can say "this category resolves to something else" or "this category
-    /// resolves to nothing" — the latter being a distinct case the collector must report differently.
-    /// </summary>
     private protected static GameWorldCollector Collector(params (string TypeName, Type? Type)[] overrides)
     {
-        if (FakeConsumable.All.Count > 0)
+        if (ConsumableSO.All.Count > 0)
         {
             var maximumId = Guid.NewGuid();
-            FakeCount.All.Add(new FakeCount
+            IntVariable.All.Add(new IntVariable
             {
                 Identity = maximumId,
-                value = new FakeModifierRecord(FakeConsumable.All[0].maximumCarryLoad),
+                Value = ConsumableSO.All[0].MaximumCarryLoad,
             });
-            FakeIdRegistry.RuntimeLookup[
+            IdScriptableObject.RuntimeLookup[
                 new Guid("315471ca-0d15-455d-92da-f9d5f95a3c33")] =
-                new FakeConsumableType
+                new ConsumableTypeSO
                 {
                     Identity = new Guid("315471ca-0d15-455d-92da-f9d5f95a3c33"),
-                    maximumCarryLoad = new FakeConsumableVariable { Identity = maximumId },
+                    maximumCarryLoad = new IntVariable { Identity = maximumId },
                 };
         }
-        var byName = new Dictionary<string, Type?>(Defaults, StringComparer.Ordinal);
-        foreach (var (typeName, type) in overrides) byName[typeName] = type;
-        return new GameWorldCollector(name => byName.TryGetValue(name, out var type) ? type : null);
+        if (overrides.Length == 0) return new GameWorldCollector();
+        return new GameWorldCollector(name =>
+        {
+            foreach (var (typeName, type) in overrides)
+                if (typeName == name) return type;
+            return WorldNativeTypes.Resolve(name);
+        });
     }
 
-    private protected static FakeEffectBlock Block(object script)
+    private protected static PersistentEffectBlock Block(object script)
     {
-        var block = new FakeEffectBlock();
-        block.effectScripts.Add(script);
+        var block = new PersistentEffectBlock();
+        block.effectScripts.Add((IPersistentEffectScript)script);
         return block;
     }
+    private static void SeedResourceBar()
+    {
+        IdScriptableObject.RuntimeLookup[KnownEntities.Mana.Uuid] =
+            new ResourceSO { Identity = KnownEntities.Mana.Uuid };
+        IdScriptableObject.RuntimeLookup[KnownEntities.ResourceBarCore.Uuid] = new ResourceListVariable();
+        IdScriptableObject.RuntimeLookup[KnownEntities.ResourceBarMaterials.Uuid] =
+            new ResourceListVariable();
+    }
+
+    private static void SeedScribeRelations()
+    {
+        IdScriptableObject.RuntimeLookup[KnownEntities.ScribeCraftingRecipes.Uuid] =
+            new CraftingRecipeListVariable();
+        IdScriptableObject.RuntimeLookup[KnownEntities.ActiveScribeInstances.Uuid] =
+            new CraftingInstanceListVariable();
+        IdScriptableObject.RuntimeLookup[KnownEntities.AutoScribeInstances.Uuid] =
+            new CraftingInstanceListVariable { isAutoList = true };
+        IdScriptableObject.RuntimeLookup[KnownEntities.ScribeCrafting.Uuid] =
+            new CraftingRecipeTypeSO
+            {
+                Identity = KnownEntities.ScribeCrafting.Uuid,
+                maxStartingLevel = 1,
+            };
+
+        foreach (var (scrollId, enchantmentId) in new[]
+                 {
+                     (KnownEntities.ScrollAdvancement.Uuid, KnownEntities.EnchantAdvancement.Uuid),
+                     (KnownEntities.ScrollDevelopment.Uuid, KnownEntities.EnchantDevelopment.Uuid),
+                     (KnownEntities.ScrollEcho.Uuid, KnownEntities.EnchantEcho.Uuid),
+                     (KnownEntities.ScrollExcellence.Uuid, KnownEntities.EnchantExcellence.Uuid),
+                     (KnownEntities.ScrollInvestment.Uuid, KnownEntities.EnchantInvestment.Uuid),
+                     (KnownEntities.ScrollLearning.Uuid, KnownEntities.EnchantLearning.Uuid),
+                     (KnownEntities.ScrollPower.Uuid, KnownEntities.EnchantPower.Uuid),
+                     (KnownEntities.ScrollSpeed.Uuid, KnownEntities.EnchantSpeed.Uuid),
+                 })
+        {
+            var enchantment = new EnchantmentSO { Identity = enchantmentId };
+            var block = new InstantEffectBlock();
+            block.effectScripts.Add(new RequestTargetEffectScript());
+            block.effectScripts.Add(new EnchantmentSO.EnchantItemScript
+            {
+                enchantment = enchantment,
+            });
+            var scroll = new ConsumableSO { Identity = scrollId };
+            scroll.onUseEffects.Add(block);
+            IdScriptableObject.RuntimeLookup[enchantmentId] = enchantment;
+            IdScriptableObject.RuntimeLookup[scrollId] = scroll;
+        }
+    }
+
+    internal static HarvestElementListVariable ActiveHarvestElements { get; private set; } = new();
+    internal static HarvestActionInstanceListVariable ActiveHarvestActions { get; private set; } = new();
+
+    private static void SeedHarvestLifecycle()
+    {
+        ActiveHarvestElements = new HarvestElementListVariable();
+        ActiveHarvestActions = new HarvestActionInstanceListVariable();
+        IdScriptableObject.RuntimeLookup[Guid.Parse("5a9f8001-3ae2-4799-86b6-5198763e0fe2")] =
+            ActiveHarvestElements;
+        IdScriptableObject.RuntimeLookup[Guid.Parse("e4a9d4c3-61cc-4f94-bab9-7bc8e841cc32")] =
+            ActiveHarvestActions;
+    }
+
+    private protected sealed class RitualMissingKeywords
+    {
+        public static readonly List<RitualMissingKeywords> All = new();
+
+        public Guid Identity = Guid.NewGuid();
+
+        public Guid GetGuid() => Identity;
+    }
+
+    private protected sealed class PlayerMissingQualityBonus
+    {
+        private static readonly PlayerMissingQualityBonus _instance = new();
+        private IntVariable spellOutputLevel = new() { Value = 1 };
+        public IntVariable maxSpellOutputLevel = new() { Value = 100 };
+        private IntVariable reserveLevel = new() { Value = 1 };
+        public IntVariable maxReserveLevel = new() { Value = 100 };
+        public IntVariable druidryOutputLevel = new() { Value = 1 };
+        public IntVariable maxDruidryOutputLevel = new() { Value = 1 };
+        public IntVariable alchemyOutputLevel = new() { Value = 1 };
+        public IntVariable maxAlchemyOutputLevel = new() { Value = 1 };
+
+        private PlayerMissingQualityBonus()
+        {
+        }
+
+        public static DoubleVariable GetResourceOverflow() =>
+            Player.GetResourceOverflow();
+
+        public static DoubleVariable GetResourceOverflowLoss() =>
+            Player.GetResourceOverflowLoss();
+
+        public static DoubleVariable GetResetTimePassed() =>
+            Player.GetResetTimePassed();
+
+        public static DoubleVariable GetStructureCost() => Player.GetStructureCost();
+
+        public static IntVariable GetSpellOutputLevel() => _instance.spellOutputLevel;
+
+        public static IntVariable GetReserveLevel() => _instance.reserveLevel;
+
+        public static DoubleVariable GetSpellCriticalCastRating() =>
+            Player.GetSpellCriticalCastRating();
+
+        public static DoubleVariable GetSpellCriticalCastEffect() =>
+            Player.GetSpellCriticalCastEffect();
+
+        public static DoubleVariable GetSpellDoubleCastRating() =>
+            Player.GetSpellDoubleCastRating();
+
+        public static DoubleVariable GetSpellDoubleCastEffect() =>
+            Player.GetSpellDoubleCastEffect();
+    }
+
+    private protected sealed class PartialResource
+    {
+        public static readonly List<PartialResource> All = new();
+
+        public ValueModifierRecord maxQuantity = new(-1d);
+
+        public Guid GetGuid() => Guid.NewGuid();
+
+        public BigDouble GetQuantity() => default;
+    }
+    private protected sealed class UnexpectedAlchemyInstance : AlchemyInstance
+    {
+        internal UnexpectedAlchemyInstance(AlchemyRecipeSO recipe) : base(recipe) { }
+    }
+    private protected sealed class ForeignQueueSlot : PlotNodeActionInstance { }
+
+
+    private protected static ResourceCostList CostOf(params (Guid Resource, double Amount)[] entries)
+    {
+        var list = new ResourceCostList();
+        foreach (var (resource, amount) in entries) list.costs.Add(new ResourceTuple(resource, amount));
+        return list;
+    }
+
+    private protected static ModifierListRef LevelModifiers(
+        ValueModifier[] modifiers,
+        ValueModifier[]? exponents = null)
+    {
+        var list = new ValueModifierList();
+        list.modifiers.AddRange(modifiers);
+        if (exponents is not null) list.exponents.AddRange(exponents);
+        return new ModifierListRef { variable = new ModifierListVariable { value = list } };
+    }
+
+    /// <summary>Over its cap with an active rate, which is the branch the frame-wide terms feed.</summary>
+    private protected static ResourceSO OverflowingResource(Guid identity) =>
+        new()
+        {
+            Identity = identity,
+            Quantity = new BigDouble(150d),
+            maxQuantity = new ValueModifierRecord(100d),
+            rate = new ValueModifierRecord(10d, activeCount: 1),
+            lifetimeQuantity = new BigDouble(400d),
+            Visible = true,
+        };
+    private protected static void SetOverflow(double value) => Player.ResourceOverflow.value = new ValueModifierRecord(value);
+    private protected static void SetStructureCost(double value) => Player.StructureCost.value = new ValueModifierRecord(value);
+    private protected static void SetAttributeQualityBonus(double value) => Player.AttributeQualityBonus.value = new ValueModifierRecord(value);
+    private protected static void SetMaximumSpellOutputLevel(IntVariable value) => Player.Current.maxSpellOutputLevel = value;
+    private protected static ResourceCostList AuthoredSpellLevelCost() => CostOf((KnownEntities.Mana.Uuid, 9d));
 }

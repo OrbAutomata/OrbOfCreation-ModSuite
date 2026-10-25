@@ -168,7 +168,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
         foreach (var owner in _owners)
         {
             var entities = owner.Registry!();
@@ -189,9 +189,10 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
                     continue;
                 }
 
+                var ownerId = Guid.Empty;
                 try
                 {
-                    var ownerId = owner.OwnerId!(entity);
+                    ownerId = owner.OwnerId!(entity);
                     if (ownerId == Guid.Empty)
                     {
                         WorldSkipTally.Skip(ref skipped, ref firstFailure,
@@ -225,8 +226,7 @@ internal sealed class WorldEntityKeywordReader : IWorldCategoryReader
                 catch (Exception exception) when (NativeFailureClassifier.IsExpected(exception))
                 {
                     WorldSkipTally.Skip(ref skipped, ref firstFailure,
-                        "reading a " + owner.TypeName + " keyword row threw: " +
-                        exception.GetBaseException().Message);
+                        "reading a " + owner.TypeName + WorldFailures.ReadFault(" keyword row threw", exception, ownerId));
                 }
             }
         }
@@ -517,24 +517,9 @@ internal static class WorldEntityKeywordLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        start = LowerBound(rows, ownerId);
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].OwnerId == ownerId) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), ownerId,
+            static (row, key) => row.OwnerId.CompareTo(key), out start, out count);
     }
 
-    private static int LowerBound(ReadOnlySpan<WorldEntityKeyword> rows, Guid ownerId)
-    {
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].OwnerId.CompareTo(ownerId) < 0) low = middle + 1;
-            else high = middle - 1;
-        }
 
-        return low;
-    }
 }

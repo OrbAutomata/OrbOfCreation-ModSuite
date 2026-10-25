@@ -2,13 +2,13 @@ using System;
 
 namespace OrbModding.Common.Runtime.World;
 
-/// <summary>One resource type as published: the levels it carries, and the flags that decide how it is audited and displayed.</summary>
+/// <summary>
+/// One resource type as published: the levels it carries, and the flags that decide how it is
+/// audited and displayed.
+/// </summary>
 /// <remarks>
-/// The records this type pushes onto its resources are published by the <c>type modifiers</c>
-/// category, which carries every type asset's records under one uniform shape — the counts this row
-/// used to approximate them with, and the modifier entries behind those counts. See
-/// <see cref="WorldTypeModifier"/> for why a total derived from them must not be multiplied into a
-/// resource value the suite already publishes.
+/// See <see cref="WorldTypeModifier"/> for why a total derived from them must not be multiplied
+/// into a resource value the suite already publishes.
 /// </remarks>
 internal readonly struct WorldResourceType : IWorldEntity
 {

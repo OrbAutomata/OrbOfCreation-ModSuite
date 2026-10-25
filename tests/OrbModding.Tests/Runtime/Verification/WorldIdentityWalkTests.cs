@@ -304,7 +304,7 @@ public sealed class WorldIdentityWalkTests
     public void ARowKeyedOnMoreThanTheIdentityCarriesTheRestOfItsKeyInOrder()
     {
         var owner = Guid.NewGuid();
-        var buffer = new WorldModifierProgramEntryBuffer();
+        var buffer = new WorldRelationBuffer<WorldModifierProgramEntry>();
         buffer.Append(new WorldModifierProgramEntry(
             owner,
             WorldModifierProgramRole.ConceptDrain,
@@ -317,7 +317,7 @@ public sealed class WorldIdentityWalkTests
 
         var world = new GameWorldState
         {
-            ModifierProgramEntries = WorldModifierProgramDeriver.Build(buffer),
+            ModifierProgramEntries = WorldRelationTable.Build(buffer, WorldModifierProgramMath.EntryOrder),
         };
 
         var sighting = Assert.Single(WorldIdentityWalk.Enumerate(world));

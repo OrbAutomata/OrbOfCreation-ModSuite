@@ -143,7 +143,7 @@ public sealed class ServiceCycleProfileAggregatorTests
             }
         });
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(2)), "The owner-thread check did not complete.");
+        Assert.True(thread.Join(ServiceCycleTestDeadline.Value), "The owner-thread check did not complete.");
 
         Assert.IsType<InvalidOperationException>(foreignFailure);
         aggregator.Seal();

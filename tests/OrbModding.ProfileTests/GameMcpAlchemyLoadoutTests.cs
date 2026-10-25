@@ -86,10 +86,30 @@ public sealed class GameMcpAlchemyLoadoutTests
     }
 
     [Fact]
+    public void Alchemy_usage_projector_emits_the_wire_price_keys_before_normalization()
+    {
+        var world = World(targetAmount: 2, position: 1);
+        var read = GameMcpWorldDetail.GetRows(
+            GameMcpTestHarness.Context(world, generation: 701),
+            "alchemy-recipes", new[] { RecipeId.ToString("D") }).Freeze();
+        var block = Assert.IsType<GameMcpObject>(
+            Assert.Single(Assert.IsType<GameMcpArray>(read["results"]).Items));
+        var row = Assert.IsType<GameMcpObject>(block["row"]);
+        var loadout = Assert.IsType<GameMcpObject>(row["alchemyLoadout"]);
+        var add = Assert.IsType<GameMcpObject>(loadout["add"]);
+        var costs = Assert.IsType<GameMcpArray>(add["usageCosts"]);
+        var cost = Assert.IsType<GameMcpObject>(Assert.Single(costs.Items));
+
+        Assert.NotNull(cost["cost"]);
+        Assert.NotNull(cost["spendableAmount"]);
+        Assert.Null(cost["amount"]);
+    }
+
+    [Fact]
     public void Recipe_detail_carries_current_holdings_usage_and_each_next_ui_decision()
     {
         var world = World(targetAmount: 2, position: 1);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             GameMcpTestHarness.Context(world, generation: 701),
             "alchemy-recipes", RecipeId.ToString("D")).Freeze(), world);
 
@@ -111,7 +131,7 @@ public sealed class GameMcpAlchemyLoadoutTests
         Assert.Null(loadout["move"]);
         Assert.Null(row["level"]);
 
-        var instance = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var instance = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 701),
             "alchemy-instances", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
         // An instance is not its recipe. It publishes no uuid of its own — the absence of a
@@ -134,14 +154,13 @@ public sealed class GameMcpAlchemyLoadoutTests
     }
 
     /// <summary>
-    /// The loadout list row says the same slot number the recipe detail says. It used to print the
-    /// raw array position, one below both of them.
+    /// The loadout list row says the same slot number the recipe detail says.
     /// </summary>
     [Fact]
     public void The_loadout_list_row_names_the_same_slot_the_detail_does()
     {
         var world = World(targetAmount: 2, position: 1);
-        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        var listed = Assert.Single(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(world, generation: 702),
             "alchemy-loadout", 0, 10).Freeze(), world)["rows"]!.Values<JObject>());
 

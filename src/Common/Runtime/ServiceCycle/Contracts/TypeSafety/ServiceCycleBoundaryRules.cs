@@ -48,11 +48,10 @@ internal static class ServiceCycleBoundaryRules
     /// mutable view.
     /// </summary>
     /// <remarks>
-    /// The badge alone is the admission. Which types may wear it is a review decision, pinned by the
-    /// exact-set allowlist in <c>ServiceCycleAuditedTypeAllowlistTests</c> — a new bearer fails a test
-    /// that names it. Assembly identity used to carry that job, but it stops meaning anything once the
-    /// suite ships as one DLL, whereas the allowlist keeps working. Open generic definitions are
-    /// excluded so only closed constructions, whose arguments can actually be walked, qualify.
+    /// The badge alone is the admission. Which types may wear it is a review decision, pinned by
+    /// the exact-set allowlist in <c>ServiceCycleAuditedTypeAllowlistTests</c> — a new bearer fails
+    /// a test that names it. Open generic definitions are excluded so only closed constructions,
+    /// whose arguments can actually be walked, qualify.
     /// </remarks>
     internal static bool IsAuditedPublicationValue(Type type) =>
         !type.ContainsGenericParameters &&

@@ -148,11 +148,8 @@ public sealed class IlInspectTests
     /// inspected where it actually lives.
     /// </summary>
     /// <remarks>
-    /// BepInEx ships under <c>BepInEx/core</c>, and <c>--assembly</c> used to mean "one file name
-    /// directly under Managed" — so pinning a BepInEx contract needed a directory named
-    /// <c>Managed</c> symlinked over <c>BepInEx/core</c>, which is a workaround standing between
-    /// the inspector and the evidence it exists to produce. References still resolve from Managed,
-    /// because that is where such an assembly's engine and game dependencies are.
+    /// References still resolve from Managed, because that is where such an assembly's engine and
+    /// game dependencies are.
     /// </remarks>
     [Fact]
     public void AnAssemblyTheGameShipsOutsideManagedIsInspectedWhereItLives()

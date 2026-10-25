@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -145,8 +146,9 @@ public sealed class GenericLevelGameActionTests
     public void Prerequisite_learned_pool_glyph_uses_picker_availability_not_discovery_state()
     {
         var target = (GlyphSO)Target("GlyphSO");
+        target.discoverable = false;
         target.discovered = false;
-        target.NativeAvailable = true;
+        target.prerequisites.NativeCheckResult = true;
         Register(target);
         using var boundary = Boundary();
 
@@ -160,15 +162,22 @@ public sealed class GenericLevelGameActionTests
     public void Glyph_hidden_from_the_native_picker_is_refused_before_purchase()
     {
         var target = (GlyphSO)Target("GlyphSO");
+        target.discoverable = false;
         target.discovered = true;
-        target.NativeAvailable = false;
+        target.prerequisites.NativeCheckResult = false;
+        // Non-discoverable glyphs use prerequisites, even when the discovered flag is set.
+        // Native IsVisible forwards to IsAvailable, and the boundary checks visibility first.
+        Assert.False(target.IsAvailable());
+        Assert.False(target.IsVisible());
         Register(target);
         using var boundary = Boundary();
 
         var result = Submit(boundary, target, "GlyphSO", GenericLevelActionKind.Purchase);
 
-        Assert.Equal(GenericLevelActionResultCodes.Unavailable, result.Outcome.Code);
+        Assert.Equal(GenericLevelActionResultCodes.Hidden, result.Outcome.Code);
+        Assert.Equal(0, result.Outcome.CallOutcome.MutationAttempts);
         Assert.Equal(0, target.GetLevel());
+        Assert.Equal(0, target.LevelCost.PerformCalls);
     }
 
     [Fact]
@@ -228,9 +237,7 @@ public sealed class GenericLevelGameActionTests
         Func<string, bool>? includeContract = null,
         Func<long>? epoch = null)
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(() => Epoch, _registry);
         return new GenericLevelGameAction(epoch ?? (() => Epoch), static () => true,
             static () => "GenericLevel ownership was revoked.",
             includeContract: includeContract, registry: resolver);

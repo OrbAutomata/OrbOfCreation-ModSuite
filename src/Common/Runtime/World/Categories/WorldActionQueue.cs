@@ -193,7 +193,7 @@ internal readonly struct WorldActionQueueSlot
 /// Range lookup over the queue-slot table, which is sorted by queue and then position.
 /// </summary>
 /// <remarks>
-/// A slot has no identity, so <see cref="WorldLookup"/> cannot reach one. What a consumer asks is
+/// Slots are keyed by queue identity and position. What a consumer asks is
 /// "what is in this queue", and a queue's slots are contiguous, so a binary search for its first row
 /// plus a forward walk answers that in <c>O(log n + k)</c> — the shape purchase costs already use for
 /// the same reason.
@@ -222,35 +222,8 @@ internal static class WorldActionQueueSlotLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].QueueId.CompareTo(queueId);
-            if (comparison == 0)
-            {
-                // Keep going left: the search must land on the queue's *first* slot, or the forward
-                // walk below starts in the middle of the queue and reports a partial reading.
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].QueueId == queueId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), queueId,
+            static (row, key) => row.QueueId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -363,7 +336,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         // A queue the registry does not hold yet is a fact about the save, not about the read: the
         // game registers its list variables during initialisation, and a pass before that has
@@ -383,7 +356,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
                 slots.Reset();
-                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("plot-action", ex));
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("plot-action", ex, KnownEntities.ActivePlotNodeActions.Uuid));
             }
         }
 
@@ -401,7 +374,7 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("attribute", ex));
+                WorldSkipTally.Skip(ref skipped, ref firstFailure, Threw("attribute", ex, KnownEntities.ActiveActionables.Uuid));
             }
         }
 
@@ -414,14 +387,14 @@ internal sealed class WorldActionQueueReader : IWorldCategoryReader
         string name,
         ref int sampled,
         ref int skipped,
-        ref string firstFailure)
+        ref WorldCollectionFailure firstFailure)
     {
         if (failure.Length == 0) sampled++;
         else WorldSkipTally.Skip(ref skipped, ref firstFailure, $"the {name} queue {failure}");
     }
 
-    private static string Threw(string name, Exception ex) =>
-        $"reading the {name} queue threw: {ex.GetBaseException().Message}";
+    private static WorldCollectionFailure Threw(string name, Exception ex, Guid queueId) =>
+        WorldFailures.ReadFault($"reading the {name} queue threw", ex, queueId);
 
     /// <summary>
     /// Reads the queue whose slots are published one by one, and rejects a reading it cannot make

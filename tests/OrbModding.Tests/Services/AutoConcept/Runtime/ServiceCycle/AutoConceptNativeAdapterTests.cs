@@ -19,12 +19,10 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
 
     public AutoConceptNativeAdapterTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
     }
 
     public void Dispose()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
     }
 
     [Theory]
@@ -302,6 +300,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         };
         var active = InstallNativeLists(recipe);
         active.value.Add(new AlchemyInstance(recipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(0, 0, 2, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
@@ -327,6 +326,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var active = InstallNativeLists(activeRecipe, replacementRecipe);
         active.TypelessSlots = 1;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
@@ -357,6 +357,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         active.TypelessSlots = 0;
         active.TypeSlots[activeType] = 1;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
@@ -387,6 +388,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         active.TypelessSlots = 1;
         active.ThrowOnCanAdd = true;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(
@@ -416,6 +418,7 @@ public sealed class AutoConceptNativeAdapterTests : IDisposable
         var active = InstallNativeLists(activeRecipe, replacementRecipe);
         active.TypelessSlots = 1;
         active.value.Add(new AlchemyInstance(activeRecipe) { quantity = 1, queuedQuantity = 1 });
+        active.RebuildCounts();
         using var runtime = new AutoConceptNativeAdapter(new AlchemyGameplayDomainClassifier());
         var belief = new AutoConceptPlanBelief(1, 1, 1, Guid.Empty, 0);
         var action = new AutoConceptCycleAction(

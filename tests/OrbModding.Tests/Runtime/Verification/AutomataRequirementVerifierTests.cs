@@ -24,9 +24,9 @@ namespace OrbModding.Tests.Runtime.Verification;
 /// </remarks>
 public sealed class AutomataRequirementVerifierTests : IDisposable
 {
-    public AutomataRequirementVerifierTests() => ClearRegistries();
+    public AutomataRequirementVerifierTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing()
@@ -89,10 +89,8 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
     /// went unchecked. It is deliberately not a mismatch: the verdict already refuses the purchase.
     /// </summary>
     /// <remarks>
-    /// The sentence used to be <c>the OpaqueRequirement condition on {guid} is not modelled</c> — a
-    /// C# class name and a raw id, in prose, naming neither the entity the way every other sentence
-    /// names one nor the decision that went unanswered. Which class the suite does not model is
-    /// reported once, by the collection check that owns that fact.
+    /// Which class the suite does not model is reported once, by the collection check that owns
+    /// that fact.
     /// </remarks>
     [Fact]
     public void AnUnmodelledConditionIsUnverifiableAndSaysWhatWentUnchecked()
@@ -308,15 +306,7 @@ public sealed class AutomataRequirementVerifierTests : IDisposable
         return session;
     }
 
-    private static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::GameManager.currentFrame = 0;
-        global::AlchemyRecipeSO.All.Clear();
-    }
+
 
     /// <summary>A build whose container exposes only the overload that writes.</summary>
     private sealed class LatchingOnlyContainer

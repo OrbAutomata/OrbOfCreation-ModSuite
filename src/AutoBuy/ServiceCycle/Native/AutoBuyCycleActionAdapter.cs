@@ -104,11 +104,6 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     /// <summary>
     /// Says once per run that the purchase-screen topology was published, and for which run.
     /// </summary>
-    /// <remarks>
-    /// The publication is the single fact every purchase is admitted against, and it used to leave no
-    /// trace at all: an outage where it was stamped under the wrong run took a source reading to
-    /// diagnose, because the log could not even say whether it had happened.
-    /// </remarks>
     internal void AnnounceTopologyPublication()
     {
         if (_purchases is not IAutoBuyPurchaseTopologyPort topology) return;
@@ -222,7 +217,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
             : 0;
         bool queueRoomReadable;
         int remainingRoom;
-        string queueRoomFailure;
+        GameActionReason queueRoomFailure;
 #if SERVICE_CYCLE_PROFILE
         var queueRoomStage = _profileOperations.Begin(
             ServiceCycleProfileSpan.AutoBuyActionQueueRoomRead,
@@ -238,9 +233,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 #endif
         if (!queueRoomReadable)
         {
-            Plugin.Log?.LogAutomataWarning(
-                AutoBuyPurchaseNarration.QueueRoomUnavailable(action.Kind, action.Uuid, queueRoomFailure));
-            return ServiceActionResult.Faulted(CommonActionResultCodes.AdapterFault);
+            LastSubmission = AutoBuyPurchaseSubmission.ContractUnavailable(queueRoomFailure);
+            var outcome = LastSubmission.Outcome;
+            return _guard.Finish(in outcome, in action);
         }
 
         // A reading below zero is a queue the game's own upgrade button stacked past its maximum,

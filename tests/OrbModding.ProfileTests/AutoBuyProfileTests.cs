@@ -1,10 +1,12 @@
 using System;
 using OrbAutomata;
+using OrbAutomata.GameMcp;
+using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common;
 using OrbAutomata.Runtime.ServiceCycle.Profile;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
-using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 using OrbModding.Common.Runtime.World;
@@ -14,6 +16,7 @@ using static OrbModding.ProfileTests.AutoHarvestProfileTestSupport;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class AutoBuyProfileTests : IDisposable
 {
     private const long PlannedEpoch = 7;
@@ -21,6 +24,58 @@ public sealed class AutoBuyProfileTests : IDisposable
     public AutoBuyProfileTests() => ResetNativeState();
 
     public void Dispose() => ResetNativeState();
+
+    [Fact]
+    public void AManualPurchasePreservesTheQueueReadFaultAndItsLogReference()
+    {
+        var faults = new System.Collections.Generic.List<string>();
+        GameActionFaultLog.ConfigureLog(faults.Add);
+        var failure = new InvalidOperationException("private manual queue failure");
+        global::ActionManager.RemainingRoomFault = failure;
+        using var registry = new ServiceCycleRegistry(1, new LifecycleGeneration((ulong)PlannedEpoch));
+        var world = GameWorldFrameDeriver.Build(new GameWorldCycleFrame { CollectedAtEpoch = PlannedEpoch });
+        registry.WorldPublication.Publish(world, new WorldGeneration(2));
+        var probe = new ServiceCycleProfileProbe();
+        var gameActions = new LifecycleGameActions();
+        using var configuration = new ServiceConfigurationPublisher(Configuration());
+        using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                "Auto Buy", true, FeatureStatusState.NotReady,
+                new FeatureStatusReason(FeatureStatusReasonCode.RegistryNotReady, "waiting"), PlannedEpoch));
+        var feature = new AutoBuyServiceCycleFeature(new AutoBuyFeatureDependencies(
+            () => PlannedEpoch, () => AutoBuyCandidateKinds.All, null, status,
+            new AutoBuyRefusalBundleWriter(() => throw new InvalidOperationException("unused")),
+            _ => { }, _ => { }, gameMcpOwnership: _ => true));
+        var context = new AutomataServiceCycleFeatureContext(
+            registry, new ConfigGeneration(1), PlannedEpoch, gameActions, probe);
+        var runtime = feature.Register(in context);
+        using var host = new AutomataServiceCycleHost(registry, () => 1, null, null, probe);
+        try
+        {
+            var dispatcher = new GameMcpCommandDispatcher(
+                host, configuration, gameActions, new[] { runtime });
+            var command = new GameMcpCommand(
+                1, GameMcpCommandKind.Purchase, PlannedEpoch, 1, "structure", Guid.NewGuid(), Guid.Empty,
+                "StructureSO", 1, string.Empty, string.Empty, false);
+
+            var result = dispatcher.ExecuteGameMcp(command);
+
+            Assert.Equal("faulted", result.Status);
+            Assert.Equal("adapter_fault", result.Code);
+            Assert.StartsWith("The remaining queue room could not be read. Reference MCP-", result.Reason);
+            Assert.DoesNotContain("private manual queue failure", result.Reason);
+            var logged = Assert.Single(faults);
+            Assert.Contains(failure.ToString(), logged);
+            Assert.Contains(logged.Split(' ')[3], result.Reason);
+        }
+        finally
+        {
+            runtime.DisposeRegistration();
+            GameActionFaultLog.ConfigureLog(null);
+            global::ActionManager.RemainingRoomFault = null;
+        }
+    }
 
     [Fact]
     public void CommittedStructurePurchaseRoutesAllFourActionStages()
@@ -125,12 +180,9 @@ public sealed class AutoBuyProfileTests : IDisposable
     /// the one that was.
     /// </summary>
     /// <remarks>
-    /// This is the shape that cost a live save twenty-seven minutes of refused purchases: a
-    /// verification pass allocated throwaway collectors, each took the process-wide owning-view
-    /// resolver, and each restamped it at the epoch its own frame carried — zero. The adapter is
-    /// built through its production constructor on purpose. Handing it a resolver is what made the
-    /// defect invisible: an injected resolver is not the singleton the running suite reads from, so
-    /// a test that injects one cannot see the singleton being clobbered.
+    /// The adapter is built through its production constructor on purpose. Handing it a resolver is
+    /// what made the defect invisible: an injected resolver is not the singleton the running suite
+    /// reads from, so a test that injects one cannot see the singleton being clobbered.
     /// </remarks>
     [Fact]
     public void ThrowawayCollectorDoesNotUnreadTheSessionPurchaseTopology()
@@ -312,11 +364,8 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     /// <summary>
     /// The game's own buy buttons never refuse an over-ask: they deliver what fits. So does this.
-    /// Round 13 asked for ten levels against nine of room and was told to ask again — a refusal the
-    /// suite invented, which delivered nothing and cost a second press. What round 9's silent clamp
-    /// actually cost was the difference: an <c>amount=1000</c> that delivered one level read
-    /// byte-identical to a satisfied <c>amount=1</c>. So the press fills, and the levels the suite
-    /// kept back ride on the submission for the settled answer's own line to explain.
+    /// So the press fills, and the levels the suite kept back ride on the submission for the
+    /// settled answer's own line to explain.
     /// </summary>
     [Fact]
     public void AnExplicitOverAskFillsTheRoomAndCarriesWhatItWithheld()
@@ -350,9 +399,7 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     /// <summary>
     /// The reserve is Auto Buy's courtesy to the player — slots kept free FOR manual actions — so
-    /// charging it to the manual verb refused the very action it exists to protect. A live round hit
-    /// exactly that: Auto Buy was off, the queue was empty, and a ten-level ask was turned away by a
-    /// setting nobody had asked to apply to it.
+    /// charging it to the manual verb refused the very action it exists to protect.
     /// </summary>
     [Fact]
     public void TheManualVerbIgnoresTheQueueReserveTheAutomatedCycleKeeps()
@@ -512,12 +559,7 @@ public sealed class AutoBuyProfileTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::ValueModifierVariable.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::ActionManager.instance = new global::ActionManager();
         global::ActionManager.RemainingRoom = 0;
         global::GlobalVariables.MultiBuy = new global::IntVariable();

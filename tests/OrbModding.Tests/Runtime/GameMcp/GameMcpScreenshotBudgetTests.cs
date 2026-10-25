@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,13 +13,12 @@ namespace OrbModding.Tests.Runtime.GameMcp;
 [Collection(GameActionFaultLogCollection.Name)]
 public sealed class GameMcpScreenshotBudgetTests : IDisposable
 {
-    private readonly string _directory = Path.Combine(
-        Path.GetTempPath(),
-        "orb-mcp-screenshot-budget-" + Guid.NewGuid().ToString("N"));
+    private readonly TempDirectory _temporary = new();
+    private string _directory => _temporary.Path;
 
     public void Dispose()
     {
-        if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+        _temporary.Dispose();
         File.Delete(_directory);
     }
 

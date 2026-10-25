@@ -12,7 +12,7 @@ internal static class GameMcpChallengeCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectChallengePostState(state, command)),
+                GameMcpChallengeProjection.ProjectChallengePostState(state, command)),
         nativeType: "ChallengeSO",
         prepare: Prepare);
 
@@ -52,7 +52,7 @@ internal static class GameMcpChallengeCommand
         GameMcpCommandDraft draft)
     {
         if (request.Mode == "select" && context.World is not null)
-            draft.SecondaryId = GameMcpWorldQuery.ChallengeSelectionToReplace(
+            draft.SecondaryId = GameMcpChallengeProjection.ChallengeSelectionToReplace(
                 context.World.Snapshot, draft.TargetId);
     }
 }

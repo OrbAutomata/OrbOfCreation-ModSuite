@@ -12,7 +12,7 @@ internal static class GameMcpDiscoveryTreeOfferCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             ProjectDelta,
-            static (state, command) => GameMcpWorldQuery.HasDiscoveryPostState(
+            static (state, command) => GameMcpDiscoveryTreeOfferProjection.HasDiscoveryPostState(
                 state,
                 command.TargetId,
                 command.Mode,
@@ -61,15 +61,15 @@ internal static class GameMcpDiscoveryTreeOfferCommand
         GameMcpCommand command,
         GameMcpCommandResult committed) => command.Mode switch
         {
-            "select" => GameMcpWorldQuery.WithoutOffers(
-                GameMcpWorldQuery.ProjectPostState(state, "discovery-trees", command.TargetId)),
+            "select" => GameMcpDiscoveryTreeOfferProjection.WithoutOffers(
+                GameMcpWorldDetail.ProjectPostState(state, "discovery-trees", command.TargetId)),
             // The mode reaching this switch is the one the request's `offer_` prefix was stripped
             // from, the same word the settlement rule waits on. Matching the tool's spelling here
             // meant every live confirm and reroll fell through to the plain tree row while the
             // fixtures that spelled it the other way went on passing.
-            "confirm" => GameMcpWorldQuery.ProjectDiscoveryOfferConfirmDelta(state, command),
-            "reroll" => GameMcpWorldQuery.ProjectDiscoveryRerollDelta(state, command),
-            _ => GameMcpWorldQuery.ProjectPostState(state, "discovery-trees", command.TargetId),
+            "confirm" => GameMcpDiscoveryTreeOfferProjection.ProjectDiscoveryOfferConfirmDelta(state, command),
+            "reroll" => GameMcpDiscoveryTreeOfferProjection.ProjectDiscoveryRerollDelta(state, command),
+            _ => GameMcpWorldDetail.ProjectPostState(state, "discovery-trees", command.TargetId),
         };
 
     private static void Prepare(

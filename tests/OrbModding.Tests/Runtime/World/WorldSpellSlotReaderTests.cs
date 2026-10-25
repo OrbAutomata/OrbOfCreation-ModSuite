@@ -198,7 +198,7 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
         var report = Reader().Collect(new HashSet<Guid>(), frame);
 
         Assert.Equal(1, report.Skipped);
-        Assert.StartsWith("reading slot 0 threw: ", report.FirstFailure);
+        Assert.StartsWith("reading slot 0 threw", report.FirstFailure);
         Assert.Equal(2, frame.SpellSlots.Count);
         Assert.NotEqual(0, frame.SpellSlots[0].SlotIndex);
         Assert.Equal(0, frame.SpellCosts.Count);
@@ -277,13 +277,10 @@ public sealed class WorldSpellSlotReaderTests : IDisposable
 
     private static void Clear()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::GlyphSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SettingsManager.CancellableSpells = true;
         global::SpellManager.NativeCanCast = true;
         global::SpellManager.CanCastASpellFailure = null;
-        global::UnityEngine.Resources.Objects.Clear();
     }
 
     private static void Seed()

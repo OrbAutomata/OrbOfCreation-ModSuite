@@ -42,31 +42,8 @@ internal static class WorldDiscoveryTreeBookLookup
         out int start,
         out int count)
     {
-        var low = 0;
-        var high = table.Count - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = table[middle].RecipeBookId.CompareTo(recipeBookId);
-            if (comparison < 0) low = middle + 1;
-            else
-            {
-                if (comparison == 0) found = middle;
-                high = middle - 1;
-            }
-        }
-        if (found < 0)
-        {
-            start = 0;
-            count = 0;
-            return false;
-        }
-        start = found;
-        var end = found + 1;
-        while (end < table.Count && table[end].RecipeBookId == recipeBookId) end++;
-        count = end - found;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), recipeBookId,
+            static (row, key) => row.RecipeBookId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -142,9 +119,10 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
         {
             var tree = trees[index];
             if (tree is null) continue;
+            var treeId = Guid.Empty;
             try
             {
-                var treeId = _treeIdentity!(tree);
+                treeId = _treeIdentity!(tree);
                 if (treeId == Guid.Empty)
                     return Withheld(buffer, "a discovery tree had no usable identity");
 
@@ -191,7 +169,7 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
             {
                 return Withheld(
                     buffer,
-                    "reading a discovery tree's book list threw: " + ex.GetBaseException().Message);
+                    WorldFailures.ReadFault("reading a discovery tree's book list threw", ex, treeId));
             }
         }
 
@@ -201,7 +179,7 @@ internal sealed class WorldDiscoveryTreeBookReader : IWorldCategoryReader
 
     private WorldCategoryReport Withheld(
         WorldRelationBuffer<WorldDiscoveryTreeBook> buffer,
-        string reason)
+        WorldCollectionFailure reason)
     {
         buffer.Reset();
         return WorldCategoryReport.Missing(Category, "the authored tree-to-book link was withheld: " + reason);

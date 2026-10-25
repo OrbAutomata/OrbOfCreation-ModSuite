@@ -67,7 +67,6 @@ internal sealed class AutoConceptNativeAdapter :
         _registryResolver.IsCurrent(_activeConceptsResolution) &&
         _registryResolver.IsCurrent(_conceptRecipesResolution) &&
         _contractMismatch is null;
-    public int ScopedRecipeCount => _recipes.Count;
 
     /// <summary>The contract mismatch the game proved this lifecycle, or empty while it proved none.</summary>
     public string ContractMismatch => _contractMismatch?.Text ?? string.Empty;
@@ -122,10 +121,12 @@ internal sealed class AutoConceptNativeAdapter :
             var recipesId = AlchemyGameplayDomainClassifier.ConceptRecipesUuid;
             var activeResolution = _registryResolver.Resolve(activeId, native.ActiveListType);
             if (!activeResolution.IsResolved)
-                return HandleRegistryFailure(EntityIdentityFormatter.Format(activeId), activeResolution, out reason);
+                return activeResolution.HandleFailure(
+                    EntityIdentityFormatter.Format(activeId), Retry, Mismatch, out reason);
             var recipesResolution = _registryResolver.Resolve(recipesId, native.RecipeListType);
             if (!recipesResolution.IsResolved)
-                return HandleRegistryFailure(EntityIdentityFormatter.Format(recipesId), recipesResolution, out reason);
+                return recipesResolution.HandleFailure(
+                    EntityIdentityFormatter.Format(recipesId), Retry, Mismatch, out reason);
             var active = activeResolution.Value!;
             var recipes = recipesResolution.Value!;
             _activeConceptsResolution = activeResolution;
@@ -624,17 +625,6 @@ internal sealed class AutoConceptNativeAdapter :
             result.Add(new NativeCostEntry(resource, native.EntryValue(entry)));
         }
         return true;
-    }
-
-    private bool HandleRegistryFailure(
-        string label,
-        TypedRegistryResolution resolution,
-        out GameActionReason reason)
-    {
-        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
-        return resolution.IsRetryable
-            ? Retry(message, out reason)
-            : Mismatch(message, out reason);
     }
 
     /// <summary>

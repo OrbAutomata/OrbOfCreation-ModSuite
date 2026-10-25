@@ -11,7 +11,7 @@ internal static class GameMcpSpellWorkbenchCommand
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectSpellLoadoutDelta(state, command)),
+                GameMcpSpellLoadoutProjection.ProjectSpellLoadoutDelta(state, command)),
         nativeType: "SpellRecipeSO",
         prepare: Prepare);
 

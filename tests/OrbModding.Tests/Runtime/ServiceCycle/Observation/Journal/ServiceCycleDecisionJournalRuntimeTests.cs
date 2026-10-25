@@ -1,3 +1,7 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+#endif
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -161,7 +165,11 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests : IDisposable
             pumpTiming: null,
             semanticTrace: null,
             actionOutcomes: null,
-            serviceFailureLog: messages.Add);
+            serviceFailureLog: messages.Add
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         var pump = host.Pump;
         TestWorldCollector.CollectedAtActivation(registry);
         using var storage = new DecisionJournalRuntimeTestStorage();
@@ -225,7 +233,11 @@ public sealed class ServiceCycleDecisionJournalRuntimeTests : IDisposable
             pumpTiming: null,
             semanticTrace: null,
             actionOutcomes: null,
-            serviceFailureLog: messages.Add);
+            serviceFailureLog: messages.Add
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: new ServiceCycleProfileProbe()
+#endif
+            );
         TestWorldCollector.CollectedAtActivation(registry);
 
         Assert.Equal(frameIdentity, ServiceRunnerTestWait.PrepareBatch(host.Pump, registration));

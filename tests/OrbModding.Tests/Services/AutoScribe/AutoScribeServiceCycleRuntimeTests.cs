@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.GameMcp;
+#endif
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -102,6 +107,10 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
 
         internal Harness()
         {
+            var gameActions = new LifecycleGameActions();
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             Native = _native.Build(_profile);
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
@@ -128,16 +137,29 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
                     readOwnershipFailure: static () => string.Empty,
                     Status)).Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), Epoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), Epoch, gameActions
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             _registry.WorldPublication.Publish(World(_profile, Epoch), new WorldGeneration(_generation));
-            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null);
+            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: profileProbe
+#endif
+            );
             _runtime = new AutomataServiceCycleRuntime(
                 static () => Epoch,
                 _registry.Configuration,
                 _host,
                 new IAutomataServiceCycleFeatureRuntime[] { feature },
                 new ConfigGeneration(1),
-                new LifecycleGameActions());
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+            , new GameMcpCommandDispatcher(_host, _registry.Configuration, gameActions,
+                new IAutomataServiceCycleFeatureRuntime[] { feature })
+#endif
+            );
             feature.ActivateDiagnostics();
         }
 

@@ -6,9 +6,8 @@ namespace OrbModding.ServiceCycleTrace.ManualTrace;
 /// What collection spent its session on, per category.
 /// </summary>
 /// <remarks>
-/// Collection is the suite's largest main-thread cost and the whole pass used to be one number, so
-/// every proposal to make it cheaper was an argument about which category was probably expensive.
-/// Sorted by total cost, because the question this view exists to answer is which part to fix first.
+/// Sorted by total cost, because the question this view exists to answer is which part to fix
+/// first.
 /// </remarks>
 internal static class ManualFullTraceCategoryView
 {

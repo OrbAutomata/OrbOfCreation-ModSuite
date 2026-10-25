@@ -10,11 +10,12 @@ using static OrbModding.ProfileTests.GameMcpEntityDetailFixture;
 namespace OrbModding.ProfileTests;
 
 [Collection(NativeRegistryCollection.Name)]
+[OrbModding.TestSupport.ResetGameStubs]
 public sealed class GameMcpEntityDetailPredicateTests : IDisposable
 {
-    public GameMcpEntityDetailPredicateTests() => ClearRegistries();
+    public GameMcpEntityDetailPredicateTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void ExplanationStaysPinnedAndEveryPlayerPredicateHasTrueAndFalseEvidence()
@@ -142,8 +143,7 @@ public sealed class GameMcpEntityDetailPredicateTests : IDisposable
 
     /// <summary>
     /// The slots inside <c>canUse</c> are slot numbers — the one-based number every verb takes and
-    /// the pointer into the <c>equipped</c> block the same response already carries in full. They
-    /// used to be whole slot rows, so a predicate answered by echoing the block above it.
+    /// the pointer into the <c>equipped</c> block the same response already carries in full.
     /// </summary>
     [Fact]
     public void A_usable_spell_names_its_slot_the_way_every_verb_addresses_it()
@@ -184,9 +184,7 @@ public sealed class GameMcpEntityDetailPredicateTests : IDisposable
     }
 
     /// <summary>
-    /// A spell in no slot used to refuse with the artifact loadout's sentence — "None of this
-    /// artifact is equipped." on a spell recipe, read straight off the wire in a live round. Two
-    /// different things are equipped in two different places, so the sentence names which.
+    /// Two different things are equipped in two different places, so the sentence names which.
     /// </summary>
     [Fact]
     public void An_unequipped_spell_refuses_in_spell_words_not_artifact_words()

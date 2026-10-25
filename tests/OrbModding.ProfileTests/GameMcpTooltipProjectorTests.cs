@@ -397,11 +397,9 @@ public sealed class GameMcpTooltipProjectorTests
     }
 
     /// <summary>
-    /// The three reads round fifteen could not get an answer out of. Every one of them refused on
-    /// the closure behind its panel — statistic definitions linking statistic definitions, through
-    /// per-call wrappers reference identity cannot recognise — while the panel itself is what the
-    /// player reads off the screen without trouble. Under the container's own shape they read in
-    /// full, and what they used to unfurl is one pointer line each.
+    /// Every one of them refused on the closure behind its panel — statistic definitions linking
+    /// statistic definitions, through per-call wrappers reference identity cannot recognise — while
+    /// the panel itself is what the player reads off the screen without trouble.
     /// </summary>
     [Fact]
     public void The_round_fifteen_refusals_read_in_full_with_pointers()

@@ -16,9 +16,9 @@ namespace OrbModding.Tests.Runtime.Verification;
 /// </remarks>
 public sealed class AutomataPlotQuantityVerifierTests : IDisposable
 {
-    public AutomataPlotQuantityVerifierTests() => global::PlotNodeSO.All.Clear();
+    public AutomataPlotQuantityVerifierTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => global::PlotNodeSO.All.Clear();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void AnUnresolvableContractMakesTheVerifierUnavailableRatherThanPassing() =>

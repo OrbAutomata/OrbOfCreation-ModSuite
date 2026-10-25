@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using OrbAutomata;
@@ -265,9 +266,7 @@ public sealed class CraftingInstanceLifecycleGameActionTests : IDisposable
     {
         if (recipe is not null) _registry.Add(recipe.GetGuid(), recipe);
         var readEpoch = epoch ?? (() => Epoch);
-        var resolver = new TypedRegistryResolver(readEpoch,
-            () => TypedRegistrySourceSnapshot.Ready(_registry),
-            value => value is IdScriptableObject item ? item.GetGuid() : Guid.Empty);
+        var resolver = TestRegistryResolver.For(readEpoch, _registry);
         return new CraftingInstanceLifecycleGameAction(
             readEpoch,
             static () => true,

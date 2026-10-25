@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -104,7 +105,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
 
     private ResearchGameAction ResearchAction()
     {
-        var resolver = new TypedRegistryResolver(() => Epoch,
+        var resolver = TestRegistryResolver.For(() => Epoch,
             () => TypedRegistrySourceSnapshot.Ready(_registry),
             value => value is ResearchSO research ? research.GetGuid() : Guid.Empty);
         return new ResearchGameAction(() => Epoch, () => true,
@@ -164,9 +165,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
 
     private static void ResetSpellState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::UpgradeSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         var levelAll = new global::UpgradeSO
         {

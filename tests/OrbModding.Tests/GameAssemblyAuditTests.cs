@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.IO;
 using OrbModding.Common;
@@ -38,53 +39,45 @@ public sealed class GameAssemblyAuditTests
     [Fact]
     public void ResolvesOnlyPlatformRelativeWindowsAndMacManagedLayouts()
     {
-        var root = NewTemporaryDirectory();
-        try
-        {
-            var windowsRoot = Path.Combine(root, "windows");
-            var windowsManaged = Path.Combine(windowsRoot, "Orb Of Creation_Data", "Managed");
-            CreateAssemblyPair(windowsManaged);
-            AssertResolved(windowsRoot, windowsManaged);
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        var windowsRoot = Path.Combine(root, "windows");
+        var windowsManaged = Path.Combine(windowsRoot, "Orb Of Creation_Data", "Managed");
+        CreateAssemblyPair(windowsManaged);
+        AssertResolved(windowsRoot, windowsManaged);
 
-            var macAppRoot = Path.Combine(root, "mac-app", "Orb Of Creation.app");
-            var macAppManaged = Path.Combine(macAppRoot, "Contents", "Resources", "Data", "Managed");
-            CreateAssemblyPair(macAppManaged);
-            AssertResolved(macAppRoot, macAppManaged);
+        var macAppRoot = Path.Combine(root, "mac-app", "Orb Of Creation.app");
+        var macAppManaged = Path.Combine(macAppRoot, "Contents", "Resources", "Data", "Managed");
+        CreateAssemblyPair(macAppManaged);
+        AssertResolved(macAppRoot, macAppManaged);
 
-            var macInstallRoot = Path.Combine(root, "mac-install");
-            var nestedAppManaged = Path.Combine(
-                macInstallRoot,
-                "Orb Of Creation.app",
-                "Contents",
-                "Resources",
-                "Data",
-                "Managed");
-            CreateAssemblyPair(nestedAppManaged);
-            AssertResolved(macInstallRoot, nestedAppManaged);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        var macInstallRoot = Path.Combine(root, "mac-install");
+        var nestedAppManaged = Path.Combine(
+            macInstallRoot,
+            "Orb Of Creation.app",
+            "Contents",
+            "Resources",
+            "Data",
+            "Managed");
+        CreateAssemblyPair(nestedAppManaged);
+        AssertResolved(macInstallRoot, nestedAppManaged);
+
+
     }
 
     [Fact]
     public void MultipleCompleteLayoutsAreRejectedAsAmbiguous()
     {
-        var root = NewTemporaryDirectory();
-        try
-        {
-            CreateAssemblyPair(Path.Combine(root, "Orb Of Creation_Data", "Managed"));
-            CreateAssemblyPair(Path.Combine(root, "Contents", "Resources", "Data", "Managed"));
+        using var temporary = new TempDirectory();
+        var root = temporary.Path;
+        CreateAssemblyPair(Path.Combine(root, "Orb Of Creation_Data", "Managed"));
+        CreateAssemblyPair(Path.Combine(root, "Contents", "Resources", "Data", "Managed"));
 
-            Assert.False(GameAssemblyAudit.TryResolveManagedDirectory(root, out _, out var reason));
-            Assert.Contains("more than one", reason, StringComparison.OrdinalIgnoreCase);
-            Assert.False(GameAssemblyAudit.Check(root).MatchesExpected);
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.False(GameAssemblyAudit.TryResolveManagedDirectory(root, out _, out var reason));
+        Assert.Contains("more than one", reason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(GameAssemblyAudit.Check(root).MatchesExpected);
+
+
     }
 
     private static AssemblyAuditResult Result(string main, string firstPass) => new(
@@ -108,10 +101,4 @@ public sealed class GameAssemblyAuditTests
             Array.Empty<byte>());
     }
 
-    private static string NewTemporaryDirectory()
-    {
-        var path = Path.Combine(Path.GetTempPath(), "ooc-game-audit-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
-        return path;
-    }
 }

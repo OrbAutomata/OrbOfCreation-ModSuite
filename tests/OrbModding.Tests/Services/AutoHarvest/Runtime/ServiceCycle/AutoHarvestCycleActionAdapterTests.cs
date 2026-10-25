@@ -1,3 +1,7 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.Runtime.ServiceCycle.Profile;
+#endif
 using System;
 using System.Collections.Generic;
 using OrbAutomata;
@@ -166,13 +170,16 @@ public sealed class AutoHarvestCycleActionAdapterTests
     [MemberData(nameof(ContractIds))]
     public void EveryMissingMemberDisablesTheCompleteSet(string missing)
     {
-        using var fixture = new Fixture(circuit => new AutoHarvestBindingResolver(
-            new TypedRegistryResolver(
+        using var fixture = new Fixture(() => new AutoHarvestBindingResolver(
+            TestRegistryResolver.For(
                 () => throw new InvalidOperationException("the registry was read"),
                 () => throw new InvalidOperationException("the registry was read"),
                 _ => throw new InvalidOperationException("the registry was read")),
-            circuit,
-            includeContract: id => id != missing));
+            includeContract: id => id != missing
+#if SERVICE_CYCLE_PROFILE
+            , profileOperations: new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            ));
 
         var result = fixture.Execute();
 
@@ -208,14 +215,13 @@ public sealed class AutoHarvestCycleActionAdapterTests
         private ulong _nativeLifecycle = 7;
         private readonly AutoHarvestCycleActionAdapter _adapter;
 
-        public Fixture(Func<AutoHarvestContractCircuit, IAutoHarvestBindingPort>? createBindings = null)
+        public Fixture(Func<IAutoHarvestBindingPort>? createBindings = null)
         {
             Events = new List<string>();
             Bindings = new BindingPort(Events, () => _nativeLifecycle);
             Mutation = new MutationPort(Events);
-            ContractCircuit = new AutoHarvestContractCircuit();
             _adapter = new AutoHarvestCycleActionAdapter(
-                createBindings?.Invoke(ContractCircuit) ?? Bindings,
+                createBindings?.Invoke() ?? Bindings,
                 Mutation,
                 () =>
                 {
@@ -227,14 +233,17 @@ public sealed class AutoHarvestCycleActionAdapterTests
                     Events.Add("permit");
                     return _capturePermit;
                 },
-                Warnings.Add);
+                Warnings.Add
+#if SERVICE_CYCLE_PROFILE
+                , new AutomataProfileOperations(new ServiceCycleProfileProbe()), Bindings
+#endif
+                );
         }
 
         public List<string> Events { get; }
         public BindingPort Bindings { get; }
         public MutationPort Mutation { get; }
         public List<string> Warnings { get; } = new();
-        public AutoHarvestContractCircuit ContractCircuit { get; }
 
         public ServiceActionResultCode ConfigureScenario(RejectionScenario scenario)
         {
@@ -303,7 +312,11 @@ public sealed class AutoHarvestCycleActionAdapterTests
                 new BatchId(1),
                 new ActionId(1),
                 actionIndex: 0,
-                new MonotonicTimestamp(1));
+                new MonotonicTimestamp(1)
+#if SERVICE_CYCLE_PROFILE
+                , new ServiceCycleProfileCoordinates(0, 1)
+#endif
+                );
             // Deliberately not all-verified, and deliberately not the safe verdict, so an adapter
             // that substituted a plan of its own would not match.
             var action = new AutoHarvestCycleAction(
@@ -322,7 +335,18 @@ public sealed class AutoHarvestCycleActionAdapterTests
     }
 
     private sealed class BindingPort : IAutoHarvestBindingPort
+#if SERVICE_CYCLE_PROFILE
+        , IAutoHarvestProfileBindingObservation
+#endif
     {
+#if SERVICE_CYCLE_PROFILE
+        private AutoHarvestProfileTemperatureTracker _profileTemperature;
+        public ServiceCycleProfileTemperature CurrentTemperature => _profileTemperature.Current;
+        public ServiceCycleProfileTemperature PrepareTemperature() => CurrentTemperature;
+        public bool TryComplete(ServiceCycleProfileTemperature observed) =>
+            _profileTemperature.TryComplete(observed);
+#endif
+
         private readonly List<string> _events;
         private readonly Func<ulong> _readLifecycle;
 
@@ -388,7 +412,11 @@ public sealed class AutoHarvestCycleActionAdapterTests
         public NativeActionOutcome Submit(
             in ResolvedAutoHarvestPair resolved,
             in AutoHarvestPairFacts facts,
-            AutoHarvestActionSafetyState safety)
+            AutoHarvestActionSafetyState safety
+#if SERVICE_CYCLE_PROFILE
+            , in ServiceActionContext context
+#endif
+            )
         {
             _events.Add("mutate");
             SubmitCount++;

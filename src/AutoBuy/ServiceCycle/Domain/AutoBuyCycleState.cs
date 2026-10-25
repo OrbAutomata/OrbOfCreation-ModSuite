@@ -40,14 +40,13 @@ internal struct AutoBuyCycleState
 }
 
 /// <summary>
-/// Why one candidate did not reach the plan, one member per term of the admission chain in the order
-/// the evaluator tests them.
+/// Why one candidate did not reach the plan, one member per term of the admission chain in the
+/// order the evaluator tests them.
 /// </summary>
 /// <remarks>
-/// The diagnosis this exists for took a decompile and a day. Auto Buy reported 409 candidates and 0
-/// eligible for four hundred consecutive cycles and said nothing further, so every one of the ten
-/// terms that could have produced that zero had to be eliminated by reading the code. One counter per
-/// term makes the same question a glance.
+/// Auto Buy reported 409 candidates and 0 eligible for four hundred consecutive cycles and said
+/// nothing further, so every one of the ten terms that could have produced that zero had to be
+/// eliminated by reading the code. One counter per term makes the same question a glance.
 /// </remarks>
 internal enum AutoBuyExclusion
 {

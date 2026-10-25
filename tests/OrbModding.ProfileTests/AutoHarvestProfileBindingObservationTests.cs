@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ public sealed class AutoHarvestProfileBindingObservationTests
         var lifecycle = 1L;
         var registry = new Dictionary<Guid, object>();
         var identities = new Dictionary<object, Guid>();
-        var nativeResolver = new TypedRegistryResolver(
+        var nativeResolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.Ready((IDictionary)registry),
             value => identities[value]);
@@ -27,7 +28,6 @@ public sealed class AutoHarvestProfileBindingObservationTests
         var operations = new AutomataProfileOperations(probe);
         var resolver = new AutoHarvestBindingResolver(
             nativeResolver,
-            new ContractCircuit(),
             operations);
         var shared = SharedBinding(nativeResolver, registry, identities);
         var fruit = PairBinding(
@@ -111,15 +111,4 @@ public sealed class AutoHarvestProfileBindingObservationTests
         target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(target, value);
 
-    private sealed class ContractCircuit : IAutoHarvestContractCircuit
-    {
-        public AutoHarvestNativeFailure FailureFor(AutoHarvestPair pair) => default;
-        public void Block(AutoHarvestPair pair, AutoHarvestRuntimeFailureScope scope)
-        {
-        }
-
-        public void InvalidateLifecycle()
-        {
-        }
-    }
 }

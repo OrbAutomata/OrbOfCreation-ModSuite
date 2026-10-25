@@ -162,9 +162,7 @@ public sealed class AutomataDifferentialVerificationShortcutTests
     }
 
     /// <summary>
-    /// The check reads the live game, so with no run behind it there is nothing to read. It used to
-    /// find that out by dereferencing a game object that does not exist in the Start menu, and
-    /// answered the runtime's own NullReferenceException text as though that were a verdict.
+    /// The check reads the live game, so with no run behind it there is nothing to read.
     /// </summary>
     [Theory]
     [InlineData(GameLifecycleState.NoGame, "lifecycle_no_game",

@@ -37,9 +37,6 @@ internal sealed class AutoHarvestServiceCycleFeature : IAutomataServiceCycleFeat
             registration,
             context.LifecycleValue,
             context.ConfigurationGeneration
-#if SERVICE_CYCLE_PROFILE
-            , adapters.Actions
-#endif
             );
     }
 
@@ -60,9 +57,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
         AutoHarvestCycleAction> _registration;
     private readonly long _lifecycleValue;
     private readonly ConfigGeneration _initialConfigurationGeneration;
-#if SERVICE_CYCLE_PROFILE
-    private readonly AutoHarvestCycleActionAdapter _actions;
-#endif
     private AutoHarvestServiceCycleDiagnosticsBridge? _diagnostics;
 
     internal AutoHarvestFeatureRuntime(
@@ -73,9 +67,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
             AutoHarvestCycleAction> registration,
         long lifecycleValue,
         ConfigGeneration initialConfigurationGeneration
-#if SERVICE_CYCLE_PROFILE
-        , AutoHarvestCycleActionAdapter actions
-#endif
         )
     {
         _dependencies = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
@@ -83,9 +74,6 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
         _registration = registration ?? throw new ArgumentNullException(nameof(registration));
         _lifecycleValue = lifecycleValue;
         _initialConfigurationGeneration = initialConfigurationGeneration;
-#if SERVICE_CYCLE_PROFILE
-        _actions = actions ?? throw new ArgumentNullException(nameof(actions));
-#endif
     }
 
     public void ActivateDiagnostics()
@@ -126,11 +114,4 @@ internal sealed class AutoHarvestFeatureRuntime : IAutomataServiceCycleFeatureRu
         finally { _bindings.InvalidateLifecycle(); }
     }
 
-#if SERVICE_CYCLE_PROFILE
-    internal ServiceActionResult TryExecuteGameMcp(
-        in AutoHarvestCycleAction action,
-        in SuiteRuntimeConfiguration config,
-        in ServiceActionContext context) =>
-        _actions.TryExecuteGameMcp(in action, in config, in context);
-#endif
 }

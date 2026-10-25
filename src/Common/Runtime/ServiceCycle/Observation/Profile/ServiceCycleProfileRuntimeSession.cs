@@ -115,7 +115,7 @@ internal sealed class ServiceCycleProfileRuntimeSession : IDisposable
             ? probe + " after " + recorder
             : probe + recorder;
         return (Probe.FaultException ?? _recorder.FaultException) is { } thrown
-            ? cause + ": " + ExceptionDetail.Describe(thrown)
+            ? GameActionFaultLog.Reason(cause + ".", thrown, "ServiceCycle profile").Text
             : cause;
     }
 }

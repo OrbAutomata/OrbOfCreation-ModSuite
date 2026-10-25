@@ -341,7 +341,7 @@ internal sealed class FullTraceRuntimeSession : IDisposable
             metrics.FaultReason,
             stores?.IsFaulted == true,
             stores is null ? 0 : stores.ConfigurationCount + stores.StrategyCount,
-            metrics.FaultCause is { } cause ? ExceptionDetail.Describe(cause) : string.Empty);
+            metrics.FaultCause?.ToString() ?? string.Empty);
     }
 
     private void Finish(FullTraceRuntimeSessionState terminalState)

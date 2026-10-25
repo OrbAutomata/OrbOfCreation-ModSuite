@@ -61,10 +61,9 @@ public sealed class GameMcpAutomationTests
     }
 
     /// <summary>
-    /// One feature, one write door. <c>AutoHarvest/Mode</c> was writable twice — once as a breaker
-    /// and once as a settings line — and a live round called both in one breath to be sure they
-    /// moved the same switch. The refusal is on the settings verb, not on the store: the store is
-    /// the path the breaker itself writes through, so closing it there would close both doors.
+    /// One feature, one write door. The refusal is on the settings verb, not on the store: the
+    /// store is the path the breaker itself writes through, so closing it there would close both
+    /// doors.
     /// </summary>
     [Fact]
     public void The_seven_settings_behind_the_breakers_are_the_breakers_own()
@@ -120,10 +119,7 @@ public sealed class GameMcpAutomationTests
 
         Assert.Equal(7, rows.Count);
         Assert.Equal("auto_buy", (string?)rows[0]["feature"]);
-        // Every row names its feature the way the Mods rail names it. The page used to publish a
-        // name only where it was not the id in title case, so six of seven read `-` — which says
-        // the suite could not name the feature — and the reader was left deriving the other six by
-        // a rule the page never stated.
+        // Every row names its feature the way the Mods rail names it.
         Assert.Equal("Auto Buy", (string?)rows[0]["name"]);
         Assert.True((bool)rows[0]["on"]!);
         Assert.All(rows, row => Assert.NotNull(row["name"]));

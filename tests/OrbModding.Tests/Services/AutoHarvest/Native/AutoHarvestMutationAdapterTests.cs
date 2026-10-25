@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.Runtime.ServiceCycle.Profile;
+#endif
 using System;
 using OrbAutomata;
 using OrbModding.Common;
@@ -12,9 +17,17 @@ public sealed class AutoHarvestMutationAdapterTests
     [Fact]
     public void InitialCaptureFailurePreservesNativeFailureEvidence()
     {
-        var adapter = new AutoHarvestMutationAdapter(new ThrowingStatePort());
+        var adapter = new AutoHarvestMutationAdapter(new ThrowingStatePort()
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.AdapterFault, result.Code);
         Assert.Equal(NativeMutationOutcome.BeforeCaptureFailed, result.Mutation);
@@ -38,12 +51,20 @@ public sealed class AutoHarvestMutationAdapterTests
     public void CarriedFactsAreWhatTheSubmissionDecisionJudges()
     {
         var state = new RecordingStatePort();
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
         var result = adapter.Submit(
             ResolvedPair(),
             ReadyFacts(readiness: AutoHarvestEvidenceState.Rejected),
-            Preserving);
+            Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -57,12 +78,20 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort();
         var action = new PlotNodeActionSO();
         action.prerequisites.NativeCheckResult = false;
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
         var result = adapter.Submit(
             ResolvedPair(action),
             ReadyFacts(PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation),
-            Preserving);
+            Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePrerequisitesCurrentlyUnmet,
@@ -79,14 +108,22 @@ public sealed class AutoHarvestMutationAdapterTests
         var state = new RecordingStatePort();
         var action = new PlotNodeActionSO();
         action.prerequisites.NativeCheckResult = true;
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
         var result = adapter.Submit(
             ResolvedPair(action),
             ReadyFacts(
                 PlotActionPrerequisiteEvidence.UnknownNeedsNativeValidation,
                 readiness: AutoHarvestEvidenceState.Rejected),
-            Preserving);
+            Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, action.prerequisites.CheckCalls);
@@ -98,9 +135,17 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var state = new RecordingStatePort();
         var action = new PlotNodeActionSO { prerequisites = null! };
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePrerequisiteValidationUnavailable,
@@ -121,9 +166,17 @@ public sealed class AutoHarvestMutationAdapterTests
     public void AnActionWithoutFactsIsRefused()
     {
         var state = new RecordingStatePort();
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), default, Preserving);
+        var result = adapter.Submit(ResolvedPair(), default, Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
@@ -136,9 +189,17 @@ public sealed class AutoHarvestMutationAdapterTests
     public void AMissingPrototypeIsRefusedEvenWhenEveryFactAgrees()
     {
         var state = new RecordingStatePort(resolvesPrototype: false);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativeOfferedInstanceMembershipRefused,
@@ -160,9 +221,17 @@ public sealed class AutoHarvestMutationAdapterTests
     public void TheLiveQueueIsWhatTheFinalRevalidationAddsToTheWorldFacts()
     {
         var state = new RecordingStatePort(supported: 1);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -179,9 +248,17 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var expected = new ServiceActionResultCode(failure, "expected");
         var state = new RecordingStatePort(admissionFailure: expected);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(expected, result.Code);
         Assert.Equal(1, state.CaptureCount);
@@ -193,9 +270,17 @@ public sealed class AutoHarvestMutationAdapterTests
     public void PairIdentityMovingAfterPlanningRefusesBeforeAnyLiveGateOrMutation()
     {
         var state = new RecordingStatePort(resolvesCurrentPair: false);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(
             AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused,
@@ -210,9 +295,17 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var active = new PlotNodeActionInstanceListVariable();
         var state = new RecordingStatePort(activeActions: active);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.True(result.Verified);
         var added = Assert.Single(active.value);
@@ -229,9 +322,17 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var active = new PlotNodeActionInstanceListVariable { BreakAfterMutation = true };
         var state = new RecordingStatePort(activeActions: active);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.True(result.Verified);
         Assert.Same(state.Prototype, Assert.Single(active.value));
@@ -246,9 +347,17 @@ public sealed class AutoHarvestMutationAdapterTests
     {
         var active = new PlotNodeActionInstanceListVariable { SuppressMutation = true, BreakAfterMutation = true };
         var state = new RecordingStatePort(activeActions: active);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(AutoHarvestActionResultCodes.PairFaulted, result.Code);
         Assert.Equal(NativeMutationOutcome.ExecutionThrew, result.Mutation);
@@ -273,12 +382,20 @@ public sealed class AutoHarvestMutationAdapterTests
     public void AnUnauditedActionIsRejectedOnTheSafetyItCarried(int safetyValue)
     {
         var state = new RecordingStatePort();
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
         var result = adapter.Submit(
             ResolvedPair(),
             ReadyFacts(),
-            (AutoHarvestActionSafetyState)safetyValue);
+            (AutoHarvestActionSafetyState)safetyValue
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Equal(CommonActionResultCodes.PolicyRejected, result.Code);
         Assert.Equal(0, result.CallOutcome.MutationAttempts);
@@ -313,9 +430,17 @@ public sealed class AutoHarvestMutationAdapterTests
                 matches,
                 pairQuantity: matches,
                 pairEngaged: matches != 0));
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving);
+        var result = adapter.Submit(ResolvedPair(activeActions: active), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            );
 
         Assert.Empty(active.value);
         Assert.Equal(0, state.PrototypeCount);
@@ -378,14 +503,32 @@ public sealed class AutoHarvestMutationAdapterTests
             admissionFailure: expectedCode >= 1031 ? expected : null,
             resolvesCurrentPair:
                 expected != AutoHarvestActionResultCodes.NativePairIdentityRevalidationRefused);
-        var adapter = new AutoHarvestMutationAdapter(state);
+        var adapter = new AutoHarvestMutationAdapter(state
+#if SERVICE_CYCLE_PROFILE
+            , new AutomataProfileOperations(new ServiceCycleProfileProbe())
+#endif
+            );
 
-        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving).ToResult();
+        var result = adapter.Submit(ResolvedPair(action), ReadyFacts(), Preserving
+#if SERVICE_CYCLE_PROFILE
+            , context: ProfileActionContext()
+#endif
+            ).ToResult();
 
         Assert.Equal(ServiceActionDisposition.Rejected, result.Disposition);
         Assert.Equal(expected, result.Code);
         Assert.False(result.HasNativeEvidence);
     }
+
+#if SERVICE_CYCLE_PROFILE
+    private static ServiceActionContext ProfileActionContext() => new(
+        new ServiceCycleIdentity(AutoHarvestServicePolicies.ServiceId,
+            new OrbModding.Common.Runtime.LifecycleGeneration(7), new ConfigGeneration(1),
+            new StrategyGeneration(1), new WorldGeneration(1), new CycleId(1)),
+        new BatchId(1), new ActionId(1), 0,
+        new OrbModding.Common.Runtime.MonotonicTimestamp(1),
+        new ServiceCycleProfileCoordinates(0, 1));
+#endif
 
     private static AutoHarvestPairFacts ReadyFacts(
         PlotActionPrerequisiteEvidence prerequisites =

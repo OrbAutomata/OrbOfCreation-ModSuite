@@ -113,7 +113,7 @@ public sealed class GameMcpBoundTypeTests
     {
         var world = WeightBudgetWorld();
         var response = Assert.IsType<JObject>(GameMcpDocumentJsonEncoder.Encode(
-            GameMcpWorldQuery.GetRow(
+            GameMcpWorldDetail.GetRow(
                 Context(world, generation: 2601), "equipment", Equipment.ToString("D")).Freeze(),
             world.EntityIdentities));
 

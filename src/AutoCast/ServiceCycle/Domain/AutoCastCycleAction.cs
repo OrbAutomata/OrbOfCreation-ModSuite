@@ -36,11 +36,10 @@ internal enum AutoCastRitualCondition
 /// position held when the plan was made.
 /// </summary>
 /// <remarks>
-/// Position and identity together are what a native reference used to be. The legacy engine matched a
-/// prepared candidate by <c>ReferenceEquals</c> on the native spell object; a plan that crosses to a
-/// worker cannot carry one, so the boundary re-resolves the position and checks that the spell sitting
-/// in it is still the spell the plan named. A loadout rearranged between planning and casting is
-/// refused rather than cast blind.
+/// The legacy engine matched a prepared candidate by <c>ReferenceEquals</c> on the native spell
+/// object; a plan that crosses to a worker cannot carry one, so the boundary re-resolves the
+/// position and checks that the spell sitting in it is still the spell the plan named. A loadout
+/// rearranged between planning and casting is refused rather than cast blind.
 /// </remarks>
 internal readonly struct AutoCastCycleAction
 {

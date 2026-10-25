@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +55,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                 tree.GetGuid(), true, 0, BigDouble.Zero, 1, false, Guid.Empty,
                 Array.Empty<Guid>(), false, true, Array.Empty<WorldResourceCost>(),
                 Guid.Empty, Guid.Empty, 0, 0, false, 0, 2, 3, 3, true, true, false));
-            var idleRead = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+            var idleRead = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
                 GameMcpTestHarness.Context(idle, generation: 90),
                 "discovery-trees", tree.GetGuid().ToString("D")));
             Assert.True((bool)idleRead["row"]!["initiate"]!["available"]!);
@@ -95,7 +96,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                 glyphs: glyphRows);
             var choiceContext = GameMcpTestHarness.Context(choice, generation: 91);
             var initiatedResponse = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ProjectPostState(
+                GameMcpWorldDetail.ProjectPostState(
                     choiceContext, "discovery-trees", readTreeId));
             var readOffers = initiatedResponse["offers"]!
                 .Values<JObject>()
@@ -126,7 +127,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                 glyphs: glyphRows);
             var rerollContext = GameMcpTestHarness.Context(rerollWorld, generation: 92);
             var rerollResponse = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ProjectPostState(
+                GameMcpWorldDetail.ProjectPostState(
                     rerollContext, "discovery-trees", readTreeId));
             Assert.Equal("choice", (string?)rerollResponse["mode"]);
             Assert.False((bool)rerollResponse["reroll"]!["available"]!);
@@ -158,7 +159,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                 timeRunes: timeRuneRows,
                 glyphs: glyphRows);
             var selectedResponse = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ProjectPostState(
+                GameMcpWorldDetail.ProjectPostState(
                     GameMcpTestHarness.Context(selectedWorld, generation: 93),
                     "discovery-trees",
                     readTreeId));
@@ -197,7 +198,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                     },
                     Guid.Empty, Guid.Empty, 0, 0, false, 1, 2, 4, 3, true, true, false));
             var confirmResponse = GameMcpTestHarness.Json(
-                GameMcpWorldQuery.ProjectPostState(
+                GameMcpWorldDetail.ProjectPostState(
                     GameMcpTestHarness.Context(confirmedWorld, generation: 94),
                     "discovery-trees",
                     readTreeId));
@@ -286,7 +287,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                     resource, new BigDouble(7.5d, 6), new BigDouble(2.43d, 25)),
             },
             Guid.Empty, Guid.Empty, 0, 0, false, 5, 4, 8, 5, false, true, false));
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldDetail.ProjectPostState(
             GameMcpTestHarness.Context(postState, generation: 95),
             "discovery-trees",
             tree));
@@ -354,7 +355,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
                     secondOffer, 0, 0, 1, false, true, false, false, false, false,
                     0, BigDouble.Zero, BigDouble.Zero, BigDouble.Zero),
             });
-        terminal = terminal.WithSettledPostState(GameMcpWorldQuery.ProjectPostState(
+        terminal = terminal.WithSettledPostState(GameMcpWorldDetail.ProjectPostState(
             GameMcpTestHarness.Context(postState, generation: 96),
             "discovery-trees",
             tree));
@@ -404,7 +405,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);
@@ -484,7 +485,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);
@@ -587,7 +588,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
             Assert.Equal(DiscoveryTreeSO.DiscoveryTreeModes.Crafting, tree.actionMode);
             Assert.All(observedContexts, observed => Assert.Same(context, observed));
             Assert.All(operations, operation => Assert.True(operation.Completion.TryWait(
-                TimeSpan.FromMilliseconds(50), out _)));
+                ServiceCycleTestDeadline.Value, out _)));
         }
         finally
         {

@@ -38,6 +38,8 @@ save, return to Start, close normally, and inspect the complete log. Duplicate
 plugins, schema faults, backup blocks, Harmony faults, and UI construction errors
 fail the gate.
 
+<a id="runtime-read-only-surfaces"></a>
+
 ## V3 — read-only surfaces
 
 - Confirm configured intent and runtime health remain separate everywhere.

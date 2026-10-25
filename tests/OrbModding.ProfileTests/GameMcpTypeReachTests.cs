@@ -164,7 +164,7 @@ public sealed class GameMcpTypeReachTests
                 "c0b000 | Primal | 0",
                 "c0c000 | Arcanist | 0",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "structure-types", 0, 50, limitFromCaller: false), Catalog)));
     }
@@ -372,7 +372,7 @@ public sealed class GameMcpTypeReachTests
                 "c4b000 | Create | 125 | 100 | 100",
                 "c4c000 | Plant | 125 | 100 | 90",
             }),
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "agromancy-actions", 0, 50, limitFromCaller: false), Catalog)));
 
@@ -501,7 +501,7 @@ public sealed class GameMcpTypeReachTests
             Render(Detail(Aura)));
         Assert.Equal(
             "rows: Aura c1d000",
-            Render(GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+            Render(GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
                 GameMcpTestHarness.Context(World()),
                 "passive-ability-types", 0, 50, limitFromCaller: false), Catalog)));
     }
@@ -510,7 +510,7 @@ public sealed class GameMcpTypeReachTests
 
     private static JObject Detail(Guid uuid) =>
         Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.GetRows(
+            GameMcpTestHarness.Json(GameMcpWorldDetail.GetRows(
                 GameMcpTestHarness.Context(World()), string.Empty, new[] { uuid.ToString("D") }), Catalog)
             ["results"]!.Values<JObject>())!;
 

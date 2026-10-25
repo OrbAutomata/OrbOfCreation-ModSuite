@@ -34,7 +34,7 @@ internal static class GameMcpChargeProjection
             {
                 ["resourceId"] = charge.ResourceId.ToString("D"),
                 ["cost"] = new GameMcpDomainValue(
-                    GameMcpWorldQuery.PlayerFacingCost(world, charge.ResourceId, charge.Amount)),
+                    GameMcpDecisionReason.PlayerFacingCost(world, charge.ResourceId, charge.Amount)),
             });
         }
         result["charged"] = charged;

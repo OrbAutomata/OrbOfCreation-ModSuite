@@ -6,8 +6,8 @@ using OrbModding.Common;
 namespace OrbAutomata;
 
 /// <summary>
-/// Projects the pinned world snapshot into an Auto Buy frame, on the worker thread, in one flat pass.
-/// No scheduling, dirty-tracking, or reconciliation.
+/// Projects the pinned world snapshot into an Auto Buy frame, on the worker thread, in one flat
+/// pass. No scheduling, dirty-tracking, or reconciliation.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,15 +18,13 @@ namespace OrbAutomata;
 /// queue's remaining room are taken at the action boundary; see W39.
 /// </para>
 /// <para>
-/// So is the exact-type guard. An entry whose type is not exactly the audited <c>StructureSO</c> or
-/// <c>UpgradeSO</c> is refused where the purchase is made, by the same check this used to run first;
-/// running it twice made capture a pre-filter over an answer the action boundary takes again.
+/// So is the exact-type guard.
 /// </para>
 /// <para>
 /// It is a static class holding nothing, and the world reaches it as an argument. Everything it
-/// reuses between cycles — the three row arrays — it borrows from the frame the runtime hands it and
-/// gives straight back. A worker that owned either would be a worker that could read the world twice
-/// in one cycle. See W50.
+/// reuses between cycles — the three row arrays — it borrows from the frame the runtime hands it
+/// and gives straight back. A worker that owned either would be a worker that could read the world
+/// twice in one cycle. See W50.
 /// </para>
 /// </remarks>
 internal static class AutoBuyFrameProjector
@@ -289,10 +287,7 @@ internal static class AutoBuyFrameProjector
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This used to be <c>GetPurchaseCost()</c> per candidate, four hundred times a cycle, and the
-    /// game's implementation rebuilds the whole cost list from scratch on every ask — six LINQ
-    /// projections and six allocations, none of them cached. The collection pass now computes the
-    /// same number once per entity on the worker thread.
+    /// The collection pass computes the same number once per entity on the worker thread.
     /// </para>
     /// <para>
     /// A candidate with no published price fails rather than being priced at nothing. The deriver
@@ -350,13 +345,10 @@ internal static class AutoBuyFrameProjector
     }
 
     /// <summary>
-    /// Materializes one resource row from the shared world snapshot rather than by reading the game.
+    /// Materializes one resource row from the shared world snapshot rather than by reading the
+    /// game.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Every field here used to be eight reflected native calls per distinct cost resource, per
-    /// candidate, per cycle — reads the shared collection pass has already made for the whole game.
-    /// </para>
     /// <para>
     /// A resource named by a cost but absent from the snapshot fails the candidate rather than
     /// substituting a default. A missing row means the pass could not read that resource, and
@@ -365,8 +357,8 @@ internal static class AutoBuyFrameProjector
     /// <para>
     /// The already-emitted rows are the dedup index. A dictionary would be faster per lookup and is
     /// the shape this had while it ran on the main thread, but a worker definition may hold no
-    /// collection and rebuilding one per cycle would allocate; the distinct resources named across a
-    /// whole save's costs number in the tens, so the scan is over a span the loop just wrote.
+    /// collection and rebuilding one per cycle would allocate; the distinct resources named across
+    /// a whole save's costs number in the tens, so the scan is over a span the loop just wrote.
     /// </para>
     /// </remarks>
     private static bool TryResolveResourceRow(

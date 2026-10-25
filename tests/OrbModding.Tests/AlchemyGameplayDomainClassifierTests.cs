@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using OrbModding.Common;
@@ -179,7 +180,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
         var concept = Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid));
         RegisterConceptRecipes(concept);
         var generation = 4L;
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => generation,
             () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup),
             value => ((IdScriptableObject)value).GetGuid());
@@ -203,7 +204,7 @@ public sealed class AlchemyGameplayDomainClassifierTests : IDisposable
     public void AnUnexpectedExceptionFromTheNativeIdentityReadEscapesInitialization()
     {
         RegisterConceptRecipes(Recipe(Guid.NewGuid(), Type(AlchemyGameplayDomainClassifier.ReductiveConceptTypeUuid)));
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => 1,
             () => TypedRegistrySourceSnapshot.Ready(IdScriptableObject.RuntimeLookup),
             _ => throw new System.Reflection.TargetException("injected identity read failure"));

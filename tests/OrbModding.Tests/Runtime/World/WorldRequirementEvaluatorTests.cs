@@ -22,9 +22,13 @@ namespace OrbModding.Tests.Runtime.World;
 /// </remarks>
 public sealed class WorldRequirementEvaluatorTests : IDisposable
 {
-    public WorldRequirementEvaluatorTests() => ClearRegistries();
+    public WorldRequirementEvaluatorTests()
+    {
+        OrbModding.GameStubs.GameStubState.Reset();
+        global::RitualManager.instance = new global::RitualManager();
+    }
 
-    public void Dispose() => ClearRegistries();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     /// <summary>
     /// The common case. An empty container passes unconditionally in the game, so an owner with no
@@ -444,7 +448,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     [Fact]
-    public void ADeeperCompositeShapeIsNamedAndUnevaluable()
+    public void AnEmptyAndInsideOrRetainsItsMetIdentity()
     {
         var gated = Upgrade();
         var outer = new Requirements.OrRequirement();
@@ -453,9 +457,9 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
 
         var world = Collect();
 
-        Assert.Equal("AndRequirement", world.EntityRequirements[0].ConditionTypeName);
+        Assert.Equal("AndRequirement", world.EntityRequirements[1].ConditionTypeName);
         Assert.Equal(
-            WorldRequirementVerdict.Unevaluable,
+            WorldRequirementVerdict.Met,
             WorldRequirementEvaluator.Evaluate(world, gated.GetGuid(), 1));
     }
 
@@ -706,7 +710,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
     }
 
     [Fact]
-    public void ARequirementGraphBeyondTheExpansionBoundFailsClosed()
+    public void ADeepFiniteRequirementGraphDoesNotConsumeReferenceExpansionBudget()
     {
         var gated = Upgrade();
         var scribing = Research();
@@ -720,7 +724,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         }
         gated.prerequisitesPerLevel.prerequisites.Add(nested);
 
-        Assert.Equal(WorldRequirementVerdict.Unevaluable,
+        Assert.Equal(WorldRequirementVerdict.Met,
             WorldRequirementEvaluator.Evaluate(Collect(), gated.GetGuid(), 1));
     }
 
@@ -949,7 +953,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
                 WorldRequirementEvaluator.UnlockCheckLevel,
                 WorldRequirementProgramKind.Unlock));
 
-        // Both containers publish, at their own group positions, so neither can hide behind the other.
+        // Both containers publish, at their own graph positions, so neither can hide behind the other.
         Assert.True(WorldEntityRequirementLookup.TryFindRange(
             world.EntityRequirements, scribing.GetGuid(), out var start, out var count));
         var rows = world.EntityRequirements.AsSpan();
@@ -957,7 +961,7 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         for (var offset = 0; offset < count; offset++)
         {
             ref readonly var row = ref rows[start + offset];
-            if (row.Program == WorldRequirementProgramKind.Unlock) positions.Add(row.GroupOrdinal);
+            if (row.Program == WorldRequirementProgramKind.Unlock) positions.Add(row.Ordinal);
         }
         Assert.Equal(new[] { 0, 1 }, positions);
 
@@ -1228,21 +1232,5 @@ public sealed class WorldRequirementEvaluatorTests : IDisposable
         return GameWorldFrameDeriver.Build(frame);
     }
 
-    private static void ClearRegistries()
-    {
-        global::UpgradeSO.All.Clear();
-        global::StructureSO.All.Clear();
-        global::ResearchSO.All.Clear();
-        global::ConsumableSO.All.Clear();
-        global::ResourceSO.All.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::AlchemyRecipeSO.All.Clear();
-        global::RitualSO.All.Clear();
-        global::TimeRuneSO.All.Clear();
-        global::RitualManager.instance = new global::RitualManager();
-        global::IntVariable.All.Clear();
-        global::PrerequisiteLinkSO.All.Clear();
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::GameManager.currentFrame = 0;
-    }
+
 }

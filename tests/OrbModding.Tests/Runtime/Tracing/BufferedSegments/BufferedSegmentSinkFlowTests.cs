@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using OrbModding.Common.Runtime.Tracing.BufferedSegments;
 using Xunit;
@@ -212,6 +213,6 @@ public sealed class BufferedSegmentSinkFlowTests
 
     private static void ForWrittenBlocks(BufferedSegmentSink<int> sink, long count) =>
         Assert.True(
-            PollUntil(() => sink.Metrics().WrittenBlocks == count),
+            ServiceCycleTestDeadline.PollUntil(() => sink.Metrics().WrittenBlocks == count),
             $"Expected {count} written blocks; observed {sink.Metrics().WrittenBlocks}.");
 }

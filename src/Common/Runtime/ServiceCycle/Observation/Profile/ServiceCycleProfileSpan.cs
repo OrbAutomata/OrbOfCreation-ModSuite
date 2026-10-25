@@ -6,17 +6,13 @@ namespace OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The numbers are wire values: a profile record carries the span id and nothing else that names the
-/// span, so an artifact recorded by an older build must keep decoding as the same measurement. That
-/// is why the values are written out rather than left to the compiler, why a retired span's number is
-/// burned rather than reused, and why the blocks are not contiguous.
+/// The numbers are wire values: a profile record carries the span id and nothing else that names
+/// the span, so an artifact recorded by an older build must keep decoding as the same measurement.
 /// </para>
 /// <para>
-/// Blocks by owner — 1-999 the suite runtime, 1000-1999 Auto Harvest, 2000-2999 Auto Buy — which is
-/// the convention three separate <c>const int</c> classes used to keep by hand. Collecting them here
-/// is what makes the ids globally enumerated rather than globally unique by agreement: a duplicate is
-/// now a compile error, and <see cref="ServiceCycleProfileSpans"/> can answer questions about the set
-/// as a whole.
+/// Collecting them here is what makes the ids globally enumerated rather than globally unique by
+/// agreement: a duplicate is a compile error, and <see cref="ServiceCycleProfileSpans"/> can answer
+/// questions about the set as a whole.
 /// </para>
 /// </remarks>
 internal enum ServiceCycleProfileSpan

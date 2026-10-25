@@ -1,3 +1,7 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.Runtime.ServiceCycle.Profile;
+#endif
 using System;
 using OrbAutomata;
 using OrbModding.Common;
@@ -80,15 +84,14 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     }
 
     /// <summary>
-    /// The epoch the boundary trusts is the one the plan's own world was collected under, not the one
-    /// the runner was built with.
+    /// The epoch the boundary trusts is the one the plan's own world was collected under, not the
+    /// one the runner was built with.
     /// </summary>
     /// <remarks>
-    /// The two come apart in exactly one window, and it is a real one: the game reloads, the collector
-    /// reads the new run, and the host has not yet been told to replace the runner. The plan is about
-    /// the world it was made from, and that world is the current one — so the purchase stands. Judging
-    /// it by the runner's frozen lifecycle would refuse a purchase that is perfectly good, which is
-    /// what this used to do.
+    /// The two come apart in exactly one window, and it is a real one: the game reloads, the
+    /// collector reads the new run, and the host has not yet been told to replace the runner. The
+    /// plan is about the world it was made from, and that world is the current one — so the
+    /// purchase stands.
     /// </remarks>
     [Fact]
     public void Execute_WorldCollectedAheadOfTheRunnersLifecycle_PurchasesAnyway()
@@ -128,6 +131,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, true),
             static () => throw new InvalidOperationException("The lifecycle epoch is unreadable."),
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         var result = adapter.TryExecute(
@@ -276,9 +282,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// The price is what refused, and the submission says so.
     /// </summary>
     /// <remarks>
-    /// <c>CanPurchase()</c> answers with one bool over several conditions, so "the game said no" is
-    /// all a refusal used to carry. Reading the terms the game exposes individually turns that into a
-    /// cause a person can act on.
+    /// Reading the terms the game exposes individually turns that into a cause a person can act on.
     /// </remarks>
     [Fact]
     public void Submit_RefusedOnPrice_NamesTheCostList()
@@ -304,7 +308,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(upgrade);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.Equal(CommonActionResultCodes.Skipped, submission.Outcome.Code);
         Assert.Equal(AutoBuyAdmissionTerm.Passed, submission.Diagnosis.IsAvailable);
@@ -346,7 +354,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.Equal(CommonActionResultCodes.Skipped, submission.Outcome.Code);
         Assert.False(submission.Outcome.ToResult().HasNativeEvidence);
@@ -421,7 +433,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.Equal(AutoBuyActionResultCodes.StructureUnavailable, submission.Outcome.Code);
         Assert.Equal(0, structure.queuedQuantity);
@@ -431,11 +447,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// A topology stamped for another run is its own refusal, and it says which run it holds.
     /// </summary>
     /// <remarks>
-    /// This used to share one preflight and one number with four other causes, so the twenty-seven
-    /// minutes of refused purchases it produced looked exactly like an unbound contract. All three
-    /// numbers are in the sentence because none can be inferred from the others: stamped-at-zero was
-    /// never published under a lifecycle, stamped-at-another-epoch means the game moved on, and the
-    /// row count separates both from a topology that was captured and simply holds nothing.
+    /// All three numbers are in the sentence because none can be inferred from the others:
+    /// stamped-at-zero was never published under a lifecycle, stamped-at-another-epoch means the
+    /// game moved on, and the row count separates both from a topology that was captured and simply
+    /// holds nothing.
     /// </remarks>
     [Fact]
     public void Submit_TopologyStampedForAnotherRun_NamesBothEpochsAndTheRowCount()
@@ -452,7 +467,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             AutoBuyCandidateKind.Structure,
             Guid.Parse(structure.uuid),
             count: 1,
-            lifecycleEpoch: 9);
+            lifecycleEpoch: 9
+#if SERVICE_CYCLE_PROFILE
+                , context: Context()
+#endif
+                );
 
         Assert.Equal(AutoBuyActionResultCodes.OwningViewTopologyUncaptured, submission.Outcome.Code);
         Assert.Contains("epoch 3", submission.Outcome.Reason);
@@ -718,7 +737,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(upgrade);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.Equal(CommonActionResultCodes.NativeRejected, submission.Outcome.Code);
         Assert.Equal(AutoBuyAdmissionTerm.Passed, submission.Diagnosis.IsMaxLevel);
@@ -743,7 +766,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.Equal(CommonActionResultCodes.NativeRejected, submission.Outcome.Code);
         Assert.Equal(string.Empty, submission.Diagnosis.RefusingTerm);
@@ -872,10 +899,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// <summary>
     /// Structure availability can drop after planning and is therefore re-read at the boundary.
     /// </summary>
-    /// <remarks>
-    /// The structure CanPurchase contract does not contain this term, so only the explicit live gate
-    /// can stop a previously planned action after its own availability drops.
-    /// </remarks>
     [Fact]
     public void Execute_StructureAvailabilityDroppedAfterPlanning_RefusesWithNamedCode()
     {
@@ -932,7 +955,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(upgrade);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(3, submission.RequestedLevels);
@@ -956,7 +983,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
         // The multiplier requests three levels but the upgrade caps at two: "bought 2 of 3".
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 3
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(3, submission.RequestedLevels);
@@ -978,7 +1009,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(upgrade);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(1, submission.RequestedLevels);
@@ -990,11 +1025,6 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// <summary>
     /// A structure asked for several levels queues several, one native call each.
     /// </summary>
-    /// <remarks>
-    /// The native structure purchase forces exactly one level and consults no multiplier, so bulk
-    /// development is the same call repeated — which is why the count used to be discarded here and
-    /// the game's own bulk-build setting did nothing.
-    /// </remarks>
     [Fact]
     public void Submit_StructureBulk_QueuesEveryRequestedLevel()
     {
@@ -1008,7 +1038,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 5);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 5
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(5, submission.RequestedLevels);
@@ -1029,7 +1063,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(1, submission.RequestedLevels);
@@ -1060,7 +1098,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(structure);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 6);
+            .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 6
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.True(submission.Outcome.Verified);
         Assert.Equal(6, submission.RequestedLevels);
@@ -1082,7 +1124,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         Publish(upgrade);
 
         var submission = NativeAdapter()
-            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count);
+            .Submit(AutoBuyCandidateKind.Upgrade, Guid.Parse(upgrade.uuid), count
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
         Assert.False(submission.Outcome.Verified);
         Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);
@@ -1216,7 +1262,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         global::ActionManager.instance = null!;
 
         Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
-        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason.Text);
     }
 
     /// <summary>
@@ -1230,13 +1276,95 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         global::ActionManager.instance.destroyed = true;
 
         Assert.False(new AutoBuyNativeQueueRoomAdapter().TryReadRemainingRoom(out _, out var reason));
-        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason);
+        Assert.Equal("no game is loaded: ActionManager.instance is absent or destroyed", reason.Text);
     }
 
     /// <summary>
     /// A throw the classifier does not expect is a suite defect, so it stays loud instead of reading
     /// as a queue that could not answer.
     /// </summary>
+    [Fact]
+    public void RepeatedQueueReadFailuresKeepTheirReferencesAndWarnOnceForTheSamePurchase()
+    {
+        var faults = new System.Collections.Generic.List<string>();
+        var warnings = new BepInEx.Logging.ManualLogSource();
+        var logProperty = typeof(OrbModding.Plugin).GetProperty("Log",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var previousLog = logProperty.GetValue(null);
+        var failure = new InvalidOperationException("private queue failure", new Exception("original queue failure"));
+        var purchases = new RecordingPurchasePort();
+        GameActionFaultLog.ConfigureLog(faults.Add);
+        logProperty.SetValue(null, warnings);
+        global::ActionManager.RemainingRoomFault = failure;
+        try
+        {
+            var adapter = new AutoBuyCycleActionAdapter(
+                purchases, new AutoBuyNativeQueueRoomAdapter(), () => PlannedEpoch,
+                () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+                new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
+                IgnoreRefusals.Instance);
+            var action = new AutoBuyCycleAction(
+                AutoBuyCandidateKind.Structure, Guid.NewGuid(), PlannedEpoch, count: 1, default);
+
+            var first = adapter.TryExecute(action, Config(true, true, 0), Context());
+            var firstCause = failure.ToString();
+            var second = adapter.TryExecute(action, Config(true, true, 0), Context());
+
+            Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+            Assert.Equal(CommonActionResultCodes.AdapterFault, second.Code);
+            Assert.Equal(2, faults.Count);
+            Assert.Contains(firstCause, faults[0]);
+            Assert.Contains(failure.ToString(), faults[1]);
+            Assert.Contains(faults[0].Split(' ')[3], first.Reason);
+            Assert.Contains(faults[1].Split(' ')[3], second.Reason);
+            Assert.StartsWith("The remaining queue room could not be read.", first.Reason);
+            Assert.DoesNotContain("private queue failure", second.Reason);
+            Assert.Single(warnings.Entries);
+            Assert.Equal(0, purchases.LastCount);
+            Assert.False(first.HasNativeEvidence);
+            Assert.False(second.HasNativeEvidence);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+            logProperty.SetValue(null, previousLog);
+            global::ActionManager.RemainingRoomFault = null;
+        }
+    }
+
+    [Fact]
+    public void EveryFailedQueueRoomReadRecordsTheOriginalCauseBehindItsReference()
+    {
+        var logged = new System.Collections.Generic.List<string>();
+        var failure = new InvalidOperationException("private queue cause", new Exception("original queue cause"));
+        global::ActionManager.RemainingRoomFault = failure;
+        GameActionFaultLog.ConfigureLog(logged.Add);
+        try
+        {
+            var adapter = new AutoBuyNativeQueueRoomAdapter();
+            Assert.False(adapter.TryReadRemainingRoom(out _, out var first));
+            var firstCause = failure.ToString();
+            Assert.False(adapter.TryReadRemainingRoom(out _, out var second));
+
+            Assert.DoesNotContain("private queue cause", first.Text);
+            Assert.DoesNotContain("original queue cause", second.Text);
+            Assert.Equal(2, logged.Count);
+            Assert.Contains(firstCause, logged[0]);
+            Assert.Contains(failure.ToString(), logged[1]);
+            Assert.Contains(logged[0].Split(' ')[3], first.Text);
+            Assert.Contains(logged[1].Split(' ')[3], second.Text);
+            Assert.Equal(first.Sentence, second.Sentence);
+            Assert.NotEqual(first.Reference, second.Reference);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+            global::ActionManager.RemainingRoomFault = null;
+        }
+    }
+
     [Fact]
     public void AnUnexpectedThrowFromTheQueueRoomReadEscapes()
     {
@@ -1286,7 +1414,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             Publish(structure);
 
             var submission = NativeAdapter(includeContract: id => id != missing)
-                .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1);
+                .Submit(AutoBuyCandidateKind.Structure, Guid.Parse(structure.uuid), count: 1
+#if SERVICE_CYCLE_PROFILE
+                , lifecycleEpoch: PlannedEpoch, context: Context()
+#endif
+                );
 
             Assert.Equal(CommonActionResultCodes.AdapterFault, submission.Outcome.Code);
             Assert.False(submission.Outcome.ToResult().HasNativeEvidence);
@@ -1300,7 +1432,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     /// that did not bind.
     /// </summary>
     [Fact]
-    public void Every_missing_member_disables_the_queue_room_read_and_the_warning_names_it()
+    public void Every_missing_member_disables_the_queue_room_read_and_names_the_contract()
     {
         global::ActionManager.RemainingRoom = 5;
         foreach (var missing in AutoBuyNativeQueueRoomAdapter.ContractIds)
@@ -1309,8 +1441,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
                 .TryReadRemainingRoom(out _, out var reason));
             Assert.Contains(
                 missing,
-                AutoBuyPurchaseNarration.QueueRoomUnavailable(
-                    AutoBuyCandidateKind.Structure, Guid.NewGuid(), reason),
+                reason.Text,
                 StringComparison.Ordinal);
         }
     }
@@ -1340,6 +1471,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(remainingRoom, roomReadable),
             () => nativeEpoch,
             () => owned,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             refusals ?? IgnoreRefusals.Instance);
         return adapter.TryExecute(
             new AutoBuyCycleAction(kind, uuid, plannedEpoch, count: 1, belief),
@@ -1418,7 +1552,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new BatchId(1),
             new ActionId(checked((ulong)actionIndex + 1)),
             actionIndex,
-            new MonotonicTimestamp(1));
+            new MonotonicTimestamp(1)
+#if SERVICE_CYCLE_PROFILE
+            , new ServiceCycleProfileCoordinates(0, 1)
+#endif
+            );
 
     private static AutoBuyPlanBelief Belief(
         Guid resourceId,
@@ -1461,6 +1599,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
         var added = new global::StructureSO
         {
@@ -1497,6 +1638,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
         var warmup = adapter.TryExecute(
             new AutoBuyCycleAction(AutoBuyCandidateKind.Structure, Guid.Parse(original.uuid), PlannedEpoch),
@@ -1534,6 +1678,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         var result = adapter.TryExecute(
@@ -1554,6 +1701,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         Assert.Throws<System.Reflection.TargetException>(() => adapter.TryExecute(
@@ -1576,6 +1726,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(5, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         adapter.TryExecute(
@@ -1595,6 +1748,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(10, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         adapter.TryExecute(
@@ -1615,6 +1771,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         var first = adapter.TryExecute(
@@ -1646,6 +1805,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             new FakeQueueRoom(64, readable: true),
             () => PlannedEpoch,
             () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
             IgnoreRefusals.Instance);
 
         adapter.TryExecute(
@@ -1705,7 +1867,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             AutoBuyCandidateKind kind,
             Guid uuid,
             int count,
-            long lifecycleEpoch)
+            long lifecycleEpoch
+#if SERVICE_CYCLE_PROFILE
+            , in ServiceActionContext context
+#endif
+            )
         {
             Submissions++;
             if (Submissions == 2 && _secondRefusal is { } refusal)
@@ -1735,7 +1901,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             AutoBuyCandidateKind kind,
             Guid uuid,
             int count,
-            long lifecycleEpoch)
+            long lifecycleEpoch
+#if SERVICE_CYCLE_PROFILE
+            , in ServiceActionContext context
+#endif
+            )
         {
             LastCount = count;
             return AutoBuyPurchaseSubmission.CandidateUnavailable();
@@ -1760,7 +1930,11 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             AutoBuyCandidateKind kind,
             Guid uuid,
             int count,
-            long lifecycleEpoch) =>
+            long lifecycleEpoch
+#if SERVICE_CYCLE_PROFILE
+            , in ServiceActionContext context
+#endif
+            ) =>
             throw _failure;
     }
 
@@ -1775,7 +1949,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             _readable = readable;
         }
 
-        public bool TryReadRemainingRoom(out int remainingRoom, out string reason)
+        public bool TryReadRemainingRoom(out int remainingRoom, out GameActionReason reason)
         {
             remainingRoom = _readable ? _room : 0;
             reason = _readable ? string.Empty : "the fake queue room is unreadable";
@@ -1834,10 +2008,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::StructureSO.All.Clear();
-        global::UpgradeSO.All.Clear();
-        global::ViewSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         var structures = new global::StructureListVariable { value = global::StructureSO.All };
         var upgrades = new global::UpgradeListVariable { value = global::UpgradeSO.All };
         var owningView = new global::ViewSO { available = true };
@@ -1871,6 +2042,10 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
             out _,
             out _,
             out _);
-        return new AutoBuyNativePurchaseAdapter(topology, includeContract);
+        return new AutoBuyNativePurchaseAdapter(
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
+            topology, includeContract);
     }
 }

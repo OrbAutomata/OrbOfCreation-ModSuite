@@ -84,7 +84,7 @@ public sealed class GameMcpAugmentGlyphTests
             unlocked: true));
 
         var row = GameMcpTestHarness
-            .Json(GameMcpWorldQuery.ListRows(context, "augment-glyphs", 0, 50))["rows"]!
+            .Json(GameMcpWorldList.ListRows(context, "augment-glyphs", 0, 50))["rows"]!
             .Values<JObject>()
             .Single()!;
 
@@ -114,7 +114,7 @@ public sealed class GameMcpAugmentGlyphTests
         var shut = GameMcpTestHarness.Context(WithAugmentTable(world, unlocked: false));
 
         var row = GameMcpTestHarness
-            .Json(GameMcpWorldQuery.ListRows(shut, "augment-glyphs", 0, 50))["rows"]!
+            .Json(GameMcpWorldList.ListRows(shut, "augment-glyphs", 0, 50))["rows"]!
             .Values<JObject>()
             .Single()!;
         Assert.Equal(
@@ -124,7 +124,7 @@ public sealed class GameMcpAugmentGlyphTests
         // Every glyph is on the same screen, so the page loses the three columns together rather
         // than printing a column of zeroes nobody can act on.
         var page = GameMcpTextPage.Render(GameMcpTestHarness.Json(
-            GameMcpWorldQuery.ListRows(shut, "augment-glyphs", 0, 50)));
+            GameMcpWorldList.ListRows(shut, "augment-glyphs", 0, 50)));
         Assert.Contains("[id | name | state | slots | freeSlots]", page, StringComparison.Ordinal);
 
         var detail = GameMcpTestHarness.Detail(shut, AugmentId)["row"]!;

@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.GameMcp;
+#endif
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -285,9 +290,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
 
     private static void ResetNativeState()
     {
-        global::IdScriptableObject.RuntimeLookup.Clear();
-        global::SpellRecipeSO.All.Clear();
-        global::UpgradeSO.All.Clear();
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         var levelAll = new global::UpgradeSO
         {
@@ -311,6 +314,10 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
 
         internal Harness()
         {
+            var gameActions = new LifecycleGameActions();
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
@@ -333,16 +340,29 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
                     new SpellLevelCapabilityState(),
                     Status)).Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), Epoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), Epoch, gameActions
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             _registry.WorldPublication.Publish(World(), new WorldGeneration(_generation));
-            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null);
+            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: profileProbe
+#endif
+            );
             _runtime = new AutomataServiceCycleRuntime(
                 static () => Epoch,
                 _registry.Configuration,
                 _host,
                 new IAutomataServiceCycleFeatureRuntime[] { feature },
                 new ConfigGeneration(1),
-                new LifecycleGameActions());
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+            , new GameMcpCommandDispatcher(_host, _registry.Configuration, gameActions,
+                new IAutomataServiceCycleFeatureRuntime[] { feature })
+#endif
+            );
             feature.ActivateDiagnostics();
         }
 

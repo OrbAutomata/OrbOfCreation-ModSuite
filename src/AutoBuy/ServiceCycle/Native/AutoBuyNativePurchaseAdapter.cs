@@ -157,7 +157,7 @@ internal readonly struct AutoBuyPurchaseSubmission
     public static AutoBuyPurchaseSubmission Rejected(ServiceActionResultCode code) =>
         Rejected(code, string.Empty);
 
-    public static AutoBuyPurchaseSubmission Rejected(ServiceActionResultCode code, string reason) =>
+    public static AutoBuyPurchaseSubmission Rejected(ServiceActionResultCode code, GameActionReason reason) =>
         Refused(NativeActionOutcome.Reject(code, reason), default);
 
     public static AutoBuyPurchaseSubmission CandidateUnavailable() =>
@@ -167,7 +167,7 @@ internal readonly struct AutoBuyPurchaseSubmission
                 "The candidate could not be resolved."),
             default);
 
-    public static AutoBuyPurchaseSubmission ContractUnavailable(string reason) =>
+    public static AutoBuyPurchaseSubmission ContractUnavailable(GameActionReason reason) =>
         Refused(
             NativeActionOutcome.FaultBeforeCall(CommonActionResultCodes.AdapterFault, reason),
             default);
@@ -495,11 +495,8 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     /// The live owning-view gate, with each way of failing it kept apart.
     /// </summary>
     /// <remarks>
-    /// Five distinct facts used to leave here as one preflight and one result number: an unbound
-    /// contract, a lifecycle with no captured topology, a candidate whose chain the game refused
-    /// while the topology was being read, a status this build does not model, and a live
-    /// availability read that did not answer. Only one of those is fixed by waiting, only one is a
-    /// build problem, and the outage that motivated this split took a code trace to tell apart.
+    /// Only one of those is fixed by waiting, only one is a build problem, and the outage that
+    /// motivated this split took a code trace to tell apart.
     /// </remarks>
     private bool PassesLiveGate(
         AutoBuyPurchaseNativeBindings native,
@@ -541,17 +538,17 @@ internal sealed class AutoBuyNativePurchaseAdapter :
                     "No purchase screen for this target is in this run's captured topology.",
                     out refusal);
             case WorldPurchaseViewRelationStatus.Unreadable:
-                return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, out refusal);
+                return Refuse(AutoBuyActionResultCodes.OwningViewRelationUnreadable, resolution.Failure.Reason, out refusal);
             case WorldPurchaseViewRelationStatus.Contradictory:
-                return Refuse(AutoBuyActionResultCodes.OwningViewRelationContradictory, out refusal);
+                return Refuse(AutoBuyActionResultCodes.OwningViewRelationContradictory, resolution.Failure.Reason, out refusal);
             case WorldPurchaseViewRelationStatus.Resolved:
                 break;
             default:
                 return Refuse(AutoBuyActionResultCodes.OwningViewRelationStatusUnmodeled, out refusal);
         }
 
-        if (!_viewAdmission.TryReadAvailability(in resolution, out var viewAvailable))
-            return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, out refusal);
+        if (!_viewAdmission.TryReadAvailability(in resolution, out var viewAvailable, out var viewFailure))
+            return Refuse(AutoBuyActionResultCodes.OwningViewAvailabilityUnreadable, viewFailure.Reason, out refusal);
         if (!viewAvailable)
             return Refuse(
                 AutoBuyActionResultCodes.OwningViewUnavailable,
@@ -580,7 +577,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
 
     private static bool Refuse(
         ServiceActionResultCode code,
-        string reason,
+        GameActionReason reason,
         out AutoBuyPurchaseSubmission refusal)
     {
         refusal = AutoBuyPurchaseSubmission.Rejected(code, reason);

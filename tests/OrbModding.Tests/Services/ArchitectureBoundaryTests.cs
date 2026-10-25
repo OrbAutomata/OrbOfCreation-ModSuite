@@ -7,15 +7,8 @@ using Xunit;
 namespace OrbModding.Tests.Services;
 
 /// <summary>
-/// Mechanically enforces the runtime boundary so that namespaces and folders are not the only
-/// guard. Nothing under the <c>OrbModding.Common</c> namespaces may carry a feature domain identity,
-/// and the plugin patches exactly the classes it names.
-/// <para>
-/// The two assembly-reference facts that used to live here — Common referencing no feature plugin,
-/// and Automata referencing Common — are gone. Both are about to be answered by a single DLL, where
-/// one is vacuously true and the other simply false; every fact left here is keyed on namespaces, so
-/// it survives the merge saying the same thing.
-/// </para>
+/// Enforces the runtime boundary: Common carries no feature-domain identity, and plugin patches
+/// target only their declared native classes. Namespace rules apply within the suite assembly.
 /// </summary>
 public sealed class ArchitectureBoundaryTests
 {

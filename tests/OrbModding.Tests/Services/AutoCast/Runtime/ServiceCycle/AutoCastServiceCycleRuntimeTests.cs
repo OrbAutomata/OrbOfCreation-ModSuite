@@ -1,3 +1,8 @@
+#if SERVICE_CYCLE_PROFILE
+using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
+using OrbAutomata.GameMcp;
+#endif
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -188,10 +193,10 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
     private static void ResetNativeState()
     {
+        OrbModding.GameStubs.GameStubState.Reset();
         global::SpellManager.instance = new global::SpellManager();
         global::SpellManager.NativeCanCast = true;
         global::SettingsManager.CancellableSpells = true;
-        global::TargetingManager.Reset();
         global::Spell.FireSignal = AutoCastManualSignal.NotifySpellFire;
         global::BattleManager.instance = null;
     }
@@ -209,6 +214,10 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
         internal Harness(bool fullCharge = false)
         {
+            var gameActions = new LifecycleGameActions();
+#if SERVICE_CYCLE_PROFILE
+            var profileProbe = new ServiceCycleProfileProbe();
+#endif
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
@@ -231,16 +240,29 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
                     new AutoCastManualPauseState(),
                     Status)).Register(
                 new AutomataServiceCycleFeatureContext(
-                    _registry, new ConfigGeneration(1), Epoch, new LifecycleGameActions()));
+                    _registry, new ConfigGeneration(1), Epoch, gameActions
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe
+#endif
+            ));
             _registry.WorldPublication.Publish(World(), new WorldGeneration(_generation));
-            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null);
+            _host = new AutomataServiceCycleHost(_registry, () => _frame++, pumpTiming: null, semanticTrace: null
+#if SERVICE_CYCLE_PROFILE
+            , profileProbe: profileProbe
+#endif
+            );
             _runtime = new AutomataServiceCycleRuntime(
                 static () => Epoch,
                 _registry.Configuration,
                 _host,
                 new IAutomataServiceCycleFeatureRuntime[] { feature },
                 new ConfigGeneration(1),
-                new LifecycleGameActions());
+                gameActions
+#if SERVICE_CYCLE_PROFILE
+            , new GameMcpCommandDispatcher(_host, _registry.Configuration, gameActions,
+                new IAutomataServiceCycleFeatureRuntime[] { feature })
+#endif
+            );
             feature.ActivateDiagnostics();
         }
 
@@ -303,7 +325,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
 
         private static GameWorldState World()
         {
-            var slots = new WorldSpellSlotBuffer();
+            var slots = new WorldRelationBuffer<WorldSpellSlot>();
             var spells = global::SpellManager.instance!.activeSpells.value;
             for (var index = 0; index < spells.Count; index++)
             {
@@ -331,7 +353,7 @@ public sealed class AutoCastServiceCycleRuntimeTests : IDisposable
             {
                 CollectedAtFrame = 10,
                 CollectedAtEpoch = Epoch,
-                SpellSlots = WorldSpellSlotDeriver.Build(slots),
+                SpellSlots = WorldRelationTable.Build(slots, WorldSpellSlotLookup.Order),
                 SpellCosts = PublicationTable<WorldSpellCost>.Empty,
             };
         }

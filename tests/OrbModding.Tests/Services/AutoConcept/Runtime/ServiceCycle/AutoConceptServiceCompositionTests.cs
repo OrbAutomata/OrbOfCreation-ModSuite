@@ -134,7 +134,7 @@ public sealed class AutoConceptServiceCompositionTests
 
     private static GameWorldState World()
     {
-        var concepts = new WorldConceptRecipeBuffer();
+        var concepts = new WorldRelationBuffer<WorldConceptRecipe>();
         var concept = new WorldConceptRecipe(Recipe, Core);
         concepts.Append(in concept);
         var recipes = new[]
@@ -149,14 +149,14 @@ public sealed class AutoConceptServiceCompositionTests
         return new GameWorldState
         {
             AlchemyRecipes = WorldTable.Create(recipes),
-            ConceptRecipes = WorldAlchemyRowDeriver.Build(concepts),
+            ConceptRecipes = WorldRelationTable.Build(concepts, WorldConceptRecipeLookup.Order),
             CollectedAtEpoch = 1,
         };
     }
 
     private static GameWorldState IdleWorld()
     {
-        var concepts = new WorldConceptRecipeBuffer();
+        var concepts = new WorldRelationBuffer<WorldConceptRecipe>();
         var activeConcept = new WorldConceptRecipe(Recipe, Core);
         var lockedConcept = new WorldConceptRecipe(LockedRecipe, Core);
         concepts.Append(in activeConcept);
@@ -166,7 +166,7 @@ public sealed class AutoConceptServiceCompositionTests
             RecipeRow(Recipe, discovered: true),
             RecipeRow(LockedRecipe, discovered: false),
         };
-        var instances = new WorldAlchemyInstanceBuffer();
+        var instances = new WorldRelationBuffer<RawWorldAlchemyInstance>();
         var active = new WorldAlchemyInstance(
             Recipe, quantity: 1, queuedQuantity: 1,
             drainReadable: true, drainRatio: new BigDouble(1));
@@ -174,7 +174,7 @@ public sealed class AutoConceptServiceCompositionTests
         return new GameWorldState
         {
             AlchemyRecipes = WorldTable.Create(recipes),
-            ConceptRecipes = WorldAlchemyRowDeriver.Build(concepts),
+            ConceptRecipes = WorldRelationTable.Build(concepts, WorldConceptRecipeLookup.Order),
             AlchemyInstances = WorldAlchemyRowDeriver.Build(instances),
             CollectedAtEpoch = 1,
         };

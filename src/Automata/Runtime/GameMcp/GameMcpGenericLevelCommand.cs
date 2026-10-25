@@ -17,7 +17,7 @@ internal static class GameMcpGenericLevelCommand
             scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
             static (state, command, _) =>
-                GameMcpWorldQuery.ProjectGenericLevelDelta(state, command)),
+                GameMcpGenericLevelProjection.ProjectGenericLevelDelta(state, command)),
         prepare: Prepare);
 
     private static GameMcpCommandResult ExecuteGenericLevel(

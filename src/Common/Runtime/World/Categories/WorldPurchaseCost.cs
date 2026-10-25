@@ -309,9 +309,8 @@ internal static class WorldPurchaseGrouping
 /// Range lookup over the purchase-cost table, which is keyed by entity and then resource.
 /// </summary>
 /// <remarks>
-/// A cost is the one published fact that is not one row per entity, so it cannot use
-/// <see cref="WorldLookup"/> — that rejects duplicate identities, and duplicates are the point here.
-/// The table is sorted by (entity, resource) instead, so an entity's entries are contiguous and a
+/// Several rows belong to each entity. The shared keyed lookup searches the entity prefix of the
+/// (entity, resource) sort, so an entity's entries are contiguous and a
 /// binary search for its first row plus a forward walk answers "what does this cost" in
 /// <c>O(log n + k)</c>.
 /// </remarks>
@@ -328,35 +327,8 @@ internal static class WorldPurchaseCostLookup
         out int start,
         out int count)
     {
-        start = 0;
-        count = 0;
-
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        var found = -1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].EntityId.CompareTo(entityId);
-            if (comparison == 0)
-            {
-                // Keep going left: the search must land on the entity's *first* row, or the forward
-                // walk below starts in the middle of the range and reports a partial cost.
-                found = middle;
-                high = middle - 1;
-                continue;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        if (found < 0) return false;
-
-        start = found;
-        while (start + count < rows.Length && rows[start + count].EntityId == entityId) count++;
-        return true;
+        return WorldLookup.TryFindRange(table.AsSpan(), entityId,
+            static (row, key) => row.EntityId.CompareTo(key), out start, out count, resetOnMiss: true);
     }
 }
 
@@ -1034,117 +1006,103 @@ internal sealed class WorldPurchaseCostDeriver
     }
 }
 
-/// <summary>
-/// Reads every structure's authored cost list. A second walk of the structure registry, because a
-/// row binder returns one fixed-size reading per entity and a cost list is neither.
-/// </summary>
+/// <summary>Reads an owner's authored resource costs, optionally with per-level list modifiers.</summary>
 /// <remarks>
-/// <para>
-/// It claims no identities: its rows are keyed by an entity another category already claimed, and
-/// claiming again would report every structure as a duplicate of itself.
-/// </para>
-/// <para>
-/// It shares <c>frame.PurchaseCosts</c> with <see cref="WorldUpgradeCostReader"/> and does not reset
-/// it — the collector does that once per lifecycle, before either structural reader runs, because a
-/// reader that reset a buffer it shares would silently discard the other's rows depending on
-/// traversal order. Worker derivation still recomputes effective cost and affordability from these
-/// retained authored rows and the current dynamic world on every publication.
-/// </para>
+/// Structure and upgrade instances share PurchaseCosts. The collector resets that buffer once before
+/// both readers; an instance resets only the optional modifier buffer it owns. Native list resolution
+/// and entry capture stay on the main thread; effective prices are derived from the current world.
 /// </remarks>
 internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
 {
     private const BindingFlags Instance =
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    private readonly Type? _structureType;
-    private readonly Func<IList?>? _structures;
+    private readonly Type? _ownerType;
+    private readonly string _ownerTypeName;
+    private readonly Func<IList?>? _owners;
     private readonly string _unavailable;
-
-    private readonly Func<object, object?>? _baseCost;
-    private readonly Func<object, Guid>? _structureId;
+    private readonly Func<object, object?>? _costList;
+    private readonly Func<object, Guid>? _ownerId;
     private readonly Func<object, IList?>? _entries;
     private readonly Func<object, Guid>? _entryResource;
     private readonly Func<object, BigDouble>? _entryValue;
+    private readonly WorldPurchaseLevelCostSource? _perLevel;
+    private readonly bool _readsPerLevel;
 
-    internal WorldPurchaseCostReader(Type? structureType, Func<string, Type?> resolveType)
+    internal WorldPurchaseCostReader(
+        Type? ownerType,
+        string ownerTypeName,
+        string costField,
+        string category,
+        string? perLevelModifierField = null)
     {
-        if (resolveType is null) throw new ArgumentNullException(nameof(resolveType));
-
-        _structureType = structureType;
-        _structures = NativeAccessorBinder.StaticListAccessor(structureType, "All");
-        if (structureType is null)
+        Category = category;
+        _readsPerLevel = perLevelModifierField is not null;
+        _ownerType = ownerType;
+        _ownerTypeName = ownerTypeName;
+        _owners = NativeAccessorBinder.StaticListAccessor(ownerType, "All");
+        if (ownerType is null)
         {
-            _unavailable = "the StructureSO type was not found on this build";
+            _unavailable = $"the {ownerTypeName} type was not found on this build";
             return;
         }
 
-        var bind = new WorldMemberBinding(structureType, "StructureSO");
-        _structureId = bind.StableUuid();
-        _baseCost = NativeAccessorBinder.Reference(structureType, "baseCost");
-
-        var costListType = structureType.GetField("baseCost", Instance)?.FieldType;
-        var entryType = NativeAccessorBinder.CollectionElementType(costListType, "costs");
-
-        _entries = NativeAccessorBinder.CollectionField(costListType, "costs");
+        _ownerId = NativeAccessorBinder.StableUuid(ownerType);
+        _costList = NativeAccessorBinder.Reference(ownerType, costField);
+        var listType = ownerType.GetField(costField, Instance)?.FieldType;
+        var entryType = NativeAccessorBinder.CollectionElementType(listType, "costs");
+        _entries = NativeAccessorBinder.CollectionField(listType, "costs");
         _entryResource = NativeAccessorBinder.ReferenceGuid(entryType, "resource");
-
-        // valueBig, not the serialized `value` double: the game keeps the magnitude in the BigDouble
-        // and the double is only what Unity writes to disk.
+        // The serialized double is not the runtime magnitude.
         _entryValue = NativeAccessorBinder.Field<BigDouble>(entryType, "valueBig");
-
-        _unavailable = _baseCost is null || _structureId is null || _entries is null ||
-            _entryResource is null || _entryValue is null
-            ? "StructureSO did not expose its authored cost list on this build"
-            : bind.Failure;
+        if (perLevelModifierField is not null)
+            _perLevel = new WorldPurchaseLevelCostSource(ownerType, perLevelModifierField);
+        _unavailable = _ownerId is not null && _costList is not null && _entries is not null &&
+            _entryResource is not null && _entryValue is not null && (_perLevel?.IsBound ?? true)
+            ? string.Empty
+            : perLevelModifierField is null
+                ? $"{ownerTypeName} did not expose its authored cost list on this build"
+                : $"{ownerTypeName} did not expose its authored cost and per-level modifiers on this build";
     }
 
-    public string Category => "structure costs";
-
-    public bool IsAvailable => _structureType is not null && _unavailable.Length == 0;
+    public string Category { get; }
+    public bool IsAvailable => _ownerType is not null && _unavailable.Length == 0;
 
     public WorldCategoryReport Collect(HashSet<Guid> claimed, GameWorldCycleFrame frame)
     {
-        var buffer = frame.PurchaseCosts;
+        if (_readsPerLevel) frame.LevelCostModifiers.Reset();
         if (!IsAvailable) return WorldCategoryReport.Missing(Category, _unavailable);
-
-        var structures = _structures?.Invoke();
-        if (structures is null)
-            return WorldCategoryReport.Missing(Category, "the StructureSO registry was unreadable");
+        var owners = _owners?.Invoke();
+        if (owners is null)
+            return WorldCategoryReport.Missing(Category, $"the {_ownerTypeName} registry was unreadable");
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
-
-        for (var index = 0; index < structures.Count; index++)
+        var firstFailure = default(WorldCollectionFailure);
+        for (var index = 0; index < owners.Count; index++)
         {
-            var structure = structures[index];
-            if (structure is null) continue;
-
+            var owner = owners[index];
+            if (owner is null) continue;
+            var ownerId = Guid.Empty;
             try
             {
-                sampled += Read(structure, buffer);
+                sampled += Read(owner, frame, out ownerId);
             }
             catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
             {
-                WorldSkipTally.Skip(
-                    ref skipped,
-                    ref firstFailure,
-                    $"reading a cost list threw: {ex.GetBaseException().Message}");
+                WorldSkipTally.Skip(ref skipped, ref firstFailure,
+                    WorldFailures.ReadFault("reading an authored purchase cost failed", ex, ownerId));
             }
         }
-
-        return new WorldCategoryReport(
-            Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
+        return new WorldCategoryReport(Category, WorldCategoryOutcome.Collected, sampled, skipped, firstFailure);
     }
 
-    private int Read(object structure, WorldRelationBuffer<RawPurchaseCost> buffer)
+    private int Read(object owner, GameWorldCycleFrame frame, out Guid ownerId)
     {
-        var entityId = _structureId!(structure);
-        if (entityId == Guid.Empty) return 0;
-
-        var costList = _baseCost!(structure);
+        ownerId = _ownerId!(owner);
+        if (ownerId == Guid.Empty) return 0;
+        var costList = _costList!(owner);
         if (costList is null) return 0;
-
         var entries = _entries!(costList);
         if (entries is null) return 0;
 
@@ -1153,14 +1111,12 @@ internal sealed class WorldPurchaseCostReader : IWorldCategoryReader
         {
             var entry = entries[index];
             if (entry is null) continue;
-
             var resourceId = _entryResource!(entry);
             if (resourceId == Guid.Empty) continue;
-
-            buffer.Append(new RawPurchaseCost(entityId, resourceId, _entryValue!(entry)));
+            frame.PurchaseCosts.Append(new RawPurchaseCost(ownerId, resourceId, _entryValue!(entry)));
             appended++;
         }
-
+        if (appended > 0) _perLevel?.Read(owner, ownerId, frame.LevelCostModifiers);
         return appended;
     }
 }

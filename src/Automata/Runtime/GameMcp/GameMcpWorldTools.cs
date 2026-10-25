@@ -52,14 +52,14 @@ internal static class GameMcpWorldTools
                 builder.Category = RequireString(arguments, "category");
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
-                    arguments, "limit", GameMcpWorldQuery.DefaultLimit);
+                    arguments, "limit", GameMcpWorldList.DefaultLimit);
                 builder.LimitFromCaller = arguments.ContainsKey("limit");
                 builder.AffordableOnly = OptionalBool(arguments, "affordable", false);
                 if (arguments.ContainsKey("discovered"))
                     builder.DiscoveredFilter = RequireBool(arguments, "discovered");
             },
             FrameRead(ReadOnly, World, static (request, context) =>
-                GameMcpToolExecution.Read(GameMcpWorldQuery.ListRows(
+                GameMcpToolExecution.Read(GameMcpWorldList.ListRows(
                     context,
                     request.Category,
                     request.Offset,
@@ -79,7 +79,7 @@ internal static class GameMcpWorldTools
                     builder.Category = RequireString(arguments, "category");
                 if (arguments.ContainsKey("uuids"))
                     builder.Uuids = ReadEntityIdArray(
-                        arguments, "uuids", GameMcpWorldQuery.MaximumBatchSize);
+                        arguments, "uuids", GameMcpWorldList.MaximumBatchSize);
                 else
                     builder.Uuids = new[] { RequireUuid(arguments, "uuid").ToString("D") };
             },
@@ -94,7 +94,7 @@ internal static class GameMcpWorldTools
             },
             FrameRead(ReadOnly, World, static (request, context) =>
                 GameMcpToolExecution.Read(
-                    GameMcpWorldQuery.GetRows(
+                    GameMcpWorldDetail.GetRows(
                         context,
                         request.Category,
                         request.Uuids).Freeze()))),
@@ -139,7 +139,7 @@ internal static class GameMcpWorldTools
                     builder.Query = RequireString(arguments, "query");
                 builder.Offset = OptionalInt(arguments, "offset", 0);
                 builder.Limit = OptionalInt(
-                    arguments, "limit", GameMcpWorldQuery.DefaultLimit);
+                    arguments, "limit", GameMcpWorldList.DefaultLimit);
                 builder.LimitFromCaller = arguments.ContainsKey("limit");
                 if (arguments.ContainsKey("category"))
                     builder.Category = RequireString(arguments, "category");
@@ -210,7 +210,7 @@ internal static class GameMcpWorldTools
                     StringSchema(
                         "An entity id: the short handle a row printed, or the whole UUID."),
                     1,
-                    GameMcpWorldQuery.MaximumBatchSize),
+                    GameMcpWorldList.MaximumBatchSize),
                 ["uuid"] = StringSchema(
                     "Singular alias for one id; do not combine with uuids."),
                 ["category"] = StringSchema(

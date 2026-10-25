@@ -55,25 +55,15 @@ internal sealed class AutoHarvestCycleActionAdapter : IAutoHarvestCycleActionPor
         in SuiteRuntimeConfiguration config,
         in ServiceActionContext context)
         => AutoHarvestServicePolicies.BackingOffThePair(
-            TryExecuteCore(in action, in config, in context, requireAutomationPolicy: true));
-
-#if SERVICE_CYCLE_PROFILE
-    internal ServiceActionResult TryExecuteGameMcp(
-        in AutoHarvestCycleAction action,
-        in SuiteRuntimeConfiguration config,
-        in ServiceActionContext context)
-        => TryExecuteCore(in action, in config, in context, requireAutomationPolicy: false);
-#endif
+            TryExecuteCore(in action, in config, in context));
 
     private ServiceActionResult TryExecuteCore(
         in AutoHarvestCycleAction action,
         in SuiteRuntimeConfiguration config,
-        in ServiceActionContext context,
-        bool requireAutomationPolicy)
+        in ServiceActionContext context)
     {
-        if (requireAutomationPolicy &&
-            (!AutoHarvestConfigurationPolicy.IsOperational(config) ||
-             !AutoHarvestConfigurationPolicy.IsSelected(config, action.Pair)))
+        if (!AutoHarvestConfigurationPolicy.IsOperational(config) ||
+            !AutoHarvestConfigurationPolicy.IsSelected(config, action.Pair))
             return ServiceActionResult.Rejected(CommonActionResultCodes.ServiceDisabled);
 
         if (!_guard.Owns(_ownsActionFamily) || !_tryCaptureMutationPermit())

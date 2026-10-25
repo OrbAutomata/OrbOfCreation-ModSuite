@@ -176,10 +176,8 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         {
             var registryResolution = _registryResolver.Resolve(ConceptRecipesUuid, native.RecipeListType);
             if (!registryResolution.IsResolved)
-                return HandleRegistryFailure(
-                    EntityIdentityFormatter.Format(ConceptRecipesUuid),
-                    registryResolution,
-                    out reason);
+                return registryResolution.HandleFailure(
+                    EntityIdentityFormatter.Format(ConceptRecipesUuid), Retry, Block, out reason);
             _registryResolution = registryResolution;
             var registry = registryResolution.Value!;
             if (native.RecipeValues(registry) is not { } recipes)
@@ -475,17 +473,6 @@ public sealed class AlchemyGameplayDomainClassifier : IDisposable
         _statusReason = message;
         reason = message;
         return false;
-    }
-
-    private bool HandleRegistryFailure(
-        string label,
-        TypedRegistryResolution resolution,
-        out GameActionReason reason)
-    {
-        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
-        return resolution.IsRetryable
-            ? Retry(message, out reason)
-            : Block(message, out reason);
     }
 
     private sealed class CachedRecipe

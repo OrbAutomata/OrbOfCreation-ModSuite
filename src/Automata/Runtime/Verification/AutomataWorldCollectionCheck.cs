@@ -1389,24 +1389,23 @@ internal sealed class AutomataWorldCollectionCheck
     }
 
     /// <summary>
-    /// The per-resource attribute-cost modifier: what the deriver multiplied the base cost by, beside
-    /// what <c>ResourceSO.GetAttributeCostMod()</c> returns.
+    /// The per-resource attribute-cost modifier: what the deriver multiplied the base cost by,
+    /// beside what <c>ResourceSO.GetAttributeCostMod()</c> returns.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The term the dump used to omit, and the one that was wrong. It is not a record read: the game's
-    /// accessor is
+    /// It is not a record read: the game's accessor is
     /// </para>
-    /// <code>
-    /// attributeCostMod / BigDouble.Pow(quality.AsPercent(), Player.GetAttributeQualityBonus())
-    /// </code>
+    /// <code> attributeCostMod / BigDouble.Pow(quality.AsPercent(),
+    /// Player.GetAttributeQualityBonus()) </code>
     /// <para>
-    /// — three published inputs, not one — so the two sides are printed with those inputs beside them.
-    /// A quotient that disagrees while its numerator agrees names the divisor without a second run.
+    /// — three published inputs, not one — so the two sides are printed with those inputs beside
+    /// them. A quotient that disagrees while its numerator agrees names the divisor without a
+    /// second run.
     /// </para>
     /// <para>
-    /// The resource is taken from the structure's own cost entry rather than looked up in a registry,
-    /// so the object asked is the object the game's own chain would have asked.
+    /// The resource is taken from the structure's own cost entry rather than looked up in a
+    /// registry, so the object asked is the object the game's own chain would have asked.
     /// </para>
     /// </remarks>
     private void ReportAttributeCostMod(
@@ -1974,14 +1973,14 @@ internal sealed class AutomataWorldCollectionCheck
         return double.IsNaN(apart) || double.IsInfinity(apart) ? 0d : apart;
     }
 
-    /// <summary>The drift magnitude as the window line prints it.</summary>
+    /// <summary>
+    /// The drift magnitude as the window line prints it.
+    /// </summary>
     /// <remarks>
-    /// The no-ratio case says it is not a magnitude. <c>unbounded</c> is a magnitude-sounding word
-    /// for "there is no ratio here at all", and a live round spent a paragraph deriving that it did
-    /// not mean the drift was unbounded before it would trust the verdict. <c>n/a</c> says the
-    /// division did not happen, and the side that was zero is named in the same breath — the two
-    /// zero cases are different facts, and both sides are printed immediately to the left, so the
-    /// qualifier points at the number already on the line rather than restating it.
+    /// The no-ratio case says it is not a magnitude. <c>n/a</c> says the division did not happen,
+    /// and the side that was zero is named in the same breath — the two zero cases are different
+    /// facts, and both sides are printed immediately to the left, so the qualifier points at the
+    /// number already on the line rather than restating it.
     /// </remarks>
     internal static string Orders(double apart, BigDouble memo, BigDouble recompute)
     {
@@ -2087,15 +2086,13 @@ internal sealed class AutomataWorldCollectionCheck
     }
 
     /// <summary>
-    /// Scaling a cost list, against the method it replaced. Every cost reader used to call
-    /// <c>ResourceCostList.Multiply(BigDouble)</c> — which allocates a whole second list to hold one
-    /// scalar product per entry — and now multiplies each entry as it walks it. This puts both
-    /// answers side by side over a live authored list, entry for entry.
+    /// Scaling a cost list, against the method it replaced. This puts both answers side by side
+    /// over a live authored list, entry for entry.
     /// </summary>
     /// <remarks>
-    /// The factor is the shape a drain modifier takes, a percentage that is neither one nor zero, so
-    /// an implementation that dropped the multiply or applied it once for the whole list disagrees
-    /// rather than coincidentally matching. Both sides are pure: <c>Multiply</c> is
+    /// The factor is the shape a drain modifier takes, a percentage that is neither one nor zero,
+    /// so an implementation that dropped the multiply or applied it once for the whole list
+    /// disagrees rather than coincidentally matching. Both sides are pure: <c>Multiply</c> is
     /// <c>new ResourceCostList(costs.Select(c =&gt; c.NewValue(c.GetValue() * value)).ToList())</c>
     /// and <c>ResourceTuple.GetValue()</c> is <c>return valueBig;</c>.
     /// </remarks>

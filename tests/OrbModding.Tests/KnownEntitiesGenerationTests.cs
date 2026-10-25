@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -111,7 +112,8 @@ public sealed class KnownEntitiesGenerationTests
 
     private static GeneratorResult RunGenerator(string canonical, string selection, bool verify)
     {
-        var directory = Path.Combine(Path.GetTempPath(), "orb-known-entities-" + Guid.NewGuid().ToString("N"));
+        using var temporary = new TempDirectory();
+        var directory = temporary.Path;
         Directory.CreateDirectory(directory);
         try
         {
@@ -156,7 +158,7 @@ public sealed class KnownEntitiesGenerationTests
         }
         finally
         {
-            Directory.Delete(directory, recursive: true);
+            temporary.Dispose();
         }
     }
 

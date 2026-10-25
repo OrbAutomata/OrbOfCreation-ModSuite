@@ -10,7 +10,7 @@ internal static class GameMcpSpellCompositionCommand
         static (command, scope) => ExecuteSpellComposition(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectCastingDialDelta(state, command),
+            static (state, command, _) => GameMcpSpellCompositionProjection.ProjectCastingDialDelta(state, command),
             DialReached,
             DialTimedOut),
         nativeType: "IntVariable",
@@ -75,8 +75,8 @@ internal static class GameMcpSpellCompositionCommand
         if (latest?.World is not null)
         {
             var workbench = latest.World.Snapshot.SpellWorkbench;
-            var observed = GameMcpWorldQuery.DialLevel(workbench, command.Mode).Current;
-            return GameMcpWorldQuery.PostStateUnavailable(
+            var observed = GameMcpSpellCompositionProjection.DialLevel(workbench, command.Mode).Current;
+            return GameMcpRowKit.PostStateUnavailable(
                 "requested_state_not_reached",
                 "the settled " + command.PayloadKey + " dial is " + observed +
                 ", not the requested " + command.Amount);

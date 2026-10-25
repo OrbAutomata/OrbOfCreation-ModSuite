@@ -11,7 +11,7 @@ internal static class GameMcpLoadoutCommand
         static (command, scope) => ExecuteLoadout(
             scope.GameActions, command, scope.Lifecycle, scope.ConfigurationGeneration),
         GameMcpPostStateRule.Settled(
-            static (state, command, _) => GameMcpWorldQuery.ProjectLoadoutDelta(state, command)),
+            static (state, command, _) => GameMcpLoadoutProjection.ProjectLoadoutDelta(state, command)),
         prepare: Prepare);
 
     internal const string PlayerLoadoutType = "PlayerLoadout";
@@ -67,14 +67,14 @@ internal static class GameMcpLoadoutCommand
         }
         else if (snapshotMode)
         {
-            if (GameMcpWorldQuery.TrySnapshotList(
+            if (GameMcpLoadoutProjection.TrySnapshotList(
                     context.World.Snapshot, request.Key, out draft.TargetId, out var listReason))
                 draft.NativeType = SnapshotListType(request.Key == "alchemy");
             else
                 draft.Failure = GameMcpCommandResult.Rejected(
                     "loadout_unavailable", listReason);
         }
-        else if (GameMcpWorldQuery.TryPlayerLoadout(
+        else if (GameMcpLoadoutProjection.TryPlayerLoadout(
                      context.World.Snapshot, request.Amount,
                      out draft.TargetId, out var loadoutReason))
         {

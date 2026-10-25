@@ -5,10 +5,8 @@ namespace OrbModding.Common.Runtime.GameMath;
 /// </summary>
 /// <remarks>
 /// <para>
-/// One vocabulary, top to bottom. The check used to answer in two — an upper-case
-/// <c>PASSED</c>/<c>FAILED</c> grammar for the ported passes and a prose "all agree" grammar for the
-/// collection checks — so a reader tallying verdicts got a different total depending on which words
-/// they counted. Two vocabularies in one response is a tally hazard, not a style preference.
+/// One vocabulary, top to bottom. Two vocabularies in one response is a tally hazard, not a style
+/// preference.
 /// </para>
 /// <para>
 /// <c>Agree</c> and <c>Disagree</c> rather than pass and fail because that is the question the verb
@@ -17,10 +15,10 @@ namespace OrbModding.Common.Runtime.GameMath;
 /// </para>
 /// <para>
 /// The other two are the honest answers to "we could not tell", kept apart because they need
-/// different work. <c>Incomplete</c> compared something and agreed on all of it, but could not reach
-/// everything — coverage is short. <c>Inconclusive</c> compared nothing at all, so there is no
-/// verdict to have, and reporting it as agreement would be the one bug that makes the whole check
-/// worthless.
+/// different work. <c>Incomplete</c> compared something and agreed on all of it, but could not
+/// reach everything — coverage is short. <c>Inconclusive</c> compared nothing at all, so there is
+/// no verdict to have, and reporting it as agreement would be the one bug that makes the whole
+/// check worthless.
 /// </para>
 /// </remarks>
 internal enum VerificationVerdict

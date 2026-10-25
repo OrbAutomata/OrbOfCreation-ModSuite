@@ -447,10 +447,8 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
                 KnownEntities.UnlockLevelAllSpells.Uuid, native.UpgradeType);
             if (!upgradeResolution.IsResolved)
             {
-                return HandleRegistryFailure(
-                    EntityIdentityFormatter.Format(KnownEntities.UnlockLevelAllSpells.Uuid),
-                    upgradeResolution,
-                    out reason);
+                return upgradeResolution.HandleFailure(
+                    EntityIdentityFormatter.Format(KnownEntities.UnlockLevelAllSpells.Uuid), Retry, Mismatch, out reason);
             }
 
             _levelAllUpgrade = upgradeResolution.Value;
@@ -488,18 +486,14 @@ internal sealed class SpellLevelNativeAdapter : ISpellLevelNativePort, ISpellLev
         return total;
     }
 
-    private bool HandleRegistryFailure(
-        string label,
-        TypedRegistryResolution resolution,
-        out GameActionReason reason)
+    private bool Mismatch(GameActionReason message, out GameActionReason reason)
     {
-        var message = resolution.FormatCause().Around($"{label} resolution failed. ");
-        if (!resolution.IsRetryable) _contractMismatch = message;
+        _contractMismatch = message;
         reason = message;
         return false;
     }
 
-    private static bool Retry(string message, out GameActionReason reason)
+    private static bool Retry(GameActionReason message, out GameActionReason reason)
     {
         reason = message;
         return false;

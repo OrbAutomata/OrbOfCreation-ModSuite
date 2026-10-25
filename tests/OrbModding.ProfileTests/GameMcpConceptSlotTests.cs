@@ -10,10 +10,7 @@ using Xunit;
 namespace OrbModding.ProfileTests;
 
 /// <summary>
-/// The Concept slot budget, on the two surfaces a caller reaches it through. A refusal to assign
-/// used to arrive as a bare <c>canAdd: no</c>, with the capacity behind it inferable only by
-/// counting assignment rows, and the detail read on the same uuid answered as a plain alchemy
-/// recipe with the assignment state dropped entirely.
+/// The Concept slot budget, on the two surfaces a caller reaches it through.
 /// </summary>
 public sealed class GameMcpConceptSlotTests
 {

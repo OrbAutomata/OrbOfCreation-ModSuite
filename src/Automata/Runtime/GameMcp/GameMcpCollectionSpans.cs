@@ -15,8 +15,8 @@ namespace OrbAutomata.GameMcp;
 /// Collection is the suite's largest main-thread cost, and until this page existed the only way to
 /// read where a pass went was to record a full trace and open the offline dashboard. A session
 /// driving the game through the MCP has neither: the dashboard's cards sit below a fold no verb can
-/// scroll, and the numbers on them are below the resolution of the one capture verb. So the fact was
-/// measured, published, rendered — and unreachable from the seat that needed it.
+/// scroll, and the numbers on them are below the resolution of the one capture verb. So the fact
+/// was measured, published, rendered — and unreachable from the seat that needed it.
 /// </para>
 /// <para>
 /// Nothing here measures anything. Every duration is the one the collector already charged the
@@ -24,8 +24,8 @@ namespace OrbAutomata.GameMcp;
 /// availability evidence; this only converts ticks to milliseconds and sorts. The window is
 /// therefore one pass rather than a session distribution: a mean, a median and a worst are a fact
 /// about many passes, nothing at runtime folds them, and inventing that fold here would add the
-/// main-thread bookkeeping this page exists to report on. The session distribution stays the offline
-/// dashboard's answer.
+/// main-thread bookkeeping this page exists to report on. The session distribution stays the
+/// offline dashboard's answer.
 /// </para>
 /// <para>
 /// A category that charged nothing is named rather than dropped. A structural category is read once
@@ -41,9 +41,7 @@ namespace OrbAutomata.GameMcp;
 /// beside it, because a row name printed twice reads as one collector measured twice.
 /// </para>
 /// <para>
-/// The header counts publications. It used to call that count a generation, which is also the word
-/// for the lifecycle invalidation token verbs echo, and the two ran three orders of magnitude apart
-/// in one session with nothing on the page to say which was which.
+/// The header counts publications.
 /// </para>
 /// </remarks>
 internal static class GameMcpCollectionSpans
@@ -51,7 +49,7 @@ internal static class GameMcpCollectionSpans
     internal static string Describe(GameMcpFrameContext context)
     {
         if (context is null) throw new ArgumentNullException(nameof(context));
-        if (!GameMcpWorldQuery.IsWorldPublished(context))
+        if (!GameMcpWorldRead.IsWorldPublished(context))
         {
             return "collection: unavailable\n" +
                 "collection reason: no world is published, so no collection pass has reported " +

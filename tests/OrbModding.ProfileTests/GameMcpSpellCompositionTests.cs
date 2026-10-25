@@ -76,7 +76,7 @@ public sealed class GameMcpSpellCompositionTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context,
             "spell-recipes",
             RecipeId.ToString("D")));
@@ -280,7 +280,7 @@ public sealed class GameMcpSpellCompositionTests
     {
         var context = GameMcpTestHarness.Context(World());
 
-        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(
+        var row = (JObject)GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(
             context, "spell-recipes", RecipeId.ToString("D")))["row"]!;
 
         // Words, not the game's ordinals: `castType: 2` and `rechargeProcessorType: 0` were the two
@@ -292,10 +292,9 @@ public sealed class GameMcpSpellCompositionTests
         Assert.Equal("aura", (string?)row["casting"]!["castType"]);
         Assert.Equal("spell-casts", (string?)row["casting"]!["rechargeCountsIn"]);
         Assert.Null(row["casting"]!["rechargeProcessorType"]);
-        // The recipe asset's own baseRecharge.duration used to ride here as `rechargeSeconds`. It
-        // is not the recharge any screen shows: the bar counts Spell.GetRecharge() and the tooltip
-        // heads with it, both of which are instance numbers, so the recharge a player reads is
-        // published on the equipped spell's row and this authored constant is published nowhere.
+        // It is not the recharge any screen shows: the bar counts Spell.GetRecharge() and the
+        // tooltip heads with it, both of which are instance numbers, so the recharge a player reads
+        // is published on the equipped spell's row and this authored constant is published nowhere.
         Assert.Null(row["casting"]!["rechargeSeconds"]);
         Assert.Equal(1.5d, (double)row["casting"]!["rechargeUnitMultiplier"]!);
         Assert.Null(row["casting"]!["rechargeMultiplier"]);

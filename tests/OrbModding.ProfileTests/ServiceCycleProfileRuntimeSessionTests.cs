@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Profile;
@@ -27,7 +28,7 @@ public sealed class ServiceCycleProfileRuntimeSessionTests
         var context = ServiceCycleProfileAggregatorTests.Context(stage: 1, lifecycle: 1);
         var worker = new Thread(() => probe.Begin(in context).Abandon());
         worker.Start();
-        Assert.True(worker.Join(TimeSpan.FromSeconds(2)), "The foreign-thread stage did not finish.");
+        Assert.True(worker.Join(ServiceCycleTestDeadline.Value), "The foreign-thread stage did not finish.");
 
         session.Stop(ServiceCycleProfileTerminalReason.UserStopped);
 

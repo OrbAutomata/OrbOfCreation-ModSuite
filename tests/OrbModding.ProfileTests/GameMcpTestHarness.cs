@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -248,7 +249,7 @@ internal static class GameMcpTestHarness
     /// <summary>One id's block of the detail read, addressed to one named table.</summary>
     internal static JObject Detail(GameMcpFrameContext state, string category, Guid uuid) =>
         Assert.Single(
-            Json(GameMcpWorldQuery.GetRows(state, category, new[] { uuid.ToString("D") }))
+            Json(GameMcpWorldDetail.GetRows(state, category, new[] { uuid.ToString("D") }))
                 ["results"]!.Values<JObject>())!;
 
     internal static GameMcpProtocolResponse Handle(
@@ -261,11 +262,11 @@ internal static class GameMcpTestHarness
         GameMcpFrameOperation[] claimed = Array.Empty<GameMcpFrameOperation>();
         Assert.True(SpinWait.SpinUntil(
             () => (claimed = inbox.ClaimPending()).Length > 0 || pending.IsCompleted,
-            TimeSpan.FromSeconds(10)));
+            ServiceCycleTestDeadline.Value));
         Assert.False(pending.IsCompleted, "stateful request completed without a Unity-frame claim");
         for (var index = 0; index < claimed.Length; index++)
             inbox.Complete(claimed[index], execute(claimed[index]));
-        Assert.True(pending.Wait(TimeSpan.FromSeconds(10)));
+        Assert.True(pending.Wait(ServiceCycleTestDeadline.Value));
         return pending.Result;
     }
 

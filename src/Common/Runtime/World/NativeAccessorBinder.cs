@@ -250,17 +250,15 @@ internal static class NativeAccessorBinder
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This used to be how every <c>ValueModifierRecord</c> was read, reaching past the record's own
-    /// accessor to its <c>calculatedValue</c> cache. Avoiding the accessor is still right —
-    /// <c>GetValue()</c> calls <c>Calculate()</c> on a dirty record, which allocates a LINQ pass over
-    /// both modifier dictionaries and writes four fields of game state — but the cache alone was the
-    /// wrong substitute, because it is <c>[NonSerialized]</c> and holds zero until something calls the
-    /// accessor. Records go through a read-only port of the accessor now; see
-    /// <see cref="ModifierRecord"/>.
+    /// Avoiding the accessor is still right — <c>GetValue()</c> calls <c>Calculate()</c> on a dirty
+    /// record, which allocates a LINQ pass over both modifier dictionaries and writes four fields
+    /// of game state — but the cache alone was the wrong substitute, because it is
+    /// <c>[NonSerialized]</c> and holds zero until something calls the accessor. Records go through
+    /// a read-only port of the accessor now; see <see cref="ModifierRecord"/>.
     /// </para>
     /// <para>
-    /// What is left here is the honest case: a field inside a field that is plain stored data on both
-    /// levels, where reading it asks the game nothing and can be neither stale nor unset.
+    /// What is left here is the honest case: a field inside a field that is plain stored data on
+    /// both levels, where reading it asks the game nothing and can be neither stale nor unset.
     /// </para>
     /// </remarks>
     internal static Func<object, TValue>? NestedField<TValue>(Type? owner, string fieldName, string nestedName)

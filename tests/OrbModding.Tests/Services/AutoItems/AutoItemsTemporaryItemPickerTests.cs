@@ -1,18 +1,21 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime.World;
+using OrbModding.TestSupport;
 using UnityEngine;
 using Xunit;
 
 namespace OrbModding.Tests.Services.AutoItems;
 
+[Collection(GameActionFaultLogCollection.Name)]
 public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
 {
-    public AutoItemsTemporaryItemPickerTests() => ConsumableSO.All.Clear();
+    public AutoItemsTemporaryItemPickerTests() => OrbModding.GameStubs.GameStubState.Reset();
 
-    public void Dispose() => ConsumableSO.All.Clear();
+    public void Dispose() => OrbModding.GameStubs.GameStubState.Reset();
 
     [Fact]
     public void DiscoveryCaptureListsOnlyVisibleTemporaryItemsInFamilyThenNameOrder()
@@ -262,6 +265,14 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
     [Fact]
     public void DuplicateUnsupportedCrossOperationAndMissingIconFailTheWholeReadLoudly()
     {
+        using var faults = new CapturedGameActionFaultLog();
+        var healthy = Item(
+            Guid.NewGuid(),
+            KnownEntities.ConsumablePotionType.Uuid,
+            "Healthy Potion",
+            visible: true,
+            stock: 5,
+            new Sprite());
         var duplicate = Item(
             Guid.NewGuid(),
             KnownEntities.ConsumableFruitType.Uuid,
@@ -271,12 +282,29 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
             new Sprite());
         duplicate.consumableTypes.Add(duplicate.consumableTypes[0]);
 
-        var duplicateSnapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
+        var identities = Catalog();
+        var duplicateSnapshot = AutoItemsTemporaryItemCatalog.Capture(identities);
 
         Assert.False(duplicateSnapshot.IsAvailable);
-        Assert.Contains("duplicate family UUID", duplicateSnapshot.FailureReason);
+        Assert.Empty(duplicateSnapshot.Options);
+        var reference = Regex.Match(duplicateSnapshot.FailureReason, "MCP-[0-9A-F]{8}");
+        Assert.True(reference.Success, duplicateSnapshot.FailureReason);
+        var reason = new GameActionReason(
+            "The discovered temporary-item catalog could not be read.", reference.Value);
+        Assert.Equal(
+            $"The discovered temporary-item catalog could not be read. Reference {reference.Value} is in the suite log.",
+            duplicateSnapshot.FailureReason);
+        Assert.DoesNotContain("duplicate family UUID", duplicateSnapshot.FailureReason);
+        faults.AssertLogged(
+            reason,
+            "System.InvalidOperationException: ConsumableSO.consumableTypes contained an empty or duplicate family UUID for " +
+            EntityIdentityFormatter.Format(duplicate.GetGuid(), identities) + "." +
+            Environment.NewLine + "   at ");
+        Assert.Equal(1, duplicate.Quantity);
+        Assert.Empty(duplicate.SelectAndFireTimestamps);
 
         ConsumableSO.All.Clear();
+        ConsumableSO.All.Add(healthy);
         var crossOperation = Item(
             Guid.NewGuid(),
             KnownEntities.ConsumableFruitType.Uuid,
@@ -291,10 +319,16 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         var crossOperationSnapshot = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.False(crossOperationSnapshot.IsAvailable);
-        Assert.Contains("incoherent supported family memberships", crossOperationSnapshot.FailureReason);
+        Assert.Empty(crossOperationSnapshot.Options);
+        Assert.Equal(
+            $"Discovered consumable {EntityIdentityFormatter.Format(crossOperation.GetGuid(), Catalog())} has incoherent supported family memberships [Fruit, Potion].",
+            crossOperationSnapshot.FailureReason);
+        Assert.Equal(1, crossOperation.Quantity);
+        Assert.Empty(crossOperation.SelectAndFireTimestamps);
 
         ConsumableSO.All.Clear();
-        Item(
+        ConsumableSO.All.Add(healthy);
+        var noIcon = Item(
             Guid.NewGuid(),
             KnownEntities.ConsumableThreadType.Uuid,
             "No Icon",
@@ -305,7 +339,14 @@ public sealed class AutoItemsTemporaryItemPickerTests : IDisposable
         var missingIcon = AutoItemsTemporaryItemCatalog.Capture(Catalog());
 
         Assert.False(missingIcon.IsAvailable);
-        Assert.Contains("returned no audited native icon", missingIcon.FailureReason);
+        Assert.Empty(missingIcon.Options);
+        Assert.Equal(
+            $"Discovered temporary item {EntityIdentityFormatter.Format(noIcon.GetGuid(), Catalog())} returned no audited native icon.",
+            missingIcon.FailureReason);
+        Assert.Equal(1, noIcon.Quantity);
+        Assert.Empty(noIcon.SelectAndFireTimestamps);
+        Assert.Equal(5, healthy.Quantity);
+        Assert.Empty(healthy.SelectAndFireTimestamps);
     }
 
     private static AutoItemsTemporaryItemOption Option(Guid id, string name) =>

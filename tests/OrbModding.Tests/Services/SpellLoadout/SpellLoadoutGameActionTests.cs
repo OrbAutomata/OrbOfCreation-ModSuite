@@ -17,7 +17,6 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
 
     public SpellLoadoutGameActionTests()
     {
-        IdScriptableObject.RuntimeLookup.Clear();
         SpellManager.instance = new SpellManager();
         LoadoutScreen();
     }
@@ -411,7 +410,6 @@ public sealed class SpellLoadoutGameActionTests : IDisposable
     public void Dispose()
     {
         GameActionFaultLog.ConfigureLog(null);
-        IdScriptableObject.RuntimeLookup.Clear();
         SpellManager.instance = null;
     }
 }

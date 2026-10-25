@@ -52,7 +52,7 @@ ledger. Bonus controls are absent for time runes.
 published native type on Unity's main thread. `amount` is between 1 and 1000. Before each requested
 level the action re-reads `CanLevel`, the applicable native cost, resource visibility where needed,
 and `HasEnough`; it invokes the matching native callback only while those checks continue to pass
-and stops early when one no longer does. The single postcondition sentinel is directional:
+and stops early when one does not. The single postcondition sentinel is directional:
 `GetLevel` rises for a paid level, or `GetFreeLevels` rises for a bonus level. Success returns the
 settled level delta; a complete native no-op is verification failure. Resource balances and
 effect-record counts are neither captured nor reconciled.

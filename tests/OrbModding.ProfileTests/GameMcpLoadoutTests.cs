@@ -81,9 +81,9 @@ public sealed class GameMcpLoadoutTests
     public void Detail_names_every_saved_entry_and_snapshot_slot()
     {
         var world = World(selected: true, populatedSnapshot: true);
-        var playerResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
+        var playerResponse = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 901),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
-        var snapshotResponse = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 901),
+        var snapshotResponse = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 901),
             "snapshot-loadouts", SnapshotId.ToString("D")).Freeze(), world);
         var player = Assert.IsType<JObject>(playerResponse["row"]);
         var snapshot = Assert.IsType<JObject>(snapshotResponse["row"]);
@@ -107,7 +107,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_that_saved_nothing_still_carries_every_section_as_an_empty_list()
     {
         var world = World(selected: true, populatedSnapshot: false, anySavedEntries: false);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 902),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 902),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var sections = Assert.IsType<JObject>(response["row"]!["sections"]);
 
@@ -126,7 +126,7 @@ public sealed class GameMcpLoadoutTests
     public void A_loadout_the_manager_will_not_swap_to_is_a_state_rather_than_an_unexplained_no()
     {
         var world = World(selected: false, populatedSnapshot: false, canSwitchNow: false);
-        var response = GameMcpTestHarness.Json(GameMcpWorldQuery.GetRow(GameMcpTestHarness.Context(world, 903),
+        var response = GameMcpTestHarness.Json(GameMcpWorldDetail.GetRow(GameMcpTestHarness.Context(world, 903),
             "player-loadouts", PlayerId.ToString("D")).Freeze(), world);
         var row = Assert.IsType<JObject>(response["row"]);
 
@@ -185,20 +185,19 @@ public sealed class GameMcpLoadoutTests
     {
         var world = World(selected: true, populatedSnapshot: true);
 
-        Assert.True(GameMcpWorldQuery.TryPlayerLoadout(world, 1, out var player, out _));
+        Assert.True(GameMcpLoadoutProjection.TryPlayerLoadout(world, 1, out var player, out _));
         Assert.Equal(PlayerId, player);
-        Assert.False(GameMcpWorldQuery.TryPlayerLoadout(world, 4, out _, out var absent));
+        Assert.False(GameMcpLoadoutProjection.TryPlayerLoadout(world, 4, out _, out var absent));
         Assert.Equal("There is no loadout 4; you have loadouts 1 to 1.", absent);
 
-        Assert.True(GameMcpWorldQuery.TrySnapshotList(world, "equipment", out var list, out _));
+        Assert.True(GameMcpLoadoutProjection.TrySnapshotList(world, "equipment", out var list, out _));
         Assert.Equal(SnapshotId, list);
-        Assert.False(GameMcpWorldQuery.TrySnapshotList(world, "alchemy", out _, out var missing));
+        Assert.False(GameMcpLoadoutProjection.TrySnapshotList(world, "alchemy", out _, out var missing));
         Assert.Equal("The game is not showing the Alchemy snapshots right now.", missing);
     }
 
     /// <summary>
-    /// The snapshot list rows count the way the snapshot verbs do. They used to print the internal
-    /// array index, so a caller who read a row and passed its number back addressed the row above.
+    /// The snapshot list rows count the way the snapshot verbs do.
     /// </summary>
     [Fact]
     public void Snapshot_rows_count_slots_the_way_the_snapshot_verbs_take_them()
@@ -207,13 +206,13 @@ public sealed class GameMcpLoadoutTests
         var context = GameMcpTestHarness.Context(world, 93);
 
         var slot = Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "snapshot-slots", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)slot["slot"]!);
         Assert.True((bool)slot["populated"]!);
 
         var entry = Assert.Single(
-            GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
+            GameMcpTestHarness.Json(GameMcpWorldList.ListRows(context, "snapshot-entries", 0, 10).Freeze(), world)
                 ["rows"]!.Values<JObject>());
         Assert.Equal(1, (int)entry["slot"]!);
         Assert.Equal("Aegis", (string?)entry["entry"]!["name"]);

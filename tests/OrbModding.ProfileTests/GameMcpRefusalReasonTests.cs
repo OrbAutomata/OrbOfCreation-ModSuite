@@ -90,11 +90,8 @@ public sealed class GameMcpRefusalReasonTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A feature result number names no axis a caller can act on, and round 8 shipped it as prose
-    /// nine separate ways — "the native action boundary returned Rejected with exact result code
-    /// 2051" was the whole answer a caller got for a purchase that had stopped working. The sweep
-    /// covers every row of the table rather than the codes that leak today, because every result
-    /// code answers through a row.
+    /// The sweep covers every row of the table rather than the codes that leak today, because every
+    /// result code answers through a row.
     /// </para>
     /// <para>
     /// Its scope is the channel it names and no more: the sentence a result <em>code</em> answers
@@ -275,9 +272,8 @@ public sealed class GameMcpRefusalReasonTests
     }
 
     /// <summary>
-    /// A live round pressed Level All Spells with four ready, affordable spells and was told none
-    /// was affordable. The button is gated on the Unlock Level All Spells upgrade, which had not
-    /// been bought, so the refusal names that upgrade and its price.
+    /// The button is gated on the Unlock Level All Spells upgrade, which had not been bought, so
+    /// the refusal names that upgrade and its price.
     /// </summary>
     [Fact]
     public void Level_all_without_its_unlock_names_the_upgrade_and_its_price()
@@ -319,20 +315,19 @@ public sealed class GameMcpRefusalReasonTests
 
         Assert.Equal(
             "Level All Spells is locked until Unlock Level All Spells is bought (5 Skill).",
-            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 0)));
+            GameMcpSpellLevelProjection.LevelAllLockedReason(Build(queuedLevels: 0)));
         Assert.Equal(
             "Level All Spells is locked until Unlock Level All Spells finishes developing in " +
             "the action queue.",
-            GameMcpWorldQuery.LevelAllLockedReason(Build(queuedLevels: 1)));
+            GameMcpSpellLevelProjection.LevelAllLockedReason(Build(queuedLevels: 1)));
         Assert.Equal("ERR_LOCKED", GameMcpDecisionReason.Class(
             SpellLevelActionResultCodes.LevelAllLocked.Name));
     }
 
     /// <summary>
-    /// A live round pressed Wisdom (41 Knowledge) right after a Resilience press spent Knowledge.
-    /// The published world still showed the price met, the game's live price check said no, and
-    /// the answer was "nothing left for it to do". The live cost list read at that refusal names
-    /// the shortfall.
+    /// The published world still showed the price met, the game's live price check said no, and the
+    /// answer was "nothing left for it to do". The live cost list read at that refusal names the
+    /// shortfall.
     /// </summary>
     [Fact]
     public void A_price_the_game_finds_unmet_at_the_press_names_the_live_shortfall()
@@ -396,10 +391,8 @@ public sealed class GameMcpRefusalReasonTests
     }
 
     /// <summary>
-    /// A live round read this refusal as `Aspect: Workshop [AspectWorkshop]
-    /// (d9f1a5c3-d7de-4819-b234-a15781190650) is already at its maximum level.` — a log line served
-    /// as player prose. The sentence says the player's word for the thing; the asset name and the
-    /// id are identity and ride as the response's own fields.
+    /// The sentence says the player's word for the thing; the asset name and the id are identity
+    /// and ride as the response's own fields.
     /// </summary>
     [Fact]
     public void Maxed_purchase_refusal_names_the_player_word_and_leaks_no_asset_name_or_uuid()

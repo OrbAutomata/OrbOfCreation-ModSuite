@@ -389,84 +389,23 @@ internal readonly struct WorldSpellSlotGlyph
 /// Position lookup over the equipped-loadout table, which is sorted by slot position.
 /// </summary>
 /// <remarks>
-/// A slot has no identity, so <see cref="WorldLookup"/> cannot reach one, and the table is not dense:
-/// a position whose reading failed is absent. A consumer therefore asks for a position rather than
+/// The table is keyed by integer slot position and is not dense: a position whose reading failed
+/// is absent. A consumer therefore asks for a position rather than
 /// indexing, and gets a plain "no" when the game had nothing readable there.
 /// </remarks>
 internal static class WorldSpellSlotLookup
 {
+    internal static readonly Comparison<WorldSpellSlot> Order =
+        static (left, right) => left.SlotIndex.CompareTo(right.SlotIndex);
+
     /// <summary>The row holding <paramref name="slotIndex"/>, if the pass published one.</summary>
     internal static bool TryFind(
         PublicationTable<WorldSpellSlot> table,
         int slotIndex,
         out WorldSpellSlot slot)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            var comparison = rows[middle].SlotIndex.CompareTo(slotIndex);
-            if (comparison == 0)
-            {
-                slot = rows[middle];
-                return true;
-            }
-
-            if (comparison < 0) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        slot = default;
-        return false;
-    }
-}
-
-/// <summary>Every loadout slot as read, held where a cycle can own them.</summary>
-internal sealed class WorldSpellSlotBuffer
-{
-    private const int InitialCapacity = 16;
-
-    private WorldSpellSlot[] _samples = new WorldSpellSlot[InitialCapacity];
-    private int _count;
-
-    internal int Count => _count;
-
-    internal ref readonly WorldSpellSlot this[int index] => ref _samples[index];
-
-    internal void Reset() => _count = 0;
-
-    internal void Truncate(int count) => _count = count;
-
-    internal void Append(in WorldSpellSlot sample)
-    {
-        if (_count >= _samples.Length) Array.Resize(ref _samples, _samples.Length * 2);
-        _samples[_count++] = sample;
-    }
-}
-
-/// <summary>Publishes the loadout readings sorted by position, so the lookup can bisect them.</summary>
-internal static class WorldSpellSlotDeriver
-{
-    internal static PublicationTable<WorldSpellSlot> Build(WorldSpellSlotBuffer buffer)
-    {
-        if (buffer is null) throw new ArgumentNullException(nameof(buffer));
-        if (buffer.Count == 0) return PublicationTable<WorldSpellSlot>.Empty;
-
-        var derived = new WorldSpellSlot[buffer.Count];
-        for (var index = 0; index < buffer.Count; index++) derived[index] = buffer[index];
-
-        Array.Sort(derived, 0, derived.Length, SlotComparer.ByIndex);
-        return PublicationTable<WorldSpellSlot>.Create(derived, derived.Length);
-    }
-
-    private sealed class SlotComparer : IComparer<WorldSpellSlot>
-    {
-        internal static readonly IComparer<WorldSpellSlot> ByIndex = new SlotComparer();
-
-        public int Compare(WorldSpellSlot left, WorldSpellSlot right) =>
-            left.SlotIndex.CompareTo(right.SlotIndex);
+        return WorldLookup.TryFindFirst(table.AsSpan(), slotIndex,
+            static (row, key) => row.SlotIndex.CompareTo(key), out slot);
     }
 }
 
@@ -541,20 +480,8 @@ internal static class WorldSpellSlotTypeLookup
         out int start,
         out int count)
     {
-        var rows = table.AsSpan();
-        var low = 0;
-        var high = rows.Length - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (rows[middle].SlotIndex < slotIndex) low = middle + 1;
-            else high = middle - 1;
-        }
-
-        start = low;
-        count = 0;
-        while (start + count < rows.Length && rows[start + count].SlotIndex == slotIndex) count++;
-        return count > 0;
+        return WorldLookup.TryFindRange(table.AsSpan(), slotIndex,
+            static (row, key) => row.SlotIndex.CompareTo(key), out start, out count);
     }
 }
 
@@ -769,7 +696,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
 
         var sampled = 0;
         var skipped = 0;
-        var firstFailure = string.Empty;
+        var firstFailure = default(WorldCollectionFailure);
 
         IList? values;
         bool cancellationEnabled;
@@ -783,7 +710,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
         {
             return WorldCategoryReport.Missing(
-                Category, $"reading the equipped loadout threw: {ex.GetBaseException().Message}");
+                Category, WorldFailures.ReadFault($"reading the equipped loadout threw", ex));
         }
 
         var count = values?.Count ?? 0;
@@ -816,7 +743,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
                 WorldSkipTally.Skip(
                     ref skipped,
                     ref firstFailure,
-                    $"reading slot {index} threw: {ex.GetBaseException().Message}");
+                    WorldFailures.ReadFault($"reading slot {index} threw", ex));
             }
         }
 
@@ -829,8 +756,8 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         int index,
         bool cancellationEnabled,
         bool casterAvailable,
-        WorldSpellSlotBuffer slots,
-        WorldSpellCostBuffer costs,
+        WorldRelationBuffer<WorldSpellSlot> slots,
+        WorldRelationBuffer<WorldSpellCost> costs,
         WorldRelationBuffer<WorldSpellSlotType> slotTypes)
     {
         var occupied = !_isEmpty!(spell);
@@ -894,7 +821,7 @@ internal sealed class WorldSpellSlotReader : IWorldCategoryReader
         int index,
         WorldSpellCostKind kind,
         Func<object, object?> accessor,
-        WorldSpellCostBuffer costs)
+        WorldRelationBuffer<WorldSpellCost> costs)
     {
         var costList = accessor(spell);
         if (costList is null) return;

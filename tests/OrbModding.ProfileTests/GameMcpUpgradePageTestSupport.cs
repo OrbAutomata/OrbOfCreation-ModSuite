@@ -88,7 +88,7 @@ internal static class GameMcpUpgradePageTestSupport
         WorldUpgradeListMembership[] memberships,
         params WorldUpgrade[] upgrades)
     {
-        return GameMcpTestHarness.Json(GameMcpWorldQuery.ListRows(
+        return GameMcpTestHarness.Json(GameMcpWorldList.ListRows(
             GameMcpTestHarness.Context(UpgradesWorld(memberships, upgrades)), "upgrades", 0, 50));
     }
 

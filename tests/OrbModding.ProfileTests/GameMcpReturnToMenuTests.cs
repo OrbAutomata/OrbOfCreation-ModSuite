@@ -1,3 +1,4 @@
+using OrbModding.TestSupport;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -84,14 +85,14 @@ public sealed class GameMcpReturnToMenuTests
     [Fact]
     public void MainThreadRuntimeInvokesTheSharedActionAndReturnsBeforeTeardown()
     {
-        UIScreenFlash.ResetForTests();
+        OrbModding.GameStubs.GameStubState.Reset();
         var button = new UIBackToMenuButton();
         var lifecycle = 7L;
         var configuration = new SuiteRuntimeConfiguration
         {
             General = new SuiteGeneralConfiguration { Enabled = true },
         };
-        var resolver = new TypedRegistryResolver(
+        var resolver = TestRegistryResolver.For(
             () => lifecycle,
             () => TypedRegistrySourceSnapshot.NotReady("not used"),
             _ => Guid.Empty);

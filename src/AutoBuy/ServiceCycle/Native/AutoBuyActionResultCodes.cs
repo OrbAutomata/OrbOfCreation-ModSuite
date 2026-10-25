@@ -22,10 +22,10 @@ internal static class AutoBuyActionResultCodes
     /// read when the topology was captured.
     /// </summary>
     /// <remarks>
-    /// This used to be five different facts wearing one number. A caller reading "2051" could not
-    /// tell an unbound suite from an uncaptured lifecycle from a candidate whose chain the game
-    /// refused, and neither could the operator reading the log — the twenty-seven-minute outage cost
-    /// a code trace to diagnose because the one refusal it emitted said nothing more than this.
+    /// A caller reading "2051" could not tell an unbound suite from an uncaptured lifecycle from a
+    /// candidate whose chain the game refused, and neither could the operator reading the log — the
+    /// twenty-seven-minute outage cost a code trace to diagnose because the one refusal it emitted
+    /// said nothing more than this.
     /// </remarks>
     public static ServiceActionResultCode OwningViewRelationUnreadable => new(2051, "owning_screen_unreadable");
     public static ServiceActionResultCode OwningViewRelationContradictory => new(2053, "owning_screen_contradictory");

@@ -62,11 +62,10 @@ becomes active later, so "is it there" and "can I act on it" are two separate qu
 
 ## Resolution rule
 
-The canonical mapping holds 2,818 rows and 2,818 unique UUIDs across 141 managed types — but only
-2,777 unique internal names. 39 labels are reused, covering 80 rows: `SpellDuration` names a
-`DoubleVariable`, a `ModifierListVariable`, and a `ScalingWeightSO`; `WorkshopStructures` names a
-`StructureListVariable`, a `StructureTypeSO`, and a `ViewSO`; `Arcane` and `Dragon` each name both
-a `GlyphSO` and a `SpellTypeSO`.
+[The canonical mapping](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/data/entity-mappings.tsv)
+owns identity/type/name records. Names are not unique across native types. As a partial example,
+`SpellDuration` is used by distinct native variable/scaling objects; a readable name does not resolve
+which one a caller intended.
 
 So:
 
