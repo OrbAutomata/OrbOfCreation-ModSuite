@@ -26,10 +26,9 @@ internal sealed class AutoCastWorkerDefinition :
     /// candidates against a cost table; Auto Cast reads a handful of published fields off at most a
     /// loadout's worth of rows, so the world is already the frame.
     /// <para>
-    /// The bulletin is taken and not read. Auto Cast spends resources and applies a reserve floor, so
-    /// it is a stance consumer in principle — but the floor it applies is the operator's configured
-    /// one, read the same way Auto Buy reads it, and what a stance would mean here is a strategist
-    /// question with no strategist to answer it.
+    /// The shared strategy is received but intentionally not read. Auto Cast applies the operator's
+    /// configured reserve floor; it does not consume the strategist's goal preference or resource
+    /// stances.
     /// </para>
     /// </remarks>
     public WakePolicy Evaluate(

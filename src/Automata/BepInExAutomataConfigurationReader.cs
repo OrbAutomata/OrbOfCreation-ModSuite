@@ -25,6 +25,7 @@ internal static class BepInExAutomataConfigurationReader
                 IncludeStructures = source.AutoBuyStructures.Value,
                 IncludeUpgrades = source.AutoBuyUpgrades.Value,
                 AutoLevelSpells = source.AutoLevelSpells.Value,
+                FollowStrategistGoal = source.FollowStrategistGoal.Value,
                 LeaveQueueSlots = source.LeaveQueueSlots.Value,
             },
             AutoCast = new AutoCastConfiguration

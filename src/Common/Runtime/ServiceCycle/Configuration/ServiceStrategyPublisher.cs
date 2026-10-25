@@ -1,13 +1,15 @@
 using System;
 using System.Threading;
 using OrbModding.Common.Runtime.Strategy;
+using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using RuntimeStrategyGeneration = OrbModding.Common.Runtime.StrategyGeneration;
 
 namespace OrbModding.Common.Runtime.ServiceCycle.Configuration;
 
 /// <summary>
 /// The write half of the shared strategy publication, for whichever service decides what the suite
-/// wants. Nothing publishes stances through it yet.
+/// wants. Services receive its immutable value pinned at cycle start.
 /// </summary>
 /// <remarks>
 /// Separate from the publisher for the same reason the world's and the configuration's sinks are:
@@ -20,13 +22,23 @@ public interface IServiceStrategyPublicationSink
 }
 
 /// <summary>
-/// The write half of the strategist's latest bulletin. It is read, not evaluated against, so
-/// replacing it moves no strategy generation and wakes no service.
+/// The read half of the strategist's latest immutable bulletin for player-facing surfaces.
+/// </summary>
+internal interface IStrategistBulletinSource
+{
+    StrategistBulletin? ReadStrategistBulletin();
+    string UnavailableReason { get; }
+}
+
+/// <summary>
+/// The write half of the strategist's judgment and advisory policy. Replacing only the judgment
+/// moves no strategy generation; a changed policy is picked up by the next service cycle.
 /// </summary>
 internal interface IStrategistBulletinSink
 {
     /// <summary>Replaces the latest bulletin and returns its sequence number.</summary>
-    ulong PublishStrategistBulletin(StrategistBulletin bulletin);
+    ulong PublishStrategistBulletin(StrategistBulletin bulletin, SuiteStrategy strategy);
+    void ObserveStrategistFault(in ServiceFault fault);
 }
 
 /// <summary>One immutable strategy bulletin together with the generation that identifies it.</summary>
@@ -55,12 +67,14 @@ public sealed class StrategyPublication
 public sealed class ServiceStrategyPublisher :
     IDisposable,
     IServiceStrategyPublicationSink,
-    IStrategistBulletinSink
+    IStrategistBulletinSink,
+    IStrategistBulletinSource
 {
     private readonly PublicationLock _sync = new();
     private StrategyPublication _latest;
     private StrategistBulletin? _strategistBulletin;
     private ulong _strategistBulletinSequence;
+    private string _strategistUnavailableReason = string.Empty;
     private bool _disposed;
 
     internal ServiceStrategyPublisher(SuiteStrategy initialBulletin)
@@ -95,12 +109,29 @@ public sealed class ServiceStrategyPublisher :
         return Volatile.Read(ref _strategistBulletin);
     }
 
-    ulong IStrategistBulletinSink.PublishStrategistBulletin(StrategistBulletin bulletin)
+    StrategistBulletin? IStrategistBulletinSource.ReadStrategistBulletin() => ReadStrategistBulletin();
+    string IStrategistBulletinSource.UnavailableReason => Volatile.Read(ref _strategistUnavailableReason);
+
+    void IStrategistBulletinSink.ObserveStrategistFault(in ServiceFault fault)
     {
-        if (bulletin is null) throw new ArgumentNullException(nameof(bulletin));
         lock (_sync)
         {
             ThrowIfDisposed();
+            if (fault.IsValid && _latest.Bulletin != SuiteStrategyDefaults.Neutral)
+                Volatile.Write(ref _latest, new StrategyPublication(_latest.Generation.Next(), SuiteStrategyDefaults.Neutral));
+            Volatile.Write(ref _strategistUnavailableReason, ServiceCycleDiagnostics.DescribeFault(in fault));
+        }
+    }
+
+    ulong IStrategistBulletinSink.PublishStrategistBulletin(StrategistBulletin bulletin, SuiteStrategy strategy)
+    {
+        if (bulletin is null) throw new ArgumentNullException(nameof(bulletin));
+        if (strategy is null) throw new ArgumentNullException(nameof(strategy));
+        lock (_sync)
+        {
+            ThrowIfDisposed();
+            if (_latest.Bulletin != strategy)
+                Volatile.Write(ref _latest, new StrategyPublication(_latest.Generation.Next(), strategy));
             Volatile.Write(ref _strategistBulletin, bulletin);
             return ++_strategistBulletinSequence;
         }
@@ -119,6 +150,7 @@ public sealed class ServiceStrategyPublisher :
                 ref _latest,
                 new StrategyPublication(_latest.Generation.Next(), SuiteStrategyDefaults.Neutral));
             Volatile.Write(ref _strategistBulletin, null);
+            Volatile.Write(ref _strategistUnavailableReason, string.Empty);
         }
     }
 

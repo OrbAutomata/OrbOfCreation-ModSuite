@@ -129,10 +129,10 @@ failures, failed persistence, and pending watcher notifications are invisible to
 
 The world publication becomes live on the main thread during the action pass rather than on the worker
 that derived it, and publishing services dispatch before mutating ones, so a snapshot acquired this
-frame is visible to every consumer in that same frame. The strategy bulletin is the neutral one, and a
-lifecycle replacement publishes the neutral one again with the world. The Strategist's own bulletin sits
-beside it in a latest-value slot: replacing it moves no strategy generation, so it wakes no service and
-writes no journal transition, and a lifecycle replacement empties it.
+frame is visible to every consumer in that same frame. Strategy starts neutral; the
+[strategist](strategist.md) publishes advisory policy beside its full player-facing bulletin. Policy
+changes advance strategy generation while display-only judgment changes do not. A lifecycle
+replacement publishes neutral policy again with the world and clears the full bulletin.
 
 ## The source's world buffer
 

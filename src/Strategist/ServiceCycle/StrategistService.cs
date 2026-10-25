@@ -53,9 +53,9 @@ internal struct StrategistCycleState
 /// main-thread step publishes it.
 /// </summary>
 /// <remarks>
-/// It has no configuration and no switch. The bulletin goes to its own latest-value slot, not into the
-/// strategy services evaluate against: the stance table stays empty and the strategy generation does
-/// not move, so publishing it changes no automation's behavior; it exists to be read.
+/// It has no configuration and no switch. The full judgment goes to its latest-value slot for
+/// surfaces to read. Its active goal is advisory policy for consumers that opt in through their own
+/// configuration; resource stances stay empty. An unchanged goal moves no strategy generation.
 /// </remarks>
 internal static class StrategistService
 {
@@ -81,7 +81,11 @@ internal static class StrategistService
         IStrategistBulletinSink publish,
         in StrategistCycleAction action)
     {
-        var sequence = publish.PublishStrategistBulletin(action.Bulletin);
+        var goalId = action.Bulletin.Advice.GoalId;
+        var strategy = goalId == Guid.Empty
+            ? SuiteStrategyDefaults.Neutral
+            : new SuiteStrategy { Provenance = SuiteStrategyProvenance.Goal, ActiveGoalId = goalId };
+        var sequence = publish.PublishStrategistBulletin(action.Bulletin, strategy);
         return ServiceActionResult.CommittedPublication(
             CommonActionResultCodes.Committed,
             ServicePublicationEvidence.StrategistBulletin(sequence));

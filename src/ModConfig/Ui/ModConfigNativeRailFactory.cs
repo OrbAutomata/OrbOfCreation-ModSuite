@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OrbAutomata;
 using TMPro;
 using UnityEngine;
@@ -8,15 +7,14 @@ using UnityEngine.UI;
 
 namespace OrbModConfig;
 
-/// <summary>Clones the audited native subview-radio vocabulary for suite navigation.</summary>
+/// <summary>Builds suite-owned navigation using audited static native assets.</summary>
 internal static class ModConfigNativeRailFactory
 {
-    internal const float RailWidth = 0.095f;
-    internal const float DetailLeft = 0.125f;
+    internal const float RowHeight = 54f;
+    internal const float RowPitch = 62f;
+    internal const float Padding = 8f;
 
-    public static bool TryCapture(
-        out NativeFeatureRailVisualPrimitives? primitives,
-        out string reason) =>
+    public static bool TryCapture(out NativeFeatureRailVisualPrimitives? primitives, out string reason) =>
         NativeViewAdapter.TryCaptureFeatureRailVisuals(out primitives, out reason);
 
     public static void SkinPanel(Image image, Sprite sprite, Color color)
@@ -24,15 +22,12 @@ internal static class ModConfigNativeRailFactory
         image.sprite = sprite;
         image.type = Image.Type.Sliced;
         image.color = color;
-        // These frames are the suite-owned pixel surface, not decoration. Keeping them in the
-        // GraphicRaycaster closes the gaps between child controls and lets a parent ScrollRect
-        // receive wheel events from every visible point in its viewport.
         image.raycastTarget = true;
     }
 
     public static bool TryBuild(
         RectTransform parent,
-        IReadOnlyList<string> labels,
+        IReadOnlyList<ModConfigTopPage> pages,
         int selected,
         ICollection<GameObject> owned,
         TextMeshProUGUI template,
@@ -41,103 +36,50 @@ internal static class ModConfigNativeRailFactory
         out string reason)
     {
         reason = string.Empty;
-        if (labels.Count == 0) return true;
         try
         {
-            var resolvedIcons = new Sprite[labels.Count];
-            for (var index = 0; index < labels.Count; index++)
+            for (var index = 0; index < pages.Count; index++)
             {
-                if (!NativeFeatureIconResolver.TryResolve(
-                        labels[index], primitives, out var resolved, out var iconReason))
+                var page = pages[index];
+                if (!NativeFeatureIconResolver.TryResolve(page.Icon, primitives, out var iconSprite, out var iconReason))
                 {
-                    reason = $"rail entry '{labels[index]}' has no audited native icon: {iconReason}";
+                    reason = $"rail entry '{page.Label}' has no audited native icon: {iconReason}";
                     ModConfigUiFactory.ClearObjects(owned);
                     return false;
                 }
-                resolvedIcons[index] = resolved!;
-            }
-            for (var left = 0; left < resolvedIcons.Length; left++)
-            {
-                for (var right = left + 1; right < resolvedIcons.Length; right++)
-                {
-                    if (resolvedIcons[left] != resolvedIcons[right]) continue;
-                    reason =
-                        $"rail entries '{labels[left]}' and '{labels[right]}' resolve the same sprite";
-                    ModConfigUiFactory.ClearObjects(owned);
-                    return false;
-                }
-            }
-
-            for (var index = 0; index < labels.Count; index++)
-            {
-                var iconSprite = resolvedIcons[index];
                 var captured = index;
-                var buttonObject = UnityEngine.Object.Instantiate(
-                    primitives.FeatureRailButtonPrototype.gameObject,
-                    parent,
-                    false);
-                buttonObject.name = "Rail." + labels[index];
-                buttonObject.SetActive(true);
-                RemoveNativeWriters(buttonObject, primitives.FeatureRailButtonPrototype.GetType());
-
+                var buttonObject = ModConfigUiFactory.CreateRectObject(
+                    "Rail." + page.Label, parent, new Vector2(0f, 1f), new Vector2(1f, 1f), Color.white);
+                owned.Add(buttonObject);
                 var rect = (RectTransform)buttonObject.transform;
-                var top = 1f - index * 0.115f;
-                rect.anchorMin = new Vector2(0.08f, top - 0.105f);
-                rect.anchorMax = new Vector2(0.92f, top - 0.01f);
-                rect.offsetMin = Vector2.zero;
-                rect.offsetMax = Vector2.zero;
-
-                var button = buttonObject.GetComponent<Button>() ??
-                             buttonObject.AddComponent<Button>();
-                button.onClick.RemoveAllListeners();
+                ModConfigUiFactory.SetTopAnchoredHeight(rect, Padding + index * RowPitch, RowHeight);
+                rect.offsetMin = new Vector2(Padding, rect.offsetMin.y);
+                rect.offsetMax = new Vector2(-Padding, rect.offsetMax.y);
+                var button = buttonObject.AddComponent<Button>();
                 button.onClick.AddListener(() => onSelected(captured));
                 ConfiguredIntentButtonVisualOwnership.Claim(button);
-
-                var frame = buttonObject.GetComponent<Image>() ??
-                            buttonObject.AddComponent<Image>();
-                frame.sprite = index == selected
-                    ? primitives.FeatureRailActiveFrame
-                    : primitives.FeatureRailBaseFrame;
-                frame.color = Color.white;
-                frame.raycastTarget = true;
-
-                var nativeText = buttonObject.GetComponentInChildren<TextMeshProUGUI>(true);
-                if (nativeText is not null) nativeText.gameObject.SetActive(false);
-
+                SkinPanel(buttonObject.GetComponent<Image>()!,
+                    index == selected ? primitives.FeatureRailActiveFrame : primitives.FeatureRailBaseFrame,
+                    Color.white);
                 var iconObject = ModConfigUiFactory.CreateRectObject(
-                    "Icon",
-                    buttonObject.transform,
-                    new Vector2(0.16f, 0.14f),
-                    new Vector2(0.84f, 0.86f));
+                    "Icon", buttonObject.transform, new Vector2(0.04f, 0.16f), new Vector2(0.24f, 0.84f));
                 var icon = iconObject.AddComponent<Image>();
                 icon.sprite = iconSprite;
                 icon.color = Color.white;
                 icon.preserveAspect = true;
                 icon.raycastTarget = false;
-                buttonObject.AddComponent<HoverTooltip>()
-                    .Setup(new ModConfigRailTooltip(labels[index], iconSprite!));
-                owned.Add(buttonObject);
+                ModConfigUiFactory.CreateText("Label", buttonObject.transform,
+                    new Vector2(0.29f, 0.08f), new Vector2(0.96f, 0.92f), template,
+                    page.Label, TextAlignmentOptions.MidlineLeft, 0.68f);
+                buttonObject.AddComponent<HoverTooltip>().Setup(new ModConfigRailTooltip(page, iconSprite!));
             }
-
-            reason = string.Empty;
             return true;
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
             ModConfigUiFactory.ClearObjects(owned);
-            reason = ex.GetBaseException().Message;
+            reason = exception.GetBaseException().Message;
             return false;
-        }
-    }
-
-    private static void RemoveNativeWriters(GameObject buttonObject, Type nativeButtonType)
-    {
-        foreach (var component in buttonObject.GetComponents<Component>()
-                     .Where(component => nativeButtonType.IsInstanceOfType(component) ||
-                                         component.GetType().Name == "HoverTooltip"))
-        {
-            if (component is Behaviour behaviour) behaviour.enabled = false;
-            UnityEngine.Object.Destroy(component);
         }
     }
 }

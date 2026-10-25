@@ -35,7 +35,11 @@ Do not commit the referenced BepInEx, Unity, Harmony, or game DLLs.
 - Feature modes use the domain declared by the configuration owner; quick controls and Mods headers commit through the same store.
 - One native queue slot is reserved for manual actions.
 - Each ranked Structure prefers one live Bulk Development-sized group, reduced to the largest exactly priced positive count the remaining batch ledger can fund; each Upgrade receives one level. Every submitted level is independently revalidated.
-- Candidates rank by cost ratio and stable UUID; there is no UUID-list filter or structure-effect priority tier.
+- Candidates rank by cost ratio and stable UUID. The opt-in **Prioritize strategist goal** setting
+  moves the strategist's preferred Upgrade first only when ordinary admission and affordability
+  already permit it. An unavailable, unsupported, or unaffordable goal leaves ordinary purchasing
+  in place. This changes ordering, not resource reservations; the
+  [strategist contract](../../docs/runtime-architecture/strategist.md) owns the advice boundary.
 - Absolute and relative reserves default to zero; affordability modes provide the default spending margin.
 - Startup, warning, and error records remain enabled; explicit Runtime actions own deeper trace and journal evidence.
 - Routine per-action successes and ordinary no-ops do not enter the BepInEx log; the compact action

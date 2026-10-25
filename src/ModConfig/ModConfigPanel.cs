@@ -34,18 +34,19 @@ internal sealed class ModConfigPanel : IDisposable
 
     private readonly ConfigCatalogSnapshot _catalog;
     private readonly TextMeshProUGUI _labelTemplate;
-    private readonly RectTransform _modTabs;
+    private readonly ModConfigNavigationRail _navigationRail;
+    private readonly RectTransform _navigationBounds;
+    private readonly RectTransform _footer;
     private readonly RectTransform _settingsViewport;
     private readonly RectTransform _settingsContent;
     private readonly ModConfigRuntimeSources _runtimeSources;
     private readonly RuntimeDiagnosticsPage _runtimePage;
     private readonly ModSettingsPage _settingsPage;
+    private readonly StrategistPage _strategistPage;
     private readonly TextMeshProUGUI _statusText;
     private readonly TextMeshProUGUI _pageTitle;
     private readonly Button _applyButton;
     private readonly Button _revertButton;
-    private readonly NativeFeatureRailVisualPrimitives _nativeRail;
-    private readonly List<GameObject> _topTabObjects = new();
     private readonly RuntimeDiagnosticsDirtyLatch _fullDashboardDirty = new();
     private readonly RuntimeDiagnosticsTransitionQueue _runtimeTransitions = new();
     private RuntimeDiagnosticsDashboard _dashboard;
@@ -74,7 +75,8 @@ internal sealed class ModConfigPanel : IDisposable
         Root = root;
         _catalog = catalog;
         _labelTemplate = labelTemplate;
-        _modTabs = modTabs;
+        _navigationBounds = modTabs;
+        _footer = (RectTransform)statusText.transform.parent!;
         _settingsViewport = settingsViewport;
         _settingsContent = settingsContent;
         _runtimeSources = runtimeSources;
@@ -82,9 +84,10 @@ internal sealed class ModConfigPanel : IDisposable
         _statusText = statusText;
         _applyButton = applyButton;
         _revertButton = revertButton;
-        _nativeRail = nativeRail;
         RuntimeDiagnosticsPage? runtimePage = null;
         ModSettingsPage? settingsPage = null;
+        StrategistPage? strategistPage = null;
+        ModConfigNavigationRail? navigationRail = null;
         var subscribed = false;
         try
         {
@@ -113,6 +116,9 @@ internal sealed class ModConfigPanel : IDisposable
                 featureCommands);
             _runtimePage = runtimePage;
             _settingsPage = settingsPage;
+            strategistPage = new StrategistPage(settingsContent, settingsScroll, labelTemplate,
+                runtimeSources.StrategistBulletin);
+            _strategistPage = strategistPage;
             _runtimeSources.SchemaStatuses.Transitioned += OnSchemaStatusTransitioned;
             _runtimeSources.FeatureStatuses.SnapshotChanged += OnFeatureStatusSnapshotChanged;
             _runtimeSources.Diagnostics.Transitioned += OnRuntimeDiagnosticsTransitioned;
@@ -122,7 +128,9 @@ internal sealed class ModConfigPanel : IDisposable
                 _runtimeSources.SchemaStatuses,
                 _runtimeSources.FeatureStatuses,
                 _runtimeSources.Diagnostics);
-            RebuildTopTabs();
+            navigationRail = new ModConfigNavigationRail(modTabs, labelTemplate, nativeRail,
+                ModConfigTopNavigation.Build(_catalog, _dashboard.AttentionCount), 0, SelectTopPage);
+            _navigationRail = navigationRail;
             ShowSelectedPage();
             SetActive(false);
         }
@@ -136,7 +144,8 @@ internal sealed class ModConfigPanel : IDisposable
             }
             try { settingsPage?.Dispose(); } catch { }
             try { runtimePage?.Dispose(); } catch { }
-            try { ModConfigUiFactory.ClearObjects(_topTabObjects); } catch { }
+            try { strategistPage?.Dispose(); } catch { }
+            try { navigationRail?.Dispose(); } catch { }
             throw;
         }
     }
@@ -144,16 +153,22 @@ internal sealed class ModConfigPanel : IDisposable
     public GameObject Root { get; }
 
     public ModConfigNavigationBookmark CaptureNavigation() =>
-        IsRuntimeSelected
-            ? ModConfigNavigationBookmark.Runtime
-            : _settingsPage.CaptureBookmark();
+        (SelectedKind switch
+        {
+            ModConfigTopPageKind.Runtime => ModConfigNavigationBookmark.Runtime,
+            ModConfigTopPageKind.Strategist => ModConfigNavigationBookmark.Strategist with
+                { ScrollOffset = _strategistPage.ScrollOffset },
+            _ => _settingsPage.CaptureBookmark(),
+        }) with { RailScrollOffset = _navigationRail.ScrollOffset };
 
     public void RestoreNavigation(ModConfigNavigationBookmark bookmark)
     {
         _settingsPage.RestoreBookmark(bookmark);
+        if (bookmark.IsStrategist) _strategistPage.RestoreScroll(bookmark.ScrollOffset);
         _selectedTopPageIndex =
             ModConfigNavigationBookmarkPolicy.ResolveTopPageIndex(_catalog, bookmark);
         RebuildTopTabs();
+        _navigationRail.RestoreScroll(bookmark.RailScrollOffset);
         ShowSelectedPage();
     }
 
@@ -200,8 +215,8 @@ internal sealed class ModConfigPanel : IDisposable
         ModConfigFeatureCommands featureCommands,
         NativeFeatureRailVisualPrimitives nativeRail)
     {
-        var detailLeft = ModConfigNativeRailFactory.DetailLeft;
-        var topNavigationRight = ModConfigNativeRailFactory.RailWidth + 0.02f;
+        const float detailLeft = 0.25f;
+        const float topNavigationRight = 0.24f;
         var header = ModConfigUiFactory.CreateRectObject(
             "ModTabs",
             root.transform,
@@ -350,6 +365,18 @@ internal sealed class ModConfigPanel : IDisposable
     public void RefreshResponsiveLayout()
     {
         if (_disposed || !Root.activeInHierarchy) return;
+        var rootWidth = ((RectTransform)Root.transform).rect.width;
+        var compact = rootWidth > 0f && rootWidth < 900f;
+        var railRight = compact ? 0.105f : 0.24f;
+        _navigationBounds.anchorMax = new Vector2(railRight, ModConfigShellLayout.BodyTop);
+        _settingsViewport.anchorMin = new Vector2(railRight + 0.01f, ModConfigShellLayout.BodyBottom);
+        _footer.anchorMin = new Vector2(railRight + 0.01f, ModConfigShellLayout.FooterBottom);
+        _navigationRail.RefreshLayout(compact);
+        if (SelectedKind == ModConfigTopPageKind.Strategist)
+        {
+            _strategistPage.Refresh();
+            return;
+        }
         if (!IsRuntimeSelected)
         {
             _settingsPage.RefreshResponsiveLayout();
@@ -365,6 +392,8 @@ internal sealed class ModConfigPanel : IDisposable
     public void RefreshRuntimeDashboardIfNeeded()
     {
         if (_disposed) return;
+        _settingsPage.RefreshFeaturePresentation();
+        if (SelectedKind == ModConfigTopPageKind.Strategist) _strategistPage.Refresh();
         if (IsRuntimeSelected) _runtimePage.RefreshActivity();
         // Consume both latches independently. Short-circuiting here would leave an
         // overflow pending and force the same authoritative rebuild on the next pass.
@@ -408,37 +437,39 @@ internal sealed class ModConfigPanel : IDisposable
         _runtimeSources.Diagnostics.Transitioned -= OnRuntimeDiagnosticsTransitioned;
         _settingsPage.Dispose();
         _runtimePage.Dispose();
-        ModConfigUiFactory.ClearObjects(_topTabObjects);
+        _strategistPage.Dispose();
+        _navigationRail.Dispose();
         UnityEngine.Object.Destroy(Root);
     }
 
-    private bool IsRuntimeSelected => _selectedTopPageIndex == 0;
+    private ModConfigTopPageKind SelectedKind =>
+        _navigationRail.SelectedKind;
+    private bool IsRuntimeSelected => SelectedKind == ModConfigTopPageKind.Runtime;
 
-    private void RebuildTopTabs()
-    {
-        ModConfigUiFactory.ClearObjects(_topTabObjects);
-        var pages = ModConfigTopNavigation.Build(_catalog, _dashboard.AttentionCount);
-        if (ModConfigNativeRailFactory.TryBuild(
-            _modTabs,
-            pages.Select(page => page.Label).ToArray(),
-            _selectedTopPageIndex,
-            _topTabObjects,
-            _labelTemplate,
-            _nativeRail,
-            SelectTopPage,
-            out var reason))
-            return;
-        throw new InvalidOperationException("Native Mods rail construction failed: " + reason);
-    }
+    private void RebuildTopTabs(bool reveal = false) => _navigationRail.SetPages(
+        ModConfigTopNavigation.Build(_catalog, _dashboard.AttentionCount), _selectedTopPageIndex, reveal);
 
     private void ShowSelectedPage()
     {
         var pages = ModConfigTopNavigation.Build(_catalog, _dashboard.AttentionCount);
         _selectedTopPageIndex = Math.Max(0, Math.Min(_selectedTopPageIndex, pages.Count - 1));
         var page = pages[_selectedTopPageIndex];
-        if (page.Kind == ModConfigTopPageKind.Runtime)
+        if (page.Kind != ModConfigTopPageKind.PluginSettings)
         {
             _settingsPage.Hide();
+            if (page.Kind == ModConfigTopPageKind.Strategist)
+            {
+                _runtimePage.Hide();
+                _strategistPage.Show();
+                _applyButton.gameObject.SetActive(false);
+                _revertButton.gameObject.SetActive(false);
+                ((RectTransform)_statusText.transform).anchorMax = new Vector2(0.98f, 0.88f);
+                _pageTitle.text = ModConfigTopNavigation.DetailTitle(_catalog, page);
+                _statusText.color = _labelTemplate.color;
+                _statusText.text = "Progression advice updates live. Gameplay remains under your control.";
+                return;
+            }
+            _strategistPage.Hide();
             _applyButton.gameObject.SetActive(false);
             _revertButton.gameObject.SetActive(false);
             ((RectTransform)_statusText.transform).anchorMax = new Vector2(0.98f, 0.88f);
@@ -456,6 +487,7 @@ internal sealed class ModConfigPanel : IDisposable
         }
 
         _runtimePage.Hide();
+        _strategistPage.Hide();
         _applyButton.gameObject.SetActive(true);
         _revertButton.gameObject.SetActive(true);
         ((RectTransform)_statusText.transform).anchorMax = new Vector2(0.62f, 0.88f);
@@ -471,7 +503,7 @@ internal sealed class ModConfigPanel : IDisposable
     {
         if (index == _selectedTopPageIndex) return;
         _selectedTopPageIndex = index;
-        RebuildTopTabs();
+        RebuildTopTabs(reveal: true);
         ShowSelectedPage();
     }
 

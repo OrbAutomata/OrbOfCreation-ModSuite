@@ -30,9 +30,10 @@ Shared and feature folders:
 - `Automata` — the automation host: ServiceCycle composition and frame pump, emergency STOP and quick controls, and `Runtime/GameMcp`, the MCP server.
 - `Common` — the shared game model in `Runtime/World`, plus the ServiceCycle scheduler, configuration, diagnostics, tracing, identity resolution, and game math.
 - `Mentor` — shares a configurable share of earned mastery XP from spells, artifacts, and recipes to lower-mastery ones.
-- `ModConfig` — the in-game Mods tab: staged settings and runtime diagnostics.
+- `ModConfig` — the in-game Mods tab: strategist advice, staged settings and runtime diagnostics.
 - `SpellLeveling` — buys spell levels as an Auto Buy sub-feature.
-- `Strategist` — derives a bulletin from a pinned world once a minute: goals, position, and demand, with every cost a time on sustained income.
+- `Strategist` — derives [progression advice](../docs/runtime-architecture/strategist.md) and an advisory
+  goal preference from a pinned world and sustained-income window.
 
 Capabilities:
 

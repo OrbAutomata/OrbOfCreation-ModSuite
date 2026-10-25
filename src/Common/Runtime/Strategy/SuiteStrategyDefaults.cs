@@ -9,10 +9,9 @@ namespace OrbModding.Common.Runtime.Strategy;
 internal static class SuiteStrategyDefaults
 {
     /// <summary>
-    /// The generation-1 fallback the publisher starts from, and the bulletin the strategist returns
-    /// to when nothing constrains spending. It carries no stances, so every consumer resolves
-    /// <see cref="SuiteResourceStanceKind.Free"/> for every resource: a suite whose strategist
-    /// never runs, is disabled, or faults behaves exactly as it did before strategy existed.
+    /// The generation-1 fallback and the policy restored when no goal is offered or the lifecycle
+    /// changes. It carries no goal or stances, so consumers preserve their normal ordering and
+    /// resolve <see cref="SuiteResourceStanceKind.Free"/> for every resource.
     /// </summary>
     internal static readonly SuiteStrategy Neutral = new();
 }

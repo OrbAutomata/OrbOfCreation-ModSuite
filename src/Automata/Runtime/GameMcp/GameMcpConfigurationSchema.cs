@@ -42,6 +42,7 @@ internal static class GameMcpConfigurationSchema
             ("AutoBuy", "IncludeStructures") => configuration.AutoBuy.IncludeStructures,
             ("AutoBuy", "IncludeUpgrades") => configuration.AutoBuy.IncludeUpgrades,
             ("AutoBuy", "AutoLevelSpells") => configuration.AutoBuy.AutoLevelSpells,
+            ("AutoBuy", "FollowStrategistGoal") => configuration.AutoBuy.FollowStrategistGoal,
             ("AutoBuy", "LeaveQueueSlots") => configuration.AutoBuy.LeaveQueueSlots,
             ("AutoCast", "Mode") => configuration.AutoCast.Mode,
             ("AutoCast", "StartResourcePercent") => configuration.AutoCast.StartResourcePercent,

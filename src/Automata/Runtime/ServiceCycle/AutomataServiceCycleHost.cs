@@ -1,5 +1,7 @@
 using System;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.Strategy;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Roster;
@@ -146,6 +148,15 @@ internal sealed class AutomataServiceCycleHost : IDisposable
     {
         ThrowIfDisposed();
         _pump.SetEmergencyStop(engaged, reason);
+    }
+
+    internal string StrategistUnavailableReason =>
+        ((IStrategistBulletinSource)_pump.DiagnosticsRegistry.Strategy).UnavailableReason;
+
+    internal StrategistBulletin? ReadStrategistBulletin()
+    {
+        ThrowIfDisposed();
+        return _pump.DiagnosticsRegistry.Strategy.ReadStrategistBulletin();
     }
 
     internal AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics() =>

@@ -4,6 +4,7 @@ using OrbModding.Common;
 using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime;
+using OrbModding.Common.Runtime.Strategy;
 #if SERVICE_CYCLE_PROFILE
 using OrbAutomata.GameMcp;
 #endif
@@ -107,6 +108,13 @@ internal sealed class AutomataServiceCycleRuntime : IAutomataServiceCycleRuntime
                 _configurationGeneration);
         _gameActions.InvalidateLifecycle();
     }
+
+    public string UnavailableReason => _disposed
+        ? "The automation runtime has shut down."
+        : _host.StrategistUnavailableReason;
+
+    public StrategistBulletin? ReadStrategistBulletin() =>
+        _disposed ? null : _host.ReadStrategistBulletin();
 
     public AutomataDiagnosticsRuntimeEvidence CaptureDiagnostics()
     {

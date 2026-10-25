@@ -8,14 +8,13 @@ namespace OrbModding.Common.Runtime.Strategy;
 internal enum SuiteStrategyProvenance
 {
     /// <summary>
-    /// The permissive bulletin every service starts from. It constrains nothing, so a suite whose
-    /// strategist never runs, is disabled, or faults behaves exactly as it did before strategy
-    /// existed.
+    /// The permissive bulletin every service starts from. Without a published goal it changes
+    /// neither purchase ordering nor spending admission.
     /// </summary>
     Neutral = 0,
 
-    /// <summary>Derived from an active milestone in the curated table.</summary>
-    Milestone = 1,
+    /// <summary>Derived from the strategist's active advisory goal.</summary>
+    Goal = 1,
 }
 
 /// <summary>
@@ -32,9 +31,9 @@ internal enum SuiteStrategyProvenance
 /// </para>
 /// <para>
 /// The bulletin says <em>what the suite wants</em>, never what any service should do about it. The
-/// strategist does not decide which upgrade Auto Buy purchases or what Agrimancy plants; it says
-/// which resources are being saved and which are wanted, and each domain service maps that onto its
-/// own legal actions. That boundary is what keeps the strategist out of every domain's catalogs.
+/// strategist publishes a goal identity; its resource stance table stays empty. A domain service maps
+/// the goal onto its own legal actions after applying user configuration and current world facts; the strategist
+/// never bypasses that service's admission or native action boundary.
 /// </para>
 /// <para>
 /// Replacement semantics are total: publishing a bulletin replaces the previous one entirely, so
@@ -51,8 +50,8 @@ public sealed record SuiteStrategy
 {
     internal SuiteStrategyProvenance Provenance { get; init; } = SuiteStrategyProvenance.Neutral;
 
-    /// <summary>The milestone this bulletin serves, or <see cref="Guid.Empty"/> when none is active.</summary>
-    internal Guid ActiveMilestoneId { get; init; }
+    /// <summary>The advisory goal this bulletin serves, or <see cref="Guid.Empty"/> when none is active.</summary>
+    internal Guid ActiveGoalId { get; init; }
 
     /// <summary>
     /// Per-resource stances, sorted by <see cref="SuiteResourceStance.ResourceId"/> so consumers

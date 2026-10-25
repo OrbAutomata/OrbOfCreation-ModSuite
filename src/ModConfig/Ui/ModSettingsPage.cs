@@ -86,9 +86,11 @@ internal sealed class ModSettingsPage : IDisposable
 
     public void RestoreBookmark(ModConfigNavigationBookmark bookmark)
     {
-        if (bookmark.IsRuntime) return;
-        var pluginIndex = ModConfigNavigationBookmarkPolicy.ResolveTopPageIndex(_catalog, bookmark) - 1;
-        if (pluginIndex < 0) return;
+        if (bookmark.IsRuntime || bookmark.IsStrategist) return;
+        var pageIndex = ModConfigNavigationBookmarkPolicy.ResolveTopPageIndex(_catalog, bookmark);
+        var page = ModConfigTopNavigation.Build(_catalog, attentionCount: 0)[pageIndex];
+        if (page.Kind != ModConfigTopPageKind.PluginSettings) return;
+        var pluginIndex = page.PluginIndex;
         var mod = _catalog.Mods[pluginIndex];
         _navigation[pluginIndex] = new ModSettingsNavigationState(
             ModConfigNavigationBookmarkPolicy.ResolveSectionIndex(mod, bookmark),
@@ -132,6 +134,11 @@ internal sealed class ModSettingsPage : IDisposable
         if (!_disposed && _session.RefreshExternalValues() && _visible) RebuildSettings();
     }
 
+    public void RefreshFeaturePresentation()
+    {
+        if (!_disposed && _visible) _settingList.RefreshFeaturePresentation();
+    }
+
     public void RefreshResponsiveLayout()
     {
         if (_disposed || !_visible || _catalog.Mods.Count == 0) return;
@@ -167,16 +174,21 @@ internal sealed class ModSettingsPage : IDisposable
             SetStatus(
                 $"{_session.CountModConflicts(mod)} conflict(s): {conflict.Setting.Key} changed outside this page; choose Keep mine or Take live.",
                 invalid: true);
-        else if (changed is not null && !changed.IsValid)
-            SetStatus($"{changed.Setting.Key}: {changed.Error}", invalid: true);
         else
         {
+            var invalid = changed is not null && !changed.IsValid
+                ? changed
+                : _session.Values.FirstOrDefault(value =>
+                    string.Equals(value.Setting.PluginGuid, mod.Guid, StringComparison.Ordinal) &&
+                    !value.IsValid);
             var staged = _session.CountModDirty(mod);
             SetStatus(
-                staged == 0
-                    ? "Ready"
-                    : $"{staged} staged change(s) in {mod.Name}",
-                invalid: false);
+                invalid is not null
+                    ? $"{invalid.Setting.Key}: {invalid.Error}"
+                    : staged == 0
+                        ? "Settings changes require Apply."
+                        : $"{staged} unsaved change(s) in {mod.Name}; press Apply to save.",
+                invalid: invalid is not null);
         }
 
         SetFooterInteractable(

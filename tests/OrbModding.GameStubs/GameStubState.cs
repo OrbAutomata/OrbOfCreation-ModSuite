@@ -26,6 +26,7 @@ public static class GameStubState
 
     public static void Reset()
     {
+        UnityEngine.Object.FlushDestroyQueue();
         var copies = new Dictionary<object, object>(ReferenceComparer.Instance);
         for (var index = 0; index < Fields.Length; index++)
         {
@@ -67,6 +68,7 @@ public static class GameStubState
 
     private static object?[] Capture()
     {
+        UnityEngine.Object.FlushDestroyQueue();
         // Force every initializer before cloning any default. One initializer may register a
         // variable in a field on another type.
         foreach (var field in Fields) _ = field.GetValue(null);

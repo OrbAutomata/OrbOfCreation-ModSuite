@@ -32,7 +32,7 @@ public sealed class SuiteStrategyTests
         var neutral = SuiteStrategyDefaults.Neutral;
 
         Assert.Equal(SuiteStrategyProvenance.Neutral, neutral.Provenance);
-        Assert.Equal(Guid.Empty, neutral.ActiveMilestoneId);
+        Assert.Equal(Guid.Empty, neutral.ActiveGoalId);
         Assert.Equal(0, neutral.Resources.Count);
         Assert.Equal(SuiteResourceStanceKind.Free, neutral.StanceFor(Mana).Kind);
         Assert.Equal(SuiteResourceStanceKind.Free, neutral.StanceFor(Guid.NewGuid()).Kind);
@@ -43,7 +43,7 @@ public sealed class SuiteStrategyTests
     {
         var bulletin = new SuiteStrategyBuilder()
             .With(SuiteResourceStance.FloorOf(Knowledge, new BigDouble(5)))
-            .Build(SuiteStrategyProvenance.Milestone, Guid.NewGuid());
+            .Build(SuiteStrategyProvenance.Goal, Guid.NewGuid());
 
         Assert.Equal(SuiteResourceStanceKind.FloorAbsolute, bulletin.StanceFor(Knowledge).Kind);
         Assert.Equal(SuiteResourceStanceKind.Free, bulletin.StanceFor(Mana).Kind);
@@ -63,7 +63,7 @@ public sealed class SuiteStrategyTests
         for (var index = identities.Length - 1; index >= 0; index--)
             builder.With(SuiteResourceStance.TrivialOnly(identities[index], 0.01d * (index + 1)));
 
-        var bulletin = builder.Build(SuiteStrategyProvenance.Milestone, Guid.NewGuid());
+        var bulletin = builder.Build(SuiteStrategyProvenance.Goal, Guid.NewGuid());
 
         Assert.Equal(identities.Length, bulletin.Resources.Count);
         for (var index = 0; index < identities.Length; index++)
@@ -90,15 +90,15 @@ public sealed class SuiteStrategyTests
     public void PublishedBulletinsSupersedeEachOtherAndAdvanceTheGeneration()
     {
         using var publisher = new ServiceStrategyPublisher(SuiteStrategyDefaults.Neutral);
-        var milestone = Guid.NewGuid();
+        var goal = Guid.NewGuid();
 
         var generation = publisher.Publish(new SuiteStrategyBuilder()
             .With(SuiteResourceStance.FloorOf(Knowledge, new BigDouble(5)))
-            .Build(SuiteStrategyProvenance.Milestone, milestone));
+            .Build(SuiteStrategyProvenance.Goal, goal));
 
         Assert.Equal(2UL, generation.Value);
         var latest = publisher.ReadLatest();
-        Assert.Equal(milestone, latest.Bulletin.ActiveMilestoneId);
+        Assert.Equal(goal, latest.Bulletin.ActiveGoalId);
         Assert.Equal(SuiteResourceStanceKind.FloorAbsolute, latest.Bulletin.StanceFor(Knowledge).Kind);
 
         // Replacement is total: a stance dropped from the next bulletin stops applying, with no
@@ -114,7 +114,7 @@ public sealed class SuiteStrategyTests
         using var publisher = new ServiceStrategyPublisher(SuiteStrategyDefaults.Neutral);
         publisher.Publish(new SuiteStrategyBuilder()
             .With(SuiteResourceStance.Embargo(Wood))
-            .Build(SuiteStrategyProvenance.Milestone, Guid.NewGuid()));
+            .Build(SuiteStrategyProvenance.Goal, Guid.NewGuid()));
 
         // What a cycle pins when it opens is a reference to an immutable value; publishing again
         // cannot reach into it. This is the property the whole zero-copy handoff depends on.

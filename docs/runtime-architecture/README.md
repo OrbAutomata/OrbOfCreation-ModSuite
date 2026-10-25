@@ -30,6 +30,8 @@ rather than overriding the game.
 9. [Deferrals](deferrals.md) — what is deliberately not built, and what each item waits on.
 10. [Game MCP frame operations](game-mcp-frame-operations.md) — the perf-debug transport: one
     request-scoped inbox, frame ordering, data lifetimes, and the HTTP/Unity boundary.
+11. [Strategist](strategist.md) — progression advice, player-facing presentation, and optional
+    Auto Buy ordering beneath local policy.
 
 ## The four boundaries
 
@@ -46,5 +48,5 @@ rather than overriding the game.
   installed-game contract tests cover reflected game boundaries; interactive runtime validation is
   required for gameplay, UI, save, and installation claims. Passing one boundary does not imply
   another. Current commands live in the [testing guide](../testing/README.md).
-- **Not yet built.** Nothing consumes the strategist's bulletin. It publishes goals, position, and
-  demand to a slot of its own and no stances, so every consumer still reads a neutral strategy.
+- **Strategy.** The [strategist](strategist.md) supplies progression advice and an optional Auto Buy
+  ordering preference. Resource reservations and cross-domain spend constraints remain unimplemented.

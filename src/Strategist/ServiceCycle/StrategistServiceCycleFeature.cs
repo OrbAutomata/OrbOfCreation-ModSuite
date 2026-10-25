@@ -1,12 +1,14 @@
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
+using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 
 namespace OrbAutomata;
 
 /// <summary>
-/// The strategist's contribution to the Automata ServiceCycle host: a registration and nothing else.
-/// It touches no native state, so it has no native gates, no action family, and no diagnostics bridge.
+/// Registers the native-free strategist and relays its existing runner fault evidence to its
+/// read-only publication source. It has no native gates or action family.
 /// </summary>
 internal sealed class StrategistServiceCycleFeature : IAutomataServiceCycleFeature
 {
@@ -16,16 +18,22 @@ internal sealed class StrategistServiceCycleFeature : IAutomataServiceCycleFeatu
     public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context) =>
         new StrategistFeatureRuntime(context.Registry.Register(
             StrategistService.Define(context.Registry.StrategistBulletinPublication),
-            ActionDispatchPolicy));
+            ActionDispatchPolicy), context.Registry.StrategistBulletinPublication);
 }
 
 internal sealed class StrategistFeatureRuntime : IAutomataServiceCycleFeatureRuntime
 {
     private readonly ServiceRegistration<StrategistCycleState, StrategistCycleAction> _registration;
+    private readonly IStrategistBulletinSink _publish;
+    private ServiceFault _fault;
 
     internal StrategistFeatureRuntime(
-        ServiceRegistration<StrategistCycleState, StrategistCycleAction> registration) =>
+        ServiceRegistration<StrategistCycleState, StrategistCycleAction> registration,
+        IStrategistBulletinSink publish)
+    {
         _registration = registration;
+        _publish = publish;
+    }
 
     public void ActivateDiagnostics()
     {
@@ -33,6 +41,10 @@ internal sealed class StrategistFeatureRuntime : IAutomataServiceCycleFeatureRun
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
     {
+        if (!report.Accepted) return;
+        var service = ServiceCycleDiagnostics.ReadAvailableService(pump, StrategistServicePolicies.ServiceId);
+        if (ServiceCycleDiagnostics.RefreshFault(service, ref _fault))
+            _publish.ObserveStrategistFault(in _fault);
     }
 
     public void ObserveConfiguration(ConfigGeneration configurationGeneration)
@@ -41,6 +53,8 @@ internal sealed class StrategistFeatureRuntime : IAutomataServiceCycleFeatureRun
 
     public void ObserveLifecycle(long nativeLifecycle, ConfigGeneration configurationGeneration)
     {
+        _fault = default;
+        _publish.ObserveStrategistFault(in _fault);
     }
 
     public void DisposeDiagnostics()

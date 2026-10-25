@@ -72,8 +72,9 @@ contract requires the version owned by the codec.
 
 ## W43 — Cost ordering uses stable identity
 
-Auto Buy ranks by cost ratio and stable UUID. [The evaluator](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Application/AutoBuyCycleEvaluator.cs)
-owns ordering; no parallel effect-priority roster is maintained here.
+Auto Buy uses stable identity for deterministic ordering. [The evaluator](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/AutoBuy/ServiceCycle/Application/AutoBuyCycleEvaluator.cs)
+owns cost ordering and its optional [strategist preference](strategist.md); no parallel
+effect-priority roster is maintained here.
 
 ## W45 — A failure's scope decides how far it stops the feature
 

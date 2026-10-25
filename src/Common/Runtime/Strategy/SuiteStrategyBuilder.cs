@@ -38,14 +38,14 @@ internal sealed class SuiteStrategyBuilder
         return this;
     }
 
-    internal SuiteStrategy Build(SuiteStrategyProvenance provenance, Guid activeMilestoneId)
+    internal SuiteStrategy Build(SuiteStrategyProvenance provenance, Guid activeGoalId)
     {
         if (_stances.Count == 0)
         {
             return new SuiteStrategy
             {
                 Provenance = provenance,
-                ActiveMilestoneId = activeMilestoneId,
+                ActiveGoalId = activeGoalId,
                 Resources = PublicationTable<SuiteResourceStance>.Empty,
             };
         }
@@ -55,7 +55,7 @@ internal sealed class SuiteStrategyBuilder
         return new SuiteStrategy
         {
             Provenance = provenance,
-            ActiveMilestoneId = activeMilestoneId,
+            ActiveGoalId = activeGoalId,
             Resources = PublicationTable<SuiteResourceStance>.Create(rows, rows.Length),
         };
     }

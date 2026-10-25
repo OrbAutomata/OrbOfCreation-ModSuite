@@ -17,6 +17,7 @@ using OrbModConfig;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
+using OrbModding.Common.Runtime.ServiceCycle.Configuration;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Diagnostics;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
@@ -671,7 +672,14 @@ public sealed class Plugin : BaseUnityPlugin
             DiagnosticsBundleRegistry.Shared,
             _mathVerification ??
             throw new InvalidOperationException("Differential verification control was not composed."),
-            DecisionJournalStatusSources.Shared
+            DecisionJournalStatusSources.Shared,
+            new DeferredStrategistBulletinSource(
+                () => _serviceCycleActivation,
+                () => !_automaticSaveBackup.AllowsAutomation
+                    ? AutomaticSaveBackupWording.BlockingReason(_automaticSaveBackup)
+                    : !_runtimeActivationAllowed
+                        ? "Installed game assemblies are quarantined pending an exact-build acknowledgement."
+                        : string.Empty)
 #if SERVICE_CYCLE_PROFILE
             , PerformanceProfileControlRegistry.Shared
 #endif

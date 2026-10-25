@@ -24,10 +24,11 @@ internal static class StrategistBulletinText
         var names = new Names(bulletin);
         var text = new StringBuilder();
         text.Append(Header(bulletin)).Append('\n');
+        text.Append("Next    ").Append(AdviceLine(bulletin, names)).Append('\n');
         text.Append("Goals   long: ").Append(LongTermSummary(bulletin, names))
             .Append(" · Cross-run capital\n");
         var goals = bulletin.Goals.AsSpan();
-        if (goals.Length == 0) text.Append("        short: no reachable gate\n");
+        if (goals.Length == 0) text.Append("        short: no offered one-shot upgrade goal\n");
         for (var index = 0; index < Math.Min(SummaryGoals, goals.Length); index++)
         {
             text.Append(index == 0 ? "        short: " : "               ")
@@ -69,11 +70,12 @@ internal static class StrategistBulletinText
     {
         var names = new Names(bulletin);
         var text = new StringBuilder("Goals\n");
+        text.Append("  Next step   ").Append(AdviceLine(bulletin, names)).Append('\n');
         text.Append("  Long-term   Finish the world — ").Append(LongTermSummary(bulletin, names));
         var frontier = bulletin.Restoration.Frontier.AsSpan();
         if (frontier.Length > 0)
         {
-            text.Append("  (frontier: ");
+            text.Append("  (related frontier: ");
             for (var index = 0; index < frontier.Length; index++)
             {
                 if (index > 0) text.Append(", ");
@@ -81,14 +83,14 @@ internal static class StrategistBulletinText
             }
             text.Append(')');
         }
-        text.Append('\n');
+        text.Append(" — captured prerequisite relevance; alternatives and unknown conditions may change the route\n");
         text.Append("              Cross-run capital — mastery → Time Advancements next run; Persistent runes")
             .Append("  (no gate ranks here until effects are evaluated)\n");
 
         var goals = bulletin.Goals.AsSpan();
         if (goals.Length == 0)
         {
-            text.Append("  Short-term  no reachable gate\n");
+            text.Append("  Short-term  no offered one-shot upgrade goal\n");
             return text.ToString();
         }
         for (var index = 0; index < goals.Length; index++)
@@ -134,7 +136,7 @@ internal static class StrategistBulletinText
         }
         text.Append('\n');
         text.Append("  Goal    ");
-        if (bulletin.Goals.Count == 0) text.Append("no reachable gate");
+        if (bulletin.Goals.Count == 0) text.Append("no offered one-shot upgrade goal");
         else text.Append(GoalLine(bulletin.Goals[0], names));
         text.Append('\n');
         return text.ToString();
@@ -198,6 +200,34 @@ internal static class StrategistBulletinText
         var text = demand.Length.ToString(CultureInfo.InvariantCulture) + " currencies with sinks";
         if (unreachable.Count > 0) text += " · out of reach in " + string.Join(", ", unreachable);
         return text;
+    }
+
+    private static string AdviceLine(StrategistBulletin bulletin, Names names)
+    {
+        var advice = bulletin.Advice;
+        if (advice.Kind == StrategistAdviceKind.NoGoal) return "no offered one-shot upgrade goal";
+        var goal = names.Handle(advice.GoalId);
+        if (advice.Kind == StrategistAdviceKind.Ready)
+            return "buy " + goal + " — listed costs held; the game rechecks the purchase";
+        foreach (var cost in advice.Costs.AsSpan())
+        {
+            if (cost.ResourceId != advice.BottleneckResourceId) continue;
+            var resource = names.Name(cost.ResourceId);
+            var missing = " — missing " + Amount(cost.Missing) + " " + resource;
+            return advice.Kind switch
+            {
+                StrategistAdviceKind.SaveResources => "save " + resource + " for " + goal + missing +
+                    " · about " + Clock(cost.Price.EtaSeconds) + " at gross income before other spending",
+                StrategistAdviceKind.IncreaseCapacity => "increase " + resource + " capacity for " + goal +
+                    " — capacity " + Amount(cost.Capacity) + ", price " + Amount(cost.Price.Amount) + missing,
+                StrategistAdviceKind.ObtainIncome => "obtain " + resource + " income for " + goal + missing,
+                StrategistAdviceKind.MeasureIncome => "measure " + resource + " income for " + goal + missing,
+                StrategistAdviceKind.AllocatePoints => "obtain allocation points in " + resource +
+                    " for " + goal + missing,
+                _ => throw new ArgumentOutOfRangeException(nameof(advice.Kind)),
+            };
+        }
+        throw new InvalidOperationException("The active goal's advice has no bottleneck cost.");
     }
 
     private static string GoalLine(in StrategistGoal goal, Names names)
@@ -269,8 +299,8 @@ internal static class StrategistBulletinText
 
     private static string Rank(StrategistGoalRank rank) => rank switch
     {
-        StrategistGoalRank.Chain => "on the Restoration chain",
-        _ => "off the chain",
+        StrategistGoalRank.Chain => "Restoration-related",
+        _ => "other offered gate",
     };
 
     private static string Amount(BigDouble value) => GameScientificNumber.Beautify(value);

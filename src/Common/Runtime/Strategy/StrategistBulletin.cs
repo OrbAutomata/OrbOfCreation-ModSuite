@@ -37,7 +37,7 @@ internal enum StrategistOutOfReach
 /// <summary>Where a short-term goal stands against the long-term goals. Ordered: lower ranks first.</summary>
 internal enum StrategistGoalRank
 {
-    /// <summary>It is on what still stands between the run and Restoration.</summary>
+    /// <summary>Related by captured prerequisite leaves; alternatives and unknowns are not proof of necessity.</summary>
     Chain = 1,
 
     Other = 2,
@@ -131,7 +131,7 @@ internal readonly struct StrategistGoal
     internal PublicationTable<Guid> Opens { get; }
 }
 
-/// <summary>Finishing the world: the Restoration upgrade and what still stands before it.</summary>
+/// <summary>Restoration and the offered steps related by captured prerequisite leaves.</summary>
 internal readonly struct StrategistRestoration
 {
     internal StrategistRestoration(
@@ -152,7 +152,7 @@ internal readonly struct StrategistRestoration
     /// <summary>Restoration's own requirements.</summary>
     internal PublicationTable<Guid> Requires { get; }
 
-    /// <summary>The unmet steps behind Restoration that the game offers right now.</summary>
+    /// <summary>Offered steps related to Restoration by captured prerequisite leaves.</summary>
     internal PublicationTable<Guid> Frontier { get; }
 }
 
@@ -185,7 +185,8 @@ internal sealed class StrategistBulletin
         PublicationTable<StrategistIncome> incomes,
         StrategistRestoration restoration,
         PublicationTable<StrategistGoal> goals,
-        PublicationTable<StrategistDemand> demand)
+        PublicationTable<StrategistDemand> demand,
+        StrategistAdvice advice)
     {
         Facts = facts ?? throw new ArgumentNullException(nameof(facts));
         Window = window ?? throw new ArgumentNullException(nameof(window));
@@ -193,8 +194,10 @@ internal sealed class StrategistBulletin
         Restoration = restoration;
         Goals = goals ?? throw new ArgumentNullException(nameof(goals));
         Demand = demand ?? throw new ArgumentNullException(nameof(demand));
+        Advice = advice ?? throw new ArgumentNullException(nameof(advice));
     }
 
+    internal StrategistAdvice Advice { get; }
     internal StrategistFacts Facts { get; }
     internal StrategistWindowReading Window { get; }
     internal PublicationTable<StrategistIncome> Incomes { get; }
