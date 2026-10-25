@@ -112,6 +112,10 @@ public sealed class ServiceCycleTombstoneRetentionTests
         catch (InvalidOperationException) { releaseFailed = true; }
         if (!definition.WaitForRelease())
             throw new TimeoutException("The signal-only runner shutdown did not complete test cleanup.");
+        // Release signals from the callback's finally; exception logging and worker cleanup still
+        // run after that signal. Collection can prove retention only after the thread has exited.
+        if (!runner.WaitForWorkerExit(ServiceCycleTestDeadline.Value))
+            throw new TimeoutException("The disposed worker did not finish releasing its state.");
 
         return new TombstoneRetentionProof(
             registry,

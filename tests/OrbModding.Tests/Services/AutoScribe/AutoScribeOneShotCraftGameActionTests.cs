@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using OrbAutomata;
 using OrbModding.Common;
+using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Tests.Services.TestSupport;
 using Xunit;
@@ -249,16 +250,28 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     [Fact]
-    public void FailureAfterFinalAdmissionCommitsWhenExactWorkIsObservable()
+    public void FailureAfterFinalAdmissionCommitsWhenExactWorkIsObservableAndLogsTheOriginalCause()
     {
         var fixture = Fixture();
         fixture.Active.ThrowAfterAdd = true;
-        using var actionBoundary = GameAction();
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction();
 
-        var result = Submit(actionBoundary, fixture.Action);
+            var result = Submit(actionBoundary, fixture.Action);
 
-        Assert.True(result.Outcome.Verified, result.Outcome.Reason);
-        Assert.Single(fixture.Active.value);
+            Assert.True(result.Outcome.Verified, result.Outcome.Reason);
+            Assert.Single(fixture.Active.value);
+            Assert.False(Observe(in result).HasFailure);
+            Assert.DoesNotContain("MCP-", result.Outcome.Reason);
+            Assert.Contains("System.InvalidOperationException: injected failure after admission", Assert.Single(log));
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]
@@ -378,6 +391,109 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
 
         Assert.Throws<NullReferenceException>(() => Submit(actionBoundary, fixture.Action));
         Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+    }
+
+    [Fact]
+    public void AdapterRetriesAnUnreadableEpochWithoutRetainingHealthWhenTheNextAttemptFindsAFullQueue()
+    {
+        var fixture = Fixture();
+        fixture.Active.Maximum = 0;
+        var epochReads = 0;
+        var unreadable = true;
+        var log = new List<string>();
+        var warnings = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction(readLifecycleEpoch: () =>
+            {
+                epochReads++;
+                if (unreadable) throw new InvalidOperationException("injected lifecycle read failure");
+                return _lifecycle;
+            });
+            var health = new AutoScribeActionHealth();
+            var adapter = new AutoScribeCycleActionAdapter(actionBoundary, static () => true, health, warnings.Add);
+            var configuration = OperationalConfiguration();
+
+            var failed = adapter.TryExecute(fixture.Action, configuration, default);
+
+            Assert.Equal(ServiceActionDisposition.Faulted, failed.Disposition);
+            Assert.Equal(AutoScribeActionResultCodes.ContractUnavailable, failed.Code);
+            Assert.Equal(1, epochReads);
+            Assert.False(health.HasFailure);
+            Assert.Contains("injected lifecycle read failure", Assert.Single(log));
+            Assert.Contains("Reference ", Assert.Single(warnings));
+
+            unreadable = false;
+            var waiting = adapter.TryExecute(fixture.Action, configuration, default);
+
+            Assert.Equal(ServiceActionDisposition.Rejected, waiting.Disposition);
+            Assert.Equal(AutoScribeActionResultCodes.QueueFull, waiting.Code);
+            Assert.Equal(2, epochReads);
+            Assert.False(health.HasFailure);
+            Assert.Equal(0, health.Revision);
+            var status = AutoScribeServiceCycleDiagnosticsBridge.ProjectStatus(
+                _profile, false, true, string.Empty,
+                actionBoundary.BindingsAvailable, actionBoundary.BindingFailure,
+                health, ServiceRetryGateSnapshot.Empty, default, true,
+                AutoScribeDecisionKind.QueueBusy, -1, AutoScribeEvidenceReason.None);
+            Assert.Equal(FeatureStatusState.TemporarilyBlocked, status.State);
+            Assert.Equal(FeatureStatusReasonCode.QueueFull, status.Reason);
+            Assert.Single(log);
+            Assert.Single(warnings);
+            Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+
+            actionBoundary.Dispose();
+            var unavailable = adapter.TryExecute(fixture.Action, configuration, default);
+
+            Assert.Equal(AutoScribeActionResultCodes.ContractUnavailable, unavailable.Code);
+            Assert.True(health.HasFailure);
+            Assert.Equal(AutoScribeActionResultCodes.ContractUnavailable, health.Code);
+            Assert.Equal(2, epochReads);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
+    }
+
+    [Fact]
+    public void AdapterWarnsOnceForRepeatedEpochFailuresWhileEachAttemptKeepsItsFreshLogReference()
+    {
+        var fixture = Fixture();
+        var epochReads = 0;
+        var log = new List<string>();
+        var warnings = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        try
+        {
+            using var actionBoundary = GameAction(readLifecycleEpoch: () =>
+            {
+                epochReads++;
+                throw new InvalidOperationException("injected lifecycle read failure");
+            });
+            var health = new AutoScribeActionHealth();
+            var adapter = new AutoScribeCycleActionAdapter(actionBoundary, static () => true, health, warnings.Add);
+            var configuration = OperationalConfiguration();
+
+            var first = adapter.TryExecute(fixture.Action, configuration, default);
+            var repeated = adapter.TryExecute(fixture.Action, configuration, default);
+
+            Assert.Equal(ServiceActionDisposition.Faulted, first.Disposition);
+            Assert.Equal(first.Code, repeated.Code);
+            Assert.NotEqual(first.Reason, repeated.Reason);
+            Assert.Equal(2, log.Count);
+            Assert.Contains("injected lifecycle read failure", log[0]);
+            Assert.Contains("injected lifecycle read failure", log[1]);
+            Assert.Contains(first.Reason, Assert.Single(warnings));
+            Assert.Equal(2, epochReads);
+            Assert.False(health.HasFailure);
+            Assert.Equal(0, fixture.Recipe.PurchaseCalls);
+        }
+        finally
+        {
+            GameActionFaultLog.ConfigureLog(null);
+        }
     }
 
     [Fact]
@@ -538,15 +654,23 @@ public sealed class AutoScribeOneShotCraftGameActionTests : IDisposable
     }
 
     private AutoScribeOneShotCraftGameAction GameAction(
-        Func<TypedRegistrySourceSnapshot>? readRegistry = null)
+        Func<TypedRegistrySourceSnapshot>? readRegistry = null,
+        Func<long>? readLifecycleEpoch = null)
     {
         return new AutoScribeOneShotCraftGameAction(
             _native.Resolver(() => _lifecycle, readRegistry),
             _profile,
-            () => _lifecycleFailure is { } failure ? throw failure : _lifecycle,
+            readLifecycleEpoch ?? (() => _lifecycleFailure is { } failure ? throw failure : _lifecycle),
             () => _permit,
             static () => string.Empty);
     }
+
+    private static SuiteRuntimeConfiguration OperationalConfiguration() => new()
+    {
+        General = new SuiteGeneralConfiguration { Enabled = true },
+        AutoItems = new AutoItemsConfiguration { Mode = AutoItemsOperationMode.Active, UseScrolls = true },
+        AutoScribe = new AutoScribeConfiguration { Mode = AutoScribeOperationMode.Active },
+    };
 
     private static AutoScribeSubmission Submit(
         AutoScribeOneShotCraftGameAction boundary,

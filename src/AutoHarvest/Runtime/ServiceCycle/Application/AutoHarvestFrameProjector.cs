@@ -58,9 +58,9 @@ internal static class AutoHarvestFrameProjector
     {
         if (!selected) return AutoHarvestPairCapture.NotSelected(pair);
 
-        // No plots at all means the game's registries have not been collected yet, which is a
-        // different thing from a world that holds plots but not this one — that is an ordinary
-        // unverified identity, and the policy is what declines to act on it.
+        // No readable plots can mean collection has not run or its read failed. Wait for the next
+        // capture; the collector's category diagnostics own the cause. A populated world missing
+        // this plot instead leaves its identity unverified for the ordinary policy to decline.
         if (world.PlotNodes.Count == 0) return AutoHarvestPairCapture.Unavailable(pair);
 
         var expected = AutoHarvestPairAuthoring.For(pair);

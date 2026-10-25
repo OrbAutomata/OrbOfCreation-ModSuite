@@ -1,5 +1,6 @@
 using System;
 using OrbModding;
+using OrbModding.Common;
 
 namespace OrbAutomata;
 
@@ -14,7 +15,7 @@ internal sealed class SpellLevelServiceAdapterComposition
         IAutomataServiceDefinition<
             SpellLevelCycleState,
             SpellLevelCycleAction> definition,
-        SpellLevelNativeAdapter natives,
+        SpellLevelGameAction natives,
         SpellLevelCycleActionAdapter actions,
         SpellLevelBoundaryStatusState boundaryStatus)
     {
@@ -29,25 +30,27 @@ internal sealed class SpellLevelServiceAdapterComposition
         SpellLevelCycleAction> Definition { get; }
 
     /// <summary>
-    /// The one native adapter, shared by the action boundary and the capability probe. Sharing it is
-    /// the point: both need the same bound contracts, and a proven contract mismatch holds for both
-    /// until the lifecycle is replaced.
+    /// The registered action, shared by service submissions and the capability probe.
+    /// The lifecycle registry owns its bindings and disposal.
     /// </summary>
-    internal SpellLevelNativeAdapter Natives { get; }
+    internal SpellLevelGameAction Natives { get; }
     internal SpellLevelCycleActionAdapter Actions { get; }
     internal SpellLevelBoundaryStatusState BoundaryStatus { get; }
 
-    internal static SpellLevelServiceAdapterComposition Create(SpellLevelFeatureDependencies dependencies)
+    internal static SpellLevelServiceAdapterComposition Create(
+        SpellLevelFeatureDependencies dependencies,
+        LifecycleGameActions gameActions)
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
 
-        var natives = new SpellLevelNativeAdapter();
+        var natives = gameActions.Add("game_level_up", new SpellLevelGameAction(
+            dependencies.ReadLifecycleEpoch,
+            dependencies.OwnsActionFamily,
+            static () => "the spell-level action family is unavailable"));
         var boundaryStatus = new SpellLevelBoundaryStatusState();
         var actions = new SpellLevelCycleActionAdapter(
             natives,
-            dependencies.ReadLifecycleEpoch,
-            dependencies.OwnsActionFamily,
-            message => Plugin.Log?.LogAutomataWarning(message),
+            dependencies.Warn,
             dependencies.Capability.Observe,
             boundaryStatus.Observe);
         return new SpellLevelServiceAdapterComposition(

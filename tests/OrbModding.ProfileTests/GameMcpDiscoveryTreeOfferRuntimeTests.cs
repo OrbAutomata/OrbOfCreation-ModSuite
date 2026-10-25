@@ -240,7 +240,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         using var ownership = new AutomataActionFamilyOwnership(registry);
 
         ownership.Refresh(configuration, lifecycleReady: true);
-        Assert.False(ownership.OwnsDiscoveryTreeOffers);
+        Assert.False(ownership.OwnsFamily(AutomationActionFamily.DiscoveryTreeOfferLifecycle));
 
         Assert.True(ownership.TryBeginGameMcpOperation(
             GameMcpCommandKind.DiscoveryTreeOffer,
@@ -249,10 +249,10 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
             out var reason), reason);
         using (scope)
         {
-            Assert.True(ownership.OwnsDiscoveryTreeOffers);
+            Assert.True(ownership.OwnsFamily(AutomationActionFamily.DiscoveryTreeOfferLifecycle));
             Assert.True(ownership.Family(GameMcpCommandKind.DiscoveryTreeOffer).TryCapture());
         }
-        Assert.False(ownership.OwnsDiscoveryTreeOffers);
+        Assert.False(ownership.OwnsFamily(AutomationActionFamily.DiscoveryTreeOfferLifecycle));
         Assert.False(ownership.Family(GameMcpCommandKind.DiscoveryTreeOffer).TryCapture());
     }
 
@@ -412,7 +412,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoHarvestFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,
@@ -492,7 +492,7 @@ public sealed class GameMcpDiscoveryTreeOfferRuntimeTests
         var status = new AutomataFeatureStatusReporter(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoHarvestFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,

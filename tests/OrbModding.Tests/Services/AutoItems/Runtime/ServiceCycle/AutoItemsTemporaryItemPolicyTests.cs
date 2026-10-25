@@ -121,6 +121,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         var relic = Consumable(relicId, hasDuration: false, duration: 0);
         var world = new GameWorldState
         {
+            CollectionCategories = CleanConsumables(),
             Consumables = WorldTable.Create(temporary, relic),
             ConsumableTypes = PublicationTable<WorldConsumableType>.Create(
                 new[]
@@ -169,6 +170,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         var itemId = Guid.Parse("a1799c52-f9ff-4556-b052-f577ac3e7270");
         var world = new GameWorldState
         {
+            CollectionCategories = CleanConsumables(),
             Consumables = WorldTable.Create(
                 Consumable(itemId, hasDuration: false, duration: 8)),
             ConsumableTypes = PublicationTable<WorldConsumableType>.Create(
@@ -424,10 +426,11 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
 
         Assert.Equal(3, fruit.SelectAndFireTimestamps.Count);
         Assert.Contains(itemId.ToString("D"), warnings[0]);
-        Assert.Contains("backs off", warnings[0]);
-        Assert.Contains("stops backing off", warnings[1]);
-        Assert.EndsWith("after 2 failed attempts in a row.", warnings[1]);
-        AssertWarningCount(2, warnings);
+        Assert.Contains("failed to use", warnings[0]);
+        Assert.Contains("backs off", warnings[1]);
+        Assert.Contains("stops backing off", warnings[2]);
+        Assert.EndsWith("after 2 failed attempts in a row.", warnings[2]);
+        AssertWarningCount(3, warnings);
         Assert.Equal(FeatureStatusState.Degraded, backingOffStatus.State);
         Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, backingOffStatus.Reason.Code);
         Assert.Contains(itemId.ToString("D"), backingOffStatus.Reason.Summary);
@@ -463,11 +466,12 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
                 warnings.Exists(line => line.Contains("stops backing off")));
 
         Assert.Single(fruit.SelectAndFireTimestamps);
-        AssertWarningCount(2, warnings);
-        Assert.Contains("backs off", warnings[0]);
-        Assert.Contains("stops backing off", warnings[1]);
-        Assert.Contains(itemId.ToString("D"), warnings[1]);
-        Assert.EndsWith("after 1 failed attempt.", warnings[1]);
+        AssertWarningCount(3, warnings);
+        Assert.Contains("failed to use", warnings[0]);
+        Assert.Contains("backs off", warnings[1]);
+        Assert.Contains("stops backing off", warnings[2]);
+        Assert.Contains(itemId.ToString("D"), warnings[2]);
+        Assert.EndsWith("after 1 failed attempt.", warnings[2]);
     }
 
     [Fact]
@@ -496,6 +500,124 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         Assert.Equal(itemId, state.PendingTemporaryItem);
         Assert.Equal(41, state.TemporarySubmittedFromFrame);
     }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public void FailedCapturePreservesCommittedTemporaryTrackingUntilTheSameUsageReadsClean(
+        int failedReading,
+        bool playerPaused)
+    {
+        var registry = new Dictionary<Guid, object>();
+        var item = ConsumableTestItems.Create(registry, AutoItemsConsumableFamily.Thread);
+        var itemId = item.GetGuid();
+        var configuration = Configuration(itemId.ToString("D"));
+        var state = AutoItemsCycleState.Create(Identity().Lifecycle);
+        state.ObserveConfiguration(Identity().Config, configuration.AutoItems);
+        var world = TemporaryWorld(itemId);
+        var action = Assert.Single(EvaluateWithoutRetry(world, configuration, ref state, default));
+        using var gameActions = new LifecycleGameActions();
+        var adapters = AutoItemsServiceAdapterComposition.Create(new AutoItemsFeatureDependencies(
+            TestRegistryResolver.For(static () => 1, (IDictionary)registry),
+            static () => 1, static () => true, static () => true, static () => string.Empty,
+            FeatureStatus(), static _ => { }), gameActions);
+
+        var committed = adapters.GameAction.Submit(in action);
+        Assert.True(committed.Verified, committed.Reason);
+        var nativeUsage = Assert.Single(item.consumableUsages);
+        var usage = new WorldConsumableUsage(itemId, nativeUsage.GetGuid(), 1,
+            engaged: false, new BigDouble(60), new BigDouble(60));
+        var clean = TemporaryWorld(itemId, quantity: 0) with
+        {
+            CollectedAtFrame = 11,
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(
+                playerPaused ? new[] { usage, Usage(itemId, engaged: false, remaining: 60) } : new[] { usage }),
+        };
+        var receipt = BatchReceipt.Completed(Identity(), new BatchId(1), actionCount: 1,
+            committed.CallOutcome, new MonotonicTimestamp(2));
+        if (playerPaused)
+        {
+            Assert.Empty(EvaluateWithoutRetry(clean, configuration, ref state, receipt));
+            Assert.Equal(itemId, state.PausedTemporaryItem);
+            receipt = default;
+        }
+        var failed = clean with
+        {
+            CollectedAtFrame = 12,
+            Consumables = PublicationTable<WorldConsumable>.Empty,
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Empty,
+            CollectionCategories = FailedConsumables(failedReading),
+        };
+
+        Assert.Empty(EvaluateWithoutRetry(failed, configuration, ref state, receipt));
+        Assert.Equal(itemId, playerPaused ? state.PausedTemporaryItem : state.PendingTemporaryItem);
+        Assert.False(state.HasPendingReceipt);
+        Assert.Empty(EvaluateWithoutRetry(clean with { CollectedAtFrame = 13 }, configuration, ref state, default));
+        Assert.Equal(itemId, playerPaused ? state.PausedTemporaryItem : state.PendingTemporaryItem);
+        Assert.Single(item.SelectAndFireTimestamps);
+        if (!playerPaused)
+        {
+            var active = clean with
+            {
+                CollectedAtFrame = 14,
+                ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(new[]
+                {
+                    new WorldConsumableUsage(itemId, nativeUsage.GetGuid(), 1,
+                        engaged: true, new BigDouble(30), new BigDouble(60)),
+                }),
+            };
+            Assert.Empty(EvaluateWithoutRetry(active, configuration, ref state, default));
+            Assert.True(state.TemporaryActivationSeen);
+        }
+        // Only a later clean reading may end the effect or resume the player's paused item.
+        Assert.Empty(EvaluateWithoutRetry(clean with
+        {
+            CollectedAtFrame = 15,
+            ConsumableUsages = PublicationTable<WorldConsumableUsage>.Empty,
+        }, configuration, ref state, default));
+        Assert.Equal(Guid.Empty, state.PendingTemporaryItem);
+        Assert.Equal(Guid.Empty, state.PausedTemporaryItem);
+    }
+
+    private static IReadOnlyList<AutoItemsCycleAction> EvaluateWithoutRetry(
+        GameWorldState world,
+        SuiteRuntimeConfiguration configuration,
+        ref AutoItemsCycleState state,
+        BatchReceipt receipt)
+    {
+        var store = new ReusableActionStore<AutoItemsCycleAction>();
+        store.BeginWrite();
+        var reports = new ServiceRetryReportBuffer(AutoItemsServicePolicies.FaultRecoveryPolicy);
+        var writer = new ServiceActionWriter<AutoItemsCycleAction>(store, reports);
+        var context = new ServiceCycleContext(Identity(), receipt, new MonotonicTimestamp(3));
+        var wake = AutoItemsCycleEvaluator.Evaluate(world, in configuration, in context,
+            ref state, writer, out _);
+        Assert.Equal(WakePolicy.OnPublication, wake);
+        Assert.Null(reports.ToArrayOrNull());
+        var actions = new List<AutoItemsCycleAction>();
+        while (!store.IsComplete)
+        {
+            actions.Add(store.GetCurrent());
+            store.CommitCurrentAndClear();
+        }
+        return actions;
+    }
+
+    private static PublicationTable<WorldCollectionCategoryStatus> FailedConsumables(int reading) =>
+        reading == 0 ? PublicationTable<WorldCollectionCategoryStatus>.Empty :
+            PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+            {
+                new WorldCollectionCategoryStatus("consumables",
+                    reading == 1 ? WorldCategoryOutcome.Unavailable : WorldCategoryOutcome.Collected,
+                    0, reading == 2 ? 1 : 0,
+                    new WorldCollectionFailure("injected capture failure", hasReadFault: reading == 3)),
+            });
 
     private static IReadOnlyList<AutoItemsCycleAction> Plan(
         GameWorldState world,
@@ -556,6 +678,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         params WorldConsumableUsage[] usages) =>
         new()
         {
+            CollectionCategories = CleanConsumables(),
             Consumables = WorldTable.Create(
                 Consumable(itemId, hasDuration: true, duration: 60)),
             ConsumableUsages = PublicationTable<WorldConsumableUsage>.Create(usages),
@@ -604,6 +727,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
             types[index] = new WorldConsumableType(itemId, selectedFamilies[index]);
         return new GameWorldState
         {
+            CollectionCategories = CleanConsumables(),
             Consumables = WorldTable.Create(
                 Consumable(
                     itemId,
@@ -786,7 +910,7 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
         new(
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoItemsFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoItemsFeatureContribution.FeatureId),
                 "Auto Items",
                 true,
                 FeatureStatusState.NotReady,
@@ -813,6 +937,12 @@ public sealed class AutoItemsTemporaryItemPolicyTests : IDisposable
             return _feature.Register(in context);
         }
     }
+
+    private static PublicationTable<WorldCollectionCategoryStatus> CleanConsumables() =>
+        PublicationTable<WorldCollectionCategoryStatus>.Create(new[]
+        {
+            new WorldCollectionCategoryStatus("consumables", WorldCategoryOutcome.Collected, 1, 0, default),
+        });
 
     private static SuiteRuntimeConfiguration Configuration(
         string allowlist,

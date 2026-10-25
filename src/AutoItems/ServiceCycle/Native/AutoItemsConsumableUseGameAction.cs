@@ -7,37 +7,32 @@ namespace OrbAutomata;
 /// The single consumable-use GameAction: lifecycle-scoped complete bindings, live preflights,
 /// one native transaction, and one native preparation-queue sentinel.
 /// </summary>
-internal sealed class AutoItemsConsumableUseGameAction : IDisposable
+internal sealed class AutoItemsConsumableUseGameAction : ConsumableUseGameAction<AutoItemsNativeBindings>
 {
+    private static readonly GameActionCodes Codes = new(
+        AutoItemsActionResultCodes.WrongThread,
+        AutoItemsActionResultCodes.ContractUnavailable,
+        AutoItemsActionResultCodes.MutationPermitUnavailable,
+        AutoItemsActionResultCodes.UseNotVerified,
+        AutoItemsActionResultCodes.UseNotVerified);
+
     private readonly TypedRegistryResolver _registryResolver;
-    private readonly Func<bool> _tryCaptureMutationPermit;
-    private readonly Func<string> _readMutationPermitFailure;
-    private AutoItemsNativeBindings? _bindings;
-    private string _bindingFailure = string.Empty;
 
     internal AutoItemsConsumableUseGameAction(
         TypedRegistryResolver registryResolver,
+        Func<long> readLifecycleEpoch,
         Func<bool> tryCaptureMutationPermit,
         Func<string> readMutationPermitFailure)
+        : base("Auto Items", Codes, readLifecycleEpoch, tryCaptureMutationPermit,
+            readMutationPermitFailure, AutoItemsNativeBindings.TryCreate)
     {
         _registryResolver = registryResolver ??
             throw new ArgumentNullException(nameof(registryResolver));
-        _tryCaptureMutationPermit = tryCaptureMutationPermit ??
-            throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
-        _readMutationPermitFailure = readMutationPermitFailure ??
-            throw new ArgumentNullException(nameof(readMutationPermitFailure));
-        BindLifecycle();
     }
-
-    internal bool BindingsAvailable => _bindings is not null;
-    internal string BindingFailure => _bindingFailure;
 
     internal NativeActionOutcome Submit(in AutoItemsCycleAction action)
     {
-        if (_bindings is not { } native)
-            return NativeActionOutcome.FaultBeforeCall(
-                AutoItemsActionResultCodes.ContractUnavailable,
-                GameActionAnswer.NotAttached("Inventory", _bindingFailure));
+        if (!TryEnter(action.CollectedAtEpoch, out var native, out var refusal)) return refusal;
         if (native.IsTargeting())
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.TargetingInProgress,
@@ -98,7 +93,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                     AutoItemsActionResultCodes.TemporaryEffectPresent,
                     reason);
         }
-        if (!native.CanUseConsumable())
+        if (!native.CanUse())
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.NativeBusy,
                 "Inventory.CanUseConsumable() refused because native consumable preparation is busy.");
@@ -106,106 +101,10 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
             return NativeActionOutcome.Reject(
                 AutoItemsActionResultCodes.CanFireRefused,
                 $"The game refuses to use {EntityIdentityFormatter.PlayerName(action.ItemId)} right now.");
-        if (!TryCaptureMutationPermit(out var permitRefusal))
-            return NativeActionOutcome.Reject(
-                AutoItemsActionResultCodes.MutationPermitUnavailable,
-                permitRefusal);
-        if (!NativeMultiBuyScope.TryEnterOne(out var multiBuy, out reason))
-            return NativeActionOutcome.FaultBeforeCall(
-                AutoItemsActionResultCodes.MultiBuyUnavailable,
-                reason);
-
-        var family = action.Family;
-        NativeMutationEvidence<int> evidence;
-        using (multiBuy)
-        {
-            evidence = NativeMutationVerifier.Execute(
-                "Auto Items consumable use",
-                EntityIdentityFormatter.PlayerName(action.ItemId),
-                "the exact item enters the native preparation queue",
-                () => native.GetQueued(item),
-                () => Mutate(item, family, native),
-                (before, after) => after == before + 1);
-        }
-
-        var callOutcome = new NativeMutationCallOutcome(
-            evidence.MutationWasAttempted
-                ? action.Family == AutoItemsConsumableFamily.Scroll ? 2 : 1
-                : 0,
-            evidence.MutationWasAttempted ? 1 : 0,
-            evidence.IsVerified ? 1 : 0);
-        if (evidence.IsVerified)
-            return NativeActionOutcome.Commit(
-                callOutcome,
-                $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} entered native preparation.");
-        if (evidence.MutationWasAttempted)
-            return NativeActionOutcome.Fault(
-                AutoItemsActionResultCodes.UseNotVerified,
-                evidence.Outcome,
-                callOutcome,
-                GameActionFaultLog.Reason(
-                    $"{action.Family} {EntityIdentityFormatter.PlayerName(action.ItemId)} " +
-                    (!evidence.HasAfter
-                        ? "was sent to native preparation, and its queue could not be read afterwards."
-                        : evidence.Exception is null
-                            ? "did not enter native preparation."
-                            : "did not enter native preparation after the game threw."),
-                    evidence.Exception,
-                    "Auto Items"));
-        return NativeActionOutcome.FaultBeforeCall(
-            AutoItemsActionResultCodes.ContractUnavailable,
-            GameActionFaultLog.Reason(
-                "Auto Items could not read the consumable preparation queue for " +
-                $"{EntityIdentityFormatter.PlayerName(action.ItemId)}.",
-                evidence.Exception,
-                "Auto Items"));
-    }
-
-    internal void InvalidateLifecycle()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-        BindLifecycle();
-    }
-
-    public void Dispose()
-    {
-        _bindings = null;
-        _bindingFailure = string.Empty;
-    }
-
-    private void BindLifecycle()
-    {
-        if (AutoItemsNativeBindings.TryCreate(out var bindings, out var reason))
-        {
-            _bindings = bindings;
-            _bindingFailure = string.Empty;
-            return;
-        }
-        _bindings = null;
-        _bindingFailure = reason;
-    }
-
-    private bool TryCaptureMutationPermit(out GameActionReason reason)
-    {
-        try
-        {
-            if (_tryCaptureMutationPermit())
-            {
-                reason = string.Empty;
-                return true;
-            }
-            var failure = _readMutationPermitFailure();
-            reason = string.IsNullOrWhiteSpace(failure)
-                ? "Auto Items no longer owns ConsumableUse and NativeMultiBuyOverride."
-                : failure;
-            return false;
-        }
-        catch (Exception ex) when (NativeFailureClassifier.IsExpected(ex))
-        {
-            reason = GameActionAnswer.CouldNotRead("Inventory", ex);
-            return false;
-        }
+        return UseConsumable(action.ItemId, item, native,
+            AutoItemsActionResultCodes.MultiBuyUnavailable,
+            randomize: action.Family == AutoItemsConsumableFamily.Scroll,
+            multiBuyFailureIsFault: true);
     }
 
     private static bool HasExpectedFamily(
@@ -387,7 +286,7 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
                 return false;
             }
             if (!AutoItemsConsumableFamilies.IsTemporary(family)) continue;
-            if (native.Usages(candidate) is not { } usages)
+            if (native.GetUsages(candidate) is not { } usages)
             {
                 reason =
                     $"Temporary-family consumable family={family}, " +
@@ -452,20 +351,5 @@ internal sealed class AutoItemsConsumableUseGameAction : IDisposable
         }
         reason = string.Empty;
         return true;
-    }
-
-    private static void Mutate(
-        object item,
-        AutoItemsConsumableFamily family,
-        AutoItemsNativeBindings native)
-    {
-        if (family == AutoItemsConsumableFamily.Scroll)
-        {
-            native.SetRandomization(item, true);
-            if (!native.IsRandomized(item))
-                throw new InvalidOperationException(
-                    "ConsumableSO.SetRandomization(true) was not confirmed by IsRandomized().");
-        }
-        native.SelectAndFire(item);
     }
 }

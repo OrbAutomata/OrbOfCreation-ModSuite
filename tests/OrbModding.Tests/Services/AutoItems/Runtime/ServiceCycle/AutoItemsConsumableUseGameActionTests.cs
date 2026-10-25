@@ -306,7 +306,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var result = gameAction.Submit(in action);
 
         Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, result.Code);
-        Assert.Contains("its queue could not be read afterwards", result.Reason);
+        Assert.Contains(GameActionAnswer.GameErrored("Inventory").Sentence, result.Reason);
         Assert.DoesNotContain("did not enter native preparation", result.Reason);
         Assert.DoesNotContain("injected queue outage", result.Reason);
     }
@@ -327,7 +327,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
 
         Assert.Equal(AutoItemsActionResultCodes.UseNotVerified, result.Code);
         Assert.Equal(NativeMutationOutcome.PostconditionFailed, result.Mutation);
-        Assert.Contains("did not enter native preparation", result.Reason);
+        Assert.Contains(GameActionAnswer.ChangeNotSeen("Inventory"), result.Reason);
         Assert.Contains(scroll.GetGuid().ToString("D"), result.Reason);
         Assert.Equal(new NativeMutationCallOutcome(2, 1, 0), result.CallOutcome);
     }
@@ -451,6 +451,7 @@ public sealed class AutoItemsConsumableUseGameActionTests : IDisposable
         var resolver = TestRegistryResolver.For(static () => 1, dictionary);
         return new AutoItemsConsumableUseGameAction(
             resolver,
+            static () => 1,
             permit ?? (static () => true),
             failure ?? (static () => string.Empty));
     }

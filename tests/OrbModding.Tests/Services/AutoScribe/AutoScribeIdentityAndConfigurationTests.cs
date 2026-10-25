@@ -110,9 +110,9 @@ public sealed class AutoScribeIdentityAndConfigurationTests
         config.AutoScribeRoles.Value = serialized;
         using var statuses = new AutomataFeatureStatuses(config.Current, 7, new FeatureStatusRegistry());
 
-        Assert.Equal(FeatureStatusState.TemporarilyBlocked, statuses.AutoScribe.Current.State);
-        Assert.Equal(FeatureStatusReasonCode.ConfigurationDisabled, statuses.AutoScribe.Current.Reason.Code);
-        Assert.Contains("'" + named + "'", statuses.AutoScribe.Current.Reason.Summary, StringComparison.Ordinal);
+        Assert.Equal(FeatureStatusState.TemporarilyBlocked, statuses.Get(AutoScribeFeatureContribution.FeatureId).Current.State);
+        Assert.Equal(FeatureStatusReasonCode.ConfigurationDisabled, statuses.Get(AutoScribeFeatureContribution.FeatureId).Current.Reason.Code);
+        Assert.Contains("'" + named + "'", statuses.Get(AutoScribeFeatureContribution.FeatureId).Current.Reason.Summary, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -40,10 +40,9 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
     private readonly IAutoBuyNativePurchasePort _purchases;
     private readonly IAutoBuyQueueRoomPort _queueRoom;
     private readonly Func<long> _readLifecycleEpoch;
-    private readonly AutomationCycleGuard<AutoBuyCycleAction> _guard = new(
-        "Auto Buy",
-        static action => $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}",
-        static message => Plugin.Log?.LogAutomataWarning(message));
+    private readonly AutomationCycleGuard<AutoBuyCycleAction> _guard;
+    private readonly Action<string> _info;
+    private readonly Action<string> _warn;
     private readonly Func<AutoBuyCandidateKinds> _ownershipMask;
     private readonly IAutoBuyRefusalResponsePort _refusals;
     private readonly Dictionary<Guid, BigDouble> _batchSpendVariance = new();
@@ -77,13 +76,20 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 #if SERVICE_CYCLE_PROFILE
         , Func<AutoBuyCandidateKind, bool>? gameMcpOwnership = null
 #endif
-        )
+        , Action<string>? info = null,
+        Action<string>? warn = null)
     {
         _purchases = purchases ?? throw new ArgumentNullException(nameof(purchases));
         _queueRoom = queueRoom ?? throw new ArgumentNullException(nameof(queueRoom));
         _readLifecycleEpoch = readLifecycleEpoch ?? throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _ownershipMask = ownershipMask ?? throw new ArgumentNullException(nameof(ownershipMask));
         _refusals = refusals ?? throw new ArgumentNullException(nameof(refusals));
+        _info = info ?? (static _ => { });
+        _warn = warn ?? (static _ => { });
+        _guard = new AutomationCycleGuard<AutoBuyCycleAction>(
+            "Auto Buy",
+            static action => $"Auto Buy failed to purchase {action.Kind} {EntityIdentityFormatter.Format(action.Uuid)}",
+            _warn);
 #if SERVICE_CYCLE_PROFILE
         _profileOperations = profileOperations ??
             throw new ArgumentNullException(nameof(profileOperations));
@@ -110,7 +116,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
         var epoch = topology.CapturedEpoch;
         if (epoch <= 0 || epoch == _announcedTopologyEpoch) return;
         _announcedTopologyEpoch = epoch;
-        Plugin.Log?.LogAutomataInfo(
+        _info(
             AutoBuyPurchaseNarration.TopologyPublished(epoch, topology.CapturedCount));
     }
 
@@ -128,7 +134,7 @@ internal sealed class AutoBuyCycleActionAdapter : IAutoBuyCycleActionPort
 
         if (silence is null || _silencedTopologyEpoch == lifecycleEpoch) return;
         _silencedTopologyEpoch = lifecycleEpoch;
-        Plugin.Log?.LogAutomataWarning(silence);
+        _warn(silence);
     }
 #endif
 

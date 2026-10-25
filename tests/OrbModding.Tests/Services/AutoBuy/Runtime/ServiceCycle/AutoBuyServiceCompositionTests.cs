@@ -29,6 +29,37 @@ namespace OrbModding.Tests.Services.AutoBuy.Runtime.ServiceCycle;
 public sealed class AutoBuyServiceCompositionTests
 {
     [Fact]
+    public void CompositionForwardsNativeWarningsAndKeepsRepeatSuppression()
+    {
+        var warnings = new System.Collections.Generic.List<string>();
+        using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(),
+            new FeatureStatusSnapshot(
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoBuyFeatureContribution.FeatureId),
+                "Auto Buy", true, FeatureStatusState.NotReady,
+                new FeatureStatusReason(FeatureStatusReasonCode.GameplayNotReady, "waiting"), 7));
+        var dependencies = new AutoBuyFeatureDependencies(
+            static () => throw new InvalidOperationException("buy epoch unavailable"),
+            static () => AutoBuyCandidateKinds.All,
+            null, status,
+            new AutoBuyRefusalBundleWriter(static () => throw new InvalidOperationException("unused")),
+            static _ => { }, warnings.Add);
+        var adapters = AutoBuyServiceAdapterComposition.Create(dependencies
+#if SERVICE_CYCLE_PROFILE
+            , new OrbModding.Common.Runtime.ServiceCycle.Observation.Profile.ServiceCycleProfileProbe()
+#endif
+            );
+        var action = new AutoBuyCycleAction(
+            AutoBuyCandidateKind.Structure, Guid.NewGuid(), 7, 1, default);
+
+        var first = adapters.Definition.TryExecute(action, Configuration(), default);
+        var second = adapters.Definition.TryExecute(action, Configuration(), default);
+
+        Assert.Equal(CommonActionResultCodes.AdapterFault, first.Code);
+        Assert.Equal(ServiceActionDisposition.Faulted, second.Disposition);
+        Assert.Contains("buy epoch unavailable", Assert.Single(warnings));
+    }
+
+    [Fact]
     public void DefinitionAttributesTheExactCandidateTypeListAndView()
     {
         var candidate = Guid.NewGuid();

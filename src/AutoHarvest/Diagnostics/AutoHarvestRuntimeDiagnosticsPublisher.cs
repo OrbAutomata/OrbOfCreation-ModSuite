@@ -80,7 +80,7 @@ internal sealed class AutoHarvestRuntimeDiagnosticsPublisher : IDisposable
         }
 
         return new RuntimeServiceDiagnosticsSnapshot(
-            new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoHarvestFeatureId),
+            new FeatureStatusKey(PluginIds.SuiteGuid, AutoHarvestFeatureContribution.FeatureId),
             "Auto Harvest",
             _implementationName,
             _lifecycleGeneration,

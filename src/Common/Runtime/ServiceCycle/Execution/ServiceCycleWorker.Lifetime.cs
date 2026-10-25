@@ -51,8 +51,9 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
             {
                 _exitObserver?.OnWorkerExitPrepared();
             }
-            catch
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
             {
+                GameActionFaultLog.Record(exception, _serviceId.Value + " worker exit observer");
             }
         }
     }

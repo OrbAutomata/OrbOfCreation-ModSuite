@@ -68,7 +68,7 @@ public sealed class AutoHarvestServiceCyclePerformanceTests
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(
                     PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,

@@ -143,6 +143,47 @@ public sealed class NativeMutationVerifierTests : IDisposable
         throw new NullReferenceException("Object reference not set to an instance of an object");
 
     [Fact]
+    public void ACallerCanClassifyANonfatalPostPaymentFailureFromItsEvidence()
+    {
+        var failure = new NullReferenceException("native construction failed after payment");
+        var captures = 0;
+
+        var evidence = NativeMutationVerifier.ExecuteAfterCapture(
+            "test craft",
+            "paid-recipe",
+            "work entered the queue",
+            0,
+            () => ++captures,
+            () => throw failure,
+            (before, after) => after == before + 2,
+            rethrowUnexpected: false);
+
+        Assert.Equal(NativeMutationOutcome.ExecutionThrew, evidence.Outcome);
+        Assert.True(evidence.MutationWasAttempted);
+        Assert.True(evidence.HasAfter);
+        Assert.Same(failure, evidence.Exception);
+        Assert.Equal(1, captures);
+    }
+
+    [Fact]
+    public void CallerClassificationStillLetsProcessFatalExceptionsEscape()
+    {
+        var afterRead = false;
+
+        Assert.Throws<OutOfMemoryException>(() => NativeMutationVerifier.ExecuteAfterCapture(
+            "test craft",
+            "paid-recipe",
+            "work entered the queue",
+            0,
+            () => { afterRead = true; return 0; },
+            () => throw new OutOfMemoryException("synthetic failure"),
+            (before, after) => false,
+            rethrowUnexpected: false));
+
+        Assert.False(afterRead);
+    }
+
+    [Fact]
     public void AcceptsOnlyTheExpectedChange()
     {
         var state = 10;

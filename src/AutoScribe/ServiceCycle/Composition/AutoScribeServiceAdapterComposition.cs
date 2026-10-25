@@ -24,13 +24,14 @@ internal sealed class AutoScribeServiceAdapterComposition
         LifecycleGameActions gameActions)
     {
         if (dependencies is null) throw new ArgumentNullException(nameof(dependencies));
+        if (gameActions is null) throw new ArgumentNullException(nameof(gameActions));
         var health = new AutoScribeActionHealth();
-        var gameAction = new AutoScribeOneShotCraftGameAction(
+        var gameAction = gameActions.Add("game_craft", new AutoScribeOneShotCraftGameAction(
             dependencies.RegistryResolver,
             dependencies.Profile,
             dependencies.ReadLifecycleEpoch,
             dependencies.TryCaptureMutationPermit,
-            dependencies.ReadOwnershipFailure);
+            dependencies.ReadOwnershipFailure));
 #if SERVICE_CYCLE_PROFILE
         gameActions.Add("game_craft", new AutoScribeOneShotCraftPlayerGameAction(
             dependencies.RegistryResolver,
@@ -40,9 +41,9 @@ internal sealed class AutoScribeServiceAdapterComposition
 #endif
         var actionPort = new AutoScribeCycleActionAdapter(
             gameAction,
-            dependencies.ReadLifecycleEpoch,
             dependencies.OwnsActionFamily,
-            health);
+            health,
+            dependencies.Warn);
         return new AutoScribeServiceAdapterComposition(
             AutoScribeService.Define(
                 dependencies.Profile,

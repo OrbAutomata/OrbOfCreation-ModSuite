@@ -12,6 +12,7 @@ namespace OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
 internal sealed class ExecutionWorkerControl
 {
     private int _stateFactoryFailures;
+    private int _stateReleaseFailures;
     private int _evaluationFaults;
     private int _projectionFaults;
     private int _stateCreateCount;
@@ -58,6 +59,7 @@ internal sealed class ExecutionWorkerControl
 
     internal void FailNextEvaluations(int count) => Volatile.Write(ref _evaluationFaults, count);
     internal void FailNextProjections(int count) => Volatile.Write(ref _projectionFaults, count);
+    internal void FailNextStateReleases(int count) => Volatile.Write(ref _stateReleaseFailures, count);
     internal void FailNextStateFactories(int count) => Volatile.Write(ref _stateFactoryFailures, count);
 
     internal ExecutionState CreateState()
@@ -70,6 +72,7 @@ internal sealed class ExecutionWorkerControl
     internal void ReleaseState(ref ExecutionState state)
     {
         Interlocked.Increment(ref _stateReleaseCount);
+        if (ConsumeOne(ref _stateReleaseFailures)) throw new InvalidOperationException("synthetic state release fault");
         state = null!;
     }
 

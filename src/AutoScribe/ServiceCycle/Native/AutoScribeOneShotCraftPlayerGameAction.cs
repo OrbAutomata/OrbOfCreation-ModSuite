@@ -46,7 +46,7 @@ internal sealed class AutoScribeOneShotCraftPlayerGameAction
                         out var recipe, out var reason))
                     return CraftingPlayerSubmission.Reject(in request,
                         CraftingPlayerActionResultCodes.RecipeUnavailable, reason);
-                if (!native.RecipeVisible(recipe))
+                if (!native.Crafting.RecipeVisible(recipe))
                     return CraftingPlayerSubmission.Reject(in request,
                         CraftingPlayerActionResultCodes.NotVisible,
                         "The game is not showing this recipe yet.");
@@ -98,7 +98,7 @@ internal sealed class AutoScribeOneShotCraftPlayerGameAction
     {
         var queue = native.PageQueue(page);
         var mainType = native.PageMainType(page);
-        if (!ReferenceEquals(mainType, native.RecipeMainType(recipe)))
+        if (!ReferenceEquals(mainType, native.Crafting.RecipeMainType(recipe)))
             return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.PageRelationAmbiguous,
                 "This recipe is not the one the game draws on this page.");
@@ -122,20 +122,20 @@ internal sealed class AutoScribeOneShotCraftPlayerGameAction
                 "The cost of another of this craft is not met.");
         var crafted = levelled ? BigDouble.One : purchase;
         var requestedTotal = previous + (purchase < BigDouble.One ? BigDouble.One : purchase);
-        if (!native.RecipeCanBuyAt(recipe, requestedTotal) ||
-            !native.CostHasEnough(native.RecipeTotalCost(recipe, previous, purchase)))
+        if (!native.Crafting.RecipeCanBuyAt(recipe, requestedTotal) ||
+            !native.Crafting.CostHasEnough(native.Crafting.RecipeTotalCost(recipe, previous, purchase)))
             return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.Unaffordable,
                 "The cost of another of this craft is not met.");
 
         var existing = mode == 0 ? FindInstance(native, queue, action.RecipeId) : null;
-        if (existing is null && !native.QueueHasRoom(queue))
+        if (existing is null && !native.Crafting.QueueHasRoom(queue))
             return CraftingPlayerSubmission.Reject(in action,
                 CraftingPlayerActionResultCodes.QueueFull,
                 "The Manual crafting queue has no empty slot.");
         var previousInstanceQuantity = existing is null
             ? BigDouble.Zero
-            : native.InstanceQuantity(existing);
+            : native.Crafting.InstanceQuantity(existing);
         if (!TryPermit(out var refusal)) return new CraftingPlayerSubmission(refusal, action.RecipeId);
 
         object? created = null;
@@ -143,27 +143,25 @@ internal sealed class AutoScribeOneShotCraftPlayerGameAction
         var outcome = Execute(EntityIdentityFormatter.PlayerName(action.RecipeId),
             "The exact craft reached the Manual crafting queue.", false,
             () => existing is not null
-                ? native.InstanceQuantity(existing) > previousInstanceQuantity
-                : created is not null && (instant
-                    ? native.InstanceExpired(created)
-                    : ContainsExactInstance(native, queue, created)),
+                ? native.Crafting.InstanceQuantity(existing) > previousInstanceQuantity
+                : native.Crafting.WorkObserved(queue, created, instant),
             () =>
             {
-                native.RecipePurchase(recipe, purchase, previous);
+                native.Crafting.RecipePurchase(recipe, purchase, previous);
                 if (existing is not null)
                 {
                     native.InstanceAddQuantity(existing, purchase);
                     return;
                 }
-                created = native.ConstructInstance(recipe, purchase);
-                instant = native.InstanceIsInstant(created);
+                created = native.Crafting.ConstructInstance(recipe, purchase);
+                instant = native.Crafting.InstanceInstantCheck(created);
                 if (instant)
                 {
-                    native.InstanceInstant(created);
+                    native.Crafting.InstanceInstant(created);
                     return;
                 }
-                native.InstanceInitiate(created);
-                native.QueueAdd(queue, created);
+                native.Crafting.InstanceInitiate(created);
+                native.Crafting.QueueAdd(queue, created);
             },
             static (_, landed) => landed);
         return Answer(in action, outcome,
@@ -245,26 +243,14 @@ internal sealed class AutoScribeOneShotCraftPlayerGameAction
         object queue,
         Guid recipeId)
     {
-        var values = native.QueueValues(queue);
+        var values = native.Crafting.QueueValues(queue);
         for (var index = 0; index < values.Count; index++)
         {
             var candidate = values[index];
             if (candidate is not null && candidate.GetType() == native.InstanceType &&
-                native.InstanceRecipe(candidate) == recipeId)
+                native.Crafting.InstanceRecipe(candidate) == recipeId)
                 return candidate;
         }
         return null;
-    }
-
-    private static bool ContainsExactInstance(
-        CraftingPlayerNativeBindings native,
-        object queue,
-        object instance)
-    {
-        var values = native.QueueValues(queue);
-        for (var index = 0; index < values.Count; index++)
-            if (ReferenceEquals(values[index], instance))
-                return true;
-        return false;
     }
 }

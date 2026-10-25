@@ -100,7 +100,7 @@ public sealed class GameMcpReturnToMenuTests
             new FeatureStatusRegistry(),
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    AutoHarvestFeatureContribution.FeatureId),
                 "Auto Harvest",
                 true,
                 FeatureStatusState.NotReady,

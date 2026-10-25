@@ -23,6 +23,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
     private readonly ServiceStateProjectionWriteBuffer _projectionScratch;
     private readonly ServiceRetryReportBuffer _retryReports;
     private readonly ServiceFaultTracker _faults;
+    private readonly ServiceId _serviceId;
     private readonly IMonotonicClock _clock;
     private readonly WakePolicy _defaultWakePolicy;
     private readonly Thread _thread;
@@ -33,7 +34,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
     private readonly ServiceResourceClaim _workerDefinitionClaim;
     private readonly IServiceCycleWorkerExitObserver? _exitObserver;
     private ServiceCycleWorkerState<TState> _workerState;
-    private ServiceFaultCategory? _pendingRecoveryFaultCategory;
+    private (ServiceFaultCategory Category, string Reason)? _pendingRecoveryFault;
     private ulong _nextPublication;
     private int _managedThreadId;
     private long _lastCycleAllocatedBytes;
@@ -59,6 +60,7 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
         _handoff = handoff ?? throw new ArgumentNullException(nameof(handoff));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _defaultWakePolicy = defaultWakePolicy;
+        _serviceId = serviceId;
         _lifecycle = lifecycle;
         _resourceClaims = resourceClaims ?? throw new ArgumentNullException(nameof(resourceClaims));
         _workerDefinitionClaim = workerDefinitionClaim ??
@@ -74,7 +76,8 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
         _workerState = new ServiceCycleWorkerState<TState>(
             _definition,
             _resourceClaims,
-            _clock);
+            _clock,
+            serviceId.Value);
         _thread = new Thread(Run)
         {
             IsBackground = true,

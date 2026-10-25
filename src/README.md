@@ -92,7 +92,7 @@ Migration code must use explicit known-key maps and closed safe failure codes. I
 
 `OrbModding.Common.Runtime` holds monotonic time, catalogs, configuration and strategy publications, the shared world collection, diagnostics, and tracing. The contracts contain no Unity objects or gameplay policy, and the configuration UI consumes their typed projections.
 
-[Common ServiceCycle](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/Common/Runtime/ServiceCycle) is the runtime foundation. [Architecture](../docs/runtime-architecture/architecture.md) owns the service roster and [Plugin](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Plugin.cs) owns typed composition. The [testing guide](../docs/testing/README.md) defines the evidence for its execution and recording contracts.
+[Common ServiceCycle](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/tree/main/src/Common/Runtime/ServiceCycle) is the runtime foundation. [Architecture](../docs/runtime-architecture/architecture.md) owns the service roster and [Plugin](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Plugin.cs) supplies application dependencies to the [feature catalog](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomataFeatureCatalog.cs); each feature owns its typed composition and metadata contribution. The [testing guide](../docs/testing/README.md) defines the evidence for its execution and recording contracts.
 
 ## Shared gameplay controls
 
@@ -104,7 +104,8 @@ captured from the adjacent native buttons instead of guessed; its icon is the ex
 `power-lightning` Sprite, enlarged inside that unchanged square rather than enlarging the control.
 The disclosure enumerates the
 registry into a transient, native-framed panel below the compound control; [QuickControlColumn](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/QuickControlColumn.cs) owns the layout. It never
-maintains a second feature list. The closed disclosure carries a separate exclamation marker plus
+maintains a second feature list. [QuickControlsHost](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/QuickControlsHost.cs) owns the installed column, lifecycle reset, retry cadence and diagnostic reporting.
+The closed disclosure carries a separate exclamation marker plus
 red color whenever a contained feature is faulted or blocked. The surface anchors through the
 declared, scene-bound `UIContentArea.canvas` contract and exact `Canvas/HelpButtons` structure. The
 footer and panel reuse the audited recessed `UIViewRadioButton` frame as sliced border

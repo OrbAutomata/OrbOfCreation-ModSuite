@@ -133,7 +133,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
-    public void AnInitialisationThrowBacksOffLoudlyAndBindsOnTheRetry()
+    public void AnUnreadableRecipeListBacksOffAndReadsAgainOnTheRetry()
     {
         var log = new List<string>();
         GameActionFaultLog.ConfigureLog(log.Add);
@@ -149,7 +149,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => spell.masteryLevel == 2);
 
         Assert.Equal(FeatureStatusReasonCode.NativeMutationFailed, status.Reason.Code);
-        Assert.Contains("spell-level contract initialization failed", status.Reason.Summary);
+        Assert.Contains("spell-level mutation failed", status.Reason.Summary);
         Assert.DoesNotContain("available spell recipe contents are unavailable", status.Reason.Summary);
         Assert.Contains("available spell recipe contents are unavailable", log[0]);
     }
@@ -226,7 +226,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         var healthy = Spell(masteryLevel: 5);
         var recipes = global::SpellManager.instance!.availableSpellRecipes.value;
         global::SpellManager.instance.availableSpellRecipes.value = null!;
-        using var harness = new Harness();
+        using var harness = new Harness(log.Add);
 
         harness.PumpWorldsUntil(() => ProbeEntries(log).Count == 1);
         global::SpellManager.instance.availableSpellRecipes.value = recipes;
@@ -244,7 +244,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
     }
 
     [Fact]
-    public void AProvenContractMismatchStaysBlockedPastEveryRetry()
+    public void ARegistryTypeMismatchRecoversWhenTheNextRetryIsDue()
     {
         var spell = Spell(masteryLevel: 1);
         var levelAll = global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid];
@@ -255,11 +255,11 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         harness.PumpWorldsUntil(() => harness.Status.Current.State == FeatureStatusState.Degraded);
         global::IdScriptableObject.RuntimeLookup[KnownEntities.UnlockLevelAllSpells.Uuid] = levelAll;
         harness.Advance(MonotonicDuration.FromTimeSpan(TimeSpan.FromMinutes(1)));
-        harness.PumpWorldsUntil(() => harness.RetryGate.Latest.ConsecutiveFailures == 2);
+        harness.PumpWorldsUntil(() => spell.masteryLevel == 2);
+        harness.PumpUntilTheNewestWorldIsEvaluated();
 
-        Assert.Equal(1, spell.masteryLevel);
-        Assert.Equal(0, spell.levelCost.PerformCalls);
-        Assert.Contains("WrongType", harness.RetryGate.Latest.Reason);
+        Assert.Equal(1, spell.levelCost.PerformCalls);
+        Assert.Equal(0, harness.RetryGate.Count);
     }
 
     private static List<string> ProbeEntries(List<string> log) =>
@@ -312,7 +312,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
         private long _frame = 10;
         private ulong _generation = 2;
 
-        internal Harness()
+        internal Harness(Action<string>? warn = null)
         {
             var gameActions = new LifecycleGameActions();
 #if SERVICE_CYCLE_PROFILE
@@ -321,7 +321,7 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.SpellLevelFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, SpellLevelFeatureContribution.FeatureId),
                     "Spell Leveling",
                     true,
                     FeatureStatusState.NotReady,
@@ -338,7 +338,8 @@ public sealed class SpellLevelServiceCycleRuntimeTests : IDisposable
                     static () => Epoch,
                     ownsActionFamily: static () => true,
                     new SpellLevelCapabilityState(),
-                    Status)).Register(
+                    Status,
+                    warn ?? (static _ => { }))).Register(
                 new AutomataServiceCycleFeatureContext(
                     _registry, new ConfigGeneration(1), Epoch, gameActions
 #if SERVICE_CYCLE_PROFILE

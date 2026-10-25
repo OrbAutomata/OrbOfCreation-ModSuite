@@ -12,6 +12,7 @@ fi
 
 results_directory="${repository_root}/artifacts/test-results/all"
 profile_results_directory="${repository_root}/artifacts/test-results/profile"
+contract_results_directory="${repository_root}/artifacts/test-results/contracts"
 il_inspect_results_directory="${repository_root}/artifacts/test-results/il-inspect"
 timeout_marker="$(mktemp "${TMPDIR:-/tmp}/orbmodding-test-timeout.XXXXXX")"
 rm -f "${timeout_marker}"
@@ -74,7 +75,7 @@ watch_for_timeout() {
 trap cleanup EXIT
 trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
-mkdir -p "${results_directory}" "${profile_results_directory}" "${il_inspect_results_directory}"
+mkdir -p "${results_directory}" "${profile_results_directory}" "${il_inspect_results_directory}" "${contract_results_directory}"
 
 ordinary_command=(
     dotnet test "${repository_root}/tests/OrbModding.Tests/OrbModding.Tests.csproj"
@@ -83,6 +84,14 @@ ordinary_command=(
     -p:UseGameStubs=true
     --results-directory "${results_directory}"
     --logger "trx;LogFileName=all.trx"
+)
+contract_command=(
+    dotnet test "${repository_root}/tests/OrbModding.GameContractTests/OrbModding.GameContractTests.csproj"
+    --disable-build-servers
+    --configuration "${configuration}"
+    -p:UseGameStubs=true
+    --results-directory "${contract_results_directory}"
+    --logger "trx;LogFileName=portable-contracts.trx"
 )
 il_inspect_command=(
     dotnet test "${repository_root}/tools/OrbModding.IlInspect/Tests/OrbModding.IlInspect.Tests.csproj"
@@ -116,6 +125,7 @@ profile_tool_command=(
 # followed by a passing profile run reports the gate as green.
 run_all_tests() {
     "${ordinary_command[@]}" || return "$?"
+    "${contract_command[@]}" || return "$?"
     "${il_inspect_command[@]}" || return "$?"
     "${profile_command[@]}" || return "$?"
     "${profile_tool_command[@]}" || return "$?"

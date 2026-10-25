@@ -33,14 +33,16 @@ internal abstract partial class ServiceCycleWorker<TState, TAction>
             continueRunning = true;
             return true;
         }
-        catch
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
             _workerState.ResetAfterCreationFailure();
-            _pendingRecoveryFaultCategory = null;
+            _pendingRecoveryFault = null;
             var observedAt = _clock.Now;
-            var record = _faults.Record(
+            var record = _faults.RecordException(
                 ServiceFaultCategory.StateFactory,
-                observedAt);
+                observedAt,
+                exception,
+                _serviceId.Value);
             var response = ServiceWorkerResponse.Failure(
                 request.Sequence,
                 request.Context.Identity,

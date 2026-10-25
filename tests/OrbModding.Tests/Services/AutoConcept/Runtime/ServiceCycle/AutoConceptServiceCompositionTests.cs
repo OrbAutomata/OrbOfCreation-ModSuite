@@ -94,7 +94,7 @@ public sealed class AutoConceptServiceCompositionTests
             new FeatureStatusSnapshot(
                 new FeatureStatusKey(
                     PluginIds.SuiteGuid,
-                    AutomataFeatureStatuses.AutoConceptFeatureId),
+                    AutoConceptFeatureContribution.FeatureId),
                 "Auto Concept",
                 true,
                 FeatureStatusState.NotReady,

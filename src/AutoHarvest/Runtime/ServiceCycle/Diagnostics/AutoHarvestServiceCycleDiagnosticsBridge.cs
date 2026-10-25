@@ -16,6 +16,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
     private readonly ServiceRetryEpisodeNarrator _retries;
     private AutoHarvestPairHealth _fruit;
     private AutoHarvestPairHealth _treasure;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -33,7 +34,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         _featureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
         _retries = new ServiceRetryEpisodeNarrator(
             "Auto Harvest",
-            warn ?? AutoHarvestFeatureDependencies.LogWarning,
+            warn ?? (static _ => { }),
             AutoHarvestServicePolicies.Describe);
         _lifecycle = lifecycle;
         _configurationGeneration = configurationGeneration;
@@ -64,15 +65,17 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         var service = report.ResponsesAcquired != 0 || report.ActionsAttempted != 0
             ? ReadService(pump)
             : null;
-        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
         if (report.ResponsesAcquired != 0) _projectionRefreshPending = true;
+        if (_projectionRefreshPending) service ??= ReadService(pump);
+        conditionsChanged |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        conditionsChanged |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
         if (!_projectionRefreshPending)
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
         }
-        service ??= ReadService(pump);
-        if (service is not { LatestProjection.IsPresent: true })
+        if (service is not { } observed ||
+            !ServiceCycleDiagnostics.HasCurrentProjection(in observed, _lifecycle, _configurationGeneration))
         {
             if (conditionsChanged) PublishFeatureStatus();
             return;
@@ -106,6 +109,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
         _configurationGeneration = configurationGeneration;
         _ownsActionFamily = ownsActionFamily;
         _projectionRefreshPending = false;
+        _runtimeFault = default;
         _retries.InvalidateLifecycle();
         InitialHealth(_featureStatus.Current.ConfiguredEnabled, out _fruit, out _treasure);
         _runtime?.PublishState(lifecycle, _fruit, _treasure);
@@ -116,6 +120,7 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
     {
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
+        _runtimeFault = default;
         _projectionRefreshPending = false;
         InitialHealth(_featureStatus.Current.ConfiguredEnabled, out _fruit, out _treasure);
         _runtime?.PublishState(_lifecycle, _fruit, _treasure);
@@ -152,10 +157,11 @@ internal sealed class AutoHarvestServiceCycleDiagnosticsBridge : IDisposable
                 _configurationGeneration);
             return;
         }
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(health.State, health.Reason, health.Summary, in _runtimeFault);
         _featureStatus.ObserveRuntimeLifecycle(
-            health.State,
-            health.Reason,
-            health.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
     }

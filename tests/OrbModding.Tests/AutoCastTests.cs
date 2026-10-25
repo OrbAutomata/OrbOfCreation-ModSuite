@@ -51,15 +51,15 @@ public sealed class AutoCastTests
         var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
         var toggle = CreateToggle(config);
 
-        Assert.Equal(AutoCastToggleVisualState.Off, toggle.State);
+        Assert.False(toggle.IsOn);
         toggle.Toggle();
         Assert.Equal(AutoCastOperationMode.Active, config.AutoCastMode.Value);
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
 
         toggle.Toggle();
-        Assert.Equal(AutoCastToggleVisualState.Off, toggle.State);
+        Assert.False(toggle.IsOn);
         toggle.Toggle();
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
     }
 
     [Fact]
@@ -69,9 +69,9 @@ public sealed class AutoCastTests
         config.AutoCastMode.Value = AutoCastOperationMode.Active;
         var toggle = CreateToggle(config);
 
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
         config.EmergencyDisable.Value = true;
-        Assert.Equal(AutoCastToggleVisualState.On, toggle.State);
+        Assert.True(toggle.IsOn);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class AutoCastTests
         Assert.Equal(1, savedTransitions);
         Assert.Equal(1, publications);
         Assert.Equal(AutoCastOperationMode.Disabled, config.Current.AutoCast.Mode);
-        Assert.Equal(AutoCastToggleVisualState.Off, control.State);
+        Assert.False(control.IsOn);
         Assert.Null(button.targetGraphic);
     }
 
@@ -107,7 +107,7 @@ public sealed class AutoCastTests
     {
         var enabled = configuration.Current.AutoCast.Mode == AutoCastOperationMode.Active;
         return new FeatureStatusSnapshot(
-            new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoCastFeatureId),
+            new FeatureStatusKey(PluginIds.SuiteGuid, AutoCastFeatureContribution.FeatureId),
             "Auto Cast",
             enabled,
             enabled ? FeatureStatusState.Operational : FeatureStatusState.ConfigurationDisabled);

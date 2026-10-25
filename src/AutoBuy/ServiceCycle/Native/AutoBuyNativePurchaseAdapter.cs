@@ -280,11 +280,15 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     private readonly string _bindingFailure;
 #if SERVICE_CYCLE_PROFILE
     private readonly AutomataProfileOperations _profileOperations;
+    private readonly Action<string> _info;
 
-    public AutoBuyNativePurchaseAdapter(AutomataProfileOperations profileOperations)
+    public AutoBuyNativePurchaseAdapter(
+        AutomataProfileOperations profileOperations,
+        Action<string>? info = null)
     {
         _profileOperations = profileOperations ??
             throw new ArgumentNullException(nameof(profileOperations));
+        _info = info ?? (static _ => { });
         NativePurchaseViewAdmissionResolver.TryCreateProduction(
             ReflectionUtil.FindLoadedType,
             out _viewAdmission,
@@ -295,10 +299,12 @@ internal sealed class AutoBuyNativePurchaseAdapter :
     internal AutoBuyNativePurchaseAdapter(
         AutomataProfileOperations profileOperations,
         NativePurchaseViewAdmissionResolver viewAdmission,
-        Func<string, bool>? includeContract = null)
+        Func<string, bool>? includeContract = null,
+        Action<string>? info = null)
     {
         _profileOperations = profileOperations ??
             throw new ArgumentNullException(nameof(profileOperations));
+        _info = info ?? (static _ => { });
         _viewAdmission = viewAdmission ?? throw new ArgumentNullException(nameof(viewAdmission));
         AutoBuyPurchaseNativeBindings.TryCreate(
             out _bindings, out _bindingFailure, includeContract: includeContract);
@@ -362,7 +368,7 @@ internal sealed class AutoBuyNativePurchaseAdapter :
         }
 
         for (var index = 0; index < rows.Length; index++)
-            Plugin.Log?.LogAutomataInfo("Auto Buy route topology: " + rows[index]);
+            _info("Auto Buy route topology: " + rows[index]);
         return true;
     }
 #endif

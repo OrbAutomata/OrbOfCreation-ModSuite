@@ -114,6 +114,7 @@ internal class ExecutionServiceDefinition :
     internal void EndRetryOnNextEvaluation() => _worker.EndRetryOnNextEvaluation();
     internal void FailNextEvaluations(int count) => _worker.FailNextEvaluations(count);
     internal void FailNextProjections(int count) => _worker.FailNextProjections(count);
+    internal void FailNextStateReleases(int count) => _worker.FailNextStateReleases(count);
     internal void FailNextStateFactories(int count) => _worker.FailNextStateFactories(count);
 
     public IServiceCycleWorkerDefinition<ExecutionState, ExecutionAction>

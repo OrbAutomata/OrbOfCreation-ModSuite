@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common;
-using OrbMentor;
 
 namespace OrbAutomata;
 
@@ -90,11 +91,6 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
         if (configurationGeneration.Value < ConfigurationGeneration.Value) return false;
         ConfigurationGeneration = configurationGeneration;
         ApplyEmergencyStop(configuredEnabled, ref state, ref reasonCode, ref summary);
-        if (Current.ConfiguredEnabled == configuredEnabled &&
-            Current.State == state &&
-            Current.Reason.Code == reasonCode &&
-            Current.LifecycleGeneration == lifecycleGeneration)
-            return false;
         var status = new FeatureStatusSnapshot(
             Key,
             DisplayName,
@@ -104,11 +100,8 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
                 ? default
                 : new FeatureStatusReason(reasonCode, summary),
             lifecycleGeneration);
-        var prior = Current;
         Current = status;
-        if (_registration.Update(status)) return true;
-        Current = prior;
-        return false;
+        return _registration.Update(status);
     }
 
     internal bool ObserveRuntimeLifecycle(
@@ -172,28 +165,11 @@ internal sealed class AutomataFeatureStatusReporter : IDisposable
 
 internal sealed class AutomataFeatureStatuses : IDisposable
 {
-    internal const string AutoBuyFeatureId = "AutoBuy";
-    internal const string AutoCastFeatureId = "AutoCast";
-    internal const string AutoConceptFeatureId = "AutoConcept";
-    internal const string SpellLevelFeatureId = "SpellLevel";
-    internal const string AutoHarvestFeatureId = "AutoHarvest";
-    internal const string AutoItemsFeatureId = "AutoItems";
-    internal const string AutoScribeFeatureId = "AutoScribe";
-    internal const string MentorFeatureId = "Mentor";
-
-    private static readonly (string Id, string DisplayName)[] Features =
-    {
-        (AutoBuyFeatureId, "Auto Buy"),
-        (AutoCastFeatureId, "Auto Cast"),
-        (AutoConceptFeatureId, "Auto Concept"),
-        (SpellLevelFeatureId, "Spell Leveling"),
-        (AutoHarvestFeatureId, "Auto Harvest"),
-        (AutoItemsFeatureId, "Auto Items"),
-        (AutoScribeFeatureId, "Auto Scribe"),
-        (MentorFeatureId, "Orb Mentor"),
-    };
-
+    private readonly Dictionary<string, AutomataFeatureStatusReporter> _byId = new(StringComparer.Ordinal);
     private readonly AutomataFeatureStatusReporter[] _all;
+    private ConfigGeneration _configurationGeneration;
+
+    internal AutomataFeatureStatusReporter Get(string featureId) => _byId[featureId];
 
     public AutomataFeatureStatuses(
         SuiteRuntimeConfiguration config,
@@ -202,14 +178,15 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         ConfigGeneration? configurationGeneration = null)
     {
         var initialGeneration = configurationGeneration ?? new ConfigGeneration(1);
+        _configurationGeneration = initialGeneration;
         var target = registry ?? FeatureStatusRegistry.Shared;
-        var reporters = new AutomataFeatureStatusReporter?[Features.Length];
+        var reporters = new AutomataFeatureStatusReporter?[AutomataFeatureCatalog.All.Count];
         try
         {
-            for (var index = 0; index < Features.Length; index++)
+            for (var index = 0; index < AutomataFeatureCatalog.All.Count; index++)
             {
                 reporters[index] = CreateInitialReporter(
-                    target, Features[index].Id, Features[index].DisplayName, config,
+                    target, AutomataFeatureCatalog.All[index], config,
                     lifecycleGeneration, initialGeneration);
             }
         }
@@ -219,31 +196,17 @@ internal sealed class AutomataFeatureStatuses : IDisposable
             throw;
         }
         _all = reporters!;
-        AutoBuy = _all[0];
-        AutoCast = _all[1];
-        AutoConcept = _all[2];
-        SpellLevel = _all[3];
-        AutoHarvest = _all[4];
-        AutoItems = _all[5];
-        AutoScribe = _all[6];
-        Mentor = _all[7];
+        foreach (var reporter in _all) _byId.Add(reporter.Key.FeatureId, reporter);
         ObserveConfiguration(config, initialGeneration);
     }
-
-    public AutomataFeatureStatusReporter AutoBuy { get; }
-    public AutomataFeatureStatusReporter AutoCast { get; }
-    public AutomataFeatureStatusReporter AutoConcept { get; }
-    public AutomataFeatureStatusReporter SpellLevel { get; }
-    public AutomataFeatureStatusReporter AutoHarvest { get; }
-    public AutomataFeatureStatusReporter AutoItems { get; }
-    public AutomataFeatureStatusReporter AutoScribe { get; }
-    public AutomataFeatureStatusReporter Mentor { get; }
 
     internal void ObserveConfiguration(
         SuiteRuntimeConfiguration config,
         ConfigGeneration configurationGeneration)
     {
         if (config is null) throw new ArgumentNullException(nameof(config));
+        if (configurationGeneration.Value < _configurationGeneration.Value) return;
+        _configurationGeneration = configurationGeneration;
         foreach (var reporter in _all)
             reporter.SetEmergencyStop(config.Safety.EmergencyDisable, configurationGeneration);
         foreach (var reporter in _all)
@@ -256,7 +219,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         string summary,
         ConfigGeneration configurationGeneration)
     {
-        if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
+        if (configurationGeneration.Value < _configurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
         foreach (var reporter in _all)
         {
@@ -274,7 +237,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         SuiteRuntimeConfiguration config,
         ConfigGeneration configurationGeneration)
     {
-        if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
+        if (configurationGeneration.Value < _configurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
         foreach (var reporter in _all)
         {
@@ -294,7 +257,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         long lifecycleGeneration,
         ConfigGeneration configurationGeneration)
     {
-        if (configurationGeneration.Value < AutoBuy.ConfigurationGeneration.Value) return;
+        if (configurationGeneration.Value < _configurationGeneration.Value) return;
         ObserveConfiguration(config, configurationGeneration);
         foreach (var reporter in _all)
         {
@@ -319,12 +282,15 @@ internal sealed class AutomataFeatureStatuses : IDisposable
             ObserveConfigurationDisabled(reporter, lifecycleGeneration, configurationGeneration);
             return true;
         }
-        if (BlockedBy(featureId, config) is not { } blockedBy) return false;
+        var blockedBy = BlockedBy(featureId, config);
+        var constraint = blockedBy ?? ConfiguredConstraint(featureId, config);
+        if (constraint is null) return false;
         reporter.ObserveLifecycle(
             true,
             FeatureStatusState.TemporarilyBlocked,
-            FeatureStatusReasonCode.ParentFeatureDisabled,
-            blockedBy,
+            blockedBy is not null ? FeatureStatusReasonCode.ParentFeatureDisabled :
+                FeatureStatusReasonCode.ConfigurationDisabled,
+            constraint,
             lifecycleGeneration,
             configurationGeneration ?? reporter.ConfigurationGeneration);
         return true;
@@ -337,20 +303,10 @@ internal sealed class AutomataFeatureStatuses : IDisposable
     {
         var lifecycleGeneration = reporter.Current.LifecycleGeneration;
         if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration, configurationGeneration)) return;
-        if (ConfiguredConstraint(reporter.Key.FeatureId, config) is { } configuredConstraint)
-        {
-            reporter.ObserveLifecycle(
-                true,
-                FeatureStatusState.TemporarilyBlocked,
-                FeatureStatusReasonCode.ConfigurationDisabled,
-                configuredConstraint,
-                lifecycleGeneration,
-                configurationGeneration);
-            return;
-        }
         if (!reporter.Current.ConfiguredEnabled ||
             reporter.Current.Reason.Code is FeatureStatusReasonCode.ParentFeatureDisabled
-                or FeatureStatusReasonCode.EmergencyDisabled)
+                or FeatureStatusReasonCode.EmergencyDisabled
+                or FeatureStatusReasonCode.ConfigurationDisabled)
             ObserveGameplayNotReady(
                 reporter,
                 lifecycleGeneration,
@@ -366,46 +322,18 @@ internal sealed class AutomataFeatureStatuses : IDisposable
                 configurationGeneration);
     }
 
-    private static bool IsConfigured(string featureId, SuiteRuntimeConfiguration config) => featureId switch
-    {
-        AutoBuyFeatureId => config.AutoBuy.Mode == AutoBuyOperationMode.Active,
-        AutoCastFeatureId => config.AutoCast.Mode == AutoCastOperationMode.Active,
-        AutoConceptFeatureId => config.AutoConcept.Mode == AutoConceptOperationMode.Active,
-        SpellLevelFeatureId => config.AutoBuy.AutoLevelSpells,
-        AutoHarvestFeatureId => config.AutoHarvest.Mode == AutoHarvestOperationMode.Active &&
-            (config.AutoHarvest.CollectFruitTrees || config.AutoHarvest.CollectTreasureTrees),
-        AutoItemsFeatureId => config.AutoItems.Mode == AutoItemsOperationMode.Active &&
-            AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems),
-        AutoScribeFeatureId => config.AutoScribe.Mode == AutoScribeOperationMode.Active,
-        MentorFeatureId => config.Mentor.Mode == MentorOperationMode.Active,
-        _ => throw new ArgumentOutOfRangeException(nameof(featureId), featureId, null),
-    };
+    private static AutomataFeatureContribution Contribution(string featureId) =>
+        AutomataFeatureCatalog.All.First(feature => feature.Id == featureId);
 
-    /// <summary>The switch above a switched-on feature that holds it, or null when none does.</summary>
-    private static string? BlockedBy(string featureId, SuiteRuntimeConfiguration config)
-    {
-        if (!config.General.Enabled) return "Automata is disabled by configuration.";
-        return featureId switch
-        {
-            SpellLevelFeatureId when config.AutoBuy.Mode != AutoBuyOperationMode.Active =>
-                "Auto Buy is disabled by configuration.",
-            AutoScribeFeatureId when config.AutoItems.Mode != AutoItemsOperationMode.Active ||
-                                     !config.AutoItems.UseScrolls =>
-                "Auto Scribe needs Auto Items running with Scrolls on.",
-            _ => null,
-        };
-    }
+    private static bool IsConfigured(string featureId, SuiteRuntimeConfiguration config) =>
+        Contribution(featureId).IsConfigured(config);
+
+    private static string? BlockedBy(string featureId, SuiteRuntimeConfiguration config) =>
+        !config.General.Enabled ? "Automata is disabled by configuration." :
+            Contribution(featureId).BlockedBy(config);
 
     private static string? ConfiguredConstraint(string featureId, SuiteRuntimeConfiguration config) =>
-        featureId switch
-        {
-            AutoBuyFeatureId when !config.AutoBuy.IncludeStructures && !config.AutoBuy.IncludeUpgrades =>
-                "Auto Buy has neither structures nor upgrades selected to buy.",
-            AutoItemsFeatureId when !AutoItemsConfigurationPolicy.HasEnabledFamily(config.AutoItems) =>
-                "Auto Items has neither Scrolls nor Relics selected.",
-            AutoScribeFeatureId => AutoScribeRoleSelection.ConfigurationProblem(config.AutoScribe.Roles),
-            _ => null,
-        };
+        Contribution(featureId).ConfiguredConstraint(config);
 
     private static void ObserveConfigurationDisabled(
         AutomataFeatureStatusReporter reporter,
@@ -433,12 +361,13 @@ internal sealed class AutomataFeatureStatuses : IDisposable
 
     private static AutomataFeatureStatusReporter CreateInitialReporter(
         FeatureStatusRegistry registry,
-        string featureId,
-        string displayName,
+        AutomataFeatureContribution feature,
         SuiteRuntimeConfiguration config,
         long lifecycleGeneration,
         ConfigGeneration configurationGeneration)
     {
+        var featureId = feature.Id;
+        var displayName = feature.DisplayName;
         var key = new FeatureStatusKey(PluginIds.SuiteGuid, featureId);
         var status = !IsConfigured(featureId, config)
             ? new FeatureStatusSnapshot(

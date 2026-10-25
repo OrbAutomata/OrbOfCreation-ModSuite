@@ -83,6 +83,31 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
     }
 
     [Fact]
+    public void APlayerSpellLevelRequestUsesTheSameActionWhileAutomationIsDisabled()
+    {
+        var spell = Spell();
+        using var registry = new LifecycleGameActions();
+        using var status = new AutomataFeatureStatusReporter(new FeatureStatusRegistry(), new FeatureStatusSnapshot(
+            new FeatureStatusKey(PluginIds.SuiteGuid, SpellLevelFeatureContribution.FeatureId),
+            "Spell Leveling", false, FeatureStatusState.ConfigurationDisabled,
+            new FeatureStatusReason(FeatureStatusReasonCode.ConfigurationDisabled, "disabled"), Epoch));
+        var composition = SpellLevelServiceAdapterComposition.Create(
+            new SpellLevelFeatureDependencies(() => Epoch, () => true,
+                new SpellLevelCapabilityState(), status, static _ => { }), registry);
+        var action = new SpellLevelCycleAction(SpellLevelActionKind.Single, Guid.Parse(spell.uuid), Epoch);
+        var config = new SuiteRuntimeConfiguration();
+
+        var automatic = composition.Definition.TryExecute(in action, in config, default);
+        var player = composition.Actions.TryExecuteGameMcp(in action, in config, default);
+
+        Assert.Equal(CommonActionResultCodes.ServiceDisabled, automatic.Code);
+        Assert.Equal(ServiceActionDisposition.Committed, player.Disposition);
+        Assert.Equal(2, spell.masteryLevel);
+        Assert.Equal(1, spell.levelCost.PerformCalls);
+        Assert.Same(composition.Natives, registry.Find<SpellLevelGameAction>());
+    }
+
+    [Fact]
     public void A_press_that_committed_cleanly_adds_nothing()
     {
         var target = Research();
@@ -134,7 +159,7 @@ public sealed class GameMcpCommittedAfterThrowTests : IDisposable
     private static ServiceActionResult LevelSpell(global::SpellRecipeSO spell)
     {
         var adapter = new SpellLevelCycleActionAdapter(
-            new SpellLevelNativeAdapter(), () => Epoch, () => true, static _ => { });
+            new SpellLevelGameAction(() => Epoch, () => true, static () => "ownership unavailable"), static _ => { });
         var action = new SpellLevelCycleAction(SpellLevelActionKind.Single, Guid.Parse(spell.uuid), Epoch);
         var config = new SuiteRuntimeConfiguration
         {

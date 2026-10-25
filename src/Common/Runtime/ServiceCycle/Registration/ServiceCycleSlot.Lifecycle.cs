@@ -97,11 +97,13 @@ internal sealed partial class ServiceCycleSlot<TState, TAction>
             IncrementLifecycleSemanticVersion();
             return true;
         }
-        catch
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
-            var record = _constructionFaults.Record(
+            var record = _constructionFaults.RecordException(
                 ServiceFaultCategory.LifecycleConstruction,
-                now);
+                now,
+                exception,
+                ServiceId.Value);
             _constructionFault = record.Fault;
             _constructionRetryDue = record.RetryDue;
             _hasConstructionRetry = true;

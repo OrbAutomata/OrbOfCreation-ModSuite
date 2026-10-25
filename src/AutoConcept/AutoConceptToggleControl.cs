@@ -19,10 +19,8 @@ internal sealed class AutoConceptToggleControl
     internal SuiteRuntimeConfiguration Config => _configuration.Current;
     internal FeatureStatusSnapshot Status => _readStatus();
 
-    public AutoCastToggleVisualState State =>
-        _configuration.Current.AutoConcept.Mode == AutoConceptOperationMode.Active
-            ? AutoCastToggleVisualState.On
-            : AutoCastToggleVisualState.Off;
+    public bool IsOn =>
+        _configuration.Current.AutoConcept.Mode == AutoConceptOperationMode.Active;
 
     public void Toggle() => _configuration.ToggleAutoConcept();
 }

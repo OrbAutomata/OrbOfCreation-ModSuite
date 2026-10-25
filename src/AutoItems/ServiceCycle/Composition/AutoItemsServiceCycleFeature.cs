@@ -80,16 +80,11 @@ internal sealed class AutoItemsFeatureRuntime : IAutomataServiceCycleFeatureRunt
         long nativeLifecycle,
         ConfigGeneration configurationGeneration)
     {
-        _gameAction.InvalidateLifecycle();
         _health.InvalidateLifecycle();
         _diagnostics?.ObserveLifecycle(nativeLifecycle, configurationGeneration);
     }
 
     public void DisposeDiagnostics() => _diagnostics = null;
 
-    public void DisposeRegistration()
-    {
-        _registration.Dispose();
-        _gameAction.Dispose();
-    }
+    public void DisposeRegistration() => _registration.Dispose();
 }

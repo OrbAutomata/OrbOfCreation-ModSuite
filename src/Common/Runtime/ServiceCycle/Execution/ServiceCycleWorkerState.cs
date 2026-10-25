@@ -17,6 +17,8 @@ internal struct ServiceCycleWorkerState<TState>
     private readonly IServiceCycleWorkerStateDefinition<TState> _definition;
     private readonly ServiceResourceClaimLedger _resourceClaims;
     private readonly IServiceCycleStateFactoryGate? _factoryGate;
+    private readonly string _service;
+    private readonly RepeatedFailure _failure;
     private TState _value;
     private ServiceResourceClaim? _claim;
     private bool _hasValue;
@@ -26,9 +28,12 @@ internal struct ServiceCycleWorkerState<TState>
     internal ServiceCycleWorkerState(
         IServiceCycleWorkerStateDefinition<TState> definition,
         ServiceResourceClaimLedger resourceClaims,
-        IMonotonicClock clock)
+        IMonotonicClock clock,
+        string service)
     {
         _definition = definition;
+        _service = service;
+        _failure = new RepeatedFailure();
         _resourceClaims = resourceClaims;
         _factoryGate = clock as IServiceCycleStateFactoryGate;
         _value = default!;
@@ -101,6 +106,7 @@ internal struct ServiceCycleWorkerState<TState>
             _value = value;
             _claim = claim;
             _hasValue = true;
+            _failure.Clear();
             return ServiceCycleWorkerStateCreationResult.Created;
         }
         finally
@@ -120,7 +126,10 @@ internal struct ServiceCycleWorkerState<TState>
             var damagedClaim = _claim;
             _claim = null;
             try { _definition.ReleaseState(ref damaged); }
-            catch { }
+            catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
+            {
+                LogFailure(exception, "state release");
+            }
             finally
             {
                 _resourceClaims.Release(damagedClaim);
@@ -132,8 +141,9 @@ internal struct ServiceCycleWorkerState<TState>
         {
             return TryCreate(lifecycle);
         }
-        catch
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
         {
+            LogFailure(exception, "state recreation");
             ResetAfterCreationFailure();
             return ServiceCycleWorkerStateCreationResult.Rejected;
         }
@@ -154,8 +164,17 @@ internal struct ServiceCycleWorkerState<TState>
         _claim = null;
         _value = default!;
         try { _definition.ReleaseState(ref value); }
-        catch { }
+        catch (Exception exception) when (!ExceptionDetail.IsProcessFatal(exception))
+        {
+            LogFailure(exception, "state release");
+        }
         finally { _resourceClaims.Release(claim); }
+    }
+
+    private void LogFailure(Exception exception, string stage)
+    {
+        if (!_failure.IsRepeat(exception, subject: stage))
+            GameActionFaultLog.Record(exception, _service + " " + stage);
     }
 
     internal int RecordContention()

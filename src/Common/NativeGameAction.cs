@@ -192,7 +192,8 @@ internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
         Func<TState> captureAfter,
         Action call,
         Func<TState, TState, bool> landed,
-        string? screen = null) =>
+        string? screen = null,
+        int nativeCallsAttempted = 1) =>
         Execute(target, success, before, captureAfter,
             () =>
             {
@@ -200,7 +201,8 @@ internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
                 return null;
             },
             landed,
-            screen);
+            screen,
+            nativeCallsAttempted: nativeCallsAttempted);
 
     /// <summary>
     /// The same, for a call of several presses that can stop partway: every press runs inside
@@ -219,14 +221,15 @@ internal abstract class NativeGameAction<TBindings> : ILifecycleGameAction
         Func<NativeStop?> call,
         Func<TState, TState, bool> landed,
         string? screen = null,
-        NativePutBack? putBack = null)
+        NativePutBack? putBack = null,
+        int nativeCallsAttempted = 1)
     {
         var page = screen ?? _screen;
         NativeStop? stop = null;
         var evidence = NativeMutationVerifier.ExecuteAfterCapture(
             _feature, target, success, before, captureAfter, () => stop = call(), landed,
             putBackOnThrow: putBack?.Undo);
-        var calls = NativeMutationCallOutcome.FromEvidence(evidence);
+        var calls = NativeMutationCallOutcome.FromEvidence(evidence, nativeCallsAttempted);
         if (evidence.IsVerified) return NativeActionOutcome.Commit(calls, success);
         var stage = evidence.Outcome == NativeMutationOutcome.ExecutionThrew ? "NativeCallback" : "Verification";
         if (evidence.Exception is { } exception)

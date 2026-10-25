@@ -57,7 +57,7 @@ namespace UnityEngine
 
         public Component? GetComponent(Type type) => gameObject?.GetComponent(type);
 
-        public T? GetComponentInChildren<T>(bool includeInactive = false) where T : Component => gameObject?.GetComponent<T>();
+        public T? GetComponentInChildren<T>(bool includeInactive = false) where T : Component => gameObject?.GetComponentInChildren<T>(includeInactive);
 
         public T[] GetComponents<T>() where T : Component => gameObject?.GetComponents<T>() ?? Array.Empty<T>();
     }
@@ -140,7 +140,18 @@ namespace UnityEngine
 
         public T? GetComponent<T>() where T : Component => _components.OfType<T>().FirstOrDefault();
 
-        public T? GetComponentInChildren<T>(bool includeInactive = false) where T : Component => GetComponent<T>();
+        public T? GetComponentInChildren<T>(bool includeInactive = false) where T : Component
+        {
+            if (GetComponent<T>() is { } own) return own;
+            for (var index = 0; index < transform.childCount; index++)
+            {
+                var child = transform.GetChild(index).gameObject;
+                if ((includeInactive || child.activeInHierarchy) &&
+                    child.GetComponentInChildren<T>(includeInactive) is { } found)
+                    return found;
+            }
+            return null;
+        }
 
         public Component? GetComponent(Type type) => _components.FirstOrDefault(type.IsInstanceOfType);
 

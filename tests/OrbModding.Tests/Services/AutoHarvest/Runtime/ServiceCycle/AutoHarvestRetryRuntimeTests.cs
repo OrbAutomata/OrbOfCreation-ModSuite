@@ -262,7 +262,7 @@ public sealed class AutoHarvestRetryRuntimeTests : IDisposable
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoHarvestFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoHarvestFeatureContribution.FeatureId),
                     "Auto Harvest",
                     true,
                     FeatureStatusState.NotReady,

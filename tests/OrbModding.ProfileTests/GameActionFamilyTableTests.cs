@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using BepInEx.Configuration;
 using OrbAutomata;
 using OrbAutomata.GameMcp;
 using OrbModding.Common;
@@ -9,6 +10,30 @@ namespace OrbModding.ProfileTests;
 
 public sealed class GameActionFamilyTableTests
 {
+    [Fact]
+    public void AConsumableOperationDoesNotSupplyTheBuyAutomationUpgradeScope()
+    {
+        var registry = new ActionFamilyOwnershipRegistry();
+        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        using var ownership = new AutomataActionFamilyOwnership(registry);
+        using var external = registry.RegisterKnownExternal(
+            new ActionFamilyOwner(new FeatureStatusKey("tests", "multi-buy"), "External multi-buy"),
+            new[] { AutomationActionFamily.NativeMultiBuyOverride });
+        ownership.Refresh(config.Current, lifecycleReady: true);
+        Assert.True(ownership.OwnsFamily(AutomationActionFamily.UpgradePurchase));
+        Assert.False(ownership.OwnsAutoBuy(AutoBuyCandidateKind.Upgrade));
+        external.Dispose();
+
+        Assert.True(ownership.TryBeginGameMcpOperation(GameMcpCommandKind.Consumable, "use",
+            out var scope, out var reason), reason);
+        using (scope)
+        {
+            Assert.True(ownership.OwnsFamily(AutomationActionFamily.NativeMultiBuyOverride));
+            Assert.False(ownership.OwnsAutoBuy(AutoBuyCandidateKind.Upgrade));
+            Assert.True(ownership.Family(GameMcpCommandKind.Consumable).TryCapture());
+        }
+    }
+
     [Theory]
     [InlineData(nameof(GameMcpCommandKind.DiscoveryTreeOffer), "The current MCP operation does not hold DiscoveryTreeOfferLifecycle.")]
     [InlineData(nameof(GameMcpCommandKind.SpellWorkbench), "The current MCP operation does not hold SpellWorkbenchLifecycle.")]
@@ -44,7 +69,7 @@ public sealed class GameActionFamilyTableTests
     [Fact]
     public void Each_kind_and_mode_has_one_family_and_an_unnamed_kind_has_no_second_home()
     {
-        var keys = AutomataActionFamilyOwnership.GameMcpFamilies
+        var keys = AutomataGameMcpActionFamilies.Routes
             .Select(route => (route.Kind, route.Mode))
             .ToArray();
         Assert.Equal(keys.Length, keys.Distinct().Count());

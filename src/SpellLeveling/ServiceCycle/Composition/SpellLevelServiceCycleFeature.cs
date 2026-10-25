@@ -9,7 +9,7 @@ namespace OrbAutomata;
 
 /// <summary>
 /// Spell Leveling's contribution to the one Automata-owned ServiceCycle host. It supplies its typed
-/// definition and native adapter and registers them against the shared registry, but never owns the
+/// definition and native action and registers them against the shared registries, but never owns the
 /// registry, pump, host, or observability.
 /// </summary>
 internal sealed class SpellLevelServiceCycleFeature : IAutomataServiceCycleFeature
@@ -29,7 +29,7 @@ internal sealed class SpellLevelServiceCycleFeature : IAutomataServiceCycleFeatu
 
     public IAutomataServiceCycleFeatureRuntime Register(in AutomataServiceCycleFeatureContext context)
     {
-        var adapters = SpellLevelServiceAdapterComposition.Create(_dependencies);
+        var adapters = SpellLevelServiceAdapterComposition.Create(_dependencies, context.GameActions);
         var registration = context.Registry.Register(adapters.Definition, ActionDispatchPolicy);
         return new SpellLevelFeatureRuntime(
             _dependencies,
@@ -49,15 +49,10 @@ internal sealed class SpellLevelServiceCycleFeature : IAutomataServiceCycleFeatu
 /// <summary>
 /// The non-generic per-frame runtime for Spell Leveling inside the shared host.
 /// </summary>
-/// <remarks>
-/// Unlike Auto Buy's, this one does invalidate its native adapter on a lifecycle boundary. The adapter
-/// caches instance-keyed contracts — the <c>SpellManager</c> singleton, its recipe list, the resolved
-/// level-all upgrade — and every one of those is replaced when the game reloads.
-/// </remarks>
 internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRuntime
 {
     private readonly SpellLevelFeatureDependencies _dependencies;
-    private readonly SpellLevelNativeAdapter _natives;
+    private readonly SpellLevelGameAction _natives;
     private readonly SpellLevelBoundaryStatusState _boundaryStatus;
     private readonly ServiceRegistration<
         SpellLevelCycleState,
@@ -71,7 +66,7 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
 
     internal SpellLevelFeatureRuntime(
         SpellLevelFeatureDependencies dependencies,
-        SpellLevelNativeAdapter natives,
+        SpellLevelGameAction natives,
         SpellLevelBoundaryStatusState boundaryStatus,
         ServiceRegistration<
             SpellLevelCycleState,
@@ -103,7 +98,8 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
             _dependencies.Capability,
             _boundaryStatus,
             _natives,
-            _dependencies.FeatureStatus);
+            _dependencies.FeatureStatus,
+            _dependencies.Warn);
     }
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report) =>
@@ -116,7 +112,6 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
         long nativeLifecycle,
         ConfigGeneration configurationGeneration)
     {
-        _natives.InvalidateLifecycle();
         _diagnostics?.ObserveLifecycle(
             nativeLifecycle,
             configurationGeneration,
@@ -125,11 +120,7 @@ internal sealed class SpellLevelFeatureRuntime : IAutomataServiceCycleFeatureRun
 
     public void DisposeDiagnostics() => _diagnostics = null;
 
-    public void DisposeRegistration()
-    {
-        _registration.Dispose();
-        _natives.Dispose();
-    }
+    public void DisposeRegistration() => _registration.Dispose();
 
 #if SERVICE_CYCLE_PROFILE
     public OrbAutomata.GameMcp.IGameMcpServiceCommand GameMcpCommand =>

@@ -208,7 +208,7 @@ public sealed class AutoBuyServiceCycleDiagnosticsBridgeTests
         new(
             registry,
             new FeatureStatusSnapshot(
-                new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoBuyFeatureId),
+                new FeatureStatusKey(PluginIds.SuiteGuid, AutoBuyFeatureContribution.FeatureId),
                 "Auto Buy",
                 true,
                 FeatureStatusState.NotReady,

@@ -93,6 +93,23 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
         Assert.Contains(" Reference " + logged.Split(' ')[3] + " is in the suite log.", harness.Status.Current.Reason.Summary);
     }
 
+    [Fact]
+    public void ACommittedCraftAfterAnExpectedNativeThrowStaysOperationalAndDoesNotBackOff()
+    {
+        var log = new List<string>();
+        GameActionFaultLog.ConfigureLog(log.Add);
+        using var harness = new Harness();
+        harness.Native.Active.ThrowAfterAdd = true;
+
+        harness.PumpWorldsUntil(() => harness.Native.Recipe.PurchaseCalls == 1);
+
+        Assert.Single(harness.Native.Active.value);
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
+        Assert.Equal(0, harness.RetryGate.Count);
+        Assert.Empty(harness.Warnings);
+        Assert.Contains("System.InvalidOperationException: injected failure after admission", Assert.Single(log));
+    }
+
     private sealed class Harness : IDisposable
     {
         private const long Epoch = 1;
@@ -115,7 +132,7 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoScribeFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoScribeFeatureContribution.FeatureId),
                     "Auto Scribe",
                     true,
                     FeatureStatusState.NotReady,
@@ -135,7 +152,8 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
                     ownsActionFamily: static () => true,
                     tryCaptureMutationPermit: static () => true,
                     readOwnershipFailure: static () => string.Empty,
-                    Status)).Register(
+                    Status,
+                    Warnings.Add)).Register(
                 new AutomataServiceCycleFeatureContext(
                     _registry, new ConfigGeneration(1), Epoch, gameActions
 #if SERVICE_CYCLE_PROFILE
@@ -163,6 +181,7 @@ public sealed class AutoScribeServiceCycleRuntimeTests : IDisposable
             feature.ActivateDiagnostics();
         }
 
+        internal List<string> Warnings { get; } = new();
         internal AutoScribeNativeFixtureState Native { get; }
         internal AutomataFeatureStatusReporter Status { get; }
         internal ServiceRetryGateSnapshot RetryGate => Service.RetryGate;

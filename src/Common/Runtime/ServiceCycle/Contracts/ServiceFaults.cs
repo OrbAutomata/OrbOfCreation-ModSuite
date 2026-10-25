@@ -30,7 +30,8 @@ public readonly struct ServiceFault
         ServiceFaultCategory category,
         ServiceActionResultCode code,
         int occurrenceCount,
-        MonotonicTimestamp observedAt)
+        MonotonicTimestamp observedAt,
+        string? reason = null)
     {
         if (category is < ServiceFaultCategory.Capture or > ServiceFaultCategory.Start)
             throw new ArgumentOutOfRangeException(nameof(category));
@@ -41,8 +42,13 @@ public readonly struct ServiceFault
         Code = code;
         OccurrenceCount = occurrenceCount;
         ObservedAt = observedAt;
+        _reason = reason;
     }
 
+    private readonly string? _reason;
+
+    /// <summary>Authored failure detail and its suite-log reference; never the exception itself.</summary>
+    public string Reason => _reason ?? string.Empty;
     public ServiceFaultCategory Category { get; }
     public ServiceActionResultCode Code { get; }
     public int OccurrenceCount { get; }

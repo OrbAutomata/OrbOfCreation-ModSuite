@@ -208,11 +208,12 @@ public sealed class CraftingPlayerGameActionTests : IDisposable
     }
 
     [Fact]
-    public void InstantPageRecipeCompletesWithoutQueueAdmission()
+    public void InstantPageRecipeCompletesWithoutInitiationOrQueueAdmission()
     {
         var recipe = Register(Recipe());
         recipe.InstantCraftEnabled = true;
         recipe.InstantOutput = new ConsumableSO();
+        recipe.ThrowAfterInitiation = true;
         var page = Page(recipe, mode: 1, maximum: 2);
         using var boundary = Boundary();
 

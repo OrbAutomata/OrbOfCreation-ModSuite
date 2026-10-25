@@ -281,7 +281,7 @@ Mutation entry points, in strict order of preference:
    `AlchemyInstanceListVariable.AddAlchemyInstances`/`RemoveAlchemyInstances`,
    `PlotNodeActionInstanceListVariable.AddInstance`.
 2. **A disciplined re-drive** when the composite exists only inside a UI handler body.
-   `SpellLevelNativeAdapter` is the reference implementation: every member prebound and
+   `SpellLevelGameAction` is the reference implementation: every member prebound and
    validated before the first mutation is possible, the outcome verified by the simplest
    observable check, and irreversible steps (payments) preflighted hardest and taken last.
 3. Invoking UI handler methods: **never.**

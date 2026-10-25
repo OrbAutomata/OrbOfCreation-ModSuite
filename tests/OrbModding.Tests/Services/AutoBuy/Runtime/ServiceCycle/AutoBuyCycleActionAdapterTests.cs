@@ -23,6 +23,30 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     public void Dispose() => ResetNativeState();
 
     [Fact]
+    public void TopologyPublicationUsesTheInfoCallbackOncePerEpoch()
+    {
+        var messages = new System.Collections.Generic.List<string>();
+        var native = NativeAdapter();
+        var adapter = new AutoBuyCycleActionAdapter(
+            native, new FakeQueueRoom(64, true), () => PlannedEpoch,
+            static () => AutoBuyCandidateKinds.All,
+#if SERVICE_CYCLE_PROFILE
+            new AutomataProfileOperations(new ServiceCycleProfileProbe()),
+#endif
+            IgnoreRefusals.Instance, info: messages.Add);
+
+        adapter.AnnounceTopologyPublication();
+        adapter.AnnounceTopologyPublication();
+
+        Assert.Equal(
+            AutoBuyPurchaseNarration.TopologyPublished(PlannedEpoch, native.CapturedCount),
+            Assert.Single(messages));
+        adapter.InvalidateTopology();
+        adapter.AnnounceTopologyPublication();
+        Assert.Single(messages);
+    }
+
+    [Fact]
     public void Execute_StructurePurchase_CommitsWithVerifiedEvidence()
     {
         var structure = new global::StructureSO
@@ -1288,13 +1312,9 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
     {
         var faults = new System.Collections.Generic.List<string>();
         var warnings = new BepInEx.Logging.ManualLogSource();
-        var logProperty = typeof(OrbModding.Plugin).GetProperty("Log",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-        var previousLog = logProperty.GetValue(null);
         var failure = new InvalidOperationException("private queue failure", new Exception("original queue failure"));
         var purchases = new RecordingPurchasePort();
         GameActionFaultLog.ConfigureLog(faults.Add);
-        logProperty.SetValue(null, warnings);
         global::ActionManager.RemainingRoomFault = failure;
         try
         {
@@ -1304,7 +1324,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
 #if SERVICE_CYCLE_PROFILE
                 new AutomataProfileOperations(new ServiceCycleProfileProbe()),
 #endif
-                IgnoreRefusals.Instance);
+                IgnoreRefusals.Instance, warn: message => warnings.LogWarning(message));
             var action = new AutoBuyCycleAction(
                 AutoBuyCandidateKind.Structure, Guid.NewGuid(), PlannedEpoch, count: 1, default);
 
@@ -1329,8 +1349,7 @@ public sealed class AutoBuyCycleActionAdapterTests : IDisposable
         finally
         {
             GameActionFaultLog.ConfigureLog(null);
-            logProperty.SetValue(null, previousLog);
-            global::ActionManager.RemainingRoomFault = null;
+                global::ActionManager.RemainingRoomFault = null;
         }
     }
 

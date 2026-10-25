@@ -12,7 +12,8 @@ internal sealed class AutoScribeFeatureDependencies
         Func<bool> ownsActionFamily,
         Func<bool> tryCaptureMutationPermit,
         Func<string> readOwnershipFailure,
-        AutomataFeatureStatusReporter featureStatus)
+        AutomataFeatureStatusReporter featureStatus,
+        Action<string> warn)
     {
         RegistryResolver = registryResolver ??
             throw new ArgumentNullException(nameof(registryResolver));
@@ -27,6 +28,7 @@ internal sealed class AutoScribeFeatureDependencies
             throw new ArgumentNullException(nameof(readOwnershipFailure));
         FeatureStatus = featureStatus ??
             throw new ArgumentNullException(nameof(featureStatus));
+        Warn = warn ?? throw new ArgumentNullException(nameof(warn));
     }
 
     internal TypedRegistryResolver RegistryResolver { get; }
@@ -36,4 +38,5 @@ internal sealed class AutoScribeFeatureDependencies
     internal Func<bool> TryCaptureMutationPermit { get; }
     internal Func<string> ReadOwnershipFailure { get; }
     internal AutomataFeatureStatusReporter FeatureStatus { get; }
+    internal Action<string> Warn { get; }
 }

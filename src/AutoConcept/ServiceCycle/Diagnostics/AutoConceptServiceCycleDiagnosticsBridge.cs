@@ -16,6 +16,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
 {
     private readonly AutomataFeatureStatusReporter _featureStatus;
     private readonly ServiceRetryEpisodeNarrator _retries;
+    private ServiceFault _runtimeFault;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
     private bool _emergencyDisabled;
@@ -51,7 +52,9 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             ? ServiceCycleDiagnostics.ReadAvailableService(pump, AutoConceptServicePolicies.ServiceId)
             : null;
         changed |= _retries.Observe(service?.RetryGate ?? _retries.Current, pump.DiagnosticsNow);
+        changed |= ServiceCycleDiagnostics.RefreshFault(service, ref _runtimeFault);
         if (report.ResponsesAcquired != 0 && service is { } available &&
+            ServiceCycleDiagnostics.HasCurrentProjection(in available, _lifecycle, _configurationGeneration) &&
             TryReadLatestDecision(in available, out var idle))
         {
             changed = changed || !_cycleObserved || !_idle.Equals(idle);
@@ -66,6 +69,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
         _cycleObserved = false;
+        _runtimeFault = default;
         _idle = default;
     }
 
@@ -81,6 +85,7 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
         _retries.InvalidateLifecycle();
         _contractMismatch = string.Empty;
         _cycleObserved = false;
+        _runtimeFault = default;
         _idle = default;
         Publish();
     }
@@ -94,10 +99,11 @@ internal sealed class AutoConceptServiceCycleDiagnosticsBridge
             _idle,
             _retries.TryGetBackingOff(out var retry) ? retry : null,
             _contractMismatch);
+        var runtimeStatus = ServiceCycleDiagnostics.ProjectHealth(status.State, status.Reason, status.Summary, in _runtimeFault);
         _featureStatus.ObserveRuntimeLifecycle(
-            status.State,
-            status.Reason,
-            status.Summary,
+            runtimeStatus.State,
+            runtimeStatus.Reason,
+            runtimeStatus.Summary,
             _lifecycle,
             _configurationGeneration);
     }

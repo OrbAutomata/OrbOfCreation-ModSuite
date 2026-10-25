@@ -216,14 +216,21 @@ public sealed class FeatureStatusTests
         var registry = new FeatureStatusRegistry();
         var transitions = new List<FeatureStatusTransition>();
         registry.Transitioned += transitions.Add;
+        var snapshotChanges = 0;
+        registry.SnapshotChanged += () => snapshotChanges++;
         using var registration = registry.Register(Operational(1));
 
         Assert.False(registration.Update(Operational(1)));
         Assert.True(registration.Update(Blocked("first wording", 1)));
         Assert.False(registration.Update(Blocked("different wording", 1)));
+        Assert.False(registration.Update(Blocked("different wording", 1)));
+        Assert.True(registry.TryGet(Operational(1).Key, out var refreshed));
+        Assert.Equal("different wording", refreshed.Reason.Summary);
+        Assert.Equal("different wording", Assert.Single(registry.GetSnapshot()).Reason.Summary);
         Assert.True(registration.Update(Blocked("same condition, new lifecycle", 2)));
 
         Assert.Equal(3, transitions.Count);
+        Assert.Equal(4, snapshotChanges);
         Assert.Equal(
             new[] { FeatureStatusTransitionKind.Added, FeatureStatusTransitionKind.Changed, FeatureStatusTransitionKind.Changed },
             transitions.Select(transition => transition.Kind));
@@ -274,13 +281,17 @@ public sealed class FeatureStatusTests
     {
         var registry = new FeatureStatusRegistry();
         var received = 0;
+        var snapshotChanges = 0;
         registry.Transitioned += _ => throw new InvalidOperationException("consumer failure");
         registry.Transitioned += _ => received++;
+        registry.SnapshotChanged += () => throw new InvalidOperationException("consumer failure");
+        registry.SnapshotChanged += () => snapshotChanges++;
 
         using var registration = registry.Register(Operational(0));
         registration.Update(Blocked("blocked", 0));
 
         Assert.Equal(2, received);
+        Assert.Equal(2, snapshotChanges);
     }
 
     /// <summary>

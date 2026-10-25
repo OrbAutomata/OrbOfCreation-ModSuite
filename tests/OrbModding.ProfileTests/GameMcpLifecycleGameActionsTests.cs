@@ -192,7 +192,7 @@ public sealed class GameMcpLifecycleGameActionsTests
                 tryCaptureMutationPermit: () => true,
                 readOwnershipFailure: () => string.Empty,
                 featureStatus: Status(
-                    AutomataFeatureStatuses.AutoItemsFeatureId, "Auto Items", lifecycle),
+                    AutoItemsFeatureContribution.FeatureId, "Auto Items", lifecycle),
                 warn: static _ => { })),
             new AutoScribeServiceCycleFeature(new AutoScribeFeatureDependencies(
                 resolver,
@@ -202,7 +202,8 @@ public sealed class GameMcpLifecycleGameActionsTests
                 tryCaptureMutationPermit: () => true,
                 readOwnershipFailure: () => string.Empty,
                 featureStatus: Status(
-                    AutomataFeatureStatuses.AutoScribeFeatureId, "Auto Scribe", lifecycle))),
+                    AutoScribeFeatureContribution.FeatureId, "Auto Scribe", lifecycle),
+                warn: static _ => { })),
         };
     }
 
@@ -225,7 +226,7 @@ public sealed class GameMcpLifecycleGameActionsTests
                 tryCaptureMutationPermit: () => false,
                 runtimeDiagnostics: null,
                 featureStatus: Status(
-                    AutomataFeatureStatuses.AutoHarvestFeatureId, "Auto Harvest", lifecycle)));
+                    AutoHarvestFeatureContribution.FeatureId, "Auto Harvest", lifecycle)));
 
     private static AutomataFeatureStatusReporter Status(
         string featureId,

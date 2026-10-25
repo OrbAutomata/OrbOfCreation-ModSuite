@@ -357,7 +357,7 @@ public sealed class AutoConceptServiceCycleRuntimeTests : IDisposable
             Status = new AutomataFeatureStatusReporter(
                 new FeatureStatusRegistry(),
                 new FeatureStatusSnapshot(
-                    new FeatureStatusKey(PluginIds.SuiteGuid, AutomataFeatureStatuses.AutoConceptFeatureId),
+                    new FeatureStatusKey(PluginIds.SuiteGuid, AutoConceptFeatureContribution.FeatureId),
                     "Auto Concept",
                     true,
                     FeatureStatusState.NotReady,

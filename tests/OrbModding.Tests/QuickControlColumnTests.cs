@@ -301,7 +301,7 @@ public sealed class QuickControlColumnTests
                 disclosure.transform,
                 "AttentionMarker").gameObject.activeSelf);
 
-            context.Statuses.AutoItems.Observe(
+            context.Statuses.Get(AutoItemsFeatureContribution.FeatureId).Observe(
                 configuredEnabled: true,
                 FeatureStatusState.Faulted,
                 FeatureStatusReasonCode.RuntimeFailure,
@@ -338,7 +338,7 @@ public sealed class QuickControlColumnTests
             out Sprite? icon,
             out string reason)
         {
-            if (registration.FeatureId == AutomataFeatureStatuses.AutoItemsFeatureId)
+            if (registration.FeatureId == AutoItemsFeatureContribution.FeatureId)
             {
                 icon = null;
                 reason = "ScreenWorld capture missing";
@@ -360,13 +360,13 @@ public sealed class QuickControlColumnTests
         using (var liveColumn = Assert.IsType<QuickControlColumn>(column))
         {
             Assert.False(liveColumn.TryGetButton(
-                AutomataFeatureStatuses.AutoItemsFeatureId,
+                AutoItemsFeatureContribution.FeatureId,
                 out _));
             Assert.Contains(
-                AutomataFeatureStatuses.AutoItemsFeatureId,
+                AutoItemsFeatureContribution.FeatureId,
                 liveColumn.Failures.Keys);
             Assert.DoesNotContain(
-                AutomataFeatureStatuses.AutoItemsFeatureId,
+                AutoItemsFeatureContribution.FeatureId,
                 liveColumn.DrawerControlIds);
             Assert.Contains("Auto Items", reason);
             Assert.Contains("ScreenWorld capture missing", reason);

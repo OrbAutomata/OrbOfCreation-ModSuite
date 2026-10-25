@@ -28,7 +28,7 @@ internal sealed class AutoHarvestFeatureDependencies
             throw new ArgumentNullException(nameof(tryCaptureMutationPermit));
         RuntimeDiagnostics = runtimeDiagnostics;
         FeatureStatus = featureStatus ?? throw new ArgumentNullException(nameof(featureStatus));
-        Warn = warn ?? LogWarning;
+        Warn = warn ?? (static _ => { });
     }
 
     public TypedRegistryResolver RegistryResolver { get; }
@@ -37,8 +37,6 @@ internal sealed class AutoHarvestFeatureDependencies
     public RuntimeDiagnosticsRegistry? RuntimeDiagnostics { get; }
     public AutomataFeatureStatusReporter FeatureStatus { get; }
 
-    /// <summary>Where the feature's warnings go: the suite log unless a host names another.</summary>
+    /// <summary>Where the feature's warnings go; omitted by silent hosts.</summary>
     public Action<string> Warn { get; }
-
-    internal static void LogWarning(string message) => Plugin.Log?.LogAutomataWarning(message);
 }

@@ -44,6 +44,7 @@ public readonly struct NativeActionOutcome
     public NativeMutationCallOutcome CallOutcome { get; }
     public string Sentence => _reason.Sentence;
     public string Reason => _reason.Text;
+    internal GameActionReason Cause => _reason;
     public bool Verified => _kind == Kind.Commit;
     public bool IsFault => _kind is Kind.Fault or Kind.FaultBeforeCall;
 
