@@ -22,7 +22,7 @@ internal static class GameFixesSettings
         new[]
         {
             AutomationFeatureSetting.Define("Mode", GameFixesOperationMode.Active, "Game Fixes",
-                "Disabled runs the game's own code untouched. Active applies the selected fixes. Changes take effect immediately.", 0,
+                "Disabled runs the game's own code untouched. Active applies the selected fixes, also while Automation is off or STOP ALL is engaged. Changes take effect immediately.", 0,
                 static config => config.GameFixes.Mode,
                 static (config, value) => config with { GameFixes = config.GameFixes with { Mode = value } }),
         }.Concat(GameFixCatalog.Settings).ToArray());

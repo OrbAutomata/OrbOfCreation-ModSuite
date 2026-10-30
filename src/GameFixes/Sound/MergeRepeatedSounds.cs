@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using OrbModding.Common;
 using UnityEngine;
@@ -10,8 +11,9 @@ namespace OrbAutomata;
 /// <summary>
 /// Plays a one-shot sound once per frame. The game can ask for the same clip dozens of times in
 /// one frame after a large development batch or a burst of casts; every repeat after the first
-/// gets the silent overflow element, so whatever the game chains on it still works. Looping
-/// sounds are left alone because their owners stop them later.
+/// gets the silent overflow element, so whatever the game chains on it still works. A sound that
+/// ends up looping is never merged: <c>PlayLoop</c> is left alone, and a merged one-shot its caller
+/// then loops is played on a real element after all.
 /// </summary>
 /// <remarks>
 /// The merge key is the clip alone. <c>SoundManager.Play(AudioClip, float)</c> passes its second
@@ -23,6 +25,10 @@ namespace OrbAutomata;
 internal sealed class MergeRepeatedSounds : GameFix
 {
     internal const string Target = "SoundManager:Play";
+    internal const string LoopTarget = "AudioElement:SetLooping";
+
+    private static readonly MethodInfo? PlayMethod = BindPlay();
+    private static readonly FastInvokeHandler? Replay = PlayMethod is null ? null : MethodInvoker.GetHandler(PlayMethod);
 
     internal static bool IsActive;
     private static readonly HashSet<Object> s_playedThisFrame = new();
@@ -31,7 +37,7 @@ internal sealed class MergeRepeatedSounds : GameFix
 
     private static readonly AutomationFeatureSetting Definition = AutomationFeatureSetting.Define(
         "MergeRepeatedSounds", false, "Merge repeated sounds",
-        "Plays a sound once when the game asks for it several times in the same frame, and plays at most three power-build sounds after a development batch instead of one per power fire. Audio only. Takes effect immediately.",
+        "Plays a sound once when the game asks for it several times in the same frame, so a development batch plays one power-build sound instead of one per power fire. A sound the game keeps looping always plays. Audio only. Takes effect immediately.",
         20,
         static config => config.GameFixes.MergeRepeatedSounds,
         static (config, value) => config with { GameFixes = config.GameFixes with { MergeRepeatedSounds = value } });
@@ -46,11 +52,14 @@ internal sealed class MergeRepeatedSounds : GameFix
     internal override IReadOnlyList<string> Install(Harmony harmony)
     {
         var failures = new List<string>();
-        Add(failures, SoundOverflowElement.Install(harmony));
-        Add(failures, NativePatch.TryPatch(harmony,
-            AccessTools.Method(Target), Target,
-            prefix: new HarmonyMethod(typeof(MergeRepeatedSounds), nameof(PlayOncePerFrame))));
-        Add(failures, PowerBuildSoundCap.Install(harmony));
+        SoundOverflowElement.Install(failures, harmony);
+        if (PlayMethod is null) failures.Add(Target + " is not the audited Play(AudioClip, float).");
+        else
+            NativePatch.TryPatch(failures, harmony, PlayMethod, Target,
+                prefix: new HarmonyMethod(typeof(MergeRepeatedSounds), nameof(PlayOncePerFrame)));
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(LoopTarget, new[] { typeof(bool) }), LoopTarget,
+            postfix: new HarmonyMethod(typeof(MergeRepeatedSounds), nameof(KeepMergedLoop)));
+        PowerBuildSoundCap.Install(failures, harmony);
         return failures;
     }
 
@@ -62,7 +71,7 @@ internal sealed class MergeRepeatedSounds : GameFix
         s_frame = -1;
     }
 
-    internal static bool PlayOncePerFrame(Object __0, ref AudioElement __result)
+    internal static bool PlayOncePerFrame(Object __0, float __1, ref AudioElement __result)
     {
         if (!IsActive || __0 == null) return true;
         var frame = Time.frameCount;
@@ -74,15 +83,36 @@ internal sealed class MergeRepeatedSounds : GameFix
         if (s_playedThisFrame.Add(__0)) return true;
         var manager = SoundManager.instance;
         if (manager == null) return true;
-        var overflow = SoundOverflowElement.For(manager);
+        var overflow = SoundOverflowElement.HandOutMerged(manager, __0, __1);
         if (overflow is null) return true;
         __result = overflow;
         s_merged++;
         return false;
     }
 
-    private static void Add(List<string> failures, string? failure)
+    /// <summary>
+    /// <c>Spell.StartCharging</c> and <c>UIResearchItem.LoopResearchSound</c> start their loops as
+    /// <c>Play().SetLooping()</c> and keep the chained result. When that <c>Play</c> was merged, the
+    /// loop is played now on a real element and the caller keeps that one instead.
+    /// </summary>
+    internal static void KeepMergedLoop(AudioElement __instance, bool __0, ref AudioElement __result)
     {
-        if (failure is not null) failures.Add(failure);
+        if (!__0 || !SoundOverflowElement.IsOverflow(__instance) ||
+            !SoundOverflowElement.TakeMerged(out var clip, out var volume))
+            return;
+        s_playedThisFrame.Remove(clip);
+        s_merged--;
+        __result = ((AudioElement)Replay!(null!, new object[] { clip, volume })).SetLooping(true);
+    }
+
+    private static MethodInfo? BindPlay()
+    {
+        var play = AccessTools.Method(Target);
+        if (play is null || !play.IsStatic || play.ReturnType != typeof(AudioElement)) return null;
+        var parameters = play.GetParameters();
+        return parameters.Length == 2 && typeof(Object).IsAssignableFrom(parameters[0].ParameterType) &&
+            parameters[1].ParameterType == typeof(float)
+            ? play
+            : null;
     }
 }

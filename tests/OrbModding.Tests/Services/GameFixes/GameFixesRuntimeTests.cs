@@ -43,7 +43,7 @@ public sealed class GameFixesRuntimeTests
     }
 
     [Fact]
-    public void EachFixFollowsItsSettingTheFeatureModeAutomationAndTheEmergencyStop()
+    public void EachFixFollowsOnlyItsSettingAndTheFeatureMode()
     {
         var configuration = Running(new GameFixesConfiguration { MergeRepeatedSounds = true });
         using var harness = new Harness(configuration);
@@ -58,29 +58,33 @@ public sealed class GameFixesRuntimeTests
         Assert.False(SoundPoolGuard.IsActive);
         Assert.False(MergeRepeatedSounds.IsActive);
 
-        harness.Publish(configuration with { General = configuration.General with { Enabled = false } });
-        Assert.False(SoundPoolGuard.IsActive);
-
         harness.Publish(configuration);
-        Assert.True(SoundPoolGuard.IsActive);
-        harness.Publish(configuration with { Safety = configuration.Safety with { EmergencyDisable = true } });
-        Assert.False(SoundPoolGuard.IsActive);
-        Assert.False(MergeRepeatedSounds.IsActive);
-        harness.Publish(configuration);
-        Assert.True(SoundPoolGuard.IsActive);
-
-        harness.Pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
-        harness.Frame();
-        Assert.False(SoundPoolGuard.IsActive);
-        Assert.False(MergeRepeatedSounds.IsActive);
-        harness.Pump.SetEmergencyStop(false, EmergencyStopReason.SafetyInterlock);
-        harness.Frame();
         Assert.True(SoundPoolGuard.IsActive);
         Assert.True(MergeRepeatedSounds.IsActive);
 
         harness.Dispose();
         Assert.False(SoundPoolGuard.IsActive);
         Assert.False(MergeRepeatedSounds.IsActive);
+    }
+
+    [Fact]
+    public void AutomationOffAndEveryEmergencyStopLeaveTheFixesRunningAndReportedRunning()
+    {
+        var configuration = Running(new GameFixesConfiguration { MergeRepeatedSounds = true });
+        using var harness = new Harness(configuration);
+
+        harness.Publish(configuration with { General = configuration.General with { Enabled = false } });
+        AssertRunning(harness);
+
+        harness.Publish(configuration with { Safety = configuration.Safety with { EmergencyDisable = true } });
+        harness.Frame();
+        Assert.True(harness.Pump.IsEmergencyStopEngaged);
+        AssertRunning(harness);
+
+        harness.Publish(configuration);
+        harness.Pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
+        harness.Frame();
+        AssertRunning(harness);
     }
 
     [Fact]
@@ -114,6 +118,13 @@ public sealed class GameFixesRuntimeTests
         harness.Frame();
 
         Assert.StartsWith(Guard.DescribeFired(fired + 1), harness.Status.Current.Detail);
+    }
+
+    private static void AssertRunning(Harness harness)
+    {
+        Assert.True(SoundPoolGuard.IsActive);
+        Assert.True(MergeRepeatedSounds.IsActive);
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
     }
 
     private static SuiteRuntimeConfiguration Running(GameFixesConfiguration? fixes = null) => new()

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Xunit;
 
@@ -16,6 +17,9 @@ public sealed class GameFixesSoundContractTests
     private const byte LdlocS = 0x11;
     private const byte Ldloc1 = 0x07;
     private const byte BltS = 0x32;
+
+    /// <summary>Mono's JIT inlines a method only when its IL body is shorter than this.</summary>
+    private const int MonoInlineLimit = 20;
 
     [GameAssemblyFact]
     public void OnlyPlayAndPlayLoopTakeAnElementFromThePoolAndBothInitializeIt()
@@ -74,6 +78,52 @@ public sealed class GameFixesSoundContractTests
         Assert.Equal(new[] { "AudioElement.Play" }, starts);
         Assert.Contains("AudioElement+<StartPlayingEnumerator>d__36.MoveNext", graph.CallSitesOf("AudioElement", "Play"));
         Assert.Empty(graph.CallSitesOf("AudioElement", "DestroyAudio"));
+    }
+
+    [GameAssemblyFact]
+    public void TheOverflowElementSwitchesOffASourceOnlyAwakeSetsAndTheGameNeverSwitchesOn()
+    {
+        var paths = GameAssemblyPaths.Require();
+        using var assembly = new GameAssemblyMetadata(paths.AssemblyCSharp);
+        using var audio = new GameAssemblyMetadata(Path.Combine(paths.ManagedDirectory, "UnityEngine.AudioModule.dll"));
+        var graph = GameCallGraph.Build(assembly);
+
+        var source = assembly.GetField("AudioElement", "audioSource");
+        Assert.Equal("private", source.Visibility);
+        Assert.False(source.IsStatic);
+        Assert.Equal("UnityEngine.AudioSource", source.FieldType);
+        Assert.Equal(
+            new[] { "AudioElement.Awake" },
+            assembly.GetFieldUseSites(new[] { ("AudioElement", "audioSource") })
+                .Where(site => site.Use == "store")
+                .Select(site => site.MethodOwner + "." + site.MethodName));
+        Assert.Equal("UnityEngine.AudioBehaviour", audio.GetBaseType("UnityEngine.AudioSource"));
+        Assert.Equal("UnityEngine.Behaviour", audio.GetBaseType("UnityEngine.AudioBehaviour"));
+        Assert.DoesNotContain(graph.CallSitesOf("UnityEngine.Behaviour", "set_enabled"),
+            caller => caller.StartsWith("AudioElement", StringComparison.Ordinal) ||
+                caller.StartsWith("SoundManager", StringComparison.Ordinal));
+    }
+
+    [GameAssemblyFact]
+    public void OnlyTheChargeAndResearchLoopsLoopASoundTheyPlayedAndSetLoopingIsNeverInlined()
+    {
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
+        var graph = GameCallGraph.Build(assembly);
+
+        MethodBodyReferences.AssertMethod(assembly, "AudioElement", "SetLooping", false, "AudioElement", "System.Boolean");
+        Assert.Equal(
+            new[]
+            {
+                "MusicManager.FadeInAmbiance",
+                "MusicManager.PlayRandomSong",
+                "SoundManager.Play",
+                "SoundManager.PlayLoop",
+                "Spell.StartCharging",
+                "UIResearchItem.LoopResearchSound",
+            },
+            graph.CallSitesOf("AudioElement", "SetLooping"));
+        Assert.True(assembly.MethodReferencesField("UIResearchItem", "LoopResearchSound", "UIResearchItem", "loopingSound"));
+        Assert.True(assembly.GetMethodBodyBytes("AudioElement", "SetLooping").Length >= MonoInlineLimit);
     }
 
     [GameAssemblyFact]

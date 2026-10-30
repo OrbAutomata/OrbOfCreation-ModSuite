@@ -59,6 +59,14 @@ namespace HarmonyLib
         public object? operand;
     }
 
+    public delegate object FastInvokeHandler(object target, params object[] parameters);
+
+    public static class MethodInvoker
+    {
+        public static FastInvokeHandler GetHandler(MethodInfo methodInfo, bool directBoxValueAccess = false) =>
+            (target, parameters) => methodInfo.Invoke(target, parameters)!;
+    }
+
     public static class AccessTools
     {
         public static MethodInfo? Method(string typeColonMethod, Type[] parameters)

@@ -33,6 +33,8 @@ public sealed class SoundPoolGuardTests : IDisposable
         Assert.NotSame(manager.audioElement, first);
         Assert.Equal(manager.audioElement.name, first!.name);
         Assert.True(SoundOverflowElement.IsOverflow(first));
+        Assert.False(first.SourceEnabled);
+        Assert.True(manager.audioElement.SourceEnabled);
         Assert.Equal(before + 2, _guard.Fired);
         Assert.Contains("2 sounds played silently", _guard.DescribeFired(2));
     }
@@ -50,6 +52,8 @@ public sealed class SoundPoolGuardTests : IDisposable
         Assert.NotSame(first, afterSceneChange);
         Assert.NotSame(afterSceneChange, otherManager);
         Assert.True(SoundOverflowElement.IsOverflow(otherManager!));
+        Assert.False(afterSceneChange!.SourceEnabled);
+        Assert.False(otherManager!.SourceEnabled);
     }
 
     [Fact]

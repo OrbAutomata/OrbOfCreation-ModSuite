@@ -6,8 +6,8 @@
 prevents a game error or removes noise: it never changes what you earn, buy, level or unlock, and
 your save is the same as the game would have made without the error. Game Fixes starts Active.
 Each fix has its own switch on the **Game Fixes** page, and every switch takes effect immediately,
-without **Apply**. **STOP ALL** and **Automation enabled** turn the fixes off too; the game then
-runs its own code untouched.
+without **Apply**. Game fixes are not automation: **STOP ALL** and **Automation enabled** leave them
+running. Only a fix's own switch, or setting Game Fixes to Disabled, returns the game to its own code.
 
 ## Sound pool guard
 
@@ -21,8 +21,9 @@ difference you hear is that some sounds stay silent while the channels are full.
 ## Merge repeated sounds
 
 Off by default. When the game asks for the same sound several times in one frame, it plays once.
-After a development batch, a few power-build sounds play instead of one per power fire,
-which keeps very large Bulk Development batches from stuttering. Only the sounds change.
+A development batch plays one power-build sound instead of one per power fire, which keeps very
+large Bulk Development batches from stuttering. A sound the game keeps looping, such as a spell's
+charge or a research item's hum, always plays. Only the sounds change.
 
 ## Reading its status
 

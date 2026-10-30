@@ -81,9 +81,57 @@ public sealed class MergeRepeatedSoundsTests : IDisposable
         Assert.Null(result);
     }
 
+    [Fact]
+    public void AMergedSoundItsCallerLoopsPlaysOnARealElementAndIsNotCounted()
+    {
+        var clip = new AudioClip();
+        var real = new AudioElement();
+        SoundManager.instance!.NextElement = () => real;
+        Assert.True(Play(clip, out _));
+        var before = _merge.Fired;
+        Assert.False(Play(clip, out var merged, 0.4f));
+
+        var looped = Loop(merged!);
+
+        Assert.Same(real, looped);
+        Assert.Same(clip, real.clip);
+        Assert.Equal(0.4f, real.volume);
+        Assert.True(real.looping);
+        Assert.Equal(1, real.PlayCalls);
+        Assert.Equal(before, _merge.Fired);
+        Assert.Same(merged, Loop(merged!));
+    }
+
+    [Fact]
+    public void OnlyALoopOfTheLastMergedHandOutIsReplayed()
+    {
+        var clip = new AudioClip();
+        var guard = new SoundPoolGuard();
+        Assert.True(Play(clip, out _));
+        Assert.False(Play(clip, out var merged));
+        AudioElement unchanged = merged!;
+
+        MergeRepeatedSounds.KeepMergedLoop(merged!, false, ref unchanged);
+        Assert.Same(merged, unchanged);
+        Assert.Same(SoundManager.instance!.audioElement, Loop(SoundManager.instance.audioElement));
+
+        guard.Apply(true);
+        try
+        {
+            AudioElement? full = null;
+            SoundPoolGuard.GuardHandOut(SoundManager.instance, ref full);
+            Assert.Same(merged, full);
+        }
+        finally
+        {
+            guard.Apply(false);
+        }
+        Assert.Same(merged, Loop(merged!));
+    }
+
     [Theory]
-    [InlineData(true, 10, 3)]
-    [InlineData(true, 2, 2)]
+    [InlineData(true, 10, 1)]
+    [InlineData(true, 0, 0)]
     [InlineData(false, 10, 10)]
     public void ThePowerBuildLoopPlaysAtMostTheCapWhileTheMergeIsOn(bool active, int fires, int expectedSounds)
     {
@@ -122,12 +170,19 @@ public sealed class MergeRepeatedSoundsTests : IDisposable
         }
     }
 
-    private static bool Play(AudioClip? clip, out AudioElement? result)
+    private static bool Play(AudioClip? clip, out AudioElement? result, float volume = 1f)
     {
         AudioElement element = null!;
-        var played = MergeRepeatedSounds.PlayOncePerFrame(clip!, ref element);
+        var played = MergeRepeatedSounds.PlayOncePerFrame(clip!, volume, ref element);
         result = element;
         return played;
+    }
+
+    private static AudioElement Loop(AudioElement element)
+    {
+        var result = element.SetLooping(true);
+        MergeRepeatedSounds.KeepMergedLoop(element, true, ref result);
+        return result;
     }
 
     /// <summary>

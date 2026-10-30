@@ -18,23 +18,14 @@ internal static class SoundLoopRelease
 
     private const float GameReleaseFadeSeconds = 0.5f;
 
-    internal static IReadOnlyList<string> Install(Harmony harmony)
+    internal static void Install(ICollection<string> failures, Harmony harmony)
     {
-        var failures = new List<string>();
-        foreach (var (target, patch) in new[]
-        {
-            (HoldLoopTarget, nameof(ReleaseHoldLoop)),
-            (ChargeLoopTarget, nameof(ReleaseChargeLoop)),
-        })
-        {
-            var failure = NativePatch.TryPatch(harmony, AccessTools.Method(target, Type.EmptyTypes), target,
-                prefix: new HarmonyMethod(typeof(SoundLoopRelease), patch));
-            if (failure is not null) failures.Add(failure);
-        }
-        var disable = NativePatch.TryPatch(harmony, AccessTools.Method(ItemDisableTarget, Type.EmptyTypes),
-            ItemDisableTarget, postfix: new HarmonyMethod(typeof(SoundLoopRelease), nameof(ReleaseItemLoop)));
-        if (disable is not null) failures.Add(disable);
-        return failures;
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(HoldLoopTarget, Type.EmptyTypes), HoldLoopTarget,
+            prefix: new HarmonyMethod(typeof(SoundLoopRelease), nameof(ReleaseHoldLoop)));
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(ChargeLoopTarget, Type.EmptyTypes), ChargeLoopTarget,
+            prefix: new HarmonyMethod(typeof(SoundLoopRelease), nameof(ReleaseChargeLoop)));
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(ItemDisableTarget, Type.EmptyTypes), ItemDisableTarget,
+            postfix: new HarmonyMethod(typeof(SoundLoopRelease), nameof(ReleaseItemLoop)));
     }
 
     internal static void ReleaseHoldLoop(ref AudioElement? ___loopingElement) => Release(ref ___loopingElement);

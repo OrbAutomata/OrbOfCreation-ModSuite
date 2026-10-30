@@ -1219,17 +1219,10 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void PatchOptional(string targetName, string patchName, bool postfix)
     {
-        var target = AccessTools.Method(targetName);
-        if (target is null) { Logger.LogWarning($"Optional native hook unavailable: {targetName}."); return; }
         var patch = new HarmonyMethod(typeof(Plugin), patchName);
-        try
-        {
-            if (postfix) _harmony!.Patch(target, postfix: patch); else _harmony!.Patch(target, prefix: patch);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Optional native hook failed: {targetName}: {ex.GetBaseException().Message}");
-        }
+        var failure = NativePatch.TryPatch(_harmony!, AccessTools.Method(targetName), targetName,
+            prefix: postfix ? null : patch, postfix: postfix ? patch : null);
+        if (failure is not null) Logger.LogWarning("Optional native hook not installed: " + failure);
     }
 
     private void RunUiMaintenance()

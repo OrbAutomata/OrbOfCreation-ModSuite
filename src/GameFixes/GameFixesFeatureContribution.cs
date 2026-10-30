@@ -17,6 +17,8 @@ internal sealed class GameFixesFeatureContribution : AutomataFeatureContribution
 
     internal override AutomationFeatureSettings Settings => GameFixesSettings.Definition;
 
+    internal override bool StopsWithAutomation => false;
+
     internal override bool IsConfigured(SuiteRuntimeConfiguration config) =>
         config.GameFixes.Mode == GameFixesOperationMode.Active;
 

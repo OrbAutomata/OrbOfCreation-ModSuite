@@ -6,10 +6,15 @@ namespace UnityEngine
     public class AudioClip : Object
     {
     }
+
+    public class AudioSource : Behaviour
+    {
+    }
 }
 
 public class AudioElement : MonoBehaviour
 {
+    private readonly AudioSource audioSource = new();
     public AudioClip? clip;
     public float volume;
     public float pitch = 1f;
@@ -18,11 +23,12 @@ public class AudioElement : MonoBehaviour
     public int PlayCalls { get; private set; }
     public int CancelFadeCalls { get; private set; }
     public float? FadeOutDestroyTime { get; private set; }
+    public bool SourceEnabled => audioSource.enabled;
 
     public AudioElement Initialize() => this;
     public AudioElement SetClip(AudioClip audioClip) { clip = audioClip; return this; }
     public AudioElement SetVolume(float value) { volume = value; return this; }
-    public AudioElement SetLooping(bool value) { looping = value; return this; }
+    public AudioElement SetLooping(bool value = true) { looping = value; return this; }
     public AudioElement SetPitch(float value) { pitch = value; return this; }
     public AudioElement VariatePitch(float amount = 0.1f) => this;
     public AudioElement SetDelay(float delay) => this;

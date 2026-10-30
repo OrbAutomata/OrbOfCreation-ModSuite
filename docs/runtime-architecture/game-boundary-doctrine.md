@@ -80,8 +80,9 @@ as the tick-fault observer does, and a body that differs stays unpatched and is 
 health: an unknown game runs vanilla, which is the fail-closed state.
 
 Each fix is one `GameFix` in its own files under `src/GameFixes`, listed in the one
-`GameFixCatalog`. Its patches install once, at composition, and its setting, the Game Fixes mode,
-**Automation enabled** and **STOP ALL** switch it live. It is allocation-free on its hot path and
+`GameFixCatalog`. Its patches install once, at composition, and its setting and the Game Fixes mode
+switch it live. **Automation enabled** and **STOP ALL** leave it running, because it is not
+automation, and its feature status reports it as running through both. It is allocation-free on its hot path and
 reports how often it fired through feature health, never by logging inside the tick.
 
 ## Reads and owned math

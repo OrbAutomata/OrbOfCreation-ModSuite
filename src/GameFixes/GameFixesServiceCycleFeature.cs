@@ -29,8 +29,9 @@ internal sealed class GameFixesServiceCycleFeature : IAutomataServiceCycleFeatur
 }
 
 /// <summary>
-/// Turns each installed fix on exactly while the published configuration selects it, Game Fixes is
-/// Active, automation is enabled and the emergency stop is clear, and reports what the fixes did.
+/// Turns each installed fix on exactly while the published configuration selects it and Game Fixes
+/// is Active, and reports what the fixes did. Game fixes are not automation: <b>Automation enabled</b>
+/// and <b>STOP ALL</b> leave them as they are.
 /// </summary>
 internal sealed class GameFixesRuntime : IAutomataServiceCycleFeatureRuntime
 {
@@ -44,7 +45,6 @@ internal sealed class GameFixesRuntime : IAutomataServiceCycleFeatureRuntime
     private readonly long[] _reportedFired;
     private long _lifecycle;
     private ConfigGeneration _configurationGeneration;
-    private bool _emergency;
     private bool _diagnosticsActive;
     private int _framesSincePoll;
 
@@ -70,13 +70,6 @@ internal sealed class GameFixesRuntime : IAutomataServiceCycleFeatureRuntime
 
     public void ObserveFrame(SuiteFramePump pump, in SuiteFramePumpReport report)
     {
-        if (_emergency != pump.IsEmergencyStopEngaged)
-        {
-            _emergency = pump.IsEmergencyStopEngaged;
-            Apply();
-            Publish();
-            return;
-        }
         if (++_framesSincePoll < ActivityPollFrames) return;
         _framesSincePoll = 0;
         for (var index = 0; index < _fixes.Count; index++)
@@ -113,8 +106,7 @@ internal sealed class GameFixesRuntime : IAutomataServiceCycleFeatureRuntime
     private void Apply()
     {
         var configuration = _configuration.ReadLatest().Snapshot;
-        var enabled = configuration.General.Enabled && !configuration.Safety.EmergencyDisable && !_emergency &&
-            configuration.GameFixes.Mode == GameFixesOperationMode.Active;
+        var enabled = configuration.GameFixes.Mode == GameFixesOperationMode.Active;
         foreach (var fix in _fixes)
             fix.Apply(enabled && !_failures.ContainsKey(fix) && fix.IsSelected(configuration));
     }

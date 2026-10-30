@@ -17,8 +17,9 @@ gameplay runtime is composed. A patch whose target is missing, or whose transpil
 than the audited one, is not installed: the fix stays off, the log warns once, and Game Fixes reports
 **Contract unavailable** while that fix is selected.
 
-`GameFixesRuntime` switches each installed fix on exactly while its setting is selected, Game Fixes
-is Active, **Automation enabled** is on and **STOP ALL** is clear. It reads the counters every
+`GameFixesRuntime` switches each installed fix on exactly while its setting is selected and Game
+Fixes is Active. A game fix is not automation, so **Automation enabled** and **STOP ALL** leave it
+running, and `StopsWithAutomation` keeps the feature status from reporting it held by either. It reads the counters every
 `ActivityPollFrames` frames and publishes them as the feature detail; nothing logs inside the game's
 tick.
 
@@ -29,9 +30,11 @@ loop, and `SoundManager.Play` and `PlayLoop` then fault on it, which ends that g
 element after the caller. The guard is a postfix on `GetAudioElement`:
 
 - A null answer becomes the one silent overflow element (`SoundOverflowElement`). It is cloned from
-  the prefab the game builds its pool from, kept outside the pool, and an `AudioElement.Play` prefix
-  keeps it from ever starting its source. Everything the game chains on a played sound, including a
-  later `FadeOutDestroy`, works on it.
+  the prefab the game builds its pool from and kept outside the pool. Its own `AudioSource` is
+  switched off when it is cloned, and an `AudioElement.Play` prefix keeps it from starting that
+  source; the switched-off source still holds where Mono inlined the 13-byte `Play` into a caller
+  compiled before the patch. Everything the game chains on a played sound, including a later
+  `FadeOutDestroy`, works on it.
 - A pooled element first stops its coroutines and cancels its fade. Otherwise a delayed play still
   pending from its previous owner restarts whatever it plays next, and a loop restarted that way holds
   its channel for good. This sits on the hand-out, not on `AudioElement.Initialize`, so music, which
@@ -47,13 +50,20 @@ to overwrite, and a research or brewing item's loop when the item is disabled or
 
 Off by default. A prefix on `SoundManager.Play` plays each one-shot clip once per frame and hands
 every repeat in the same frame the overflow element. The clip is the whole key: `Play`'s second
-argument is the volume, and a delay is set later on the returned element. Looping sounds are not
-merged.
+argument is the volume, and a delay is set later on the returned element.
 
-Per-frame merging does not cover a large development batch: `StructureSO.CompleteQueuedQuantity`
-plays one power-build sound per power fire, each with its own pitch, delay and coroutine, so the
-repeats differ and land in later frames. `PowerBuildSoundCap` bounds that loop at `PowerBuildSoundCap.Cap`
-sounds while this fix is on. Its transpiler accepts only the audited loop shape: one `GetPowerBuildSfx` call
+A sound that ends up looping is never merged. `PlayLoop` is not patched. `Spell.StartCharging` and
+`UIResearchItem.LoopResearchSound` start their loops as `Play().SetLooping()` and keep the chained
+result, so a postfix on `AudioElement.SetLooping(true)` that meets the overflow element of a merged
+hand-out plays the remembered clip on a real element and returns that one instead. Every other
+hand-out of the overflow element forgets the merged clip first. `SetLooping` is 21 bytes of IL,
+over Mono's 20-byte inline limit, so its callers always reach the postfix.
+
+`StructureSO.CompleteQueuedQuantity` plays one power-build sound per power fire and sets a pitch and
+a delay on each, so every merged repeat still starts a delayed-play coroutine on the overflow element.
+The merge silences all but the first, so `PowerBuildSoundCap` bounds that loop at
+`PowerBuildSoundCap.Cap` while this fix is on: the batch plays its first power-build sound and starts
+nothing else. Its transpiler accepts only the audited loop shape: one `GetPowerBuildSfx` call
 entered from a branch to the compare and closed by `ldloc.1; blt`. The batch, its power fires and
 its popup are unchanged.
 
@@ -62,5 +72,5 @@ its popup are unchanged.
 Every patched method, injected field and directly called game member is declared in
 `data/native-contracts.json` under `game-fixes.*`. `GameFixesSoundContractTests` pins the facts the
 patches rely on: who takes elements from the pool, the one `Play` overload, the prefab field, the
-only place an element starts its source, where a spell stores its loops, which disable the UI items
-inherit, and the power-build loop shape.
+element's own sound source and the only place it starts, who loops a played sound, where a spell
+stores its loops, which disable the UI items inherit, and the power-build loop shape.

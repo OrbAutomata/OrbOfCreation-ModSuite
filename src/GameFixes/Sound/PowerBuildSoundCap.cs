@@ -10,13 +10,14 @@ namespace OrbAutomata;
 /// <summary>
 /// Bounds the power-build sound loop in <c>StructureSO.CompleteQueuedQuantity</c>. The game plays
 /// one sound per power fire of the whole batch, each with its own delay and coroutine, so a large
-/// Bulk Development starts hundreds in one frame. Only the loop bound changes; the batch, its
-/// fires and its popup are untouched.
+/// Bulk Development starts hundreds in one frame. The merge would silence every one after the first,
+/// so the loop plays only that first one. Only the loop bound changes; the batch, its fires and its
+/// popup are untouched.
 /// </summary>
 internal static class PowerBuildSoundCap
 {
     internal const string Target = "StructureSO:CompleteQueuedQuantity";
-    internal const int Cap = 3;
+    internal const int Cap = 1;
 
     internal static readonly MethodInfo PowerBuildSfx =
         typeof(GlobalVariables).GetMethod(nameof(GlobalVariables.GetPowerBuildSfx), Type.EmptyTypes)!;
@@ -24,8 +25,8 @@ internal static class PowerBuildSoundCap
     internal static readonly MethodInfo BoundMethod =
         typeof(PowerBuildSoundCap).GetMethod(nameof(Bound), BindingFlags.Static | BindingFlags.NonPublic)!;
 
-    internal static string? Install(Harmony harmony) =>
-        NativePatch.TryPatch(harmony, AccessTools.Method(Target, Type.EmptyTypes), Target,
+    internal static void Install(ICollection<string> failures, Harmony harmony) =>
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(Target, Type.EmptyTypes), Target,
             transpiler: new HarmonyMethod(typeof(PowerBuildSoundCap), nameof(Transpile)));
 
     /// <summary>

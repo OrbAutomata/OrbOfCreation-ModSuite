@@ -41,6 +41,8 @@ internal abstract class AutomataFeatureContribution
     internal string? ModeConfigurationSection { get; }
     internal virtual AutomationFeatureSettings? Settings => null;
     internal abstract bool IsConfigured(SuiteRuntimeConfiguration configuration);
+    /// <summary>Whether <b>Automation enabled</b> and <b>STOP ALL</b> hold this feature; only game fixes run through them.</summary>
+    internal virtual bool StopsWithAutomation => true;
     internal virtual string? BlockedBy(SuiteRuntimeConfiguration configuration) => null;
     internal virtual string? ConfiguredConstraint(SuiteRuntimeConfiguration configuration) => null;
     internal virtual IEnumerable<AutomataActionFamilyDemand> OwnershipDemands =>

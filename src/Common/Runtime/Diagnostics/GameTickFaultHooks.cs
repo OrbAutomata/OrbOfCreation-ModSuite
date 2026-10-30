@@ -46,16 +46,18 @@ internal static class GameTickFaultHooks
     {
         if (harmony is null) throw new ArgumentNullException(nameof(harmony));
         var failures = new List<string>();
-        Add(failures, NativePatch.TryPatch(
+        NativePatch.TryPatch(
+            failures,
             harmony,
             AccessTools.Method(ElementIteratorTarget, new[] { typeof(float) }),
             ElementIteratorTarget,
-            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileElementIterator))));
-        Add(failures, NativePatch.TryPatch(
+            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileElementIterator)));
+        NativePatch.TryPatch(
+            failures,
             harmony,
             AccessTools.Method(ViewManagerTarget, Type.EmptyTypes),
             ViewManagerTarget,
-            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileViewManager))));
+            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileViewManager)));
         return failures;
     }
 
@@ -90,10 +92,5 @@ internal static class GameTickFaultHooks
                 " call site(s), not the audited " + expectedSites + ".");
         }
         return rewritten;
-    }
-
-    private static void Add(List<string> failures, string? failure)
-    {
-        if (failure is not null) failures.Add(failure);
     }
 }

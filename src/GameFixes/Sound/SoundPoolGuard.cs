@@ -35,10 +35,10 @@ internal sealed class SoundPoolGuard : GameFix
     internal override IReadOnlyList<string> Install(Harmony harmony)
     {
         var failures = new List<string>();
-        Add(failures, SoundOverflowElement.Install(harmony));
-        Add(failures, NativePatch.TryPatch(harmony, AccessTools.Method(Target, Type.EmptyTypes), Target,
-            postfix: new HarmonyMethod(typeof(SoundPoolGuard), nameof(GuardHandOut))));
-        failures.AddRange(SoundLoopRelease.Install(harmony));
+        SoundOverflowElement.Install(failures, harmony);
+        NativePatch.TryPatch(failures, harmony, AccessTools.Method(Target, Type.EmptyTypes), Target,
+            postfix: new HarmonyMethod(typeof(SoundPoolGuard), nameof(GuardHandOut)));
+        SoundLoopRelease.Install(failures, harmony);
         return failures;
     }
 
@@ -55,7 +55,7 @@ internal sealed class SoundPoolGuard : GameFix
         if (!IsActive) return;
         if (__result == null)
         {
-            var overflow = SoundOverflowElement.For(__instance);
+            var overflow = SoundOverflowElement.HandOut(__instance);
             if (overflow is null) return;
             __result = overflow;
             s_overflows++;
@@ -63,10 +63,5 @@ internal sealed class SoundPoolGuard : GameFix
         }
         __result.StopAllCoroutines();
         __result.CancelFade();
-    }
-
-    private static void Add(List<string> failures, string? failure)
-    {
-        if (failure is not null) failures.Add(failure);
     }
 }

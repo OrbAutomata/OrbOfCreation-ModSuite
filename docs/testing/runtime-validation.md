@@ -107,10 +107,13 @@ retries.
 - **Game Fixes:** on a disposable save at high Special Speed with long looping casts and a large
   Bulk Development, verify that the sound pool guard keeps the tick advancing with no red banner,
   counts silent sounds in the feature detail, and stops charge, hold, research and brewing loops when
-  their owner replaces or closes them. With **Merge repeated sounds** on, verify one sound per clip
-  per frame and the bounded power-build sounds, with batch results, power fires and popups identical
-  to the fix being off. Toggle each fix, **Automation enabled** and **STOP ALL** and verify vanilla
-  sound behaviour returns immediately.
+  their owner replaces or closes them. Verify that the overflow element stays silent on a loop
+  hand-out: with every channel busy, a new hold loop makes no sound. With **Merge repeated sounds**
+  on, verify one sound per clip per frame, one power-build sound per batch, and that two spells
+  charging or two research items starting in the same frame both play their loops, with batch
+  results, power fires and popups identical to the fix being off. Toggle each fix and verify vanilla
+  sound behaviour returns immediately; engage **STOP ALL** and turn **Automation enabled** off and
+  verify the fixes keep running.
 - **Quality of Life:** on a disposable save, encounter a supported reflective Learning passive,
   verify the native mute preference and continuing resource effects, and verify exclusion of hidden,
   silent, unrelated and already-muted passives. Unmute while enabled to verify reapplication; disable

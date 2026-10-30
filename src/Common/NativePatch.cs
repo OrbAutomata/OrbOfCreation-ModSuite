@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 
@@ -29,5 +30,18 @@ internal static class NativePatch
         {
             return name + ": " + ExceptionDetail.Describe(exception);
         }
+    }
+
+    /// <summary>Applies one patch as above and adds its failure line, if any, to <paramref name="failures"/>.</summary>
+    internal static void TryPatch(
+        ICollection<string> failures,
+        Harmony harmony,
+        MethodInfo? target,
+        string name,
+        HarmonyMethod? prefix = null,
+        HarmonyMethod? postfix = null,
+        HarmonyMethod? transpiler = null)
+    {
+        if (TryPatch(harmony, target, name, prefix, postfix, transpiler) is { } failure) failures.Add(failure);
     }
 }

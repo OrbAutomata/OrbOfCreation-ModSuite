@@ -110,7 +110,7 @@ internal static class AutomataServiceCycleComposition
                 // diagnostics request to have been made before it did.
                 HostSemanticTrace.Create(
                     new ServiceCycleTraceSessionId(checked((ulong)DateTime.UtcNow.Ticks)),
-                    features.Count),
+                    registry.OrdinalCount),
                 hostDependencies.ActionOutcomes
 #if SERVICE_CYCLE_PROFILE
                 , profileProbe
