@@ -57,6 +57,33 @@ tick (`GameTickFaultObserver`, on that method and on `ViewManager.CheckViews`). 
   body that differs unpatched;
 - has a kill switch read at composition (`Diagnostics.ObserveGameTickFaults`).
 
+### Game fix exception
+
+A game fix is a Harmony patch that repairs the game's own code where it faults, leaks, or does
+needless work at scales the game did not anticipate. It is not automation: it decides nothing, acts
+for no one, and has no GameAction, because it changes how the game runs its own transaction rather
+than starting one. A fix is one of three classes:
+
+- **A** prevents a fault or removes noise (sound, popups, logs, leaked memory) and leaves every saved
+  value and gameplay result identical to a vanilla run that did not fault.
+- **B** computes identical results with less work. It keeps every random draw in the same order and
+  ships with a parity proof: the IL reading that shows the removed work is invariant, and a live
+  patched-versus-vanilla comparison on a disposable save.
+- **C** changes outcomes and is not a game fix by default. Each one needs an explicit ruling and a
+  player-facing sentence saying what changes.
+
+Class A fixes may default on; B and C are opt-in. A fix never catches and swallows a game exception,
+never re-runs or completes game work on the game's behalf, never writes save data the game would
+not, and never reads suite state beyond its own switch; turning it off restores vanilla behaviour
+with the save untouched. It rewrites only the body the audited build pins, by call site and opcode
+as the tick-fault observer does, and a body that differs stays unpatched and is reported in feature
+health: an unknown game runs vanilla, which is the fail-closed state.
+
+Each fix is one `GameFix` in its own files under `src/GameFixes`, listed in the one
+`GameFixCatalog`. Its patches install once, at composition, and its setting, the Game Fixes mode,
+**Automation enabled** and **STOP ALL** switch it live. It is allocation-free on its hot path and
+reports how often it fired through feature health, never by logging inside the tick.
+
 ## Reads and owned math
 
 - Compute what we can; collect what we cannot. Collection cost is a real budget: every native

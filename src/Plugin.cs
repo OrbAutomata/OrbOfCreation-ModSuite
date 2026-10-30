@@ -432,6 +432,7 @@ public sealed class Plugin : BaseUnityPlugin
                     ReportInvariant = message => Log.LogAutomataError(message),
                     Warn = message => Log.LogAutomataWarning(message),
                     Info = message => Log.LogAutomataInfo(message),
+                    Harmony = _harmony!,
                 };
                 return AutomataServiceCycleComposition.TryCreate(
                     configuration,

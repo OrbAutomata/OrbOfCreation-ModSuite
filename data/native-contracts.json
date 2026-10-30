@@ -5651,6 +5651,313 @@
       "place": "patch"
     },
     {
+      "id": "game-fixes.sound-manager-get-audio-element",
+      "assembly": "assembly-csharp",
+      "type": "SoundManager",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetAudioElement",
+      "visibility": "public",
+      "static": false,
+      "returnType": "AudioElement",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.sound-manager-play",
+      "assembly": "assembly-csharp",
+      "type": "SoundManager",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Play",
+      "visibility": "public",
+      "static": true,
+      "returnType": "AudioElement",
+      "parameters": [
+        "UnityEngine.AudioClip",
+        "System.Single"
+      ],
+      "owners": [
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.audio-element-play",
+      "assembly": "assembly-csharp",
+      "type": "AudioElement",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Play",
+      "visibility": "public",
+      "static": false,
+      "returnType": "AudioElement",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard",
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.spell-initialize-persistence",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "InitializePersistence",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.spell-start-charging",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "StartCharging",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.render-group-on-disable",
+      "assembly": "assembly-csharp",
+      "type": "UIRenderGroupElement",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "OnDisable",
+      "visibility": "private",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.structure-complete-queued-quantity",
+      "assembly": "assembly-csharp",
+      "type": "StructureSO",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CompleteQueuedQuantity",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.spell-looping-element",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "loopingElement",
+      "visibility": "private",
+      "static": false,
+      "valueType": "AudioElement",
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.spell-charge-fx-element",
+      "assembly": "assembly-csharp",
+      "type": "Spell",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "chargeFxElement",
+      "visibility": "private",
+      "static": false,
+      "valueType": "AudioElement",
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.sound-manager-instance",
+      "assembly": "assembly-csharp",
+      "type": "SoundManager",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "instance",
+      "visibility": "public",
+      "static": true,
+      "valueType": "SoundManager",
+      "owners": [
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.sound-manager-audio-element",
+      "assembly": "assembly-csharp",
+      "type": "SoundManager",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "audioElement",
+      "visibility": "public",
+      "static": false,
+      "valueType": "AudioElement",
+      "owners": [
+        "Game Fixes sound pool guard",
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.audio-element-cancel-fade",
+      "assembly": "assembly-csharp",
+      "type": "AudioElement",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "CancelFade",
+      "visibility": "public",
+      "static": false,
+      "returnType": "AudioElement",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.audio-element-fade-out-destroy",
+      "assembly": "assembly-csharp",
+      "type": "AudioElement",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "FadeOutDestroy",
+      "visibility": "public",
+      "static": false,
+      "returnType": "AudioElement",
+      "parameters": [
+        "System.Single"
+      ],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.research-item-destroy-research-sound",
+      "assembly": "assembly-csharp",
+      "type": "UIResearchItem",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "DestroyResearchSound",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.brewing-station-destroy-looping-audio",
+      "assembly": "assembly-csharp",
+      "type": "UIBrewingStation",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "DestroyLoopingAudio",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [],
+      "owners": [
+        "Game Fixes sound pool guard"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.global-variables-get-power-build-sfx",
+      "assembly": "assembly-csharp",
+      "type": "GlobalVariables",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetPowerBuildSfx",
+      "visibility": "public",
+      "static": true,
+      "returnType": "AudioInstance",
+      "parameters": [],
+      "owners": [
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
       "id": "game-manager.init-game",
       "assembly": "assembly-csharp",
       "type": "GameManager",
@@ -34561,7 +34868,8 @@
       "src/Targeting",
       "src/SpellWorkbench",
       "src/SpellLeveling",
-      "src/Strategist"
+      "src/Strategist",
+      "src/GameFixes"
     ],
     "exemptions": [
       {

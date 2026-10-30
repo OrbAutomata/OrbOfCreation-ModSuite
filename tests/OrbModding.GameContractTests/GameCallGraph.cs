@@ -87,6 +87,14 @@ internal sealed class GameCallGraph
         return roots;
     }
 
+    /// <summary>Every call site of a method by its declared owner and name, as "Caller.Method", one entry per site.</summary>
+    internal IReadOnlyList<string> CallSitesOf(string type, string name) =>
+        _calls.SelectMany(calls => calls.Value
+                .Where(callee => callee.Type == type && callee.Name == name)
+                .Select(_ => _methods[calls.Key].Type + "." + _methods[calls.Key].Name))
+            .OrderBy(caller => caller, StringComparer.Ordinal)
+            .ToArray();
+
     /// <summary>
     /// Every call a reachable method makes that the predicate calls a side effect, with the chain
     /// of methods from a root that leads to it.

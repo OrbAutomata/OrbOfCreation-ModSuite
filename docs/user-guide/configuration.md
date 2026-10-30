@@ -47,6 +47,8 @@ given game action.
 
 - **Auto Levels** starts Disabled and adjusts global level dials within regeneration and drain
   budgets. [Automatic levels](automatic-levels.md) explains its choices and per-dial status.
+- **Game Fixes** starts Active, with **Sound pool guard** on and **Merge repeated sounds** off. Its
+  switches take effect immediately. [Game fixes](game-fixes.md) explains what each fix changes.
 - **Quality of Life** starts Disabled. **Mute passive notifications** is selected behind that switch
   and silences encountered reflective Learning mutagen popups while their resource effects continue.
   The game saves these mute choices. While enabled, the feature reapplies them if you unmute a

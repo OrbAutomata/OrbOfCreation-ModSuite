@@ -45,12 +45,13 @@ internal readonly struct AutomataServiceCycleFeatureContext
 }
 
 /// <summary>
-/// One feature in the Automata application. It supplies its typed service and native boundary.
+/// One feature in the Automata application. It supplies its typed service, if it has one, and its
+/// native boundary.
 /// </summary>
 internal interface IAutomataServiceCycleFeature
 {
     /// <summary>
-    /// Registers the feature's typed definition into the shared registry and returns a
+    /// Registers the feature's typed definition, if it has one, into the shared registry and returns a
     /// non-generic runtime that the application drives per frame, per configuration
     /// publication, and per lifecycle boundary.
     /// </summary>

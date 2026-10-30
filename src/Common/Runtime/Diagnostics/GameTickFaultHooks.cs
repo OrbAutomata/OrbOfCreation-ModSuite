@@ -46,18 +46,16 @@ internal static class GameTickFaultHooks
     {
         if (harmony is null) throw new ArgumentNullException(nameof(harmony));
         var failures = new List<string>();
-        TryPatch(
+        Add(failures, NativePatch.TryPatch(
             harmony,
             AccessTools.Method(ElementIteratorTarget, new[] { typeof(float) }),
             ElementIteratorTarget,
-            nameof(TranspileElementIterator),
-            failures);
-        TryPatch(
+            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileElementIterator))));
+        Add(failures, NativePatch.TryPatch(
             harmony,
             AccessTools.Method(ViewManagerTarget, Type.EmptyTypes),
             ViewManagerTarget,
-            nameof(TranspileViewManager),
-            failures);
+            transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), nameof(TranspileViewManager))));
         return failures;
     }
 
@@ -94,27 +92,8 @@ internal static class GameTickFaultHooks
         return rewritten;
     }
 
-    private static void TryPatch(
-        Harmony harmony,
-        MethodInfo? target,
-        string name,
-        string transpiler,
-        List<string> failures)
+    private static void Add(List<string> failures, string? failure)
     {
-        if (target is null)
-        {
-            failures.Add(name + " is unavailable.");
-            return;
-        }
-        try
-        {
-            harmony.Patch(
-                target,
-                transpiler: new HarmonyMethod(typeof(GameTickFaultHooks), transpiler));
-        }
-        catch (Exception exception)
-        {
-            failures.Add(name + ": " + ExceptionDetail.Describe(exception));
-        }
+        if (failure is not null) failures.Add(failure);
     }
 }

@@ -29,6 +29,8 @@ namespace UnityEngine
 
         public override int GetHashCode() => base.GetHashCode();
 
+        public static T Instantiate<T>(T original) where T : Object, new() => new T { name = original.name };
+
         public static T Instantiate<T>(T original, Transform parent, bool worldPositionStays) where T : Object, new()
         {
             var clone = original is GameObject originalGameObject &&
@@ -93,6 +95,10 @@ namespace UnityEngine
     public class MonoBehaviour : Behaviour
     {
         public Coroutine StartCoroutine(IEnumerator routine) => new Coroutine(routine);
+
+        public int StopAllCoroutinesCalls { get; private set; }
+
+        public void StopAllCoroutines() => StopAllCoroutinesCalls++;
     }
 
     public sealed class Coroutine

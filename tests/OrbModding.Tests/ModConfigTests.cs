@@ -176,7 +176,7 @@ public sealed class ModConfigTests
             .Mods.Single();
 
         Assert.Equal(
-            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Quality of Life", "Advanced" },
+            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Game Fixes", "Quality of Life", "Advanced" },
             mod.Sections.Select(section => section.Name));
         Assert.DoesNotContain(mod.Sections, section => section.Name == "Research" || section.Name == "ActiveMode");
         Assert.Equal(
@@ -290,9 +290,9 @@ public sealed class ModConfigTests
             .Mods.Single();
 
         Assert.Equal(
-            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Mentor", "Quality of Life", "Advanced" },
+            new[] { "General", "Auto Buy", "Auto Cast", "Auto Concept", "Auto Harvest", "Auto Items", "Auto Levels", "Auto Scribe", "Game Fixes", "Mentor", "Quality of Life", "Advanced" },
             mod.Sections.Select(section => section.Name));
-        Assert.Equal(13, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
+        Assert.Equal(14, ModConfigTopNavigation.Build(new ConfigCatalogSnapshot(new[] { mod }), 0).Count);
         Assert.All(
             mod.Sections.Where(section => AutomataFeatureCatalog.All.Any(feature => feature.PageLabel == section.Name)),
             section => Assert.True(ModSettingsPage.IsImmediateCommandSetting(

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -10,7 +11,7 @@ namespace OrbAutomata;
 /// <summary>A feature's metadata and composition, kept beside the feature that owns its policy.</summary>
 internal abstract class AutomataFeatureContribution
 {
-    protected AutomataFeatureContribution(string id, string displayName, string serviceId,
+    protected AutomataFeatureContribution(string id, string displayName, string? serviceId,
         string? configurationSection, string? pageLabel, int pageOrder, int controlOrder,
         string? traceName = null, NativeFeatureIcon iconIdentity = NativeFeatureIcon.Unknown,
         string? modeConfigurationSection = null)
@@ -29,7 +30,8 @@ internal abstract class AutomataFeatureContribution
 
     internal string Id { get; }
     internal string DisplayName { get; }
-    internal string ServiceId { get; }
+    /// <summary>The ServiceCycle service the feature registers, or null for a feature that registers none.</summary>
+    internal string? ServiceId { get; }
     internal string? ConfigurationSection { get; }
     internal string? PageLabel { get; }
     internal int PageOrder { get; }
@@ -71,6 +73,7 @@ internal sealed class AutomataFeatureComposition
     internal Action<string> ReportInvariant { get; init; } = null!;
     internal Action<string> Warn { get; init; } = null!;
     internal Action<string> Info { get; init; } = null!;
+    internal Harmony Harmony { get; init; } = null!;
 }
 
 /// <summary>A single-family claim and the feature-local predicate that needs it.</summary>

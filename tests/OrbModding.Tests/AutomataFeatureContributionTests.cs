@@ -2,16 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
+using HarmonyLib;
 using OrbAutomata;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
+using OrbModding.Tests.Services.GameFixes;
 using Xunit;
 
 namespace OrbModding.Tests;
 
+[Collection(GameFixesCollection.Name)]
 public sealed class AutomataFeatureContributionTests
 {
     [Fact]
@@ -32,7 +35,8 @@ public sealed class AutomataFeatureContributionTests
             var reporter = statuses.Get(feature.Id);
             Assert.Equal(feature.Id, reporter.Key.FeatureId);
             Assert.Equal(feature.DisplayName, reporter.DisplayName);
-            Assert.Equal(feature.TraceName, AutomataServiceCycleTraceRoster.DisplayName(new ServiceId(feature.ServiceId)));
+            if (feature.ServiceId is not null)
+                Assert.Equal(feature.TraceName, AutomataServiceCycleTraceRoster.DisplayName(new ServiceId(feature.ServiceId)));
             if (feature.PageLabel is null) continue;
             Assert.True(controls.TryGet(feature.PageLabel, out var control));
             Assert.Equal(feature.Id, control.FeatureId);
@@ -75,6 +79,7 @@ public sealed class AutomataFeatureContributionTests
             ReportInvariant = _ => { },
             Warn = _ => { },
             Info = _ => { },
+            Harmony = new Harmony("composition-test"),
         };
         var world = new AutomataWorldCollectionFeature(() => 1, () => 1, new AutomataWorldDemand());
         var strategist = new StrategistServiceCycleFeature();
@@ -95,7 +100,8 @@ public sealed class AutomataFeatureContributionTests
             foreach (var service in services.Skip(1).Take(services.Length - 2))
                 runtimes.Add(service.Register(in featureContext));
 
-            Assert.Equal(AutomataFeatureCatalog.All.Select(feature => feature.ServiceId),
+            Assert.Equal(AutomataFeatureCatalog.All.Where(feature => feature.ServiceId is not null)
+                    .Select(feature => feature.ServiceId),
                 Enumerable.Range(0, registry.OrdinalCount).Select(ordinal => registry.GetServiceId(ordinal).Value));
         }
         finally

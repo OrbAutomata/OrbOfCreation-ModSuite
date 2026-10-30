@@ -13,6 +13,7 @@ internal static class AutomataFeatureCatalog
         {
             new AutoLevelsFeatureContribution(),
             new QualityOfLifeFeatureContribution(),
+            new GameFixesFeatureContribution(),
             new AutoItemsFeatureContribution(),
             new AutoScribeFeatureContribution(),
             new AutoHarvestFeatureContribution(),

@@ -41,4 +41,6 @@ public static class GlobalVariables
     };
     public static List<UnityEngine.Sprite> GetCustomSprites() => CustomSprites;
     public static List<UnityEngine.Color> GetCustomColors() => CustomColors;
+    public static AudioInstance PowerBuildSfx { get; set; } = new();
+    public static AudioInstance GetPowerBuildSfx() => PowerBuildSfx;
 }
