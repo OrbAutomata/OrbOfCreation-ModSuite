@@ -81,6 +81,21 @@ public sealed class ArchitectureBoundaryTests
             .ToArray();
 
     [Fact]
+    public void EveryHarmonyFinalizerReturnsVoidSoTheGamesStackTraceSurvives()
+    {
+        // HarmonyX rethrows a patched method's exception with `throw` instead of `rethrow` as soon as
+        // any finalizer returns a value, which cuts the game's frames out of every trace the
+        // tick-fault diagnostics report.
+        var returning = global::OrbModding.Plugin.HarmonyPatchTypes
+            .SelectMany(type => type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            .Where(method => method.Name == "Finalizer" && method.ReturnType != typeof(void))
+            .Select(method => method.DeclaringType!.FullName)
+            .ToArray();
+
+        Assert.Empty(returning);
+    }
+
+    [Fact]
     public void AutomataPatchesExactlyTheClassesItNames()
     {
         // Assembly-wide PatchAll would adopt every [HarmonyPatch] compiled beside it, which after the

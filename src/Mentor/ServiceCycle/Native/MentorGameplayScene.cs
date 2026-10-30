@@ -5,6 +5,8 @@ namespace OrbMentor;
 
 internal static class MentorGameplayScene
 {
-    internal static bool IsActive() =>
-        string.Equals(SceneManager.GetActiveScene().name, "Main", StringComparison.Ordinal);
+    internal static bool IsActive() => Is(SceneManager.GetActiveScene().name);
+
+    internal static bool Is(string sceneName) =>
+        string.Equals(sceneName, "Main", StringComparison.Ordinal);
 }

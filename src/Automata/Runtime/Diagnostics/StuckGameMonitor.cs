@@ -13,10 +13,10 @@ namespace OrbAutomata;
 internal sealed class StuckGameMonitor
 {
     internal const string AdvanceSentence =
-        "The game itself hit an error and stopped advancing. Return to the main menu and reload your save.";
+        "The game itself hit an error and stopped advancing. If this does not clear itself within a few seconds, return to the main menu and reload your save.";
 
     internal const string MenuSentence =
-        "The game itself hit an error and its menus stopped switching. Return to the main menu and reload your save.";
+        "The game itself hit an error and its menus stopped switching. If this does not clear itself within a few seconds, return to the main menu and reload your save.";
 
     internal const string ReportPending = " A bug report is being saved.";
 
@@ -67,9 +67,9 @@ internal sealed class StuckGameMonitor
         _stuck = repeating.Site;
         _logError(repeating.Site == GameTickFaultSite.Element
             ? "The game has stopped advancing: " + repeating.Headline +
-              " Every tick fails at the same element, so development and managers that follow it are frozen until the save is reloaded."
+              " Every tick fails at the same element, so development and managers that follow it are frozen until it runs cleanly again or the save is reloaded."
             : "The game's menus have stopped switching: " + repeating.Headline +
-              " Every frame fails at the same view, so views after it no longer show or hide until the save is reloaded; the game's tick still advances.");
+              " Every frame fails at the same view, so views after it no longer show or hide until it runs cleanly again or the save is reloaded; the game's tick still advances.");
         if (_report is not null)
         {
             Notice = Sentence(repeating.Site) + _report;

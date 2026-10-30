@@ -21,6 +21,7 @@ internal static class MentorMasteryPatchBridge
     private static MentorMasteryObservationBindings? _bindings;
     private static Action<string>? _failureLog;
     private static int _suppressionDepth;
+    private static bool _gameplayScene;
     private static object? _artifact;
     private static object? _artifactContainer;
     private static MentorAmount _artifactAmount;
@@ -36,13 +37,15 @@ internal static class MentorMasteryPatchBridge
         _readLifecycleEpoch = readLifecycleEpoch ??
                               throw new ArgumentNullException(nameof(readLifecycleEpoch));
         _failureLog = failureLog ?? throw new ArgumentNullException(nameof(failureLog));
+        _gameplayScene = MentorGameplayScene.IsActive();
         if (!MentorMasteryObservationBindings.TryCreate(out _bindings, out var reason, resolveType, includeContract))
             failureLog("Mentor records no earned mastery XP: " + reason);
         _journal.Reset(Math.Max(0, _readLifecycleEpoch()));
     }
 
-    internal static void ResetLifecycle(long epoch)
+    internal static void ResetLifecycle(long epoch, string sceneName)
     {
+        _gameplayScene = MentorGameplayScene.Is(sceneName);
         _artifact = null;
         _artifactContainer = null;
         _artifactAmount = default;
@@ -186,7 +189,7 @@ internal static class MentorMasteryPatchBridge
         _failureLog?.Invoke(reason.Text);
     }
 
-    private static bool IsGameplayScene() => MentorGameplayScene.IsActive();
+    private static bool IsGameplayScene() => _gameplayScene;
 
     private sealed class Suppression : IDisposable
     {
@@ -247,11 +250,8 @@ internal static class MentorArtifactTickPatch
     internal static void Prefix(object __instance) =>
         MentorMasteryPatchBridge.BeginArtifact(__instance);
 
-    internal static Exception? Finalizer(Exception? __exception)
-    {
+    internal static void Finalizer(Exception? __exception) =>
         MentorMasteryPatchBridge.EndArtifact(__exception is null);
-        return __exception;
-    }
 }
 
 [HarmonyPatch]
