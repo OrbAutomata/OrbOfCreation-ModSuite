@@ -1141,7 +1141,7 @@ public sealed class Plugin : BaseUnityPlugin
                 _configurationStore.Current,
                 _lifecycleGeneration,
                 _configurationStore.CurrentGeneration);
-        MentorMasteryPatchBridge.ResetLifecycle(_lifecycleGeneration);
+        MentorMasteryPatchBridge.ResetLifecycle(_lifecycleGeneration, transition.Current.SceneName);
         _lifecycleLease = GameLifecycleMonitor.Shared.CaptureLease();
 
         // The quick-controls anchor and every borrowed sprite are scene-object references. Save

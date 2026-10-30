@@ -51,7 +51,7 @@ public sealed class MentorMasteryPatchBridgeTests : IDisposable
 
         MentorArtifactTickPatch.Prefix(equipment);
         MentorArtifactExperiencePatch.Prefix(equipment.GetExperienceElement(), new BigDouble(4));
-        Assert.Null(MentorArtifactTickPatch.Finalizer(null));
+        MentorArtifactTickPatch.Finalizer(null);
 
         var observations = Collect().MasteryExperience;
         Assert.Equal(1, observations.Count);
@@ -115,6 +115,28 @@ public sealed class MentorMasteryPatchBridgeTests : IDisposable
         Assert.Equal(2, _failures.Count);
         Assert.All(_failures, entry => Assert.Contains("Reference MCP-", entry));
         Assert.Equal(0, _journal.Count);
+    }
+
+    [Fact]
+    public void AnArtifactTickJournalsOnlyWhileTheLifecycleIsInTheGameplayScene()
+    {
+        Install();
+        var equipment = new EquipmentSO { uuid = Guid.NewGuid().ToString("D"), masteryLevel = 2 };
+
+        MentorMasteryPatchBridge.ResetLifecycle(7, "MainMenu");
+        Tick(equipment, 4);
+        Assert.Equal(0, _journal.Count);
+
+        MentorMasteryPatchBridge.ResetLifecycle(7, "Main");
+        Tick(equipment, 4);
+        Assert.Equal(1, Collect().MasteryExperience.Count);
+    }
+
+    private static void Tick(EquipmentSO equipment, double gain)
+    {
+        MentorArtifactTickPatch.Prefix(equipment);
+        MentorArtifactExperiencePatch.Prefix(equipment.GetExperienceElement(), new BigDouble(gain));
+        MentorArtifactTickPatch.Finalizer(null);
     }
 
     private void Install(Func<string, bool>? includeContract = null)
