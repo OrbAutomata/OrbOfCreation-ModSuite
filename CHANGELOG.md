@@ -1,5 +1,74 @@
 # Changelog
 
+## Orb Of Creation ModSuite 0.7.0 — 2026-10-30
+
+### New
+
+- **Mods > General > Automation pace** sets how often the suite reads the game, from Fastest
+  (four times a second, as before) to CpuSaver (every 30 seconds). Slower paces cost the game
+  less frame time, and automation acts less often. The change applies at once.
+- A **Strategist** page in Mods suggests your next step: the current goal, what it costs, which
+  resources fall short, and the alternatives. It updates about once a minute. Auto Buy's new
+  **Prioritize strategist goal** option, off by default, buys that goal first once it is
+  affordable and allowed. It never saves up for it.
+- **Auto Levels**, off by default, adjusts the Output, Reserve, Druidry and Alchemy level dials one
+  level at a time to fit your income, spell costs and drain.
+- **Quality of Life**, off by default, can mute the Learning reward popups through the game's own
+  saved setting. Their effects still apply.
+- Auto Cast's **Ritual aware** option, on by default, holds attack spells until a ritual battle
+  is running. During a ritual, it starts no channel spell that would block them. Turn it off to
+  cast every ready spell in turn. Your own casts are never held back.
+
+### Fixed
+
+- Casting a spell no longer makes the game play its error sound about twice a second. This also
+  happened with every automation turned off.
+- When an action fails, automation no longer stops until you reload. The suite logs why, waits,
+  then tries that one target again on a fresh reading, and everything else keeps going. This covers
+  Auto Buy, Auto Cast, Auto Concept, Auto Harvest, Auto Items, Auto Scribe, Spell Leveling and the
+  restore of your multi-buy setting. The status names whatever is waiting. Auto Buy no longer
+  turns off its own setting, and a change the game already made counts as done even if the game
+  reports an error afterwards.
+- Automation could stay off for a whole session if the game loaded at an unlucky moment. It now
+  starts reliably.
+- Auto Cast lets go of a held full charge when you turn it off, when it stops or pauses, and when
+  a release fails. Before, your own casts kept charging to full or could not start. Auto Cast also
+  stands aside while **Magic > Spellbook > Loadout** is open, so a spell can recharge fully and be
+  removed.
+- Auto Buy no longer stalls once every pedestal is full. It buys the rest of the batch.
+- Auto Items: an active food buff no longer blocks scrolls, and a scroll with no target no longer
+  blocks the scrolls after it, so Auto Scribe keeps crafting. When you eat a fruit yourself, Auto
+  Items pauses only that fruit instead of reporting a fault. A misspelled Auto Scribe role now
+  selects nothing, and the status names it.
+- Auto Concept no longer sits idle while better Concepts are available. The **Minimum Resource %**
+  setting is gone. Auto Concept keeps 10 % of each resource's income in reserve, pulls back when a
+  resource runs out, and says why when it holds back.
+- Orb Mentor no longer reports failures for a grant too small to change a huge XP total, or for an
+  alchemy grant that levels up the recipe.
+
+### Improved
+
+- The suite makes less garbage each time it reads the game, so the game pauses less often to
+  clean up memory.
+- The stuck-game banner now says the problem may clear itself, and asks you to reload only if it
+  stays for more than a few seconds. Its bug report keeps the game's own trace, so a fault in the
+  game no longer looks like the suite's.
+- Each repeated failure is logged once per cause, and Auto Buy's routine re-plans no longer write
+  thousands of error lines. Bug reports name the cause of a failure, and the decision history
+  keeps recording after a failed action recovers.
+- The Mods left rail scrolls, so every page stays reachable in a small window. Status updates
+  while a page is open without losing your edits. Settings are marked **[Unsaved]**,
+  **[Invalid]** or **[Conflict]**, and a status no longer flickers between Operational and
+  Degraded.
+- The game guide on the documentation site covers the Workshop, Agromancy loops, the alchemy
+  recipe table, spell and rune mastery, and a run's one-way doors. The user guide covers Auto
+  Levels, the Strategist and automation pace.
+- The game MCP in the perf-debug build gives agents more of what the screen shows: resources with
+  caps and rates, required discovery rolls, spell cards and mastery, tooltip links, plot drains,
+  real research prices and the strategist's advice. Crafting takes an amount, Druidry Lv and
+  Alchemy Lv can be set, and refusals name the actual blocker. A manual purchase the game refuses
+  no longer turns Auto Buy off.
+
 ## Orb Of Creation ModSuite 0.6.0 — 2026-10-16
 
 ### Install
