@@ -6033,6 +6033,98 @@
       "place": "patch"
     },
     {
+      "id": "game-fixes.engaged-effect-get-and-apply-creation-times",
+      "assembly": "assembly-csharp",
+      "type": "Engagement.EngagedEffectInstance",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "GetAndApplyCreationTimes",
+      "visibility": "private",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
+      "owners": [
+        "Game Fixes lighter auto-development"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.engaged-effect-duration",
+      "assembly": "assembly-csharp",
+      "type": "Engagement.EngagedEffectInstance",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "duration",
+      "visibility": "private",
+      "static": false,
+      "valueType": "BigDouble",
+      "owners": [
+        "Game Fixes lighter auto-development"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.engaged-effect-max-duration",
+      "assembly": "assembly-csharp",
+      "type": "Engagement.EngagedEffectInstance",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "maxDuration",
+      "visibility": "private",
+      "static": false,
+      "valueType": "BigDouble",
+      "owners": [
+        "Game Fixes lighter auto-development"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.engaged-effect-get-max-duration",
+      "assembly": "assembly-csharp",
+      "type": "Engagement.EngagedEffectInstance",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "getMaxDuration",
+      "visibility": "private",
+      "static": false,
+      "valueType": "ObservingCache+CalculatedValue`1<BigDouble>",
+      "owners": [
+        "Game Fixes lighter auto-development"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.calculated-value-calculate",
+      "assembly": "assembly-csharp",
+      "type": "ObservingCache+CalculatedValue`1",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "Calculate",
+      "visibility": "public",
+      "static": false,
+      "returnType": "!0",
+      "parameters": [],
+      "owners": [
+        "Game Fixes lighter auto-development"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
       "id": "game-manager.init-game",
       "assembly": "assembly-csharp",
       "type": "GameManager",

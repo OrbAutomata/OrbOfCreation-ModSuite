@@ -114,7 +114,10 @@ retries.
   results, power fires and popups identical to the fix being off. Toggle each fix and verify vanilla
   sound behaviour returns immediately; engage **STOP ALL** and turn **Automation enabled** off and
   verify the fixes keep running, and launch the game with **Automation enabled** off and verify the
-  guard is installed and Game Fixes reports Operational.
+  guard is installed and Game Fixes reports Operational. With **Lighter auto-development** on, at
+  high Special Speed with several auto-developed attributes, compare against the fix off from the same
+  disposable save state: the developed counts and each auto-development's progress bar must match
+  exactly over the same game time, and the feature detail counts skipped cost calculations.
 - **Quality of Life:** on a disposable save, encounter a supported reflective Learning passive,
   verify the native mute preference and continuing resource effects, and verify exclusion of hidden,
   silent, unrelated and already-muted passives. Unmute while enabled to verify reapplication; disable

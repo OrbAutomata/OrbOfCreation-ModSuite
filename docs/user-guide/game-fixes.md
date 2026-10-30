@@ -2,9 +2,10 @@
 
 [Configuration](configuration.md)
 
-**Game Fixes** repairs the game's own code where it crashes or makes needless noise. A fix only
-prevents a game error or removes noise: it never changes what you earn, buy, level or unlock, and
-your save is the same as the game would have made without the error. Game Fixes starts Active.
+**Game Fixes** repairs the game's own code where it crashes, makes needless noise or does needless
+work. A fix only prevents a game error, removes noise or saves work: it never changes what you earn,
+buy, level or unlock, and your save is the same as the game would have made without the error. Game
+Fixes starts Active.
 Each fix has its own switch on the **Game Fixes** page, and every switch takes effect immediately,
 without **Apply**. Game fixes are not automation: **STOP ALL** and **Automation enabled** leave them
 running. Only a fix's own switch, or setting Game Fixes to Disabled, returns the game to its own code.
@@ -24,6 +25,14 @@ Off by default. When the game asks for the same sound several times in one frame
 A development batch plays one power-build sound instead of one per power fire, which keeps very
 large Bulk Development batches from stuttering. A sound the game keeps looping, such as a spell's
 charge or a research item's hum, always plays. Only the sounds change.
+
+## Lighter auto-development
+
+Off by default. At high speed an auto-developed attribute can complete thousands of developments in
+one tick, and the game works out the attribute's cost again for each of them, up to 10,000 times per
+tick, although the cost cannot change until the tick's developments are added. With this fix on, the
+game works it out once per tick. You get the same results with less work at high speed: the same
+number of developments, the same progress toward the next one, to the last digit.
 
 ## Reading its status
 

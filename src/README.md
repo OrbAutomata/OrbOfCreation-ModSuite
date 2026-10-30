@@ -28,7 +28,7 @@ Shared and feature folders:
 - `AutoItems` — uses Relics, Scrolls, and allowlisted temporary items through the game's consumable queue.
 - `AutoScribe` — queues Scroll Scribe recipes that cover Structure enchantment deficits.
 - `Automata` — the automation host: ServiceCycle composition and frame pump, emergency STOP and quick controls, and `Runtime/GameMcp`, the MCP server.
-- `GameFixes` — patches that keep the game's own code from crashing or making needless noise, never changing gameplay outcomes; it registers no service.
+- `GameFixes` — patches that keep the game's own code from crashing, making needless noise or doing needless work, never changing gameplay outcomes; it registers no service.
 - `Common` — the shared game model in `Runtime/World`, plus the ServiceCycle scheduler, configuration, diagnostics, tracing, identity resolution, and game math.
 - `Mentor` — shares a configurable share of earned mastery XP from spells, artifacts, and recipes to lower-mastery ones.
 - `ModConfig` — the in-game Mods tab: strategist advice, staged settings and runtime diagnostics.

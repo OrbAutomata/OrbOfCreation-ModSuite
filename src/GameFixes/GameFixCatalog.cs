@@ -12,6 +12,7 @@ internal static class GameFixCatalog
     {
         new SoundPoolGuard(),
         new MergeRepeatedSounds(),
+        new AutoDevelopmentCostOnce(),
     });
 
     private static Harmony? s_installedFor;
