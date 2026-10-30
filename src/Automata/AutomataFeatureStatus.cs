@@ -254,6 +254,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         ObserveConfiguration(config, configurationGeneration);
         foreach (var reporter in _all)
         {
+            if (!Contribution(reporter.Key.FeatureId).StopsWithAutomation) continue;
             var lifecycleGeneration = reporter.Current.LifecycleGeneration;
             if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration)) continue;
             reporter.ObserveLifecycle(

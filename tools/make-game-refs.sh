@@ -71,6 +71,7 @@ files=(
     Newtonsoft.Json.dll
     UnityEngine.ScreenCaptureModule.dll
     UnityEngine.ImageConversionModule.dll
+    UnityEngine.AudioModule.dll
 )
 entry_count="$(grep -c '"file":' "${manifest_path}")"
 if [[ "${entry_count}" -ne "${#files[@]}" ]]; then

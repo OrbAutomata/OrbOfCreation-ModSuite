@@ -97,6 +97,7 @@ public sealed class Plugin : BaseUnityPlugin
     private readonly MentorMasteryEventJournal _mentorMasteryJournal = new();
     private AutomataActionFamilyOwnership? _automataActionFamilyOwnership;
     private AutomataServiceCycleActivation? _serviceCycleActivation;
+    private AutomataStandingFeatures? _standingFeatures;
     private readonly AutomataWorldDemand _worldDemand = new();
     private AutomationFeatureControlRegistry? _automationFeatureControls;
     private QuickControlsHost? _quickControlsHost;
@@ -364,6 +365,14 @@ public sealed class Plugin : BaseUnityPlugin
         foreach (var patchType in HarmonyPatchTypes)
             _harmony.CreateClassProcessor(patchType).Patch();
         ComposeGameTickFaultObservation();
+        _standingFeatures = AutomataStandingFeatures.Compose(new AutomataStandingComposition
+        {
+            Harmony = _harmony,
+            Statuses = _featureStatuses!,
+            Configuration = _configurationStore!.Current,
+            ConfigurationGeneration = _configurationStore.CurrentGeneration,
+            Warn = message => Log.LogAutomataWarning(message),
+        });
         ComposeAutomata();
         _runtimeComposed = true;
     }
@@ -432,7 +441,6 @@ public sealed class Plugin : BaseUnityPlugin
                     ReportInvariant = message => Log.LogAutomataError(message),
                     Warn = message => Log.LogAutomataWarning(message),
                     Info = message => Log.LogAutomataInfo(message),
-                    Harmony = _harmony!,
                 };
                 return AutomataServiceCycleComposition.TryCreate(
                     configuration,
@@ -893,6 +901,8 @@ public sealed class Plugin : BaseUnityPlugin
                 _configurationStore.CurrentGeneration);
             return;
         }
+        var lifecycleReady = IsLifecycleReady();
+        _standingFeatures?.Tick(lifecycleReady, _lifecycleGeneration);
         var deltaTime = Time.unscaledDeltaTime;
         if (SceneManager.GetActiveScene().name == "Main" &&
             _automataConfig!.IsAutoCastTogglePressed() &&
@@ -907,7 +917,6 @@ public sealed class Plugin : BaseUnityPlugin
                 Time.frameCount);
             return;
         }
-        var lifecycleReady = IsLifecycleReady();
         _automataActionFamilyOwnership?.RefreshLoadedPluginInventory(
             Chainloader.PluginInfos.Count,
             guid => Chainloader.PluginInfos.ContainsKey(guid));
@@ -1049,6 +1058,8 @@ public sealed class Plugin : BaseUnityPlugin
         }
         _serviceCycleActivation?.Dispose();
         _serviceCycleActivation = null;
+        _standingFeatures?.Dispose();
+        _standingFeatures = null;
         _automataActionFamilyOwnership?.Dispose();
         _automataActionFamilyOwnership = null;
         _mathVerification = null;
@@ -1191,6 +1202,7 @@ public sealed class Plugin : BaseUnityPlugin
         ConfigGeneration configurationGeneration)
     {
         _featureStatuses?.ObserveConfiguration(configuration, configurationGeneration);
+        _standingFeatures?.ObserveConfiguration(configuration, configurationGeneration);
         _serviceCycleActivation?.PublishSavedConfiguration(
             configuration,
             configurationGeneration);

@@ -27,8 +27,8 @@ The reference set covers:
 - MarpleGames game assemblies: `Assembly-CSharp.dll` and
   `Assembly-CSharp-firstpass.dll`.
 - Unity Technologies engine modules: `UnityEngine.dll`, `UnityEngine.CoreModule.dll`,
-  `UnityEngine.UI.dll`, `UnityEngine.UIModule.dll`, `UnityEngine.ScreenCaptureModule.dll`, and
-  `UnityEngine.ImageConversionModule.dll`.
+  `UnityEngine.UI.dll`, `UnityEngine.UIModule.dll`, `UnityEngine.ScreenCaptureModule.dll`,
+  `UnityEngine.ImageConversionModule.dll`, and `UnityEngine.AudioModule.dll`.
 - Unity Technologies TextMesh Pro: `Unity.TextMeshPro.dll`.
 - BepInEx: `BepInEx.dll`.
 - Harmony by Andreas Pardeike: `0Harmony.dll`.

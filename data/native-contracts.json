@@ -19,6 +19,10 @@
     {
       "id": "unity-engine-ui",
       "file": "UnityEngine.UI.dll"
+    },
+    {
+      "id": "unity-engine-audio-module",
+      "file": "UnityEngine.AudioModule.dll"
     }
   ],
   "baselines": [
@@ -86,6 +90,11 @@
           "assembly": "unity-engine-ui",
           "sha256": "EC935B2B3085D20B817791DF7262BCB165967A870F08BA346B883FE141334EAD",
           "provenance": "artifacts/game-v105/Orb Of Creation_Data/Managed/UnityEngine.UI.dll"
+        },
+        {
+          "assembly": "unity-engine-audio-module",
+          "sha256": "7B9764BA829D571A826F782C04B1F7C364100939F4924700FB6CE20B10C30F45",
+          "provenance": "artifacts/game-v105/Orb Of Creation_Data/Managed/UnityEngine.AudioModule.dll"
         }
       ]
     },
@@ -5827,6 +5836,31 @@
         "reflection"
       ],
       "place": "patch"
+    },
+    {
+      "id": "game-fixes.audio-source-mute",
+      "assembly": "unity-engine-audio-module",
+      "type": "UnityEngine.AudioSource",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "set_mute",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "System.Boolean"
+      ],
+      "owners": [
+        "Game Fixes sound pool guard",
+        "Game Fixes merge repeated sounds"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch",
+      "sourceTokens": [
+        "mute"
+      ]
     },
     {
       "id": "game-fixes.spell-looping-element",

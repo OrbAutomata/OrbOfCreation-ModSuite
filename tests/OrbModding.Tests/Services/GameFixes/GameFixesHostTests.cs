@@ -1,20 +1,19 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BepInEx.Configuration;
 using HarmonyLib;
 using OrbAutomata;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
-using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
-using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using Xunit;
 
 namespace OrbModding.Tests.Services.GameFixes;
 
 [Collection(GameFixesCollection.Name)]
-public sealed class GameFixesRuntimeTests
+public sealed class GameFixesHostTests
 {
     private static readonly GameFix Guard = GameFixCatalog.All.OfType<SoundPoolGuard>().Single();
     private static readonly GameFix Merge = GameFixCatalog.All.OfType<MergeRepeatedSounds>().Single();
@@ -67,24 +66,65 @@ public sealed class GameFixesRuntimeTests
         Assert.False(MergeRepeatedSounds.IsActive);
     }
 
+    /// <summary>
+    /// The suite composed with <b>Automation enabled</b> off from launch, as the plugin composes it:
+    /// the catalog's standing features, the configuration store publishing to them and the statuses,
+    /// and STOP ALL pressed on the way. No automation runtime is composed or ticked.
+    /// </summary>
     [Fact]
-    public void AutomationOffAndEveryEmergencyStopLeaveTheFixesRunningAndReportedRunning()
+    public void AutomationOffFromLaunchAndStopAllLeaveTheFixesInstalledAndReportedRunning()
     {
-        var configuration = Running(new GameFixesConfiguration { MergeRepeatedSounds = true });
-        using var harness = new Harness(configuration);
+        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        configuration.Enabled.Value = false;
+        AutomataFeatureStatuses? statuses = null;
+        AutomataStandingFeatures? standing = null;
+        var store = new AutomataConfigurationStore(configuration, (published, generation) =>
+        {
+            statuses!.ObserveConfiguration(published, generation);
+            standing?.ObserveConfiguration(published, generation);
+        });
+        using (statuses = new AutomataFeatureStatuses(store.Current, 1, new FeatureStatusRegistry(), store.CurrentGeneration))
+        using (standing = AutomataStandingFeatures.Compose(new AutomataStandingComposition
+        {
+            Harmony = new Harmony("game-fixes-launch-test"),
+            Statuses = statuses,
+            Configuration = store.Current,
+            ConfigurationGeneration = store.CurrentGeneration,
+            Warn = _ => { },
+        }))
+        {
+            var status = statuses.Get(GameFixesFeatureContribution.FeatureId);
+            Assert.False(store.Current.General.Enabled);
+            Assert.True(SoundPoolGuard.IsActive);
+            standing.Tick(false, 1);
+            Assert.Equal(FeatureStatusState.NotReady, status.Current.State);
 
-        harness.Publish(configuration with { General = configuration.General with { Enabled = false } });
-        AssertRunning(harness);
+            standing.Tick(true, 1);
+            Assert.Equal(FeatureStatusState.Operational, status.Current.State);
 
-        harness.Publish(configuration with { Safety = configuration.Safety with { EmergencyDisable = true } });
-        harness.Frame();
-        Assert.True(harness.Pump.IsEmergencyStopEngaged);
-        AssertRunning(harness);
+            new EmergencyStopControl(store, _ => { }).Activate();
+            standing.Tick(true, 1);
+            Assert.True(store.Current.Safety.EmergencyDisable);
+            Assert.True(SoundPoolGuard.IsActive);
+            Assert.Equal(FeatureStatusState.Operational, status.Current.State);
 
-        harness.Publish(configuration);
-        harness.Pump.SetEmergencyStop(true, EmergencyStopReason.SafetyInterlock);
-        harness.Frame();
-        AssertRunning(harness);
+            statuses.ObserveServiceCycleUnavailable(store.Current, store.CurrentGeneration);
+            Assert.Equal(FeatureStatusState.Operational, status.Current.State);
+        }
+        Assert.False(SoundPoolGuard.IsActive);
+    }
+
+    [Fact]
+    public void AfterALifecycleChangeTheFixesAreReportedRunningOnceGameplayIsReadyAgain()
+    {
+        using var harness = new Harness(Running());
+
+        harness.LifecycleNotReady(2);
+        Assert.Equal(FeatureStatusState.NotReady, harness.Status.Current.State);
+        Assert.True(SoundPoolGuard.IsActive);
+
+        harness.Frame(2);
+        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
     }
 
     [Fact]
@@ -113,18 +153,11 @@ public sealed class GameFixesRuntimeTests
         AudioElement? missing = null;
         SoundPoolGuard.GuardHandOut(manager, ref missing);
 
-        for (var frame = 1; frame < GameFixesRuntime.ActivityPollFrames; frame++) harness.Frame();
+        for (var frame = 1; frame < GameFixesHost.ActivityPollFrames; frame++) harness.Frame();
         Assert.DoesNotContain(Guard.DescribeFired(fired + 1), harness.Status.Current.Detail);
         harness.Frame();
 
         Assert.StartsWith(Guard.DescribeFired(fired + 1), harness.Status.Current.Detail);
-    }
-
-    private static void AssertRunning(Harness harness)
-    {
-        Assert.True(SoundPoolGuard.IsActive);
-        Assert.True(MergeRepeatedSounds.IsActive);
-        Assert.Equal(FeatureStatusState.Operational, harness.Status.Current.State);
     }
 
     private static SuiteRuntimeConfiguration Running(GameFixesConfiguration? fixes = null) => new()
@@ -136,51 +169,43 @@ public sealed class GameFixesRuntimeTests
     private sealed class Harness : IDisposable
     {
         private readonly AutomataFeatureStatuses _statuses;
-        private readonly ServiceCycleRegistry _registry;
-        private readonly LifecycleGameActions _actions = new();
-        private readonly IAutomataServiceCycleFeatureRuntime _runtime;
-        private long _frame;
+        private readonly GameFixesHost _host;
+        private SuiteRuntimeConfiguration _configuration;
+        private ConfigGeneration _generation = new(1);
         private bool _disposed;
 
         internal Harness(SuiteRuntimeConfiguration configuration, IReadOnlyDictionary<GameFix, string>? failures = null)
         {
+            _configuration = configuration;
             _statuses = new AutomataFeatureStatuses(configuration, 1, new FeatureStatusRegistry());
-            _registry = new ServiceCycleRegistry(1, configuration, new ConfigGeneration(1), new LifecycleGeneration(1));
-            var feature = new GameFixesServiceCycleFeature(GameFixCatalog.All,
-                failures ?? new Dictionary<GameFix, string>(), _statuses.Get(GameFixesFeatureContribution.FeatureId));
-            var context = new AutomataServiceCycleFeatureContext(_registry, new ConfigGeneration(1), 1, _actions);
-            _runtime = feature.Register(in context);
-            _registry.Seal();
-            Pump = new SuiteFramePump(_registry);
-            _runtime.ActivateDiagnostics();
+            _host = new GameFixesHost(GameFixCatalog.All, failures ?? new Dictionary<GameFix, string>(),
+                _statuses.Get(GameFixesFeatureContribution.FeatureId), configuration, _generation);
+            _host.Tick(true, 1);
         }
-
-        internal SuiteFramePump Pump { get; }
 
         internal AutomataFeatureStatusReporter Status => _statuses.Get(GameFixesFeatureContribution.FeatureId);
 
         internal void Publish(SuiteRuntimeConfiguration configuration)
         {
-            var generation = _registry.Configuration.Publish(configuration);
-            _statuses.ObserveConfiguration(configuration, generation);
-            _runtime.ObserveConfiguration(generation);
+            _configuration = configuration;
+            _generation = _generation.Next();
+            _statuses.ObserveConfiguration(configuration, _generation);
+            _host.ObserveConfiguration(configuration, _generation);
         }
 
-        internal void Frame()
+        internal void LifecycleNotReady(long lifecycle)
         {
-            var report = Pump.PumpFrame(++_frame);
-            _runtime.ObserveFrame(Pump, in report);
+            _statuses.ObserveLifecycleNotReady(_configuration, lifecycle, _generation);
+            _host.Tick(false, lifecycle);
         }
+
+        internal void Frame(long lifecycle = 1) => _host.Tick(true, lifecycle);
 
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-            _runtime.DisposeDiagnostics();
-            _runtime.DisposeRegistration();
-            Pump.Dispose();
-            _actions.Dispose();
-            _registry.Dispose();
+            _host.Dispose();
             _statuses.Dispose();
         }
     }

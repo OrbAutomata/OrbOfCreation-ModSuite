@@ -2,19 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BepInEx.Configuration;
-using HarmonyLib;
 using OrbAutomata;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
-using OrbModding.Tests.Services.GameFixes;
 using Xunit;
 
 namespace OrbModding.Tests;
 
-[Collection(GameFixesCollection.Name)]
 public sealed class AutomataFeatureContributionTests
 {
     [Fact]
@@ -79,17 +76,18 @@ public sealed class AutomataFeatureContributionTests
             ReportInvariant = _ => { },
             Warn = _ => { },
             Info = _ => { },
-            Harmony = new Harmony("composition-test"),
         };
         var world = new AutomataWorldCollectionFeature(() => 1, () => 1, new AutomataWorldDemand());
         var strategist = new StrategistServiceCycleFeature();
 
         var services = AutomataFeatureCatalog.CreateServices(context, world, strategist);
+        var serviceIds = AutomataFeatureCatalog.All.Where(feature => feature.ServiceId is not null)
+            .Select(feature => feature.ServiceId).ToArray();
 
         Assert.Same(world, services.First());
         Assert.Same(strategist, services.Last());
-        Assert.Equal(AutomataFeatureCatalog.All.Count + 2, services.Length);
-        using var registry = new ServiceCycleRegistry(AutomataFeatureCatalog.All.Count,
+        Assert.Equal(serviceIds.Length + 2, services.Length);
+        using var registry = new ServiceCycleRegistry(serviceIds.Length,
             config.Current, new ConfigGeneration(1), new LifecycleGeneration(1));
         using var actions = new LifecycleGameActions();
         var featureContext = new AutomataServiceCycleFeatureContext(registry,
@@ -100,8 +98,7 @@ public sealed class AutomataFeatureContributionTests
             foreach (var service in services.Skip(1).Take(services.Length - 2))
                 runtimes.Add(service.Register(in featureContext));
 
-            Assert.Equal(AutomataFeatureCatalog.All.Where(feature => feature.ServiceId is not null)
-                    .Select(feature => feature.ServiceId),
+            Assert.Equal(serviceIds,
                 Enumerable.Range(0, registry.OrdinalCount).Select(ordinal => registry.GetServiceId(ordinal).Value));
         }
         finally

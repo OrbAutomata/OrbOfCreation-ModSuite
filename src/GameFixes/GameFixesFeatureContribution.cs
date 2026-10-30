@@ -5,8 +5,8 @@ using OrbModding.Common.Runtime.Configuration;
 namespace OrbAutomata;
 
 /// <summary>
-/// Game Fixes has no service: it installs its patches when the runtime is composed and switches
-/// them with the published configuration.
+/// Game Fixes has no service: it installs its patches when the suite installs its own and switches
+/// them with the published configuration, whether or not automation runs.
 /// </summary>
 internal sealed class GameFixesFeatureContribution : AutomataFeatureContribution
 {
@@ -25,11 +25,12 @@ internal sealed class GameFixesFeatureContribution : AutomataFeatureContribution
     internal override string? ConfiguredConstraint(SuiteRuntimeConfiguration config) =>
         GameFixCatalog.All.Any(fix => fix.IsSelected(config)) ? null : "No game fix is selected.";
 
-    internal override IAutomataServiceCycleFeature CreateService(AutomataFeatureComposition context)
+    internal override IAutomataStandingFeature CreateStanding(AutomataStandingComposition context)
     {
         var failures = GameFixCatalog.Install(context.Harmony);
         foreach (var failure in failures)
             context.Warn(failure.Key.Name + " is not installed and stays off: " + failure.Value);
-        return new GameFixesServiceCycleFeature(GameFixCatalog.All, failures, context.Statuses.Get(Id));
+        return new GameFixesHost(GameFixCatalog.All, failures, context.Statuses.Get(Id), context.Configuration,
+            context.ConfigurationGeneration);
     }
 }

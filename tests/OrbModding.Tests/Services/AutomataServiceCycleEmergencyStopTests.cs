@@ -1,23 +1,19 @@
 using OrbModding.TestSupport;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using OrbAutomata;
-using OrbModding.Common;
 using OrbModding.Common.Runtime.Configuration;
 using OrbModding.Common.Runtime.ServiceCycle.Contracts;
 using OrbModding.Common.Runtime.ServiceCycle.Orchestration;
 using OrbModding.Common.Runtime.ServiceCycle.Observation.Journal.Outcomes;
 using OrbModding.Common.Runtime.ServiceCycle.Registration;
 using OrbModding.Tests.Runtime.ServiceCycle.TestSupport;
-using OrbModding.Tests.Services.GameFixes;
 using Xunit;
 
 namespace OrbModding.Tests.Services;
 
-[Collection(GameFixesCollection.Name)]
 public sealed class AutomataServiceCycleEmergencyStopTests
 {
     [Fact]
@@ -57,45 +53,6 @@ public sealed class AutomataServiceCycleEmergencyStopTests
 
         AssertDispatchesAfter(runtime, feature.Definition, actionsAtStop);
         Assert.False(runtime.EmergencyStopEngaged);
-    }
-
-    [Fact]
-    public void StopAllLeavesGameFixesRunningAndReportedRunning()
-    {
-        var configuration = BepInExAutomataConfiguration.Bind(new ConfigFile());
-        using var statuses = new AutomataFeatureStatuses(configuration.Current, 1, new FeatureStatusRegistry());
-        var frame = 0L;
-        using var runtime = AutomataServiceCycleComposition.Create(
-            configuration.Current,
-            new ConfigGeneration(1),
-            new AutomataServiceCycleHostDependencies(
-                () => ++frame,
-                () => 1,
-                new ServiceActionTimelineRegistry()),
-            new IAutomataServiceCycleFeature[]
-            {
-                new DispatchFeature(),
-                new GameFixesServiceCycleFeature(GameFixCatalog.All, new Dictionary<GameFix, string>(),
-                    statuses.Get(GameFixesFeatureContribution.FeatureId)),
-            },
-            new ManualLogSource());
-        var store = new AutomataConfigurationStore(configuration, (published, generation) =>
-        {
-            statuses.ObserveConfiguration(published, generation);
-            runtime.PublishSavedConfiguration(published, generation);
-        });
-        var control = new EmergencyStopControl(store, _ => runtime.CancelPreparedWork());
-        Assert.True(SoundPoolGuard.IsActive);
-
-        control.Activate();
-        for (var index = 0; index < 10; index++)
-            runtime.Tick(0);
-
-        Assert.True(runtime.EmergencyStopEngaged);
-        Assert.True(SoundPoolGuard.IsActive);
-        Assert.Equal(
-            FeatureStatusState.Operational,
-            statuses.Get(GameFixesFeatureContribution.FeatureId).Current.State);
     }
 
     private static void AssertDispatchesAfter(

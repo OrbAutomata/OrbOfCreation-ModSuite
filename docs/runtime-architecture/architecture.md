@@ -97,7 +97,9 @@ C# 10 cannot enforce deep immutability; structural tests and narrow ownership AP
 Composition is explicit and ordered. The [feature catalog](https://github.com/OrbAutomata/OrbOfCreation-ModSuite/blob/main/src/Automata/AutomataFeatureCatalog.cs)
 composes the automation contributions between world collection and strategy. Each contribution lives
 beside its feature and supplies its service, if it has one, presentation metadata, configured intent, controls and
-action-family demand. Status, controls, configuration page labels, icon identity and trace names derive
+action-family demand. A feature that is not automation, such as Game Fixes, supplies a standing part
+instead of a service: the plugin composes it with the suite's patches and drives it whether or not
+the automation runtime runs. Status, controls, configuration page labels, icon identity and trace names derive
 from those contributions. Feature-owned setting declarations pair typed binding with immutable
 configuration projection; the same declarations supply Mods metadata and MCP setting metadata. The
 feature's Mode appears as an immediate command, while tuning retains staged Apply/Revert semantics.

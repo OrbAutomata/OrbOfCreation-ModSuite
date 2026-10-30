@@ -9,6 +9,7 @@ namespace UnityEngine
 
     public class AudioSource : Behaviour
     {
+        public bool mute { get; set; }
     }
 }
 
@@ -23,7 +24,7 @@ public class AudioElement : MonoBehaviour
     public int PlayCalls { get; private set; }
     public int CancelFadeCalls { get; private set; }
     public float? FadeOutDestroyTime { get; private set; }
-    public bool SourceEnabled => audioSource.enabled;
+    public bool SourceMuted => audioSource.mute;
 
     public AudioElement Initialize() => this;
     public AudioElement SetClip(AudioClip audioClip) { clip = audioClip; return this; }

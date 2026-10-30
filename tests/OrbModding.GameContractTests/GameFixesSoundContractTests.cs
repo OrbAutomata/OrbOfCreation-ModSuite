@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using Xunit;
 
@@ -81,11 +80,9 @@ public sealed class GameFixesSoundContractTests
     }
 
     [GameAssemblyFact]
-    public void TheOverflowElementSwitchesOffASourceOnlyAwakeSetsAndTheGameNeverSwitchesOn()
+    public void TheOverflowElementMutesASourceOnlyAwakeSetsAndTheGameNeverSetsMute()
     {
-        var paths = GameAssemblyPaths.Require();
-        using var assembly = new GameAssemblyMetadata(paths.AssemblyCSharp);
-        using var audio = new GameAssemblyMetadata(Path.Combine(paths.ManagedDirectory, "UnityEngine.AudioModule.dll"));
+        using var assembly = new GameAssemblyMetadata(GameAssemblyPaths.Require().AssemblyCSharp);
         var graph = GameCallGraph.Build(assembly);
 
         var source = assembly.GetField("AudioElement", "audioSource");
@@ -97,11 +94,7 @@ public sealed class GameFixesSoundContractTests
             assembly.GetFieldUseSites(new[] { ("AudioElement", "audioSource") })
                 .Where(site => site.Use == "store")
                 .Select(site => site.MethodOwner + "." + site.MethodName));
-        Assert.Equal("UnityEngine.AudioBehaviour", audio.GetBaseType("UnityEngine.AudioSource"));
-        Assert.Equal("UnityEngine.Behaviour", audio.GetBaseType("UnityEngine.AudioBehaviour"));
-        Assert.DoesNotContain(graph.CallSitesOf("UnityEngine.Behaviour", "set_enabled"),
-            caller => caller.StartsWith("AudioElement", StringComparison.Ordinal) ||
-                caller.StartsWith("SoundManager", StringComparison.Ordinal));
+        Assert.Empty(graph.CallSitesOf("UnityEngine.AudioSource", "set_mute"));
     }
 
     [GameAssemblyFact]

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using HarmonyLib;
 using OrbMentor;
 using OrbModding.Common;
 using OrbModding.Common.Runtime;
@@ -47,7 +46,10 @@ internal abstract class AutomataFeatureContribution
     internal virtual string? ConfiguredConstraint(SuiteRuntimeConfiguration configuration) => null;
     internal virtual IEnumerable<AutomataActionFamilyDemand> OwnershipDemands =>
         Array.Empty<AutomataActionFamilyDemand>();
-    internal abstract IAutomataServiceCycleFeature CreateService(AutomataFeatureComposition context);
+    /// <summary>The feature's automation service; null for a feature that registers none.</summary>
+    internal virtual IAutomataServiceCycleFeature? CreateService(AutomataFeatureComposition context) => null;
+    /// <summary>What the feature runs whether or not automation does; null for automation alone.</summary>
+    internal virtual IAutomataStandingFeature? CreateStanding(AutomataStandingComposition context) => null;
     internal virtual AutomationFeatureControlRegistration? CreateControl(
         AutomataConfigurationStore configuration, AutomataFeatureStatuses statuses,
         SpellLevelCapabilityState capability, MentorConfig mentor) => Settings is null ? null :
@@ -75,7 +77,6 @@ internal sealed class AutomataFeatureComposition
     internal Action<string> ReportInvariant { get; init; } = null!;
     internal Action<string> Warn { get; init; } = null!;
     internal Action<string> Info { get; init; } = null!;
-    internal Harmony Harmony { get; init; } = null!;
 }
 
 /// <summary>A single-family claim and the feature-local predicate that needs it.</summary>

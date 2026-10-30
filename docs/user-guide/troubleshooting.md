@@ -80,7 +80,8 @@ current file aside so the suite can create defaults; do not lower the schema mar
 ## Steam Deck UI problems or severe frame-rate loss
 
 Press **STOP ALL** first. If the problem clears, resume and enable features one at a time to identify
-the trigger. Create a bug report after reproducing the problem, then include whether the native
+the trigger. STOP ALL leaves [game fixes](game-fixes.md) running, so if the problem stays, switch
+each fix off on the Game Fixes page to rule them out. Create a bug report after reproducing the problem, then include whether the native
 autoqueue and NG+ tabs were unlocked and which features were active.
 
 ## A red banner says the game stopped advancing or its menus stopped switching

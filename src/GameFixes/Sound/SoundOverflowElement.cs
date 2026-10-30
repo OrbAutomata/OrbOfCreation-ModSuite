@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using OrbModding.Common;
-using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace OrbAutomata;
@@ -19,6 +18,7 @@ internal static class SoundOverflowElement
     internal const string SourceType = "UnityEngine.AudioSource";
 
     private static readonly FieldInfo? Source = BindSource();
+    private static readonly PropertyInfo? Mute = BindMute();
 
     private static AudioElement? s_element;
     private static SoundManager? s_owner;
@@ -28,15 +28,15 @@ internal static class SoundOverflowElement
     private static float s_mergedVolume;
 
     /// <summary>
-    /// Requires the element's own sound source, which the clone switches off, and a prefix that
-    /// keeps the clone from starting it, so it stays silent even where Mono inlined <c>Play</c>.
+    /// Requires the element's own sound source, which the clone mutes, and a prefix that keeps the
+    /// clone from starting it, so it stays silent even where Mono inlined <c>Play</c>.
     /// </summary>
     internal static void Install(ICollection<string> failures, Harmony harmony)
     {
         if (!ReferenceEquals(s_installedFor, harmony))
         {
             var own = new List<string>();
-            if (Source is null) own.Add("AudioElement.audioSource is not the audited " + SourceType + ".");
+            if (Mute is null) own.Add("AudioElement.audioSource is not the audited " + SourceType + " with a settable mute.");
             NativePatch.TryPatch(own, harmony, AccessTools.Method(PlayTarget, Type.EmptyTypes), PlayTarget,
                 prefix: new HarmonyMethod(typeof(SoundOverflowElement), nameof(StaySilent)));
             s_failures = own;
@@ -88,7 +88,7 @@ internal static class SoundOverflowElement
         var prefab = manager.audioElement;
         if (prefab == null) return null;
         var element = Object.Instantiate(prefab);
-        ((Behaviour)Source!.GetValue(element)).enabled = false;
+        Mute!.SetValue(Source!.GetValue(element), true);
         s_element = element;
         s_owner = manager;
         return element;
@@ -97,9 +97,12 @@ internal static class SoundOverflowElement
     private static FieldInfo? BindSource()
     {
         var field = typeof(AudioElement).GetField("audioSource", BindingFlags.Instance | BindingFlags.NonPublic);
-        return field is not null && field.FieldType.FullName == SourceType &&
-            typeof(Behaviour).IsAssignableFrom(field.FieldType)
-            ? field
-            : null;
+        return field?.FieldType.FullName == SourceType ? field : null;
+    }
+
+    private static PropertyInfo? BindMute()
+    {
+        var mute = Source?.FieldType.GetProperty("mute", BindingFlags.Instance | BindingFlags.Public);
+        return mute?.PropertyType == typeof(bool) && mute.CanWrite ? mute : null;
     }
 }

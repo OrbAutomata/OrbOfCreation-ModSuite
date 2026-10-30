@@ -113,7 +113,8 @@ retries.
   charging or two research items starting in the same frame both play their loops, with batch
   results, power fires and popups identical to the fix being off. Toggle each fix and verify vanilla
   sound behaviour returns immediately; engage **STOP ALL** and turn **Automation enabled** off and
-  verify the fixes keep running.
+  verify the fixes keep running, and launch the game with **Automation enabled** off and verify the
+  guard is installed and Game Fixes reports Operational.
 - **Quality of Life:** on a disposable save, encounter a supported reflective Learning passive,
   verify the native mute preference and continuing resource effects, and verify exclusion of hidden,
   silent, unrelated and already-muted passives. Unmute while enabled to verify reapplication; disable
