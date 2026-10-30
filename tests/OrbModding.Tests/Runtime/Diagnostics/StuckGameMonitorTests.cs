@@ -61,7 +61,8 @@ public sealed class StuckGameMonitorTests : IDisposable
         _written!("/game/BepInEx/config/OrbOfCreation-ModSuite/diagnostics/report.zip");
 
         Assert.Equal(
-            "The game itself hit an error and stopped advancing. Return to the main menu and reload your save. " +
+            "The game itself hit an error and stopped advancing. If this does not clear itself within a few seconds, " +
+            "return to the main menu and reload your save. " +
             "A bug report was saved to /game/BepInEx/config/OrbOfCreation-ModSuite/diagnostics/report.zip; " +
             "send it to the mod authors.",
             monitor.Notice);
