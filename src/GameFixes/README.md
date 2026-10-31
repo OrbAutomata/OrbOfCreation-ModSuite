@@ -1,12 +1,14 @@
 # Game Fixes
 
-Patches that repair the game's own code where it crashes or makes needless noise. Game Fixes is not
-automation: it has no service and no GameAction, and it never starts a game action. The rules every
+Patches that repair the game's own code where it crashes, makes needless noise or does needless
+work. Game Fixes is not automation: it has no service and no GameAction, and it never starts a game
+action. The rules every
 fix follows are the [game fix exception](../../docs/runtime-architecture/game-boundary-doctrine.md#game-fix-exception).
 
-A game fix may only prevent a game fault or remove noise. It never changes gameplay outcomes: every
-resource, level, unlock, purchase and saved value is what an unpatched game that did not fault would
-have produced. A fix that would change an outcome is not a game fix and does not belong here.
+A game fix may only prevent a game fault, remove noise, or compute the game's own result with less
+work. It never changes gameplay outcomes: every resource, level, unlock, purchase and saved value is
+what an unpatched game that did not fault would have produced. A fix that would change an outcome is
+not a game fix and does not belong here.
 
 ## How a fix is built
 
@@ -72,6 +74,28 @@ nothing else. Its transpiler accepts only the audited loop shape: one `GetPowerB
 entered from a branch to the compare and closed by `ldloc.1; blt`. The batch, its power fires and
 its popup are unchanged.
 
+## Lighter auto-development
+
+Off by default. `EngagedEffectInstance.GetAndApplyCreationTimes` counts the developments one tick
+completes by subtracting the build time from the elapsed duration, at most 10,000 times, and calls
+`getMaxDuration.Calculate()` after every subtraction. For auto-development that is
+`AutoPurchaseInstance.CalcTotalTime`, which runs `StructureSO.GetNextCost` each time. The transpiler
+routes that one call through `AutoDevelopmentCostOnce.CalculateOnce` with a flag local: the first call
+in a run of the loop calculates, and while the fix is on every later one returns the build time that
+call stored. The loop, its cap and its subtractions are the game's, so the completions and the
+leftover duration are bit-identical. The game's dead closed form (one division and floor) is not used,
+because it can differ from repeated subtraction by one completion.
+
+The parity proof is in the game's IL. The loop body writes only its counter, `duration` and
+`maxDuration`. The game stores only two kinds of build time in `getMaxDuration`: a constant
+(`CalculatedValue.Static`, from the constructor and `SetMaxDuration(BigDouble)`, which crafting uses)
+and `CalcTotalTime` (from `AutoPurchaseInstance.Initialize`); `SetMaxDuration(Func)` has no caller.
+`CalcTotalTime` reaches nothing in `EngagedEffectInstance` or `ObservingCache`, draws no random
+number and writes nothing it reads: the only writes on its way are lazily refreshed caches
+(`ValueModifierRecord.GetValue`, `IdObjectRef.GetRef`) that the first call settles, and fresh
+temporaries. The transpiler accepts only the audited 26-instruction loop after the closed form's
+`ret`, with one `Calculate` in the method; the branch targets are pinned by the contracts.
+
 ## Contracts
 
 Every patched method, injected field and directly called game member is declared in
@@ -79,3 +103,6 @@ Every patched method, injected field and directly called game member is declared
 patches rely on: who takes elements from the pool, the one `Play` overload, the prefab field, the
 element's own sound source, that the game never mutes it, and the only place it starts, who loops a played sound, where a spell
 stores its loops, which disable the UI items inherit, and the power-build loop shape.
+`GameFixesAutoDevelopmentContractTests` pins the completion loop byte for byte, every build time the
+game can store in `getMaxDuration`, and that auto-development's build time reaches no write to what
+it reads.

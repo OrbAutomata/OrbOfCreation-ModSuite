@@ -13,12 +13,13 @@ internal sealed record GameFixesConfiguration
     internal GameFixesOperationMode Mode { get; init; } = GameFixesOperationMode.Active;
     internal bool SoundPoolGuard { get; init; } = true;
     internal bool MergeRepeatedSounds { get; init; }
+    internal bool AutoDevelopmentCostOnce { get; init; }
 }
 
 internal static class GameFixesSettings
 {
     internal static readonly AutomationFeatureSettings Definition = new(
-        "Repairs the game's own code where it crashes or makes needless noise. A fix never changes what you earn, buy or unlock.",
+        "Repairs the game's own code where it crashes, makes needless noise or does needless work. A fix never changes what you earn, buy or unlock.",
         new[]
         {
             AutomationFeatureSetting.Define("Mode", GameFixesOperationMode.Active, "Game Fixes",
