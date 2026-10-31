@@ -531,7 +531,8 @@ public sealed class AutomataFeatureStatusTests
     [Fact]
     public void EveryFeatureStatusRejectsAConfiguredIntentFromAnOlderGeneration()
     {
-        var config = BepInExAutomataConfiguration.Bind(new ConfigFile());
+        var file = new ConfigFile();
+        var config = BepInExAutomataConfiguration.Bind(file);
         var registry = new FeatureStatusRegistry();
         var initialGeneration = new ConfigGeneration(1);
         using var statuses = new AutomataFeatureStatuses(
@@ -541,6 +542,8 @@ public sealed class AutomataFeatureStatusTests
             initialGeneration);
         config.AutoBuyMode.Value = AutoBuyOperationMode.Disabled;
         config.AutoLevelSpells.Value = false;
+        file.Single(entry => entry.Key.Section == "GameFixes" && entry.Key.Key == "Mode").Value
+            .SetSerializedValue("Disabled");
         var currentGeneration = initialGeneration.Next();
 
         statuses.ObserveConfiguration(config.Current, currentGeneration);

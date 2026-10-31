@@ -56,8 +56,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(36, schema.Length);
-        Assert.Equal(36, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(39, schema.Length);
+        Assert.Equal(39, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -288,12 +288,12 @@ public sealed class GameMcpConfigurationTests
 
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
+            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife, GameFixes",
             GameMcpAcceptanceFixture.CallText("suite_configuration", context: context)
                 .Split('\n')[0]);
         Assert.Equal(
             "sections: General, AutoBuy, AutoCast, AutoConcept, AutoHarvest, AutoItems, " +
-            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
+            "AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife, GameFixes",
             GameMcpAcceptanceFixture.CallText(
                     "suite_configuration", new JObject { ["mode"] = "describe" }, context)
                 .Split('\n')[0]);
@@ -340,7 +340,7 @@ public sealed class GameMcpConfigurationTests
         Assert.Equal(GameMcpDecisionReason.ClassInput, (string?)refusal["reasonCode"]);
         Assert.Equal(
             "unknown section 'autobuy_settings'; the sections are General, AutoBuy, AutoCast, " +
-            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife",
+            "AutoConcept, AutoHarvest, AutoItems, AutoScribe, Reserves, Mentor, AutoLevels, QualityOfLife, GameFixes",
             (string?)refusal["reason"]);
         Assert.Null(refusal["sections"]);
 
@@ -640,6 +640,9 @@ public sealed class GameMcpConfigurationTests
                 "AutoLevels/DrainBufferSeconds: double",
                 "QualityOfLife/Mode: QualityOfLifeOperationMode",
                 "QualityOfLife/MutePassiveNotifications: bool",
+                "GameFixes/Mode: GameFixesOperationMode",
+                "GameFixes/SoundPoolGuard: bool",
+                "GameFixes/MergeRepeatedSounds: bool",
             },
             described["settings"]!.Values<JObject>()
                 .Select(setting =>

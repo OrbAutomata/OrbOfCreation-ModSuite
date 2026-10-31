@@ -18,6 +18,10 @@ public class StructureSO : UpgradeableObject, Targeting.ITargetable, IActionable
     public int queuedQuantity;
     public int quantity;
     public bool available = true;
+
+    public void CompleteQueuedQuantity()
+    {
+    }
     public bool visible = true;
     public bool purchasable = true;
     public ResourceCostList purchaseCost = new ResourceCostList();

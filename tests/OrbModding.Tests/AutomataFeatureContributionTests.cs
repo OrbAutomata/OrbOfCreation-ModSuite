@@ -32,7 +32,8 @@ public sealed class AutomataFeatureContributionTests
             var reporter = statuses.Get(feature.Id);
             Assert.Equal(feature.Id, reporter.Key.FeatureId);
             Assert.Equal(feature.DisplayName, reporter.DisplayName);
-            Assert.Equal(feature.TraceName, AutomataServiceCycleTraceRoster.DisplayName(new ServiceId(feature.ServiceId)));
+            if (feature.ServiceId is not null)
+                Assert.Equal(feature.TraceName, AutomataServiceCycleTraceRoster.DisplayName(new ServiceId(feature.ServiceId)));
             if (feature.PageLabel is null) continue;
             Assert.True(controls.TryGet(feature.PageLabel, out var control));
             Assert.Equal(feature.Id, control.FeatureId);
@@ -80,11 +81,13 @@ public sealed class AutomataFeatureContributionTests
         var strategist = new StrategistServiceCycleFeature();
 
         var services = AutomataFeatureCatalog.CreateServices(context, world, strategist);
+        var serviceIds = AutomataFeatureCatalog.All.Where(feature => feature.ServiceId is not null)
+            .Select(feature => feature.ServiceId).ToArray();
 
         Assert.Same(world, services.First());
         Assert.Same(strategist, services.Last());
-        Assert.Equal(AutomataFeatureCatalog.All.Count + 2, services.Length);
-        using var registry = new ServiceCycleRegistry(AutomataFeatureCatalog.All.Count,
+        Assert.Equal(serviceIds.Length + 2, services.Length);
+        using var registry = new ServiceCycleRegistry(serviceIds.Length,
             config.Current, new ConfigGeneration(1), new LifecycleGeneration(1));
         using var actions = new LifecycleGameActions();
         var featureContext = new AutomataServiceCycleFeatureContext(registry,
@@ -95,7 +98,7 @@ public sealed class AutomataFeatureContributionTests
             foreach (var service in services.Skip(1).Take(services.Length - 2))
                 runtimes.Add(service.Register(in featureContext));
 
-            Assert.Equal(AutomataFeatureCatalog.All.Select(feature => feature.ServiceId),
+            Assert.Equal(serviceIds,
                 Enumerable.Range(0, registry.OrdinalCount).Select(ordinal => registry.GetServiceId(ordinal).Value));
         }
         finally

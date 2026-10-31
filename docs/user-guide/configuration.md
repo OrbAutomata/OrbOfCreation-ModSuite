@@ -35,8 +35,8 @@ feature's mode and enable additional automation one feature at a time.
 
 The top-left **STOP ALL** control is always available during gameplay. It immediately stops new
 suite actions and discards prepared automation work. Press it again to resume. The **General** page
-offers the same **Stop all** or **Resume all** command, plus **Automation enabled** for turning the
-whole suite off without editing the configuration file. **Automation pace** sets how often the suite
+offers the same **Stop all** or **Resume all** command, plus **Automation enabled** for turning all
+automation off without editing the configuration file. **Automation pace** sets how often the suite
 re-reads the game, from Fastest (4 times a second) to CpuSaver (every 30 seconds); slower paces cost
 the game less time and make automation act less often.
 
@@ -47,6 +47,8 @@ given game action.
 
 - **Auto Levels** starts Disabled and adjusts global level dials within regeneration and drain
   budgets. [Automatic levels](automatic-levels.md) explains its choices and per-dial status.
+- **Game Fixes** starts Active, with **Sound pool guard** on and **Merge repeated sounds** off. Its
+  switches take effect immediately, and **STOP ALL** and **Automation enabled** leave them on. [Game fixes](game-fixes.md) explains what each fix changes.
 - **Quality of Life** starts Disabled. **Mute passive notifications** is selected behind that switch
   and silences encountered reflective Learning mutagen popups while their resource effects continue.
   The game saves these mute choices. While enabled, the feature reapplies them if you unmute a

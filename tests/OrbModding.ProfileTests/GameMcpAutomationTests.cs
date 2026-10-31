@@ -26,7 +26,7 @@ public sealed class GameMcpAutomationTests
             new[]
             {
                 "auto_buy", "auto_cast", "auto_concept", "auto_harvest",
-                "auto_items", "auto_scribe", "mentor", "auto_levels", "quality_of_life",
+                "auto_items", "auto_scribe", "mentor", "auto_levels", "quality_of_life", "game_fixes",
             },
             tool["inputSchema"]!["properties"]!["feature"]!["enum"]!.Values<string>().ToArray());
     }
@@ -117,7 +117,7 @@ public sealed class GameMcpAutomationTests
     {
         var rows = Rows(Configuration(autoBuy: true, mentor: true));
 
-        Assert.Equal(9, rows.Count);
+        Assert.Equal(10, rows.Count);
         Assert.Equal("auto_buy", (string?)rows[0]["feature"]);
         // Every row names its feature the way the Mods rail names it.
         Assert.Equal("Auto Buy", (string?)rows[0]["name"]);

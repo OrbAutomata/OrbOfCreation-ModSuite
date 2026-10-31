@@ -30,6 +30,7 @@ public sealed record SuiteRuntimeConfiguration
     internal AutoScribeConfiguration AutoScribe { get; init; } = new();
     internal AutoLevelsConfiguration AutoLevels { get; init; } = new();
     internal QualityOfLifeConfiguration QualityOfLife { get; init; } = new();
+    internal GameFixesConfiguration GameFixes { get; init; } = new();
     internal MentorConfiguration Mentor { get; init; } = new();
     internal SuiteSafetyConfiguration Safety { get; init; } = new();
     internal AutomataReserveConfiguration Reserves { get; init; } = new();

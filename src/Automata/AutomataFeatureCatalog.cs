@@ -13,6 +13,7 @@ internal static class AutomataFeatureCatalog
         {
             new AutoLevelsFeatureContribution(),
             new QualityOfLifeFeatureContribution(),
+            new GameFixesFeatureContribution(),
             new AutoItemsFeatureContribution(),
             new AutoScribeFeatureContribution(),
             new AutoHarvestFeatureContribution(),
@@ -30,6 +31,6 @@ internal static class AutomataFeatureCatalog
         AutomataFeatureComposition context,
         IAutomataServiceCycleFeature worldCollection,
         IAutomataServiceCycleFeature strategist) =>
-        new[] { worldCollection }.Concat(All.Select(feature => feature.CreateService(context)))
+        new[] { worldCollection }.Concat(All.Select(feature => feature.CreateService(context)).OfType<IAutomataServiceCycleFeature>())
             .Concat(new[] { strategist }).ToArray();
 }

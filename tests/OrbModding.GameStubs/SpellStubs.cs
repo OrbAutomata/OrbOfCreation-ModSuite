@@ -13,6 +13,14 @@ public class Spell : ITooltipable
     public bool Channeled { get; set; }
     public bool EmitFireSignal { get; set; } = true;
     public bool HoldingCharge { get; private set; }
+
+    public void InitializePersistence()
+    {
+    }
+
+    public void StartCharging()
+    {
+    }
     public int FireCalls { get; private set; }
     public int CurrentCharges { get; set; }
     public int MaximumCharges { get; set; }

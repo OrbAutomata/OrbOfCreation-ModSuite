@@ -219,7 +219,9 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         if (configurationGeneration.Value < _configurationGeneration.Value) return;
         _configurationGeneration = configurationGeneration;
         foreach (var reporter in _all)
-            reporter.SetEmergencyStop(config.Safety.EmergencyDisable, configurationGeneration);
+            reporter.SetEmergencyStop(
+                config.Safety.EmergencyDisable && Contribution(reporter.Key.FeatureId).StopsWithAutomation,
+                configurationGeneration);
         foreach (var reporter in _all)
             ObserveConfiguredIntent(reporter, config, configurationGeneration);
     }
@@ -252,6 +254,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         ObserveConfiguration(config, configurationGeneration);
         foreach (var reporter in _all)
         {
+            if (!Contribution(reporter.Key.FeatureId).StopsWithAutomation) continue;
             var lifecycleGeneration = reporter.Current.LifecycleGeneration;
             if (ObserveOffOrBlocked(reporter, config, lifecycleGeneration)) continue;
             reporter.ObserveLifecycle(
@@ -341,7 +344,7 @@ internal sealed class AutomataFeatureStatuses : IDisposable
         Contribution(featureId).IsConfigured(config);
 
     private static string? BlockedBy(string featureId, SuiteRuntimeConfiguration config) =>
-        !config.General.Enabled ? "Automata is disabled by configuration." :
+        !config.General.Enabled && Contribution(featureId).StopsWithAutomation ? "Automata is disabled by configuration." :
             Contribution(featureId).BlockedBy(config);
 
     private static string? ConfiguredConstraint(string featureId, SuiteRuntimeConfiguration config) =>

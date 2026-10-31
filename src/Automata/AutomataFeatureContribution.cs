@@ -10,7 +10,7 @@ namespace OrbAutomata;
 /// <summary>A feature's metadata and composition, kept beside the feature that owns its policy.</summary>
 internal abstract class AutomataFeatureContribution
 {
-    protected AutomataFeatureContribution(string id, string displayName, string serviceId,
+    protected AutomataFeatureContribution(string id, string displayName, string? serviceId,
         string? configurationSection, string? pageLabel, int pageOrder, int controlOrder,
         string? traceName = null, NativeFeatureIcon iconIdentity = NativeFeatureIcon.Unknown,
         string? modeConfigurationSection = null)
@@ -29,7 +29,8 @@ internal abstract class AutomataFeatureContribution
 
     internal string Id { get; }
     internal string DisplayName { get; }
-    internal string ServiceId { get; }
+    /// <summary>The ServiceCycle service the feature registers, or null for a feature that registers none.</summary>
+    internal string? ServiceId { get; }
     internal string? ConfigurationSection { get; }
     internal string? PageLabel { get; }
     internal int PageOrder { get; }
@@ -39,11 +40,16 @@ internal abstract class AutomataFeatureContribution
     internal string? ModeConfigurationSection { get; }
     internal virtual AutomationFeatureSettings? Settings => null;
     internal abstract bool IsConfigured(SuiteRuntimeConfiguration configuration);
+    /// <summary>Whether <b>Automation enabled</b> and <b>STOP ALL</b> hold this feature; only game fixes run through them.</summary>
+    internal virtual bool StopsWithAutomation => true;
     internal virtual string? BlockedBy(SuiteRuntimeConfiguration configuration) => null;
     internal virtual string? ConfiguredConstraint(SuiteRuntimeConfiguration configuration) => null;
     internal virtual IEnumerable<AutomataActionFamilyDemand> OwnershipDemands =>
         Array.Empty<AutomataActionFamilyDemand>();
-    internal abstract IAutomataServiceCycleFeature CreateService(AutomataFeatureComposition context);
+    /// <summary>The feature's automation service; null for a feature that registers none.</summary>
+    internal virtual IAutomataServiceCycleFeature? CreateService(AutomataFeatureComposition context) => null;
+    /// <summary>What the feature runs whether or not automation does; null for automation alone.</summary>
+    internal virtual IAutomataStandingFeature? CreateStanding(AutomataStandingComposition context) => null;
     internal virtual AutomationFeatureControlRegistration? CreateControl(
         AutomataConfigurationStore configuration, AutomataFeatureStatuses statuses,
         SpellLevelCapabilityState capability, MentorConfig mentor) => Settings is null ? null :

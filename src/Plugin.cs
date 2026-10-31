@@ -97,6 +97,7 @@ public sealed class Plugin : BaseUnityPlugin
     private readonly MentorMasteryEventJournal _mentorMasteryJournal = new();
     private AutomataActionFamilyOwnership? _automataActionFamilyOwnership;
     private AutomataServiceCycleActivation? _serviceCycleActivation;
+    private AutomataStandingFeatures? _standingFeatures;
     private readonly AutomataWorldDemand _worldDemand = new();
     private AutomationFeatureControlRegistry? _automationFeatureControls;
     private QuickControlsHost? _quickControlsHost;
@@ -364,6 +365,14 @@ public sealed class Plugin : BaseUnityPlugin
         foreach (var patchType in HarmonyPatchTypes)
             _harmony.CreateClassProcessor(patchType).Patch();
         ComposeGameTickFaultObservation();
+        _standingFeatures = AutomataStandingFeatures.Compose(new AutomataStandingComposition
+        {
+            Harmony = _harmony,
+            Statuses = _featureStatuses!,
+            Configuration = _configurationStore!.Current,
+            ConfigurationGeneration = _configurationStore.CurrentGeneration,
+            Warn = message => Log.LogAutomataWarning(message),
+        });
         ComposeAutomata();
         _runtimeComposed = true;
     }
@@ -892,6 +901,8 @@ public sealed class Plugin : BaseUnityPlugin
                 _configurationStore.CurrentGeneration);
             return;
         }
+        var lifecycleReady = IsLifecycleReady();
+        _standingFeatures?.Tick(lifecycleReady, _lifecycleGeneration);
         var deltaTime = Time.unscaledDeltaTime;
         if (SceneManager.GetActiveScene().name == "Main" &&
             _automataConfig!.IsAutoCastTogglePressed() &&
@@ -906,7 +917,6 @@ public sealed class Plugin : BaseUnityPlugin
                 Time.frameCount);
             return;
         }
-        var lifecycleReady = IsLifecycleReady();
         _automataActionFamilyOwnership?.RefreshLoadedPluginInventory(
             Chainloader.PluginInfos.Count,
             guid => Chainloader.PluginInfos.ContainsKey(guid));
@@ -1048,6 +1058,8 @@ public sealed class Plugin : BaseUnityPlugin
         }
         _serviceCycleActivation?.Dispose();
         _serviceCycleActivation = null;
+        _standingFeatures?.Dispose();
+        _standingFeatures = null;
         _automataActionFamilyOwnership?.Dispose();
         _automataActionFamilyOwnership = null;
         _mathVerification = null;
@@ -1190,6 +1202,7 @@ public sealed class Plugin : BaseUnityPlugin
         ConfigGeneration configurationGeneration)
     {
         _featureStatuses?.ObserveConfiguration(configuration, configurationGeneration);
+        _standingFeatures?.ObserveConfiguration(configuration, configurationGeneration);
         _serviceCycleActivation?.PublishSavedConfiguration(
             configuration,
             configurationGeneration);
@@ -1218,17 +1231,10 @@ public sealed class Plugin : BaseUnityPlugin
 
     private void PatchOptional(string targetName, string patchName, bool postfix)
     {
-        var target = AccessTools.Method(targetName);
-        if (target is null) { Logger.LogWarning($"Optional native hook unavailable: {targetName}."); return; }
         var patch = new HarmonyMethod(typeof(Plugin), patchName);
-        try
-        {
-            if (postfix) _harmony!.Patch(target, postfix: patch); else _harmony!.Patch(target, prefix: patch);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning($"Optional native hook failed: {targetName}: {ex.GetBaseException().Message}");
-        }
+        var failure = NativePatch.TryPatch(_harmony!, AccessTools.Method(targetName), targetName,
+            prefix: postfix ? null : patch, postfix: postfix ? patch : null);
+        if (failure is not null) Logger.LogWarning("Optional native hook not installed: " + failure);
     }
 
     private void RunUiMaintenance()
