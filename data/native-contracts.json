@@ -6125,6 +6125,104 @@
       "place": "patch"
     },
     {
+      "id": "game-fixes.persistent-reset-manager-update",
+      "assembly": "assembly-csharp",
+      "type": "PersistentResetManager",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "ManagerUpdate",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "System.Single"
+      ],
+      "owners": [
+        "Game Fixes precise run clock"
+      ],
+      "usages": [
+        "harmony"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.persistent-reset-manager-reset-time-passed",
+      "assembly": "assembly-csharp",
+      "type": "PersistentResetManager",
+      "typeVisibility": "public",
+      "kind": "field",
+      "member": "resetTimePassed",
+      "visibility": "public",
+      "static": false,
+      "valueType": "DoubleVariable",
+      "owners": [
+        "Game Fixes precise run clock"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.number-variable-as-float",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "AsFloat",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Single",
+      "parameters": [],
+      "owners": [
+        "Game Fixes precise run clock"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.number-variable-set-value",
+      "assembly": "assembly-csharp",
+      "type": "NumberVariable",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "SetValue",
+      "visibility": "public",
+      "static": false,
+      "returnType": "System.Void",
+      "parameters": [
+        "BigDouble"
+      ],
+      "owners": [
+        "Game Fixes precise run clock"
+      ],
+      "usages": [
+        "reflection"
+      ],
+      "place": "patch"
+    },
+    {
+      "id": "game-fixes.double-variable-as-big-double",
+      "assembly": "assembly-csharp",
+      "type": "DoubleVariable",
+      "typeVisibility": "public",
+      "kind": "method",
+      "member": "AsBigDouble",
+      "visibility": "public",
+      "static": false,
+      "returnType": "BigDouble",
+      "parameters": [],
+      "owners": [
+        "Game Fixes precise run clock"
+      ],
+      "usages": [
+        "direct"
+      ],
+      "place": "patch"
+    },
+    {
       "id": "game-manager.init-game",
       "assembly": "assembly-csharp",
       "type": "GameManager",

@@ -68,6 +68,8 @@ public sealed class ValueModifierRecord : ModifierRecord
     /// <summary>The whole-number reading, which the game defines as <c>GetValue().ToInt()</c>.</summary>
     public int AsInt() => GetValue().ToInt();
 
+    public BigDouble AsBigDouble() => GetValue();
+
     public BigDouble AsPercent() => GetValue().AsPercent();
 
 

@@ -13,4 +13,6 @@ public sealed class DoubleVariable : NumberVariable
 
     public BigDouble AsPercent() => value.AsPercent();
 
+    public BigDouble AsBigDouble() => value.AsBigDouble();
+
 }
