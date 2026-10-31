@@ -56,8 +56,8 @@ public sealed class GameMcpConfigurationTests
             .ToDictionary(
                 entry => (entry.Definition.Section, entry.Definition.Key));
 
-        Assert.Equal(40, schema.Length);
-        Assert.Equal(40, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
+        Assert.Equal(41, schema.Length);
+        Assert.Equal(41, schema.Select(item => (item.Section, item.Key)).Distinct().Count());
         foreach (var descriptor in schema)
         {
             var entry = entries[(descriptor.Section, descriptor.Key)];
@@ -644,6 +644,7 @@ public sealed class GameMcpConfigurationTests
                 "GameFixes/SoundPoolGuard: bool",
                 "GameFixes/MergeRepeatedSounds: bool",
                 "GameFixes/AutoDevelopmentCostOnce: bool",
+                "GameFixes/PreciseRunClock: bool",
             },
             described["settings"]!.Values<JObject>()
                 .Select(setting =>

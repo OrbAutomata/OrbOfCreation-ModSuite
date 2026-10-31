@@ -2,9 +2,10 @@
 
 [Configuration](configuration.md)
 
-**Game Fixes** repairs the game's own code where it crashes, makes needless noise or does needless
-work. A fix only prevents a game error, removes noise or saves work: it never changes what you earn,
-buy, level or unlock, and your save is the same as the game would have made without the error. Game
+**Game Fixes** repairs the game's own code where it crashes, makes needless noise, does needless
+work or keeps time wrongly. A fix that prevents a game error, removes noise or saves work never
+changes what you earn, buy, level or unlock, and your save is the same as the game would have made
+without the error. A fix that changes an outcome is off by default and says what changes. Game
 Fixes starts Active.
 Each fix has its own switch on the **Game Fixes** page, and every switch takes effect immediately,
 without **Apply**. Game fixes are not automation: **STOP ALL** and **Automation enabled** leave them
@@ -34,9 +35,25 @@ tick, although the cost cannot change until the tick's developments are added. W
 game works it out once per tick. You get the same results with less work at high speed: the same
 number of developments, the same progress toward the next one, to the last digit.
 
+## Precise run clock
+
+Off by default, because it changes outcomes. The game counts the time since your last world reset
+in single precision, so the run clock drifts once a run is past about 2 hours and stops for good at
+about 145 hours. With this fix on, the clock counts every tick precisely, and the game saves that
+precise time. That changes outcomes:
+
+- Timed challenges in the 2–18 hour range get about 2% stricter: the game's clock runs about 2% slow
+  there, so today you get that much extra time.
+- The clock keeps counting past 145 hours, so milestone times and lifetime rates per second follow
+  the run's real time.
+
+Turning the fix on mid-run continues from the time the game has counted so far; it does not repair
+earlier drift. Turning it off returns to the game's own counting from the precise time.
+
 ## Reading its status
 
 The Game Fixes header and the **Runtime** page show how often each fix acted, for example how many
-sounds played silently because every channel was busy. If a game update moves code a fix relies on,
+sounds played silently because every channel was busy. **Precise run clock** acts on every tick and
+shows no count. If a game update moves code a fix relies on,
 that fix is not installed, the game runs its own code, and Game Fixes shows **Contract unavailable**
 with the fix's name while that fix is selected.

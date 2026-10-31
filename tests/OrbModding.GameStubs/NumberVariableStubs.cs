@@ -19,6 +19,11 @@ public class NumberVariable
 
     public virtual Guid GetGuid() => uuid;
 
+    public float AsFloat() => value.AsBigDouble().ToFloat();
+
+    /// <summary>The game stores the value as a raw modifier on the record; the stub stores it as the memo.</summary>
+    public void SetValue(BigDouble val) => value.WithMemo(val);
+
     /// <summary>One effect's standing modification of one variable.</summary>
     public sealed class PersistentEffect : IPersistentEffectScript
     {

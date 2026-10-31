@@ -1,19 +1,21 @@
 # Game Fixes
 
-Patches that repair the game's own code where it crashes, makes needless noise or does needless
-work. Game Fixes is not automation: it has no service and no GameAction, and it never starts a game
-action. The rules every
-fix follows are the [game fix exception](../../docs/runtime-architecture/game-boundary-doctrine.md#game-fix-exception).
+Patches that repair the game's own code where it crashes, makes needless noise, does needless work
+or keeps time wrongly. Game Fixes is not automation: it has no service and no GameAction, and it
+never starts a game action. The rules every fix follows are the
+[game fix exception](../../docs/runtime-architecture/game-boundary-doctrine.md#game-fix-exception).
 
-A game fix may only prevent a game fault, remove noise, or compute the game's own result with less
-work. It never changes gameplay outcomes: every resource, level, unlock, purchase and saved value is
-what an unpatched game that did not fault would have produced. A fix that would change an outcome is
-not a game fix and does not belong here.
+A class A fix prevents a game fault or removes noise, and a class B fix computes the game's own
+result with less work. Neither changes gameplay outcomes: every resource, level, unlock, purchase
+and saved value is what an unpatched game that did not fault would have produced. A class C fix
+changes an outcome on purpose. It exists only by explicit ruling, is off by default, and its setting
+says in player terms what changes. The precise run clock is the one class C fix.
 
 ## How a fix is built
 
 Each fix is one `GameFix` in its own files, listed once in `GameFixCatalog`. The fix owns its
-setting, its patches and a counter of how often it changed what the game did. The catalog supplies
+setting, its patches and a counter of how often it changed what the game did; a fix that acts on
+every tick keeps none (`GameFix.Fired` stays zero). The catalog supplies
 the settings to the Game Fixes page and installs every fix once per Harmony instance when the
 suite installs its own patches. A patch whose target is missing, or whose transpiler meets a body other
 than the audited one, is not installed: the fix stays off, the log warns once, and Game Fixes reports
@@ -96,6 +98,27 @@ number and writes nothing it reads: the only writes on its way are lazily refres
 temporaries. The transpiler accepts only the audited 26-instruction loop after the closed form's
 `ret`, with one `Calculate` in the method; the branch targets are pinned by the contracts.
 
+## Precise run clock
+
+Off by default; class C. `PersistentResetManager.ManagerUpdate` advances the run clock as
+`resetTimePassed.SetValue(resetTimePassed.AsFloat() + deltaTime)`, so every tick rounds the sum to
+single precision. At the game's 0.02-second tick the clock runs 2.3% slow from 2^13 seconds (about
+2.3 hours) to about 18 hours, then alternately fast and slow by more, and at 2^19 seconds (about
+145.6 hours) a tick is below half a step and the clock stops. The transpiler replaces that one
+statement's `AsFloat`, add and conversion with `PreciseRunClock.Advance`, which adds the tick to
+`DoubleVariable.AsBigDouble()`, the value `AsFloat` narrows, while the fix is on, and adds in single
+precision exactly as the game does while it is off. It keeps no counter: it acts on every tick, so
+a count would tell the player nothing and would republish the status at every activity poll.
+
+The clock is a `DoubleVariable` saved as `NumberSaveData.savedValue`, a `BigDouble`, so the precise
+time is what the game saves and loads; nothing new is written. Only `PersistentResetLogic` writes the
+clock otherwise, to zero. `ChallengeCondition.HasFailedTime` compares the clock with the limit as
+`BigDouble`, so timed challenges with a limit between about 2.3 and 18 hours get about 2% stricter.
+Milestone timers (`SaveStateManager` progression moments) and lifetime rates
+(`ResourceSO.GetLifeTimeRate`) read the same clock. The scene wires the same asset,
+Time Played this Reset (`9ea78fb7-5fbc-4022-8025-f0b413684761`), into `PersistentResetManager` and
+`Player`, which is the variable the strategist clock and the MCP world overview publish.
+
 ## Contracts
 
 Every patched method, injected field and directly called game member is declared in
@@ -106,3 +129,6 @@ stores its loops, which disable the UI items inherit, and the power-build loop s
 `GameFixesAutoDevelopmentContractTests` pins the completion loop byte for byte, every build time the
 game can store in `getMaxDuration`, and that auto-development's build time reaches no write to what
 it reads.
+`GameFixesRunClockContractTests` pins the clock statement byte for byte, that only the reset writes
+the clock otherwise, that `AsFloat` narrows the value the game saves as a `BigDouble`, and that the
+timed-challenge check reads the clock at full precision.

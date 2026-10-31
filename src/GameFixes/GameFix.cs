@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using OrbModding.Common.Runtime.Configuration;
@@ -23,8 +24,11 @@ internal abstract class GameFix
     /// <summary>Switches the installed patches between the fix and the game's own behaviour.</summary>
     internal abstract void Apply(bool active);
 
-    /// <summary>How many times the fix changed what the game did since the plugin loaded.</summary>
-    internal abstract long Fired { get; }
+    /// <summary>
+    /// How many times the fix changed what the game did since the plugin loaded. A fix that acts on
+    /// every tick keeps no count: it stays at zero, and the host reports it running without a detail.
+    /// </summary>
+    internal virtual long Fired => 0;
 
-    internal abstract string DescribeFired(long fired);
+    internal virtual string DescribeFired(long fired) => throw new InvalidOperationException(Name + " keeps no count.");
 }

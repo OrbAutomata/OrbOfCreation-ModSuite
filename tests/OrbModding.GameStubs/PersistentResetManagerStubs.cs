@@ -18,6 +18,7 @@ public class PersistentResetManager
     public BoolVariable hasFetchedChallenges = new BoolVariable();
     public ChallengeListVariable activeChallenges = new ChallengeListVariable();
     public ChallengeListVariable allChallenges = new ChallengeListVariable();
+    public DoubleVariable resetTimePassed = new DoubleVariable();
     public List<ChallengeSO> NextChallenges { get; } = new List<ChallengeSO>();
     public bool SuppressFetch { get; set; }
     public bool ThrowAfterFetch { get; set; }

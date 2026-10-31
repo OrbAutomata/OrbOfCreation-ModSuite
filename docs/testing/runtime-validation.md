@@ -118,6 +118,10 @@ retries.
   high Special Speed with several auto-developed attributes, compare against the fix off from the same
   disposable save state: the developed counts and each auto-development's progress bar must match
   exactly over the same game time, and the feature detail counts skipped cost calculations.
+  With **Precise run clock** on, in a run past
+  about 2.3 hours, verify the Time Played this Reset clock advances at real game time (it does not
+  with the fix off), that the precise time survives a save and load, and that a world reset starts it
+  from zero again.
 - **Quality of Life:** on a disposable save, encounter a supported reflective Learning passive,
   verify the native mute preference and continuing resource effects, and verify exclusion of hidden,
   silent, unrelated and already-muted passives. Unmute while enabled to verify reapplication; disable
